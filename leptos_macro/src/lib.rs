@@ -44,49 +44,46 @@ mod template;
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// view! { cx, <p>"Here’s some text"</p> };
+/// view! { <p>"Here’s some text"</p> };
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// 2. Self-closing tags need an explicit `/` as in XML/XHTML
 /// ```rust,compile_fail
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ❌ not like this
-/// view! { cx, <input type="text" name="name"> }
+/// view! { <input type="text" name="name"> }
 /// # ;
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ✅ add that slash
-/// view! { cx, <input type="text" name="name" /> }
+/// view! { <input type="text" name="name" /> }
 /// # ;
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags
 /// ```rust
 /// # use leptos::*;
+/// # let runtime = create_runtime();
 /// # #[component]
-/// # fn Counter(cx: Scope, initial_value: i32) -> impl IntoView { view! { cx, <p></p>} }
-/// # run_scope(create_runtime(), |cx| {
+/// # fn Counter(initial_value: i32) -> impl IntoView { view! { <p></p>} }
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// view! { cx, <div><Counter initial_value=3 /></div> }
+/// view! { <div><Counter initial_value=3 /></div> }
 /// # ;
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// 4. Dynamic content can be wrapped in curly braces (`{ }`) to insert text nodes, elements, or set attributes.
@@ -99,13 +96,12 @@ mod template;
 ///
 /// ```rust,ignore
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// view! {
-///   cx,
+///  
 ///   // ❌ not like this: `count.get()` returns an `i32`, not a function
 ///   <p>{count.get()}</p>
 ///   // ✅ this is good: Leptos sees the function and knows it's a dynamic value
@@ -114,19 +110,18 @@ mod template;
 ///   <p>{count}</p>
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 5. Event handlers can be added with `on:` attributes. In most cases, the events are given the correct type
 ///    based on the event name.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
-///   cx,
+///
 ///   <button on:click=|ev| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
@@ -134,8 +129,8 @@ mod template;
 ///   </button>
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 6. DOM properties can be set with `prop:` attributes, which take any primitive type or `JsValue` (or a signal
@@ -143,13 +138,12 @@ mod template;
 ///    and `None` deletes the property.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (name, set_name) = create_signal(cx, "Alice".to_string());
+/// let (name, set_name) = create_signal("Alice".to_string());
 ///
 /// view! {
-///   cx,
+///  
 ///   <input
 ///     type="text"
 ///     name="user_name"
@@ -159,58 +153,55 @@ mod template;
 ///   />
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (count, set_count) = create_signal(cx, 2);
-/// view! { cx, <div class:hidden-div={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
+/// let (count, set_count) = create_signal(2);
+/// view! { <div class:hidden-div={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # ;
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// Class names can include dashes, and since leptos v0.5.0 can include a dash-separated segment of only numbers.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (count, set_count) = create_signal(cx, 2);
-/// view! { cx, <div class:hidden-div-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
+/// let (count, set_count) = create_signal(2);
+/// view! { <div class:hidden-div-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// Class names cannot include special symbols.
 /// ```rust,compile_fail
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (count, set_count) = create_signal(cx, 2);
+/// let (count, set_count) = create_signal(2);
 /// // class:hidden-[div]-25 is invalid attribute name
-/// view! { cx, <div class:hidden-[div]-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
+/// view! { <div class:hidden-[div]-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// However, you can pass arbitrary class names using the syntax `class=("name", value)`.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (count, set_count) = create_signal(cx, 2);
+/// let (count, set_count) = create_signal(2);
 /// // this allows you to use CSS frameworks that include complex class names
-/// view! { cx,
+/// view! {
 ///   <div
 ///     class=("is-[this_-_really]-necessary-42", move || count.get() < 3)
 ///   >
@@ -218,19 +209,18 @@ mod template;
 ///   </div>
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 8. Individual styles can also be set with `style:` or `style=("property-name", value)` syntax.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// let (x, set_x) = create_signal(cx, 0);
-/// let (y, set_y) = create_signal(cx, 0);
-/// view! { cx,
+/// let (x, set_x) = create_signal(0);
+/// let (y, set_y) = create_signal(0);
+/// view! {
 ///   <div
 ///     style="position: absolute"
 ///     style:left=move || format!("{}px", x.get())
@@ -241,45 +231,43 @@ mod template;
 ///   </div>
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 9. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
 ///    [NodeRef](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to use later.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// use leptos::html::Input;
 ///
-/// let (value, set_value) = create_signal(cx, 0);
-/// let my_input = create_node_ref::<Input>(cx);
-/// view! { cx, <input type="text" _ref=my_input/> }
+/// let (value, set_value) = create_signal(0);
+/// let my_input = create_node_ref::<Input>();
+/// view! { <input type="text" _ref=my_input/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 10. You can add the same class to every element in the view by passing in a special
-///    `class = {/* ... */},` argument after `cx, `. This is useful for injecting a class
+///    `class = {/* ... */},` argument after ``. This is useful for injecting a class
 ///    provided by a scoped styling library.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let class = "mycustomclass";
-/// view! { cx, class = class,
+/// view! { class = class,
 ///   <div> // will have class="mycustomclass"
 ///     <p>"Some text"</p> // will also have class "mycustomclass"
 ///   </div>
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// 11. You can set any HTML element’s `innerHTML` with the `inner_html` attribute on an
@@ -287,16 +275,15 @@ mod template;
 ///     only contains trusted input.
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let html = "<p>This HTML will be injected.</p>";
-/// view! { cx,
+/// view! {
 ///   <div inner_html=html/>
 /// }
 /// # ;
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// Here’s a simple example that shows off several of these features, put together
@@ -304,9 +291,9 @@ mod template;
 /// # use leptos::*;
 ///
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// pub fn SimpleCounter(cx: Scope) -> impl IntoView {
+/// pub fn SimpleCounter() -> impl IntoView {
 ///     // create a reactive signal with the initial value
-///     let (value, set_value) = create_signal(cx, 0);
+///     let (value, set_value) = create_signal(0);
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -316,7 +303,7 @@ mod template;
 ///
 ///     // this JSX is compiled to an HTML template string for performance
 ///     view! {
-///         cx,
+///        
 ///         <div>
 ///             <button on:click=clear>"Clear"</button>
 ///             <button on:click=decrement>"-1"</button>
@@ -440,14 +427,13 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// fn HelloComponent(
-///     cx: Scope,
 ///     /// The user's name.
 ///     name: String,
 ///     /// The user's age.
 ///     age: u8,
 /// ) -> impl IntoView {
 ///     // create the signals (reactive values) that will update the UI
-///     let (age, set_age) = create_signal(cx, age);
+///     let (age, set_age) = create_signal(age);
 ///     // increase `age` by 1 every second
 ///     set_interval(
 ///         move || set_age.update(|age| *age += 1),
@@ -456,14 +442,14 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 ///     // return the user interface, which will be automatically updated
 ///     // when signal values change
-///     view! { cx,
+///     view! {
 ///       <p>"Your name is " {name} " and you are " {move || age.get()} " years old."</p>
 ///     }
 /// }
 ///
 /// #[component]
-/// fn App(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn App() -> impl IntoView {
+///     view! {
 ///       <main>
 ///         <HelloComponent name="Greg".to_string() age=32/>
 ///       </main>
@@ -492,11 +478,11 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 /// // PascalCase: Generated component will be called MyComponent
 /// #[component]
-/// fn MyComponent(cx: Scope) -> impl IntoView {}
+/// fn MyComponent() -> impl IntoView {}
 ///
 /// // snake_case: Generated component will be called MySnakeCaseComponent
 /// #[component]
-/// fn my_snake_case_component(cx: Scope) -> impl IntoView {}
+/// fn my_snake_case_component() -> impl IntoView {}
 /// ```
 ///
 /// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
@@ -512,7 +498,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///     use leptos::*;
 ///
 ///     #[component]
-///     pub fn MyComponent(cx: Scope) -> impl IntoView {}
+///     pub fn MyComponent() -> impl IntoView {}
 /// }
 /// ```
 /// ```
@@ -526,7 +512,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///     use leptos::*;
 ///
 ///     #[component]
-///     pub fn my_snake_case_component(cx: Scope) -> impl IntoView {}
+///     pub fn my_snake_case_component() -> impl IntoView {}
 /// }
 /// ```
 ///
@@ -538,7 +524,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// use leptos::html::Div;
 ///
 /// #[component]
-/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(cx: Scope, render_prop: T) -> impl IntoView {
+/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(render_prop: T) -> impl IntoView {
 /// }
 /// ```
 ///
@@ -548,7 +534,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// use leptos::html::Div;
 ///
 /// #[component]
-/// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView
+/// fn MyComponent<T>(render_prop: T) -> impl IntoView
 /// where
 ///     T: Fn() -> HtmlElement<Div>,
 /// {
@@ -563,22 +549,22 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// ```
 /// # use leptos::*;
 /// #[component]
-/// fn ComponentWithChildren(cx: Scope, children: Children) -> impl IntoView {
+/// fn ComponentWithChildren(children: Children) -> impl IntoView {
 ///     view! {
-///       cx,
+///
 ///       <ul>
-///         {children(cx)
+///         {children()
 ///           .nodes
 ///           .into_iter()
-///           .map(|child| view! { cx, <li>{child}</li> })
+///           .map(|child| view! { <li>{child}</li> })
 ///           .collect::<Vec<_>>()}
 ///       </ul>
 ///     }
 /// }
 ///
 /// #[component]
-/// fn WrapSomeChildren(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn WrapSomeChildren() -> impl IntoView {
+///     view! {
 ///       <ComponentWithChildren>
 ///         "Ooh, look at us!"
 ///         <span>"We're being projected!"</span>
@@ -607,7 +593,6 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// pub fn MyComponent(
-///     cx: Scope,
 ///     #[prop(into)] name: String,
 ///     #[prop(optional)] optional_value: Option<i32>,
 ///     #[prop(optional_no_strip)] optional_no_strip: Option<i32>,
@@ -616,8 +601,8 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// }
 ///
 /// #[component]
-/// pub fn App(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// pub fn App() -> impl IntoView {
+///     view! {
 ///       <MyComponent
 ///         name="Greg" // automatically converted to String with `.into()`
 ///         optional_value=42 // received as `Some(42)`
@@ -676,21 +661,21 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// fn HelloComponent(
-///     cx: Scope,
+///     
 ///     /// Component slot, should be passed through the <HelloSlot slot> syntax.
 ///     hello_slot: HelloSlot,
 /// ) -> impl IntoView {
 ///     // mirror the children from the slot, if any were passed
 ///     if let Some(children) = hello_slot.children {
-///         (children)(cx).into_view(cx)
+///         (children)().into_view()
 ///     } else {
-///         ().into_view(cx)
+///         ().into_view()
 ///     }
 /// }
 ///
 /// #[component]
-/// fn App(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn App() -> impl IntoView {
+///     view! {
 ///         <HelloComponent>
 ///             <HelloSlot slot>
 ///                 "Hello, World!"
@@ -718,13 +703,13 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// }
 ///
 /// #[component]
-/// fn ComponentWithSlot(cx: Scope, slot: SlotWithChildren) -> impl IntoView {
-///     (slot.children)(cx)
+/// fn ComponentWithSlot(slot: SlotWithChildren) -> impl IntoView {
+///     (slot.children)()
 /// }
 ///
 /// #[component]
-/// fn App(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn App() -> impl IntoView {
+///     view! {
 ///         <ComponentWithSlot>
 ///           <SlotWithChildren slot:slot on:click=move |_| {}>
 ///             <h1>"Hello, World!"</h1>
@@ -744,13 +729,13 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// }
 ///
 /// #[component]
-/// fn ComponentWithSlot(cx: Scope, slot: SlotWithChildren) -> impl IntoView {
-///     (slot.children)(cx)
+/// fn ComponentWithSlot(slot: SlotWithChildren) -> impl IntoView {
+///     (slot.children)()
 /// }
 ///
 /// #[component]
-/// fn App(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn App() -> impl IntoView {
+///     view! {
 ///         <ComponentWithSlot>
 ///           <SlotWithChildren slot:slot>
 ///             <div on:click=move |_| {}>
