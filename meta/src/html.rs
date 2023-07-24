@@ -157,8 +157,7 @@ pub fn Html(
             *meta.html.class.borrow_mut() = class;
             *meta.html.attributes.borrow_mut() = attributes;
         } else {
-            _ = cx;
-            _ = lang;
+                        _ = lang;
             _ = dir;
             _ = class;
             _ = attributes;
