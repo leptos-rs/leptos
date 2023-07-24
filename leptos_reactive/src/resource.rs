@@ -1,12 +1,9 @@
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask,
-    runtime::{with_runtime, Runtime, RuntimeId},
-    serialization::Serializable,
-    spawn::spawn_local,
-    use_context, GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty,
-    SignalDispose, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
-    SuspenseContext, WriteSignal,
+    queue_microtask, runtime::with_runtime, serialization::Serializable,
+    spawn::spawn_local, use_context, GlobalSuspenseContext, Memo, ReadSignal,
+    ScopeProperty, SignalDispose, SignalGetUntracked, SignalSet, SignalUpdate,
+    SignalWith, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -1069,7 +1066,7 @@ where
 {
     #[track_caller]
     fn dispose(self) {
-        let res = with_runtime(self.runtime, |runtime| {
+        let res = with_runtime(|runtime| {
             let mut resources = runtime.resources.borrow_mut();
             resources.remove(self.id)
         });
