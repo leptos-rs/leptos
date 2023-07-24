@@ -16,17 +16,19 @@ use leptos_reactive::{
 /// # use leptos_dom::*; use leptos::*;
 /// # let runtime = create_runtime();
 /// let (value, set_value) = create_signal(Ok(0));
-/// let on_input = move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
+/// let on_input =
+///     move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 ///
 /// view! {
 ///   <input type="text" on:input=on_input/>
 ///   <ErrorBoundary
-///     fallback=move |_, _| view! {  <p class="error">"Enter a valid number."</p>}
+///     fallback=move |_| view! { <p class="error">"Enter a valid number."</p>}
 ///   >
 ///     <p>"Value is: " {move || value.get()}</p>
 ///   </ErrorBoundary>
 /// }
-/// # });
+/// # ;
+/// # runtime.dispose();
 /// ```
 ///
 /// ## Interaction with `<Suspense/>`
@@ -40,9 +42,9 @@ use leptos_reactive::{
 /// to be hydrated with errors, depending on the actual result.
 ///
 /// ```rust,ignore
-/// view! { cx,
-///   <Suspense fallback=move || view! {cx, <p>"Loading..."</p> }>
-///     <ErrorBoundary fallback=|cx, errors| view!{ cx, <ErrorTemplate errors=errors/>}>
+/// view! {
+///   <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+///     <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors=errors/>}>
 ///       {move || {
 ///   /* etc. */
 /// ```
@@ -79,7 +81,7 @@ where
             <Transition/> as the direct child of an <ErrorBoundary/>. To ensure correct \
             hydration, these should be reorganized so that the <ErrorBoundary/> is a child \
             of the <Suspense/> or <Transition/> instead: \n\
-            \nview! {{ cx,\
+            \nview! {{ \
             \n  <Suspense fallback=todo!()>\n    <ErrorBoundary fallback=todo!()>\n      {{move || {{ /* etc. */")
         }
     }

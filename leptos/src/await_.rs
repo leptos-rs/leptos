@@ -24,7 +24,7 @@ use leptos_reactive::{
 ///     3
 /// }
 ///
-/// view! { cx,
+/// view! {
 ///     <Await
 ///         future=|| fetch_monkeys(3)
 ///         bind:data
@@ -60,14 +60,14 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// view! { cx,
     ///     <Await
-    ///         future=|cx| fetch_monkeys(3)
+    ///         future=|| fetch_monkeys(3)
     ///         bind:data
     ///     >
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
     ///     </Await>
     /// }
     /// # ;
-    /// # })
+    /// # runtime.dispose();
     /// # }
     /// ```
     /// is the same as
@@ -80,14 +80,14 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// view! { cx,
     ///     <Await
-    ///         future=|cx| fetch_monkeys(3)
-    ///         children=|cx, data| view! { cx,
+    ///         future=|| fetch_monkeys(3)
+    ///         children=|data| view! { cx,
     ///           <p>{*data} " little monkeys, jumping on the bed."</p>
     ///         }
     ///     />
     /// }
     /// # ;
-    /// # })
+    /// # runtime.dispose();
     /// # }
     /// ```
     children: VF,
