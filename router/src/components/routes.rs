@@ -4,8 +4,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    use_is_back_navigation, RouteContext, RouterContext, RouterContextInner,
-    SetIsRouting,
+    use_is_back_navigation, RouteContext, RouterContext, SetIsRouting,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -185,25 +184,22 @@ pub fn AnimatedRoutes(
 
     html::div()
         .node_ref(node_ref)
-        .attr(
-            "class",
-            (move || {
-                let animation_class = match current_animation.get() {
-                    AnimationState::Outro => outro.unwrap_or_default(),
-                    AnimationState::Start => start.unwrap_or_default(),
-                    AnimationState::Intro => intro.unwrap_or_default(),
-                    AnimationState::Finally => finally.unwrap_or_default(),
-                    AnimationState::OutroBack => outro_back.unwrap_or_default(),
-                    AnimationState::IntroBack => intro_back.unwrap_or_default(),
-                };
-                is_complete.set(animation_class == finally.unwrap_or_default());
-                if let Some(class) = &class {
-                    format!("{} {animation_class}", class.get())
-                } else {
-                    animation_class.to_string()
-                }
-            }),
-        )
+        .attr("class", move || {
+            let animation_class = match current_animation.get() {
+                AnimationState::Outro => outro.unwrap_or_default(),
+                AnimationState::Start => start.unwrap_or_default(),
+                AnimationState::Intro => intro.unwrap_or_default(),
+                AnimationState::Finally => finally.unwrap_or_default(),
+                AnimationState::OutroBack => outro_back.unwrap_or_default(),
+                AnimationState::IntroBack => intro_back.unwrap_or_default(),
+            };
+            is_complete.set(animation_class == finally.unwrap_or_default());
+            if let Some(class) = &class {
+                format!("{} {animation_class}", class.get())
+            } else {
+                animation_class.to_string()
+            }
+        })
         .on(leptos::ev::animationend, move |ev| {
             use wasm_bindgen::JsCast;
             if let Some(target) = ev.target() {
