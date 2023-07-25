@@ -12,9 +12,9 @@ pub enum Class {
     Fn(Box<dyn Fn() -> bool>),
 }
 
-/// Converts some type into a [Class].
+/// Converts some type into a [`Class`].
 pub trait IntoClass {
-    /// Converts the object into a [Class].
+    /// Converts the object into a [`Class`].
     fn into_class(self) -> Class;
 }
 

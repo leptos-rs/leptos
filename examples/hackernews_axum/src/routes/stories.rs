@@ -66,7 +66,7 @@ pub fn Stories() -> impl IntoView {
                 </span>
                 <span>"page " {page}</span>
                 <Transition
-                    fallback=move || view! {   <p>"Loading..."</p> }
+                    fallback=move || view! { <p>"Loading..."</p> }
                 >
                     <span class="page-link"
                         class:disabled=hide_more_link
@@ -83,12 +83,12 @@ pub fn Stories() -> impl IntoView {
             <main class="news-list">
                 <div>
                     <Transition
-                        fallback=move || view! {   <p>"Loading..."</p> }
+                        fallback=move || view! { <p>"Loading..."</p> }
                         set_pending=set_pending.into()
                     >
                         {move || match stories.read() {
                             None => None,
-                            Some(None) => Some(view! {   <p>"Error loading stories."</p> }.into_any()),
+                            Some(None) => Some(view! { <p>"Error loading stories."</p> }.into_any()),
                             Some(Some(stories)) => {
                                 Some(view! {
                                     <ul>
@@ -129,7 +129,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! {   <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
+                    view! { <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             <br />
@@ -151,7 +151,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! {   <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
+                    view! { <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             {(story.story_type != "link").then(|| view! {
