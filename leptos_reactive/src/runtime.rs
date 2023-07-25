@@ -86,9 +86,13 @@ pub struct Owner(pub(crate) NodeId);
 
 impl Owner {
     /// Returns the current reactive owner.
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime.
     pub fn current() -> Option<Owner> {
         with_runtime(|runtime| runtime.owner.get())
-            .expect("runtime should be alive when accessing current owner")
+            .ok()
+            .flatten()
             .map(Owner)
     }
 }
@@ -627,6 +631,9 @@ pub struct RuntimeId;
 /// For example, each row in a `<For/>` component could be created using this,
 /// so that they are owned by the `<For/>` component itself, not an effect
 /// running within it.
+///
+/// ## Panics
+/// Panics if there is no current reactive runtime.
 pub fn as_child_of_current_owner<T, U>(
     f: impl Fn(T) -> U + 'static,
 ) -> impl Fn(T) -> (U, Disposer)
@@ -668,6 +675,9 @@ where
 /// Wraps the given function so that, whenever it is called, it is run
 /// in the reactive scope of whatever the reactive owner was when it was
 /// created.
+///
+/// ## Panics
+/// Panics if there is no current reactive runtime.
 pub fn with_current_owner<T, U>(f: impl Fn(T) -> U + 'static) -> impl Fn(T) -> U
 where
     T: 'static,
@@ -694,6 +704,9 @@ where
 }
 
 /// Runs the given code with the given reactive owner.
+///
+/// ## Panics
+/// Panics if there is no current reactive runtime.
 pub fn with_owner<T>(owner: Owner, f: impl FnOnce() -> T + 'static) -> T
 where
     T: 'static,
@@ -717,6 +730,12 @@ where
 
 impl RuntimeId {
     /// Removes the runtime, disposing of everything created in it.
+    ///
+    /// ## Panics
+    /// Panics if the reactive runtime you’re trying to dispose is not found.
+    /// This would suggest either that you’re trying to dispose of it twice, or
+    /// that it was created in a different thread; panicking here indicates a
+    /// memory leak.
     pub fn dispose(self) {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
