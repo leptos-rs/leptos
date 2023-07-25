@@ -20,7 +20,7 @@ use crate::{
 /// the token signal, but none of the other derived signals.
 /// ```
 /// # use leptos_reactive::*;
-/// # let (disposer) = raw_scope_and_disposer(create_runtime());
+/// # let runtime = create_runtime();
 ///
 /// // some global state with independent fields
 /// #[derive(Default, Clone, Debug)]
@@ -65,6 +65,8 @@ use crate::{
 ///
 /// // setting name only causes name to log, not count
 /// set_name.set("Bob".into());
+///
+/// # runtime.dispose();
 /// ```
 #[track_caller]
 pub fn create_slice<T, O, S>(

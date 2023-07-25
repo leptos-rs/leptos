@@ -42,7 +42,7 @@ where
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(2);
 /// let double_count = Signal::derive(move || count.get() * 2);
 /// let memoized_double_count = create_memo(move |_| count.get() * 2);
@@ -57,7 +57,7 @@ where
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 pub struct Signal<T>
 where
@@ -193,7 +193,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (name, set_name) = create_signal("Alice".to_string());
 /// let name_upper = Signal::derive(move || name.with(|n| n.to_uppercase()));
 /// let memoized_lower = create_memo(move |_| name.with(|n| n.to_lowercase()));
@@ -216,7 +216,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// assert_eq!(name.get(), "Alice");
 /// assert_eq!(name_upper.get(), "ALICE");
 /// assert_eq!(memoized_lower.get(), "alice");
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
@@ -265,7 +265,7 @@ impl<T> SignalWith<T> for Signal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(2);
 /// let double_count = Signal::derive(move || count.get() * 2);
 /// let memoized_double_count = create_memo(move |_| count.get() * 2);
@@ -278,7 +278,7 @@ impl<T> SignalWith<T> for Signal<T> {
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T: Clone> SignalGet<T> for Signal<T> {
     fn get(&self) -> T {
@@ -328,7 +328,7 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let (count, set_count) = create_signal(2);
     /// let double_count = Signal::derive(move || count.get() * 2);
     ///
@@ -339,7 +339,7 @@ where
     ///
     /// assert_eq!(above_3(&count.into()), false);
     /// assert_eq!(above_3(&double_count), true);
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     #[cfg_attr(
@@ -470,7 +470,7 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(2);
 /// let double_count = MaybeSignal::derive(move || count.get() * 2);
 /// let memoized_double_count = create_memo(move |_| count.get() * 2);
@@ -487,7 +487,7 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum MaybeSignal<T>
@@ -521,7 +521,7 @@ impl<T: Default> Default for MaybeSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(2);
 /// let double_count = MaybeSignal::derive(move || count.get() * 2);
 /// let memoized_double_count = create_memo(move |_| count.get() * 2);
@@ -536,7 +536,7 @@ impl<T: Default> Default for MaybeSignal<T> {
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// assert_eq!(above_3(&static_value.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
     fn get(&self) -> T {
@@ -558,7 +558,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (name, set_name) = create_signal("Alice".to_string());
 /// let name_upper =
 ///     MaybeSignal::derive(move || name.with(|n| n.to_uppercase()));
@@ -585,7 +585,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// assert_eq!(name_upper.get(), "ALICE");
 /// assert_eq!(memoized_lower.get(), "alice");
 /// assert_eq!(static_value.get(), "Bob");
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(
@@ -676,7 +676,7 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let (count, set_count) = create_signal(2);
     /// let double_count = Signal::derive(move || count.get() * 2);
     ///
@@ -688,7 +688,7 @@ where
     /// assert_eq!(above_3(&count.into()), false);
     /// assert_eq!(above_3(&double_count.into()), true);
     /// assert_eq!(above_3(&2.into()), false);
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
