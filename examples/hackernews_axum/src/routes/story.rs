@@ -29,7 +29,7 @@ pub fn Story() -> impl IntoView {
             <Meta name="description" content=meta_description/>
                 <Suspense fallback=|| view! {  "Loading..." }>
                     {move || story.read().map(|story| match story {
-                        None => view! {   <div class="item-view">"Error loading this story."</div> },
+                        None => view! { <div class="item-view">"Error loading this story."</div> },
                         Some(story) => view! {
                             <div class="item-view">
                                 <div class="item-view-header">
@@ -39,7 +39,7 @@ pub fn Story() -> impl IntoView {
                                 <span class="host">
                                     "("{story.domain}")"
                                 </span>
-                                {story.user.map(|user| view! {   <p class="meta">
+                                {story.user.map(|user| view! { <p class="meta">
                                     {story.points}
                                     " points | by "
                                     <A href=format!("/users/{user}")>{user.clone()}</A>
@@ -58,7 +58,7 @@ pub fn Story() -> impl IntoView {
                                     <For
                                         each=move || story.comments.clone().unwrap_or_default()
                                         key=|comment| comment.id
-                                        view=move | comment| view! {   <Comment comment /> }
+                                        view=move | comment| view! { <Comment comment /> }
                                     />
                                 </ul>
                             </div>
