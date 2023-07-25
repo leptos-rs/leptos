@@ -33,7 +33,7 @@ use std::{
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
 ///   // pretend we're fetching cat pics
@@ -58,7 +58,7 @@ use std::{
 /// set_how_many_cats.set(2);
 /// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -240,7 +240,7 @@ where
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
 /// struct ComplicatedUnserializableStruct {
 ///     // something here that can't be serialized
@@ -256,7 +256,7 @@ where
 /// let result =
 ///     create_local_resource(move || (), |_| setup_complicated_struct());
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -665,7 +665,7 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
 ///   // pretend we're fetching cat pics
@@ -690,7 +690,7 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 /// set_how_many_cats.set(2);
 /// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T>
