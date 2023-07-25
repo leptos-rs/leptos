@@ -4,11 +4,17 @@ use std::future::Future;
 
 /// Spawns and runs a thread-local [`Future`] in a platform-independent way.
 ///
-/// This can be used to interface with any `async` code.
+/// This can be used to interface with any `async` code by spawning a task
+/// to run a `Future`.
 ///
-/// When calling this function in SSR mode(like in a component) remember
-/// to not use it to synchronise signals, as it can lead to
-/// race conditions or memory leaks.
+/// ## Limitations
+///
+/// You should not use `spawn_local` to synchronize `async` code with a
+/// signal’s value during server rendering. The server response will not
+/// be notified to wait for the spawned task to complete, creating a race
+/// condition between the response and your task. Instead, use
+/// [`create_resource`](crate::create_resource) and `<Suspense/>` to coordinate
+/// asynchronous work with the rendering process.
 ///
 /// ```
 /// # use leptos::*;
@@ -19,23 +25,31 @@ use std::future::Future;
 ///     Ok(format!("this user is {user}"))
 /// }
 ///
-/// // ❌❌❌
+/// // ❌ Write into a signal from `spawn_local` on the serevr
 /// #[component]
 /// fn UserBad(cx: Scope) -> impl IntoView {
 ///     let signal = create_rw_signal(cx, String::new());
 ///
-///     // DON'T
+///     // ❌ If the rest of the response is already complete,
+///     //    `signal` will no longer exist when `get_user` resolves
+///     #[cfg(feature = "ssr")]
 ///     spawn_local(async move {
 ///         let user_res = get_user("user".into()).await.unwrap_or_default();
 ///         signal.set(user_res);
 ///     });
-///     view!{cx, <p>"This will be empty(hopefully the client will render it) -> "{move || signal.get()}</p>}
+///
+///     view!{cx,
+///         <p>
+///             "This will be empty (hopefully the client will render it) -> "
+///             {move || signal.get()}
+///         </p>
+///     }
 /// }
 ///
-/// // ✅✅✅
+/// // ✅ Use a resource and suspense
 /// #[component]
 /// fn UserGood(cx: Scope) -> impl IntoView {
-///     // new resource with no dependencies(it will only called once)
+///     // new resource with no dependencies (it will only called once)
 ///     let user = create_resource(cx, || (), |_| async { get_user("john".into()).await });
 ///     view!{cx,
 ///         // handles the loading
