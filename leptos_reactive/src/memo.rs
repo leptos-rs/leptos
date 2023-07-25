@@ -34,7 +34,7 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (value, set_value) = create_signal(0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
@@ -67,7 +67,7 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 ///   let value = memoized.get();
 ///   // do something else...
 /// });
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -120,7 +120,7 @@ where
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (value, set_value) = create_signal(0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
@@ -153,7 +153,7 @@ where
 ///   let value = memoized.get();
 ///   // do something else...
 /// });
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 pub struct Memo<T>
 where
@@ -311,7 +311,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 /// let double_count = create_memo(move |_| count.get() * 2);
 ///
@@ -321,7 +321,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 /// // can be `double_count()` on nightly
 /// // assert_eq!(double_count(), 2);
 /// assert_eq!(double_count.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 impl<T: Clone> SignalGet<T> for Memo<T> {
