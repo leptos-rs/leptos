@@ -281,7 +281,7 @@ pub trait SignalDispose {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -306,7 +306,7 @@ pub trait SignalDispose {
 /// assert_eq!(double_count(), 0);
 /// set_count.set(1);
 /// assert_eq!(double_count(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 #[cfg_attr(
@@ -383,7 +383,7 @@ pub fn create_signal_from_stream<T>(
 /// # Examples
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -406,7 +406,7 @@ pub fn create_signal_from_stream<T>(
 /// assert_eq!(double_count(), 0);
 /// set_count.set(1);
 /// assert_eq!(double_count(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 pub struct ReadSignal<T>
@@ -519,7 +519,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (name, set_name) = create_signal("Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
@@ -531,7 +531,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// assert_eq!(first_char(), 'A');
 /// set_name.set("Bob".to_string());
 /// assert_eq!(first_char(), 'B');
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
@@ -591,14 +591,14 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 ///
 /// assert_eq!(count.get(), 0);
 ///
 /// // count() is shorthand for count.get() on `nightly`
 /// // assert_eq!(count.get(), 0);
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
@@ -798,7 +798,7 @@ impl<T> Hash for ReadSignal<T> {
 /// ## Examples
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the setter sets the value
@@ -812,7 +812,7 @@ impl<T> Hash for ReadSignal<T> {
 /// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 pub struct WriteSignal<T>
@@ -915,7 +915,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// # Examples
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 ///
 /// // notifies subscribers
@@ -926,7 +926,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// // also notifies subscribers, even though the value hasn't changed
 /// set_count.update(|n| if *n > 3 { *n += 1 });
 /// assert_eq!(count.get(), 1);
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 impl<T> SignalUpdate<T> for WriteSignal<T> {
     #[cfg_attr(
@@ -987,7 +987,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(0);
 ///
 /// // notifies subscribers
@@ -998,7 +998,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// // also notifies subscribers, even though the value hasn't changed
 /// set_count.update(|n| if *n > 3 { *n += 1 });
 /// assert_eq!(count.get(), 1);
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 impl<T> SignalSet<T> for WriteSignal<T> {
     #[cfg_attr(
@@ -1093,7 +1093,7 @@ impl<T> Hash for WriteSignal<T> {
 /// or as a function argument.
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let count = create_rw_signal(0);
 ///
 /// // ✅ set the value
@@ -1106,7 +1106,7 @@ impl<T> Hash for WriteSignal<T> {
 /// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 #[cfg_attr(
@@ -1151,7 +1151,7 @@ pub fn create_rw_signal<T>(value: T) -> RwSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let count = create_rw_signal(0);
 ///
 /// // ✅ set the value
@@ -1164,7 +1164,7 @@ pub fn create_rw_signal<T>(value: T) -> RwSignal<T> {
 /// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 pub struct RwSignal<T>
@@ -1435,7 +1435,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let name = create_rw_signal("Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
@@ -1447,7 +1447,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// assert_eq!(first_char(), 'A');
 /// name.set("Bob".to_string());
 /// assert_eq!(first_char(), 'B');
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 impl<T> SignalWith<T> for RwSignal<T> {
@@ -1508,14 +1508,14 @@ impl<T> SignalWith<T> for RwSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let count = create_rw_signal(0);
 ///
 /// assert_eq!(count.get(), 0);
 ///
 /// // count() is shorthand for count.get() on `nightly`
 /// // assert_eq!(count(), 0);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 impl<T: Clone> SignalGet<T> for RwSignal<T> {
@@ -1581,7 +1581,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let count = create_rw_signal(0);
 ///
 /// // notifies subscribers
@@ -1596,7 +1596,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 ///     }
 /// });
 /// assert_eq!(count.get(), 1);
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 impl<T> SignalUpdate<T> for RwSignal<T> {
     #[cfg_attr(
@@ -1657,13 +1657,13 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let count = create_rw_signal(0);
 ///
 /// assert_eq!(count.get(), 0);
 /// count.set(1);
 /// assert_eq!(count.get(), 1);
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 impl<T> SignalSet<T> for RwSignal<T> {
     #[cfg_attr(
@@ -1744,7 +1744,7 @@ impl<T> RwSignal<T> {
     /// to the signal and cause other parts of the DOM to update.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let count = create_rw_signal(0);
     /// let read_count = count.read_only();
     /// assert_eq!(count.get(), 0);
@@ -1752,7 +1752,7 @@ impl<T> RwSignal<T> {
     /// count.set(1);
     /// assert_eq!(count.get(), 1);
     /// assert_eq!(read_count.get(), 1);
-    /// # }).dispose();
+    /// # runtime.dispose();
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -1783,13 +1783,13 @@ impl<T> RwSignal<T> {
     /// [`RwSignal`] into a [`ReadSignal`] and a [`WriteSignal`].
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let count = create_rw_signal(0);
     /// let set_count = count.write_only();
     /// assert_eq!(count.get(), 0);
     /// set_count.set(1);
     /// assert_eq!(count.get(), 1);
-    /// # }).dispose();
+    /// # runtime.dispose();
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -1817,7 +1817,7 @@ impl<T> RwSignal<T> {
     /// Splits an `RwSignal` into its getter and setter.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let count = create_rw_signal(0);
     /// let (get_count, set_count) = count.split();
     /// assert_eq!(count.get(), 0);
@@ -1825,7 +1825,7 @@ impl<T> RwSignal<T> {
     /// set_count.set(1);
     /// assert_eq!(count.get(), 1);
     /// assert_eq!(get_count.get(), 1);
-    /// # }).dispose();
+    /// # runtime.dispose();
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),

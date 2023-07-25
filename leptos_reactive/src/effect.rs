@@ -21,7 +21,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (a, set_a) = create_signal(0);
 /// let (b, set_b) = create_signal(0);
 ///
@@ -43,7 +43,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// # if !cfg!(feature = "ssr") {
 /// # assert_eq!(b.get(), 2);
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -81,7 +81,7 @@ where
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (a, set_a) = create_signal(0);
 /// let (b, set_b) = create_signal(0);
 ///
@@ -101,7 +101,7 @@ where
 ///   set_b.set(a.get() + 1);
 /// });
 /// # assert_eq!(b.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(

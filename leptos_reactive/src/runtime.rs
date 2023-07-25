@@ -1273,17 +1273,17 @@ impl ScopeProperty {
 /// let (b, set_b) = create_signal(0);
 /// let c = create_memo(move |_| {
 ///     // this memo will *only* update when `a` changes
-///     a() + cx.untrack(move || b())
+///     a.get() + untrack(move || b.get())
 /// });
 ///
-/// assert_eq!(c(), 0);
-/// set_a(1);
-/// assert_eq!(c(), 1);
-/// set_b(1);
+/// assert_eq!(c.get(), 0);
+/// set_a.set(1);
+/// assert_eq!(c.get(), 1);
+/// set_b.set(1);
 /// // hasn't updated, because we untracked before reading b
-/// assert_eq!(c(), 1);
-/// set_a(2);
-/// assert_eq!(c(), 3);
+/// assert_eq!(c.get(), 1);
+/// set_a.set(2);
+/// assert_eq!(c.get(), 3);
 ///
 /// # runtime.dispose();
 /// ```

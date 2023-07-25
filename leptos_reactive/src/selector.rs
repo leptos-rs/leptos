@@ -16,8 +16,7 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 /// # use leptos_reactive::*;
 /// # use std::rc::Rc;
 /// # use std::cell::RefCell;
-/// # create_scope(create_runtime(), |cx| {
-/// # create_root(move |_| {
+/// # let runtime = create_runtime();
 /// let (a, set_a) = create_signal(0);
 /// let is_selected = create_selector(move || a.get());
 /// let total_notifications = Rc::new(RefCell::new(0));
@@ -25,25 +24,23 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 /// create_isomorphic_effect({
 ///     let is_selected = is_selected.clone();
 ///     move |_| {
-///         if is_selected(5) {
+///         if is_selected.selected(5) {
 ///             *not.borrow_mut() += 1;
 ///         }
 ///     }
 /// });
 ///
-/// assert_eq!(is_selected(5), false);
+/// assert_eq!(is_selected.selected(5), false);
 /// assert_eq!(*total_notifications.borrow(), 0);
 /// set_a.set(5);
-/// assert_eq!(is_selected(5), true);
+/// assert_eq!(is_selected.selected(5), true);
 /// assert_eq!(*total_notifications.borrow(), 1);
 /// set_a.set(5);
-/// assert_eq!(is_selected(5), true);
+/// assert_eq!(is_selected.selected(5), true);
 /// assert_eq!(*total_notifications.borrow(), 1);
 /// set_a.set(4);
-/// assert_eq!(is_selected(5), false);
-///  # })
-///  # })
-///  # .dispose()
+/// assert_eq!(is_selected.selected(5), false);
+///  # runtime.dispose()
 /// ```
 #[inline(always)]
 pub fn create_selector<T>(
