@@ -31,7 +31,7 @@ where
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (count, set_count) = create_signal(2);
 /// let set_double_input = SignalSetter::map(move |n| set_count.set(n * 2));
 ///
@@ -46,7 +46,7 @@ where
 /// assert_eq!(count.get(), 4);
 /// set_to_4(&set_double_input);
 /// assert_eq!(count.get(), 8);
-/// # });
+/// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignalSetter<T>
@@ -112,7 +112,7 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let (count, set_count) = create_signal(2);
     /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
@@ -127,7 +127,7 @@ where
     /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_count);
     /// assert_eq!(count.get(), 8);
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     #[cfg_attr(
@@ -148,7 +148,7 @@ where
     ///
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// let (count, set_count) = create_signal(2);
     /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
@@ -163,7 +163,7 @@ where
     /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_count);
     /// assert_eq!(count.get(), 8);
-    /// # });
+    /// # runtime.dispose();
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
