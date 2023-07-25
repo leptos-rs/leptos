@@ -810,7 +810,7 @@ fn provide_contexts(
     provide_context(req_parts);
     provide_context(extractor);
     provide_context(default_res_options);
-    provide_server_redirect(move |path| redirect(path));
+    provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
