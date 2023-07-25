@@ -72,7 +72,7 @@ impl Trigger {
 /// let external_data = Rc::new(RefCell::new(1));
 /// let output = Rc::new(RefCell::new(String::new()));
 ///
-/// let rerun_on_data = create_trigger(cx);
+/// let rerun_on_data = create_trigger();
 ///
 /// let o = output.clone();
 /// let e = external_data.clone();
