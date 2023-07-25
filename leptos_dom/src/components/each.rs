@@ -700,7 +700,6 @@ fn apply_diff<T, EF, V>(
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
         {
-            crate::log!("clearing");
             let parent = closing
                 .parent_node()
                 .expect("could not get closing node")
