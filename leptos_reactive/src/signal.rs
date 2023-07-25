@@ -110,7 +110,7 @@ pub trait SignalGet<T> {
     /// the running effect to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
     fn get(&self) -> T;
 
@@ -126,7 +126,7 @@ pub trait SignalWith<T> {
     /// the running effect to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -186,7 +186,7 @@ pub trait SignalGetUntracked<T> {
     /// current scope.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
     fn get_untracked(&self) -> T;
 
@@ -203,7 +203,7 @@ pub trait SignalWithUntracked<T> {
     /// value without creating a dependency on the current scope.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -251,7 +251,7 @@ pub trait SignalStream<T> {
     /// whenever it changes.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     // We're returning an opaque type until impl trait in trait
     // positions are stabilized, and also so any underlying
     // changes are non-breaking
@@ -259,7 +259,7 @@ pub trait SignalStream<T> {
     fn to_stream(&self) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
-/// This trait allows disposing a signal before its [`Scope`] has been disposed.
+/// This trait allows disposing a signal before its owner has been disposed.
 pub trait SignalDispose {
     /// Disposes of the signal. This:
     /// 1. Detaches the signal from the reactive graph, preventing it from triggering
@@ -275,7 +275,7 @@ pub trait SignalDispose {
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// Takes a reactive [`Scope`] and the initial value as arguments,
+/// Takes the initial value as an argument,
 /// and returns a tuple containing a [`ReadSignal`] and a [`WriteSignal`],
 /// each of which can be called as a function.
 ///

@@ -19,7 +19,7 @@ pub fn User() -> impl IntoView {
         <div class="user-view">
             <Suspense fallback=|| view! {  "Loading..." }>
                 {move || user.read().map(|user| match user {
-                    None => view! {   <h1>"User not found."</h1> }.into_any(),
+                    None => view! { <h1>"User not found."</h1> }.into_any(),
                     Some(user) => view! {
                         <div>
                             <h1>"User: " {&user.id}</h1>
@@ -30,7 +30,7 @@ pub fn User() -> impl IntoView {
                                 <li>
                                 <span class="label">"Karma: "</span> {user.karma}
                                 </li>
-                                {user.about.as_ref().map(|about| view! {   <li inner_html=about class="about"></li> })}
+                                {user.about.as_ref().map(|about| view! { <li inner_html=about class="about"></li> })}
                             </ul>
                             <p class="links">
                                 <a href=format!("https://news.ycombinator.com/submitted?id={}", user.id)>"submissions"</a>

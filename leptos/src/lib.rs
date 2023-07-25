@@ -46,7 +46,7 @@
 //!   isomorphic web app. Both the server and the client import the same app code from the `todomvc` example.
 //!   The server renders the app directly to an HTML string, and the client hydrates that HTML to make it interactive.
 //!   You might also want to
-//!   see how we use [create_effect] to [serialize JSON to `localStorage`](https://github.com/leptos-rs/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L164)
+//!   see how we use [`create_effect`] to [serialize JSON to `localStorage`](https://github.com/leptos-rs/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L164)
 //!   and [reactively call DOM methods](https://github.com/leptos-rs/leptos/blob/6d7c36655c9e7dcc3a3ad33d2b846a3f00e4ae74/examples/todomvc/src/lib.rs#L291)
 //!   on [references to elements](https://github.com/leptos-rs/leptos/blob/6d7c36655c9e7dcc3a3ad33d2b846a3f00e4ae74/examples/todomvc/src/lib.rs#L254).
 //! - [`hackernews`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews)
@@ -65,28 +65,28 @@
 //! # Quick Links
 //!
 //! Here are links to the most important sections of the docs:
-//! - **Reactivity**: the [leptos_reactive] overview, and more details in
-//!   - signals: [create_signal], [ReadSignal], and [WriteSignal] (and [create_rw_signal] and [RwSignal])
-//!   - computations: [create_memo] and [Memo]
-//!   - `async` interop: [create_resource] and [Resource] for loading data using `async` functions,
-//!     and [create_action] and [Action] to mutate data or imperatively call `async` functions.
-//!   - reactions: [create_effect]
-//! - **Templating/Views**: the [view] macro
-//! - **Routing**: the [leptos_router](https://docs.rs/leptos_router/latest/leptos_router/) crate
-//! - **Server Functions**: the [server](crate::leptos_server) macro, [create_action], and [create_server_action]
+//! - **Reactivity**: the [`leptos_reactive`] overview, and more details in
+//!   - signals: [`create_signal`], [`ReadSignal`], and [`WriteSignal`] (and [`create_rw_signal`] and [`RwSignal`])
+//!   - computations: [`create_memo`] and [`Memo`]
+//!   - `async` interop: [`create_resource`] and [`Resource`] for loading data using `async` functions,
+//!     and [`create_action`] and [`Action`] to mutate data or imperatively call `async` functions.
+//!   - reactions: [`create_effect`]
+//! - **Templating/Views**: the [`view`] macro
+//! - **Routing**: the [`leptos_router`](https://docs.rs/leptos_router/latest/leptos_router/) crate
+//! - **Server Functions**: the [`server`](crate::leptos_server) macro, [`create_action`], and [`create_server_action`]
 //!
 //! # Feature Flags
 //! - `nightly`: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
 //! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
 //! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `serde` (*Default*) In SSR/hydrate mode, uses [serde](https://docs.rs/serde/latest/serde/) to serialize resources and send them
+//! - `serde` (*Default*) In SSR/hydrate mode, uses [`serde`](https://docs.rs/serde/latest/serde/) to serialize resources and send them
 //!   from the server to the client.
-//! - `serde-lite` In SSR/hydrate mode, uses [serde-lite](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
+//! - `serde-lite` In SSR/hydrate mode, uses [`serde-lite`](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
 //!   from the server to the client.
-//! - `rkyv` In SSR/hydrate mode, uses [rkyv](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
+//! - `rkyv` In SSR/hydrate mode, uses [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
 //!   from the server to the client.
-//! - `miniserde` In SSR/hydrate mode, uses [miniserde](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
+//! - `miniserde` In SSR/hydrate mode, uses [`miniserde`](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
 //!   from the server to the client.
 //! - `tracing` Adds additional support for [`tracing`](https://docs.rs/tracing/latest/tracing/) to components.
 //! - `default-tls` Use default native TLS support. (Only applies when using server functions with a non-WASM client like a desktop app.)
@@ -113,7 +113,6 @@
 //!     let decrement = move |_| set_value.update(|value| *value -= 1);
 //!     let increment = move |_| set_value.update(|value| *value += 1);
 //!
-//!     // this JSX is compiled to an HTML template string for performance
 //!     view! {
 //!         
 //!         <div>
@@ -137,7 +136,7 @@
 //! }
 //!
 //! pub fn main() {
-//!     mount_to_body(|| view! {   <SimpleCounter initial_value=3 /> })
+//!     mount_to_body(|| view! { <SimpleCounter initial_value=3 /> })
 //! }
 //! # }
 //! ```
@@ -229,7 +228,6 @@ pub type ChildrenFnMut = Box<dyn FnMut() -> Fragment>;
 ///     #[prop(optional, into)] class: Option<AttributeValue>,
 /// ) -> impl IntoView {
 ///     view! {
-///
 ///       <h1 class=class>{text}</h1>
 ///     }
 /// }

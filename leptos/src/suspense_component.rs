@@ -7,7 +7,7 @@ use leptos_reactive::{
 use leptos_reactive::{with_owner, Owner, SharedContext};
 use std::rc::Rc;
 
-/// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
+/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`.
 ///
@@ -56,9 +56,9 @@ use std::rc::Rc;
 )]
 #[component]
 pub fn Suspense<F, E, V>(
-    /// Returns a fallback UI that will be shown while `async` [Resources](leptos_reactive::Resource) are still loading.
+    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
     fallback: F,
-    /// Children will be displayed once all `async` [Resources](leptos_reactive::Resource) have resolved.
+    /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
     children: Box<dyn Fn() -> V>,
 ) -> impl IntoView
 where
