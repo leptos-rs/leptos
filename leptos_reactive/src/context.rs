@@ -23,7 +23,7 @@ use std::any::{Any, TypeId};
 /// struct ValueSetter(WriteSignal<i32>);
 ///
 /// #[component]
-/// pub fn Provider(cx: Scope) -> impl IntoView {
+/// pub fn Provider() -> impl IntoView {
 ///     let (value, set_value) = create_signal(0);
 ///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
@@ -37,10 +37,10 @@ use std::any::{Any, TypeId};
 /// }
 ///
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> impl IntoView {
+/// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
-///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
+///     let set_value = use_context::<ValueSetter>().unwrap().0;
 /// }
 /// ```
 #[cfg_attr(
@@ -96,7 +96,7 @@ where
 /// struct ValueSetter(WriteSignal<i32>);
 ///
 /// #[component]
-/// pub fn Provider(cx: Scope) -> impl IntoView {
+/// pub fn Provider() -> impl IntoView {
 ///     let (value, set_value) = create_signal(0);
 ///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
@@ -110,10 +110,10 @@ where
 /// }
 ///
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> impl IntoView {
+/// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
-///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
+///     let set_value = use_context::<ValueSetter>().unwrap().0;
 ///
 /// }
 /// ```
@@ -168,7 +168,7 @@ where
 /// struct ValueSetter(WriteSignal<i32>);
 ///
 /// #[component]
-/// pub fn Provider(cx: Scope) -> impl IntoView {
+/// pub fn Provider() -> impl IntoView {
 ///     let (value, set_value) = create_signal(0);
 ///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
@@ -182,10 +182,10 @@ where
 /// }
 ///
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> impl IntoView {
+/// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
-///     let set_value = expect_context::<ValueSetter>(cx).0;
+///     let set_value = expect_context::<ValueSetter>().0;
 ///
 ///     todo!()
 /// }
