@@ -94,11 +94,11 @@ impl std::fmt::Debug for Attribute {
     }
 }
 
-/// Converts some type into an [Attribute].
+/// Converts some type into an [`Attribute`].
 ///
 /// This is implemented by default for Rust primitive and string types.
 pub trait IntoAttribute {
-    /// Converts the object into an [Attribute].
+    /// Converts the object into an [`Attribute`].
     fn into_attribute(self) -> Attribute;
     /// Helper function for dealing with `Box<dyn IntoAttribute>`.
     fn into_attribute_boxed(self: Box<Self>) -> Attribute;

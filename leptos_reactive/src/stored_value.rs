@@ -65,7 +65,7 @@ impl<T> StoredValue<T> {
     /// Returns a clone of the current stored value.
     ///
     /// # Panics
-    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a value owned by a reactive node that has been disposed.
     ///
     /// # Examples
     /// ```
@@ -104,7 +104,7 @@ impl<T> StoredValue<T> {
     /// Applies a function to the current stored value and returns the result.
     ///
     /// # Panics
-    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
+    /// Panics if you try to access a value owned by a reactive node that has been disposed.
     ///
     /// # Examples
     /// ```

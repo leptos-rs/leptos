@@ -114,8 +114,6 @@ pub fn redirect(path: &str) {
 /// Leptos server function arguments in the body, runs the server function if found,
 /// and returns the resulting [HttpResponse].
 ///
-/// This provides the [HttpRequest] to the server [Scope](leptos::RequestScope).
-///
 /// This can then be set up at an appropriate route in your application:
 ///
 /// ```
@@ -156,8 +154,6 @@ pub fn handle_server_fns() -> Route {
 /// An Actix [Route](actix_web::Route) that listens for `GET` or `POST` requests with
 /// Leptos server function arguments in the URL (`GET`) or body (`POST`),
 /// runs the server function if found, and returns the resulting [HttpResponse].
-///
-/// This provides the [HttpRequest] to the server [Scope](leptos::RequestScope).
 ///
 /// This can then be set up at an appropriate route in your application:
 ///

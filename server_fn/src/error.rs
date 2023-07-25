@@ -5,7 +5,7 @@ use thiserror::Error;
 /// This is a result type into which any error can be converted,
 /// and which can be used directly in your `view`.
 ///
-/// All errors will be stored as [`Error`].
+/// All errors will be stored as [`Error`](struct@Error).
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// A generic wrapper for any error.

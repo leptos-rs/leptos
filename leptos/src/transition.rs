@@ -9,7 +9,7 @@ use std::{
     rc::Rc,
 };
 
-/// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
+/// If any [`Resource`](leptos_reactive::Resource)s are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`. Unlike [`Suspense`](crate::Suspense), this will not fall
 /// back to the `fallback` state if there are further changes after the initial load.
@@ -43,7 +43,7 @@ use std::{
 ///     >
 ///       {move || {
 ///           cats.read().map(|data| match data {
-///             None => view! {   <pre>"Error"</pre> }.into_view(),
+///             None => view! { <pre>"Error"</pre> }.into_view(),
 ///             Some(cats) => cats
 ///                 .iter()
 ///                 .map(|src| {

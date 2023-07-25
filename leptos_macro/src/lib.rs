@@ -101,7 +101,6 @@ mod template;
 /// let (count, set_count) = create_signal(0);
 ///
 /// view! {
-///  
 ///   // ❌ not like this: `count.get()` returns an `i32`, not a function
 ///   <p>{count.get()}</p>
 ///   // ✅ this is good: Leptos sees the function and knows it's a dynamic value
@@ -121,7 +120,6 @@ mod template;
 /// # let runtime = create_runtime();
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
-///
 ///   <button on:click=|ev| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
@@ -143,7 +141,6 @@ mod template;
 /// let (name, set_name) = create_signal("Alice".to_string());
 ///
 /// view! {
-///  
 ///   <input
 ///     type="text"
 ///     name="user_name"
@@ -301,9 +298,7 @@ mod template;
 ///     let decrement = move |_ev| set_value.update(|value| *value -= 1);
 ///     let increment = move |_ev| set_value.update(|value| *value += 1);
 ///
-///     // this JSX is compiled to an HTML template string for performance
 ///     view! {
-///        
 ///         <div>
 ///             <button on:click=clear>"Clear"</button>
 ///             <button on:click=decrement>"-1"</button>
@@ -551,7 +546,6 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// #[component]
 /// fn ComponentWithChildren(children: Children) -> impl IntoView {
 ///     view! {
-///
 ///       <ul>
 ///         {children()
 ///           .nodes
@@ -686,7 +680,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 ///
 /// /// Here are some important details about how slots work within the framework:
-/// 1. Most of the same rules from [component](crate::component!) macro should also be followed on slots.
+/// 1. Most of the same rules from [component](macro@crate::component) macro should also be followed on slots.
 ///
 /// 2. Specifying only `slot` without a name (such as in `<HelloSlot slot>`) will default the chosen slot to
 /// the a snake case version of the slot struct name (`hello_slot` for `<HelloSlot>`).
