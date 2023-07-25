@@ -51,16 +51,11 @@ impl Trigger {
     }
 }
 
-/// Creates a [`Trigger`], a kind of reactive primitive.
+/// Creates a [`Trigger`](crate::Trigger), a kind of reactive primitive.
 ///
 /// A trigger is a data-less signal with the sole purpose
 /// of notifying other reactive code of a change. This can be useful
 /// for when using external data not stored in signals, for example.
-///
-/// Take a reactive [`Scope`] and returns the [`Trigger`] handle, which
-/// can be called as a function to track the trigger in the current
-/// reactive context.
-///
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {

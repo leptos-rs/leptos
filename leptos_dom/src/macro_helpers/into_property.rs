@@ -15,11 +15,11 @@ pub enum Property {
     Fn(Box<dyn Fn() -> JsValue>),
 }
 
-/// Converts some type into a [Property].
+/// Converts some type into a [`Property`].
 ///
-/// This is implemented by default for Rust primitive types, [String] and friends, and [JsValue].
+/// This is implemented by default for Rust primitive types, [`String`] and friends, and [`JsValue`].
 pub trait IntoProperty {
-    /// Converts the object into a [Property].
+    /// Converts the object into a [`Property`].
     fn into_property(self) -> Property;
 }
 

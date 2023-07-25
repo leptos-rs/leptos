@@ -32,9 +32,9 @@ impl std::fmt::Debug for Style {
     }
 }
 
-/// Converts some type into a [Style].
+/// Converts some type into a [`Style`].
 pub trait IntoStyle {
-    /// Converts the object into a [Style].
+    /// Converts the object into a [`Style`].
     fn into_style(self) -> Style;
 }
 

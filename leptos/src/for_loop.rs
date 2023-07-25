@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 /// Iterates over children and displays them, keyed by the `key` function given.
 ///
-/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! {   ... })...`,
+/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.
 ///
 /// ```
@@ -21,7 +21,6 @@ use std::hash::Hash;
 ///   let (counters, set_counters) = create_signal::<Vec<Counter>>( vec![]);
 ///
 ///   view! {
-///     
 ///     <div>
 ///       <For
 ///         // a function that returns the items we're iterating over; a signal is fine
@@ -31,7 +30,6 @@ use std::hash::Hash;
 ///         // renders each item to a view
 ///         view=move | counter: Counter| {
 ///           view! {
-///             
 ///             <button>"Value: " {move || counter.count.get()}</button>
 ///           }
 ///         }

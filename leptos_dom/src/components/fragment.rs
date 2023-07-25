@@ -83,7 +83,7 @@ impl Fragment {
         }
     }
 
-    /// Gives access to the [View] children contained within the fragment.
+    /// Gives access to the [`View`] children contained within the fragment.
     #[inline(always)]
     pub fn as_children(&self) -> &[View] {
         &self.nodes

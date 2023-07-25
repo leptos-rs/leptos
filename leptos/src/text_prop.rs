@@ -1,7 +1,7 @@
 use std::{fmt::Debug, rc::Rc};
 
 /// Describes a value that is either a static or a reactive string, i.e.,
-/// a [String], a [&str], or a reactive `Fn() -> String`.
+/// a [`String`], a [`&str`], or a reactive `Fn() -> String`.
 #[derive(Clone)]
 pub struct TextProp(Rc<dyn Fn() -> String>);
 

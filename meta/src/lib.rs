@@ -198,7 +198,7 @@ pub fn provide_meta_context() {
 
 /// Returns the current [MetaContext].
 ///
-/// If there is no [MetaContext] in this [Scope](leptos::Scope) or any parent scope, this will
+/// If there is no [MetaContext] in this or any parent scope, this will
 /// create a new [MetaContext] and provide it to the current scope.
 ///
 /// Note that this may cause confusing behavior, e.g., if multiple nested routes independently

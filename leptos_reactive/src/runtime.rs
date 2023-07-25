@@ -588,7 +588,8 @@ pub(crate) fn with_runtime<T>(f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
 }
 
 #[must_use = "Runtime will leak memory if Runtime::dispose() is never called."]
-/// Creates a new reactive [`Runtime`] and sets it as the current runtime.
+/// Creates a new reactive runtime and sets it as the current runtime.
+///
 /// This should almost always be handled by the framework, not called directly in user code.
 pub fn create_runtime() -> RuntimeId {
     cfg_if! {
@@ -1086,7 +1087,7 @@ impl Runtime {
         }
     }
 
-    /// Returns IDs for all [resources](crate::Resource) found on any scope.
+    /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     pub(crate) fn all_resources(&self) -> Vec<ResourceId> {
         self.resources
             .borrow()
@@ -1095,7 +1096,7 @@ impl Runtime {
             .collect()
     }
 
-    /// Returns IDs for all [resources](crate::Resource) found on any
+    /// Returns IDs for all [`Resource`](crate::Resource)s found on any
     /// scope, pending from the server.
     pub(crate) fn pending_resources(&self) -> Vec<ResourceId> {
         self.resources
@@ -1196,9 +1197,9 @@ impl Drop for SetBatchingOnDrop {
     }
 }
 
-/// Creates a cleanup function, which will be run when a [`Scope`] is disposed.
+/// Creates a cleanup function, which will be run when the current reactive owner is disposed.
 ///
-/// It runs after child scopes have been disposed, but before signals, effects, and resources
+/// It runs after child nodes have been disposed, but before signals, effects, and resources
 /// are invalidated.
 #[inline(always)]
 pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
@@ -1246,7 +1247,7 @@ impl ScopeProperty {
 ///
 /// This can be used to isolate parts of the reactive graph from one another.
 ///
-/// ```
+/// ```rust
 /// # use leptos_reactive::*;
 /// # let runtime = create_runtime();
 /// let (a, set_a) = create_signal(0);
@@ -1265,7 +1266,7 @@ impl ScopeProperty {
 /// set_a(2);
 /// assert_eq!(c(), 3);
 ///
-/// # });
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, features = "ssr"),

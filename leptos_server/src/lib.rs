@@ -33,21 +33,19 @@
 //! crate that is enabled).
 //!
 //! ```rust,ignore
-//! # use leptos::*;
+//! use leptos::*;
 //! #[server(ReadFromDB)]
-//! async fn read_posts( how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
+//! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 //!   // do some server-only work here to access the database
-//!   let posts = ...;
+//!   let posts = todo!();;
 //!   Ok(posts)
 //! }
 //!
 //! // call the function
-//! # let runtime = create_runtime();
 //! spawn_local(async {
 //!   let posts = read_posts(3, "my search".to_string()).await;
 //!   log::debug!("posts = {posts:#?}");
-//! })
-//! # });
+//! });
 //! ```
 //!
 //! If you call this function from the client, it will serialize the function arguments and `POST`
@@ -67,9 +65,9 @@
 //!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 //!   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
 //!   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
-//! - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
-//!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
-//!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
+//! - Context comes from the server. [`use_context`](leptos_reactive::use_context) can be used to access specific
+//!   server-related data, as documented in the server integrations. This allows accessing things like HTTP request
+//!   headers as needed. However, server functions *not* have access to reactive state that exists in the client.
 //!
 //! ## Server Function Encodings
 //!
