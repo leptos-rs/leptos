@@ -9,6 +9,7 @@ pub enum Message {
     Element(ElementMessage),
     Text(TextMessage),
     Unit(UnitMessage),
+    Suspense(SuspenseMessage),
 
     Root(RootMessage),
     Props(PropsMessage),
@@ -85,6 +86,17 @@ pub enum UnitMessage {
 impl From<UnitMessage> for Message {
     fn from(value: UnitMessage) -> Self {
         Self::Unit(value)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SuspenseMessage {
+    Create { parent_id: String, id: String },
+}
+
+impl From<SuspenseMessage> for Message {
+    fn from(value: SuspenseMessage) -> Self {
+        Self::Suspense(value)
     }
 }
 

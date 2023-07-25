@@ -2,7 +2,9 @@ use crate::View;
 pub(crate) use leptos_debugger::{
     update_view, ComponentMessage, DynChildMessage, RootMessage,
 };
-use leptos_debugger::{EachMessage, ElementMessage, TextMessage, UnitMessage};
+use leptos_debugger::{
+    EachMessage, ElementMessage, SuspenseMessage, TextMessage, UnitMessage,
+};
 
 pub(crate) fn insert_view(view: &View, parent_id: String) {
     match view {
@@ -34,30 +36,43 @@ pub(crate) fn insert_view(view: &View, parent_id: String) {
                 .into(),
             );
         }
-        View::CoreComponent(comp) => match comp {
-            crate::CoreComponent::Unit(_) => {
-                leptos_debugger::update_view(
-                    UnitMessage::Create { parent_id }.into(),
-                );
-            }
-            crate::CoreComponent::DynChild(child) => {
-                leptos_debugger::update_view(
-                    DynChildMessage::Create {
-                        parent_id,
-                        id: format!("{}", child.id),
-                    }
-                    .into(),
-                );
-            }
-            crate::CoreComponent::Each(each) => leptos_debugger::update_view(
-                EachMessage::Create {
+        View::CoreComponent(comp) => insert_core_component(comp, parent_id),
+        View::Transparent(_) => {}
+        View::Suspense(id, comp) => {
+            insert_core_component(comp, format!("{}", id));
+            leptos_debugger::update_view(
+                SuspenseMessage::Create {
                     parent_id,
-                    id: each.id.to_string(),
+                    id: format!("{}", id),
                 }
                 .into(),
-            ),
-        },
-        View::Transparent(_) => {}
-        View::Suspense(_, _) => {}
+            );
+        }
+    }
+}
+
+fn insert_core_component(comp: &crate::CoreComponent, parent_id: String) {
+    match comp {
+        crate::CoreComponent::Unit(_) => {
+            leptos_debugger::update_view(
+                UnitMessage::Create { parent_id }.into(),
+            );
+        }
+        crate::CoreComponent::DynChild(child) => {
+            leptos_debugger::update_view(
+                DynChildMessage::Create {
+                    parent_id,
+                    id: format!("{}", child.id),
+                }
+                .into(),
+            );
+        }
+        crate::CoreComponent::Each(each) => leptos_debugger::update_view(
+            EachMessage::Create {
+                parent_id,
+                id: each.id.to_string(),
+            }
+            .into(),
+        ),
     }
 }
