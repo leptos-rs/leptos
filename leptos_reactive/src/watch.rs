@@ -1,16 +1,17 @@
 use crate::{with_runtime, Runtime, ScopeProperty};
 
-/// A version of [`create_effect`] that listens to any dependency that is accessed inside `deps` and returns
-/// a stop handler.
+/// A version of [`create_effect`](crate::create_effect) that listens to any dependency
+/// that is accessed inside `deps` and returns a stop handler.
+///
 /// The return value of `deps` is passed into `callback` as an argument together with the previous value.
-/// Additionally the last return value of `callback` is provided as a third argument as is done in [`create_effect`].
+/// Additionally the last return value of `callback` is provided as a third argument as is done in [`create_effect`](crate::create_effect).
 ///
 /// ## Usage
 ///
 /// ```
 /// # use leptos_reactive::*;
 /// # use log;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (num, set_num) = create_signal(0);
 ///
 /// let stop = watch(
@@ -26,7 +27,7 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// stop(); // stop watching
 ///
 /// set_num.set(2); // (nothing happens)
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 ///
 /// The callback itself doesn't track any signal that is accessed within it.
@@ -34,7 +35,7 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (num, set_num) = create_signal(0);
 /// let (cb_num, set_cb_num) = create_signal(0);
 ///
@@ -51,7 +52,7 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// set_cb_num.set(1); // (nothing happens)
 ///
 /// set_num.set(2); // > "Number: 2; Cb: 1"
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 ///
 /// ## Immediate
@@ -63,7 +64,7 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (num, set_num) = create_signal(0);
 ///
 /// watch(
@@ -75,7 +76,7 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// ); // > "Number: 0; Prev: None"
 ///
 /// set_num.set(1); // > "Number: 1; Prev: Some(0)"
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
