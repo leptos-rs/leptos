@@ -19,6 +19,10 @@ pub struct Trigger {
 
 impl Trigger {
     /// Notifies any reactive code where this trigger is tracked to rerun.
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime, or if the
+    /// trigger has been disposed.
     pub fn notify(&self) {
         assert!(self.try_notify(), "Trigger::notify(): runtime not alive")
     }
@@ -35,6 +39,10 @@ impl Trigger {
     }
 
     /// Subscribes the running effect to this trigger.
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime, or if the
+    /// trigger has been disposed.
     pub fn track(&self) {
         assert!(self.try_track(), "Trigger::track(): runtime not alive")
     }

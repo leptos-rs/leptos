@@ -177,6 +177,10 @@ impl<T> StoredValue<T> {
     /// assert_eq!(updated, Some(String::from("b")));
     /// # });
     /// ```
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime, or if the
+    /// stored value has been disposed.
     #[track_caller]
     pub fn update_value(&self, f: impl FnOnce(&mut T)) {
         self.try_update_value(f)
@@ -281,6 +285,9 @@ impl<T> StoredValue<T> {
 /// let callback_b = move || data.with_value(|data| data.value == "b");
 /// # }).dispose();
 /// ```
+///
+/// ## Panics
+/// Panics if there is no current reactive runtime.
 #[track_caller]
 pub fn store_value<T>(value: T) -> StoredValue<T>
 where

@@ -190,6 +190,10 @@ where
 ///     todo!()
 /// }
 /// ```
+///
+/// ## Panics
+/// Panics if a context of this type is not found in the current reactive
+/// owner or its ancestors.
 pub fn expect_context<T>() -> T
 where
     T: Clone + 'static,
