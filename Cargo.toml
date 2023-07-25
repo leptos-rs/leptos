@@ -26,22 +26,22 @@ members = [
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.4.6"
+version = "0.5.0-alpha"
 
 [workspace.dependencies]
-leptos = { path = "./leptos", version = "0.4.6" }
-leptos_dom = { path = "./leptos_dom", version = "0.4.6" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.4.6" }
-leptos_macro = { path = "./leptos_macro", version = "0.4.6" }
-leptos_reactive = { path = "./leptos_reactive", version = "0.4.6" }
-leptos_server = { path = "./leptos_server", version = "0.4.6" }
-server_fn = { path = "./server_fn", version = "0.4.6" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.4.6" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.4.6" }
-leptos_config = { path = "./leptos_config", version = "0.4.6" }
-leptos_router = { path = "./router", version = "0.4.6" }
-leptos_meta = { path = "./meta", version = "0.4.6" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.4.6" }
+leptos = { path = "./leptos", version = "0.5.0-alpha" }
+leptos_dom = { path = "./leptos_dom", version = "0.5.0-alpha" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.5.0-alpha" }
+leptos_macro = { path = "./leptos_macro", version = "0.5.0-alpha" }
+leptos_reactive = { path = "./leptos_reactive", version = "0.5.0-alpha" }
+leptos_server = { path = "./leptos_server", version = "0.5.0-alpha" }
+server_fn = { path = "./server_fn", version = "0.5.0-alpha" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.5.0-alpha" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.5.0-alpha" }
+leptos_config = { path = "./leptos_config", version = "0.5.0-alpha" }
+leptos_router = { path = "./router", version = "0.5.0-alpha" }
+leptos_meta = { path = "./meta", version = "0.5.0-alpha" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.5.0-alpha" }
 
 [profile.release]
 codegen-units = 1
