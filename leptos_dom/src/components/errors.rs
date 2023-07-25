@@ -34,7 +34,7 @@ impl IntoIterator for Errors {
     }
 }
 
-/// An owning iterator over all the errors contained in the [Errors] struct.
+/// An owning iterator over all the errors contained in the [`Errors`] struct.
 #[repr(transparent)]
 pub struct IntoIter(std::collections::hash_map::IntoIter<ErrorKey, Error>);
 
@@ -49,7 +49,7 @@ impl Iterator for IntoIter {
     }
 }
 
-/// An iterator over all the errors contained in the [Errors] struct.
+/// An iterator over all the errors contained in the [`Errors`] struct.
 #[repr(transparent)]
 pub struct Iter<'a>(std::collections::hash_map::Iter<'a, ErrorKey, Error>);
 
