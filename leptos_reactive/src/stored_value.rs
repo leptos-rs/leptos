@@ -70,7 +70,7 @@ impl<T> StoredValue<T> {
     /// # Examples
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     ///
     /// #[derive(Clone)]
     /// pub struct MyCloneableData {
@@ -82,7 +82,7 @@ impl<T> StoredValue<T> {
     /// assert_eq!(data.get_value().value, "a");
     /// // can be `data().value` on nightly
     /// // assert_eq!(data().value, "a");
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     pub fn get_value(&self) -> T
@@ -109,7 +109,7 @@ impl<T> StoredValue<T> {
     /// # Examples
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     ///
     /// pub struct MyUncloneableData {
     ///     pub value: String,
@@ -118,7 +118,7 @@ impl<T> StoredValue<T> {
     ///
     /// // calling .with_value() to extract the value
     /// assert_eq!(data.with_value(|data| data.value.clone()), "a");
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     //               track the stored value. This method will also be removed in \
@@ -148,20 +148,20 @@ impl<T> StoredValue<T> {
     /// # Examples
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     ///
     /// pub struct MyUncloneableData {
-    ///   pub value: String
+    ///     pub value: String,
     /// }
     /// let data = store_value(MyUncloneableData { value: "a".into() });
     /// data.update_value(|data| data.value = "b".into());
     /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
-    /// });
+    /// # runtime.dispose();
     /// ```
     ///
     /// ```
     /// use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     ///
     /// pub struct MyUncloneableData {
     ///     pub value: String,
@@ -175,7 +175,7 @@ impl<T> StoredValue<T> {
     ///
     /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
     /// assert_eq!(updated, Some(String::from("b")));
-    /// # });
+    /// # runtime.dispose();
     /// ```
     ///
     /// ## Panics
@@ -208,7 +208,7 @@ impl<T> StoredValue<T> {
     /// # Examples
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     ///
     /// pub struct MyUncloneableData {
     ///     pub value: String,
@@ -216,7 +216,7 @@ impl<T> StoredValue<T> {
     /// let data = store_value(MyUncloneableData { value: "a".into() });
     /// data.set_value(MyUncloneableData { value: "b".into() });
     /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     pub fn set_value(&self, value: T) {
@@ -259,7 +259,7 @@ impl<T> StoredValue<T> {
 /// updating it does not notify anything else.
 /// ```compile_fail
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // this structure is neither `Copy` nor `Clone`
 /// pub struct MyUncloneableData {
 ///   pub value: String
@@ -269,11 +269,11 @@ impl<T> StoredValue<T> {
 /// let data = MyUncloneableData { value: "a".into() };
 /// let callback_a = move || data.value == "a";
 /// let callback_b = move || data.value == "b";
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // this structure is neither `Copy` nor `Clone`
 /// pub struct MyUncloneableData {
 ///     pub value: String,
@@ -283,7 +283,7 @@ impl<T> StoredValue<T> {
 /// let data = store_value(MyUncloneableData { value: "a".into() });
 /// let callback_a = move || data.with_value(|data| data.value == "a");
 /// let callback_b = move || data.with_value(|data| data.value == "b");
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 ///
 /// ## Panics

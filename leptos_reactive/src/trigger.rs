@@ -66,7 +66,7 @@ impl Trigger {
 /// for when using external data not stored in signals, for example.
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// use std::{cell::RefCell, fmt::Write, rc::Rc};
 ///
 /// let external_data = Rc::new(RefCell::new(1));
@@ -89,7 +89,7 @@ impl Trigger {
 ///
 /// assert_eq!(*output.borrow(), "12");
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all,))]
 #[track_caller]
