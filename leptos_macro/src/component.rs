@@ -353,11 +353,10 @@ impl Docs {
         let mut quote_ws = "".to_string();
         let mut view_code_fence_state = ViewCodeFenceState::Outside;
         // todo fix docs stuff
-        const RUST_START: &str =
-            "# ::leptos::create_scope(::leptos::create_runtime(), || {";
-        const RUST_END: &str = "# }).dispose();";
+        const RUST_START: &str = "# ::leptos::create_runtime();";
+        const RUST_END: &str = "# runtime.dipose();";
         const RSX_START: &str = "# ::leptos::view! {";
-        const RSX_END: &str = "# };}).dispose();";
+        const RSX_END: &str = "# };runtime.dispose();";
 
         // Seperated out of chain to allow rustfmt to work
         let map = |(doc, span): (String, Span)| {
