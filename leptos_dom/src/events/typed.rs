@@ -31,7 +31,7 @@ pub trait EventDescriptor: Clone {
 
 /// Overrides the [`EventDescriptor::BUBBLES`] value to always return
 /// `false`, which forces the event to not be globally delegated.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(non_camel_case_types)]
 pub struct undelegated<Ev: EventDescriptor>(pub Ev);
 
@@ -52,6 +52,7 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
 }
 
 /// A custom event.
+#[derive(Debug)]
 pub struct Custom<E: FromWasmAbi = web_sys::Event> {
     name: Cow<'static, str>,
     options: Option<web_sys::AddEventListenerOptions>,
@@ -133,7 +134,7 @@ macro_rules! generate_event_types {
 
     $(
         #[doc = concat!("The `", stringify!($event), "` event, which receives [", stringify!($web_sys_event), "](web_sys::", stringify!($web_sys_event), ") as its argument.")]
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, Debug)]
         #[allow(non_camel_case_types)]
         pub struct $event;
 
@@ -371,7 +372,7 @@ pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
     DeviceMotionEvent, DeviceOrientationEvent, DragEvent, ErrorEvent, Event,
     FocusEvent, GamepadEvent, HashChangeEvent, InputEvent, KeyboardEvent,
-    MouseEvent, PageTransitionEvent, PointerEvent, PopStateEvent,
+    MessageEvent, MouseEvent, PageTransitionEvent, PointerEvent, PopStateEvent,
     ProgressEvent, PromiseRejectionEvent, SecurityPolicyViolationEvent,
     StorageEvent, SubmitEvent, TouchEvent, TransitionEvent, UiEvent,
     WheelEvent,
