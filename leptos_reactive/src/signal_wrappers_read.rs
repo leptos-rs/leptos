@@ -742,4 +742,419 @@ impl From<&str> for MaybeSignal<String> {
     }
 }
 
+/// A wrapping type for an optional component prop, which can either be a signal or a
+/// non-reactive value, and which may or may not have a value. In other words, this is
+/// an `Option<MaybeSignal<Option<T>>>` that automatically flattens its getters.
+///
+/// This creates an extremely flexible type for component libraries, etc.
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-MaybeProp<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeProp<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-MaybeProp<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeProp<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-MaybeProp<T>) converts the signal to an `async` stream of values.
+///
+/// ## Examples
+/// ```rust
+/// # use leptos_reactive::*;
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(Some(2));
+/// let double = |n| n * 2;
+/// let double_count = MaybeProp::derive(move || count.get().map(double));
+/// let memoized_double_count = create_memo(move |_| count.get().map(double));
+/// let static_value = 5;
+///
+/// // this function takes either a reactive or non-reactive value
+/// fn above_3(arg: &MaybeProp<i32>) -> bool {
+///     // ✅ calling the signal clones and returns the value
+///     //    it is a shorthand for arg.get()q
+///     arg.get().map(|arg| arg > 3).unwrap_or(false)
+/// }
+///
+/// assert_eq!(above_3(&None::<i32>.into()), false);
+/// assert_eq!(above_3(&static_value.into()), true);
+/// assert_eq!(above_3(&count.into()), false);
+/// assert_eq!(above_3(&double_count), true);
+/// assert_eq!(above_3(&memoized_double_count.into()), true);
+/// # runtime.dispose();
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MaybeProp<T: 'static>(Option<MaybeSignal<Option<T>>>);
+
+impl<T: Copy> Copy for MaybeProp<T> {}
+
+impl<T> Default for MaybeProp<T> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
+
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(Some(2));
+/// let double = |n| n * 2;
+/// let double_count = MaybeProp::derive(move || count.get().map(double));
+/// let memoized_double_count = create_memo(move |_| count.get().map(double));
+/// let static_value = 5;
+///
+/// // this function takes either a reactive or non-reactive value
+/// fn above_3(arg: &MaybeProp<i32>) -> bool {
+///     // ✅ calling the signal clones and returns the value
+///     //    it is a shorthand for arg.get()q
+///     arg.get().map(|arg| arg > 3).unwrap_or(false)
+/// }
+///
+/// assert_eq!(above_3(&None::<i32>.into()), false);
+/// assert_eq!(above_3(&static_value.into()), true);
+/// assert_eq!(above_3(&count.into()), false);
+/// assert_eq!(above_3(&double_count), true);
+/// assert_eq!(above_3(&memoized_double_count.into()), true);
+/// # runtime.dispose();
+/// ```
+impl<T: Clone> SignalGet<Option<T>> for MaybeProp<T> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::get()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    fn get(&self) -> Option<T> {
+        self.0.as_ref().and_then(|s| s.get())
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::try_get()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    fn try_get(&self) -> Option<Option<T>> {
+        self.0.as_ref().and_then(|s| s.try_get())
+    }
+}
+
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # let runtime = create_runtime();
+/// let (name, set_name) = create_signal("Alice".to_string());
+/// let (maybe_name, set_maybe_name) = create_signal(None);
+/// let name_upper =
+///     MaybeProp::derive(move || Some(name.with(|n| n.to_uppercase())));
+/// let memoized_lower = create_memo(move |_| name.with(|n| n.to_lowercase()));
+/// let static_value: MaybeProp<String> = "Bob".to_string().into();
+///
+/// // this function takes any kind of wrapped signal
+/// fn current_len_inefficient(arg: &MaybeProp<String>) -> usize {
+///     // ❌ unnecessarily clones the string
+///     arg.get().map(|n| n.len()).unwrap_or(0)
+/// }
+///
+/// fn current_len(arg: &MaybeProp<String>) -> usize {
+///     // ✅ gets the length without cloning the `String`
+///     arg.with(|value| value.len()).unwrap_or(0)
+/// }
+///
+/// assert_eq!(current_len(&None::<String>.into()), 0);
+/// assert_eq!(current_len(&maybe_name.into()), 0);
+/// assert_eq!(current_len(&name_upper), 5);
+/// assert_eq!(current_len(&memoized_lower.into()), 5);
+/// assert_eq!(current_len(&static_value), 3);
+///
+/// // Normal signals/memos return T
+/// assert_eq!(name.get(), "Alice".to_string());
+/// assert_eq!(memoized_lower.get(), "alice".to_string());
+///
+/// // MaybeProp::get() returns Option<T>
+/// assert_eq!(name_upper.get(), Some("ALICE".to_string()));
+/// assert_eq!(static_value.get(), Some("Bob".to_string()));
+/// # runtime.dispose();
+/// ```
+impl<T> MaybeProp<T> {
+    /// Applies a function to the current value, returning the result.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::with()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    pub fn with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0
+            .as_ref()
+            .and_then(|inner| inner.with(|value| value.as_ref().map(f)))
+    }
+
+    /// Applies a function to the current value, returning the result. Returns `None`
+    /// if the value has already been disposed.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::try_with()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    pub fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0
+            .as_ref()
+            .and_then(|inner| inner.try_with(|value| value.as_ref().map(f)))
+            .flatten()
+    }
+
+    /// Applies a function to the current value, returning the result, without
+    /// causing the current reactive scope to track changes.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::with_untracked()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    pub fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.as_ref().and_then(|inner| {
+            inner.with_untracked(|value| value.as_ref().map(f))
+        })
+    }
+
+    /// Applies a function to the current value, returning the result, without
+    /// causing the current reactive scope to track changes. Returns `None` if
+    /// the value has already been disposed.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::try_with_untracked()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    pub fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0
+            .as_ref()
+            .and_then(|inner| {
+                inner.try_with_untracked(|value| value.as_ref().map(f))
+            })
+            .flatten()
+    }
+}
+
+impl<T: Clone> SignalGetUntracked<Option<T>> for MaybeProp<T> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::get_untracked()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    fn get_untracked(&self) -> Option<T> {
+        self.0.as_ref().and_then(|inner| inner.get_untracked())
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::try_get_untracked()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    fn try_get_untracked(&self) -> Option<Option<T>> {
+        self.0.as_ref().and_then(|inner| inner.try_get_untracked())
+    }
+}
+
+impl<T: Clone> SignalStream<Option<T>> for MaybeProp<T> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::to_stream()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    fn to_stream(
+        &self,
+    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Option<T>>>> {
+        match &self.0 {
+            None => Box::pin(futures::stream::once(async move { None })),
+            Some(MaybeSignal::Static(t)) => {
+                let t = t.clone();
+
+                let stream = futures::stream::once(async move { t });
+
+                Box::pin(stream)
+            }
+            Some(MaybeSignal::Dynamic(s)) => s.to_stream(),
+        }
+    }
+}
+
+impl<T> MaybeProp<T>
+where
+    T: 'static,
+{
+    /// Wraps a derived signal, i.e., any computation that accesses one or more
+    /// reactive signals.
+    /// ```rust
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let double_count = MaybeProp::derive(move || Some(count.get() * 2));
+    ///
+    /// // this function takes any kind of wrapped signal
+    /// fn above_3(arg: &MaybeProp<i32>) -> bool {
+    ///     arg.get().unwrap_or(0) > 3
+    /// }
+    ///
+    /// assert_eq!(above_3(&count.into()), false);
+    /// assert_eq!(above_3(&double_count.into()), true);
+    /// assert_eq!(above_3(&2.into()), false);
+    /// # runtime.dispose();
+    /// ```
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeProp::derive()",
+            skip_all,
+            fields(
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    pub fn derive(derived_signal: impl Fn() -> Option<T> + 'static) -> Self {
+        Self(Some(MaybeSignal::derive(derived_signal)))
+    }
+}
+
+impl<T> From<T> for MaybeProp<T> {
+    fn from(value: T) -> Self {
+        Self(Some(MaybeSignal::from(Some(value))))
+    }
+}
+
+impl<T> From<Option<T>> for MaybeProp<T> {
+    fn from(value: Option<T>) -> Self {
+        Self(Some(MaybeSignal::from(value)))
+    }
+}
+
+impl<T> From<MaybeSignal<Option<T>>> for MaybeProp<T> {
+    fn from(value: MaybeSignal<Option<T>>) -> Self {
+        Self(Some(value))
+    }
+}
+
+impl<T> From<Option<MaybeSignal<Option<T>>>> for MaybeProp<T> {
+    fn from(value: Option<MaybeSignal<Option<T>>>) -> Self {
+        Self(value)
+    }
+}
+
+impl<T> From<ReadSignal<Option<T>>> for MaybeProp<T> {
+    fn from(value: ReadSignal<Option<T>>) -> Self {
+        Self(Some(value.into()))
+    }
+}
+
+impl<T> From<RwSignal<Option<T>>> for MaybeProp<T> {
+    fn from(value: RwSignal<Option<T>>) -> Self {
+        Self(Some(value.into()))
+    }
+}
+
+impl<T> From<Memo<Option<T>>> for MaybeProp<T> {
+    fn from(value: Memo<Option<T>>) -> Self {
+        Self(Some(value.into()))
+    }
+}
+
+impl<T> From<Signal<Option<T>>> for MaybeProp<T> {
+    fn from(value: Signal<Option<T>>) -> Self {
+        Self(Some(value.into()))
+    }
+}
+
+impl<T: Clone> From<ReadSignal<T>> for MaybeProp<T> {
+    fn from(value: ReadSignal<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl<T: Clone> From<RwSignal<T>> for MaybeProp<T> {
+    fn from(value: RwSignal<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl<T: Clone> From<Memo<T>> for MaybeProp<T> {
+    fn from(value: Memo<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl<T: Clone> From<Signal<T>> for MaybeProp<T> {
+    fn from(value: Signal<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl From<&str> for MaybeProp<String> {
+    fn from(value: &str) -> Self {
+        Self(Some(MaybeSignal::from(Some(value.to_string()))))
+    }
+}
+
 impl_get_fn_traits![Signal, MaybeSignal];
+
+#[cfg(feature = "nightly")]
+impl<T: Clone> FnOnce<()> for MaybeProp<T> {
+    type Output = Option<T>;
+
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<T: Clone> FnMut<()> for MaybeProp<T> {
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<T: Clone> Fn<()> for MaybeProp<T> {
+    #[inline(always)]
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
