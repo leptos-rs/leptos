@@ -1110,12 +1110,12 @@ where
     /// ```rust
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count.get() * 2);
+    /// let (count, set_count) = create_signal(cx, Some(2));
+    /// let double_count = Signal::derive(cx, move || count.get().map(|n| n * 2));
     ///
     /// // this function takes any kind of wrapped signal
-    /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
-    ///     arg.get() > 3
+    /// fn above_3(arg: &MaybeProp<i32>) -> bool {
+    ///     arg.get().unwrap_or(0) > 3
     /// }
     ///
     /// assert_eq!(above_3(&count.into()), false);
