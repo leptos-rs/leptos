@@ -875,7 +875,7 @@ pub struct MaybeProp<T: 'static>(Option<MaybeSignal<Option<T>>>);
 
 impl<T: Copy> Copy for MaybeProp<T> {}
 
-impl<T: Default> Default for MaybeProp<T> {
+impl<T> Default for MaybeProp<T> {
     fn default() -> Self {
         Self(None)
     }
@@ -1198,3 +1198,29 @@ impl From<&str> for MaybeProp<String> {
 }
 
 impl_get_fn_traits![Signal, MaybeSignal];
+
+#[cfg(feature = "nightly")]
+impl<T: Clone> FnOnce<()> for MaybeProp<T> {
+    type Output = Option<T>;
+
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<T: Clone> FnMut<()> for MaybeProp<T> {
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<T: Clone> Fn<()> for MaybeProp<T> {
+    #[inline(always)]
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
