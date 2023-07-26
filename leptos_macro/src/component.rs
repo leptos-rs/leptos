@@ -270,13 +270,34 @@ impl ToTokens for Model {
             }
         };
 
+        let is_island_with_children = *is_island
+            && props.iter().any(|prop| prop.name.ident == "children");
+
         let destructure_props = if no_props {
             quote! {}
         } else {
+            let wrapped_children = if is_island_with_children
+                && cfg!(feature = "ssr")
+            {
+                quote! {
+                    let children = Box::new(|| ::leptos::Fragment::lazy(|| vec![
+                        ::leptos::SharedContext::with_hydration(move || {
+                            ::leptos::leptos_dom::html::custom(
+                                ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                            )
+                            .child(::leptos::SharedContext::no_hydration(children))
+                            .into_view()
+                        })
+                    ]));
+                }
+            } else {
+                quote! {}
+            };
             quote! {
                 let #props_name {
                     #prop_names
                 } = props;
+                #wrapped_children
             }
         };
 
@@ -318,13 +339,28 @@ impl ToTokens for Model {
         let binding = if *is_island
             && cfg!(any(feature = "csr", feature = "hydrate"))
         {
+            let island_props = if is_island_with_children {
+                quote! {
+                    #props_name::builder()
+                        .children(Box::new(move || ::leptos::Fragment::lazy(|| vec![
+                            ::leptos::SharedContext::with_hydration(move || {
+                                ::leptos::leptos_dom::html::custom(
+                                    ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                )
+                                .into_view()
+                        })])))
+                        .build()
+                }
+            } else {
+                quote! {}
+            };
             quote! {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen]
                 #[allow(non_snake_case)]
                 pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
                     ::leptos::web_sys::console::log_2(&::leptos::wasm_bindgen::JsValue::from_str(&format!("hydrating {}", #component_id)), &el);
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {
-                        #name();
+                        #name(#island_props)
                     })
                 }
             }

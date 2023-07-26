@@ -267,4 +267,14 @@ impl SharedContext {
         SharedContext::set_no_hydrate(prev);
         v
     }
+
+    /// Turns off hydration for the duration of the function call
+    #[inline(always)]
+    pub fn no_hydration<T>(f: impl FnOnce() -> T) -> T {
+        let prev = SharedContext::no_hydrate();
+        SharedContext::set_no_hydrate(true);
+        let v = f();
+        SharedContext::set_no_hydrate(prev);
+        v
+    }
 }
