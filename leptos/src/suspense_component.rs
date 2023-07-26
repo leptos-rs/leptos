@@ -54,7 +54,7 @@ use std::rc::Rc;
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all)
 )]
-#[island]
+#[component]
 pub fn Suspense<F, E, V>(
     /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
     fallback: F,

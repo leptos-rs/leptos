@@ -230,7 +230,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                #body_name(#scope_name, #prop_names)
+                #body_name(#prop_names)
             }
         };
 
@@ -253,7 +253,6 @@ impl ToTokens for Model {
         let component = if *is_island {
             quote! {
                 ::leptos::leptos_dom::html::custom(
-                    cx,
                     ::leptos::leptos_dom::html::Custom::new("leptos-island"),
                 )
                 .attr("data-component", #component_id)
@@ -324,8 +323,8 @@ impl ToTokens for Model {
                 #[allow(non_snake_case)]
                 pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
                     ::leptos::web_sys::console::log_2(&::leptos::wasm_bindgen::JsValue::from_str(&format!("hydrating {}", #component_id)), &el);
-                    ::leptos::mount_to_with_stop_hydrating(el, false, move |cx| {
-                        #name(cx);
+                    ::leptos::mount_to_with_stop_hydrating(el, false, move || {
+                        #name();
                     })
                 }
             }

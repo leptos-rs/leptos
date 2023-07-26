@@ -219,7 +219,7 @@ impl Default for SharedContext {
                     .unwrap_or_default();
 
             Self {
-                events: Default::default(),
+                //events: Default::default(),
                 pending_resources,
                 resolved_resources,
                 pending_fragments: Default::default(),
@@ -230,7 +230,7 @@ impl Default for SharedContext {
         #[cfg(not(feature = "hydrate"))]
         {
             Self {
-                events: Default::default(),
+                //events: Default::default(),
                 pending_resources: Default::default(),
                 resolved_resources: Default::default(),
                 pending_fragments: Default::default(),

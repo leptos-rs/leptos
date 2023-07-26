@@ -883,7 +883,7 @@ pub fn mount_to_with_stop_hydrating<F, N>(
     stop_hydrating: bool,
     f: F,
 ) where
-    F: Fn() -> N + 'static,
+    F: FnOnce() -> N + 'static,
     N: IntoView,
 {
     cfg_if! {
