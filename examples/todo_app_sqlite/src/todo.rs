@@ -41,8 +41,6 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
         todos.push(row);
     }
 
-    eprintln!("returning get_todos()");
-
     Ok(todos)
 }
 // This is an example of leptos's server functions using an alternative CBOR encoding. Both the function arguments being sent

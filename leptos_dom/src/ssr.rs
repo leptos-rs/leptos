@@ -700,7 +700,6 @@ pub(crate) fn render_serializers(
     nonce_str: String,
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> impl Stream<Item = String> {
-    eprintln!("called render_serializers with len = {}", serializers.len());
     serializers.map(move |(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
         let json = json.replace('<', "\\u003c");
