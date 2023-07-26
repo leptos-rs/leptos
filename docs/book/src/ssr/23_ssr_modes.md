@@ -84,7 +84,7 @@ Because it offers the best blend of performance characteristics, Leptos defaults
 ```rust
 <Routes>
 	// We’ll load the home page with out-of-order streaming and <Suspense/>
-	<Route path="" view=HomePage
+	<Route path="" view=HomePage/>
 
 	// We'll load the posts with async rendering, so they can set
 	// the title and metadata *after* loading the data
