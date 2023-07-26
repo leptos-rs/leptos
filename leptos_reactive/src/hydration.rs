@@ -97,7 +97,6 @@ impl SharedContext {
                     }),
                     should_block: context.should_block(),
                     is_ready: Some(Box::pin(async move {
-                        eprintln!("\n[READY]\n");
                         rx3.next().await;
                     })),
                 },
