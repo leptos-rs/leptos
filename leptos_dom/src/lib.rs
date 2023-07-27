@@ -37,7 +37,7 @@ pub use hydration::{HydrationCtx, HydrationKey};
 use leptos_reactive::Scope;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
-    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
 pub use logging::*;
 pub use macro_helpers::*;
@@ -199,6 +199,20 @@ where
 }
 #[cfg(not(feature = "nightly"))]
 impl<T> IntoView for MaybeSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+
+#[cfg(not(feature = "nightly"))]
+impl<T> IntoView for MaybeProp<T>
 where
     T: IntoView + Clone,
 {
