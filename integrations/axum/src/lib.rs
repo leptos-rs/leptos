@@ -579,13 +579,6 @@ where
         false,
     )
 }
-trait NewTrait: std::ops::Fn(http::Request<hyper::Body>) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-        + Send
-        + 'static,
-    >,
-> + Clone{}
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application. It allows you
 /// to pass in a context function with additional info to be made available to the app
