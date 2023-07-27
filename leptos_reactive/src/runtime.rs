@@ -232,17 +232,17 @@ impl Runtime {
             ScopeProperty::Signal(node)
             | ScopeProperty::Trigger(node)
             | ScopeProperty::Effect(node) => {
+                // run all cleanups for this node
+                let cleanups = { self.on_cleanups.borrow_mut().remove(node) };
+                for cleanup in cleanups.into_iter().flatten() {
+                    cleanup();
+                }
+
                 // clean up all children
                 let properties =
                     { self.node_properties.borrow_mut().remove(node) };
                 for property in properties.into_iter().flatten() {
                     self.cleanup_property(property);
-                }
-
-                // run all cleanups for this node
-                let cleanups = { self.on_cleanups.borrow_mut().remove(node) };
-                for cleanup in cleanups.into_iter().flatten() {
-                    cleanup();
                 }
 
                 // each of the subs needs to remove the node from its dependencies
