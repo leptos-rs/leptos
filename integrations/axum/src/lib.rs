@@ -418,8 +418,8 @@ pub fn render_app_to_stream<IV>(
         dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
             + Send
             + 'static,
-    >>
-       + Clone
+    >,
+> + Clone
        + Send
        + 'static
 where
@@ -442,17 +442,17 @@ pub fn render_route<IV>(
     Request<Body>,
 ) -> Pin<
     Box<
-        dyn Future<Output=Response<StreamBody<PinnedHtmlStream>>>
-        + Send
-        + 'static,
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
     >,
 > + Clone
-+ Send
-+ 'static
-    where
-        IV: IntoView,
+       + Send
+       + 'static
+where
+    IV: IntoView,
 {
-    render_route_with_context(options, paths,|| {}, app_fn)
+    render_route_with_context(options, paths, || {}, app_fn)
 }
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
@@ -596,14 +596,14 @@ pub fn render_route_with_context<IV>(
 ) -> Pin<
     Box<
         dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-        + Send
-        + 'static,
+            + Send
+            + 'static,
     >,
 > + Clone
-+ Send
-+ 'static
-    where
-        IV: IntoView,
+       + Send
+       + 'static
+where
+    IV: IntoView,
 {
     let ooo = render_app_to_stream_with_context(
         LeptosOptions::from_ref(&options),
@@ -1007,8 +1007,13 @@ pub fn render_app_async_stream_with_context<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>> + Send + 'static>>
-       + Clone
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
        + Send
        + 'static
 where
@@ -1073,9 +1078,10 @@ where
                 let complete_stream =
                     futures::stream::iter([Ok(Bytes::from(html))]);
 
-                let mut res = Response::new(StreamBody::new(
-                    Box::pin(complete_stream) as PinnedHtmlStream
-                ));
+                let mut res = Response::new(StreamBody::new(Box::pin(
+                    complete_stream,
+                )
+                    as PinnedHtmlStream));
                 if let Some(status) = res_options.status {
                     *res.status_mut() = status
                 }
@@ -1122,11 +1128,11 @@ pub fn render_app_async_with_context<IV>(
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<String>> + Send + 'static>>
-+ Clone
-+ Send
-+ 'static
-    where
-        IV: IntoView,
+       + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView,
 {
     move |req: Request<Body>| {
         Box::pin({
