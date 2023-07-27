@@ -420,6 +420,7 @@ pub fn render_app_to_stream<IV>(
             + Send
             + 'static,
     >>
+       + Clone
        + Send
        + 'static
 where
