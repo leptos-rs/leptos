@@ -129,31 +129,44 @@ impl<E: FromWasmAbi> Custom<E> {
 macro_rules! generate_event_types {
   {$(
     $( #[$does_not_bubble:ident] )?
-    $event:ident : $web_sys_event:ident
+    $( $event:ident )+ : $web_event:ident
   ),* $(,)?} => {
-
-    $(
-        #[doc = concat!("The `", stringify!($event), "` event, which receives [", stringify!($web_sys_event), "](web_sys::", stringify!($web_sys_event), ") as its argument.")]
+    ::paste::paste! {
+      $(
+        #[doc = "The `" [< $($event)+ >] "` event, which receives [" $web_event "](web_sys::" $web_event ") as its argument."]
         #[derive(Copy, Clone, Debug)]
         #[allow(non_camel_case_types)]
-        pub struct $event;
+        pub struct [<$( $event )+ >];
 
-        impl EventDescriptor for $event {
-          type EventType = web_sys::$web_sys_event;
+        impl EventDescriptor for [< $($event)+ >] {
+          type EventType = web_sys::$web_event;
 
           #[inline(always)]
           fn name(&self) -> Cow<'static, str> {
-            stringify!($event).into()
+            stringify!([< $($event)+ >]).into()
           }
 
           #[inline(always)]
           fn event_delegation_key(&self) -> Cow<'static, str> {
-            concat!("$$$", stringify!($event)).into()
+            concat!("$$$", stringify!([< $($event)+ >])).into()
           }
 
           const BUBBLES: bool = true $(&& generate_event_types!($does_not_bubble))?;
         }
-    )*
+      )*
+
+      // TODO: figure out what should be done about trait impls like Clone and Debug
+      /// An enum holding all basic event types with their respective handler types.
+      ///
+      /// It currently omits [`Custom`] and [`undelegated`] variants.
+      #[non_exhaustive]
+      pub enum EventHandler {
+        $(
+          #[doc = "Variant mapping [`struct@" [< $($event)+ >] "`] to its event handler type."]
+          [< $($event:camel)+ >]([< $($event)+ >], Box<dyn FnMut($web_event) + 'static>),
+        )*
+      }
+    }
   };
 
   (does_not_bubble) => { false }
@@ -164,36 +177,36 @@ generate_event_types! {
   // WindowEventHandlersEventMap
   // =========================================================
   #[does_not_bubble]
-  afterprint: Event,
+  after print: Event,
   #[does_not_bubble]
-  beforeprint: Event,
+  before print: Event,
   #[does_not_bubble]
-  beforeunload: BeforeUnloadEvent,
+  before unload: BeforeUnloadEvent,
   #[does_not_bubble]
-  gamepadconnected: GamepadEvent,
+  gamepad connected: GamepadEvent,
   #[does_not_bubble]
-  gamepaddisconnected: GamepadEvent,
-  hashchange: HashChangeEvent,
+  gamepad disconnected: GamepadEvent,
+  hash change: HashChangeEvent,
   #[does_not_bubble]
-  languagechange: Event,
+  language change: Event,
   #[does_not_bubble]
   message: MessageEvent,
   #[does_not_bubble]
-  messageerror: MessageEvent,
+  message error: MessageEvent,
   #[does_not_bubble]
   offline: Event,
   #[does_not_bubble]
   online: Event,
   #[does_not_bubble]
-  pagehide: PageTransitionEvent,
+  page hide: PageTransitionEvent,
   #[does_not_bubble]
-  pageshow: PageTransitionEvent,
-  popstate: PopStateEvent,
-  rejectionhandled: PromiseRejectionEvent,
+  page show: PageTransitionEvent,
+  pop state: PopStateEvent,
+  rejection handled: PromiseRejectionEvent,
   #[does_not_bubble]
   storage: StorageEvent,
   #[does_not_bubble]
-  unhandledrejection: PromiseRejectionEvent,
+  unhandled rejection: PromiseRejectionEvent,
   #[does_not_bubble]
   unload: Event,
 
@@ -202,38 +215,38 @@ generate_event_types! {
   // =========================================================
   #[does_not_bubble]
   abort: UiEvent,
-  animationcancel: AnimationEvent,
-  animationend: AnimationEvent,
-  animationiteration: AnimationEvent,
-  animationstart: AnimationEvent,
-  auxclick: MouseEvent,
-  beforeinput: InputEvent,
+  animation cancel: AnimationEvent,
+  animation end: AnimationEvent,
+  animation iteration: AnimationEvent,
+  animation start: AnimationEvent,
+  aux click: MouseEvent,
+  before input: InputEvent,
   #[does_not_bubble]
   blur: FocusEvent,
   #[does_not_bubble]
-  canplay: Event,
+  can play: Event,
   #[does_not_bubble]
-  canplaythrough: Event,
+  can play through: Event,
   change: Event,
   click: MouseEvent,
   #[does_not_bubble]
   close: Event,
-  compositionend: CompositionEvent,
-  compositionstart: CompositionEvent,
-  compositionupdate: CompositionEvent,
-  contextmenu: MouseEvent,
+  composition end: CompositionEvent,
+  composition start: CompositionEvent,
+  composition update: CompositionEvent,
+  context menu: MouseEvent,
   #[does_not_bubble]
-  cuechange: Event,
-  dblclick: MouseEvent,
+  cue change: Event,
+  dbl click: MouseEvent,
   drag: DragEvent,
-  dragend: DragEvent,
-  dragenter: DragEvent,
-  dragleave: DragEvent,
-  dragover: DragEvent,
-  dragstart: DragEvent,
+  drag end: DragEvent,
+  drag enter: DragEvent,
+  drag leave: DragEvent,
+  drag over: DragEvent,
+  drag start: DragEvent,
   drop: DragEvent,
   #[does_not_bubble]
-  durationchange: Event,
+  duration change: Event,
   #[does_not_bubble]
   emptied: Event,
   #[does_not_bubble]
@@ -243,110 +256,110 @@ generate_event_types! {
   #[does_not_bubble]
   focus: FocusEvent,
   #[does_not_bubble]
-  focusin: FocusEvent,
+  focus in: FocusEvent,
   #[does_not_bubble]
-  focusout: FocusEvent,
-  formdata: Event, // web_sys does not include `FormDataEvent`
+  focus out: FocusEvent,
+  form data: Event, // web_sys does not include `FormDataEvent`
   #[does_not_bubble]
-  gotpointercapture: PointerEvent,
+  got pointer capture: PointerEvent,
   input: Event,
   #[does_not_bubble]
   invalid: Event,
-  keydown: KeyboardEvent,
-  keypress: KeyboardEvent,
-  keyup: KeyboardEvent,
+  key down: KeyboardEvent,
+  key press: KeyboardEvent,
+  key up: KeyboardEvent,
   #[does_not_bubble]
   load: Event,
   #[does_not_bubble]
-  loadeddata: Event,
+  loaded data: Event,
   #[does_not_bubble]
-  loadedmetadata: Event,
+  loaded metadata: Event,
   #[does_not_bubble]
-  loadstart: Event,
-  lostpointercapture: PointerEvent,
-  mousedown: MouseEvent,
+  load start: Event,
+  lost pointer capture: PointerEvent,
+  mouse down: MouseEvent,
   #[does_not_bubble]
-  mouseenter: MouseEvent,
+  mouse enter: MouseEvent,
   #[does_not_bubble]
-  mouseleave: MouseEvent,
-  mousemove: MouseEvent,
-  mouseout: MouseEvent,
-  mouseover: MouseEvent,
-  mouseup: MouseEvent,
+  mouse leave: MouseEvent,
+  mouse move: MouseEvent,
+  mouse out: MouseEvent,
+  mouse over: MouseEvent,
+  mouse up: MouseEvent,
   #[does_not_bubble]
   pause: Event,
   #[does_not_bubble]
   play: Event,
   #[does_not_bubble]
   playing: Event,
-  pointercancel: PointerEvent,
-  pointerdown: PointerEvent,
+  pointer cancel: PointerEvent,
+  pointer down: PointerEvent,
   #[does_not_bubble]
-  pointerenter: PointerEvent,
+  pointer enter: PointerEvent,
   #[does_not_bubble]
-  pointerleave: PointerEvent,
-  pointermove: PointerEvent,
-  pointerout: PointerEvent,
-  pointerover: PointerEvent,
-  pointerup: PointerEvent,
+  pointer leave: PointerEvent,
+  pointer move: PointerEvent,
+  pointer out: PointerEvent,
+  pointer over: PointerEvent,
+  pointer up: PointerEvent,
   #[does_not_bubble]
   progress: ProgressEvent,
   #[does_not_bubble]
-  ratechange: Event,
+  rate change: Event,
   reset: Event,
   #[does_not_bubble]
   resize: UiEvent,
   #[does_not_bubble]
   scroll: Event,
   #[does_not_bubble]
-  scrollend: Event,
-  securitypolicyviolation: SecurityPolicyViolationEvent,
+  scroll end: Event,
+  security policy violation: SecurityPolicyViolationEvent,
   #[does_not_bubble]
   seeked: Event,
   #[does_not_bubble]
   seeking: Event,
   select: Event,
   #[does_not_bubble]
-  selectionchange: Event,
-  selectstart: Event,
-  slotchange: Event,
+  selection change: Event,
+  select start: Event,
+  slot change: Event,
   #[does_not_bubble]
   stalled: Event,
   submit: SubmitEvent,
   #[does_not_bubble]
   suspend: Event,
   #[does_not_bubble]
-  timeupdate: Event,
+  time update: Event,
   #[does_not_bubble]
   toggle: Event,
-  touchcancel: TouchEvent,
-  touchend: TouchEvent,
-  touchmove: TouchEvent,
-  touchstart: TouchEvent,
-  transitioncancel: TransitionEvent,
-  transitionend: TransitionEvent,
-  transitionrun: TransitionEvent,
-  transitionstart: TransitionEvent,
+  touch cancel: TouchEvent,
+  touch end: TouchEvent,
+  touch move: TouchEvent,
+  touch start: TouchEvent,
+  transition cancel: TransitionEvent,
+  transition end: TransitionEvent,
+  transition run: TransitionEvent,
+  transition start: TransitionEvent,
   #[does_not_bubble]
-  volumechange: Event,
+  volume change: Event,
   #[does_not_bubble]
   waiting: Event,
-  webkitanimationend: Event,
-  webkitanimationiteration: Event,
-  webkitanimationstart: Event,
-  webkittransitionend: Event,
+  webkit animation end: Event,
+  webkit animation iteration: Event,
+  webkit animation start: Event,
+  webkit transitio nend: Event,
   wheel: WheelEvent,
 
   // =========================================================
   // WindowEventMap
   // =========================================================
-  DOMContentLoaded: Event,
+  D O M Content Loaded: Event, // Hack for correct casing
   #[does_not_bubble]
-  devicemotion: DeviceMotionEvent,
+  device motion: DeviceMotionEvent,
   #[does_not_bubble]
-  deviceorientation: DeviceOrientationEvent,
+  device orientation: DeviceOrientationEvent,
   #[does_not_bubble]
-  orientationchange: Event,
+  orientation change: Event,
 
   // =========================================================
   // DocumentAndElementEventHandlersEventMap
@@ -358,13 +371,13 @@ generate_event_types! {
   // =========================================================
   // DocumentEventMap
   // =========================================================
-  fullscreenchange: Event,
-  fullscreenerror: Event,
-  pointerlockchange: Event,
-  pointerlockerror: Event,
+  fullscreen change: Event,
+  fullscreen error: Event,
+  pointer lock change: Event,
+  pointer lock error: Event,
   #[does_not_bubble]
-  readystatechange: Event,
-  visibilitychange: Event,
+  ready state change: Event,
+  visibility change: Event,
 }
 
 // Export `web_sys` event types
