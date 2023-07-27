@@ -143,10 +143,23 @@ impl HydrationCtx {
 
     /// Resets the hydration `id` for the next component, and returns it
     pub fn next_component() -> HydrationKey {
+        #[cfg(all(
+            feature = "islands",
+            any(feature = "hydrate", feature = "ssr")
+        ))]
+        let no_hydrate = SharedContext::no_hydrate();
+        #[cfg(not(all(
+            feature = "islands",
+            any(feature = "hydrate", feature = "ssr")
+        )))]
+        let no_hydrate = false;
+
         ID.with(|id| {
             let mut id = id.borrow_mut();
-            id.fragment = id.fragment.wrapping_add(1);
-            id.id = 0;
+            if !no_hydrate {
+                id.fragment = id.fragment.wrapping_add(1);
+                id.id = 0;
+            }
             *id
         })
     }

@@ -358,7 +358,6 @@ impl ToTokens for Model {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen]
                 #[allow(non_snake_case)]
                 pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
-                    ::leptos::web_sys::console::log_2(&::leptos::wasm_bindgen::JsValue::from_str(&format!("hydrating {}", #component_id)), &el);
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {
                         #name(#island_props)
                     })
