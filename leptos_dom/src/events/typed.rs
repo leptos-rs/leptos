@@ -347,7 +347,7 @@ generate_event_types! {
   webkit animation end: Event,
   webkit animation iteration: Event,
   webkit animation start: Event,
-  webkit transitio nend: Event,
+  webkit transition end: Event,
   wheel: WheelEvent,
 
   // =========================================================
