@@ -254,7 +254,7 @@ pub fn set_timeout_with_handle(
 ///         log!("...so many clicks!");
 ///     });
 ///
-///     view! { cx,
+///     view! {
 ///       <button on:click=on_click>"Click me"</button>
 ///     }
 /// }

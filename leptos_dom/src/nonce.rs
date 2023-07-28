@@ -15,10 +15,10 @@ use std::{fmt::Display, ops::Deref};
 ///
 /// ```rust,ignore
 /// #[component]
-/// pub fn App(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
+/// pub fn App() -> impl IntoView {
+///     provide_meta_context;
 ///
-///     view! { cx,
+///     view! {
 ///         // use `leptos_meta` to insert a <meta> tag with the CSP
 ///         <Meta
 ///             http_equiv="Content-Security-Policy"
@@ -85,10 +85,10 @@ impl IntoAttribute for Option<Nonce> {
 ///
 /// ```rust,ignore
 /// #[component]
-/// pub fn App(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
+/// pub fn App() -> impl IntoView {
+///     provide_meta_context;
 ///
-///     view! { cx,
+///     view! {
 ///         // use `leptos_meta` to insert a <meta> tag with the CSP
 ///         <Meta
 ///             http_equiv="Content-Security-Policy"

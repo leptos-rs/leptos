@@ -66,7 +66,7 @@
 //!               // a fallback if the /:id segment is missing from the URL
 //!               <Route
 //!                 path=""
-//!                 view=move || view! { cx,  <p class="contact">"Select a contact."</p> }
+//!                 view=move || view! { <p class="contact">"Select a contact."</p> }
 //!               />
 //!             </Route>
 //!             // LR will automatically use this for /about, not the /:id match above
@@ -81,7 +81,7 @@
 //!   }
 //! }
 //!
-//! type ContactSummary = (); // TODO!
+//! type ContactSummary = s); // TODO!
 //! type Contact = (); // TODO!()
 //!
 //! // contact_data reruns whenever the :id param changes
