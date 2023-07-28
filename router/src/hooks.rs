@@ -96,6 +96,15 @@ pub fn use_route() -> RouteContext {
     use_context::<RouteContext>().unwrap_or_else(|| use_router().base())
 }
 
+/// Returns the data for the current route, which is provided by the `data` prop on `<Route/>`.
+pub fn use_route_data<T: Clone + 'static>() -> Option<T> {
+    let route = use_context::<RouteContext>()?;
+    let data = route.inner.data.borrow();
+    let data = data.clone()?;
+    let downcast = data.downcast_ref::<T>().cloned();
+    downcast
+}
+
 /// Returns the current [Location], which contains reactive variables
 pub fn use_location() -> Location {
     use_router().inner.location.clone()
