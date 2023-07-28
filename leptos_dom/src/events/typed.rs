@@ -180,10 +180,27 @@ macro_rules! generate_event_types {
         }
       }
 
+      impl crate::IntoEventHandler for EventHandler {
+        /// Irrelevant, closures are thrown away
+        type EventType = Event;
+        /// Provided closure will be thrown away
+        fn into_event_handler(self, _: impl FnMut(Self::EventType) + 'static) -> EventHandler {
+          self
+        }
+        /// Provided boxed closure will be thrown away
+        fn into_event_handler_boxed(self, _: Box<dyn FnMut(Self::EventType) + 'static>) -> EventHandler {
+          self
+        }
+      }
+
       $(
         impl crate::IntoEventHandler for [< $($event)+ >] {
+          type EventType = <Self as EventDescriptor>::EventType;
           fn into_event_handler(self, handler: impl FnMut(Self::EventType) + 'static) -> EventHandler {
             EventHandler::[< $($event:camel)+ >](self, Box::new(handler))
+          }
+          fn into_event_handler_boxed(self, boxed_handler: Box<dyn FnMut(Self::EventType) + 'static>) -> EventHandler {
+            EventHandler::[< $($event:camel)+ >](self, boxed_handler)
           }
         }
       )*
