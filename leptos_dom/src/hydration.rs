@@ -92,13 +92,27 @@ impl Display for HydrationKey {
     }
 }
 
+impl std::str::FromStr for HydrationKey {
+    type Err = (); // TODO better error
+
+    // Required method
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut pieces = s.splitn(2, '_'); // TODO update if error changes
+        let first = pieces.next().ok_or(())?;
+        let second = pieces.next().ok_or(())?;
+        let id = usize::from_str(first).map_err(|_| ())?;
+        let fragment = usize::from_str(second).map_err(|_| ())?;
+        Ok(HydrationKey { id, fragment })
+    }
+}
+
 thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { id: 0, fragment: 0 }));
 
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
 
 impl HydrationCtx {
-    /// Get the next `id` without incrementing it.
+    /// If you're in an hydration context, get the next `id` without incrementing it.
     pub fn peek() -> Option<HydrationKey> {
         #[cfg(all(
             feature = "islands",
@@ -115,6 +129,11 @@ impl HydrationCtx {
         } else {
             Some(ID.with(|id| *id.borrow()))
         }
+    }
+
+    /// Get the next `id` without incrementing it.
+    pub fn peek_always() -> HydrationKey {
+        ID.with(|id| *id.borrow())
     }
 
     /// Increments the current hydration `id` and returns it

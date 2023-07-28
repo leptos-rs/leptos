@@ -256,6 +256,7 @@ impl ToTokens for Model {
                     ::leptos::leptos_dom::html::Custom::new("leptos-island"),
                 )
                 .attr("data-component", #component_id)
+                .attr("data-hkc", ::leptos::leptos_dom::HydrationCtx::peek_always().to_string())
                 .child(#component)
             }
         } else {
@@ -358,6 +359,9 @@ impl ToTokens for Model {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen]
                 #[allow(non_snake_case)]
                 pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
+                    if let Some(Ok(key)) = el.get_attribute("data-hkc").map(|key| std::str::FromStr::from_str(&key)) {
+                        ::leptos::leptos_dom::HydrationCtx::continue_from(key);
+                    }
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {
                         #name(#island_props)
                     })
