@@ -190,21 +190,21 @@ macro_rules! generate_event_types {
       $(
         impl<T> crate::IntoEventHandler for ([< $($event)+ >], T)
         where
-          T: Into<Box<dyn FnMut($web_event) + 'static>>
+          T: FnMut($web_event) + 'static
         {
           #[inline]
           fn into_event_handler(self) -> EventHandler {
-            EventHandler::[< $($event:camel)+ >](self.0, self.1.into())
+            EventHandler::[< $($event:camel)+ >](self.0, Box::new(self.1))
           }
         }
         // TODO: figure out if this is even desirable, could be bit confusing
         impl<T> crate::IntoEventHandler for (T, [< $($event)+ >])
         where
-          T: Into<Box<dyn FnMut($web_event) + 'static>>
+          T: FnMut($web_event) + 'static
         {
           #[inline]
           fn into_event_handler(self) -> EventHandler {
-            EventHandler::[< $($event:camel)+ >](self.1, self.0.into())
+            EventHandler::[< $($event:camel)+ >](self.1, Box::new(self.0))
           }
         }
       )*
