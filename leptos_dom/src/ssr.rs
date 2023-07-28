@@ -547,7 +547,7 @@ impl View {
                                                     "{}<!--hk={}-->",
                                                     content(),
                                                     HydrationCtx::to_string(&id, true)
-                                                )
+                                                ).into()
                                              }
                                         }
                                     })
