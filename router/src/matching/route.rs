@@ -1,4 +1,4 @@
-use crate::{Method, SsrMode};
+use crate::{Loader, Method, SsrMode};
 use leptos::leptos_dom::View;
 use std::rc::Rc;
 
@@ -19,6 +19,8 @@ pub struct RouteDefinition {
     pub ssr_mode: SsrMode,
     /// The HTTP request methods this route is able to handle.
     pub methods: &'static [Method],
+    /// A data loader function that will be called when this route is matched.
+    pub(crate) data: Option<Loader>,
 }
 
 impl std::fmt::Debug for RouteDefinition {

@@ -3,7 +3,11 @@ use crate::{
     ParamsMap, RouterContext, SsrMode,
 };
 use leptos::{leptos_dom::Transparent, *};
-use std::{cell::Cell, rc::Rc};
+use std::{
+    any::Any,
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 thread_local! {
     static ROUTE_ID: Cell<usize> = Cell::new(0);
@@ -53,6 +57,10 @@ pub fn Route<E, F, P>(
     /// The HTTP methods that this route can handle (defaults to only `GET`).
     #[prop(default = &[Method::Get])]
     methods: &'static [Method],
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -68,6 +76,7 @@ where
         Rc::new(move || view().into_view()),
         ssr,
         methods,
+        data,
     )
 }
 
@@ -96,6 +105,10 @@ pub fn ProtectedRoute<P, E, F, C>(
     /// The HTTP methods that this route can handle (defaults to only `GET`).
     #[prop(default = &[Method::Get])]
     methods: &'static [Method],
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -121,6 +134,7 @@ where
         }),
         ssr,
         methods,
+        data,
     )
 }
 #[cfg_attr(
@@ -133,6 +147,7 @@ pub(crate) fn define_route(
     view: Rc<dyn Fn() -> View>,
     ssr_mode: SsrMode,
     methods: &'static [Method],
+    data: Option<Loader>,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
@@ -162,6 +177,7 @@ pub(crate) fn define_route(
         view,
         ssr_mode,
         methods,
+        data,
     }
 }
 
@@ -192,7 +208,10 @@ impl RouteContext {
         let RouteMatch { path_match, route } = matcher()?;
         let PathMatch { path, .. } = path_match;
         let RouteDefinition {
-            view: element, id, ..
+            view: element,
+            id,
+            data,
+            ..
         } = route.key;
         let params = create_memo(move |_| {
             matcher()
@@ -200,17 +219,26 @@ impl RouteContext {
                 .unwrap_or_default()
         });
 
-        Some(Self {
-            inner: Rc::new(RouteContextInner {
-                id,
-                base_path: base,
-                child: Box::new(child),
-                path: create_rw_signal(path),
-                original_path: route.original_path.to_string(),
-                params,
-                outlet: Box::new(move || Some(element())),
-            }),
-        })
+        let inner = Rc::new(RouteContextInner {
+            id,
+            base_path: base,
+            child: Box::new(child),
+            path: create_rw_signal(path),
+            original_path: route.original_path.to_string(),
+            params,
+            outlet: Box::new(move || Some(element())),
+            data: RefCell::new(None),
+        });
+        if let Some(loader) = data {
+            let data = {
+                let inner = Rc::clone(&inner);
+                provide_context(RouteContext { inner });
+                (loader.data)()
+            };
+            *inner.data.borrow_mut() = Some(data);
+        }
+
+        Some(RouteContext { inner })
     }
 
     pub(crate) fn id(&self) -> usize {
@@ -264,6 +292,7 @@ impl RouteContext {
                 original_path: path.to_string(),
                 params: create_memo(|_| ParamsMap::new()),
                 outlet: Box::new(move || fallback.as_ref().map(move |f| f())),
+                data: Default::default(),
             }),
         }
     }
@@ -302,6 +331,7 @@ pub(crate) struct RouteContextInner {
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
     pub(crate) outlet: Box<dyn Fn() -> Option<View>>,
+    pub(crate) data: RefCell<Option<Rc<dyn Any>>>,
 }
 
 impl PartialEq for RouteContextInner {
@@ -319,5 +349,22 @@ impl std::fmt::Debug for RouteContextInner {
             .field("path", &self.path)
             .field("ParamsMap", &self.params)
             .finish()
+    }
+}
+
+#[derive(Clone)]
+pub struct Loader {
+    pub(crate) data: Rc<dyn Fn() -> Rc<dyn Any>>,
+}
+
+impl<F, T> From<F> for Loader
+where
+    F: Fn() -> T + 'static,
+    T: Any + Clone + 'static,
+{
+    fn from(f: F) -> Self {
+        Self {
+            data: Rc::new(move || Rc::new(f())),
+        }
     }
 }
