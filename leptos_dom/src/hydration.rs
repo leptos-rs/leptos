@@ -52,13 +52,13 @@ mod hydration {
 
       pub static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
         #[cfg(debug_assertions)]
-        return crate::document().get_element_by_id("_0-1").is_some()
-          || crate::document().get_element_by_id("_0-1o").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-1o").is_some());
+        return crate::document().get_element_by_id("_0-0-1").is_some()
+          || crate::document().get_element_by_id("_0-0-1o").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-1o").is_some());
 
         #[cfg(not(debug_assertions))]
-        return crate::document().get_element_by_id("_0-1").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-1").is_some());
+        return crate::document().get_element_by_id("_0-0-1").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-1").is_some());
       }));
     }
 
@@ -75,13 +75,15 @@ pub(crate) use hydration::*;
 pub struct HydrationKey {
     /// ID of the current key.
     pub id: usize,
+    /// ID of the current error boundary.
+    pub error: usize,
     /// ID of the current fragment.
     pub fragment: usize,
 }
 
 impl Display for HydrationKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}", self.fragment, self.id)
+        write!(f, "{}-{}-{}", self.fragment, self.error, self.id)
     }
 }
 
@@ -110,6 +112,16 @@ impl HydrationCtx {
         ID.with(|id| {
             let mut id = id.borrow_mut();
             id.fragment = id.fragment.wrapping_add(1);
+            id.id = 0;
+            *id
+        })
+    }
+
+    /// Resets the hydration `id` for the next component, and returns it
+    pub fn next_error() -> HydrationKey {
+        ID.with(|id| {
+            let mut id = id.borrow_mut();
+            id.error = id.error.wrapping_add(1);
             id.id = 0;
             *id
         })
