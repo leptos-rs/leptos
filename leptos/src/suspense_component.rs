@@ -180,7 +180,7 @@ where
         _ => unreachable!(),
     };
 
-    //HydrationCtx::continue_from(current_id);
+    HydrationCtx::continue_from(current_id);
     HydrationCtx::next_component();
 
     leptos_dom::View::Suspense(current_id, core_component)
