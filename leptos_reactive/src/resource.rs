@@ -389,7 +389,10 @@ where
             r.resolved.set(true);
 
             let res = T::de(&data).unwrap_or_else(|e| {
-                panic!("could not deserialize Resource JSON for {id:?}: {e:?}")
+                panic!(
+                    "could not deserialize Resource<{}> JSON for {id:?}: {e:?}",
+                    std::any::type_name::<T>()
+                )
             });
 
             r.set_value.update(|n| *n = Some(res));
