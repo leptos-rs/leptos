@@ -58,7 +58,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # async fn fetch_monkeys(monkey: i32) -> i32 {
     /// #    3
     /// # }
-    /// view! { cx,
+    /// view! {
     ///     <Await
     ///         future=|| fetch_monkeys(3)
     ///         bind:data
@@ -78,10 +78,10 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # async fn fetch_monkeys(monkey: i32) -> i32 {
     /// #    3
     /// # }
-    /// view! { cx,
+    /// view! {
     ///     <Await
     ///         future=|| fetch_monkeys(3)
-    ///         children=|data| view! { cx,
+    ///         children=|data| view! {
     ///           <p>{*data} " little monkeys, jumping on the bed."</p>
     ///         }
     ///     />
