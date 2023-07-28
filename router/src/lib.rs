@@ -81,7 +81,7 @@
 //!   }
 //! }
 //!
-//! type ContactSummary = s); // TODO!
+//! type ContactSummary = (); // TODO!
 //! type Contact = (); // TODO!()
 //!
 //! // contact_data reruns whenever the :id param changes
