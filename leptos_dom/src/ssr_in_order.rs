@@ -468,32 +468,41 @@ impl View {
                                 move |chunks: &mut VecDeque<StreamChunk>| {
                                     for node in children.into_iter().flatten() {
                                         let id = node.id;
+                                        let is_el = matches!(
+                                            node.child,
+                                            View::Element(_)
+                                        );
 
                                         #[cfg(debug_assertions)]
                                         {
-                                            chunks.push_back(
-                                                StreamChunk::Sync(
-                                                    format!(
+                                            if !is_el {
+                                                chunks.push_back(
+                                                    StreamChunk::Sync(
+                                                        format!(
                         "<!--hk={}|leptos-each-item-start-->",
                         HydrationCtx::to_string(&id, false)
                       )
-                                                    .into(),
-                                                ),
-                                            );
+                                                        .into(),
+                                                    ),
+                                                );
+                                            }
                                             node.child
                                                 .into_stream_chunks_helper(
                                                     chunks,
                                                     dont_escape_text,
                                                 );
-                                            chunks.push_back(
-                                                StreamChunk::Sync(
-                                                    format!(
+
+                                            if !is_el {
+                                                chunks.push_back(
+                                                    StreamChunk::Sync(
+                                                        format!(
                         "<!--hk={}|leptos-each-item-end-->",
                         HydrationCtx::to_string(&id, true)
                       )
-                                                    .into(),
-                                                ),
-                                            );
+                                                        .into(),
+                                                    ),
+                                                );
+                                            }
                                         }
                                         #[cfg(not(debug_assertions))]
                                         {
@@ -502,17 +511,19 @@ impl View {
                                                     chunks,
                                                     dont_escape_text,
                                                 );
-                                            chunks.push_back(
-                                                StreamChunk::Sync(
-                                                    format!(
+                                            if !is_el {
+                                                chunks.push_back(
+                                                    StreamChunk::Sync(
+                                                        format!(
                                                         "<!--hk={}-->",
                                                         HydrationCtx::to_string(
                                                             &id, true
                                                         )
                                                     )
-                                                    .into(),
-                                                ),
-                                            );
+                                                        .into(),
+                                                    ),
+                                                );
+                                            }
                                         }
                                     }
                                 },

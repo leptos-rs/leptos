@@ -515,6 +515,7 @@ impl View {
                                     .flatten()
                                     .map(|node| {
                                         let id = node.id;
+                                        let is_el = matches!(node.child, View::Element(_));
 
                                         let content = || {
                                             node.child.render_to_string_helper(
@@ -524,21 +525,31 @@ impl View {
 
                                         #[cfg(debug_assertions)]
                                         {
-                                            format!(
-                        "<!--hk={}|leptos-each-item-start-->{}<!\
-                         --hk={}|leptos-each-item-end-->",
-                        HydrationCtx::to_string(&id, false),
-                        content(),
-                        HydrationCtx::to_string(&id, true),
-                      )
+                                            if is_el {
+                                               content()
+                                            } else {
+                                                format!(
+                                                    "<!--hk={}|leptos-each-item-start-->{}<!\
+                                                    --hk={}|leptos-each-item-end-->",
+                                                    HydrationCtx::to_string(&id, false),
+                                                    content(),
+                                                    HydrationCtx::to_string(&id, true),
+                                                ).into()
+                                            }
                                         }
 
                                         #[cfg(not(debug_assertions))]
-                                        format!(
-                                            "{}<!--hk={}-->",
-                                            content(),
-                                            HydrationCtx::to_string(&id, true)
-                                        )
+                                        {
+                                            if is_el {
+                                                content()
+                                             } else {
+                                                format!(
+                                                    "{}<!--hk={}-->",
+                                                    content(),
+                                                    HydrationCtx::to_string(&id, true)
+                                                )
+                                             }
+                                        }
                                     })
                                     .join("")
                                     .into()
