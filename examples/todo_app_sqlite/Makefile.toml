@@ -1,4 +1,11 @@
-extend = { path = "../cargo-make/main.toml" }
+extend = [
+  { path = "../cargo-make/main.toml" },
+  { path = "../cargo-make/webdriver.toml" },
+]
+
+[tasks.build]
+command = "cargo"
+args = ["leptos", "build"]
 
 [tasks.check]
 clear = true
@@ -15,3 +22,47 @@ toolchain = "nightly"
 command = "cargo"
 args = ["check-all-features", "--release"]
 install_crate = "cargo-all-features"
+
+[tasks.integration-test]
+dependencies = ["start-webdriver", "test-e2e-with-auto-start"]
+
+[tasks.test-e2e-with-auto-start]
+script = '''
+  if [ -z $(pidof todo_app_sqlite) ]; then
+    cargo leptos watch &
+  fi
+
+  cargo make test-ui
+'''
+
+[tasks.test-ui]
+cwd = "./e2e"
+command = "cargo"
+args = ["make", "test-ui"]
+
+# Support
+
+[tasks.start]
+command = "cargo"
+args = ["leptos", "watch"]
+
+[tasks.stop]
+script = '''
+pkill -f todo_app_sqlite
+pkill -f cargo-leptos
+'''
+
+[tasks.status]
+script = '''
+  if [ -z $(pidof todo_app_sqlite) ]; then
+    echo "  todo_app_sqlite is not running"
+  else
+    echo "  todo_app_sqlite is up"
+  fi
+
+  if [ -z $(pidof cargo-leptos) ]; then
+    echo "  cargo-leptos is not running"
+  else
+    echo "  cargo-leptos is up"
+  fi
+'''

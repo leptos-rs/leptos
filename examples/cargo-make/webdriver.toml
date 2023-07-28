@@ -1,0 +1,30 @@
+[tasks.start-webdriver]
+script = '''
+  BOLD="\e[1m"
+  GREEN="\e[0;32m"
+  RED="\e[0;31m"
+  RESET="\e[0m"
+
+  if command -v chromedriver; then
+    if [ -z $(pidof chromedriver) ]; then
+      chromedriver --port=4444 &
+    fi
+  else
+    echo "${RED}${BOLD}ERROR${RESET} - chromedriver is required by this task"
+    exit 1
+  fi
+'''
+
+[tasks.stop-webdriver]
+script = '''
+  pkill -f "chromedriver"
+'''
+
+[tasks.webdriver-status]
+script = '''
+  if [ -z $(pidof chromedriver) ]; then
+    echo chromedriver is not running
+  else
+    echo chromedriver is up
+  fi
+'''
