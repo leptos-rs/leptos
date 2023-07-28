@@ -209,8 +209,8 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
 
