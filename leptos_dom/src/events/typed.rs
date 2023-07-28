@@ -155,8 +155,7 @@ macro_rules! generate_event_types {
         }
       )*
 
-      // TODO: figure out what should be done about trait impls like Clone and Debug
-      /// An enum holding all basic event types with their respective handler types.
+      /// An enum holding all basic event types with their respective handlers.
       ///
       /// It currently omits [`Custom`] and [`undelegated`] variants.
       #[non_exhaustive]
@@ -166,6 +165,28 @@ macro_rules! generate_event_types {
           [< $($event:camel)+ >]([< $($event)+ >], Box<dyn FnMut($web_event) + 'static>),
         )*
       }
+
+      impl ::std::fmt::Debug for EventHandler {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+          match self {
+            $(
+              Self::[< $($event:camel)+ >](event, _) => f
+                .debug_tuple(stringify!([< $($event:camel)+ >]))
+                .field(&event)
+                .field(&::std::any::type_name::<Box<dyn FnMut($web_event) + 'static>>())
+                .finish(),
+            )*
+          }
+        }
+      }
+
+      $(
+        impl crate::IntoEventHandler for [< $($event)+ >] {
+          fn into_event_handler(self, handler: impl FnMut(Self::EventType) + 'static) -> EventHandler {
+            EventHandler::[< $($event:camel)+ >](self, Box::new(handler))
+          }
+        }
+      )*
     }
   };
 

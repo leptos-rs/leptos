@@ -29,6 +29,7 @@ pub use components::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
 pub use events::typed as ev;
+pub use events::typed::EventHandler;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
 pub use html::HtmlElement;
@@ -66,6 +67,15 @@ thread_local! {
 pub trait IntoView {
     /// Converts the value into [`View`].
     fn into_view(self, cx: Scope) -> View;
+}
+
+/// Converts the value into a [`EventHandler`]
+pub trait IntoEventHandler: ev::EventDescriptor {
+    /// Converts the value into a [`EventHandler`]
+    fn into_event_handler(
+        self,
+        handler: impl FnMut(Self::EventType) + 'static,
+    ) -> EventHandler;
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
