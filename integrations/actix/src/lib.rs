@@ -1061,7 +1061,6 @@ where
 ///     use actix_web::web::{Data, Query};
 ///
 ///     extract(
-///         cx,
 ///         |data: Data<String>, search: Query<Search>, connection: ConnectionInfo| async move {
 ///             format!(
 ///                 "data = {}\nsearch = {}\nconnection = {:?}",

@@ -6,7 +6,7 @@ pub fn App() -> impl IntoView {
     let show = create_rw_signal(false);
 
     // the CSS classes in this example are just written directly inside the `index.html`
-    view! { cx,
+    view! {
         <div
             class="hover-me"
             on:mouseenter=move |_| show.set(true)
