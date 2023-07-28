@@ -70,20 +70,8 @@ pub trait IntoView {
 
 /// Converts the value into a [`EventHandler`]
 pub trait IntoEventHandler {
-    /// Type of event that handler takes
-    type EventType;
-
     /// Converts the value into a [`EventHandler`]
-    fn into_event_handler(
-        self,
-        handler: impl FnMut(Self::EventType) + 'static,
-    ) -> EventHandler;
-
-    /// Converts the value into a [`EventHandler`] using boxed closure
-    fn into_event_handler_boxed(
-        self,
-        boxed_handler: Box<dyn FnMut(Self::EventType) + 'static>,
-    ) -> EventHandler;
+    fn into_event_handler(self) -> EventHandler;
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

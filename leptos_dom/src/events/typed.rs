@@ -181,26 +181,30 @@ macro_rules! generate_event_types {
       }
 
       impl crate::IntoEventHandler for EventHandler {
-        /// Irrelevant, closures are thrown away
-        type EventType = Event;
-        /// Provided closure will be thrown away
-        fn into_event_handler(self, _: impl FnMut(Self::EventType) + 'static) -> EventHandler {
-          self
-        }
-        /// Provided boxed closure will be thrown away
-        fn into_event_handler_boxed(self, _: Box<dyn FnMut(Self::EventType) + 'static>) -> EventHandler {
+        #[inline(always)]
+        fn into_event_handler(self) -> EventHandler {
           self
         }
       }
 
       $(
-        impl crate::IntoEventHandler for [< $($event)+ >] {
-          type EventType = <Self as EventDescriptor>::EventType;
-          fn into_event_handler(self, handler: impl FnMut(Self::EventType) + 'static) -> EventHandler {
-            EventHandler::[< $($event:camel)+ >](self, Box::new(handler))
+        impl<T> crate::IntoEventHandler for ([< $($event)+ >], T)
+        where
+          T: Into<Box<dyn FnMut($web_event) + 'static>>
+        {
+          #[inline]
+          fn into_event_handler(self) -> EventHandler {
+            EventHandler::[< $($event:camel)+ >](self.0, self.1.into())
           }
-          fn into_event_handler_boxed(self, boxed_handler: Box<dyn FnMut(Self::EventType) + 'static>) -> EventHandler {
-            EventHandler::[< $($event:camel)+ >](self, boxed_handler)
+        }
+        // TODO: figure out if this is even desirable, could be bit confusing
+        impl<T> crate::IntoEventHandler for (T, [< $($event)+ >])
+        where
+          T: Into<Box<dyn FnMut($web_event) + 'static>>
+        {
+          #[inline]
+          fn into_event_handler(self) -> EventHandler {
+            EventHandler::[< $($event:camel)+ >](self.1, self.0.into())
           }
         }
       )*
