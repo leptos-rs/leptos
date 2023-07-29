@@ -84,6 +84,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Install Chrome Webriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install chromium-chromedriver
+
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
