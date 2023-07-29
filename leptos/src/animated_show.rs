@@ -98,7 +98,7 @@ pub fn AnimatedShow(
     });
 
     on_cleanup(cx, move || {
-        if let Ok(Some(h)) = handle.try_get_value() {
+        if let Some(Some(h)) = handle.try_get_value() {
             h.clear();
         }
     });
