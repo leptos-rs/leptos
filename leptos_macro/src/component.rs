@@ -276,6 +276,7 @@ impl ToTokens for Model {
             ) #ret #(+ #lifetimes)*
             #where_clause
             {
+                #[allow(non_snake_case)]
                 // allowed for lifetimes that are needed for props struct
                 #[allow(clippy::needless_lifetimes)]
                 #body
