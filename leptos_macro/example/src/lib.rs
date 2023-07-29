@@ -28,7 +28,7 @@ pub fn TestComponent(
     /// # use example::TestComponent;
     /// <TestComponent key="hello"/>
     #[prop(optional)]
-    another:usize,
+    another: usize,
     /// rust unclosed
     /// ```view
     /// use example::TestComponent;
@@ -38,3 +38,22 @@ pub fn TestComponent(
     _ = (key, another, and_another);
 }
 
+#[component]
+fn TestMutCallback<'a, F>(
+    cx: Scope,
+    mut callback: F,
+    value: &'a str,
+) -> impl IntoView
+where
+    F: FnMut(u32) + 'static,
+{
+    let value = value.to_owned();
+    view! { cx,
+        <button on:click=move |_| {
+            callback(5);
+        }>
+            {value}
+        </button>
+        <TestComponent key="test"/>
+    }
+}
