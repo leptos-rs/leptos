@@ -324,3 +324,8 @@ a {
 .user-view .links a {
 	text-decoration: underline
 }
+
+.routing-progress, .routing-progress progress {
+	height: 10px;
+	width: 100%;
+}

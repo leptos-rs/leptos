@@ -18,7 +18,9 @@ pub fn App() -> impl IntoView {
         // adding `set_is_routing` causes the router to wait for async data to load on new pages
         <Router set_is_routing>
             // shows a progress bar while async data are loading
-            <RoutingProgress is_routing max_time=std::time::Duration::from_millis(250)/>
+            <div class="routing-progress">
+                <RoutingProgress is_routing max_time=std::time::Duration::from_millis(250)/>
+            </div>
             <Nav />
             <main>
                 <Routes>
