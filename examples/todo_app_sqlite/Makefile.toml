@@ -1,11 +1,8 @@
 extend = [
   { path = "../cargo-make/main.toml" },
   { path = "../cargo-make/webdriver.toml" },
+  { path = "../cargo-make/cargo-leptos.toml" },
 ]
-
-[tasks.build]
-command = "cargo"
-args = ["leptos", "build"]
 
 [tasks.check]
 clear = true
@@ -24,7 +21,11 @@ args = ["check-all-features", "--release"]
 install_crate = "cargo-all-features"
 
 [tasks.integration-test]
-dependencies = ["start-webdriver", "test-e2e-with-auto-start"]
+dependencies = [
+  "install-cargo-leptos",
+  "start-webdriver",
+  "test-e2e-with-auto-start",
+]
 
 [tasks.test-e2e-with-auto-start]
 script = '''
@@ -48,8 +49,13 @@ args = ["leptos", "watch"]
 
 [tasks.stop]
 script = '''
-pkill -f todo_app_sqlite
-pkill -f cargo-leptos
+  if [ ! -z $(pidof todo_app_sqlite) ]; then
+    pkill -f todo_app_sqlite
+  fi
+
+  if [ ! -z $(pidof cargo-leptos) ]; then
+    pkill -f cargo-leptos
+  fi
 '''
 
 [tasks.status]
