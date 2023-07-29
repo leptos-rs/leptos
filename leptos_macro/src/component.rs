@@ -599,7 +599,6 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
 fn prop_names(props: &[Prop]) -> TokenStream {
     props
         .iter()
-        .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
         .map(|Prop { name, .. }| {
             // fields like mutability are removed because unneeded
             // in the contexts in which this is used
