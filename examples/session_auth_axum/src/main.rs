@@ -33,7 +33,8 @@ if #[cfg(feature = "ssr")] {
     }
 
     async fn leptos_routes_handler(auth_session: AuthSession, State(app_state): State<AppState>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context(app_state.leptos_options.clone(),
+            let handler = leptos_axum::render_route_with_context(app_state.leptos_options.clone(),
+            app_state.routes.clone(),
             move || {
                 provide_context(auth_session.clone());
                 provide_context(app_state.pool.clone());
@@ -84,6 +85,7 @@ if #[cfg(feature = "ssr")] {
         let app_state = AppState{
             leptos_options,
             pool: pool.clone(),
+            routes: routes.clone(),
         };
 
         // build our application with a route
