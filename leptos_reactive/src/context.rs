@@ -194,13 +194,17 @@ where
 /// ## Panics
 /// Panics if a context of this type is not found in the current reactive
 /// owner or its ancestors.
+#[track_caller]
 pub fn expect_context<T>() -> T
 where
     T: Clone + 'static,
 {
+    let location = std::panic::Location::caller();
+
     use_context().unwrap_or_else(|| {
         panic!(
-            "context of type {:?} to be present",
+            "{:?} expected context of type {:?} to be present",
+            location,
             std::any::type_name::<T>()
         )
     })
