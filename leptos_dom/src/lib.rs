@@ -902,23 +902,6 @@ pub fn mount_to_with_stop_hydrating<F, N>(
     }
 }
 
-/// Hydrates all Leptos islands found on the page.
-pub fn hydrate_islands() {
-    #[cfg(feature = "hydrate")]
-    {
-        // the actual code runs in JS
-
-        HydrationCtx::stop_hydrating();
-    }
-    #[cfg(not(feature = "hydrate"))]
-    {
-        crate::warn!(
-            "`hydrate_islands` should only be called in the browser when \
-             using the `hydrate` feature."
-        );
-    }
-}
-
 thread_local! {
     pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
 

@@ -518,25 +518,24 @@ impl View {
 
                                         if is_el {
                                             content()
-                                    } else {
-                                        is_el {
+                                        } else {
                                             format!(
-                                            "{}{}{}",
-                                            id.to_marker(
-                                                false,
-                                                #[cfg(debug_assertions)]
-                                                "each-item",
-                                            ),
-                                            content(),
-                                            id.to_marker(
-                                                true,
-                                                #[cfg(debug_assertions)]
-                                                "each-item",
-                                            )
+                                                "{}{}{}",
+                                                id.to_marker(
+                                                    false,
+                                                    #[cfg(debug_assertions)]
+                                                    "each-item",
+                                                ),
+                                                content(),
+                                                id.to_marker(
+                                                    true,
+                                                    #[cfg(debug_assertions)]
+                                                    "each-item",
+                                                )
                                                 .into()
-                                        )
-                                    }
-                                    }
+                                            )
+                                            .into()
+                                        }
                                     })
                                     .join("")
                                     .into()

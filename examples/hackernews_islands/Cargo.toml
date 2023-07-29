@@ -74,9 +74,10 @@ style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "0.0.0.0:8080"
+#site-addr = "0.0.0.0:8080"
+site-addr = "127.0.0.1:3004"
 # The port to use for automatic reload monitoring
-reload-port = 3001
+reload-port = 3005
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
 end2end-cmd = "npx playwright test"
 #  The browserlist query used for optimizing the CSS.

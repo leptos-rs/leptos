@@ -37,7 +37,7 @@ cfg_if! {
         #[wasm_bindgen]
         pub fn hydrate() {
             console_error_panic_hook::set_once();
-            leptos::hydrate_islands();
+            leptos::leptos_dom::HydrationCtx::stop_hydrating();
         }
     }
 }

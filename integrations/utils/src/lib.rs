@@ -73,7 +73,8 @@ pub fn html_parts_separated(
         .map(|meta| meta.dehydrate())
         .unwrap_or_default();
     let import_callback = if cfg!(feature = "islands") {
-        r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;requestIdleCallback(()=>mod["_island_"+l](e))};mod.hydrate();}"#
+        r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;requestIdleCallback(()=>mod["_island_"+l](e));};requestIdleCallback(()=>mod.hydrate());}"#
+        //r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;mod["_island_"+l](e)};mod.hydrate();}"#
     } else {
         "() => mod.hydrate()"
     };

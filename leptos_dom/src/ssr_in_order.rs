@@ -477,13 +477,20 @@ impl View {
                                             chunks,
                                             dont_escape_text,
                                         );
-                                        chunks.push_back(StreamChunk::Sync(
-                                            id.to_marker(
-                                                true,
-                                                #[cfg(debug_assertions)]
-                                                "each-item",
-                                            ),
-                                        ));
+
+                                        if !is_el {
+                                            chunks.push_back(
+                                                StreamChunk::Sync(
+                                                    id.to_marker(
+                                                        true,
+                                                        #[cfg(
+                                                            debug_assertions
+                                                        )]
+                                                        "each-item",
+                                                    ),
+                                                ),
+                                            );
+                                        }
                                     }
                                 },
                             )

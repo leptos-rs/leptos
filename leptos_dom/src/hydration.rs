@@ -78,12 +78,12 @@ pub(crate) use hydration::*;
 /// A stable identifier within the server-rendering or hydration process.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
-    /// ID of the current key.
-    pub id: usize,
-    /// ID of the current error boundary.
-    pub error: usize,
     /// ID of the current fragment.
     pub fragment: usize,
+    /// ID of the current error boundary.
+    pub error: usize,
+    /// ID of the current key.
+    pub id: usize,
 }
 
 impl Display for HydrationKey {
@@ -95,18 +95,40 @@ impl Display for HydrationKey {
 impl std::str::FromStr for HydrationKey {
     type Err = (); // TODO better error
 
-    // Required method
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut pieces = s.splitn(2, '_'); // TODO update if error changes
+        let mut pieces = s.splitn(3, '-');
         let first = pieces.next().ok_or(())?;
         let second = pieces.next().ok_or(())?;
-        let id = usize::from_str(first).map_err(|_| ())?;
-        let fragment = usize::from_str(second).map_err(|_| ())?;
-        Ok(HydrationKey { id, fragment })
+        let third = pieces.next().ok_or(())?;
+        let fragment = usize::from_str(first).map_err(|_| ())?;
+        let error = usize::from_str(second).map_err(|_| ())?;
+        let id = usize::from_str(third).map_err(|_| ())?;
+        Ok(HydrationKey {
+            fragment,
+            error,
+            id,
+        })
     }
 }
 
-thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { id: 0, fragment: 0 }));
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn parse_hydration_key() {
+        use crate::HydrationKey;
+        use std::str::FromStr;
+        assert_eq!(
+            HydrationKey::from_str("1-2-3"),
+            Ok(HydrationKey {
+                fragment: 1,
+                error: 2,
+                id: 3
+            })
+        )
+    }
+}
+
+thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { fragment: 0, error: 0, id: 0 }));
 
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
@@ -196,7 +218,13 @@ impl HydrationCtx {
     #[doc(hidden)]
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub fn reset_id() {
-        ID.with(|id| *id.borrow_mut() = HydrationKey { fragment: 0, id: 0 });
+        ID.with(|id| {
+            *id.borrow_mut() = HydrationKey {
+                fragment: 0,
+                error: 0,
+                id: 0,
+            }
+        });
     }
 
     /// Resumes hydration from the provided `id`. Useful for
@@ -205,13 +233,45 @@ impl HydrationCtx {
         ID.with(|i| *i.borrow_mut() = id);
     }
 
+    /// Resumes hydration after the provided `id`. Useful for
+    /// islands and other fancy things.
+    pub fn continue_after(id: HydrationKey) {
+        ID.with(|i| {
+            *i.borrow_mut() = HydrationKey {
+                fragment: id.fragment,
+                error: id.error,
+                id: id.id + 1,
+            }
+        });
+    }
+
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    pub(crate) fn stop_hydrating() {
+    #[doc(hidden)]
+    pub fn stop_hydrating() {
         #[cfg(feature = "hydrate")]
         {
             IS_HYDRATING.with(|is_hydrating| {
                 std::mem::take(&mut *is_hydrating.borrow_mut());
             })
+        }
+    }
+
+    #[doc(hidden)]
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    pub fn with_hydration_on<T>(f: impl FnOnce() -> T) -> T {
+        use once_cell::unsync::Lazy as LazyCell;
+
+        #[cfg(feature = "hydrate")]
+        {
+            let prev = IS_HYDRATING.with(|is_hydrating| {
+                std::mem::take(&mut *is_hydrating.borrow_mut())
+            });
+            IS_HYDRATING.with(|is_hydrating| {
+                *is_hydrating.borrow_mut() = LazyCell::new(|| true)
+            });
+            let value = f();
+            IS_HYDRATING.with(|is_hydrating| *is_hydrating.borrow_mut() = prev);
+            value
         }
     }
 
