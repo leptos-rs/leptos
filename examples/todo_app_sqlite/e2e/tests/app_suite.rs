@@ -1,8 +1,8 @@
-mod app;
+mod fixtures;
 
 use anyhow::Result;
-use app::world::AppWorld;
 use cucumber::World;
+use fixtures::world::AppWorld;
 
 #[tokio::main]
 async fn main() -> Result<()> {

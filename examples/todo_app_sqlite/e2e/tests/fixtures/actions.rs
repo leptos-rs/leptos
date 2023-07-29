@@ -1,5 +1,4 @@
-use super::world::HOST;
-use crate::app::world::AppWorld;
+use super::world::{AppWorld, HOST};
 use anyhow::Result;
 
 pub async fn goto_path(world: &mut AppWorld, path: &str) -> Result<()> {

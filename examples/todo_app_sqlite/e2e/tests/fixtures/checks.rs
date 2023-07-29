@@ -1,4 +1,4 @@
-use crate::app::world::AppWorld;
+use super::world::AppWorld;
 use anyhow::Result;
 use fantoccini::Locator;
 
