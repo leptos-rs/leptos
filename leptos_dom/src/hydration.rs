@@ -6,6 +6,9 @@ mod hydration {
     use std::{cell::RefCell, collections::HashMap};
     use wasm_bindgen::JsCast;
 
+    /// See ["createTreeWalker"](https://developer.mozilla.org/en-US/docs/Web/API/Document/createTreeWalker)
+    const FILTER_SHOW_COMMENT: u32 = 0b10000000;
+
     // We can tell if we start in hydration mode by checking to see if the
     // id "_0-1" is present in the DOM. If it is, we know we are hydrating from
     // the server, if not, we are starting off in CSR
@@ -14,7 +17,7 @@ mod hydration {
         let document = crate::document();
         let body = document.body().unwrap();
         let walker = document
-          .create_tree_walker_with_what_to_show(&body, 128)
+          .create_tree_walker_with_what_to_show(&body, FILTER_SHOW_COMMENT)
           .unwrap();
         let mut map = HashMap::new();
         while let Ok(Some(node)) = walker.next_node() {
@@ -34,7 +37,7 @@ mod hydration {
         let document = crate::document();
         let body = document.body().unwrap();
         let walker = document
-          .create_tree_walker_with_what_to_show(&body, 128)
+          .create_tree_walker_with_what_to_show(&body, FILTER_SHOW_COMMENT)
           .unwrap();
         let mut map = HashMap::new();
         while let Ok(Some(node)) = walker.next_node() {
