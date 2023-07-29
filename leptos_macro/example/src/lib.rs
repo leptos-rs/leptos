@@ -28,7 +28,6 @@ pub fn TestComponent(
     /// <TestComponent key="hello"/>
     #[prop(optional)]
     another: usize,
-    another: usize,
     /// rust unclosed
     /// ```view
     /// use example::TestComponent;
