@@ -1977,6 +1977,7 @@ impl NodeId {
     }
 
     #[inline(always)]
+    #[track_caller]
     fn update_value<T, U>(
         &self,
 
@@ -1988,6 +1989,9 @@ impl NodeId {
     where
         T: 'static,
     {
+        #[cfg(debug_assertions)]
+        let location = std::panic::Location::caller();
+
         with_runtime(|runtime| {
             if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
@@ -2006,13 +2010,14 @@ impl NodeId {
                 {
                     if let Some(defined_at) = defined_at {
                         debug_warn!(
-                            "[Signal::update] You’re trying to update a \
-                             Signal<{}> (defined at {defined_at}) that has \
-                             already been disposed of. This is probably a \
-                             logic error in a component that creates and \
-                             disposes of scopes. If it does not cause any \
-                             issues, it is safe to ignore this warning, which \
-                             occurs only in debug mode.",
+                            "[Signal::update] At {:?}, you’re trying to \
+                             update a Signal<{}> (defined at {defined_at}) \
+                             that has already been disposed of. This is \
+                             probably a logic error in a component that \
+                             creates and disposes of scopes. If it does not \
+                             cause any issues, it is safe to ignore this \
+                             warning, which occurs only in debug mode.",
+                            location,
                             std::any::type_name::<T>()
                         );
                     }
@@ -2024,6 +2029,7 @@ impl NodeId {
     }
 
     #[inline(always)]
+    #[track_caller]
     pub(crate) fn update<T, U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -2034,6 +2040,9 @@ impl NodeId {
     where
         T: 'static,
     {
+        #[cfg(debug_assertions)]
+        let location = std::panic::Location::caller();
+
         with_runtime(|runtime| {
             let updated = if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
@@ -2052,13 +2061,14 @@ impl NodeId {
                 {
                     if let Some(defined_at) = defined_at {
                         debug_warn!(
-                            "[Signal::update] You’re trying to update a \
-                             Signal<{}> (defined at {defined_at}) that has \
-                             already been disposed of. This is probably a \
-                             logic error in a component that creates and \
-                             disposes of scopes. If it does not cause any \
-                             issues, it is safe to ignore this warning, which \
-                             occurs only in debug mode.",
+                            "[Signal::update] At {:?}, you’re trying to \
+                             update a Signal<{}> (defined at {defined_at}) \
+                             that has already been disposed of. This is \
+                             probably a logic error in a component that \
+                             creates and disposes of scopes. If it does not \
+                             cause any issues, it is safe to ignore this \
+                             warning, which occurs only in debug mode.",
+                            location,
                             std::any::type_name::<T>()
                         );
                     }
