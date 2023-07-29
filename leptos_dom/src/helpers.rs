@@ -377,7 +377,8 @@ pub fn set_interval_with_handle(
     si(Box::new(cb), duration)
 }
 
-/// Adds an event listener to the `Window`, typed as a generic `Event`.
+/// Adds an event listener to the `Window`, typed as a generic `Event`,
+/// returning a cancelable handle.
 #[cfg_attr(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
@@ -386,7 +387,7 @@ pub fn set_interval_with_handle(
 pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
-) {
+) -> WindowListenerHandle {
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
@@ -401,19 +402,32 @@ pub fn window_event_listener_untyped(
 
     if !is_server() {
         #[inline(never)]
-        fn wel(cb: Box<dyn FnMut(web_sys::Event)>, event_name: &str) {
+        fn wel(
+            cb: Box<dyn FnMut(web_sys::Event)>,
+            event_name: &str,
+        ) -> WindowListenerHandle {
             let cb = Closure::wrap(cb).into_js_value();
             _ = window().add_event_listener_with_callback(
                 event_name,
                 cb.unchecked_ref(),
             );
+            let event_name = event_name.to_string();
+            WindowListenerHandle(Box::new(move || {
+                _ = window().remove_event_listener_with_callback(
+                    &event_name,
+                    cb.unchecked_ref(),
+                );
+            }))
         }
 
-        wel(Box::new(cb), event_name);
+        wel(Box::new(cb), event_name)
+    } else {
+        WindowListenerHandle(Box::new(|| ()))
     }
 }
 
-/// Creates a window event listener from a typed event.
+/// Creates a window event listener from a typed event, returning a
+/// cancelable handle.
 /// ```
 /// use leptos::{leptos_dom::helpers::window_event_listener, *};
 ///
@@ -430,12 +444,29 @@ pub fn window_event_listener_untyped(
 pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
     event: E,
     cb: impl Fn(E::EventType) + 'static,
-) where
+) -> WindowListenerHandle
+where
     E::EventType: JsCast,
 {
     window_event_listener_untyped(&event.name(), move |e| {
         cb(e.unchecked_into::<E::EventType>())
-    });
+    })
+}
+
+/// A handle that can be called to remove a global event listener.
+pub struct WindowListenerHandle(Box<dyn FnOnce()>);
+
+impl std::fmt::Debug for WindowListenerHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("WindowListenerHandle").finish()
+    }
+}
+
+impl WindowListenerHandle {
+    /// Removes the event listener.
+    pub fn remove(self) {
+        (self.0)()
+    }
 }
 
 #[doc(hidden)]
