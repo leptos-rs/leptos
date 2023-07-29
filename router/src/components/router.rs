@@ -231,7 +231,9 @@ impl RouterContextInner {
             };
 
             // reset count of pending resources at global level
-            expect_context::<GlobalSuspenseContext>().reset();
+            if let Some(global) = use_context::<GlobalSuspenseContext>() {
+                global.reset();
+            }
 
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
@@ -268,7 +270,7 @@ impl RouterContextInner {
                         });
 
                         let global_suspense =
-                            expect_context::<GlobalSuspenseContext>();
+                            use_context::<GlobalSuspenseContext>();
                         let path_stack = self.path_stack;
                         let is_navigating_back = self.is_back.get_untracked();
                         if !is_navigating_back {
@@ -283,9 +285,9 @@ impl RouterContextInner {
                         }
                         spawn_local(async move {
                             if let Some(set_is_routing) = set_is_routing {
-                                global_suspense
-                                    .with_inner(|s| s.to_future())
-                                    .await;
+                                if let Some(global) = global_suspense {
+                                    global.with_inner(|s| s.to_future()).await;
+                                }
                                 set_is_routing.0.set(false);
                             }
 
