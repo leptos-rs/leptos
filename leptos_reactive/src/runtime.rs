@@ -1074,6 +1074,7 @@ impl Runtime {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
+    #[track_caller]
     pub(crate) fn resource<S, T, U>(
         &self,
         id: ResourceId,
@@ -1102,7 +1103,10 @@ impl Runtime {
                 );
             }
         } else {
-            panic!("couldn't locate {id:?}");
+            panic!(
+                "couldn't locate {id:?} at {:?}",
+                std::panic::Location::caller()
+            );
         }
     }
 
