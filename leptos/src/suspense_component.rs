@@ -1,8 +1,7 @@
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{
-    create_memo, provide_context, untrack, use_context, SignalGetUntracked,
-    SuspenseContext,
+    create_memo, provide_context, SignalGetUntracked, SuspenseContext,
 };
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 use leptos_reactive::{with_owner, Owner, SharedContext};
@@ -67,9 +66,6 @@ where
     E: IntoView,
     V: IntoView + 'static,
 {
-    #[cfg(feature = "ssr")]
-    let parent_suspense = use_context::<SuspenseContext>();
-
     let orig_children = Rc::new(children);
     let context = SuspenseContext::new();
 
@@ -94,18 +90,6 @@ where
 
     let child = DynChild::new({
         move || {
-            // in SSR, if you have a parent that hasn't resolved
-            // then there's no point rendering children yet;
-            // this is going to be rerendered anyway when parent resolves
-            #[cfg(feature = "ssr")]
-            if cfg!(feature = "ssr") {
-                if let Some(parent_suspense) = parent_suspense {
-                    if !untrack(move || parent_suspense.ready()) {
-                        return ().into_view();
-                    }
-                }
-            }
-
             // pull lazy memo before checking if context is ready
             let children_rendered = children.get_untracked();
 
@@ -172,10 +156,6 @@ where
                                             );
                                             DynChild::new({
                                                 move || {
-                                                    eprintln!(
-                                                        "rendering original \
-                                                         children"
-                                                    );
                                                     orig_children().into_view()
                                                 }
                                             })
