@@ -30,10 +30,15 @@ dependencies = [
 [tasks.test-e2e-with-auto-start]
 script = '''
   if [ -z $(pidof todo_app_sqlite) ]; then
+    cargo make build
     cargo leptos watch &
+    sleep 10
+    cargo make client-status
+    cargo make test-ui
+  else
+    cargo make client-status
+    cargo make test-ui
   fi
-
-  cargo make test-ui
 '''
 
 [tasks.test-ui]
@@ -43,11 +48,11 @@ args = ["make", "test-ui"]
 
 # Support
 
-[tasks.start]
+[tasks.start-client]
 command = "cargo"
 args = ["leptos", "watch"]
 
-[tasks.stop]
+[tasks.stop-client]
 script = '''
   if [ ! -z $(pidof todo_app_sqlite) ]; then
     pkill -f todo_app_sqlite
@@ -58,7 +63,7 @@ script = '''
   fi
 '''
 
-[tasks.status]
+[tasks.client-status]
 script = '''
   if [ -z $(pidof todo_app_sqlite) ]; then
     echo "  todo_app_sqlite is not running"
