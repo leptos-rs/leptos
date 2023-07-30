@@ -2,7 +2,7 @@ use anyhow::Result;
 use cucumber::World;
 use fantoccini::{error::NewSessionError, wd::Capabilities, Client, ClientBuilder};
 
-pub const HOST: &str = "http://localhost:3000";
+pub const HOST: &str = "http://127.0.0.1:3000";
 
 #[derive(Debug, World)]
 // Accepts both sync/async and fallible/infallible functions.
