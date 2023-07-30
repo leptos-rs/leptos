@@ -15,18 +15,19 @@ actix-web = { version = "4", optional = true, features = ["macros"] }
 console_log = "1"
 console_error_panic_hook = "0.1"
 cfg-if = "1"
-leptos = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", features = [
-	"nightly",
+leptos = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/leptos", features = [
 	"islands",
-] }
-leptos_meta = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", features = [
 	"nightly",
 ] }
-leptos_actix = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", optional = true, features = [
+leptos_meta = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/meta", features = [
+	"nightly",
+] }
+leptos_router = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/router", features = [
+	"nightly",
+] }
+leptos_actix = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/integrations/actix", optional = true, features = [
+	#"nonce",
 	"islands",
-] }
-leptos_router = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", features = [
-	"nightly",
 ] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
@@ -75,8 +76,8 @@ style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "0.0.0.0:8080"
-#site-addr = "127.0.0.1:3004"
+#site-addr = "0.0.0.0:8080"
+site-addr = "127.0.0.1:3004"
 # The port to use for automatic reload monitoring
 reload-port = 3005
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
