@@ -379,7 +379,7 @@ impl ToTokens for Model {
                             #name(#island_props)
                         //})
                     }) */
-                    if let Some(Ok(key)) = el.get_attribute("data-hkc").map(|key| std::str::FromStr::from_str(&key)) {
+                    if let Some(Ok(key)) = el.dataset().get(::leptos::wasm_bindgen::intern("data-hkc")).map(|key| std::str::FromStr::from_str(&key)) {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {

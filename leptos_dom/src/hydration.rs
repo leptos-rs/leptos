@@ -257,22 +257,19 @@ impl HydrationCtx {
     }
 
     #[doc(hidden)]
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    #[cfg(all(feature = "hydrate", target_arch = "wasm32", feature = "web"))]
     pub fn with_hydration_on<T>(f: impl FnOnce() -> T) -> T {
         use once_cell::unsync::Lazy as LazyCell;
 
-        #[cfg(feature = "hydrate")]
-        {
-            let prev = IS_HYDRATING.with(|is_hydrating| {
-                std::mem::take(&mut *is_hydrating.borrow_mut())
-            });
-            IS_HYDRATING.with(|is_hydrating| {
-                *is_hydrating.borrow_mut() = LazyCell::new(|| true)
-            });
-            let value = f();
-            IS_HYDRATING.with(|is_hydrating| *is_hydrating.borrow_mut() = prev);
-            value
-        }
+        let prev = IS_HYDRATING.with(|is_hydrating| {
+            std::mem::take(&mut *is_hydrating.borrow_mut())
+        });
+        IS_HYDRATING.with(|is_hydrating| {
+            *is_hydrating.borrow_mut() = LazyCell::new(|| true)
+        });
+        let value = f();
+        IS_HYDRATING.with(|is_hydrating| *is_hydrating.borrow_mut() = prev);
+        value
     }
 
     /// Whether the UI is currently in the process of hydrating from the server-sent HTML.

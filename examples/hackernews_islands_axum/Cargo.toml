@@ -7,78 +7,82 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [profile.release]
-panic = "abort"
+codegen-units = 1
+lto = true
 
 [dependencies]
-actix-files = { version = "0.6", optional = true }
-actix-web = { version = "4", optional = true, features = ["macros"] }
-console_log = "1"
-console_error_panic_hook = "0.1"
-cfg-if = "1"
+console_log = "1.0.0"
+console_error_panic_hook = "0.1.7"
+cfg-if = "1.0.0"
 leptos = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", features = [
-	"nightly",
-	"islands",
+  "nightly",
+  "islands",
 ] }
 leptos_meta = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", features = [
-	"nightly",
+  "nightly",
 ] }
-leptos_actix = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", optional = true, features = [
-	"islands",
+leptos_axum = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", optional = true, features = [
+  "islands",
 ] }
 leptos_router = { git = "https://github.com/leptos-rs/leptos", rev = "1eba12f", features = [
-	"nightly",
+  "nightly",
 ] }
-log = "0.4"
-serde = { version = "1", features = ["derive"] }
-reqwest = { version = "0.11", default-features = false, features = [
-	"rustls-tls",
-	"json",
-] }
+log = "0.4.17"
+simple_logger = "4.0.0"
+serde = { version = "1.0.148", features = ["derive"] }
 tracing = "0.1"
-# openssl = { version = "0.10", features = ["v110"] }
-wasm-bindgen = "0.2"
+gloo-net = { version = "0.2.5", features = ["http"] }
+reqwest = { version = "0.11.13", features = ["json"] }
+axum = { version = "0.6.1", optional = true, features = ["http2"] }
+tower = { version = "0.4.13", optional = true }
+tower-http = { version = "0.4", features = [
+  "fs",
+  "compression-br",
+], optional = true }
+tokio = { version = "1.22.0", features = ["full"], optional = true }
+http = { version = "0.2.8", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
+wasm-bindgen = "0.2"
 wee_alloc = "0.4.5"
+lazy_static = "1.4.0"
 
 [features]
+default = []
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-	"dep:actix-files",
-	"dep:actix-web",
-	"dep:leptos_actix",
-	"leptos/ssr",
-	"leptos_meta/ssr",
-	"leptos_router/ssr",
+  "dep:axum",
+  "dep:tower",
+  "dep:tower-http",
+  "dep:tokio",
+  "dep:http",
+  "leptos/ssr",
+  "leptos_axum",
+  "leptos_meta/ssr",
+  "leptos_router/ssr",
 ]
 
-[profile.wasm-release]
-inherits = "release"
-opt-level = 'z'
-lto = true
-codegen-units = 1
-
 [package.metadata.cargo-all-features]
-denylist = ["actix-files", "actix-web", "leptos_actix"]
+denylist = ["axum", "tower", "tower-http", "tokio", "http", "leptos_axum"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
-# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
 output-name = "hackernews"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
-# Defaults to pkg	
+# Defaults to pkg
 site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
 style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+#site-addr = "127.0.0.1:3000"
 site-addr = "0.0.0.0:8080"
-#site-addr = "127.0.0.1:3004"
 # The port to use for automatic reload monitoring
-reload-port = 3005
+reload-port = 3001
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
 end2end-cmd = "npx playwright test"
 #  The browserlist query used for optimizing the CSS.
@@ -106,5 +110,3 @@ lib-features = ["hydrate"]
 #
 # Optional. Defaults to false.
 lib-default-features = false
-
-lib-profile-release = "wasm-release"
