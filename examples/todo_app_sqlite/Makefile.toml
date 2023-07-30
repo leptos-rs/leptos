@@ -28,18 +28,8 @@ dependencies = [
 ]
 
 [tasks.test-e2e-with-auto-start]
-script = '''
-  if [ -z $(pidof todo_app_sqlite) ]; then
-    cargo make build
-    cargo leptos watch &
-    sleep 10
-    cargo make client-status
-    cargo make test-ui
-  else
-    cargo make client-status
-    cargo make test-ui
-  fi
-'''
+command = "cargo"
+args = ["leptos", "end-to-end"]
 
 [tasks.test-ui]
 cwd = "./e2e"
