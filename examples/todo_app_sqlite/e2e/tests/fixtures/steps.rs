@@ -15,9 +15,19 @@ async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
 #[then(regex = "^I see the page title is (.*)$")]
 async fn i_see_the_page_title_is(
     world: &mut AppWorld,
-    title: String,
+    text: String,
 ) -> Result<()> {
-    check_text_on_element(world, "h1", &title).await?;
+    check_text_on_element(world, "h1", &text).await?;
+
+    Ok(())
+}
+
+#[then(regex = "^I see the label of the input is (.*)$")]
+async fn i_see_the_label_of_the_input_is(
+    world: &mut AppWorld,
+    text: String,
+) -> Result<()> {
+    check_text_on_element(world, "label", &text).await?;
 
     Ok(())
 }
