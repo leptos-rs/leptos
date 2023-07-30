@@ -17,7 +17,6 @@ mod web {
     pub use wasm_bindgen::JsCast;
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 type FxIndexSet<T> =
     indexmap::IndexSet<T, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
@@ -626,20 +625,17 @@ impl Default for DiffOpMove {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct DiffOpAdd {
     at: usize,
     mode: DiffOpAddMode,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug, PartialEq, Eq)]
 struct DiffOpRemove {
     at: usize,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DiffOpAddMode {
     Normal,
@@ -648,7 +644,6 @@ enum DiffOpAddMode {
     _Prepend,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Default for DiffOpAddMode {
     fn default() -> Self {
         Self::Normal
