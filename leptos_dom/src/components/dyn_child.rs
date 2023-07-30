@@ -228,6 +228,10 @@ where
                                         .unchecked_ref::<web_sys::Text>()
                                         .set_data(&new_t.content);
 
+                                    let new_child = View::Text(crate::Text {
+                                        node: prev_t.clone(),
+                                        content: new_t.content.clone(),
+                                    });
                                     **child_borrow = Some(new_child);
 
                                     (Some(prev_t), disposer)
