@@ -222,16 +222,31 @@ where
                         // node
                         let ret = if let Some(prev_t) = prev_t {
                             // Here, our child is also a text node
-                            if let Some(new_t) = new_child.get_text() {
+
+                            // nb: the match/ownership gymnastics here
+                            // are so that, if we can reuse the text node,
+                            // we can take ownership of new_t so we don't clone
+                            // the contents, which in O(n) on the length of the text
+                            if matches!(new_child, View::Text(_)) {
                                 if !was_child_moved && child != new_child {
+                                    let mut new_t = match new_child {
+                                        View::Text(t) => t,
+                                        _ => unreachable!(),
+                                    };
                                     prev_t
                                         .unchecked_ref::<web_sys::Text>()
                                         .set_data(&new_t.content);
 
+                                    // replace new_t's text node with the prev node
+                                    // see discussion: https://github.com/leptos-rs/leptos/pull/1472
+                                    new_t.node = prev_t.clone();
+
+                                    let new_child = View::Text(new_t);
                                     **child_borrow = Some(new_child);
 
                                     (Some(prev_t), disposer)
                                 } else {
+                                    let new_t = new_child.as_text().unwrap();
                                     mount_child(
                                         MountKind::Before(&closing),
                                         &new_child,
