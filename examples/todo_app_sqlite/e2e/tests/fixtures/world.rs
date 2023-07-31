@@ -1,6 +1,8 @@
 use anyhow::Result;
 use cucumber::World;
-use fantoccini::{error::NewSessionError, wd::Capabilities, Client, ClientBuilder};
+use fantoccini::{
+    error::NewSessionError, wd::Capabilities, Client, ClientBuilder,
+};
 
 pub const HOST: &str = "http://127.0.0.1:3000";
 
