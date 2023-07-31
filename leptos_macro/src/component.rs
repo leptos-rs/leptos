@@ -361,25 +361,7 @@ impl ToTokens for Model {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen]
                 #[allow(non_snake_case)]
                 pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
-                    /* ::leptos::mount_to_with_stop_hydrating(el.clone(), false, move || {
-                        ::leptos::web_sys::console::log_1(
-                            &leptos::wasm_bindgen::JsValue::from_str("mounting"),
-                        );
-                        if let Some(Ok(key)) = el.get_attribute("data-hkc").map(|key| std::str::FromStr::from_str(&key)) {
-                            let key: ::leptos::leptos_dom::HydrationKey = key;
-                            ::leptos::web_sys::console::log_4(
-                                &leptos::wasm_bindgen::JsValue::from_str("continuing from "),
-                                &leptos::wasm_bindgen::JsValue::from_str(&key.to_string()),
-                                &leptos::wasm_bindgen::JsValue::from_str("instead of  "),
-                                &leptos::wasm_bindgen::JsValue::from_str(&format!("{:?}", ::leptos::leptos_dom::HydrationCtx::peek_always())),
-                            );
-                            //::leptos::leptos_dom::HydrationCtx::continue_from(key);
-                        }
-                        //::leptos::leptos_dom::HydrationCtx::with_hydration_on(move || {
-                            #name(#island_props)
-                        //})
-                    }) */
-                    if let Some(Ok(key)) = el.dataset().get(::leptos::wasm_bindgen::intern("data-hkc")).map(|key| std::str::FromStr::from_str(&key)) {
+                    if let Some(Ok(key)) = el.dataset().get(::leptos::wasm_bindgen::intern("hkc")).map(|key| std::str::FromStr::from_str(&key)) {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {
