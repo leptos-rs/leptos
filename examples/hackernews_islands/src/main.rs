@@ -66,7 +66,7 @@ cfg_if! {
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), App)
                     .service(Files::new("/", site_root))
-                    //.wrap(middleware::Compress::default())
+                    .wrap(middleware::Compress::default())
             })
             .bind(&addr)?
             .run()
