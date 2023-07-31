@@ -1,6 +1,7 @@
 use super::world::AppWorld;
 use anyhow::Result;
 use fantoccini::Locator;
+use pretty_assertions::assert_eq;
 
 pub async fn check_text_on_element(
     world: &mut AppWorld,
