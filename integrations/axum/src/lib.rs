@@ -635,9 +635,9 @@ where
         // search for this every time
         let listing: &RouteListing =
             paths.iter().find(|r| r.path() == path).expect(
-                "Failed to find the route {path} requested /by the user. This \
+                "Failed to find the route {path} requested by the user. This \
                  suggests that the routing rules in the Router that call this \
-                 functionneed to be edited!",
+                 handler needs to be edited!",
             );
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
