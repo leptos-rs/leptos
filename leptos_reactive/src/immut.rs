@@ -340,4 +340,22 @@ mod tests {
         let s: Immutable<[i32]> = Immutable::Counted(Rc::from([1, 2, 3]));
         assert_eq!(s.as_slice(), [1, 2, 3].as_slice());
     }
+
+    #[test]
+    fn default_for_str_should_return_an_empty_string() {
+        let s: Immutable<str> = Default::default();
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn default_for_slice_should_return_an_empty_slice() {
+        let s: Immutable<[i32]> = Default::default();
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn default_for_any_option_should_return_none() {
+        let s: Immutable<Option<i32>> = Default::default();
+        assert!(s.is_none());
+    }
 }
