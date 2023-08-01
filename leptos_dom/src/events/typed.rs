@@ -126,6 +126,80 @@ impl<E: FromWasmAbi> Custom<E> {
     }
 }
 
+/// TODO: doc
+pub trait DOMEventResponder {
+    /// TODO: doc
+    fn add<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self;
+}
+
+impl<T> DOMEventResponder for crate::HtmlElement<T>
+where
+    T: crate::html::ElementDescriptor + 'static,
+{
+    #[inline(always)]
+    fn add<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self {
+        self.on(event, handler)
+    }
+}
+
+impl DOMEventResponder for crate::View {
+    #[inline(always)]
+    fn add<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self {
+        self.on(event, handler)
+    }
+}
+
+/// TODO: doc
+pub trait EventHandler {
+    /// Attaches event listener to any type that can respond to DOM events
+    fn attach<T: DOMEventResponder>(self, target: T) -> T;
+}
+
+macro_rules! collection_callback {
+  {$(
+    $collection:ident
+  ),* $(,)?} => {
+    $(
+      impl<T> EventHandler for $collection<T>
+      where
+        T: EventHandler
+      {
+        #[inline]
+        fn attach<R: DOMEventResponder>(self, target: R) -> R {
+          let mut target = target;
+          for item in self {
+            target = item.attach(target);
+          }
+          target
+        }
+      }
+    )*
+  };
+}
+
+use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
+
+collection_callback! {
+  Vec,
+  BTreeSet,
+  BinaryHeap,
+  HashSet,
+  LinkedList,
+  VecDeque,
+}
+
 macro_rules! generate_event_types {
   {$(
     $( #[$does_not_bubble:ident] )?
@@ -155,18 +229,44 @@ macro_rules! generate_event_types {
         }
       )*
 
+      $(
+        #[doc = "Struct mapping [`struct@" [< $($event)+ >] "`] to its event handler type."]
+        pub struct [< $($event:camel)+ Handler >]<F: FnMut($web_event) + 'static> {
+          /// The event
+          pub event: [< $($event)+ >],
+          /// The handler
+          pub handler: F
+        }
+        impl<F: FnMut($web_event) + 'static> EventHandler for [< $($event:camel)+ Handler >]<F> {
+          fn attach<T: DOMEventResponder>(self, target: T) -> T {
+            target.add(self.event, self.handler)
+          }
+        }
+        impl<F> From<([< $($event)+ >], F)> for [< $($event:camel)+ Handler >]<F>
+        where
+          F: FnMut($web_event) + 'static
+        {
+          fn from(value: ([< $($event)+ >], F)) -> Self {
+            Self {
+              event: value.0,
+              handler: value.1
+            }
+          }
+        }
+      )*
+
       /// An enum holding all basic event types with their respective handlers.
       ///
       /// It currently omits [`Custom`] and [`undelegated`] variants.
       #[non_exhaustive]
-      pub enum EventHandler {
+      pub enum GenericEventHandler {
         $(
           #[doc = "Variant mapping [`struct@" [< $($event)+ >] "`] to its event handler type."]
           [< $($event:camel)+ >]([< $($event)+ >], Box<dyn FnMut($web_event) + 'static>),
         )*
       }
 
-      impl ::std::fmt::Debug for EventHandler {
+      impl ::std::fmt::Debug for GenericEventHandler {
         fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
           match self {
             $(
@@ -180,31 +280,23 @@ macro_rules! generate_event_types {
         }
       }
 
-      impl crate::IntoEventHandler for EventHandler {
-        #[inline(always)]
-        fn into_event_handler(self) -> EventHandler {
-          self
+      impl EventHandler for GenericEventHandler {
+        fn attach<T: DOMEventResponder>(self, target: T) -> T {
+          match self {
+            $(
+              Self::[< $($event:camel)+ >](event, handler) => target.add(event, handler),
+            )*
+          }
         }
       }
 
       $(
-        impl<T> crate::IntoEventHandler for ([< $($event)+ >], T)
+        impl<F> EventHandler for ([< $($event)+ >], F)
         where
-          T: FnMut($web_event) + 'static
+          F: FnMut($web_event) + 'static
         {
-          #[inline]
-          fn into_event_handler(self) -> EventHandler {
-            EventHandler::[< $($event:camel)+ >](self.0, Box::new(self.1))
-          }
-        }
-        // TODO: figure out if this is even desirable, could be bit confusing
-        impl<T> crate::IntoEventHandler for (T, [< $($event)+ >])
-        where
-          T: FnMut($web_event) + 'static
-        {
-          #[inline]
-          fn into_event_handler(self) -> EventHandler {
-            EventHandler::[< $($event:camel)+ >](self.1, Box::new(self.0))
+          fn attach<L: DOMEventResponder>(self, target: L) -> L {
+            target.add(self.0, self.1)
           }
         }
       )*
