@@ -146,8 +146,8 @@ pub fn style_helper(
     name: Immutable<'static, str>,
     value: Style,
 ) {
-    use std::ops::Deref;
     use leptos_reactive::create_render_effect;
+    use std::ops::Deref;
     use wasm_bindgen::JsCast;
 
     let el = el.unchecked_ref::<web_sys::HtmlElement>();
