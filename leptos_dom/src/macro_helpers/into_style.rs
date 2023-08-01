@@ -164,16 +164,16 @@ pub fn style_helper(
                     _ => unreachable!(),
                 };
                 if old.as_ref() != Some(&new) {
-                    style_expression(&style_list, &name, new.as_ref(), true)
+                    style_expression(&style_list, &name, new.as_deref(), true)
                 }
                 new
             });
         }
         Style::Value(value) => {
-            style_expression(&style_list, &name, Some(&value), false)
+            style_expression(&style_list, &name, Some(value.deref()), false)
         }
         Style::Option(value) => {
-            style_expression(&style_list, &name, value.as_ref(), false)
+            style_expression(&style_list, &name, value.as_deref(), false)
         }
     };
 }
@@ -183,7 +183,7 @@ pub fn style_helper(
 pub(crate) fn style_expression(
     style_list: &web_sys::CssStyleDeclaration,
     style_name: &str,
-    value: Option<Immutable<'static, str>>,
+    value: Option<&str>,
     force: bool,
 ) {
     use crate::HydrationCtx;
@@ -192,7 +192,7 @@ pub(crate) fn style_expression(
         let style_name = wasm_bindgen::intern(style_name);
 
         if let Some(value) = value {
-            if let Err(e) = style_list.set_property(style_name, &value) {
+            if let Err(e) = style_list.set_property(style_name, value) {
                 crate::error!("[HtmlElement::style()] {e:?}");
             }
         } else {

@@ -315,7 +315,7 @@ attr_type!(char);
 #[inline(never)]
 pub fn attribute_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Immutable<'static, str>,
     value: Attribute,
 ) {
     use leptos_reactive::create_render_effect;

@@ -251,7 +251,7 @@ cfg_if! {
     pub struct Element {
       #[doc(hidden)]
       #[cfg(debug_assertions)]
-      pub name: Cow<'static, str>,
+      pub name: Immutable<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
       #[cfg(debug_assertions)]
