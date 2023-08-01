@@ -126,14 +126,19 @@ impl<E: FromWasmAbi> Custom<E> {
     }
 }
 
-/// TODO: doc
-pub trait DOMEventResponder {
-    /// TODO: doc
+/// Type that can respond to DOM events
+pub trait DOMEventResponder: Sized {
+    /// Adds handler to specified event
     fn add<E: EventDescriptor + 'static>(
         self,
         event: E,
         handler: impl FnMut(E::EventType) + 'static,
     ) -> Self;
+    /// Same as [add](DOMEventResponder::add), but with [`EventHandler`]
+    #[inline]
+    fn add_handler(self, handler: impl EventHandler) -> Self {
+        handler.attach(self)
+    }
 }
 
 impl<T> DOMEventResponder for crate::HtmlElement<T>
@@ -161,7 +166,7 @@ impl DOMEventResponder for crate::View {
     }
 }
 
-/// TODO: doc
+/// Type that can be used to handle DOM events
 pub trait EventHandler {
     /// Attaches event listener to any type that can respond to DOM events
     fn attach<T: DOMEventResponder>(self, target: T) -> T;
