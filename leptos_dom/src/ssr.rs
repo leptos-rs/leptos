@@ -9,7 +9,7 @@ use crate::{
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::*;
+use leptos_reactive::{immut::Immutable, *};
 use std::{borrow::Cow, pin::Pin};
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -386,7 +386,7 @@ impl View {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
+    pub fn render_to_string(self, _cx: Scope) -> Immutable<'static, str> {
         #[cfg(all(feature = "web", feature = "ssr"))]
         crate::console_error(
             "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
@@ -404,7 +404,7 @@ impl View {
     pub(crate) fn render_to_string_helper(
         self,
         dont_escape_text: bool,
-    ) -> Cow<'static, str> {
+    ) -> Immutable<'static, str> {
         match self {
             View::Text(node) => {
                 if dont_escape_text {
@@ -473,7 +473,7 @@ impl View {
                             )
                             .into()
                         })
-                            as Box<dyn FnOnce() -> Cow<'static, str>>,
+                            as Box<dyn FnOnce() -> Immutable<'static, str>>,
                     ),
                     CoreComponent::DynChild(node) => {
                         let child = node.child.take();
@@ -505,7 +505,7 @@ impl View {
                                     "".into()
                                 }
                             })
-                                as Box<dyn FnOnce() -> Cow<'static, str>>,
+                                as Box<dyn FnOnce() -> Immutable<'static, str>>,
                         )
                     }
                     CoreComponent::Each(node) => {
@@ -548,7 +548,7 @@ impl View {
                                     .join("")
                                     .into()
                             })
-                                as Box<dyn FnOnce() -> Cow<'static, str>>,
+                                as Box<dyn FnOnce() -> Immutable<'static, str>>,
                         )
                     }
                 };

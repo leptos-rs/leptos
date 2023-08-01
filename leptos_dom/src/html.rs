@@ -66,7 +66,7 @@ use crate::{
     macro_helpers::{IntoAttribute, IntoClass, IntoProperty, IntoStyle},
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
-use leptos_reactive::Scope;
+use leptos_reactive::{immut::Immutable, Scope};
 use std::{borrow::Cow, fmt};
 
 /// Trait which allows creating an element tag.
@@ -314,14 +314,14 @@ cfg_if! {
         #[educe(Default)]
         Empty,
         Children(Vec<View>),
-        InnerHtml(Cow<'static, str>),
+        InnerHtml(Immutable<'static, str>),
         Chunks(Vec<StringOrView>)
     }
 
     #[doc(hidden)]
     #[derive(Clone)]
     pub enum StringOrView {
-        String(Cow<'static, str>),
+        String(Immutable<'static, str>),
         View(std::rc::Rc<dyn Fn() -> View>)
     }
 
@@ -1030,7 +1030,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// sanitize the input to avoid a cross-site scripting (XSS)
     /// vulnerability.
     #[inline(always)]
-    pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
+    pub fn inner_html(self, html: impl Into<Immutable<'static, str>>) -> Self {
         let html = html.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1121,7 +1121,7 @@ pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
 
 /// Creates a text node.
 #[inline(always)]
-pub fn text(text: impl Into<Cow<'static, str>>) -> Text {
+pub fn text(text: impl Into<Immutable<'static, str>>) -> Text {
     Text::new(text.into())
 }
 

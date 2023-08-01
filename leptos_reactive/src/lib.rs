@@ -80,6 +80,7 @@ mod context;
 mod diagnostics;
 mod effect;
 mod hydration;
+pub mod immut;
 mod memo;
 mod node;
 mod resource;

@@ -24,7 +24,6 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
-pub mod immut;
 use cfg_if::cfg_if;
 pub use components::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -35,7 +34,7 @@ use events::{add_event_listener, add_event_listener_undelegated};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-use leptos_reactive::Scope;
+use leptos_reactive::{immut::Immutable, Scope};
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
@@ -476,12 +475,13 @@ pub struct Text {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node: web_sys::Node,
     /// The current contents of the text node.
-    pub content: Cow<'static, str>,
+    pub content: Immutable<'static, str>,
 }
 
 impl fmt::Debug for Text {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.content)
+        fmt::Debug::fmt(&self.content, f)
     }
 }
 
@@ -494,7 +494,7 @@ impl IntoView for Text {
 
 impl Text {
     /// Creates a new [`Text`].
-    pub fn new(content: Cow<'static, str>) -> Self {
+    pub fn new(content: Immutable<'static, str>) -> Self {
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             node: crate::document()

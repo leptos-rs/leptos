@@ -70,10 +70,12 @@ impl<T: ?Sized> Clone for Immutable<'_, T> {
 
 impl<T: ?Sized> Default for Immutable<'_, T>
 where
-    Rc<T>: Default,
+    T: ToOwned,
+    T::Owned: Default,
+    Rc<T>: From<T::Owned>,
 {
     fn default() -> Self {
-        Immutable::Counted(Rc::default())
+        Immutable::Counted(Rc::from(T::Owned::default()))
     }
 }
 
@@ -151,6 +153,18 @@ where
     }
 }
 
+impl<'a, T: ?Sized> From<Immutable<'a, T>> for Cow<'a, T>
+where
+    T: ToOwned,
+{
+    fn from(value: Immutable<'a, T>) -> Self {
+        match value {
+            Immutable::Borrowed(v) => Cow::Borrowed(v),
+            Immutable::Counted(v) => Cow::Owned(v.as_ref().to_owned()),
+        }
+    }
+}
+
 impl<T: ?Sized> From<Rc<T>> for Immutable<'_, T> {
     fn from(v: Rc<T>) -> Self {
         Immutable::Counted(v)
@@ -166,6 +180,15 @@ impl<T: ?Sized> From<Box<T>> for Immutable<'_, T> {
 impl From<String> for Immutable<'_, str> {
     fn from(v: String) -> Self {
         Immutable::Counted(v.into())
+    }
+}
+
+impl From<Immutable<'_, str>> for String {
+    fn from(v: Immutable<'_, str>) -> Self {
+        match v {
+            Immutable::Borrowed(v) => v.to_owned(),
+            Immutable::Counted(v) => v.as_ref().to_owned(),
+        }
     }
 }
 
@@ -234,7 +257,7 @@ impl<'a, 'b> Add<&'b str> for Immutable<'a, str> {
     type Output = Immutable<'static, str>;
 
     fn add(self, rhs: &'b str) -> Self::Output {
-        Immutable::Counted(Rc::from(self.to_string() + rhs))
+        Immutable::Counted(Rc::from(String::from(self) + rhs))
     }
 }
 
@@ -242,7 +265,7 @@ impl<'a, 'b> Add<Cow<'b, str>> for Immutable<'a, str> {
     type Output = Immutable<'static, str>;
 
     fn add(self, rhs: Cow<'b, str>) -> Self::Output {
-        Immutable::Counted(Rc::from(self.to_string() + rhs.as_ref()))
+        Immutable::Counted(Rc::from(String::from(self) + rhs.as_ref()))
     }
 }
 
@@ -250,7 +273,13 @@ impl<'a, 'b> Add<Immutable<'b, str>> for Immutable<'a, str> {
     type Output = Immutable<'static, str>;
 
     fn add(self, rhs: Immutable<'b, str>) -> Self::Output {
-        Immutable::Counted(Rc::from(self.to_string() + rhs.as_ref()))
+        Immutable::Counted(Rc::from(String::from(self) + rhs.as_ref()))
+    }
+}
+
+impl<'a> FromIterator<Immutable<'a, str>> for String {
+    fn from_iter<T: IntoIterator<Item = Immutable<'a, str>>>(iter: T) -> Self {
+        iter.into_iter().map(String::from).collect()
     }
 }
 
