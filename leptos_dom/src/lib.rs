@@ -24,6 +24,7 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
+pub mod immut;
 use cfg_if::cfg_if;
 pub use components::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
