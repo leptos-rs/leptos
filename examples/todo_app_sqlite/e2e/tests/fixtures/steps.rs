@@ -1,12 +1,20 @@
 use super::{
-    actions::{click_add_button, fill_todo, goto_path},
+    actions::{click_add_button, empty_todo_list, fill_todo, goto_path},
     checks::check_text_on_element,
     world::AppWorld,
 };
 use anyhow::{Ok, Result};
 use cucumber::{given, then, when};
 
+#[when("I empty the todo list")]
+async fn the_todo_list_is_empty(world: &mut AppWorld) -> Result<()> {
+    empty_todo_list(world).await?;
+
+    Ok(())
+}
+
 #[given("I see the app")]
+#[given("I open the app")]
 #[when("I open the app")]
 async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
     goto_path(world, "").await?;
@@ -54,6 +62,16 @@ async fn i_see_the_last_todo_is(
     text: String,
 ) -> Result<()> {
     check_text_on_element(world, "li:last-child", &text).await?;
+
+    Ok(())
+}
+
+#[then(regex = "^I see the empty list message is (.*)$")]
+async fn i_see_the_no_todo_message_is(
+    world: &mut AppWorld,
+    text: String,
+) -> Result<()> {
+    check_text_on_element(world, "ul p", &text).await?;
 
     Ok(())
 }

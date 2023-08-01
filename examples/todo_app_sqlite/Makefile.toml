@@ -34,7 +34,7 @@ args = ["leptos", "end-to-end"]
 [tasks.test-ui]
 cwd = "./e2e"
 command = "cargo"
-args = ["make", "test-ui"]
+args = ["make", "test-ui", "${@}"]
 
 # Support
 

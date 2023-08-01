@@ -9,7 +9,14 @@ pub async fn check_text_on_element(
     expected_text: &str,
 ) -> Result<()> {
     let client = &world.client;
-    let element = client.wait().for_element(Locator::Css(selector)).await?;
+    let element = client
+        .wait()
+        .for_element(Locator::Css(selector))
+        .await
+        .expect(
+            format!("Element not found by Css selector `{}`", selector)
+                .as_str(),
+        );
 
     let actual = element.text().await?;
     assert_eq!(&actual, expected_text);
