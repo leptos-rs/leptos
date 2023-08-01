@@ -102,6 +102,7 @@ pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
 pub use hydration::FragmentData;
+pub use immut::*;
 pub use memo::*;
 pub use resource::*;
 use runtime::*;

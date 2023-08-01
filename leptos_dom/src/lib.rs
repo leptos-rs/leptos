@@ -34,7 +34,7 @@ use events::{add_event_listener, add_event_listener_undelegated};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-use leptos_reactive::{immut::Immutable, Scope};
+use leptos_reactive::{Immutable, Scope};
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
@@ -272,9 +272,9 @@ cfg_if! {
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
-      name: Cow<'static, str>,
+      name: Immutable<'static, str>,
       is_void: bool,
-      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      attrs: SmallVec<[(Immutable<'static, str>, Immutable<'static, str>); 4]>,
       children: ElementChildren,
       id: HydrationKey,
       #[cfg(debug_assertions)]

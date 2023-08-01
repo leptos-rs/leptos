@@ -1,13 +1,13 @@
-use leptos_reactive::Scope;
+use leptos_reactive::{Immutable, Scope};
 use std::{borrow::Cow, rc::Rc};
 
 /// todo docs
 #[derive(Clone)]
 pub enum Style {
     /// A plain string value.
-    Value(Cow<'static, str>),
+    Value(Immutable<'static, str>),
     /// An optional string value, which sets the property to the value if `Some` and removes the property if `None`.
-    Option(Option<Cow<'static, str>>),
+    Option(Option<Immutable<'static, str>>),
     /// A (presumably reactive) function, which will be run inside an effect to update the style.
     Fn(Scope, Rc<dyn Fn() -> Style>),
 }
@@ -53,17 +53,45 @@ impl IntoStyle for String {
     }
 }
 
+impl IntoStyle for Cow<'static, str> {
+    #[inline(always)]
+    fn into_style(self, _cx: Scope) -> Style {
+        Style::Value(self.into())
+    }
+}
+
+impl IntoStyle for Immutable<'static, str> {
+    #[inline(always)]
+    fn into_style(self, _cx: Scope) -> Style {
+        Style::Value(self)
+    }
+}
+
 impl IntoStyle for Option<&'static str> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
-        Style::Option(self.map(Cow::Borrowed))
+        Style::Option(self.map(Immutable::Borrowed))
     }
 }
 
 impl IntoStyle for Option<String> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
-        Style::Option(self.map(Cow::Owned))
+        Style::Option(self.map(Immutable::from))
+    }
+}
+
+impl IntoStyle for Option<Cow<'static, str>> {
+    #[inline(always)]
+    fn into_style(self, _cx: Scope) -> Style {
+        Style::Option(self.map(Immutable::from))
+    }
+}
+
+impl IntoStyle for Option<Immutable<'static, str>> {
+    #[inline(always)]
+    fn into_style(self, _cx: Scope) -> Style {
+        Style::Option(self)
     }
 }
 
@@ -84,7 +112,7 @@ impl Style {
     pub fn as_value_string(
         &self,
         style_name: &'static str,
-    ) -> Option<Cow<'static, str>> {
+    ) -> Option<Immutable<'static, str>> {
         match self {
             Style::Value(value) => {
                 Some(format!("{style_name}: {value};").into())
@@ -115,7 +143,7 @@ impl<T: IntoStyle> IntoStyle for (Scope, T) {
 #[inline(never)]
 pub fn style_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Immutable<'static, str>,
     value: Style,
 ) {
     use leptos_reactive::create_render_effect;
@@ -155,7 +183,7 @@ pub fn style_helper(
 pub(crate) fn style_expression(
     style_list: &web_sys::CssStyleDeclaration,
     style_name: &str,
-    value: Option<&Cow<'static, str>>,
+    value: Option<Immutable<'static, str>>,
     force: bool,
 ) {
     use crate::HydrationCtx;

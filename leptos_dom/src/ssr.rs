@@ -9,8 +9,8 @@ use crate::{
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::{immut::Immutable, *};
-use std::{borrow::Cow, pin::Pin};
+use leptos_reactive::{Immutable, *};
+use std::pin::Pin;
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
@@ -30,7 +30,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn render_to_string<F, N>(f: F) -> String
+pub fn render_to_string<F, N>(f: F) -> Immutable<'static, str>
 where
     F: FnOnce(Scope) -> N + 'static,
     N: IntoView,
@@ -44,7 +44,7 @@ where
 
     runtime.dispose();
 
-    html.into()
+    html
 }
 
 /// Renders a function to a stream of HTML strings.
@@ -89,7 +89,7 @@ pub fn render_to_stream(
 )]
 pub fn render_to_stream_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     let (stream, runtime, _) =
         render_to_stream_with_prefix_undisposed(view, prefix);
@@ -118,7 +118,7 @@ pub fn render_to_stream_with_prefix(
 )]
 pub fn render_to_stream_with_prefix_undisposed(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
     render_to_stream_with_prefix_undisposed_with_context(view, prefix, |_cx| {})
 }
@@ -144,7 +144,7 @@ pub fn render_to_stream_with_prefix_undisposed(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
     additional_context: impl FnOnce(Scope) + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
     render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
@@ -181,7 +181,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
     additional_context: impl FnOnce(Scope) + 'static,
     replace_blocks: bool,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
@@ -592,15 +592,15 @@ impl View {
                         .join("")
                         .into()
                 } else {
-                    let tag_name = el.name;
+                    let tag_name: Immutable<'_, str> = el.name;
 
-                    let mut inner_html = None;
+                    let mut inner_html: Option<Immutable<'_, str>> = None;
 
                     let attrs = el
                         .attrs
                         .into_iter()
                         .filter_map(
-                            |(name, value)| -> Option<Cow<'static, str>> {
+                            |(name, value)| -> Option<Immutable<'static, str>> {
                                 if value.is_empty() {
                                     Some(format!(" {name}").into())
                                 } else if name == "inner_html" {
@@ -609,9 +609,9 @@ impl View {
                                 } else {
                                     Some(
                                         format!(
-                    " {name}=\"{}\"",
-                    html_escape::encode_double_quoted_attribute(&value)
-                  )
+                                            " {name}=\"{}\"",
+                                            html_escape::encode_double_quoted_attribute(&value)
+                                        )
                                         .into(),
                                     )
                                 }
@@ -722,9 +722,9 @@ pub(crate) fn render_serializers(
 }
 
 #[doc(hidden)]
-pub fn escape_attr<T>(value: &T) -> Cow<'_, str>
+pub fn escape_attr<T>(value: &T) -> Immutable<'_, str>
 where
     T: AsRef<str>,
 {
-    html_escape::encode_double_quoted_attribute(value)
+    html_escape::encode_double_quoted_attribute(value).into()
 }

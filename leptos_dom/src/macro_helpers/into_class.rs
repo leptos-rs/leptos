@@ -69,14 +69,14 @@ impl<T: IntoClass> IntoClass for (Scope, T) {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
+use leptos_reactive::Immutable;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
 #[inline(never)]
 pub fn class_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Immutable<'static, str>,
     value: Class,
 ) {
     use crate::HydrationCtx;

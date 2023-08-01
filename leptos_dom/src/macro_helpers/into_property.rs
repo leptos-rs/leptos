@@ -81,13 +81,13 @@ prop_type!(f64);
 prop_type!(bool);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
+use leptos_reactive::Immutable;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[inline(never)]
 pub(crate) fn property_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Immutable<'static, str>,
     value: Property,
 ) {
     use leptos_reactive::create_render_effect;
