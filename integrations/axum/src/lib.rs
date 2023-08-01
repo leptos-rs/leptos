@@ -630,11 +630,15 @@ where
     move |req| {
         let uri = req.uri();
         // 1. Process route to match the values in routeListing
-        let path = uri.path_and_query().unwrap().as_str();
+        let path = uri.path();
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
         let listing: &RouteListing =
-            paths.iter().find(|r| r.path() == path).unwrap();
+            paths.iter().find(|r| r.path() == path).expect(
+                "Failed to find the route {path} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler needs to be edited!",
+            );
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
             SsrMode::OutOfOrder => ooo(req),
