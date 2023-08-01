@@ -630,7 +630,7 @@ where
     move |req| {
         let uri = req.uri();
         // 1. Process route to match the values in routeListing
-        let path = uri.path().unwrap().as_str();
+        let path = uri.path();
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
         let listing: &RouteListing =
