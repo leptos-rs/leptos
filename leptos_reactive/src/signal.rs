@@ -1211,6 +1211,12 @@ impl<T> Hash for RwSignal<T> {
     }
 }
 
+impl<T> From<T> for RwSignal<T> {
+    fn from(value: T) -> Self {
+        create_rw_signal(value)
+    }
+}
+
 impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),

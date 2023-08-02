@@ -406,6 +406,25 @@ impl<T> From<Memo<T>> for Signal<T> {
     }
 }
 
+impl<T: Clone> From<T> for Signal<T> {
+    #[track_caller]
+    fn from(value: T) -> Self {
+        Self {
+            inner: SignalTypes::DerivedSignal(store_value(Box::new(
+                move || value.clone(),
+            ))),
+            #[cfg(any(debug_assertions, feature = "ssr"))]
+            defined_at: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<&str> for Signal<String> {
+    fn from(value: &str) -> Self {
+        Self::from(value.to_string())
+    }
+}
+
 enum SignalTypes<T>
 where
     T: 'static,
