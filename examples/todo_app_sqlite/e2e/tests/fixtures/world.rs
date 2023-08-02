@@ -11,6 +11,7 @@ pub const HOST: &str = "http://127.0.0.1:3000";
 #[world(init = Self::new)]
 pub struct AppWorld {
     pub client: Client,
+    pub todo_count: usize,
 }
 
 impl AppWorld {
@@ -19,6 +20,7 @@ impl AppWorld {
 
         Ok(Self {
             client: webdriver_client,
+            todo_count: 0,
         })
     }
 }
