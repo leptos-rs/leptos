@@ -405,14 +405,11 @@ impl View {
         self,
         dont_escape_text: bool,
     ) -> Cow<'static, str> {
-        println!("render_to_string_helper {:?}", self);
         match self {
             View::Text(node) => {
                 if dont_escape_text {
-                    println!("don't escape {:?}", node.content);
                     node.content
                 } else {
-                    println!("encode_safe {:?}", node.content);
                     html_escape::encode_safe(&node.content).to_string().into()
                 }
             }
