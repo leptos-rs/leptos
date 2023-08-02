@@ -1,10 +1,29 @@
 use super::{
-    actions::{click_add_button, empty_todo_list, fill_todo, goto_path},
+    actions::{
+        click_add_button, delete_last_todo, empty_todo_list, fill_todo,
+        goto_path,
+    },
     checks::check_text_on_element,
     world::AppWorld,
 };
 use anyhow::{Ok, Result};
 use cucumber::{given, then, when};
+
+#[given(regex = "^I add a todo titled (.*)$")]
+async fn i_add_a_todo_titled(world: &mut AppWorld, text: String) -> Result<()> {
+    fill_todo(world, &text).await?;
+    click_add_button(world).await?;
+
+    Ok(())
+}
+
+// I delete the last todo
+#[when("I delete the last todo")]
+async fn i_delete_the_last_todo(world: &mut AppWorld) -> Result<()> {
+    delete_last_todo(world).await?;
+
+    Ok(())
+}
 
 #[when("I empty the todo list")]
 async fn the_todo_list_is_empty(world: &mut AppWorld) -> Result<()> {
