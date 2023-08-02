@@ -19,7 +19,7 @@ async fn main() {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(|| view! { <App/> }).await;
+    let routes = generate_route_list(App);
 
     // build our application with a route
     let app = Router::new()
