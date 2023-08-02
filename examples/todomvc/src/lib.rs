@@ -1,10 +1,8 @@
 use leptos::{html::Input, leptos_dom::helpers::location_hash, *};
-use storage::TodoSerialized;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-mod storage;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Todos(pub Vec<Todo>);
 
 const STORAGE_KEY: &str = "todos-leptos";
@@ -12,25 +10,17 @@ const STORAGE_KEY: &str = "todos-leptos";
 // Basic operations to manipulate the todo list: nothing really interesting here
 impl Todos {
     pub fn new() -> Self {
-        let starting_todos = if let Ok(Some(storage)) = window().local_storage()
-        {
-            storage
-                .get_item(STORAGE_KEY)
+        let starting_todos =
+            window()
+                .local_storage()
                 .ok()
                 .flatten()
-                .and_then(|value| {
-                    serde_json::from_str::<Vec<TodoSerialized>>(&value).ok()
+                .and_then(|storage| {
+                    storage.get_item(STORAGE_KEY).ok().flatten().and_then(
+                        |value| serde_json::from_str::<Vec<Todo>>(&value).ok(),
+                    )
                 })
-                .map(|values| {
-                    values
-                        .into_iter()
-                        .map(|stored| stored.into_todo())
-                        .collect()
-                })
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        };
+                .unwrap_or_default();
         Self(starting_todos)
     }
 
@@ -102,7 +92,7 @@ impl Default for Todos {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Todo {
     pub id: Uuid,
     pub title: RwSignal<String>,
@@ -209,14 +199,8 @@ pub fn TodoMVC() -> impl IntoView {
     // with something outside the reactive system (like localStorage)
     create_effect(move |_| {
         if let Ok(Some(storage)) = window().local_storage() {
-            let objs = todos
-                .get()
-                .0
-                .iter()
-                .map(TodoSerialized::from)
-                .collect::<Vec<_>>();
-            let json =
-                serde_json::to_string(&objs).expect("couldn't serialize Todos");
+            let json = serde_json::to_string(&todos)
+                .expect("couldn't serialize Todos");
             if storage.set_item(STORAGE_KEY, &json).is_err() {
                 log::error!("error while trying to set item in localStorage");
             }

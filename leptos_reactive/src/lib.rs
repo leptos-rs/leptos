@@ -88,6 +88,8 @@ mod node;
 mod resource;
 mod runtime;
 mod selector;
+#[cfg(any(doc, feature = "serde"))]
+mod serde;
 mod serialization;
 mod signal_wrappers_read;
 mod signal_wrappers_write;

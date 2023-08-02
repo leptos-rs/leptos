@@ -867,7 +867,7 @@ impl From<&str> for MaybeSignal<String> {
 /// # runtime.dispose();
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MaybeProp<T: 'static>(Option<MaybeSignal<Option<T>>>);
+pub struct MaybeProp<T: 'static>(pub(crate) Option<MaybeSignal<Option<T>>>);
 
 impl<T: Copy> Copy for MaybeProp<T> {}
 
