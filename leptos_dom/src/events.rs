@@ -48,8 +48,8 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn add_event_listener<E>(
     target: &web_sys::Element,
-    key: Cow<'static, str>,
-    event_name: Cow<'static, str>,
+    key: Oco<'static, str>,
+    event_name: Oco<'static, str>,
     #[cfg(debug_assertions)] mut cb: Box<dyn FnMut(E)>,
     #[cfg(not(debug_assertions))] cb: Box<dyn FnMut(E)>,
     options: &Option<web_sys::AddEventListenerOptions>,

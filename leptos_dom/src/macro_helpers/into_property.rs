@@ -87,7 +87,7 @@ use leptos_reactive::Oco;
 #[inline(never)]
 pub(crate) fn property_helper(
     el: &web_sys::Element,
-    name: Immutable<'static, str>,
+    name: Oco<'static, str>,
     value: Property,
 ) {
     use leptos_reactive::create_render_effect;
