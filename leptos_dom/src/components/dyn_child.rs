@@ -233,7 +233,7 @@ where
                                 let new_child = View::Text(new_t);
                                 **child_borrow = Some(new_child);
 
-                                (Some(prev_t), disposer)
+                                Some(prev_t)
                             } else {
                                 let new_t = new_child.as_text().unwrap();
                                 mount_child(
