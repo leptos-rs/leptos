@@ -26,6 +26,15 @@ pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
 }
 
 impl<T: ?Sized + ToOwned> Oco<'_, T> {
+    /// Converts the value into an owned value.
+    pub fn into_owned(self) -> <T as ToOwned>::Owned {
+        match self {
+            Oco::Borrowed(v) => v.to_owned(),
+            Oco::Counted(v) => v.as_ref().to_owned(),
+            Oco::Owned(v) => v,
+        }
+    }
+
     /// Checks if the value is [`Oco::Borrowed`].
     /// # Examples
     /// ```
@@ -94,6 +103,13 @@ impl<T: ?Sized + ToOwned> AsRef<T> for Oco<'_, T> {
 
 impl Oco<'_, str> {
     /// Returns a `&str` slice of this [`Oco`].
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::Borrowed("Hello");
+    /// let s: &str = oco.as_str();
+    /// assert_eq!(s, "Hello");
+    /// ```
     #[inline(always)]
     pub fn as_str(&self) -> &str {
         self
@@ -105,6 +121,13 @@ where
     [T]: ToOwned,
 {
     /// Returns a `&[T]` slice of this [`Oco`].
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<[u8]>::Borrowed(b"Hello");
+    /// let s: &[u8] = oco.as_slice();
+    /// assert_eq!(s, b"Hello");
+    /// ```
     #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
         self
@@ -325,6 +348,21 @@ impl<'a> From<Oco<'a, str>> for Oco<'a, [u8]> {
 impl<'a> TryFrom<Oco<'a, [u8]>> for Oco<'a, str> {
     type Error = FromUtf8Error;
 
+    /// Converts a `Oco<'a, [u8]>` into a `Oco<'a, str>` without copying or allocating.
+    /// This is a fallible conversion, as the bytes must be valid UTF-8.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// # use std::rc::Rc;
+    /// let s = Rc::<[u8]>::from(b"hello".as_slice());
+    /// let oco = Oco::<[u8]>::from(s.clone());
+    /// assert!(oco.is_counted());
+    /// let oco_str = Oco::<str>::try_from(oco).unwrap();
+    /// assert_eq!(oco_str.as_bytes(), s.as_ref());
+    /// assert!(oco_str.is_counted());
+    /// ```
+    /// # Errors
+    /// Returns an error if the bytes are not valid UTF-8.
     fn try_from(value: Oco<'a, [u8]>) -> Result<Self, Self::Error> {
         match value {
             Oco::Borrowed(v) => Ok(Oco::Borrowed(std::str::from_utf8(v)?)),
