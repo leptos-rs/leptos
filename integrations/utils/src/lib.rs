@@ -14,7 +14,7 @@ fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
             r#"
                 <script crossorigin=""{nonce_str}>(function () {{
                     {}
-                    var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+                    let ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
                         if (msg.all) window.location.reload();
