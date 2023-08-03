@@ -357,7 +357,7 @@ fn fragments_to_chunks(
         r#"
                 <template id="{fragment_id}f">{html}</template>
                 <script{nonce_str}>
-                    let id = "{fragment_id}";
+                    (function() {{ let id = "{fragment_id}";
                     let open = undefined;
                     let close = undefined;
                     let walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
@@ -373,7 +373,7 @@ fn fragments_to_chunks(
                     range.setEndBefore(close);
                     range.deleteContents();
                     let tpl = document.getElementById("{fragment_id}f");
-                    close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
+                    close.parentNode.insertBefore(tpl.content.cloneNode(true), close);}})()
                 </script>
                 "#
       )
@@ -718,12 +718,12 @@ pub(crate) fn render_serializers(
         let json = json.replace('<', "\\u003c");
         format!(
             r#"<script{nonce_str}>
-                  let val = {json:?};
+                  (function() {{ let val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)
                   }} else {{
                       __LEPTOS_RESOLVED_RESOURCES.set({id}, val);
-                  }}
+                  }} }})();
               </script>"#,
         )
     })
