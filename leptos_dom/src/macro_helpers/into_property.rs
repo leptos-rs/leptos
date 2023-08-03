@@ -81,7 +81,7 @@ prop_type!(f64);
 prop_type!(bool);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use leptos_reactive::Immutable;
+use leptos_reactive::Oco;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[inline(never)]

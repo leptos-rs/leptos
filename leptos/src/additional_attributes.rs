@@ -1,10 +1,11 @@
 use crate::TextProp;
+use std::rc::Rc;
 
 /// A collection of additional HTML attributes to be applied to an element,
 /// each of which may or may not be reactive.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 #[repr(transparent)]
-pub struct AdditionalAttributes(pub(crate) Vec<(String, TextProp)>);
+pub struct AdditionalAttributes(pub(crate) Rc<[(String, TextProp)]>);
 
 impl<I, T, U> From<I> for AdditionalAttributes
 where
@@ -19,6 +20,12 @@ where
                 .map(|(k, v)| (k.into(), v.into()))
                 .collect(),
         )
+    }
+}
+
+impl Default for AdditionalAttributes {
+    fn default() -> Self {
+        Self([].into_iter().collect())
     }
 }
 

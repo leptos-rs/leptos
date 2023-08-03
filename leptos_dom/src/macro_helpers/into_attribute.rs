@@ -1,4 +1,4 @@
-use leptos_reactive::{Immutable, Scope};
+use leptos_reactive::{Oco, Scope};
 use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -11,11 +11,11 @@ use wasm_bindgen::UnwrapThrowExt;
 #[derive(Clone)]
 pub enum Attribute {
     /// A plain string value.
-    String(Immutable<'static, str>),
+    String(Oco<'static, str>),
     /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the attribute.
     Fn(Scope, Rc<dyn Fn() -> Attribute>),
     /// An optional string value, which sets the attribute to the value if `Some` and removes the attribute if `None`.
-    Option(Scope, Option<Immutable<'static, str>>),
+    Option(Scope, Option<Oco<'static, str>>),
     /// A boolean attribute, which sets the attribute if `true` and removes the attribute if `false`.
     Bool(bool),
 }
@@ -26,7 +26,7 @@ impl Attribute {
     pub fn as_value_string(
         &self,
         attr_name: &'static str,
-    ) -> Immutable<'static, str> {
+    ) -> Oco<'static, str> {
         match self {
             Attribute::String(value) => {
                 format!("{attr_name}=\"{value}\"").into()
@@ -43,14 +43,14 @@ impl Attribute {
                 .map(|value| format!("{attr_name}=\"{value}\"").into())
                 .unwrap_or_default(),
             Attribute::Bool(include) => {
-                Immutable::Borrowed(if *include { attr_name } else { "" })
+                Oco::Borrowed(if *include { attr_name } else { "" })
             }
         }
     }
 
     /// Converts the attribute to its HTML value at that moment, not including
     /// the attribute name, so it can be rendered on the server.
-    pub fn as_nameless_value_string(&self) -> Option<Immutable<'static, str>> {
+    pub fn as_nameless_value_string(&self) -> Option<Oco<'static, str>> {
         match self {
             Attribute::String(value) => Some(value.clone()),
             Attribute::Fn(_, f) => {
@@ -171,7 +171,7 @@ impl IntoAttribute for Cow<'static, str> {
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Immutable<'static, str> {
+impl IntoAttribute for Oco<'static, str> {
     #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
         Attribute::String(self)
@@ -192,7 +192,7 @@ impl IntoAttribute for bool {
 impl IntoAttribute for Option<String> {
     #[inline(always)]
     fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(Immutable::from))
+        Attribute::Option(cx, self.map(Oco::from))
     }
 
     impl_into_attr_boxed! {}
@@ -201,7 +201,7 @@ impl IntoAttribute for Option<String> {
 impl IntoAttribute for Option<&'static str> {
     #[inline(always)]
     fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(Immutable::from))
+        Attribute::Option(cx, self.map(Oco::from))
     }
 
     impl_into_attr_boxed! {}
@@ -210,13 +210,13 @@ impl IntoAttribute for Option<&'static str> {
 impl IntoAttribute for Option<Cow<'static, str>> {
     #[inline(always)]
     fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(Immutable::from))
+        Attribute::Option(cx, self.map(Oco::from))
     }
 
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Option<Immutable<'static, str>> {
+impl IntoAttribute for Option<Oco<'static, str>> {
     #[inline(always)]
     fn into_attribute(self, cx: Scope) -> Attribute {
         Attribute::Option(cx, self)
@@ -315,7 +315,7 @@ attr_type!(char);
 #[inline(never)]
 pub fn attribute_helper(
     el: &web_sys::Element,
-    name: Immutable<'static, str>,
+    name: Oco<'static, str>,
     value: Attribute,
 ) {
     use leptos_reactive::create_render_effect;

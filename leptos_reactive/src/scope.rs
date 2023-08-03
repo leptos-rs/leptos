@@ -370,7 +370,7 @@ fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
         let cleanups = cleanups
             .entry(cx.id)
             .expect("trying to clean up a Scope that has already been disposed")
-            .or_insert_with(Default::default);
+            .or_default();
         cleanups.push(cleanup_fn);
     });
 }

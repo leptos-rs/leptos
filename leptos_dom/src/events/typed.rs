@@ -1,5 +1,6 @@
 //! Types for all DOM events.
 
+use leptos_reactive::Oco;
 use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
 
@@ -16,7 +17,7 @@ pub trait EventDescriptor: Clone {
     const BUBBLES: bool;
 
     /// The name of the event, such as `click` or `mouseover`.
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Oco<'static, str>;
 
     /// The key used for event delegation.
     fn event_delegation_key(&self) -> Cow<'static, str>;
@@ -39,7 +40,7 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
     type EventType = Ev::EventType;
 
     #[inline(always)]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.0.name()
     }
 
@@ -53,7 +54,7 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
 
 /// A custom event.
 pub struct Custom<E: FromWasmAbi = web_sys::Event> {
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     options: Option<web_sys::AddEventListenerOptions>,
     _event_type: PhantomData<E>,
 }
@@ -71,7 +72,7 @@ impl<E: FromWasmAbi> Clone for Custom<E> {
 impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
     type EventType = E;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.name.clone()
     }
 
@@ -91,7 +92,7 @@ impl<E: FromWasmAbi> Custom<E> {
     /// Creates a custom event type that can be used within
     /// [`HtmlElement::on`](crate::HtmlElement::on), for events
     /// which are not covered in the [`ev`](crate::ev) module.
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>) -> Self {
         Self {
             name: name.into(),
             options: None,
@@ -141,7 +142,7 @@ macro_rules! generate_event_types {
           type EventType = web_sys::$web_sys_event;
 
           #[inline(always)]
-          fn name(&self) -> Cow<'static, str> {
+          fn name(&self) -> Oco<'static, str> {
             stringify!($event).into()
           }
 

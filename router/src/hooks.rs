@@ -2,8 +2,8 @@ use crate::{
     Location, NavigateOptions, NavigationError, Params, ParamsError, ParamsMap,
     RouteContext, RouterContext,
 };
-use leptos::{create_memo, signal_prelude::*, use_context, Memo, Scope};
-use std::{borrow::Cow, rc::Rc, str::FromStr};
+use leptos::{create_memo, signal_prelude::*, use_context, Memo, Oco, Scope};
+use std::{rc::Rc, str::FromStr};
 
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
@@ -43,7 +43,7 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 /// ```
 pub fn create_query_signal<T>(
     cx: Scope,
-    key: impl Into<Cow<'static, str>>,
+    key: impl Into<Oco<'static, str>>,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
     T: FromStr + ToString + PartialEq,
@@ -145,7 +145,7 @@ pub fn use_resolved_path(
         if path.starts_with('/') {
             Some(path)
         } else {
-            route.resolve_path_tracked(&path).map(String::from)
+            route.resolve_path_tracked(&path)
         }
     })
 }

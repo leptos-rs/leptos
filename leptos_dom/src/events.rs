@@ -1,6 +1,7 @@
 pub mod typed;
 
-use std::{borrow::Cow, cell::RefCell, collections::HashSet};
+use leptos_reactive::Oco;
+use std::{cell::RefCell, collections::HashSet};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::{
     convert::FromWasmAbi, intern, prelude::Closure, JsCast, JsValue,
@@ -8,7 +9,7 @@ use wasm_bindgen::{
 };
 
 thread_local! {
-    pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
+    pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Oco<'static, str>>> = RefCell::new(HashSet::new());
 }
 
 // Used in template macro
@@ -115,7 +116,7 @@ pub(crate) fn add_event_listener_undelegated<E>(
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn add_delegated_event_listener(
     key: &str,
-    event_name: Cow<'static, str>,
+    event_name: Oco<'static, str>,
     options: &Option<web_sys::AddEventListenerOptions>,
 ) {
     GLOBAL_EVENTS.with(|global_events| {

@@ -4,7 +4,7 @@
 use super::{html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG, HydrationKey};
 use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
-use leptos_reactive::{Immutable, Scope};
+use leptos_reactive::{Oco, Scope};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::Lazy as LazyCell;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -142,7 +142,7 @@ macro_rules! generate_svg_tags {
         }
 
         impl ElementDescriptor for [<$tag:camel $($second:camel $($third:camel)?)?>] {
-          fn name(&self) -> Immutable<'static, str> {
+          fn name(&self) -> Oco<'static, str> {
             stringify!($tag).into()
           }
 

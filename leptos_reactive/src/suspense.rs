@@ -2,10 +2,9 @@
 
 #![forbid(unsafe_code)]
 use crate::{
-    create_isomorphic_effect, create_rw_signal, create_signal,
-    immut::Immutable, queue_microtask, signal::SignalGet, store_value,
-    ReadSignal, RwSignal, Scope, SignalSet, SignalUpdate, StoredValue,
-    WriteSignal,
+    create_isomorphic_effect, create_rw_signal, create_signal, oco::Oco,
+    queue_microtask, signal::SignalGet, store_value, ReadSignal, RwSignal,
+    Scope, SignalSet, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
 use std::{cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc};
@@ -160,7 +159,7 @@ impl SuspenseContext {
 /// Represents a chunk in a stream of HTML.
 pub enum StreamChunk {
     /// A chunk of synchronous HTML.
-    Sync(Immutable<'static, str>),
+    Sync(Oco<'static, str>),
     /// A future that resolves to be a list of additional chunks.
     Async {
         /// The HTML chunks this contains.

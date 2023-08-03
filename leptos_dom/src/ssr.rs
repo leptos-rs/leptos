@@ -9,7 +9,7 @@ use crate::{
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::{Immutable, *};
+use leptos_reactive::{Oco, *};
 use std::pin::Pin;
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -30,7 +30,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn render_to_string<F, N>(f: F) -> Immutable<'static, str>
+pub fn render_to_string<F, N>(f: F) -> Oco<'static, str>
 where
     F: FnOnce(Scope) -> N + 'static,
     N: IntoView,
@@ -89,7 +89,7 @@ pub fn render_to_stream(
 )]
 pub fn render_to_stream_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Oco<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     let (stream, runtime, _) =
         render_to_stream_with_prefix_undisposed(view, prefix);
@@ -118,7 +118,7 @@ pub fn render_to_stream_with_prefix(
 )]
 pub fn render_to_stream_with_prefix_undisposed(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Oco<'static, str> + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
     render_to_stream_with_prefix_undisposed_with_context(view, prefix, |_cx| {})
 }
@@ -144,7 +144,7 @@ pub fn render_to_stream_with_prefix_undisposed(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce(Scope) + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
     render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
@@ -181,7 +181,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
     view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Immutable<'static, str> + 'static,
+    prefix: impl FnOnce(Scope) -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce(Scope) + 'static,
     replace_blocks: bool,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
@@ -386,7 +386,7 @@ impl View {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    pub fn render_to_string(self, _cx: Scope) -> Immutable<'static, str> {
+    pub fn render_to_string(self, _cx: Scope) -> Oco<'static, str> {
         #[cfg(all(feature = "web", feature = "ssr"))]
         crate::console_error(
             "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
@@ -404,7 +404,7 @@ impl View {
     pub(crate) fn render_to_string_helper(
         self,
         dont_escape_text: bool,
-    ) -> Immutable<'static, str> {
+    ) -> Oco<'static, str> {
         println!("render_to_string_helper {:?}", self);
         match self {
             View::Text(node) => {
@@ -476,7 +476,7 @@ impl View {
                             )
                             .into()
                         })
-                            as Box<dyn FnOnce() -> Immutable<'static, str>>,
+                            as Box<dyn FnOnce() -> Oco<'static, str>>,
                     ),
                     CoreComponent::DynChild(node) => {
                         let child = node.child.take();
@@ -516,7 +516,7 @@ impl View {
                                     "".into()
                                 }
                             })
-                                as Box<dyn FnOnce() -> Immutable<'static, str>>,
+                                as Box<dyn FnOnce() -> Oco<'static, str>>,
                         )
                     }
                     CoreComponent::Each(node) => {
@@ -559,7 +559,7 @@ impl View {
                                     .join("")
                                     .into()
                             })
-                                as Box<dyn FnOnce() -> Immutable<'static, str>>,
+                                as Box<dyn FnOnce() -> Oco<'static, str>>,
                         )
                     }
                 };
@@ -603,15 +603,15 @@ impl View {
                         .join("")
                         .into()
                 } else {
-                    let tag_name: Immutable<'_, str> = el.name;
+                    let tag_name: Oco<'_, str> = el.name;
 
-                    let mut inner_html: Option<Immutable<'_, str>> = None;
+                    let mut inner_html: Option<Oco<'_, str>> = None;
 
                     let attrs = el
                         .attrs
                         .into_iter()
                         .filter_map(
-                            |(name, value)| -> Option<Immutable<'static, str>> {
+                            |(name, value)| -> Option<Oco<'static, str>> {
                                 if value.is_empty() {
                                     Some(format!(" {name}").into())
                                 } else if name == "inner_html" {
@@ -733,7 +733,7 @@ pub(crate) fn render_serializers(
 }
 
 #[doc(hidden)]
-pub fn escape_attr<T>(value: &T) -> Immutable<'_, str>
+pub fn escape_attr<T>(value: &T) -> Oco<'_, str>
 where
     T: AsRef<str>,
 {

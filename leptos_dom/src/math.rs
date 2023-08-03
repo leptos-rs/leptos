@@ -3,7 +3,7 @@
 use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
 use cfg_if::cfg_if;
-use leptos_reactive::{Immutable, Scope};
+use leptos_reactive::{Oco, Scope};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use once_cell::unsync::Lazy as LazyCell;
@@ -145,7 +145,7 @@ macro_rules! generate_math_tags {
         }
 
         impl ElementDescriptor for [<$tag:camel $($second:camel $($third:camel)?)?>] {
-          fn name(&self) -> Immutable<'static, str> {
+          fn name(&self) -> Oco<'static, str> {
             stringify!($tag).into()
           }
 

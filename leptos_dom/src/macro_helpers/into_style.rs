@@ -1,13 +1,13 @@
-use leptos_reactive::{Immutable, Scope};
+use leptos_reactive::{Oco, Scope};
 use std::{borrow::Cow, rc::Rc};
 
 /// todo docs
 #[derive(Clone)]
 pub enum Style {
     /// A plain string value.
-    Value(Immutable<'static, str>),
+    Value(Oco<'static, str>),
     /// An optional string value, which sets the property to the value if `Some` and removes the property if `None`.
-    Option(Option<Immutable<'static, str>>),
+    Option(Option<Oco<'static, str>>),
     /// A (presumably reactive) function, which will be run inside an effect to update the style.
     Fn(Scope, Rc<dyn Fn() -> Style>),
 }
@@ -60,7 +60,7 @@ impl IntoStyle for Cow<'static, str> {
     }
 }
 
-impl IntoStyle for Immutable<'static, str> {
+impl IntoStyle for Oco<'static, str> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
         Style::Value(self)
@@ -70,25 +70,25 @@ impl IntoStyle for Immutable<'static, str> {
 impl IntoStyle for Option<&'static str> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
-        Style::Option(self.map(Immutable::Borrowed))
+        Style::Option(self.map(Oco::Borrowed))
     }
 }
 
 impl IntoStyle for Option<String> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
-        Style::Option(self.map(Immutable::from))
+        Style::Option(self.map(Oco::from))
     }
 }
 
 impl IntoStyle for Option<Cow<'static, str>> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
-        Style::Option(self.map(Immutable::from))
+        Style::Option(self.map(Oco::from))
     }
 }
 
-impl IntoStyle for Option<Immutable<'static, str>> {
+impl IntoStyle for Option<Oco<'static, str>> {
     #[inline(always)]
     fn into_style(self, _cx: Scope) -> Style {
         Style::Option(self)
@@ -112,7 +112,7 @@ impl Style {
     pub fn as_value_string(
         &self,
         style_name: &'static str,
-    ) -> Option<Immutable<'static, str>> {
+    ) -> Option<Oco<'static, str>> {
         match self {
             Style::Value(value) => {
                 Some(format!("{style_name}: {value};").into())
@@ -143,7 +143,7 @@ impl<T: IntoStyle> IntoStyle for (Scope, T) {
 #[inline(never)]
 pub fn style_helper(
     el: &web_sys::Element,
-    name: Immutable<'static, str>,
+    name: Oco<'static, str>,
     value: Style,
 ) {
     use leptos_reactive::create_render_effect;

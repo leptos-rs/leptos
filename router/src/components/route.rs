@@ -3,7 +3,7 @@ use crate::{
     ParamsMap, RouterContext, SsrMode,
 };
 use leptos::{leptos_dom::Transparent, *};
-use std::{cell::Cell, rc::Rc};
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 thread_local! {
     static ROUTE_ID: Cell<usize> = Cell::new(0);
@@ -290,7 +290,7 @@ impl RouteContext {
 
     pub(crate) fn resolve_path_tracked(&self, to: &str) -> Option<String> {
         resolve_path(&self.inner.base_path, to, Some(&self.inner.path.get()))
-            .map(String::from)
+            .map(Cow::into_owned)
     }
 
     /// The nested child route, if any.

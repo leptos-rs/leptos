@@ -1,8 +1,8 @@
 use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
-use leptos_reactive::{signal_prelude::*, use_context, RwSignal};
+use leptos_reactive::{signal_prelude::*, use_context, Oco, RwSignal};
 use server_fn::error::Error;
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
@@ -12,11 +12,11 @@ pub struct Errors(HashMap<ErrorKey, Error>);
 /// A unique key for an error that occurs at a particular location in the user interface.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct ErrorKey(Cow<'static, str>);
+pub struct ErrorKey(Oco<'static, str>);
 
 impl<T> From<T> for ErrorKey
 where
-    T: Into<Cow<'static, str>>,
+    T: Into<Oco<'static, str>>,
 {
     #[inline(always)]
     fn from(key: T) -> ErrorKey {
