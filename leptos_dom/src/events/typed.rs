@@ -1,7 +1,7 @@
 //! Types for all DOM events.
 
 use leptos_reactive::Oco;
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 use wasm_bindgen::convert::FromWasmAbi;
 
 /// A trait for converting types into [web_sys events](web_sys).
@@ -20,7 +20,7 @@ pub trait EventDescriptor: Clone {
     fn name(&self) -> Oco<'static, str>;
 
     /// The key used for event delegation.
-    fn event_delegation_key(&self) -> Cow<'static, str>;
+    fn event_delegation_key(&self) -> Oco<'static, str>;
 
     /// Return the options for this type. This is only used when you create a [`Custom`] event
     /// handler.
@@ -45,7 +45,7 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
     }
 
     #[inline(always)]
-    fn event_delegation_key(&self) -> Cow<'static, str> {
+    fn event_delegation_key(&self) -> Oco<'static, str> {
         self.0.event_delegation_key()
     }
 
@@ -76,7 +76,7 @@ impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
         self.name.clone()
     }
 
-    fn event_delegation_key(&self) -> Cow<'static, str> {
+    fn event_delegation_key(&self) -> Oco<'static, str> {
         format!("$$${}", self.name).into()
     }
 
@@ -147,7 +147,7 @@ macro_rules! generate_event_types {
           }
 
           #[inline(always)]
-          fn event_delegation_key(&self) -> Cow<'static, str> {
+          fn event_delegation_key(&self) -> Oco<'static, str> {
             concat!("$$$", stringify!($event)).into()
           }
 
