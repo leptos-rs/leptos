@@ -547,10 +547,10 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
     }
 }
 
-// #[cfg_attr(
-//     any(debug_assertions, feature = "ssr"),
-//     tracing::instrument(level = "info", skip_all,)
-// )]
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
