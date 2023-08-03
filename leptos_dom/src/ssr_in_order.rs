@@ -259,7 +259,7 @@ impl View {
                 }
             }
             View::Text(node) => {
-                chunks.push_back(StreamChunk::Sync(node.content.into()))
+                chunks.push_back(StreamChunk::Sync(node.content))
             }
             View::Component(node) => {
                 cfg_if! {
@@ -291,8 +291,9 @@ impl View {
                 if let ElementChildren::Chunks(el_chunks) = el.children {
                     for chunk in el_chunks {
                         match chunk {
-                            StringOrView::String(string) => chunks
-                                .push_back(StreamChunk::Sync(string.into())),
+                            StringOrView::String(string) => {
+                                chunks.push_back(StreamChunk::Sync(string))
+                            }
                             StringOrView::View(view) => view()
                                 .into_stream_chunks_helper(
                                     cx,
@@ -356,10 +357,9 @@ impl View {
                                     );
                                 }
                             }
-                            ElementChildren::InnerHtml(inner_html) => chunks
-                                .push_back(StreamChunk::Sync(
-                                    inner_html.into(),
-                                )),
+                            ElementChildren::InnerHtml(inner_html) => {
+                                chunks.push_back(StreamChunk::Sync(inner_html))
+                            }
                             // handled above
                             ElementChildren::Chunks(_) => unreachable!(),
                         }
