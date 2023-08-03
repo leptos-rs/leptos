@@ -357,10 +357,10 @@ fn fragments_to_chunks(
         r#"
                 <template id="{fragment_id}f">{html}</template>
                 <script{nonce_str}>
-                    var id = "{fragment_id}";
-                    var open = undefined;
-                    var close = undefined;
-                    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+                    let id = "{fragment_id}";
+                    let open = undefined;
+                    let close = undefined;
+                    let walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
                     while(walker.nextNode()) {{
                          if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
                            open = walker.currentNode;
@@ -368,11 +368,11 @@ fn fragments_to_chunks(
                            close = walker.currentNode;
                          }}
                       }}
-                    var range = new Range();
+                    let range = new Range();
                     range.setStartAfter(open);
                     range.setEndBefore(close);
                     range.deleteContents();
-                    var tpl = document.getElementById("{fragment_id}f");
+                    let tpl = document.getElementById("{fragment_id}f");
                     close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
                 </script>
                 "#
@@ -718,7 +718,7 @@ pub(crate) fn render_serializers(
         let json = json.replace('<', "\\u003c");
         format!(
             r#"<script{nonce_str}>
-                  var val = {json:?};
+                  let val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)
                   }} else {{
