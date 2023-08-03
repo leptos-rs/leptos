@@ -286,8 +286,12 @@ cfg_if! {
       fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use fmt::Write;
 
-        let attrs =
-          self.attrs.iter().map(|(n, v)| format!(" {n}=\"{v}\"")).collect::<String>();
+        let attrs = self.attrs.iter().fold(String::new(), |mut output, (n, v)| {
+            // can safely ignore output
+            // see https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
+            let _ = write!(output, " {n}=\"{v}\"");
+            output
+        });
 
         if self.is_void {
           write!(f, "<{}{attrs} />", self.name)

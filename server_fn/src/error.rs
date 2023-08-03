@@ -110,7 +110,7 @@ where
 
 /// Type for errors that can occur when using server functions.
 ///
-/// Unlike [`ServerFnErrorErr`], this implements [`std::error::Error`]. This means
+/// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
 /// it can be used in situations in which the `Error` trait is required, but it’s
 /// not possible to create a blanket implementation that converts other errors into
 /// this type.
