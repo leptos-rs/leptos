@@ -1073,7 +1073,6 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
             let id = *element.hydration_id();
 
             let mut element = Element::new(element);
-            let children = children;
 
             if attrs.iter_mut().any(|(name, _)| name == "id") {
                 attrs.push(("leptos-hk".into(), format!("_{id}").into()));
