@@ -72,9 +72,6 @@ where
     let current_id = HydrationCtx::next_component();
 
     let child = DynChild::new({
-        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-        let current_id = current_id;
-
         let children = Rc::new(orig_children(cx).into_view(cx));
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         let orig_children = Rc::clone(&orig_children);

@@ -357,10 +357,10 @@ fn fragments_to_chunks(
         r#"
                 <template id="{fragment_id}f">{html}</template>
                 <script{nonce_str}>
-                    var id = "{fragment_id}";
-                    var open = undefined;
-                    var close = undefined;
-                    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+                    (function() {{ let id = "{fragment_id}";
+                    let open = undefined;
+                    let close = undefined;
+                    let walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
                     while(walker.nextNode()) {{
                          if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
                            open = walker.currentNode;
@@ -368,12 +368,12 @@ fn fragments_to_chunks(
                            close = walker.currentNode;
                          }}
                       }}
-                    var range = new Range();
+                    let range = new Range();
                     range.setStartAfter(open);
                     range.setEndBefore(close);
                     range.deleteContents();
-                    var tpl = document.getElementById("{fragment_id}f");
-                    close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
+                    let tpl = document.getElementById("{fragment_id}f");
+                    close.parentNode.insertBefore(tpl.content.cloneNode(true), close);}})()
                 </script>
                 "#
       )
@@ -405,14 +405,11 @@ impl View {
         self,
         dont_escape_text: bool,
     ) -> Cow<'static, str> {
-        println!("render_to_string_helper {:?}", self);
         match self {
             View::Text(node) => {
                 if dont_escape_text {
-                    println!("don't escape {:?}", node.content);
                     node.content
                 } else {
-                    println!("encode_safe {:?}", node.content);
                     html_escape::encode_safe(&node.content).to_string().into()
                 }
             }
@@ -721,12 +718,12 @@ pub(crate) fn render_serializers(
         let json = json.replace('<', "\\u003c");
         format!(
             r#"<script{nonce_str}>
-                  var val = {json:?};
+                  (function() {{ let val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)
                   }} else {{
                       __LEPTOS_RESOLVED_RESOURCES.set({id}, val);
-                  }}
+                  }} }})();
               </script>"#,
         )
     })
