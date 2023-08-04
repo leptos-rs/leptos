@@ -5,7 +5,7 @@ use thiserror::Error;
 /// This is a result type into which any error can be converted,
 /// and which can be used directly in your `view`.
 ///
-/// All errors will be stored as [`Error`].
+/// All errors will be stored as [`struct@Error`].
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// A generic wrapper for any error.
@@ -110,7 +110,7 @@ where
 
 /// Type for errors that can occur when using server functions.
 ///
-/// Unlike [`ServerFnErrorErr`], this implements [`std::error::Error`]. This means
+/// Unlike [`ServerFnError`], this implements [`std::error::Error`]. This means
 /// it can be used in situations in which the `Error` trait is required, but it’s
 /// not possible to create a blanket implementation that converts other errors into
 /// this type.

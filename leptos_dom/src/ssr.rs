@@ -492,9 +492,17 @@ impl View {
                                     // browser create the dynamic text as it's own text node
                                     if let View::Text(t) = child {
                                         if !cfg!(debug_assertions) {
-                                            format!("<!>{}", t.content).into()
+                                            format!(
+                                                "<!>{}",
+                                                html_escape::encode_safe(
+                                                    &t.content
+                                                )
+                                            )
+                                            .into()
                                         } else {
-                                            t.content
+                                            html_escape::encode_safe(&t.content)
+                                                .to_string()
+                                                .into()
                                         }
                                     } else {
                                         child.render_to_string_helper(

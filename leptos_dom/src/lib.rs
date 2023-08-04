@@ -37,7 +37,7 @@ pub use hydration::{HydrationCtx, HydrationKey};
 use leptos_reactive::Scope;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
-    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
 pub use logging::*;
 pub use macro_helpers::*;
@@ -211,6 +211,20 @@ where
     }
 }
 
+#[cfg(not(feature = "nightly"))]
+impl<T> IntoView for MaybeProp<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+
 /// Collects an iterator or collection into a [`View`].
 pub trait CollectView {
     /// Collects an iterator or collection into a [`View`].
@@ -272,8 +286,12 @@ cfg_if! {
       fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use fmt::Write;
 
-        let attrs =
-          self.attrs.iter().map(|(n, v)| format!(" {n}=\"{v}\"")).collect::<String>();
+        let attrs = self.attrs.iter().fold(String::new(), |mut output, (n, v)| {
+            // can safely ignore output
+            // see https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
+            let _ = write!(output, " {n}=\"{v}\"");
+            output
+        });
 
         if self.is_void {
           write!(f, "<{}{attrs} />", self.name)

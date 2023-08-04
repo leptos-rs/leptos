@@ -377,6 +377,9 @@ where
 
         let component = EachRepr::default();
 
+        #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
+        let opening = component.opening.node.clone().unchecked_into();
+
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         let (children, closing) =
             (component.children.clone(), component.closing.node.clone());
@@ -387,7 +390,11 @@ where
             move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
                 let mut children_borrow = children.borrow_mut();
 
-                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                #[cfg(all(
+                    not(debug_assertions),
+                    target_arch = "wasm32",
+                    feature = "web"
+                ))]
                 let opening = if let Some(Some(child)) = children_borrow.get(0)
                 {
                     // correctly remove opening <!--<EachItem/>-->

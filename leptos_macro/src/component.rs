@@ -284,6 +284,8 @@ impl ToTokens for Model {
             ) #ret #(+ #lifetimes)*
             #where_clause
             {
+                // allowed for lifetimes that are needed for props struct
+                #[allow(clippy::needless_lifetimes)]
                 #body
 
                 #destructure_props
@@ -589,12 +591,14 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                 quote!()
             };
 
+            let PatIdent { ident, by_ref, .. } = &name;
+
             quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
                 #allow_missing_docs
-                #vis #name: #ty,
+                #vis #by_ref #ident: #ty,
             }
         })
         .collect()
@@ -604,7 +608,12 @@ fn prop_names(props: &[Prop]) -> TokenStream {
     props
         .iter()
         .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
-        .map(|Prop { name, .. }| quote! { #name, })
+        .map(|Prop { name, .. }| {
+            // fields like mutability are removed because unneeded
+            // in the contexts in which this is used
+            let ident = &name.ident;
+            quote! { #ident, }
+        })
         .collect()
 }
 
