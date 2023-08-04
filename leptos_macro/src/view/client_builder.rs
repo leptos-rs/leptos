@@ -24,7 +24,6 @@ pub(crate) enum TagType {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn fragment_to_tokens(
-    cx: &Ident,
     _span: Span,
     nodes: &[Node],
     lazy: bool,
@@ -40,7 +39,6 @@ pub(crate) fn fragment_to_tokens(
         .iter()
         .filter_map(|node| {
             let node = node_to_tokens(
-                cx,
                 node,
                 parent_type,
                 has_slots.then_some(&mut slots),
@@ -49,7 +47,7 @@ pub(crate) fn fragment_to_tokens(
             )?;
 
             Some(quote! {
-                #node.into_view(#cx)
+                #node.into_view()
             })
         })
         .peekable();
@@ -106,7 +104,6 @@ pub(crate) fn fragment_to_tokens(
 }
 
 pub(crate) fn node_to_tokens(
-    cx: &Ident,
     node: &Node,
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
@@ -115,7 +112,6 @@ pub(crate) fn node_to_tokens(
 ) -> Option<TokenStream> {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
-            cx,
             Span::call_site(),
             &fragment.children,
             true,
@@ -135,7 +131,6 @@ pub(crate) fn node_to_tokens(
             Some(quote! { #text })
         }
         Node::Element(node) => element_to_tokens(
-            cx,
             node,
             parent_type,
             parent_slots,
@@ -146,7 +141,6 @@ pub(crate) fn node_to_tokens(
 }
 
 pub(crate) fn element_to_tokens(
-    cx: &Ident,
     node: &NodeElement,
     mut parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
@@ -156,10 +150,10 @@ pub(crate) fn element_to_tokens(
     let name = node.name();
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
-            slot_to_tokens(cx, node, slot, parent_slots, global_class);
+            slot_to_tokens(node, slot, parent_slots, global_class);
             None
         } else {
-            Some(component_to_tokens(cx, node, global_class))
+            Some(component_to_tokens(node, global_class))
         }
     } else {
         let tag = name.to_string();
@@ -170,13 +164,13 @@ pub(crate) fn element_to_tokens(
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
             let custom = Ident::new("custom", name.span());
-            quote! { ::leptos::leptos_dom::html::#custom(#cx, ::leptos::leptos_dom::html::Custom::new(#name)) }
+            quote! { ::leptos::leptos_dom::html::#custom(::leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
-            quote! { ::leptos::leptos_dom::svg::#name(#cx) }
+            quote! { ::leptos::leptos_dom::svg::#name() }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;
-            quote! { ::leptos::leptos_dom::math::#name(#cx) }
+            quote! { ::leptos::leptos_dom::math::#name() }
         } else if is_ambiguous_element(&tag) {
             match parent_type {
                 TagType::Unknown => {
@@ -184,22 +178,22 @@ pub(crate) fn element_to_tokens(
                     /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
-                        ::leptos::leptos_dom::html::#name(#cx)
+                        ::leptos::leptos_dom::html::#name()
                     }
                 }
                 TagType::Html => {
-                    quote! { ::leptos::leptos_dom::html::#name(#cx) }
+                    quote! { ::leptos::leptos_dom::html::#name() }
                 }
                 TagType::Svg => {
-                    quote! { ::leptos::leptos_dom::svg::#name(#cx) }
+                    quote! { ::leptos::leptos_dom::svg::#name() }
                 }
                 TagType::Math => {
-                    quote! { ::leptos::leptos_dom::math::#name(#cx) }
+                    quote! { ::leptos::leptos_dom::math::#name() }
                 }
             }
         } else {
             parent_type = TagType::Html;
-            quote! { ::leptos::leptos_dom::html::#name(#cx) }
+            quote! { ::leptos::leptos_dom::html::#name() }
         };
 
         if let Some(close_tag) = close_tag {
@@ -211,13 +205,13 @@ pub(crate) fn element_to_tokens(
                 let name = node.key.to_string();
                 let name = name.trim();
                 if name.starts_with("class:")
-                    || fancy_class_name(name, cx, node).is_some()
+                    || fancy_class_name(name, node).is_some()
                     || name.starts_with("style:")
-                    || fancy_style_name(name, cx, node).is_some()
+                    || fancy_style_name(name, node).is_some()
                 {
                     None
                 } else {
-                    Some(attribute_to_tokens(cx, node, global_class))
+                    Some(attribute_to_tokens(node, global_class))
                 }
             } else {
                 None
@@ -226,10 +220,10 @@ pub(crate) fn element_to_tokens(
         let class_attrs = node.attributes().iter().filter_map(|node| {
             if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
-                if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
+                if let Some((fancy, _, _)) = fancy_class_name(&name, node) {
                     Some(fancy)
                 } else if name.trim().starts_with("class:") {
-                    Some(attribute_to_tokens(cx, node, global_class))
+                    Some(attribute_to_tokens(node, global_class))
                 } else {
                     None
                 }
@@ -240,10 +234,10 @@ pub(crate) fn element_to_tokens(
         let style_attrs = node.attributes().iter().filter_map(|node| {
             if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
-                if let Some((fancy, _, _)) = fancy_style_name(&name, cx, node) {
+                if let Some((fancy, _, _)) = fancy_style_name(&name, node) {
                     Some(fancy)
                 } else if name.trim().starts_with("style:") {
-                    Some(attribute_to_tokens(cx, node, global_class))
+                    Some(attribute_to_tokens(node, global_class))
                 } else {
                     None
                 }
@@ -257,7 +251,7 @@ pub(crate) fn element_to_tokens(
                 quote! {
                     .classes(
                         #[allow(unused_braces)]
-                        #class
+                        {#class}
                     )
                 }
             }
@@ -276,7 +270,6 @@ pub(crate) fn element_to_tokens(
             let (child, is_static) = match node {
                 Node::Fragment(fragment) => (
                     fragment_to_tokens(
-                        cx,
                         Span::call_site(),
                         &fragment.children,
                         true,
@@ -307,7 +300,6 @@ pub(crate) fn element_to_tokens(
                 ),
                 Node::Element(node) => (
                     element_to_tokens(
-                        cx,
                         node,
                         parent_type,
                         None,
@@ -325,7 +317,7 @@ pub(crate) fn element_to_tokens(
                 }
             } else {
                 quote! {
-                    .child((#cx, #child))
+                    .child((#child))
                 }
             }
         });
@@ -351,7 +343,6 @@ pub(crate) fn element_to_tokens(
 }
 
 pub(crate) fn attribute_to_tokens(
-    cx: &Ident,
     node: &KeyedAttribute,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
@@ -441,7 +432,7 @@ pub(crate) fn attribute_to_tokens(
             }
         };
         quote! {
-            #prop(#name, (#cx, #[allow(unused_braces)] #value))
+            #prop(#name, #[allow(unused_braces)] {#value})
         }
     } else if let Some(name) = name.strip_prefix("class:") {
         let value = attribute_value(node);
@@ -456,7 +447,7 @@ pub(crate) fn attribute_to_tokens(
             }
         };
         quote! {
-            #class(#name, (#cx, #[allow(unused_braces)] #value))
+            #class(#name, #[allow(unused_braces)] {#value})
         }
     } else if let Some(name) = name.strip_prefix("style:") {
         let value = attribute_value(node);
@@ -471,12 +462,12 @@ pub(crate) fn attribute_to_tokens(
             }
         };
         quote! {
-            #style(#name, (#cx, #[allow(unused_braces)] #value))
+            #style(#name, #[allow(unused_braces)] {#value})
         }
     } else {
         let name = name.replacen("attr:", "", 1);
 
-        if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
+        if let Some((fancy, _, _)) = fancy_class_name(&name, node) {
             return fancy;
         }
 
@@ -486,7 +477,7 @@ pub(crate) fn attribute_to_tokens(
             && node.value().and_then(value_to_string).is_none()
         {
             let span = node.key.span();
-            proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
+            proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
@@ -515,7 +506,7 @@ pub(crate) fn attribute_to_tokens(
             }
         };
         quote! {
-            #attr(#name, (#cx, #value))
+            #attr(#name, (#value))
         }
     }
 }

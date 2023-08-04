@@ -3,6 +3,26 @@ source: leptos_macro/src/view/tests.rs
 expression: result
 ---
 TokenStream [
+    Punct {
+        char: '#',
+        spacing: Alone,
+    },
+    Group {
+        delimiter: Bracket,
+        stream: TokenStream [
+            Ident {
+                sym: allow,
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Ident {
+                        sym: unused_braces,
+                    },
+                ],
+            },
+        ],
+    },
     Group {
         delimiter: Brace,
         stream: TokenStream [
@@ -1061,13 +1081,6 @@ TokenStream [
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
-                    Ident {
-                        sym: cx,
-                    },
-                    Punct {
-                        char: ',',
-                        spacing: Alone,
-                    },
                     Punct {
                         char: ':',
                         spacing: Joint,
@@ -1481,11 +1494,7 @@ TokenStream [
                                     },
                                     Group {
                                         delimiter: Parenthesis,
-                                        stream: TokenStream [
-                                            Ident {
-                                                sym: cx,
-                                            },
-                                        ],
+                                        stream: TokenStream [],
                                     },
                                     Punct {
                                         char: ';',
