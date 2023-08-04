@@ -366,17 +366,6 @@ pub fn server_fns_by_path() -> Vec<&'static str> {
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn: server_fn::ServerFn<()> {
-    /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(any(feature = "ssr", doc))]
-    #[deprecated = "Explicit server function registration is no longer \
-                    required on most platforms (including Linux, macOS, iOS, \
-                    FreeBSD, Android, and Windows). If you are on another \
-                    platform and need to explicitly register server functions, \
-                    call ServerFn::register_explicit() instead."]
-    fn register() -> Result<(), ServerFnError> {
-        Ok(())
-    }
-
     #[cfg(any(feature = "ssr", doc))]
     /// Explicitly registers the server function on platforms that require it,
     /// allowing the server to query it by URL.
