@@ -1,8 +1,10 @@
 use crate::{
-    Location, NavigateOptions, NavigationError, Params, ParamsError, ParamsMap,
-    RouteContext, RouterContext,
+    Location, NavigateOptions, Params, ParamsError, ParamsMap, RouteContext,
+    RouterContext,
 };
-use leptos::{create_memo, signal_prelude::*, use_context, Memo};
+use leptos::{
+    create_memo, request_animation_frame, signal_prelude::*, use_context, Memo,
+};
 use std::{borrow::Cow, rc::Rc, str::FromStr};
 
 /// Constructs a signal synchronized with a specific URL query parameter.
@@ -74,7 +76,7 @@ where
         let qs = new_query_map.to_query_string();
         let path = location.pathname.get();
         let new_url = format!("{path}{qs}");
-        let _ = navigate(&new_url, NavigateOptions::default());
+        navigate(&new_url, NavigateOptions::default());
     });
 
     (get, set)
@@ -168,31 +170,29 @@ pub fn use_resolved_path(
 
 /// Returns a function that can be used to navigate to a new route.
 ///
-/// ## Panics
-/// `use_navigate` can sometimes panic due to a `BorrowMut` runtime error
-/// if it is called immediately during routing/rendering. In this case, you should
-/// wrap it in [`request_animation_frame`](leptos::request_animation_frame)
-/// to delay it until that routing process is complete.
 /// ```rust
 /// # use leptos::{request_animation_frame, create_runtime};
 /// # let runtime = create_runtime();
 /// # if false { // can't actually navigate, no <Router/>
 /// let navigate = leptos_router::use_navigate();
-/// request_animation_frame(move || {
-///     _ = navigate("/", Default::default());
-/// });
+/// navigate("/", Default::default());
 /// # }
 /// # runtime.dispose();
 /// ```
 #[track_caller]
-pub fn use_navigate(
-) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
+pub fn use_navigate() -> impl Fn(&str, NavigateOptions) {
     let router = use_router();
     move |to, options| {
-        Rc::clone(&router.inner).navigate_from_route(to, &options)
+        let router = Rc::clone(&router.inner);
+        let to = to.to_string();
+        request_animation_frame(move || {
+            if let Err(e) = router.navigate_from_route(&to, &options) {
+                leptos::debug_warn!("use_navigate error: {e:?}");
+            }
+        });
     }
 }
-///
+
 /// Returns a signal that tells you whether you are currently navigating backwards.
 pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
     let router = use_router();
