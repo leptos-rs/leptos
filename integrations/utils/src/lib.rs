@@ -43,43 +43,6 @@ fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
     }
 }
 
-#[deprecated = "Use html_parts_separated."]
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-pub fn html_parts(
-    options: &LeptosOptions,
-    meta: Option<&MetaContext>,
-) -> (String, &'static str) {
-    let pkg_path = &options.site_pkg_dir;
-    let output_name = &options.output_name;
-
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to maintain compatibility with it's default options
-    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME at compile time
-    // Otherwise we need to add _bg because wasm_pack always does.
-    let mut wasm_output_name = output_name.clone();
-    if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
-        wasm_output_name.push_str("_bg");
-    }
-
-    let leptos_autoreload = autoreload("", options);
-
-    let html_metadata =
-        meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
-    let head = format!(
-        r#"<!DOCTYPE html>
-            <html{html_metadata}>
-                <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                    <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                    {leptos_autoreload}
-                    "#
-    );
-    let tail = "</body></html>";
-    (head, tail)
-}
-
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts_separated(
     options: &LeptosOptions,
