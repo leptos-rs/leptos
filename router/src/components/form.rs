@@ -157,28 +157,20 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
-                                                request_animation_frame(
-                                                    move || {
-                                                        if let Err(e) = navigate(
-                                                            &format!(
-                                                                "{}{}{}",
-                                                                url.pathname,
-                                                                if url
-                                                                    .search
-                                                                    .is_empty()
-                                                                {
-                                                                    ""
-                                                                } else {
-                                                                    "?"
-                                                                },
-                                                                url.search,
-                                                            ),
-                                                            navigate_options,
-                                                        ) {
-                                                            warn!("{}", e);
-                                                        }
-                                                    },
-                                                );
+                                                navigate(
+                                                    &format!(
+                                                        "{}{}{}",
+                                                        url.pathname,
+                                                        if url.search.is_empty()
+                                                        {
+                                                            ""
+                                                        } else {
+                                                            "?"
+                                                        },
+                                                        url.search,
+                                                    ),
+                                                    navigate_options,
+                                                )
                                             }
                                         }
                                         Err(e) => warn!("{}", e),
@@ -238,28 +230,20 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
-                                                request_animation_frame(
-                                                    move || {
-                                                        if let Err(e) = navigate(
-                                                            &format!(
-                                                                "{}{}{}",
-                                                                url.pathname,
-                                                                if url
-                                                                    .search
-                                                                    .is_empty()
-                                                                {
-                                                                    ""
-                                                                } else {
-                                                                    "?"
-                                                                },
-                                                                url.search,
-                                                            ),
-                                                            navigate_options,
-                                                        ) {
-                                                            warn!("{}", e);
-                                                        }
-                                                    },
-                                                );
+                                                navigate(
+                                                    &format!(
+                                                        "{}{}{}",
+                                                        url.pathname,
+                                                        if url.search.is_empty()
+                                                        {
+                                                            ""
+                                                        } else {
+                                                            "?"
+                                                        },
+                                                        url.search,
+                                                    ),
+                                                    navigate_options,
+                                                )
                                             }
                                         }
                                         Err(e) => warn!("{}", e),
@@ -273,12 +257,9 @@ where
                 else {
                     let params =
                         params.to_string().as_string().unwrap_or_default();
-                    if navigate(&format!("{action}?{params}"), navigate_options)
-                        .is_ok()
-                    {
-                        ev.prevent_default();
-                        ev.stop_propagation();
-                    }
+                    navigate(&format!("{action}?{params}"), navigate_options);
+                    ev.prevent_default();
+                    ev.stop_propagation();
                 }
             }
         };

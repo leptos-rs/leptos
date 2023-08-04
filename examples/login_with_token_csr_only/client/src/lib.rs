@@ -115,7 +115,7 @@ pub fn App() -> impl IntoView {
                                         log::info!("Successfully logged in");
                                         authorized_api.update(|v| *v = Some(api));
                                         let navigate = use_navigate();
-                                        navigate(Page::Home.path(), Default::default()).expect("Home route");
+                                        navigate(Page::Home.path(), Default::default());
                                         fetch_user_info.dispatch(());
                                     }
                                 />

@@ -198,7 +198,7 @@ pub fn About() -> impl IntoView {
             // <button on:click> to navigate is an *anti-pattern*
             // you should ordinarily use a link instead,
             // both semantically and so your link will work before WASM loads
-            <button on:click=move |_| { _ = navigate("/", Default::default()); }>
+            <button on:click=move |_| navigate("/", Default::default())>
                 "Home"
             </button>
             <h1>"About"</h1>
