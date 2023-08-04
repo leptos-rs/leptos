@@ -4,9 +4,11 @@
 
 use std::{
     borrow::{Borrow, Cow},
+    ffi::{CStr, OsStr},
     fmt,
     hash::Hash,
     ops::{Add, Deref},
+    path::Path,
     rc::Rc,
 };
 
@@ -101,6 +103,24 @@ impl<T: ?Sized + ToOwned> AsRef<T> for Oco<'_, T> {
     }
 }
 
+impl AsRef<Path> for Oco<'_, str> {
+    #[inline(always)]
+    fn as_ref(&self) -> &Path {
+        self.as_str().as_ref()
+    }
+}
+
+impl AsRef<Path> for Oco<'_, OsStr> {
+    #[inline(always)]
+    fn as_ref(&self) -> &Path {
+        self.as_os_str().as_ref()
+    }
+}
+
+// --------------------------------------
+// pub fn as_{slice}(&self) -> &{slice}
+// --------------------------------------
+
 impl Oco<'_, str> {
     /// Returns a `&str` slice of this [`Oco`].
     /// # Examples
@@ -112,6 +132,58 @@ impl Oco<'_, str> {
     /// ```
     #[inline(always)]
     pub fn as_str(&self) -> &str {
+        self
+    }
+}
+
+impl Oco<'_, CStr> {
+    /// Returns a `&CStr` slice of this [`Oco`].
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// use std::ffi::CStr;
+    ///
+    /// let oco =
+    ///     Oco::<CStr>::Borrowed(CStr::from_bytes_with_nul(b"Hello\0").unwrap());
+    /// let s: &CStr = oco.as_c_str();
+    /// assert_eq!(s, CStr::from_bytes_with_nul(b"Hello\0").unwrap());
+    /// ```
+    #[inline(always)]
+    pub fn as_c_str(&self) -> &CStr {
+        self
+    }
+}
+
+impl Oco<'_, OsStr> {
+    /// Returns a `&OsStr` slice of this [`Oco`].
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// use std::ffi::OsStr;
+    ///
+    /// let oco = Oco::<OsStr>::Borrowed(OsStr::new("Hello"));
+    /// let s: &OsStr = oco.as_os_str();
+    /// assert_eq!(s, OsStr::new("Hello"));
+    /// ```
+    #[inline(always)]
+    pub fn as_os_str(&self) -> &OsStr {
+        self
+    }
+}
+
+impl Oco<'_, Path> {
+    /// Returns a `&Path` slice of this [`Oco`].
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// use std::path::Path;
+    ///
+    /// let oco = Oco::<Path>::Borrowed(Path::new("Hello"));
+    /// let s: &Path = oco.as_path();
+    /// assert_eq!(s, Path::new("Hello"));
+    /// ```
+    #[inline(always)]
+    pub fn as_path(&self) -> &Path {
         self
     }
 }
@@ -134,6 +206,10 @@ where
     }
 }
 
+// ------------------------------------------------------------------------------------------------------
+// Cloning (have to be implemented manually because of the `Rc<T>: From<&<T as ToOwned>::Owned>` bound)
+// ------------------------------------------------------------------------------------------------------
+
 impl Clone for Oco<'_, str> {
     /// Returns a new [`Oco`] with the same value as this one.
     /// If the value is [`Oco::Owned`], this will convert it into
@@ -151,6 +227,77 @@ impl Clone for Oco<'_, str> {
             Oco::Borrowed(v) => Oco::Borrowed(v),
             Oco::Counted(v) => Oco::Counted(v.clone()),
             Oco::Owned(v) => Oco::Counted(Rc::<str>::from(v.as_str())),
+        }
+    }
+}
+
+impl Clone for Oco<'_, CStr> {
+    /// Returns a new [`Oco`] with the same value as this one.
+    /// If the value is [`Oco::Owned`], this will convert it into
+    /// [`Oco::Counted`], so that the next clone will be O(1).
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// use std::ffi::CStr;
+    ///
+    /// let oco = Oco::<CStr>::Owned(
+    ///     CStr::from_bytes_with_nul(b"Hello\0").unwrap().to_owned(),
+    /// );
+    /// let oco2 = oco.clone();
+    /// assert_eq!(oco, oco2);
+    /// assert!(oco2.is_counted());
+    /// ```
+    fn clone(&self) -> Self {
+        match self {
+            Oco::Borrowed(v) => Oco::Borrowed(v),
+            Oco::Counted(v) => Oco::Counted(v.clone()),
+            Oco::Owned(v) => Oco::Counted(Rc::<CStr>::from(v.as_c_str())),
+        }
+    }
+}
+
+impl Clone for Oco<'_, OsStr> {
+    /// Returns a new [`Oco`] with the same value as this one.
+    /// If the value is [`Oco::Owned`], this will convert it into
+    /// [`Oco::Counted`], so that the next clone will be O(1).
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// use std::ffi::OsStr;
+    ///
+    /// let oco = Oco::<OsStr>::Owned(OsStr::new("Hello").to_owned());
+    /// let oco2 = oco.clone();
+    /// assert_eq!(oco, oco2);
+    /// assert!(oco2.is_counted());
+    /// ```
+    fn clone(&self) -> Self {
+        match self {
+            Oco::Borrowed(v) => Oco::Borrowed(v),
+            Oco::Counted(v) => Oco::Counted(v.clone()),
+            Oco::Owned(v) => Oco::Counted(Rc::<OsStr>::from(v.as_os_str())),
+        }
+    }
+}
+
+impl Clone for Oco<'_, Path> {
+    /// Returns a new [`Oco`] with the same value as this one.
+    /// If the value is [`Oco::Owned`], this will convert it into
+    /// [`Oco::Counted`], so that the next clone will be O(1).
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// use std::path::Path;
+    ///
+    /// let oco = Oco::<Path>::Owned(Path::new("Hello").to_owned());
+    /// let oco2 = oco.clone();
+    /// assert_eq!(oco, oco2);
+    /// assert!(oco2.is_counted());
+    /// ```
+    fn clone(&self) -> Self {
+        match self {
+            Oco::Borrowed(v) => Oco::Borrowed(v),
+            Oco::Counted(v) => Oco::Counted(v.clone()),
+            Oco::Owned(v) => Oco::Counted(Rc::<Path>::from(v.as_path())),
         }
     }
 }
