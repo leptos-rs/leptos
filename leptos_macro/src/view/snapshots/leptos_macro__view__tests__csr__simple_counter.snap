@@ -4,13 +4,13 @@ expression: pretty(result)
 ---
 fn view() {
     {
-        let _ = leptos::leptos_dom::html::div;
-        leptos::leptos_dom::html::div(cx)
+        let _ = ::leptos::leptos_dom::html::div;
+        ::leptos::leptos_dom::html::div(cx)
             .child((
                 cx,
                 {
-                    let _ = leptos::leptos_dom::html::button;
-                    leptos::leptos_dom::html::button(cx)
+                    let _ = ::leptos::leptos_dom::html::button;
+                    ::leptos::leptos_dom::html::button(cx)
                         .on(::leptos::ev::click, move |_| set_value(0))
                         .child("Clear")
                 },
@@ -18,8 +18,8 @@ fn view() {
             .child((
                 cx,
                 {
-                    let _ = leptos::leptos_dom::html::button;
-                    leptos::leptos_dom::html::button(cx)
+                    let _ = ::leptos::leptos_dom::html::button;
+                    ::leptos::leptos_dom::html::button(cx)
                         .on(
                             ::leptos::ev::click,
                             move |_| set_value.update(|value| *value -= step),
@@ -30,8 +30,8 @@ fn view() {
             .child((
                 cx,
                 {
-                    let _ = leptos::leptos_dom::html::span;
-                    leptos::leptos_dom::html::span(cx)
+                    let _ = ::leptos::leptos_dom::html::span;
+                    ::leptos::leptos_dom::html::span(cx)
                         .child("Value: ")
                         .child((cx, { value }))
                         .child("!")
@@ -40,8 +40,8 @@ fn view() {
             .child((
                 cx,
                 {
-                    let _ = leptos::leptos_dom::html::button;
-                    leptos::leptos_dom::html::button(cx)
+                    let _ = ::leptos::leptos_dom::html::button;
+                    ::leptos::leptos_dom::html::button(cx)
                         .on(
                             ::leptos::ev::click,
                             move |_| set_value.update(|value| *value += step),

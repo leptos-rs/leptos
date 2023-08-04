@@ -26,6 +26,14 @@ TokenStream [
                         char: ':',
                         spacing: Alone,
                     },
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
                     Ident {
                         sym: leptos,
                     },
@@ -66,6 +74,14 @@ TokenStream [
                             },
                             Punct {
                                 char: '=',
+                                spacing: Alone,
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Joint,
+                            },
+                            Punct {
+                                char: ':',
                                 spacing: Alone,
                             },
                             Ident {
@@ -156,6 +172,14 @@ TokenStream [
                                 char: ';',
                                 spacing: Alone,
                             },
+                            Punct {
+                                char: ':',
+                                spacing: Joint,
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Alone,
+                            },
                             Ident {
                                 sym: leptos,
                             },
@@ -214,6 +238,14 @@ TokenStream [
                 char: '=',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -263,6 +295,14 @@ TokenStream [
             },
             Punct {
                 char: '=',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
                 spacing: Alone,
             },
             Ident {
@@ -316,6 +356,14 @@ TokenStream [
                 char: '=',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -365,6 +413,14 @@ TokenStream [
             },
             Punct {
                 char: '=',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
                 spacing: Alone,
             },
             Ident {
@@ -418,6 +474,14 @@ TokenStream [
                 char: '=',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -467,6 +531,14 @@ TokenStream [
             },
             Punct {
                 char: '=',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
                 spacing: Alone,
             },
             Ident {
@@ -520,6 +592,14 @@ TokenStream [
                 char: '=',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -569,6 +649,14 @@ TokenStream [
             },
             Punct {
                 char: '=',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
                 spacing: Alone,
             },
             Ident {
@@ -622,6 +710,14 @@ TokenStream [
                 char: '=',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -671,6 +767,14 @@ TokenStream [
             },
             Punct {
                 char: '=',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
                 spacing: Alone,
             },
             Ident {
@@ -845,6 +949,16 @@ TokenStream [
             },
             Punct {
                 char: '=',
+                spacing: Alone,
+                span: bytes(10..15),
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+                span: bytes(10..15),
+            },
+            Punct {
+                char: ':',
                 spacing: Alone,
                 span: bytes(10..15),
             },
@@ -2018,6 +2132,14 @@ TokenStream [
                 spacing: Alone,
                 span: bytes(303..307),
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -2046,6 +2168,14 @@ TokenStream [
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
                     Ident {
                         sym: leptos,
                     },
@@ -2189,6 +2319,14 @@ TokenStream [
                 char: ';',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -2217,6 +2355,14 @@ TokenStream [
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
                     Ident {
                         sym: leptos,
                     },
@@ -2402,6 +2548,14 @@ TokenStream [
                 char: ';',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -2430,6 +2584,14 @@ TokenStream [
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
                     Ident {
                         sym: leptos,
                     },
@@ -2538,6 +2700,14 @@ TokenStream [
                 char: ';',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -2566,6 +2736,14 @@ TokenStream [
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
                     Ident {
                         sym: leptos,
                     },
@@ -2751,6 +2929,14 @@ TokenStream [
                 char: ';',
                 spacing: Alone,
             },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
             Ident {
                 sym: leptos,
             },
@@ -2865,6 +3051,14 @@ TokenStream [
                             },
                             Ident {
                                 sym: element,
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Alone,
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Joint,
                             },
                             Punct {
                                 char: ':',
