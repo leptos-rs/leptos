@@ -166,6 +166,7 @@ impl Mountable for EachRepr {
 /// The internal representation of an [`Each`] item.
 #[derive(PartialEq, Eq)]
 pub(crate) struct EachItem {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     disposer: Disposer,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     document_fragment: Option<web_sys::DocumentFragment>,
@@ -195,6 +196,31 @@ impl EachItem {
     fn new(disposer: Disposer, child: View) -> Self {
         let id = HydrationCtx::id();
         let needs_closing = !matches!(child, View::Element(_));
+
+        // On the client, this disposer runs when the EachItem
+        // drops. However, imagine you have a nested situation like
+        // > create a resource [0, 1, 2]
+        //   > Suspense
+        //     > For
+        //       > each row
+        //         > create a resource (say, look up post by ID)
+        //         > Suspense
+        //           > read the resource
+        //
+        // In this situation, if the EachItem scopes were disposed when they drop,
+        // the resources will actually be disposed when the parent Suspense is
+        // resolved and rendered, because at that point the For will have been rendered
+        // to an HTML string and dropped.
+        //
+        // When the child Suspense for each row goes to read from the resource, that
+        // resource no longer exists, because it was disposed when that row dropped.
+        //
+        // Hoisting this into an `on_cleanup` on here forgets it until the reactive owner
+        // is cleaned up, rather than only until the For drops. Practically speaking, in SSR
+        // mode this should mean that it sticks around for the life of the request, and is then
+        // cleaned up with the rest of the request.
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        leptos_reactive::on_cleanup(move || drop(disposer));
 
         let markers = (
             if needs_closing {
@@ -242,6 +268,7 @@ impl EachItem {
         };
 
         Self {
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
             disposer,
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             document_fragment,
