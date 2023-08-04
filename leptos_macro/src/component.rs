@@ -561,9 +561,9 @@ impl ToTokens for TypedBuilderOpts {
             quote! {}
         };
 
-        let output = quote! { #[builder(#default #setter)] };
-
-        tokens.append_all(output);
+        if !default.is_empty() && !setter.is_empty() {
+            tokens.append_all(quote! { #[builder(#default #setter)] });
+        }
     }
 }
 
