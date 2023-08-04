@@ -26,7 +26,7 @@ cargo init leptos-tutorial
 cargo add leptos --features=csr,nightly
 ```
 
-Or you can leave off `nighly` if you're using stable Rust
+Or you can leave off `nightly` if you're using stable Rust
 ```bash
 cargo add leptos --features=csr
 ```
