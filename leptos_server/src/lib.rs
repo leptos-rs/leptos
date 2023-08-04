@@ -185,14 +185,6 @@ pub struct LeptosServerFnRegistry;
 impl server_fn::ServerFunctionRegistry<()> for LeptosServerFnRegistry {
     type Error = ServerRegistrationFnError;
 
-    fn register(
-        _url: &'static str,
-        _server_function: server_fn::SerializedFnTraitObj<()>,
-        _encoding: Encoding,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
     /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
     /// you should register server functions by calling this `T::register_explicit()`.
