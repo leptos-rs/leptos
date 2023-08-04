@@ -1226,6 +1226,12 @@ impl Drop for SetBatchingOnDrop {
 /// are invalidated.
 #[inline(always)]
 pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
+    #[cfg(debug_assertions)]
+    let cleanup_fn = move || {
+        crate::SpecialNonReactiveZone::enter();
+        cleanup_fn();
+        crate::SpecialNonReactiveZone::exit();
+    };
     push_cleanup(Box::new(cleanup_fn))
 }
 
