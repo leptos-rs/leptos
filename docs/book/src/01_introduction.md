@@ -18,3 +18,4 @@ understand Leptos.
 You can find more detailed docs for each part of the API at [Docs.rs](https://docs.rs/leptos/latest/leptos/).
 
 **The guide is a work in progress.**
+( [`source`](https://github.com/leptos-rs/leptos/tree/main/docs/book) )
