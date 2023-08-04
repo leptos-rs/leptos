@@ -1,0 +1,61 @@
+---
+source: leptos_macro/src/view/tests.rs
+expression: pretty(result)
+---
+fn view() {
+    {
+        let _ = ::leptos::leptos_dom::html::div;
+        let _ = ::leptos::leptos_dom::html::div;
+        let _ = ::leptos::leptos_dom::html::button;
+        let _ = ::leptos::leptos_dom::html::button;
+        let _ = ::leptos::leptos_dom::html::button;
+        let _ = ::leptos::leptos_dom::html::button;
+        let _ = ::leptos::leptos_dom::html::span;
+        let _ = ::leptos::leptos_dom::html::span;
+        let _ = ::leptos::leptos_dom::html::button;
+        let _ = ::leptos::leptos_dom::html::button;
+        leptos::leptos_dom::helpers::ssr_event_listener(
+            ::leptos::ev::click,
+            move |_| set_value(0),
+        );
+        leptos::leptos_dom::helpers::ssr_event_listener(
+            ::leptos::ev::click,
+            move |_| set_value.update(|value| *value -= step),
+        );
+        leptos::leptos_dom::helpers::ssr_event_listener(
+            ::leptos::ev::click,
+            move |_| set_value.update(|value| *value += step),
+        );
+        ::leptos::HtmlElement::from_chunks(
+            cx,
+            ::leptos::leptos_dom::html::Div::default(),
+            [
+                leptos::leptos_dom::html::StringOrView::String(
+                    format!(
+                        "<div id=\"_{}\"><button id=\"_{}\">Clear</button><button id=\"_{}\">-1</button><span id=\"_{}\">Value: ",
+                        ::leptos::leptos_dom::HydrationCtx::peek(),
+                        ::leptos::leptos_dom::HydrationCtx::id(),
+                        ::leptos::leptos_dom::HydrationCtx::id(),
+                        ::leptos::leptos_dom::HydrationCtx::id()
+                    )
+                        .into(),
+                ),
+                #[allow(unused_braces)]
+                {
+                    let view = { { value } }.into_view(cx);
+                    leptos::leptos_dom::html::StringOrView::View(
+                        std::rc::Rc::new(move || view.clone()),
+                    )
+                },
+                leptos::leptos_dom::html::StringOrView::String(
+                    format!(
+                        "!</span><button id=\"_{}\">+1</button></div>",
+                        ::leptos::leptos_dom::HydrationCtx::id()
+                    )
+                        .into(),
+                ),
+            ],
+        )
+    }
+}
+
