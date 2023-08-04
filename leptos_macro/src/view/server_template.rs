@@ -167,14 +167,17 @@ pub(crate) fn root_element_to_tokens_ssr(
         let tag_name = node.name().to_string();
         let is_custom_element = is_custom_element(&tag_name);
 
-        // Use any other span instead of node.name.span(), to avoid missundestanding in IDE.
-        // We can use open_tag.span(), to provide simmilar(to name span) diagnostic
-        // in case of expansion error, but it will also higlight "<" token.
+        // Use any other span instead of node.name.span(), to avoid misunderstanding in IDE.
+        // We can use open_tag.span(), to provide similar (to name span) diagnostic
+        // in case of expansion error, but it will also highlight "<" token.
         let typed_element_name = if is_custom_element {
             Ident::new("Custom", Span::call_site())
         } else {
             let camel_cased = camel_case_tag_name(
-                &tag_name.replace("svg::", "").replace("math::", ""),
+                tag_name
+                    .trim_start_matches("svg::")
+                    .trim_start_matches("math::")
+                    .trim_end_matches('_'),
             );
             Ident::new(&camel_cased, Span::call_site())
         };
@@ -187,11 +190,11 @@ pub(crate) fn root_element_to_tokens_ssr(
         };
         let full_name = if is_custom_element {
             quote! {
-                leptos::leptos_dom::html::Custom::new(#tag_name)
+                ::leptos::leptos_dom::html::Custom::new(#tag_name)
             }
         } else {
             quote! {
-                leptos::leptos_dom::#typed_element_name::default()
+                ::leptos::leptos_dom::#typed_element_name::default()
             }
         };
         let view_marker = if let Some(marker) = view_marker {
@@ -271,9 +274,9 @@ fn element_to_tokens_ssr(
 
         // insert hydration ID
         let hydration_id = if is_root {
-            quote! { leptos::leptos_dom::HydrationCtx::peek() }
+            quote! { ::leptos::leptos_dom::HydrationCtx::peek() }
         } else {
-            quote! { leptos::leptos_dom::HydrationCtx::id() }
+            quote! { ::leptos::leptos_dom::HydrationCtx::id() }
         };
         match node
             .attributes()
@@ -332,6 +335,17 @@ fn element_to_tokens_ssr(
                                 &value.replace('{', "\\{").replace('}', "\\}"),
                             );
                         }
+                        Node::RawText(r) => {
+                            let value = r.to_string_best();
+                            let value = if is_script_or_style {
+                                value.into()
+                            } else {
+                                html_escape::encode_safe(&value)
+                            };
+                            template.push_str(
+                                &value.replace('{', "\\{").replace('}', "\\}"),
+                            );
+                        }
                         Node::Block(NodeBlock::ValidBlock(block)) => {
                             if let Some(value) =
                                 block_to_primitive_expression(block)
@@ -360,13 +374,13 @@ fn element_to_tokens_ssr(
                             Span::call_site(),
                             "You can't nest a fragment inside an element."
                         ),
-                        _ => {}
+                        Node::Comment(_) | Node::Doctype(_) => {}
                     }
                 }
             }
 
             template.push_str("</");
-            template.push_str(&node.name().to_string());
+            template.push_str(tag_name);
             template.push('>');
         }
     }

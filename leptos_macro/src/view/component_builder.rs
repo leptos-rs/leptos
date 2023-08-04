@@ -1,6 +1,6 @@
 use super::{
     client_builder::{fragment_to_tokens, TagType},
-    event_from_attribute_node, ident_from_tag_name, IdeTagHelper,
+    event_from_attribute_node, ident_from_tag_name,
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};
@@ -160,8 +160,10 @@ pub(crate) fn component_to_tokens(
         )
     };
 
-    #[cfg(debug_assertions)]
-    IdeTagHelper::add_component_completion(&mut component, node);
+    // (Temporarily?) removed
+    // See note on the function itself below.
+    /* #[cfg(debug_assertions)]
+    IdeTagHelper::add_component_completion(cx, &mut component, node); */
 
     if events.is_empty() {
         component

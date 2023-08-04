@@ -47,6 +47,19 @@ impl IdeTagHelper {
         }
     }
 
+    /* This has been (temporarily?) removed.
+     * Its purpose was simply to add syntax highlighting and IDE hints for
+     * component closing tags in debug mode by associating the closing tag
+     * ident with the component function.
+     *
+     * Doing this in a way that correctly inferred types, however, required
+     * duplicating the entire component constructor.
+     *
+     * In view trees with many nested components, this led to a massive explosion
+     * in compile times.
+     *
+     * See https://github.com/leptos-rs/leptos/issues/1283
+     *
     /// Add completion to the closing tag of the component.
     ///
     /// In order to ensure that generics are passed through correctly in the
@@ -63,34 +76,33 @@ impl IdeTagHelper {
     /// ```
     #[cfg(debug_assertions)]
     pub fn add_component_completion(
+        cx: &Ident,
         component: &mut TokenStream,
         node: &NodeElement,
     ) {
         // emit ide helper info
-        if node.close_tag.is_some() {
-            let constructor = component.clone();
+        if let Some(close_tag) = node.close_tag.as_ref().map(|c| &c.name) {
             *component = quote! {
-                if false {
-                    #[allow(unreachable_code)]
-                    #constructor
-                } else {
-                    #component
+                {
+                    let #close_tag = |cx| #component;
+                    #close_tag(#cx)
                 }
             }
         }
     }
+     */
 
     /// Returns `syn::Path`-like `TokenStream` to the fn in docs.
     /// If tag name is `Component` returns `None`.
     fn create_regular_tag_fn_path(name: &Ident) -> TokenStream {
         let tag_name = name.to_string();
         let namespace = if crate::view::is_svg_element(&tag_name) {
-            quote! { leptos::leptos_dom::svg }
+            quote! { ::leptos::leptos_dom::svg }
         } else if crate::view::is_math_ml_element(&tag_name) {
-            quote! { leptos::leptos_dom::math }
+            quote! { ::leptos::leptos_dom::math }
         } else {
             // todo: check is html, and emit_warning in case of custom tag
-            quote! { leptos::leptos_dom::html }
+            quote! { ::leptos::leptos_dom::html }
         };
         quote!( #namespace::#name)
     }

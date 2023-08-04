@@ -1,30 +1,18 @@
-use crate::{attribute_value};
-
-use leptos_hot_reload::parsing::{
-    is_component_node,
-    value_to_string,
+use super::{
+    component_builder::component_to_tokens,
+    expr_to_ident, fancy_class_name, fancy_style_name,
+    ide_helper::IdeTagHelper,
+    is_ambiguous_element, is_custom_element, is_math_ml_element,
+    is_svg_element, parse_event_name,
+    slot_helper::{get_slot, slot_to_tokens},
 };
+use crate::attribute_value;
+use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use rstml::node::{
-    KeyedAttribute, Node, NodeAttribute, NodeElement, NodeName,
-};
+use rstml::node::{KeyedAttribute, Node, NodeAttribute, NodeElement, NodeName};
 use std::collections::HashMap;
-use syn::{spanned::Spanned};
-
-use super::{
-    slot_helper::{get_slot, slot_to_tokens},
-    component_builder::component_to_tokens,
-    ide_helper::IdeTagHelper,
-    is_custom_element,
-    is_ambiguous_element,
-    is_svg_element,
-    is_math_ml_element,
-    fancy_class_name,
-    fancy_style_name,
-    expr_to_ident,
-    parse_event_name
-};
+use syn::spanned::Spanned;
 
 #[derive(Clone, Copy)]
 pub(crate) enum TagType {
@@ -88,7 +76,7 @@ pub(crate) fn fragment_to_tokens(
     let tokens = if lazy {
         quote! {
             {
-                leptos::Fragment::lazy(|| [
+                ::leptos::Fragment::lazy(|| [
                     #(#nodes),*
                 ].to_vec())
                 #view_marker
@@ -97,7 +85,7 @@ pub(crate) fn fragment_to_tokens(
     } else {
         quote! {
             {
-                leptos::Fragment::new([
+                ::leptos::Fragment::new([
                     #(#nodes),*
                 ].to_vec())
                 #view_marker
@@ -117,7 +105,7 @@ pub(crate) fn fragment_to_tokens(
     Some(tokens)
 }
 
-pub(crate)fn node_to_tokens(
+pub(crate) fn node_to_tokens(
     cx: &Ident,
     node: &Node,
     parent_type: TagType,
@@ -138,7 +126,7 @@ pub(crate)fn node_to_tokens(
         ),
         Node::Comment(_) | Node::Doctype(_) => Some(quote! {}),
         Node::Text(node) => Some(quote! {
-            leptos::leptos_dom::html::text(#node)
+            ::leptos::leptos_dom::html::text(#node)
         }),
         Node::Block(node) => Some(quote! { #node }),
         Node::RawText(r) => {
@@ -157,7 +145,7 @@ pub(crate)fn node_to_tokens(
     }
 }
 
-pub(crate)fn element_to_tokens(
+pub(crate) fn element_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     mut parent_type: TagType,
@@ -182,13 +170,13 @@ pub(crate)fn element_to_tokens(
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
             let custom = Ident::new("custom", name.span());
-            quote! { leptos::leptos_dom::html::#custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
+            quote! { ::leptos::leptos_dom::html::#custom(#cx, ::leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
-            quote! { leptos::leptos_dom::svg::#name(#cx) }
+            quote! { ::leptos::leptos_dom::svg::#name(#cx) }
         } else if is_math_ml_element(&tag) {
             parent_type = TagType::Math;
-            quote! { leptos::leptos_dom::math::#name(#cx) }
+            quote! { ::leptos::leptos_dom::math::#name(#cx) }
         } else if is_ambiguous_element(&tag) {
             match parent_type {
                 TagType::Unknown => {
@@ -196,20 +184,22 @@ pub(crate)fn element_to_tokens(
                     /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
-                        leptos::leptos_dom::html::#name(#cx)
+                        ::leptos::leptos_dom::html::#name(#cx)
                     }
                 }
                 TagType::Html => {
-                    quote! { leptos::leptos_dom::html::#name(#cx) }
+                    quote! { ::leptos::leptos_dom::html::#name(#cx) }
                 }
-                TagType::Svg => quote! { leptos::leptos_dom::svg::#name(#cx) },
+                TagType::Svg => {
+                    quote! { ::leptos::leptos_dom::svg::#name(#cx) }
+                }
                 TagType::Math => {
-                    quote! { leptos::leptos_dom::math::#name(#cx) }
+                    quote! { ::leptos::leptos_dom::math::#name(#cx) }
                 }
             }
         } else {
             parent_type = TagType::Html;
-            quote! { leptos::leptos_dom::html::#name(#cx) }
+            quote! { ::leptos::leptos_dom::html::#name(#cx) }
         };
 
         if let Some(close_tag) = close_tag {
@@ -288,7 +278,7 @@ pub(crate)fn element_to_tokens(
                     .unwrap_or({
                         let span = Span::call_site();
                         quote_spanned! {
-                            span => leptos::leptos_dom::Unit
+                            span => ::leptos::leptos_dom::Unit
                         }
                     }),
                     false,
@@ -350,7 +340,7 @@ pub(crate)fn element_to_tokens(
     }
 }
 
-pub(crate)fn attribute_to_tokens(
+pub(crate) fn attribute_to_tokens(
     cx: &Ident,
     node: &KeyedAttribute,
     global_class: Option<&TokenTree>,
@@ -382,7 +372,7 @@ pub(crate)fn attribute_to_tokens(
         };
         let undelegated_ident = match &node.key {
             NodeName::Punctuated(parts) => parts.last().and_then(|last| {
-                if last == "undelegated" {
+                if last.to_string() == "undelegated" {
                     Some(last)
                 } else {
                     None

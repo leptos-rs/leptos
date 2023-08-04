@@ -32,8 +32,7 @@ impl Default for Mode {
 
 mod params;
 mod view;
-use view::client_template::render_template;
-use view::render_view;
+use view::{client_template::render_template, render_view};
 mod component;
 mod slot;
 
