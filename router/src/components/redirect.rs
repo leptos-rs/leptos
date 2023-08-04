@@ -43,11 +43,7 @@ where
         #[allow(unused)]
         let navigate = use_navigate();
         #[cfg(any(feature = "csr", feature = "hydrate"))]
-        leptos::request_animation_frame(move || {
-            if let Err(e) = navigate(&path, options.unwrap_or_default()) {
-                leptos::error!("<Redirect/> error: {e:?}");
-            }
-        });
+        navigate(&path, options.unwrap_or_default());
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         {
             leptos::debug_warn!(
