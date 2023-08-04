@@ -112,11 +112,7 @@ TokenStream [
             },
             Group {
                 delimiter: Parenthesis,
-                stream: TokenStream [
-                    Ident {
-                        sym: cx,
-                    },
-                ],
+                stream: TokenStream [],
             },
             Punct {
                 char: '.',
@@ -131,13 +127,6 @@ TokenStream [
                     Group {
                         delimiter: Parenthesis,
                         stream: TokenStream [
-                            Ident {
-                                sym: cx,
-                            },
-                            Punct {
-                                char: ',',
-                                spacing: Alone,
-                            },
                             Group {
                                 delimiter: Brace,
                                 stream: TokenStream [
@@ -247,11 +236,7 @@ TokenStream [
                                     },
                                     Group {
                                         delimiter: Parenthesis,
-                                        stream: TokenStream [
-                                            Ident {
-                                                sym: cx,
-                                            },
-                                        ],
+                                        stream: TokenStream [],
                                     },
                                     Punct {
                                         char: '.',
@@ -372,13 +357,6 @@ TokenStream [
                     Group {
                         delimiter: Parenthesis,
                         stream: TokenStream [
-                            Ident {
-                                sym: cx,
-                            },
-                            Punct {
-                                char: ',',
-                                spacing: Alone,
-                            },
                             Group {
                                 delimiter: Brace,
                                 stream: TokenStream [
@@ -488,11 +466,7 @@ TokenStream [
                                     },
                                     Group {
                                         delimiter: Parenthesis,
-                                        stream: TokenStream [
-                                            Ident {
-                                                sym: cx,
-                                            },
-                                        ],
+                                        stream: TokenStream [],
                                     },
                                     Punct {
                                         char: '.',
@@ -655,13 +629,6 @@ TokenStream [
                     Group {
                         delimiter: Parenthesis,
                         stream: TokenStream [
-                            Ident {
-                                sym: cx,
-                            },
-                            Punct {
-                                char: ',',
-                                spacing: Alone,
-                            },
                             Group {
                                 delimiter: Brace,
                                 stream: TokenStream [
@@ -771,11 +738,7 @@ TokenStream [
                                     },
                                     Group {
                                         delimiter: Parenthesis,
-                                        stream: TokenStream [
-                                            Ident {
-                                                sym: cx,
-                                            },
-                                        ],
+                                        stream: TokenStream [],
                                     },
                                     Punct {
                                         char: '.',
@@ -806,13 +769,6 @@ TokenStream [
                                             Group {
                                                 delimiter: Parenthesis,
                                                 stream: TokenStream [
-                                                    Ident {
-                                                        sym: cx,
-                                                    },
-                                                    Punct {
-                                                        char: ',',
-                                                        spacing: Alone,
-                                                    },
                                                     Group {
                                                         delimiter: Brace,
                                                         stream: TokenStream [
@@ -862,13 +818,6 @@ TokenStream [
                     Group {
                         delimiter: Parenthesis,
                         stream: TokenStream [
-                            Ident {
-                                sym: cx,
-                            },
-                            Punct {
-                                char: ',',
-                                spacing: Alone,
-                            },
                             Group {
                                 delimiter: Brace,
                                 stream: TokenStream [
@@ -978,11 +927,7 @@ TokenStream [
                                     },
                                     Group {
                                         delimiter: Parenthesis,
-                                        stream: TokenStream [
-                                            Ident {
-                                                sym: cx,
-                                            },
-                                        ],
+                                        stream: TokenStream [],
                                     },
                                     Punct {
                                         char: '.',

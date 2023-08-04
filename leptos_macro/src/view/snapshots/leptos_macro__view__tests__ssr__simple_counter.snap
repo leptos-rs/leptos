@@ -3,6 +3,7 @@ source: leptos_macro/src/view/tests.rs
 expression: pretty(result)
 ---
 fn view() {
+    #[allow(unused_braces)]
     {
         let _ = ::leptos::leptos_dom::html::div;
         let _ = ::leptos::leptos_dom::html::div;
@@ -27,7 +28,6 @@ fn view() {
             move |_| set_value.update(|value| *value += step),
         );
         ::leptos::HtmlElement::from_chunks(
-            cx,
             ::leptos::leptos_dom::html::Div::default(),
             [
                 leptos::leptos_dom::html::StringOrView::String(
@@ -42,7 +42,7 @@ fn view() {
                 ),
                 #[allow(unused_braces)]
                 {
-                    let view = { { value } }.into_view(cx);
+                    let view = { { value } }.into_view();
                     leptos::leptos_dom::html::StringOrView::View(
                         std::rc::Rc::new(move || view.clone()),
                     )

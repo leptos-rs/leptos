@@ -5,10 +5,9 @@ expression: pretty(result)
 fn view() {
     ::leptos::component_view(
         &SimpleCounter,
-        cx,
         ::leptos::component_props_builder(&SimpleCounter)
-            .initial_value(#[allow(unused_braces)] 0)
-            .step(#[allow(unused_braces)] 1)
+            .initial_value(#[allow(unused_braces)] { 0 })
+            .step(#[allow(unused_braces)] { 1 })
             .build(),
     )
 }

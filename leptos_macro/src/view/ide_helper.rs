@@ -68,7 +68,7 @@ impl IdeTagHelper {
     ///
     /// ```no_build
     /// if false {
-    ///     close_tag(cx, unreachable!())
+    ///     close_tag(unreachable!())
     /// }
     /// else {
     ///     open_tag(open_tag.props().slots().children().build())
@@ -76,7 +76,7 @@ impl IdeTagHelper {
     /// ```
     #[cfg(debug_assertions)]
     pub fn add_component_completion(
-        cx: &Ident,
+
         component: &mut TokenStream,
         node: &NodeElement,
     ) {
@@ -84,8 +84,8 @@ impl IdeTagHelper {
         if let Some(close_tag) = node.close_tag.as_ref().map(|c| &c.name) {
             *component = quote! {
                 {
-                    let #close_tag = |cx| #component;
-                    #close_tag(#cx)
+                    let #close_tag = || #component;
+                    #close_tag()
                 }
             }
         }

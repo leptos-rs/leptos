@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 pub(crate) fn component_to_tokens(
-    cx: &Ident,
     node: &NodeElement,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
@@ -44,7 +43,7 @@ pub(crate) fn component_to_tokens(
                 .unwrap_or_else(|| quote! { #name });
 
             quote! {
-                .#name(#[allow(unused_braces)] #value)
+                .#name(#[allow(unused_braces)] {#value})
             }
         });
 
@@ -93,7 +92,6 @@ pub(crate) fn component_to_tokens(
         }
 
         let children = fragment_to_tokens(
-            cx,
             span,
             &node.children,
             true,
@@ -116,7 +114,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        move |#cx, #(#bindables)*| #children #view_marker
+                        move |#(#bindables)*| #children #view_marker
                     })
                 }
             } else {
@@ -124,7 +122,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        Box::new(move |#cx| #children #view_marker)
+                        Box::new(move || #children #view_marker)
                     })
                 }
             }
@@ -151,7 +149,6 @@ pub(crate) fn component_to_tokens(
     let mut component = quote! {
         ::leptos::component_view(
             &#name,
-            #cx,
             ::leptos::component_props_builder(&#name)
                 #(#props)*
                 #(#slots)*
@@ -163,13 +160,13 @@ pub(crate) fn component_to_tokens(
     // (Temporarily?) removed
     // See note on the function itself below.
     /* #[cfg(debug_assertions)]
-    IdeTagHelper::add_component_completion(cx, &mut component, node); */
+    IdeTagHelper::add_component_completion(&mut component, node); */
 
     if events.is_empty() {
         component
     } else {
         quote! {
-            #component.into_view(#cx)
+            #component.into_view()
             #(#events)*
         }
     }
