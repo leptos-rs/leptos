@@ -148,7 +148,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                 .map(move |todo| {
                                                     view! {
                                                         cx,
-                                                        <li data-testid=format!("todo-item-{}", {todo.id})>
+                                                        <li>
                                                             {todo.title}
                                                             <ActionForm action=delete_todo>
                                                                 <input type="hidden" name="id" value={todo.id}/>

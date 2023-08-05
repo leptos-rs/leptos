@@ -33,3 +33,10 @@ async fn i_see_the_todo_is_present(
 
     Ok(())
 }
+
+#[then("I see the pending todo")]
+async fn i_see_the_pending_todo(world: &mut AppWorld) -> Result<()> {
+    check::todo_is_pending(world).await?;
+
+    Ok(())
+}

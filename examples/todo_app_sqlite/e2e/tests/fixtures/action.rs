@@ -40,16 +40,16 @@ pub async fn empty_todo_list(world: &mut AppWorld) -> Result<()> {
     let todos = find::todos(world).await;
 
     for _todo in todos {
-        let _ = delete_last_todo(world).await?;
+        let _ = delete_first_todo(world).await?;
     }
 
     Ok(())
 }
 
-pub async fn delete_last_todo(world: &mut AppWorld) -> Result<()> {
-    if let Some(element) = find::last_delete_button(world).await {
+pub async fn delete_first_todo(world: &mut AppWorld) -> Result<()> {
+    if let Some(element) = find::first_delete_button(world).await {
         element.click().await.expect("Failed to delete todo");
-        time::sleep(time::Duration::from_millis(500)).await;
+        time::sleep(time::Duration::from_millis(250)).await;
     }
 
     Ok(())
@@ -58,7 +58,7 @@ pub async fn delete_last_todo(world: &mut AppWorld) -> Result<()> {
 pub async fn delete_todo(world: &mut AppWorld, text: &str) -> Result<()> {
     if let Some(element) = find::delete_button(world, text).await {
         element.click().await?;
-        time::sleep(time::Duration::from_millis(500)).await;
+        time::sleep(time::Duration::from_millis(250)).await;
     }
 
     Ok(())

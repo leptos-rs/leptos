@@ -3,7 +3,6 @@ use anyhow::{Ok, Result};
 use cucumber::{given, then, when};
 
 #[given("I see the app")]
-#[given("I open the app")]
 #[when("I open the app")]
 async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
     action::goto_path(world, "").await?;

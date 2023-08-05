@@ -48,3 +48,11 @@ async fn is_todo_present(world: &mut AppWorld, text: &str) -> bool {
 
     false
 }
+
+pub async fn todo_is_pending(world: &mut AppWorld) -> Result<()> {
+    if let None = find::pending_todo(world).await {
+        assert!(false, "Pending todo not found");
+    }
+
+    Ok(())
+}

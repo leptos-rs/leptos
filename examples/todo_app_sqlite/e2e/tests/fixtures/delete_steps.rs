@@ -2,13 +2,6 @@ use super::{action, check, world::AppWorld};
 use anyhow::{Ok, Result};
 use cucumber::{given, then, when};
 
-#[when("I delete the last todo")]
-async fn i_delete_the_last_todo(world: &mut AppWorld) -> Result<()> {
-    action::delete_last_todo(world).await?;
-
-    Ok(())
-}
-
 #[when(regex = "^I delete the todo named (.*)$")]
 async fn i_delete_the_todo_named(
     world: &mut AppWorld,
@@ -28,7 +21,7 @@ async fn i_empty_the_todo_list(world: &mut AppWorld) -> Result<()> {
 }
 
 #[then(regex = "^I see the empty list message is (.*)$")]
-async fn i_see_the_no_todo_message_is(
+async fn i_see_the_empty_list_message_is(
     world: &mut AppWorld,
     text: String,
 ) -> Result<()> {

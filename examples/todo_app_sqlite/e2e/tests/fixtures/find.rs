@@ -23,11 +23,11 @@ pub async fn add_button(world: &mut AppWorld) -> Element {
     button
 }
 
-pub async fn last_delete_button(world: &mut AppWorld) -> Option<Element> {
+pub async fn first_delete_button(world: &mut AppWorld) -> Option<Element> {
     let client = &world.client;
     if let Ok(element) = client
         .wait()
-        .for_element(Locator::Css("li:last-child input[value='X']"))
+        .for_element(Locator::Css("li:first-child input[value='X']"))
         .await
     {
         return Some(element);
@@ -44,6 +44,17 @@ pub async fn delete_button(
     let selector = format!("//*[text()='{text}']//input[@value='X']");
     if let Ok(element) =
         client.wait().for_element(Locator::XPath(&selector)).await
+    {
+        return Some(element);
+    }
+
+    None
+}
+
+pub async fn pending_todo(world: &mut AppWorld) -> Option<Element> {
+    let client = &world.client;
+    if let Ok(element) =
+        client.wait().for_element(Locator::Css(".pending")).await
     {
         return Some(element);
     }
