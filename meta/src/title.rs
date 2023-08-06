@@ -111,14 +111,6 @@ pub fn Title(
             let el = {
                 let mut el_ref = meta.title.el.borrow_mut();
                 let el = if let Some(el) = &*el_ref {
-                    let prev_text = el.inner_text();
-                    on_cleanup({
-                        let el = el.clone();
-                        move || {
-                            _ = el.set_text(&prev_text);
-                        }
-                    });
-
                     el.clone()
                 } else {
                     match document().query_selector("title") {
@@ -151,6 +143,7 @@ pub fn Title(
             create_render_effect(move |_| {
                 let text = meta.title.as_string().unwrap_or_default();
 
+                leptos::log!("setting text content to {text:?}");
                 el.set_text_content(Some(&text));
             });
         } else {
