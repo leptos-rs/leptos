@@ -194,9 +194,7 @@ impl Custom {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         let element = if HydrationCtx::is_hydrating() && id.is_some() {
             let id = id.unwrap();
-            if let Some(el) =
-                crate::document().get_element_by_id(&format!("_{id}"))
-            {
+            if let Some(el) = crate::hydration::get_element(&id.to_string()) {
                 #[cfg(debug_assertions)]
                 assert_eq!(
                     el.node_name().to_ascii_uppercase(),
@@ -207,22 +205,6 @@ impl Custom {
                 );
 
                 //el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
-
-                el.unchecked_into()
-            } else if let Ok(Some(el)) =
-                crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
-            {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                    el.node_name().to_ascii_uppercase(),
-                    name.to_ascii_uppercase(),
-                    "SSR and CSR elements have the same hydration key but \
-                     different node kinds. Check out the docs for information \
-                     about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
-                );
-
-                //el.remove_attribute(wasm_bindgen::intern("leptos-hk"))
-                //    .unwrap();
 
                 el.unchecked_into()
             } else {
@@ -1063,11 +1045,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
             let mut element = Element::new(element);
 
             if let Some(id) = id {
-                if attrs.iter_mut().any(|(name, _)| name == "id") {
-                    attrs.push(("leptos-hk".into(), format!("_{id}").into()));
-                } else {
-                    attrs.push(("id".into(), format!("_{id}").into()));
-                }
+                attrs.push(("data-hk".into(), id.to_string().into()));
             }
 
             element.attrs = attrs;
@@ -1247,8 +1225,7 @@ fn create_leptos_element(
 
     if HydrationCtx::is_hydrating() && id.is_some() {
         let id = id.unwrap();
-        if let Some(el) = crate::document().get_element_by_id(&format!("_{id}"))
-        {
+        if let Some(el) = crate::hydration::get_element(&id.to_string()) {
             #[cfg(debug_assertions)]
             assert_eq!(
                 &el.node_name().to_ascii_uppercase(),
@@ -1257,24 +1234,6 @@ fn create_leptos_element(
                 different node kinds. Check out the docs for information \
                 about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
             );
-
-            //el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
-
-            el.unchecked_into()
-        } else if let Ok(Some(el)) =
-            crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
-        {
-            #[cfg(debug_assertions)]
-            assert_eq!(
-                el.node_name().to_ascii_uppercase(),
-                tag,
-                "SSR and CSR elements have the same hydration key but \
-                different node kinds. Check out the docs for information \
-                about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
-            );
-
-            //el.remove_attribute(wasm_bindgen::intern("leptos-hk"))
-            //    .unwrap();
 
             el.unchecked_into()
         } else {

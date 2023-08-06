@@ -37,6 +37,24 @@ mod hydration {
         map
       });
 
+      pub static HYDRATION_ELEMENTS: LazyCell<HashMap<String, web_sys::HtmlElement>> = LazyCell::new(|| {
+        let document = crate::document();
+        let els = document.query_selector_all("[data-hk]");
+        if let Ok(list) = els {
+            let len = list.length();
+            let mut map = HashMap::with_capacity(len as usize);
+            for idx in 0..len {
+                let el = list.item(idx).unwrap().unchecked_into::<web_sys::HtmlElement>();
+                let dataset = el.dataset();
+                let hk = dataset.get(&wasm_bindgen::intern("hk")).unwrap();
+                map.insert(hk, el);
+            }
+            map
+        } else {
+            Default::default()
+        }
+      });
+
       #[cfg(debug_assertions)]
       pub static VIEW_MARKERS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
         let document = crate::document();
@@ -69,6 +87,10 @@ mod hydration {
 
     pub fn get_marker(id: &str) -> Option<web_sys::Comment> {
         HYDRATION_COMMENTS.with(|comments| comments.get(id).cloned())
+    }
+
+    pub fn get_element(hk: &str) -> Option<web_sys::HtmlElement> {
+        HYDRATION_ELEMENTS.with(|els| els.get(hk).cloned())
     }
 }
 

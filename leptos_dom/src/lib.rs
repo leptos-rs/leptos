@@ -467,7 +467,7 @@ pub struct Text {
     /// to update the node without recreating it, we need to be able
     /// to possibly reuse a previous node.
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    node: web_sys::Node,
+    pub(crate) node: web_sys::Node,
     /// The current contents of the text node.
     pub content: Cow<'static, str>,
 }
@@ -819,7 +819,6 @@ fn prepare_to_move(
 ) {
     let mut sibling = opening.clone();
 
-    crate::log!("prepare_to_move called");
     while sibling != *closing {
         if let Some(next_sibling) = sibling.next_sibling() {
             frag.append_child(&sibling).unwrap();

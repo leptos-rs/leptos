@@ -6,7 +6,7 @@ use cfg_if::cfg_if;
 use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable, Text};
+    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable, Text, Text};
     use leptos_reactive::create_effect;
     use wasm_bindgen::JsCast;
   }
