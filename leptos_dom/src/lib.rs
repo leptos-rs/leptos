@@ -819,6 +819,7 @@ fn prepare_to_move(
 ) {
     let mut sibling = opening.clone();
 
+    crate::log!("prepare_to_move called");
     while sibling != *closing {
         if let Some(next_sibling) = sibling.next_sibling() {
             frag.append_child(&sibling).unwrap();
@@ -892,11 +893,13 @@ pub fn mount_to_with_stop_hydrating<F, N>(
             if stop_hydrating {
                 HydrationCtx::stop_hydrating();
             }
-            parent.append_child(&node.get_mountable_node()).unwrap();
+            // TODO is this *ever* needed? unnecessarily remounts hydrated child
+            // parent.append_child(&node.get_mountable_node()).unwrap();
             std::mem::forget(node);
       } else {
         _ = parent;
         _ = f;
+        _ = stop_hydrating;
         crate::warn!("`mount_to` should not be called outside the browser.");
       }
     }

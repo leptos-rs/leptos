@@ -206,7 +206,7 @@ impl Custom {
                      about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
                 );
 
-                el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
+                //el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
 
                 el.unchecked_into()
             } else if let Ok(Some(el)) =
@@ -221,8 +221,8 @@ impl Custom {
                      about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
                 );
 
-                el.remove_attribute(wasm_bindgen::intern("leptos-hk"))
-                    .unwrap();
+                //el.remove_attribute(wasm_bindgen::intern("leptos-hk"))
+                //    .unwrap();
 
                 el.unchecked_into()
             } else {
@@ -1258,7 +1258,7 @@ fn create_leptos_element(
                 about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
             );
 
-            el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
+            //el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
 
             el.unchecked_into()
         } else if let Ok(Some(el)) =
@@ -1273,8 +1273,8 @@ fn create_leptos_element(
                 about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
             );
 
-            el.remove_attribute(wasm_bindgen::intern("leptos-hk"))
-                .unwrap();
+            //el.remove_attribute(wasm_bindgen::intern("leptos-hk"))
+            //    .unwrap();
 
             el.unchecked_into()
         } else {
