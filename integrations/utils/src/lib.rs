@@ -81,22 +81,14 @@ pub fn html_parts_separated(
           }
           mod.hydrate();
         }"# */
-        r#"() => {
-            let idle = (c) => {
-                if ("requestIdleCallback" in window) {
-                    window.requestIdleCallback(c);
-                } else {
-                    setTimeout(c, 200);
-                }
+        r#"() => {       
+            for (let e of document.querySelectorAll("leptos-island")) {
+                let l = e.dataset.component;
+                mod["_island_" + l](e);
             }
-    idle(() => { for (let e of document.querySelectorAll("leptos-island")) {
-      let l = e.dataset.component;
-      mod["_island_" + l](e);
-    }
-    mod.hydrate();
-});
-}
-"#
+            mod.hydrate();
+        }
+        "#
         //r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;mod["_island_"+l](e)};mod.hydrate();}"#
     } else {
         "() => mod.hydrate()"
@@ -111,10 +103,19 @@ pub fn html_parts_separated(
                     <link rel="modulepreload" href="/{pkg_path}/{output_name}.js"{nonce}>
                     <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
                     <script type="module"{nonce}>
-                        import('/{pkg_path}/{output_name}.js')
-                            .then(mod => {{
-                                mod.default('/{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
-                            }});
+                        function idle(c) {{
+                            if ("requestIdleCallback" in window) {{
+                                window.requestIdleCallback(c);
+                            }} else {{
+                                setTimeout(c, 200);
+                            }}
+                        }}
+                        idle(() => {{
+                            import('/{pkg_path}/{output_name}.js')
+                                .then(mod => {{
+                                    mod.default('/{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
+                                }})
+                        }});
                     </script>
                     {leptos_autoreload}
                     "#
