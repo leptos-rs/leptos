@@ -166,9 +166,8 @@ impl Runtime {
 
     pub(crate) fn cleanup_node(&self, node_id: NodeId) {
         // first, run our cleanups, if any
-        if let Some(cleanups) =
-            { self.on_cleanups.borrow_mut().remove(node_id) }
-        {
+        let c = { self.on_cleanups.borrow_mut().remove(node_id) };
+        if let Some(cleanups) = c {
             for cleanup in cleanups {
                 cleanup();
             }
