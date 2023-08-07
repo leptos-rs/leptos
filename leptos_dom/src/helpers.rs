@@ -433,12 +433,13 @@ pub fn window_event_listener_untyped(
 ///
 /// #[component]
 /// fn App() -> impl IntoView {
-///     window_event_listener(ev::keypress, |ev| {
+///     let handle = window_event_listener(ev::keypress, |ev| {
 ///         // ev is typed as KeyboardEvent automatically,
 ///         // so .code() can be called
 ///         let code = ev.code();
 ///         log!("code = {code:?}");
-///     })
+///     });
+///     on_cleanup(move || handle.remove());
 /// }
 /// ```
 pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
