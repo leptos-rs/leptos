@@ -1,8 +1,6 @@
-use super::world::AppWorld;
-use fantoccini::{elements::Element, Locator};
+use fantoccini::{elements::Element, Client, Locator};
 
-pub async fn todo_input(world: &mut AppWorld) -> Element {
-    let client = &world.client;
+pub async fn todo_input(client: &Client) -> Element {
     let textbox = client
         .wait()
         .for_element(Locator::Css("input[name='title"))
@@ -12,8 +10,7 @@ pub async fn todo_input(world: &mut AppWorld) -> Element {
     textbox
 }
 
-pub async fn add_button(world: &mut AppWorld) -> Element {
-    let client = &world.client;
+pub async fn add_button(client: &Client) -> Element {
     let button = client
         .wait()
         .for_element(Locator::Css("input[value='Add']"))
@@ -23,8 +20,7 @@ pub async fn add_button(world: &mut AppWorld) -> Element {
     button
 }
 
-pub async fn first_delete_button(world: &mut AppWorld) -> Option<Element> {
-    let client = &world.client;
+pub async fn first_delete_button(client: &Client) -> Option<Element> {
     if let Ok(element) = client
         .wait()
         .for_element(Locator::Css("li:first-child input[value='X']"))
@@ -36,11 +32,7 @@ pub async fn first_delete_button(world: &mut AppWorld) -> Option<Element> {
     None
 }
 
-pub async fn delete_button(
-    world: &mut AppWorld,
-    text: &str,
-) -> Option<Element> {
-    let client = &world.client;
+pub async fn delete_button(client: &Client, text: &str) -> Option<Element> {
     let selector = format!("//*[text()='{text}']//input[@value='X']");
     if let Ok(element) =
         client.wait().for_element(Locator::XPath(&selector)).await
@@ -51,8 +43,7 @@ pub async fn delete_button(
     None
 }
 
-pub async fn pending_todo(world: &mut AppWorld) -> Option<Element> {
-    let client = &world.client;
+pub async fn pending_todo(client: &Client) -> Option<Element> {
     if let Ok(element) =
         client.wait().for_element(Locator::Css(".pending")).await
     {
@@ -62,8 +53,7 @@ pub async fn pending_todo(world: &mut AppWorld) -> Option<Element> {
     None
 }
 
-pub async fn todos(world: &mut AppWorld) -> Vec<Element> {
-    let client = &world.client;
+pub async fn todos(client: &Client) -> Vec<Element> {
     let todos = client
         .find_all(Locator::Css("li"))
         .await

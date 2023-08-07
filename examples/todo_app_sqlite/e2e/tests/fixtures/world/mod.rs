@@ -1,3 +1,6 @@
+pub mod action_steps;
+pub mod check_steps;
+
 use anyhow::Result;
 use cucumber::World;
 use fantoccini::{
@@ -7,11 +10,9 @@ use fantoccini::{
 pub const HOST: &str = "http://127.0.0.1:3000";
 
 #[derive(Debug, World)]
-// Accepts both sync/async and fallible/infallible functions.
 #[world(init = Self::new)]
 pub struct AppWorld {
     pub client: Client,
-    pub todo_count: usize,
 }
 
 impl AppWorld {
@@ -20,7 +21,6 @@ impl AppWorld {
 
         Ok(Self {
             client: webdriver_client,
-            todo_count: 0,
         })
     }
 }

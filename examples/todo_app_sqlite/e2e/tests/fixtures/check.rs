@@ -1,14 +1,13 @@
-use super::{find, world::AppWorld};
+use super::find;
 use anyhow::{Ok, Result};
-use fantoccini::Locator;
+use fantoccini::{Client, Locator};
 use pretty_assertions::assert_eq;
 
 pub async fn text_on_element(
-    world: &mut AppWorld,
+    client: &Client,
     selector: &str,
     expected_text: &str,
 ) -> Result<()> {
-    let client = &world.client;
     let element = client
         .wait()
         .for_element(Locator::Css(selector))
@@ -25,19 +24,19 @@ pub async fn text_on_element(
 }
 
 pub async fn todo_present(
-    world: &mut AppWorld,
+    client: &Client,
     text: &str,
     expected: bool,
 ) -> Result<()> {
-    let todo_present = is_todo_present(world, text).await;
+    let todo_present = is_todo_present(client, text).await;
 
     assert_eq!(todo_present, expected);
 
     Ok(())
 }
 
-async fn is_todo_present(world: &mut AppWorld, text: &str) -> bool {
-    let todos = find::todos(world).await;
+async fn is_todo_present(client: &Client, text: &str) -> bool {
+    let todos = find::todos(client).await;
 
     for todo in todos {
         let todo_title = todo.text().await.expect("Todo title not found");
@@ -49,8 +48,8 @@ async fn is_todo_present(world: &mut AppWorld, text: &str) -> bool {
     false
 }
 
-pub async fn todo_is_pending(world: &mut AppWorld) -> Result<()> {
-    if let None = find::pending_todo(world).await {
+pub async fn todo_is_pending(client: &Client) -> Result<()> {
+    if let None = find::pending_todo(client).await {
         assert!(false, "Pending todo not found");
     }
 
