@@ -1,0 +1,2 @@
+[tasks.install-cargo-leptos]
+install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
