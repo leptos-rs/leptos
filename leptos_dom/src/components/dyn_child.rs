@@ -7,7 +7,7 @@ use leptos_reactive::Scope;
 use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
+    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable, Text};
     use leptos_reactive::{create_effect, ScopeDisposer};
     use wasm_bindgen::JsCast;
   }
@@ -347,32 +347,29 @@ where
                     }
                     // Otherwise, we know for sure this is our first time
                     else {
-                        // We need to remove the text created from SSR
-                        if HydrationCtx::is_hydrating()
+                        // If it's a text node, we want to use the old text node
+                        // as the text node for the DynChild, rather than the new
+                        // text node being created during hydration
+                        let new_child = if HydrationCtx::is_hydrating()
                             && new_child.get_text().is_some()
                         {
                             let t = closing
                                 .previous_non_view_marker_sibling()
                                 .unwrap()
-                                .unchecked_into::<web_sys::Element>();
+                                .unchecked_into::<web_sys::Text>();
 
-                            // See note on ssr.rs when matching on `DynChild`
-                            // for more details on why we need to do this for
-                            // release
-                            if !cfg!(debug_assertions) {
-                                t.previous_sibling()
-                                    .unwrap()
-                                    .unchecked_into::<web_sys::Element>()
-                                    .remove();
-                            }
-
-                            t.remove();
-
-                            mount_child(
-                                MountKind::Before(&closing),
-                                &new_child,
-                            );
-                        }
+                            let new_child = match new_child {
+                                View::Text(text) => text,
+                                _ => unreachable!(),
+                            };
+                            t.set_data(&new_child.content);
+                            View::Text(Text {
+                                node: t.unchecked_into(),
+                                content: new_child.content,
+                            })
+                        } else {
+                            new_child
+                        };
 
                         // If we are not hydrating, we simply mount the child
                         if !HydrationCtx::is_hydrating() {
