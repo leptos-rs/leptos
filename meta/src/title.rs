@@ -143,7 +143,6 @@ pub fn Title(
             create_render_effect(move |_| {
                 let text = meta.title.as_string().unwrap_or_default();
 
-                leptos::log!("setting text content to {text:?}");
                 el.set_text_content(Some(&text));
             });
         } else {
