@@ -170,6 +170,9 @@ pub fn use_resolved_path(
 
 /// Returns a function that can be used to navigate to a new route.
 ///
+/// This should only be called on the client; it does nothing during
+/// server rendering.
+///
 /// ```rust
 /// # use leptos::{request_animation_frame, create_runtime};
 /// # let runtime = create_runtime();
@@ -185,11 +188,18 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) {
     move |to, options| {
         let router = Rc::clone(&router.inner);
         let to = to.to_string();
-        request_animation_frame(move || {
-            if let Err(e) = router.navigate_from_route(&to, &options) {
-                leptos::debug_warn!("use_navigate error: {e:?}");
-            }
-        });
+        if cfg!(any(feature = "csr", feature = "hydrate")) {
+            request_animation_frame(move || {
+                if let Err(e) = router.navigate_from_route(&to, &options) {
+                    leptos::debug_warn!("use_navigate error: {e:?}");
+                }
+            });
+        } else {
+            leptos::warn!(
+                "The navigation function returned by `use_navigate` should \
+                 not be called during server rendering."
+            );
+        }
     }
 }
 
