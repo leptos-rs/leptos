@@ -51,7 +51,7 @@ where
     let key = key.into();
     let query_map = use_query_map(cx);
     let navigate = use_navigate(cx);
-    let route = use_route(cx);
+    let location = use_location(cx);
 
     let get = create_memo(cx, {
         let key = key.clone();
@@ -72,7 +72,7 @@ where
             }
         }
         let qs = new_query_map.to_query_string();
-        let path = route.path();
+        let path = location.pathname.get();
         let new_url = format!("{path}{qs}");
         let _ = navigate(&new_url, NavigateOptions::default());
     });
