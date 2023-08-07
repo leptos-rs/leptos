@@ -737,18 +737,18 @@ impl ToMarker for HydrationKey {
         #[cfg(debug_assertions)]
         {
             if component_name == "unit" {
-                format!("<!--hk=_{self}|leptos-unit-->").into()
+                format!("<!--hk={self}|leptos-unit-->").into()
             } else if closing {
-                format!("<!--hk=_{self}c|leptos-{component_name}-end-->").into()
+                format!("<!--hk={self}c|leptos-{component_name}-end-->").into()
             } else {
-                format!("<!--hk=_{self}o|leptos-{component_name}-start-->")
+                format!("<!--hk={self}o|leptos-{component_name}-start-->")
                     .into()
             }
         }
         #[cfg(not(debug_assertions))]
         {
             if closing {
-                format!("<!--hk=_{self}-->").into()
+                format!("<!--hk={self}-->").into()
             } else {
                 "".into()
             }

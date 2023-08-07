@@ -8,15 +8,15 @@ use std::{cell::RefCell, fmt::Display};
 #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
 mod hydration {
     use once_cell::unsync::Lazy as LazyCell;
-    use std::{cell::RefCell, collections::HashMap};
+    use std::{
+        cell::{Cell, RefCell},
+        collections::HashMap,
+    };
     use wasm_bindgen::JsCast;
 
     /// See ["createTreeWalker"](https://developer.mozilla.org/en-US/docs/Web/API/Document/createTreeWalker)
     const FILTER_SHOW_COMMENT: u32 = 0b10000000;
 
-    // We can tell if we start in hydration mode by checking to see if the
-    // id "_0-1" is present in the DOM. If it is, we know we are hydrating from
-    // the server, if not, we are starting off in CSR
     thread_local! {
       pub static HYDRATION_COMMENTS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
         let document = crate::document();
@@ -55,34 +55,7 @@ mod hydration {
         }
       });
 
-      #[cfg(debug_assertions)]
-      pub static VIEW_MARKERS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
-        let document = crate::document();
-        let body = document.body().unwrap();
-        let walker = document
-          .create_tree_walker_with_what_to_show(&body, FILTER_SHOW_COMMENT)
-          .unwrap();
-        let mut map = HashMap::new();
-        while let Ok(Some(node)) = walker.next_node() {
-          if let Some(content) = node.text_content() {
-            if let Some(id) = content.strip_prefix("leptos-view|") {
-              map.insert(id.into(), node.unchecked_into());
-            }
-          }
-        }
-        map
-      });
-
-      pub static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
-        #[cfg(debug_assertions)]
-        return crate::document().get_element_by_id("_0-0-1").is_some()
-          || crate::document().get_element_by_id("_0-0-1o").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-1o").is_some());
-
-        #[cfg(not(debug_assertions))]
-        return crate::document().get_element_by_id("_0-0-1").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-1").is_some());
-      }));
+      pub static IS_HYDRATING: Cell<bool> = Cell::new(true);
     }
 
     pub fn get_marker(id: &str) -> Option<web_sys::Comment> {
@@ -219,10 +192,10 @@ impl HydrationCtx {
 
         ID.with(|id| {
             let mut id = id.borrow_mut();
-            if !no_hydrate {
-                id.fragment = id.fragment.wrapping_add(1);
-                id.id = 0;
-            }
+            //if !no_hydrate {
+            id.fragment = id.fragment.wrapping_add(1);
+            id.id = 0;
+            //}
             *id
         })
     }
@@ -273,7 +246,7 @@ impl HydrationCtx {
         #[cfg(feature = "hydrate")]
         {
             IS_HYDRATING.with(|is_hydrating| {
-                std::mem::take(&mut *is_hydrating.borrow_mut());
+                is_hydrating.set(false);
             })
         }
     }
@@ -281,16 +254,13 @@ impl HydrationCtx {
     #[doc(hidden)]
     #[cfg(all(feature = "hydrate", target_arch = "wasm32", feature = "web"))]
     pub fn with_hydration_on<T>(f: impl FnOnce() -> T) -> T {
-        use once_cell::unsync::Lazy as LazyCell;
-
         let prev = IS_HYDRATING.with(|is_hydrating| {
-            std::mem::take(&mut *is_hydrating.borrow_mut())
-        });
-        IS_HYDRATING.with(|is_hydrating| {
-            *is_hydrating.borrow_mut() = LazyCell::new(|| true)
+            let prev = is_hydrating.get();
+            is_hydrating.set(true);
+            prev
         });
         let value = f();
-        IS_HYDRATING.with(|is_hydrating| *is_hydrating.borrow_mut() = prev);
+        IS_HYDRATING.with(|is_hydrating| is_hydrating.set(prev));
         value
     }
 
@@ -298,7 +268,7 @@ impl HydrationCtx {
     pub fn is_hydrating() -> bool {
         #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
         {
-            IS_HYDRATING.with(|is_hydrating| **is_hydrating.borrow())
+            IS_HYDRATING.with(|is_hydrating| is_hydrating.get())
         }
         #[cfg(not(all(target_arch = "wasm32", feature = "hydrate")))]
         {
@@ -309,13 +279,11 @@ impl HydrationCtx {
     #[cfg(feature = "hydrate")]
     pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {
         #[cfg(debug_assertions)]
-        return format!("_{id}{}", if closing { 'c' } else { 'o' });
+        return format!("{id}{}", if closing { 'c' } else { 'o' });
 
         #[cfg(not(debug_assertions))]
         {
-            let _ = closing;
-
-            format!("_{id}")
+            id.to_string()
         }
     }
 }
