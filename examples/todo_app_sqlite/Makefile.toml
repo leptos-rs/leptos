@@ -4,6 +4,11 @@ extend = [
   { path = "../cargo-make/cargo-leptos.toml" },
 ]
 
+[tasks.build]
+clear = true
+command = "cargo"
+args = ["leptos", "build"]
+
 [tasks.check]
 clear = true
 dependencies = ["check-debug", "check-release"]
