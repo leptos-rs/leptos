@@ -416,23 +416,35 @@ impl View {
                             Box::new(
                                 move |chunks: &mut VecDeque<StreamChunk>| {
                                     if let Some(child) = *child {
-                                        // On debug builds, `DynChild` has two marker nodes,
-                                        // so there is no way for the text to be merged with
-                                        // surrounding text when the browser parses the HTML,
-                                        // but in release, `DynChild` only has a trailing marker,
-                                        // and the browser automatically merges the dynamic text
-                                        // into one single node, so we need to artificially make the
-                                        // browser create the dynamic text as it's own text node
                                         if let View::Text(t) = child {
-                                            let content = if dont_escape_text {
+                                            // if we don't check if the string is empty,
+                                            // the HTML is an empty string; but an empty string
+                                            // is not a text node in HTML, so can't be updated
+                                            // in the future. so we put a one-space text node instead
+                                            let was_empty =
+                                                t.content.is_empty();
+                                            let content = if was_empty {
+                                                " ".into()
+                                            } else {
                                                 t.content
+                                            };
+                                            // escape content unless we're in a <script> or <style>
+                                            let content = if dont_escape_text {
+                                                content
                                             } else {
                                                 html_escape::encode_safe(
-                                                    &t.content,
+                                                    &content,
                                                 )
                                                 .to_string()
                                                 .into()
                                             };
+                                            // On debug builds, `DynChild` has two marker nodes,
+                                            // so there is no way for the text to be merged with
+                                            // surrounding text when the browser parses the HTML,
+                                            // but in release, `DynChild` only has a trailing marker,
+                                            // and the browser automatically merges the dynamic text
+                                            // into one single node, so we need to artificially make the
+                                            // browser create the dynamic text as it's own text node
                                             chunks.push_back(
                                                 if !cfg!(debug_assertions) {
                                                     StreamChunk::Sync(
