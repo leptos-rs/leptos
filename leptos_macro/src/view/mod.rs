@@ -394,7 +394,6 @@ fn parse_event(event_name: &str) -> (&str, bool) {
 
 fn fancy_class_name<'a>(
     name: &str,
-
     node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex class names:
@@ -431,7 +430,7 @@ fn fancy_class_name<'a>(
             } else {
                 proc_macro_error::emit_error!(
                     tuple.span(),
-                    "class tuples must have two elements."
+                    "class tuples must have two elements"
                 )
             }
         }
@@ -465,7 +464,6 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
 
 fn fancy_style_name<'a>(
     name: &str,
-
     node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex dynamic style names:
@@ -501,7 +499,7 @@ fn fancy_style_name<'a>(
             } else {
                 proc_macro_error::emit_error!(
                     tuple.span(),
-                    "style tuples must have two elements."
+                    "style tuples must have two elements"
                 )
             }
         }

@@ -101,14 +101,19 @@ pub(crate) fn class_expression(
 
     if force || !HydrationCtx::is_hydrating() {
         let class_name = wasm_bindgen::intern(class_name);
+        let classes = class_name.split_ascii_whitespace();
 
         if value {
-            if let Err(e) = class_list.add_1(class_name) {
-                crate::error!("[HtmlElement::class()] {e:?}");
+            for class_name in classes {
+                if let Err(e) = class_list.add_1(class_name) {
+                    crate::error!("[HtmlElement::class()] {e:?}");
+                }
             }
         } else {
-            if let Err(e) = class_list.remove_1(class_name) {
-                crate::error!("[HtmlElement::class()] {e:?}");
+            for class_name in classes {
+                if let Err(e) = class_list.remove_1(class_name) {
+                    crate::error!("[HtmlElement::class()] {e:?}");
+                }
             }
         }
     }

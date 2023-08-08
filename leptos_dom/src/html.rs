@@ -662,7 +662,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             };
 
             if include {
-                if let Some((_, ref mut value)) =
+                if let Some((_, value)) =
                     this.attrs.iter_mut().find(|(name, _)| name == "class")
                 {
                     *value = format!("{value} {name}").into();
