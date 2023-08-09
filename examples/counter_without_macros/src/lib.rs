@@ -11,29 +11,27 @@ pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
         // children can be added with .child()
         // this takes any type that implements IntoView as its argument
         // for example, a string or an HtmlElement<_>
-        .child(
+        // it can also take an array of types that impl IntoView
+        // or a tuple of up to 26 objects that impl IntoView
+        .child((
             button()
                 // typed events found in leptos::ev
                 // 1) prevent typos in event names
                 // 2) allow for correct type inference in callbacks
                 .on(ev::click, move |_| set_count.update(|count| count.clear()))
                 .child("Clear"),
-        )
-        .child(
             button()
                 .on(ev::click, move |_| {
                     set_count.update(|count| count.decrease())
                 })
                 .child("-1"),
-        )
-        .child(
             span()
                 .child("Value: ")
                 // reactive values are passed to .child() as a tuple
                 // (Scope, [child function]) so an effect can be created
                 .child(move || count.get().value())
                 .child("!"),
-        )
+        ))
         .child(
             button()
                 .on(ev::click, move |_| {
