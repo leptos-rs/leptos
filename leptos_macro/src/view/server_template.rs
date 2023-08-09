@@ -272,19 +272,10 @@ fn element_to_tokens_ssr(
         } else {
             quote! { ::leptos::leptos_dom::HydrationCtx::id() }
         };
-        match node
-            .attributes()
-            .iter()
-            .find(|node| matches!(node, NodeAttribute::Attribute(attr) if attr.key.to_string() == "id"))
-        {
-            Some(_) => {
-                template.push_str(" leptos-hk=\"_{}\"");
-            }
-            None => {
-                template.push_str(" id=\"_{}\"");
-            }
-        }
-        holes.push(hydration_id);
+        template.push_str("{}");
+        holes.push(quote! {
+            #hydration_id.map(|id| format!("  data-hk=\"{id}\"")).unwrap_or_default()
+        });
 
         set_class_attribute_ssr(node, template, holes, global_class);
         set_style_attribute_ssr(node, template, holes);

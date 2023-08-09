@@ -532,7 +532,6 @@ impl View {
                                                     #[cfg(debug_assertions)]
                                                     "each-item",
                                                 )
-                                                .into()
                                             )
                                             .into()
                                         }

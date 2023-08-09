@@ -322,23 +322,13 @@ impl ToTokens for Model {
             }
         };
 
-        let body = if should_include_body {
-            quote! {
-                #body
-                #destructure_props
-                #tracing_span_expr
-                #component
-            }
-        } else {
-            quote! {
-                _ = {
-                    #body
-                    #destructure_props
-                    #tracing_span_expr
-                    #component
-                }
-            }
+        let body = quote! {
+            #body
+            #destructure_props
+            #tracing_span_expr
+            #component
         };
+
         let binding = if *is_island
             && cfg!(any(feature = "csr", feature = "hydrate"))
         {
@@ -405,9 +395,6 @@ impl ToTokens for Model {
             ) #ret #(+ #lifetimes)*
             #where_clause
             {
-                #[allow(non_snake_case)]
-                // allowed for lifetimes that are needed for props struct
-                #[allow(clippy::needless_lifetimes)]
                 #body
             }
         };
