@@ -4,26 +4,8 @@ extend = [
   { path = "../cargo-make/cargo-leptos.toml" },
 ]
 
-[tasks.build]
-clear = true
-command = "cargo"
-args = ["leptos", "build"]
-
-[tasks.check]
-clear = true
-dependencies = ["check-debug", "check-release"]
-
-[tasks.check-debug]
-toolchain = "nightly"
-command = "cargo"
-args = ["check-all-features"]
-install_crate = "cargo-all-features"
-
-[tasks.check-release]
-toolchain = "nightly"
-command = "cargo"
-args = ["check-all-features", "--release"]
-install_crate = "cargo-all-features"
+[env]
+APP_PROCESS_NAME = "todo_app_sqlite"
 
 [tasks.integration-test]
 dependencies = [
@@ -40,35 +22,3 @@ args = ["leptos", "end-to-end"]
 cwd = "./e2e"
 command = "cargo"
 args = ["make", "test-ui", "${@}"]
-
-# Support
-
-[tasks.start-client]
-command = "cargo"
-args = ["leptos", "watch"]
-
-[tasks.stop-client]
-script = '''
-  if [ ! -z $(pidof todo_app_sqlite) ]; then
-    pkill -f todo_app_sqlite
-  fi
-
-  if [ ! -z $(pidof cargo-leptos) ]; then
-    pkill -f cargo-leptos
-  fi
-'''
-
-[tasks.client-status]
-script = '''
-  if [ -z $(pidof todo_app_sqlite) ]; then
-    echo "  todo_app_sqlite is not running"
-  else
-    echo "  todo_app_sqlite is up"
-  fi
-
-  if [ -z $(pidof cargo-leptos) ]; then
-    echo "  cargo-leptos is not running"
-  else
-    echo "  cargo-leptos is up"
-  fi
-'''

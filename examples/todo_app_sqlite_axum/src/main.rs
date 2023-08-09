@@ -29,7 +29,7 @@ cfg_if! {
 
     #[tokio::main]
     async fn main() {
-        simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+        simple_logger::init_with_level(log::Level::Error).expect("couldn't initialize logging");
 
         let _conn = db().await.expect("couldn't connect to DB");
         /* sqlx::migrate!()
