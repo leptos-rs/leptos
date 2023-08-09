@@ -32,11 +32,9 @@ impl Default for Mode {
 
 mod params;
 mod view;
-use template::render_template;
-use view::render_view;
+use view::{client_template::render_template, render_view};
 mod component;
 mod slot;
-mod template;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
