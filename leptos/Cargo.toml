@@ -18,6 +18,8 @@ leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 tracing = "0.1"
 typed-builder = "0.14"
+serde = { optional = true }
+serde_json = { optional = true }
 server_fn = { workspace = true }
 web-sys = { version = "0.3.63", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
@@ -70,6 +72,8 @@ islands = [
   "leptos_dom/islands",
   "leptos_macro/islands",
   "leptos_reactive/islands",
+  "dep:serde",
+  "dep:serde_json",
 ]
 
 [package.metadata.cargo-all-features]

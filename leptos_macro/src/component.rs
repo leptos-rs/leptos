@@ -115,11 +115,6 @@ impl ToTokens for Model {
             ret,
         } = self;
 
-        // used to *exclude* body of anything that's not an island from client bundle
-        let should_include_body = !cfg!(feature = "islands")
-            || *is_island
-            || !cfg!(any(feature = "csr", feature = "hydrate"));
-
         let no_props = props.is_empty();
 
         let mut body = body.to_owned();
@@ -156,7 +151,14 @@ impl ToTokens for Model {
         let props_builder_name = format_ident!("{name}PropsBuilder");
         let trace_name = format!("<{name} />");
 
-        let prop_builder_fields = prop_builder_fields(vis, props);
+        let is_island_with_children = *is_island
+            && props.iter().any(|prop| prop.name.ident == "children");
+        let is_island_with_other_props = *is_island
+            && ((is_island_with_children && props.len() > 2)
+                || (!is_island_with_children && !props.is_empty()));
+
+        let prop_builder_fields =
+            prop_builder_fields(vis, props, is_island_with_other_props);
 
         let prop_names = prop_names(props);
 
@@ -222,6 +224,14 @@ impl ToTokens for Model {
             }
         } */
 
+        let island_serialized_props = quote! {}; /* if is_island_with_other_props {
+                                                     quote! {
+                                                         .attr("data-props", ::leptos::serde_json::to_string(#prop_names).expect("couldn't serialize island props"))
+                                                     }
+                                                 } else {
+                                                     quote! {}
+                                                 }; */
+
         let body_expr = if *is_island {
             quote! {
                 ::leptos::SharedContext::with_hydration(move || {
@@ -258,6 +268,7 @@ impl ToTokens for Model {
                     )
                     .attr("data-component", #component_id)
                     .attr("data-hkc", ::leptos::leptos_dom::HydrationCtx::peek_always().to_string())
+                    #island_serialized_props
                     .child(#component)
                 }
             }
@@ -272,9 +283,6 @@ impl ToTokens for Model {
                 props: #props_name #generics
             }
         };
-
-        let is_island_with_children = *is_island
-            && props.iter().any(|prop| prop.name.ident == "children");
 
         let destructure_props = if no_props {
             quote! {}
@@ -347,6 +355,13 @@ impl ToTokens for Model {
             } else {
                 quote! {}
             };
+
+            let props = if is_island_with_other_props {
+                quote! { , todo!() }
+            } else {
+                quote! {}
+            };
+
             quote! {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen]
                 #[allow(non_snake_case)]
@@ -355,10 +370,16 @@ impl ToTokens for Model {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {
-                        #name(#island_props)
+                        #name(#island_props #props)
                     })
                 }
             }
+        } else {
+            quote! {}
+        };
+
+        let serde_island_props = if is_island_with_other_props {
+            quote! { , ::leptos::serde::Serialize, ::leptos::serde::Deserialize }
         } else {
             quote! {}
         };
@@ -368,7 +389,7 @@ impl ToTokens for Model {
             #[doc = ""]
             #docs
             #component_fn_prop_docs
-            #[derive(::leptos::typed_builder::TypedBuilder)]
+            #[derive(::leptos::typed_builder::TypedBuilder #serde_island_props)]
             #[builder(doc)]
             #vis struct #props_name #impl_generics #where_clause {
                 #prop_builder_fields
@@ -677,7 +698,11 @@ impl ToTokens for TypedBuilderOpts {
     }
 }
 
-fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
+fn prop_builder_fields(
+    vis: &Visibility,
+    props: &[Prop],
+    serde_skip_children: bool,
+) -> TokenStream {
     props
         .iter()
         .map(|prop| {
@@ -702,11 +727,18 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
 
             let PatIdent { ident, by_ref, .. } = &name;
 
+            let serde_skip = if ident == "children" && serde_skip_children {
+                quote! { #[::leptos::serde(skip)] }
+            } else {
+                quote! {}
+            };
+
             quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
                 #allow_missing_docs
+                #serde_skip
                 #vis #by_ref #ident: #ty,
             }
         })
