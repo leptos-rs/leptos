@@ -62,7 +62,21 @@ pub async fn axum_extract(cx: Scope) -> Result<String, ServerFnError> {
 
 These are relatively simple examples accessing basic data from the server. But you can use extractors to access things like headers, cookies, database connection pools, and more, using the exact same `extract()` pattern.
 
-> Note: For now, the Axum `extract` function only supports extractors for which the state is `()`, i.e., you can't yet use it to extract `State(_)`. You can access `State(_)` by using a custom handler that extracts the state and then provides it via context. [Click here for an example](https://github.com/leptos-rs/leptos/blob/a5f73b441c079f9138102b3a7d8d4828f045448c/examples/session_auth_axum/src/main.rs#L91-L92).
+The Axum `extract` function only supports extractors for which the state is `()`. If you need an extractor that uses `State`, you should use [`extract_with_state`](https://docs.rs/leptos_axum/latest/leptos_axum/fn.extract_with_state.html). This requires you to provide the state. You can do this by extending the existing `LeptosOptions` state using the Axum `FromRef` pattern, which providing the state as context during render and server functions with custom handlers.
+
+```rust
+use axum::extract::FromRef;
+
+/// Derive FromRef to allow multiple items in state, using Axum’s
+/// SubStates pattern.
+#[derive(FromRef, Debug, Clone)]
+pub struct AppState{
+    pub leptos_options: LeptosOptions,
+    pub pool: SqlitePool
+}
+```
+
+[Click here for an example of providing context in custom handlers](https://github.com/leptos-rs/leptos/blob/19ea6fae6aec2a493d79cc86612622d219e6eebb/examples/session_auth_axum/src/main.rs#L24-L44).
 
 ## A Note about Data-Loading Patterns
 
