@@ -1,0 +1,24 @@
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/webdriver.toml" },
+    { path = "../cargo-make/cargo-leptos.toml" },
+]
+
+[env]
+APP_PROCESS_NAME = "suspense_tests"
+
+[tasks.integration-test]
+dependencies = [
+    "install-cargo-leptos",
+    "start-webdriver",
+    "test-e2e-with-auto-start",
+]
+
+[tasks.test-e2e-with-auto-start]
+command = "cargo"
+args = ["leptos", "end-to-end"]
+
+[tasks.test-ui]
+cwd = "./e2e"
+command = "cargo"
+args = ["make", "test-ui", "${@}"]
