@@ -109,6 +109,34 @@ create_effect(cx, move |prev_value| {
 
 Every time `count` is updated, this effect wil rerun. This is what allows reactive, fine-grained updates to the DOM.
 
+## Explicit, Cancelable Tracking with `watch`
+
+In addition to `create_effect`, Leptos provides a [`watch`](https://docs.rs/leptos_reactive/latest/leptos_reactive/fn.watch.html) function, which can be used for two main purposes:
+
+1. Separating tracking and responding to changes by explicitly passing in a set of values to track.
+2. Canceling tracking by calling a stop function.
+
+Like `create_resource`, `watch` takes a first argument, which is reactively tracked, and a second, which is not. Whenever a reactive value in its `deps` argument is changed, the `callback` is run. `watch` returns a function that can be called to stop tracking the dependencies.
+
+```rust
+let (num, set_num) = create_signal(cx, 0);
+
+let stop = watch(
+    cx,
+    move || num.get(),
+    move |num, prev_num, _| {
+        log::debug!("Number: {}; Prev: {:?}", num, prev_num);
+    },
+    false,
+);
+
+set_num.set(1); // > "Number: 1; Prev: Some(0)"
+
+stop(); // stop watching
+
+set_num.set(2); // (nothing happens)
+```
+
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/serene-thompson-40974n?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D)
 
 <iframe src="https://codesandbox.io/p/sandbox/serene-thompson-40974n?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
