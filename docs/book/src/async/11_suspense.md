@@ -69,6 +69,34 @@ Every time one of the resources is reloading, the `"Loading..."` fallback will s
 
 This inversion of the flow of control makes it easier to add or remove individual resources, as you don’t need to handle the matching yourself. It also unlocks some massive performance improvements during server-side rendering, which we’ll talk about during a later chapter.
 
+## `<Await/>`
+
+In you’re simply trying to wait for some `Future` to resolve before rendering, you may find the `<Await/>` component helpful in reducing boilerplate. `<Await/>` essentially combines a resource with the source argument `|| ()` with a `<Suspense/>` with no fallback.
+
+In other words:
+
+1. It only polls the `Future` once, and does not respond to any reactive changes.
+2. It does not render anything until the `Future` resolves.
+3. After the `Future` resolves, its binds its data to whatever variable name you choose and then renders its children with that variable in scope.
+
+```rust
+async fn fetch_monkeys(monkey: i32) -> i32 {
+    // maybe this didn't need to be async
+    monkey * 2
+}
+view! { cx,
+    <Await
+        // `future` provides the `Future` to be resolved
+        future=|cx| fetch_monkeys(3)
+        // the data is bound to whatever variable name you provide
+        bind:data
+    >
+        // you receive the data by reference and can use it in your view here
+        <p>{*data} " little monkeys, jumping on the bed."</p>
+    </Await>
+}
+```
+
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/11-suspense-907niv?file=%2Fsrc%2Fmain.rs)
 
 <iframe src="https://codesandbox.io/p/sandbox/11-suspense-907niv?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
