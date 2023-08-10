@@ -1,3 +1,4 @@
+mv .cargo/config.wasm.toml .cargo/config.toml
 wasm-pack build --target=web --features=hydrate --release
 cd pkg
 rm *.br
@@ -6,3 +7,4 @@ cat hackernews.unmin.js | esbuild > hackernews.js
 brotli hackernews.js
 brotli hackernews_bg.wasm
 brotli style.css
+mv .cargo/config.toml .cargo/config.wasm.toml

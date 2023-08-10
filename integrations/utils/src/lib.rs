@@ -107,7 +107,7 @@ pub fn html_parts_separated(
                             if ("requestIdleCallback" in window) {{
                                 window.requestIdleCallback(c);
                             }} else {{
-                                setTimeout(c, 200);
+                                c();
                             }}
                         }}
                         idle(() => {{
