@@ -18,7 +18,7 @@ use wasm_bindgen::JsCast;
 #[component]
 pub fn Router(
     cx: Scope,
-    /// The base URL for the router. Defaults to "".
+    /// The base URL for the router. Defaults to `""`.
     #[prop(optional)]
     base: Option<&'static str>,
     /// A fallback that should be shown if no route is matched.
@@ -445,7 +445,7 @@ pub struct NavigateOptions {
     /// the "back" button will skip over the current route. (Defaults to `false`).
     pub replace: bool,
     /// If `true`, the router will scroll to the top of the window at the end of navigation.
-    /// Defaults to `true.
+    /// Defaults to `true`.
     pub scroll: bool,
     /// [State](https://developer.mozilla.org/en-US/docs/Web/API/History/state) that should be pushed
     /// onto the history stack during navigation.
