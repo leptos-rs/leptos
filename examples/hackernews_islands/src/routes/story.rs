@@ -94,7 +94,10 @@ pub fn Toggle(children: Children) -> impl IntoView {
     let children = std::cell::LazyCell::new(|| children().into_view());
     view! {
         <div class="toggle" class:open=open>
-            <a on:click=move |_| set_open.update(|n| *n = !*n)>
+            <a
+                on:click=move |_| set_open.update(|n| *n = !*n)
+                onclick // necessary for event bubbling on iOS Safari FML
+            >
                 {move || if open() {
                     "[-]"
                 } else {
