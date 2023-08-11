@@ -48,14 +48,14 @@ fn resource_returns_last_future() {
                 task::yield_now().await;
 
                 // Resource should still be loading
-                assert_eq!(resource.read(), None);
+                assert_eq!(resource.get(), None);
 
                 // Resolve second future
                 tx_2.send(()).unwrap();
                 task::yield_now().await;
 
                 // Resource should now be loaded
-                assert_eq!(resource.read(), Some(2));
+                assert_eq!(resource.get(), Some(2));
             })
             .await
             .unwrap();

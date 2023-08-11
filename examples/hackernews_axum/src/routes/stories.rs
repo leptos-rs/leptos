@@ -37,7 +37,7 @@ pub fn Stories() -> impl IntoView {
 
     let hide_more_link = move || {
         pending()
-            || stories.read().unwrap_or(None).unwrap_or_default().len() < 28
+            || stories.get().unwrap_or(None).unwrap_or_default().len() < 28
     };
 
     view! {
@@ -86,7 +86,7 @@ pub fn Stories() -> impl IntoView {
                         fallback=move || view! { <p>"Loading..."</p> }
                         set_pending=set_pending.into()
                     >
-                        {move || match stories.read() {
+                        {move || match stories.get() {
                             None => None,
                             Some(None) => Some(view! { <p>"Error loading stories."</p> }.into_any()),
                             Some(Some(stories)) => {
