@@ -131,7 +131,7 @@ pub fn Todos() -> impl IntoView {
                 {move || {
                     let existing_todos = {
                         move || {
-                            todos.read()
+                            todos.get()
                                 .map(move |todos| match todos {
                                     Err(e) => {
                                         view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()

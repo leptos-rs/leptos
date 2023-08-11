@@ -112,9 +112,9 @@ pub fn Counter() -> impl IntoView {
     );
 
     let value =
-        move || counter.read().map(|count| count.unwrap_or(0)).unwrap_or(0);
+        move || counter.get().map(|count| count.unwrap_or(0)).unwrap_or(0);
     let error_msg = move || {
-        counter.read().and_then(|res| match res {
+        counter.get().and_then(|res| match res {
             Ok(_) => None,
             Err(e) => Some(e),
         })
@@ -159,7 +159,7 @@ pub fn FormCounter() -> impl IntoView {
     );
     let value = move || {
         log::debug!("FormCounter looking for value");
-        counter.read().and_then(|n| n.ok()).unwrap_or(0)
+        counter.get().and_then(|n| n.ok()).unwrap_or(0)
     };
 
     view! {

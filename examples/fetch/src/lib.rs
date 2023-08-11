@@ -67,14 +67,12 @@ pub fn fetch_example() -> impl IntoView {
     // the renderer can handle Option<_> and Result<_> states
     // by displaying nothing for None if the resource is still loading
     // and by using the ErrorBoundary fallback to catch Err(_)
-    // so we'll just implement our happy path and let the framework handle the rest
+    // so we'll just use `.and_then()` to map over the happy path
     let cats_view = move || {
-        cats.read().map(|data| {
-            data.map(|data| {
-                data.iter()
-                    .map(|s| view! { <p><img src={s}/></p> })
-                    .collect_view()
-            })
+        cats.and_then(|data| {
+            data.iter()
+                .map(|s| view! { <p><img src={s}/></p> })
+                .collect_view()
         })
     };
 

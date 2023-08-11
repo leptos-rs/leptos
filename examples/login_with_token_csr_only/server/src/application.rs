@@ -16,7 +16,7 @@ impl AppState {
         credentials: Credentials,
     ) -> Result<(), CreateUserError> {
         let Credentials { email, password } = credentials;
-        let user_exists = self.users.read().unwrap().get(&email).is_some();
+        let user_exists = self.users.get().unwrap().get(&email).is_some();
         if user_exists {
             return Err(CreateUserError::UserExists);
         }
@@ -31,7 +31,7 @@ impl AppState {
     ) -> Result<Uuid, LoginError> {
         let valid_credentials = self
             .users
-            .read()
+            .get()
             .unwrap()
             .get(&email)
             .map(|hashed_password| hashed_password.verify(password))
@@ -62,7 +62,7 @@ impl AppState {
             .map_err(|_| AuthError::NotAuthorized)
             .and_then(|token| {
                 self.tokens
-                    .read()
+                    .get()
                     .unwrap()
                     .get(&token)
                     .cloned()

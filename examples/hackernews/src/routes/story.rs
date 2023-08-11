@@ -19,7 +19,7 @@ pub fn Story() -> impl IntoView {
     );
     let meta_description = move || {
         story
-            .read()
+            .get()
             .and_then(|story| story.map(|story| story.title))
             .unwrap_or_else(|| "Loading story...".to_string())
     };
@@ -28,7 +28,7 @@ pub fn Story() -> impl IntoView {
         <>
             <Meta name="description" content=meta_description/>
                 <Suspense fallback=|| view! { "Loading..." }>
-                    {move || story.read().map(|story| match story {
+                    {move || story.get().map(|story| match story {
                         None => view! {  <div class="item-view">"Error loading this story."</div> },
                         Some(story) => view! {
                             <div class="item-view">

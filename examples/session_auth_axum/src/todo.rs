@@ -147,7 +147,7 @@ pub fn TodoApp() -> impl IntoView {
                     fallback=move || view! {<span>"Loading..."</span>}
                 >
                 {move || {
-                    user.read().map(|user| match user {
+                    user.get().map(|user| match user {
                         Err(e) => view! {
                             <A href="/signup">"Signup"</A>", "
                             <A href="/login">"Login"</A>", "
@@ -215,7 +215,7 @@ pub fn Todos() -> impl IntoView {
                     {move || {
                         let existing_todos = {
                             move || {
-                                todos.read()
+                                todos.get()
                                     .map(move |todos| match todos {
                                         Err(e) => {
                                             view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()

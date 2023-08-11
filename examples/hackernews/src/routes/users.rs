@@ -18,7 +18,7 @@ pub fn User() -> impl IntoView {
     view! {
         <div class="user-view">
             <Suspense fallback=|| view! { "Loading..." }>
-                {move || user.read().map(|user| match user {
+                {move || user.get().map(|user| match user {
                     None => view! {  <h1>"User not found."</h1> }.into_view(),
                     Some(user) => view! {
                         <div>

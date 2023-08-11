@@ -1,9 +1,10 @@
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
     queue_microtask, runtime::with_runtime, serialization::Serializable,
-    spawn::spawn_local, use_context, GlobalSuspenseContext, Memo, ReadSignal,
-    ScopeProperty, SignalDispose, SignalGetUntracked, SignalSet, SignalUpdate,
-    SignalWith, SuspenseContext, WriteSignal,
+    signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
+    GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, SignalDispose,
+    SignalGet, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
+    SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -466,18 +467,12 @@ where
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
+    #[deprecated = "You can now use .get() on resources."]
     pub fn read(&self) -> Option<T>
     where
         T: Clone,
     {
-        let location = std::panic::Location::caller();
-        with_runtime(|runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read(location)
-            })
-        })
-        .ok()
-        .flatten()
+        self.get()
     }
 
     /// Applies a function to the current value of the resource, and subscribes
@@ -492,7 +487,7 @@ where
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+    pub fn map_ref<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
@@ -557,6 +552,37 @@ where
     }
 }
 
+impl<S, T, E> Resource<S, Result<T, E>>
+where
+    E: Clone,
+    S: Clone,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # if false {
+    /// let cats = create_resource(
+    ///     || (),
+    ///     |_| async { Ok(vec![0, 1, 2]) as Result<Vec<i32>, ()> },
+    /// );
+    /// create_effect(move |_| {
+    ///     cats.and_then(|data: &Vec<i32>| println!("{}", data.len()));
+    /// });
+    /// # }
+    /// ```
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map_ref(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+    }
+}
+
 impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
     #[cfg_attr(
         debug_assertions,
@@ -610,6 +636,120 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
         })
         .ok()
         .flatten()
+    }
+}
+
+impl<S, T> SignalWith<Option<T>> for Resource<S, T>
+where
+    S: Clone,
+    T: Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
+    fn with<O>(&self, f: impl FnOnce(&Option<T>) -> O) -> O {
+        let location = std::panic::Location::caller();
+        match with_runtime(|runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.with_maybe(f, location)
+            })
+        })
+        .expect("runtime to be alive")
+        {
+            Some(o) => o,
+            None => panic!(
+                "{}",
+                format_signal_warning(
+                    "Attempted to read a resource after it was disposed.",
+                    #[cfg(any(debug_assertions, feature = "ssr"))]
+                    location,
+                )
+            ),
+        }
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::try_with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
+    fn try_with<O>(&self, f: impl FnOnce(&Option<T>) -> O) -> Option<O> {
+        let location = std::panic::Location::caller();
+        with_runtime(|runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.with_maybe(f, location)
+            })
+        })
+        .ok()
+        .flatten()
+    }
+}
+
+impl<S, T> SignalGet<Option<T>> for Resource<S, T>
+where
+    S: Clone,
+    T: Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn get(&self) -> Option<T> {
+        self.try_get().flatten()
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::try_get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn try_get(&self) -> Option<Option<T>> {
+        let location = std::panic::Location::caller();
+        with_runtime(|runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.read(location)
+            })
+        })
+        .ok()
     }
 }
 
@@ -768,10 +908,6 @@ where
     S: Clone + 'static,
     T: 'static,
 {
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-    )]
     #[track_caller]
     pub fn read(&self, location: &'static Location<'static>) -> Option<T>
     where
@@ -780,10 +916,6 @@ where
         self.with(T::clone, location)
     }
 
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-    )]
     #[track_caller]
     pub fn with<U>(
         &self,
@@ -799,6 +931,30 @@ where
             .ok()?
             .flatten();
 
+        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+    }
+
+    #[track_caller]
+    pub fn with_maybe<U>(
+        &self,
+        f: impl FnOnce(&Option<T>) -> U,
+        location: &'static Location<'static>,
+    ) -> Option<U> {
+        let global_suspense_cx = use_context::<GlobalSuspenseContext>();
+        let suspense_cx = use_context::<SuspenseContext>();
+
+        let v = self.value.try_with(|n| f(n)).ok();
+
+        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+    }
+
+    fn handle_result<U>(
+        &self,
+        location: &'static Location<'static>,
+        global_suspense_cx: Option<GlobalSuspenseContext>,
+        suspense_cx: Option<SuspenseContext>,
+        v: Option<U>,
+    ) -> Option<U> {
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 

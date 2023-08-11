@@ -2119,7 +2119,7 @@ impl NodeId {
 #[cold]
 #[inline(never)]
 #[track_caller]
-fn format_signal_warning(
+pub(crate) fn format_signal_warning(
     msg: &str,
     #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,

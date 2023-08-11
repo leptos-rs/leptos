@@ -87,7 +87,7 @@ pub fn ContactList() -> impl IntoView {
     let location = use_location();
     let contacts = create_resource(move || location.search.get(), get_contacts);
     let contacts = move || {
-        contacts.read().map(|contacts| {
+        contacts.get().map(|contacts| {
             // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
             contacts
                 .into_iter()
@@ -147,7 +147,7 @@ pub fn Contact() -> impl IntoView {
         log!("params = {:#?}", params.get());
     });
 
-    let contact_display = move || match contact.read() {
+    let contact_display = move || match contact.get() {
         // None => loading, but will be caught by Suspense fallback
         // I'm only doing this explicitly for the example
         None => None,
