@@ -7,4 +7,5 @@ cat hackernews.unmin.js | esbuild > hackernews.js
 brotli hackernews.js
 brotli hackernews_bg.wasm
 brotli style.css
+cd ..
 mv .cargo/config.toml .cargo/config.wasm.toml
