@@ -149,6 +149,7 @@ impl ToTokens for Model {
 
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
+        let props_serialized_name = format_ident!("{name}PropsSerialized");
         let trace_name = format!("<{name} />");
 
         let is_island_with_children = *is_island
@@ -159,6 +160,17 @@ impl ToTokens for Model {
 
         let prop_builder_fields =
             prop_builder_fields(vis, props, is_island_with_other_props);
+        let props_serializer = if is_island_with_other_props {
+            let fields = prop_serializer_fields(vis, props);
+            quote! {
+                #[derive(::leptos::serde::Deserialize)]
+                #vis struct #props_serialized_name {
+                    #fields
+                }
+            }
+        } else {
+            quote! {}
+        };
 
         let prop_names = prop_names(props);
 
@@ -206,9 +218,16 @@ impl ToTokens for Model {
         let hydrate_fn_name =
             Ident::new(&format!("_island_{}", component_id), name.span());
 
+        let island_serialize_props = if is_island_with_other_props {
+            quote! {
+                let _leptos_ser_props = ::leptos::serde_json::to_string(&props).expect("couldn't serialize island props");
+            }
+        } else {
+            quote! {}
+        };
         let island_serialized_props = if is_island_with_other_props {
             quote! {
-                .attr("data-props", ::leptos::serde_json::to_string(#prop_names).expect("couldn't serialize island props"))
+                .attr("data-props", _leptos_ser_props)
             }
         } else {
             quote! {}
@@ -287,6 +306,7 @@ impl ToTokens for Model {
                 quote! {}
             };
             quote! {
+                #island_serialize_props
                 let #props_name {
                     #prop_names
                 } = props;
@@ -322,10 +342,46 @@ impl ToTokens for Model {
         let binding = if *is_island
             && cfg!(any(feature = "csr", feature = "hydrate"))
         {
-            let island_props = if is_island_with_children {
-                quote! {
-                    todo!()
-                    /* #props_name::builder()
+            let island_props = if is_island_with_children
+                || is_island_with_other_props
+            {
+                let (destructure, prop_builders) = if is_island_with_other_props
+                {
+                    let prop_names = props
+                        .iter()
+                        .filter_map(|prop| {
+                            if prop.name.ident == "children" {
+                                None
+                            } else {
+                                let name = &prop.name.ident;
+                                Some(quote! { #name, })
+                            }
+                        })
+                        .collect::<TokenStream>();
+                    let destructure = quote! {
+                        let #props_serialized_name {
+                            #prop_names
+                        } = props;
+                    };
+                    let prop_builders = props
+                        .iter()
+                        .filter_map(|prop| {
+                            if prop.name.ident == "children" {
+                                None
+                            } else {
+                                let name = &prop.name.ident;
+                                Some(quote! {
+                                    .#name(#name)
+                                })
+                            }
+                        })
+                        .collect::<TokenStream>();
+                    (destructure, prop_builders)
+                } else {
+                    (quote! {}, quote! {})
+                };
+                let children = if is_island_with_children {
+                    quote! {
                         .children(Box::new(move || ::leptos::Fragment::lazy(|| vec![
                             ::leptos::SharedContext::with_hydration(move || {
                                 ::leptos::leptos_dom::html::custom(
@@ -333,14 +389,27 @@ impl ToTokens for Model {
                                 )
                                 .into_view()
                         })])))
-                        .build() */
-                }
+                    }
+                } else {
+                    quote! {}
+                };
+
+                quote! {{
+                    #destructure
+                    #props_name::builder()
+                        #prop_builders
+                        #children
+                        .build()
+                }}
             } else {
                 quote! {}
             };
-
-            let props = if is_island_with_other_props {
-                quote! { , todo!() }
+            let deserialize_island_props = if is_island_with_other_props {
+                quote! {
+                    let props = el.dataset().get(::leptos::wasm_bindgen::intern("props"))
+                        .and_then(|data| ::leptos::serde_json::from_str::<#props_serialized_name>(&data).ok())
+                        .expect("could not deserialize props");
+                }
             } else {
                 quote! {}
             };
@@ -352,8 +421,9 @@ impl ToTokens for Model {
                     if let Some(Ok(key)) = el.dataset().get(::leptos::wasm_bindgen::intern("hkc")).map(|key| std::str::FromStr::from_str(&key)) {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
+                    #deserialize_island_props
                     ::leptos::mount_to_with_stop_hydrating(el, false, move || {
-                        #name(#island_props #props)
+                        #name(#island_props)
                     })
                 }
             }
@@ -361,8 +431,8 @@ impl ToTokens for Model {
             quote! {}
         };
 
-        let serde_island_props = if is_island_with_other_props {
-            quote! { , ::leptos::serde::Serialize, ::leptos::serde::Deserialize }
+        let props_derive_serialize = if is_island_with_other_props {
+            quote! { , ::leptos::serde::Serialize }
         } else {
             quote! {}
         };
@@ -372,11 +442,13 @@ impl ToTokens for Model {
             #[doc = ""]
             #docs
             #component_fn_prop_docs
-            #[derive(::leptos::typed_builder::TypedBuilder #serde_island_props)]
+            #[derive(::leptos::typed_builder::TypedBuilder #props_derive_serialize)]
             #[builder(doc)]
             #vis struct #props_name #impl_generics #where_clause {
                 #prop_builder_fields
             }
+
+            #props_serializer
 
             #[allow(missing_docs)]
             #binding
@@ -646,6 +718,25 @@ impl TypedBuilderOpts {
     }
 }
 
+impl TypedBuilderOpts {
+    fn to_serde_tokens(&self) -> TokenStream {
+        let default = if let Some(v) = &self.default_with_value {
+            let v = v.to_token_stream().to_string();
+            quote! { default=#v, }
+        } else if self.default {
+            quote! { skip, }
+        } else {
+            quote! {}
+        };
+
+        if !default.is_empty() {
+            quote! { #[serde(#default)] }
+        } else {
+            quote! {}
+        }
+    }
+}
+
 impl ToTokens for TypedBuilderOpts {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let default = if let Some(v) = &self.default_with_value {
@@ -684,7 +775,7 @@ impl ToTokens for TypedBuilderOpts {
 fn prop_builder_fields(
     vis: &Visibility,
     props: &[Prop],
-    serde_skip_children: bool,
+    is_island_with_other_props: bool,
 ) -> TokenStream {
     props
         .iter()
@@ -707,22 +798,52 @@ fn prop_builder_fields(
             } else {
                 quote!()
             };
+            let skip_children_serde =
+                if is_island_with_other_props && name.ident == "children" {
+                    quote!(#[serde(skip)])
+                } else {
+                    quote!()
+                };
 
             let PatIdent { ident, by_ref, .. } = &name;
-
-            let serde_skip = if ident == "children" && serde_skip_children {
-                quote! { #[serde(skip)] }
-            } else {
-                quote! {}
-            };
 
             quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
                 #allow_missing_docs
-                #serde_skip
+                #skip_children_serde
                 #vis #by_ref #ident: #ty,
+            }
+        })
+        .collect()
+}
+
+fn prop_serializer_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
+    props
+        .iter()
+        .filter_map(|prop| {
+            if prop.name.ident == "children" {
+                None
+            } else {
+                let Prop {
+                    docs,
+                    name,
+                    prop_opts,
+                    ty,
+                } = prop;
+
+                let builder_attrs =
+                    TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+                let serde_attrs = builder_attrs.to_serde_tokens();
+
+                let PatIdent { ident, by_ref, .. } = &name;
+
+                Some(quote! {
+                    #docs
+                    #serde_attrs
+                    #vis #by_ref #ident: #ty,
+                })
             }
         })
         .collect()
