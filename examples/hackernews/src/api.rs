@@ -17,6 +17,14 @@ where
     let abort_controller = web_sys::AbortController::new().ok();
     let abort_signal = abort_controller.as_ref().map(|a| a.signal());
 
+    // abort in-flight requests if the Scope is disposed
+    // i.e., if we've navigated away from this page
+    leptos::on_cleanup(cx, move || {
+        if let Some(abort_controller) = abort_controller {
+            abort_controller.abort()
+        }
+    });
+
     let json = gloo_net::http::Request::get(path)
         .abort_signal(abort_signal.as_ref())
         .send()
@@ -27,13 +35,6 @@ where
         .await
         .ok()?;
 
-    // abort in-flight requests if the Scope is disposed
-    // i.e., if we've navigated away from this page
-    leptos::on_cleanup(cx, move || {
-        if let Some(abort_controller) = abort_controller {
-            abort_controller.abort()
-        }
-    });
     T::de(&json).ok()
 }
 
