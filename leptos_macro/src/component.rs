@@ -178,27 +178,38 @@ impl ToTokens for Model {
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
-        let (tracing_instrument_attr, tracing_span_expr, tracing_guard_expr) =
-            if cfg!(feature = "tracing") {
-                (
+        let (
+            tracing_instrument_attr,
+            tracing_span_expr,
+            tracing_guard_expr,
+            tracing_props_expr,
+        ) = if cfg!(feature = "tracing") {
+            (
+                quote! {
+                    #[allow(clippy::let_with_type_underscore)]
+                    #[cfg_attr(
+                        any(debug_assertions, feature="ssr"),
+                        ::leptos::leptos_dom::tracing::instrument(level = "info", name = #trace_name, skip_all)
+                    )]
+                },
+                quote! {
+                    let span = ::leptos::leptos_dom::tracing::Span::current();
+                },
+                quote! {
+                    #[cfg(debug_assertions)]
+                    let _guard = span.entered();
+                },
+                if no_props {
+                    quote! {}
+                } else {
                     quote! {
-                        #[allow(clippy::let_with_type_underscore)]
-                        #[cfg_attr(
-                            any(debug_assertions, feature="ssr"),
-                            ::leptos::leptos_dom::tracing::instrument(level = "info", name = #trace_name, skip_all)
-                        )]
-                    },
-                    quote! {
-                        let span = ::leptos::leptos_dom::tracing::Span::current();
-                    },
-                    quote! {
-                        #[cfg(debug_assertions)]
-                        let _guard = span.entered();
-                    },
-                )
-            } else {
-                (quote! {}, quote! {}, quote! {})
-            };
+                        ::leptos::leptos_dom::tracing_props![#prop_names];
+                    }
+                },
+            )
+        } else {
+            (quote! {}, quote! {}, quote! {}, quote! {})
+        };
 
         let component = if *is_transparent {
             quote! {
@@ -210,6 +221,8 @@ impl ToTokens for Model {
                     stringify!(#name),
                     move |cx| {
                         #tracing_guard_expr
+
+                        #tracing_props_expr
 
                         #body_name(cx, #prop_names)
                     }
