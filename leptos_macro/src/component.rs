@@ -154,7 +154,7 @@ impl ToTokens for Model {
         let is_island_with_children = *is_island
             && props.iter().any(|prop| prop.name.ident == "children");
         let is_island_with_other_props = *is_island
-            && ((is_island_with_children && props.len() > 2)
+            && ((is_island_with_children && props.len() > 1)
                 || (!is_island_with_children && !props.is_empty()));
 
         let prop_builder_fields =
@@ -205,32 +205,14 @@ impl ToTokens for Model {
         let component_id = name.to_string();
         let hydrate_fn_name =
             Ident::new(&format!("_island_{}", component_id), name.span());
-        /* {
-            let name = name.to_string();
-            quote! {
-                ::leptos::const_format::concatcp!(
-                    #name,
-                    "_",
-                    ::leptos::xxhash_rust::const_xxh64::xxh64(
-                        concat!(
-                            file!(),
-                            ":",
-                            line!(),
-                        )
-                        .as_bytes(),
-                        0,
-                    )
-                )
-            }
-        } */
 
-        let island_serialized_props = quote! {}; /* if is_island_with_other_props {
-                                                     quote! {
-                                                         .attr("data-props", ::leptos::serde_json::to_string(#prop_names).expect("couldn't serialize island props"))
-                                                     }
-                                                 } else {
-                                                     quote! {}
-                                                 }; */
+        let island_serialized_props = if is_island_with_other_props {
+            quote! {
+                .attr("data-props", ::leptos::serde_json::to_string(#prop_names).expect("couldn't serialize island props"))
+            }
+        } else {
+            quote! {}
+        };
 
         let body_expr = if *is_island {
             quote! {
@@ -342,7 +324,8 @@ impl ToTokens for Model {
         {
             let island_props = if is_island_with_children {
                 quote! {
-                    #props_name::builder()
+                    todo!()
+                    /* #props_name::builder()
                         .children(Box::new(move || ::leptos::Fragment::lazy(|| vec![
                             ::leptos::SharedContext::with_hydration(move || {
                                 ::leptos::leptos_dom::html::custom(
@@ -350,7 +333,7 @@ impl ToTokens for Model {
                                 )
                                 .into_view()
                         })])))
-                        .build()
+                        .build() */
                 }
             } else {
                 quote! {}
@@ -728,7 +711,7 @@ fn prop_builder_fields(
             let PatIdent { ident, by_ref, .. } = &name;
 
             let serde_skip = if ident == "children" && serde_skip_children {
-                quote! { #[::leptos::serde(skip)] }
+                quote! { #[serde(skip)] }
             } else {
                 quote! {}
             };

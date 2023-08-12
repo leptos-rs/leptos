@@ -194,6 +194,10 @@ mod for_loop;
 mod show;
 pub use animated_show::*;
 pub use for_loop::*;
+#[cfg(feature = "islands")]
+pub use serde;
+#[cfg(feature = "islands")]
+pub use serde_json;
 pub use show::*;
 pub use suspense_component::*;
 mod suspense_component;
