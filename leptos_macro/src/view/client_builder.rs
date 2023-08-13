@@ -3,7 +3,7 @@ use super::{
     expr_to_ident, fancy_class_name, fancy_style_name,
     ide_helper::IdeTagHelper,
     is_ambiguous_element, is_custom_element, is_math_ml_element,
-    is_svg_element, parse_event_name,
+    is_self_closing, is_svg_element, parse_event_name,
     slot_helper::{get_slot, slot_to_tokens},
 };
 use crate::attribute_value;
@@ -262,6 +262,16 @@ pub(crate) fn element_to_tokens(
                 }
             }
         };
+
+        if is_self_closing(node) && !node.children.is_empty() {
+            proc_macro_error::abort!(
+                node.name().span(),
+                format!(
+                    "<{tag}> is a self-closing tag and cannot have children."
+                )
+            );
+        }
+
         let children = node.children.iter().map(|node| {
             let (child, is_static) = match node {
                 Node::Fragment(fragment) => (
