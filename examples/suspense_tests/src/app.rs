@@ -1,16 +1,19 @@
 use leptos::*;
 use leptos_router::*;
 
-#[server(OneSecondFn "/api")]
-async fn one_second_fn(_query: ()) -> Result<(), ServerFnError> {
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+const WAIT_ONE_SECOND: u64 = 1;
+const WAIT_TWO_SECONDS: u64 = 2;
+
+#[server(FirstWaitFn "/api")]
+async fn first_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
+    tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await;
 
     Ok(())
 }
 
-#[server(TwoSecondFn "/api")]
-async fn two_second_fn(_query: ()) -> Result<(), ServerFnError> {
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+#[server(SecondWaitFn "/api")]
+async fn second_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
+    tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await;
 
     Ok(())
 }
@@ -115,8 +118,8 @@ fn SecondaryNav(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Nested(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    let two_second = create_resource(cx, || (), two_second_fn);
+    let one_second = create_resource(cx, || WAIT_ONE_SECOND, first_wait_fn);
+    let two_second = create_resource(cx, || WAIT_TWO_SECONDS, second_wait_fn);
     let (count, set_count) = create_signal(cx, 0);
 
     view! { cx,
@@ -144,7 +147,7 @@ fn Nested(cx: Scope) -> impl IntoView {
 
 #[component]
 fn NestedResourceInside(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
+    let one_second = create_resource(cx, || WAIT_ONE_SECOND, first_wait_fn);
     let (count, set_count) = create_signal(cx, 0);
 
     view! { cx,
@@ -154,7 +157,7 @@ fn NestedResourceInside(cx: Scope) -> impl IntoView {
                     one_second.read(cx).map(|_| {
                         let two_second = create_resource(cx, || (), move |_| async move {
                             leptos::log!("creating two_second resource");
-                            two_second_fn(()).await
+                            second_wait_fn(WAIT_TWO_SECONDS).await
                         });
                         view! { cx,
                             {move || one_second.read(cx).map(|_|
@@ -182,8 +185,8 @@ fn NestedResourceInside(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Parallel(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    let two_second = create_resource(cx, || (), two_second_fn);
+    let one_second = create_resource(cx, || WAIT_ONE_SECOND, first_wait_fn);
+    let two_second = create_resource(cx, || WAIT_TWO_SECONDS, second_wait_fn);
     let (count, set_count) = create_signal(cx, 0);
 
     view! { cx,
@@ -214,7 +217,7 @@ fn Parallel(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Single(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
+    let one_second = create_resource(cx, || WAIT_ONE_SECOND, first_wait_fn);
     let (count, set_count) = create_signal(cx, 0);
 
     view! { cx,
@@ -256,7 +259,7 @@ fn InsideComponent(cx: Scope) -> impl IntoView {
 
 #[component]
 fn InsideComponentChild(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
+    let one_second = create_resource(cx, || WAIT_ONE_SECOND, first_wait_fn);
     view! { cx,
         <Suspense fallback=|| "Loading 1...">
         {move || {
