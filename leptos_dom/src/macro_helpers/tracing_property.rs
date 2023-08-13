@@ -1,6 +1,6 @@
 use wasm_bindgen::UnwrapThrowExt;
 
-#[cfg_attr(debug_assertions, macro_export)]
+#[macro_export]
 /// Use for tracing property
 macro_rules! tracing_props {
     () => {
