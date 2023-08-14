@@ -724,7 +724,7 @@ impl TypedBuilderOpts {
             let v = v.to_token_stream().to_string();
             quote! { default=#v, }
         } else if self.default {
-            quote! { skip, }
+            quote! { default, }
         } else {
             quote! {}
         };
