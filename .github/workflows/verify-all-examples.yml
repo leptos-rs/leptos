@@ -10,14 +10,14 @@ on:
     - cron: "0 8 * * *"
 
 jobs:
-  get-examples:
+  get-matrix:
     uses: ./.github/workflows/get-examples-matrix.yml
 
-  matrix-job:
+  test:
     name: Verify
-    needs: [get-examples]
+    needs: [get-matrix]
     strategy:
-      matrix: ${{ fromJSON(needs.get-examples.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.get-matrix.outputs.matrix) }}
       fail-fast: false
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:

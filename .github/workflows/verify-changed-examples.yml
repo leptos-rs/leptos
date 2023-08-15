@@ -59,7 +59,7 @@ jobs:
             echo "matrix={\"directory\":[\"INTERNAL\"]}" >> "$GITHUB_OUTPUT"
           fi
 
-  matrix-job:
+  test:
     name: Verify
     needs: [setup]
     strategy:

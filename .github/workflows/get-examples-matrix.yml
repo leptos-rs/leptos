@@ -1,15 +1,15 @@
-name: Get Example Matrix
+name: Get Examples Matrix Call
 
 on:
   workflow_call:
     outputs:
       matrix:
-        description: "Examples matrix"
-        value: ${{ jobs.get-examples.outputs.matrix }}
+        description: "Matrix"
+        value: ${{ jobs.create.outputs.matrix }}
 
 jobs:
-  get-examples:
-    name: Get Examples Matrix
+  create:
+    name: Create Examples Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
