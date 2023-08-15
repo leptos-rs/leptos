@@ -9,31 +9,17 @@ on:
       - main
 
 jobs:
+  get-examples:
+    uses: ./.github/workflows/get-examples-matrix.yml
+
   setup:
-    name: Get Examples
+    name: Get Source Changes
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
       source_changed: ${{ steps.set-source-changed.outputs.source_changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Install JQ Tool
-        uses: mbround18/install-jq@v1
-
-      - name: Set Matrix
-        id: set-matrix
-        run: |
-          examples=$(ls examples | 
-          awk '{print "examples/" $0}' | 
-          grep -v examples/README.md | 
-          grep -v examples/Makefile.toml | 
-          grep -v examples/cargo-make | 
-          grep -v examples/gtk | 
-          jq -R -s -c 'split("\n")[:-1]')
-          echo "Example Directories: $examples"
-          echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"
 
       - name: Get source files that changed
         id: changed-source
@@ -63,10 +49,10 @@ jobs:
 
   matrix-job:
     name: Check
-    needs: [setup]
+    needs: [get-examples, setup]
     if: needs.setup.outputs.source_changed == 'true'
     strategy:
-      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.get-examples.outputs.matrix) }}
       fail-fast: false
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:

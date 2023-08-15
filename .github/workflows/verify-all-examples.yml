@@ -10,36 +10,14 @@ on:
     - cron: "0 8 * * *"
 
 jobs:
-  setup:
-    name: Get Examples
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Install JQ Tool
-        uses: mbround18/install-jq@v1
-
-      - name: Set Matrix
-        id: set-matrix
-        run: |
-          examples=$(ls examples | 
-          awk '{print "examples/" $0}' | 
-          grep -v examples/README.md | 
-          grep -v examples/Makefile.toml | 
-          grep -v examples/cargo-make | 
-          grep -v examples/gtk | 
-          jq -R -s -c 'split("\n")[:-1]')
-          echo "Example Directories: $examples"
-          echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"
+  get-examples:
+    uses: ./.github/workflows/get-examples-matrix.yml
 
   matrix-job:
     name: Verify
-    needs: [setup]
+    needs: [get-examples]
     strategy:
-      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.get-examples.outputs.matrix) }}
       fail-fast: false
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
