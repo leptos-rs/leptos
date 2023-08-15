@@ -721,7 +721,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 ///
 /// /// Here are some important details about how slots work within the framework:
-/// 1. Most of the same rules from [component](crate::component!) macro should also be followed on slots.
+/// 1. Most of the same rules from [`macro@component`] macro should also be followed on slots.
 ///
 /// 2. Specifying only `slot` without a name (such as in `<HelloSlot slot>`) will default the chosen slot to
 /// the a snake case version of the slot struct name (`hello_slot` for `<HelloSlot>`).
@@ -829,7 +829,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// #[server(ReadPosts, "/api")]
 /// pub async fn read_posts(how_many: u8, query: String) -> Result<Vec<Post>, ServerFnError> {
 ///   // do some work on the server to access the database
-///   todo!()   
+///   todo!()
 /// }
 /// ```
 ///
