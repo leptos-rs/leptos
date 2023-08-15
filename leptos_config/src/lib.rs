@@ -56,6 +56,11 @@ pub struct LeptosOptions {
     #[builder(default = default_reload_port())]
     #[serde(default = "default_reload_port")]
     pub reload_port: u32,
+    // The port the Websocket watcher listens on on the client. EG when behind a reverse proxy.
+    // Defaults to match reload_port
+    #[builder(default)]
+    #[serde(default)]
+    pub reload_external_port: Option<u32>,
 }
 
 impl LeptosOptions {
@@ -84,6 +89,12 @@ impl LeptosOptions {
                 .parse()?,
             reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?
                 .parse()?,
+            reload_external_port: match env_wo_default(
+                "LEPTOS_RELOAD_EXTERNAL_PORT",
+            )? {
+                Some(val) => Some(val.parse()?),
+                None => None,
+            },
         })
     }
 }
@@ -107,7 +118,13 @@ fn default_site_addr() -> SocketAddr {
 fn default_reload_port() -> u32 {
     3001
 }
-
+fn env_wo_default(key: &str) -> Result<Option<String>, LeptosConfigError> {
+    match std::env::var(key) {
+        Ok(val) => Ok(Some(val)),
+        Err(VarError::NotPresent) => Ok(None),
+        Err(e) => Err(LeptosConfigError::EnvVarError(format!("{key}: {e}"))),
+    }
+}
 fn env_w_default(
     key: &str,
     default: &str,
