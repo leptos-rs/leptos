@@ -68,23 +68,6 @@ pub trait IntoView {
     fn into_view(self, cx: Scope) -> View;
 }
 
-// Maybe could be converted to single generic From impl
-/// Converts the value into a [`EventHandler`]
-pub trait IntoEventHandler {
-    /// TODO: document
-    type Handler: ev::EventHandler;
-    /// Converts the value into a [`EventHandler`]
-    fn into_event_handler(self) -> Self::Handler;
-}
-
-impl<T: ev::EventHandler> IntoEventHandler for T {
-    type Handler = Self;
-    #[inline]
-    fn into_event_handler(self) -> Self::Handler {
-        self
-    }
-}
-
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
 pub trait Mountable {

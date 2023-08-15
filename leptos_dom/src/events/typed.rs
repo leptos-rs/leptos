@@ -168,7 +168,7 @@ impl DOMEventResponder for crate::View {
 
 /// Type that can be used to handle DOM events
 pub trait EventHandler {
-    /// Attaches event listener to any type that can respond to DOM events
+    /// Attaches event listener to any target that can respond to DOM events
     fn attach<T: DOMEventResponder>(self, target: T) -> T;
 }
 
@@ -234,32 +234,6 @@ macro_rules! generate_event_types {
         }
       )*
 
-      $(
-        #[doc = "Struct mapping [`struct@" [< $($event)+ >] "`] to its event handler type."]
-        pub struct [< $($event:camel)+ Handler >]<F: FnMut($web_event) + 'static> {
-          /// The event
-          pub event: [< $($event)+ >],
-          /// The handler
-          pub handler: F
-        }
-        impl<F: FnMut($web_event) + 'static> EventHandler for [< $($event:camel)+ Handler >]<F> {
-          fn attach<T: DOMEventResponder>(self, target: T) -> T {
-            target.add(self.event, self.handler)
-          }
-        }
-        impl<F> From<([< $($event)+ >], F)> for [< $($event:camel)+ Handler >]<F>
-        where
-          F: FnMut($web_event) + 'static
-        {
-          fn from(value: ([< $($event)+ >], F)) -> Self {
-            Self {
-              event: value.0,
-              handler: value.1
-            }
-          }
-        }
-      )*
-
       /// An enum holding all basic event types with their respective handlers.
       ///
       /// It currently omits [`Custom`] and [`undelegated`] variants.
@@ -296,6 +270,23 @@ macro_rules! generate_event_types {
       }
 
       $(
+        impl<F> From<([< $($event)+ >], F)> for GenericEventHandler
+        where
+          F: FnMut($web_event) + 'static
+        {
+          fn from(value: ([< $($event)+ >], F)) -> Self {
+            Self::[< $($event:camel)+ >](value.0, Box::new(value.1))
+          }
+        }
+        // NOTE: this could become legal in future and would save us from useless allocations
+        //impl<F> From<([< $($event)+ >], Box<F>)> for GenericEventHandler
+        //where
+        //  F: FnMut($web_event) + 'static
+        //{
+        //  fn from(value: ([< $($event)+ >], Box<F>)) -> Self {
+        //    Self::[< $($event:camel)+ >](value.0, value.1)
+        //  }
+        //}
         impl<F> EventHandler for ([< $($event)+ >], F)
         where
           F: FnMut($web_event) + 'static

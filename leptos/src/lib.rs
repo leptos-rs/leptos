@@ -166,8 +166,8 @@ pub use leptos_dom::{
     },
     html, log, math, mount_to, mount_to_body, nonce, svg, warn, window,
     Attribute, Class, CollectView, Errors, Fragment, HtmlElement,
-    IntoAttribute, IntoClass, IntoEventHandler, IntoProperty, IntoStyle,
-    IntoView, NodeRef, Property, View,
+    IntoAttribute, IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef,
+    Property, View,
 };
 
 /// Types to make it easier to handle errors in your application.
