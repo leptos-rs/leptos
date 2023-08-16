@@ -19,6 +19,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Print Location Info
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          pwd
+          ls | sort -u
+
       - name: ${{ inputs.cargo_make_task }}
         run: |
           cd ${{ inputs.directory }}
