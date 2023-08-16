@@ -1,0 +1,22 @@
+name: Run Task
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        required: true
+        type: string
+      cargo_make_task:
+        required: true
+        type: string
+
+jobs:
+  run-cargo-make:
+    name: Run ${{ inputs.cargo_make_task }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ${{ inputs.cargo_make_task }}
+        run: |
+          cd ${{ inputs.directory }}
+          cargo make --profile=github-actions ${{ inputs.cargo_make_task }}

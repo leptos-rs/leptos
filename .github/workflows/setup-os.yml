@@ -1,0 +1,37 @@
+name: Setup OS
+
+on:
+  workflow_call:
+    inputs:
+      toolchain:
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+jobs:
+  setup:
+    name: Setup ubuntu-latest (using rustc ${{ inputs.toolchain }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ inputs.toolchain }}
+          override: true
+          components: rustfmt
+
+      - name: Add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Setup cargo-make
+        uses: davidB/rust-cargo-make@v1
+
+      - name: Cargo generate-lockfile
+        run: cargo generate-lockfile
+
+      - uses: Swatinem/rust-cache@v2

@@ -1,4 +1,4 @@
-name: Verify All Examples
+name: Verify Examples
 
 on:
   workflow_dispatch:
@@ -10,16 +10,24 @@ on:
     - cron: "0 8 * * *"
 
 jobs:
+  setup-os:
+    uses: ./.github/workflows/setup-os.yml
+    with:
+      toolchain: stable
+
+  setup-web-tools:
+    uses: ./.github/workflows/setup-web-tools.yml
+
   get-matrix:
     uses: ./.github/workflows/get-examples-matrix.yml
 
   test:
     name: Verify
-    needs: [get-matrix]
+    needs: [setup-os, get-matrix]
     strategy:
       matrix: ${{ fromJSON(needs.get-matrix.outputs.matrix) }}
       fail-fast: false
-    uses: ./.github/workflows/run-cargo-make-task.yml
+    uses: ./.github/workflows/run-task.yml
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "verify-flow"

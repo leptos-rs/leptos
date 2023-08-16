@@ -12,9 +12,16 @@ jobs:
   get-source-changed:
     uses: ./.github/workflows/get-source-changed.yml
 
+  setup-os:
+    needs: [get-source-changed]
+    if: needs.get-source-changed.outputs.source_changed == 'true'
+    uses: ./.github/workflows/setup-os.yml
+    with:
+      toolchain: nightly
+
   test:
     name: CI
-    needs: [get-source-changed]
+    needs: [get-source-changed, setup-os]
     if: needs.get-source-changed.outputs.source_changed == 'true'
     strategy:
       matrix:
@@ -37,7 +44,7 @@ jobs:
             server_fn/server_fn_macro_default,
             server_fn_macro,
           ]
-    uses: ./.github/workflows/run-cargo-make-task.yml
+    uses: ./.github/workflows/run-task.yml
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "ci"
