@@ -46,6 +46,11 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: Get example project directories that changed
         id: changed-dirs
         uses: tj-actions/changed-files@v36
