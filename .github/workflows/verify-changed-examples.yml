@@ -103,7 +103,5 @@ jobs:
     steps:
       - name: Check ${{ matrix.directory }}
         run: |
-          echo Current directory info...
-          pwd
           cd ${{ matrix.directory }}
           cargo make --profile=github-actions check

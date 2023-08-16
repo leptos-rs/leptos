@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          echo Current directory info...
-          pwd
-          ls | sort -u
           cd ${{ inputs.directory }}
           cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
