@@ -18,7 +18,8 @@ jobs:
     steps:
       - name: ${{ inputs.cargo_make_task }}
         run: |
+          echo Current directory info...
           pwd
-          ls
+          ls | sort -u
           cd ${{ inputs.directory }}
           cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
