@@ -603,11 +603,10 @@ where
             let default_res_options = ResponseOptions::default();
             let res_options2 = default_res_options.clone();
             let res_options3 = default_res_options.clone();
-            let local_pool = get_leptos_pool();
             let (tx, rx) = futures::channel::mpsc::channel(8);
 
             let current_span = tracing::Span::current();
-            local_pool.spawn_pinned(move || async move {
+            spawn_local(async move {
                 let app = {
                     // Need to get the path and query string of the Request
                     // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
@@ -770,9 +769,8 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
-                let local_pool = get_leptos_pool();
                 let current_span = tracing::Span::current();
-                local_pool.spawn_pinned(|| async move {
+                spawn_local(async move {
                     let app = {
                         let full_path = full_path.clone();
                         let (req, req_parts) = generate_request_and_parts(req).await;
@@ -944,8 +942,7 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
-                let local_pool = get_leptos_pool();
-                local_pool.spawn_pinned(move || {
+                spawn_local(
                     async move {
                         let app = {
                             let full_path = full_path.clone();
@@ -977,7 +974,7 @@ where
 
                         _ = tx.send(html);
                     }
-                });
+                );
 
                 let html = rx.await.expect("to complete HTML rendering");
 
