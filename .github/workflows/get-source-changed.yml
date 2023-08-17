@@ -42,3 +42,9 @@ jobs:
         id: set-source-changed
         run: |
           echo "source_changed=${{ steps.changed-source.outputs.any_changed }}" >> "$GITHUB_OUTPUT"
+
+      - name: Print Location Info
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          pwd
+          ls | sort -u

@@ -32,3 +32,9 @@ jobs:
           jq -R -s -c 'split("\n")[:-1]')
           echo "Example Directories: $examples"
           echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"
+
+      - name: Print Location Info
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          pwd
+          ls | sort -u

@@ -96,12 +96,10 @@ jobs:
     name: Verify
     needs: [get-example-changed, get-matrix, setup-os, setup-web-tools]
     if: needs.get-example-changed.outputs.example_changed == 'true'
-    runs-on: ubuntu-latest
     strategy:
       matrix: ${{ fromJSON(needs.get-matrix.outputs.matrix) }}
       fail-fast: false
-    steps:
-      - name: Check ${{ matrix.directory }}
-        run: |
-          cd ${{ matrix.directory }}
-          cargo make --profile=github-actions check
+    uses: ./.github/workflows/run-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "verify-flow"
