@@ -942,39 +942,46 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
-                spawn_local(
-                    async move {
-                        let app = {
-                            let full_path = full_path.clone();
-                            let (req, req_parts) = generate_request_and_parts(req).await;
-                            move |cx| {
-                                provide_contexts(cx, full_path, req_parts, req.into(), default_res_options);
-                                app_fn(cx).into_view(cx)
-                            }
-                        };
+                spawn_local(async move {
+                    let app = {
+                        let full_path = full_path.clone();
+                        let (req, req_parts) =
+                            generate_request_and_parts(req).await;
+                        move |cx| {
+                            provide_contexts(
+                                cx,
+                                full_path,
+                                req_parts,
+                                req.into(),
+                                default_res_options,
+                            );
+                            app_fn(cx).into_view(cx)
+                        }
+                    };
 
-                        let (stream, runtime, scope) =
+                    let (stream, runtime, scope) =
                             render_to_stream_in_order_with_prefix_undisposed_with_context(
                                 app,
                                 |_| "".into(),
                                 add_context,
                             );
 
-                        // Extract the value of ResponseOptions from here
-                        let cx = leptos::Scope { runtime, id: scope };
-                        let res_options =
-                            use_context::<ResponseOptions>(cx).unwrap();
+                    // Extract the value of ResponseOptions from here
+                    let cx = leptos::Scope { runtime, id: scope };
+                    let res_options =
+                        use_context::<ResponseOptions>(cx).unwrap();
 
-                        let html = build_async_response(stream, &options, runtime, scope).await;
+                    let html =
+                        build_async_response(stream, &options, runtime, scope)
+                            .await;
 
-                        let new_res_parts = res_options.0.read().clone();
+                    let new_res_parts = res_options.0.read().clone();
 
-                        let mut writable = res_options2.0.write();
-                        *writable = new_res_parts;
+                    let mut writable = res_options2.0.write();
+                    *writable = new_res_parts;
 
-                        _ = tx.send(html);
-                    }
-                );
+                    _ = tx.send(html);
+                });
 
                 let html = rx.await.expect("to complete HTML rendering");
 
