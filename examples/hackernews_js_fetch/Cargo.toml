@@ -30,7 +30,7 @@ http = { version = "0.2.8", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal", "Request", "Response"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = { version = "0.4.37", features = ["futures-core-03-stream"], optional = true }
-axum-js-fetch = { path = "../../../axum-js-fetch", optional = true }
+axum-js-fetch = { version = "0.2", optional = true }
 
 [features]
 default = ["csr"]
