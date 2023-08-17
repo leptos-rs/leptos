@@ -144,10 +144,27 @@ let double_count = move || count() * 2;
 Derived signals let you create reactive computed values that can be used in multiple
 places in your application with minimal overhead.
 
-> Note: Using a derived signal like this means that the calculation runs once per
-> signal change per place we access `double_count`; in other words, twice. This is a
-> very cheap calculation, so that’s fine. We’ll look at memos in a later chapter, which
-> are designed to solve this problem for expensive calculations.
+Note: Using a derived signal like this means that the calculation runs once per
+signal change per place we access `double_count`; in other words, twice. This is a
+very cheap calculation, so that’s fine. We’ll look at memos in a later chapter, which
+are designed to solve this problem for expensive calculations.
+
+> #### Advanced Topic: Injecting Raw HTML
+>
+> The `view` macro provides support for an additional attribute, `inner_html`, which
+> can be used to directly set the HTML contents of any element, wiping out any other
+> children you’ve given it. Note that this does _not_ escape the HTML you provide. You
+> should make sure that it only contains trusted input or that any HTML entities are
+> escaped, to prevent cross-site scripting (XSS) attacks.
+>
+> ```rust
+> let html = "<p>This HTML will be injected.</p>";
+> view! { cx,
+>   <div inner_html=html/>
+> }
+> ```
+>
+> [Click here for the full `view` macros docs](https://docs.rs/leptos/latest/leptos/macro.view.html).
 
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/2-dynamic-attribute-pqyvzl?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D)
 
