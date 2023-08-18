@@ -487,7 +487,7 @@ where
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn map_ref<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
@@ -579,7 +579,7 @@ where
     /// ```
     #[track_caller]
     pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
-        self.map_ref(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
     }
 }
 
