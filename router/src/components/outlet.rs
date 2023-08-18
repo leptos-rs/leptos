@@ -17,12 +17,12 @@ use web_sys::AnimationEvent;
 pub fn Outlet() -> impl IntoView {
     let id = HydrationCtx::id();
     let route = use_route();
-    let location = use_location();
+    let route_states = expect_context::<Memo<crate::RouterState>>();
 
     let child_id = create_memo({
         let route = route.clone();
         move |_| {
-            location.pathname.track();
+            route_states.track();
             route.child().map(|child| child.id())
         }
     });

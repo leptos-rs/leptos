@@ -57,7 +57,6 @@ pub(crate) struct RouterContextInner {
     #[allow(unused)] // used in CSR/hydrate
     base_path: String,
     history: Box<dyn History>,
-
     reference: ReadSignal<String>,
     set_reference: WriteSignal<String>,
     referrers: Rc<RefCell<Vec<LocationChange>>>,
