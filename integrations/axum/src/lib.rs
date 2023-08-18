@@ -196,6 +196,21 @@ pub async fn handle_server_fns(
     handle_server_fns_inner(fn_name, headers, query, |_| {}, req).await
 }
 
+/// Leptos pool causes wasm to panic and leptos_reactive::spawn::spawn_local causes native
+/// to panic so we define a macro to conditionally compile the correct code.
+macro_rules! spawn_task {
+    ($block:expr) => {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "wasm")] {
+                spawn_local($block);
+            } else if #[cfg(feature = "default")] {
+                let pool_handle = get_leptos_pool();
+                pool_handle.spawn_pinned(move || { $block });
+            }
+        }
+    };
+}
+
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
@@ -236,12 +251,10 @@ async fn handle_server_fns_inner(
         .unwrap_or(fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
-    let pool_handle = get_leptos_pool();
-    pool_handle.spawn_pinned(move || {
-        async move {
-            let res = if let Some(server_fn) =
-                server_fn_by_path(fn_name.as_str())
-            {
+
+    spawn_task!(async move {
+        let res =
+            if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                 let runtime = create_runtime();
                 let (cx, disposer) = raw_scope_and_disposer(runtime);
 
@@ -349,8 +362,7 @@ async fn handle_server_fns_inner(
             }
             .expect("could not build Response");
 
-            _ = tx.send(res);
-        }
+        _ = tx.send(res);
     });
 
     rx.await.unwrap()
@@ -609,7 +621,7 @@ where
             let (tx, rx) = futures::channel::mpsc::channel(8);
 
             let current_span = tracing::Span::current();
-            spawn_local(async move {
+            spawn_task!(async move {
                 let app = {
                     // Need to get the path and query string of the Request
                     // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
@@ -773,7 +785,7 @@ where
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
                 let current_span = tracing::Span::current();
-                spawn_local(async move {
+                spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
                         let (req, req_parts) = generate_request_and_parts(req).await;
@@ -946,7 +958,7 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
-                spawn_local(async move {
+                spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
                         let (req, req_parts) =
