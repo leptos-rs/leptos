@@ -195,5 +195,5 @@ fn leptos_options_builder_default() {
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
     );
     assert_eq!(conf.reload_port, 3001);
-    assert_eq!(conf.reload_external_port, Some(3001));
+    assert_eq!(conf.reload_external_port, None);
 }
