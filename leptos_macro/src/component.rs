@@ -205,7 +205,7 @@ impl ToTokens for Model {
 
                         #tracing_props_expr
 
-                        #body_name(cx, #prop_names)
+                        #body_name(#prop_names)
                     }
                 )
             }
