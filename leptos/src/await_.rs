@@ -108,7 +108,7 @@ where
 
     view! {
         <Suspense fallback=|| ()>
-            {move || res.map_ref(|data| view.with_value(|view| view(data)))}
+            {move || res.map(|data| view.with_value(|view| view(data)))}
         </Suspense>
     }
 }
