@@ -119,10 +119,10 @@ In addition to `create_effect`, Leptos provides a [`watch`](https://docs.rs/lept
 Like `create_resource`, `watch` takes a first argument, which is reactively tracked, and a second, which is not. Whenever a reactive value in its `deps` argument is changed, the `callback` is run. `watch` returns a function that can be called to stop tracking the dependencies.
 
 ```rust
-let (num, set_num) = create_signal(cx, 0);
+let (num, set_num) = create_signal(0);
 
 let stop = watch(
-    cx,
+
     move || num.get(),
     move |num, prev_num, _| {
         log::debug!("Number: {}; Prev: {:?}", num, prev_num);

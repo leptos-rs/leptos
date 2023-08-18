@@ -39,7 +39,7 @@ use std::any::{Any, TypeId};
 /// #[component]
 /// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
-///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
+///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>().unwrap().0;
 /// }
 /// ```
@@ -112,7 +112,7 @@ where
 /// #[component]
 /// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
-///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
+///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>().unwrap().0;
 ///
 /// }
@@ -184,7 +184,7 @@ where
 /// #[component]
 /// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
-///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
+///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
 ///     let set_value = expect_context::<ValueSetter>().0;
 ///
 ///     todo!()

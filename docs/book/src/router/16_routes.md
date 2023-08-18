@@ -94,7 +94,7 @@ The `view` is a function that returns a view. Any component with no props works 
 </Routes>
 ```
 
-> `view` takes a `Fn(Scope) -> impl IntoView`. If a component has no props, it is a function that takes `Scope` and returns `impl IntoView`, so it can be passed directly into the `view`. In this case, `view=Home` is just a shorthand for `|cx| view! { cx, <Home/> }`.
+> `view` takes a `Fn() -> impl IntoView`. If a component has no props, it can be passed directly into the `view`. In this case, `view=Home` is just a shorthand for `|| view! { <Home/> }`.
 
 Now if you navigate to `/` or to `/users` you’ll get the home page or the `<Users/>`. If you go to `/users/3` or `/blahblah` you’ll get a user profile or your 404 page (`<NotFound/>`). On every navigation, the router determines which `<Route/>` should be matched, and therefore what content should be displayed where the `<Routes/>` component is defined.
 
