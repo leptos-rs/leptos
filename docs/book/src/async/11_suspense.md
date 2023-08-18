@@ -84,10 +84,10 @@ async fn fetch_monkeys(monkey: i32) -> i32 {
     // maybe this didn't need to be async
     monkey * 2
 }
-view! { cx,
+view! {
     <Await
         // `future` provides the `Future` to be resolved
-        future=|cx| fetch_monkeys(3)
+        future=|| fetch_monkeys(3)
         // the data is bound to whatever variable name you provide
         bind:data
     >

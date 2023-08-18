@@ -159,7 +159,7 @@ are designed to solve this problem for expensive calculations.
 >
 > ```rust
 > let html = "<p>This HTML will be injected.</p>";
-> view! { cx,
+> view! {
 >   <div inner_html=html/>
 > }
 > ```

@@ -96,7 +96,7 @@ You can easily define this with nested routes
 <Routes>
   <Route path="/contacts" view=ContactList>
     <Route path=":id" view=ContactInfo/>
-    <Route path="" view=|cx| view! { cx,
+    <Route path="" view=|| view! {
       <p>"Select a contact to view more info."</p>
     }/>
   </Route>
@@ -205,7 +205,7 @@ fn App() -> impl IntoView {
                       >
                         // if no id specified, fall back
                         <Route path=":id" view=ContactInfo>
-                            <Route path="" view=|cx| view! { cx,
+                            <Route path="" view=|| view! {
                                 <div class="tab">
                                     "(Contact Info)"
                                 </div>

@@ -38,13 +38,13 @@ So imagine the following code:
 
 ```rust
 // A
-let (name, set_name) = create_signal(cx, "Alice");
+let (name, set_name) = create_signal("Alice");
 
 // B
-let name_upper = create_memo(cx, move |_| name.with(|n| n.to_uppercase()));
+let name_upper = create_memo(move |_| name.with(|n| n.to_uppercase()));
 
 // C
-create_effect(cx, move |_| {
+create_effect(move |_| {
 	log!("{}", name_upper());
 });
 
@@ -67,21 +67,21 @@ Let’s make it a little more complex.
 
 ```rust
 // A
-let (name, set_name) = create_signal(cx, "Alice");
+let (name, set_name) = create_signal("Alice");
 
 // B
-let name_upper = create_memo(cx, move |_| name.with(|n| n.to_uppercase()));
+let name_upper = create_memo(move |_| name.with(|n| n.to_uppercase()));
 
 // C
-let name_len = create_memo(cx, move |_| name.len());
+let name_len = create_memo(move |_| name.len());
 
 // D
-create_effect(cx, move |_| {
+create_effect(move |_| {
 	log!("len = {}", name_len());
 });
 
 // E
-create_effect(cx, move |_| {
+create_effect(move |_| {
 	log!("name = {}", name_upper());
 });
 ```
@@ -131,16 +131,16 @@ One more example, of what’s sometimes called **the diamond problem**.
 
 ```rust
 // A
-let (name, set_name) = create_signal(cx, "Alice");
+let (name, set_name) = create_signal("Alice");
 
 // B
-let name_upper = create_memo(cx, move |_| name.with(|n| n.to_uppercase()));
+let name_upper = create_memo(move |_| name.with(|n| n.to_uppercase()));
 
 // C
-let name_len = create_memo(cx, move |_| name.len());
+let name_len = create_memo(move |_| name.len());
 
 // D
-create_effect(cx, move |_| {
+create_effect(move |_| {
 	log!("{} is {} characters long", name_upper(), name_len());
 });
 ```
@@ -218,7 +218,7 @@ All of this is cool, and memos are pretty great. But most actual applications ha
 In cases in which the computation itself is cheaper than this reactive work, you should avoid “over-wrapping” with memos and simply use derived signals. Here’s a great example in which you should never use a memo:
 
 ```rust
-let (a, set_a) = create_signal(cx, 1);
+let (a, set_a) = create_signal(1);
 // none of these make sense as memos
 let b = move || a() + 2;
 let c = move || b() % 2 == 0;
@@ -234,10 +234,10 @@ Even though memoizing would technically save an extra calculation of `d` between
 At the very most, you might consider memoizing the final node before running some expensive side effect:
 
 ```rust
-let text = create_memo(cx, move |_| {
+let text = create_memo(move |_| {
   d()
 });
-create_effect(cx, move |_| {
+create_effect(move |_| {
   engrave_text_into_bar_of_gold(&text());
 });
 ```

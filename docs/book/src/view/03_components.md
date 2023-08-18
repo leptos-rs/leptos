@@ -224,11 +224,10 @@ This generic can also be specified inline:
 ```rust
 #[component]
 fn ProgressBar<F: Fn() -> i32 + 'static>(
-    cx: Scope,
     #[prop(default = 100)] max: u16,
     progress: F,
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -294,11 +293,10 @@ Note that you can’t specify optional generic props for a component. Let’s se
 ```rust,compile_fail
 #[component]
 fn ProgressBar<F: Fn() -> i32 + 'static>(
-    cx: Scope,
     #[prop(optional)] progress: Option<F>,
 ) -> impl IntoView {
     progress.map(|progress| {
-        view! { cx,
+        view! {
             <progress
                 max=100
                 value=progress
@@ -308,8 +306,8 @@ fn ProgressBar<F: Fn() -> i32 + 'static>(
 }
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub fn App() -> impl IntoView {
+    view! {
         <ProgressBar/>
     }
 }
@@ -337,11 +335,10 @@ However, you can get around this by providing a concrete type using `Box<dyn _>`
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
     #[prop(optional)] progress: Option<Box<dyn Fn() -> i32>>,
 ) -> impl IntoView {
     progress.map(|progress| {
-        view! { cx,
+        view! {
             <progress
                 max=100
                 value=progress
@@ -351,8 +348,8 @@ fn ProgressBar(
 }
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub fn App() -> impl IntoView {
+    view! {
         <ProgressBar/>
     }
 }

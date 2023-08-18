@@ -120,7 +120,7 @@ fn App() -> impl IntoView {
                     >
                         // if no id specified, fall back
                         <Route path=":id" view=ContactInfo>
-                            <Route path="" view=|cx| view! { cx,
+                            <Route path="" view=|| view! {
                                 <div class="tab">
                                     "(Contact Info)"
                                 </div>
