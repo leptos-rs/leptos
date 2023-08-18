@@ -32,7 +32,7 @@ pub fn App() -> impl IntoView {
         }
     "#;
     view! {
-        
+
         <style>{style}</style>
         <Router>
             <nav>
@@ -49,7 +49,7 @@ pub fn App() -> impl IntoView {
                     // out-of-order
                     <Route
                         path="out-of-order"
-                        view=|cx| view! { 
+                        view=|cx| view! {
                             <SecondaryNav/>
                             <h1>"Out-of-Order"</h1>
                             <Outlet/>
@@ -66,7 +66,7 @@ pub fn App() -> impl IntoView {
                     <Route
                         path="in-order"
                         ssr=SsrMode::InOrder
-                        view=|cx| view! { 
+                        view=|cx| view! {
                             <SecondaryNav/>
                             <h1>"In-Order"</h1>
                             <Outlet/>
@@ -83,7 +83,7 @@ pub fn App() -> impl IntoView {
                     <Route
                         path="async"
                         ssr=SsrMode::Async
-                        view=|cx| view! { 
+                        view=|cx| view! {
                             <SecondaryNav/>
                             <h1>"Async"</h1>
                             <Outlet/>
@@ -104,7 +104,7 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn SecondaryNav() -> impl IntoView {
-    view! { 
+    view! {
         <nav>
             <A href="" exact=true>"Nested"</A>
             <A href="inside" exact=true>"Nested (resource created inside)"</A>
@@ -122,7 +122,7 @@ fn Nested() -> impl IntoView {
     let two_second = create_resource(|| WAIT_TWO_SECONDS, second_wait_fn);
     let (count, set_count) = create_signal(0);
 
-    view! { 
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 {move || {
@@ -132,7 +132,7 @@ fn Nested() -> impl IntoView {
                 }}
                 <Suspense fallback=|| "Loading 2...">
                     {move || {
-                        two_second.read().map(|_| view! { 
+                        two_second.read().map(|_| view! {
                             <p id="loaded-2">"Two Second: Loaded 2!"</p>
                             <button on:click=move |_| set_count.update(|n| *n += 1)>
                                 {count}
@@ -150,7 +150,7 @@ fn NestedResourceInside() -> impl IntoView {
     let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
     let (count, set_count) = create_signal(0);
 
-    view! { 
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                    {move || {
@@ -159,7 +159,7 @@ fn NestedResourceInside() -> impl IntoView {
                             leptos::log!("creating two_second resource");
                             second_wait_fn(WAIT_TWO_SECONDS).await
                         });
-                        view! { 
+                        view! {
                             {move || one_second.read().map(|_|
                                 view! {
                                     <p id="loaded-1">"One Second: Loaded 1!"</p>
@@ -167,7 +167,7 @@ fn NestedResourceInside() -> impl IntoView {
                             )}
                             <Suspense fallback=|| "Loading 2...">
                                 {move || {
-                                    two_second.read().map(|x| view! { 
+                                    two_second.read().map(|x| view! {
                                         <span id="loaded-2">"Loaded 2 (created inside first suspense)!: " {format!("{x:?}")}</span>
                                         <button on:click=move |_| set_count.update(|n| *n += 1)>
                                             {count}
@@ -189,11 +189,11 @@ fn Parallel() -> impl IntoView {
     let two_second = create_resource(|| WAIT_TWO_SECONDS, second_wait_fn);
     let (count, set_count) = create_signal(0);
 
-    view! { 
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 {move || {
-                    one_second.read().map(move |_| view! { 
+                    one_second.read().map(move |_| view! {
                         <p id="loaded-1">"One Second: Loaded 1!"</p>
                         <button on:click=move |_| set_count.update(|n| *n += 1)>
                             {count}
@@ -203,7 +203,7 @@ fn Parallel() -> impl IntoView {
             </Suspense>
             <Suspense fallback=|| "Loading 2...">
                 {move || {
-                    two_second.read().map(move |_| view! { 
+                    two_second.read().map(move |_| view! {
                         <p id="loaded-2">"Two Second: Loaded 2!"</p>
                         <button id="second-count" on:click=move |_| set_count.update(|n| *n += 1)>
                             {count}
@@ -220,7 +220,7 @@ fn Single() -> impl IntoView {
     let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
     let (count, set_count) = create_signal(0);
 
-    view! { 
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
             {move || {
@@ -243,7 +243,7 @@ fn Single() -> impl IntoView {
 fn InsideComponent() -> impl IntoView {
     let (count, set_count) = create_signal(0);
 
-    view! { 
+    view! {
         <div>
             <p id="inside-message">"Suspense inside another component should work."</p>
             <InsideComponentChild/>
@@ -260,7 +260,7 @@ fn InsideComponent() -> impl IntoView {
 #[component]
 fn InsideComponentChild() -> impl IntoView {
     let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
-    view! { 
+    view! {
         <Suspense fallback=|| "Loading 1...">
         {move || {
             one_second.read().map(|_| view! {
@@ -275,7 +275,7 @@ fn InsideComponentChild() -> impl IntoView {
 fn None() -> impl IntoView {
     let (count, set_count) = create_signal(0);
 
-    view! { 
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 <p id="inside-message">"Children inside Suspense should hydrate properly."</p>
