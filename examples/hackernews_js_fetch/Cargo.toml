@@ -43,7 +43,7 @@ ssr = [
   "dep:wasm-bindgen-futures",
   "dep:axum-js-fetch",
   "leptos/ssr",
-  "leptos_axum",
+  "leptos_axum/wasm",
   "leptos_meta/ssr",
   "leptos_router/ssr",
 ]

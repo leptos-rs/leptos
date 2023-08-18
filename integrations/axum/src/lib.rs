@@ -161,6 +161,7 @@ pub async fn generate_request_and_parts(
 /// use std::net::SocketAddr;
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
@@ -380,6 +381,7 @@ pub type PinnedHtmlStream =
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
@@ -453,6 +455,7 @@ where
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
@@ -840,6 +843,7 @@ fn provide_contexts(
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
