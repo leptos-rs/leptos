@@ -51,6 +51,7 @@ pub fn Routes(
 
     let root_equal = Rc::new(Cell::new(true));
     let route_states = route_states(base, &router, current_route, &root_equal);
+    provide_context(route_states);
 
     let id = HydrationCtx::id();
     let root_route =
@@ -58,7 +59,7 @@ pub fn Routes(
             root_route(base_route, route_states, root_equal)
         });
     let (root, dis) = root_route((base_route, root_equal));
-    std::mem::forget(dis);
+    on_cleanup(move || drop(dis));
 
     leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
         .into_view()
@@ -475,7 +476,7 @@ fn root_route(
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct RouterState {
+pub(crate) struct RouterState {
     matches: Vec<RouteMatch>,
     routes: Rc<RefCell<Vec<RouteContext>>>,
     root: Option<RouteContext>,
