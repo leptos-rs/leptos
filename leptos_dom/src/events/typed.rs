@@ -172,6 +172,84 @@ pub trait EventHandler {
     fn attach<T: DOMEventResponder>(self, target: T) -> T;
 }
 
+impl<T, const N: usize> EventHandler for [T; N]
+where
+    T: EventHandler,
+{
+    #[inline]
+    fn attach<R: DOMEventResponder>(self, target: R) -> R {
+        let mut target = target;
+        for item in self {
+            target = item.attach(target);
+        }
+        target
+    }
+}
+
+impl<T> EventHandler for Option<T>
+where
+    T: EventHandler,
+{
+    #[inline]
+    fn attach<R: DOMEventResponder>(self, target: R) -> R {
+        match self {
+            Some(event_handler) => event_handler.attach(target),
+            None => target,
+        }
+    }
+}
+
+macro_rules! tc {
+  ($($ty:ident),*) => {
+    impl<$($ty),*> EventHandler for ($($ty,)*)
+    where
+      $($ty: EventHandler),*
+    {
+      #[inline]
+      fn attach<RES: DOMEventResponder>(self, target: RES) -> RES {
+        ::paste::paste! {
+          let (
+          $(
+            [<$ty:lower>],)*
+          ) = self;
+          $(
+            let target = [<$ty:lower>].attach(target);
+          )*
+          target
+        }
+      }
+    }
+  };
+}
+
+tc!(A);
+tc!(A, B);
+tc!(A, B, C);
+tc!(A, B, C, D);
+tc!(A, B, C, D, E);
+tc!(A, B, C, D, E, F);
+tc!(A, B, C, D, E, F, G);
+tc!(A, B, C, D, E, F, G, H);
+tc!(A, B, C, D, E, F, G, H, I);
+tc!(A, B, C, D, E, F, G, H, I, J);
+tc!(A, B, C, D, E, F, G, H, I, J, K);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
+#[rustfmt::skip]
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
+
 macro_rules! collection_callback {
   {$(
     $collection:ident
