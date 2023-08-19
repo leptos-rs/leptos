@@ -10,7 +10,7 @@ on:
 
 jobs:
   get-example-changed:
-    uses: ./.github/workflows/calls/example-changed.yml
+    uses: ./.github/workflows/example-changed.yml
 
   get-matrix:
     name: Get Changed Example Matrix
