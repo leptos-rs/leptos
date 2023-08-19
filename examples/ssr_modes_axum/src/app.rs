@@ -43,22 +43,23 @@ fn HomePage() -> impl IntoView {
     // load the posts
     let posts =
         create_resource(|| (), |_| async { list_post_metadata().await });
+    let posts_view = move || {
+        posts.and_then(|posts| {
+            posts.iter()
+                .map(|post| view! {
+                    <li>
+                        <a href=format!("/post/{}", post.id)>{&post.title}</a> "|"
+                        <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a>
+                    </li>
+                })
+                .collect_view()
+        })
+    };
 
     view! {
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            <ul>
-                {move || {
-                    posts.with(|posts| posts
-                        .clone()
-                        .map(|posts| {
-                            posts.iter()
-                            .map(|post| view! { <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
-                            .collect_view()
-                        })
-                    )
-                }}
-            </ul>
+            <ul>{posts_view}</ul>
         </Suspense>
     }
 }
@@ -91,23 +92,19 @@ fn Post() -> impl IntoView {
     // from the parent component, so we take that as an argument and
     // pass it in under the `<Suspense/>` so that it is correct
     let post_view = move || {
-        move || {
-            post.with(|post| {
-                post.clone().map(|post| {
-                    view! {
-                        // render content
-                        <h1>{&post.title}</h1>
-                        <p>{&post.content}</p>
+        post.and_then(|post| {
+            view! {
+                // render content
+                <h1>{&post.title}</h1>
+                <p>{&post.content}</p>
 
-                        // since we're using async rendering for this page,
-                        // this metadata should be included in the actual HTML <head>
-                        // when it's first served
-                        <Title text=post.title/>
-                        <Meta name="description" content=post.content/>
-                    }
-                })
-            })
-        }
+                // since we're using async rendering for this page,
+                // this metadata should be included in the actual HTML <head>
+                // when it's first served
+                <Title text=post.title.clone()/>
+                <Meta name="description" content=post.content.clone()/>
+            }
+        })
     };
 
     view! {

@@ -44,12 +44,12 @@ pub fn App() -> impl IntoView {
                 <Routes>
                     <Route
                         path=""
-                        view=|cx| view! { <Redirect path="/out-of-order"/> }
+                        view=|| view! { <Redirect path="/out-of-order"/> }
                     />
                     // out-of-order
                     <Route
                         path="out-of-order"
-                        view=|cx| view! {
+                        view=|| view! {
                             <SecondaryNav/>
                             <h1>"Out-of-Order"</h1>
                             <Outlet/>
@@ -66,7 +66,7 @@ pub fn App() -> impl IntoView {
                     <Route
                         path="in-order"
                         ssr=SsrMode::InOrder
-                        view=|cx| view! {
+                        view=|| view! {
                             <SecondaryNav/>
                             <h1>"In-Order"</h1>
                             <Outlet/>
@@ -83,7 +83,7 @@ pub fn App() -> impl IntoView {
                     <Route
                         path="async"
                         ssr=SsrMode::Async
-                        view=|cx| view! {
+                        view=|| view! {
                             <SecondaryNav/>
                             <h1>"Async"</h1>
                             <Outlet/>
@@ -126,13 +126,13 @@ fn Nested() -> impl IntoView {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 {move || {
-                    one_second.read().map(|_| view! {
+                    one_second.get().map(|_| view! {
                         <p id="loaded-1">"One Second: Loaded 1!"</p>
                     })
                 }}
                 <Suspense fallback=|| "Loading 2...">
                     {move || {
-                        two_second.read().map(|_| view! {
+                        two_second.get().map(|_| view! {
                             <p id="loaded-2">"Two Second: Loaded 2!"</p>
                             <button on:click=move |_| set_count.update(|n| *n += 1)>
                                 {count}
@@ -154,20 +154,20 @@ fn NestedResourceInside() -> impl IntoView {
         <div>
             <Suspense fallback=|| "Loading 1...">
                    {move || {
-                    one_second.read().map(|_| {
+                    one_second.get().map(|_| {
                         let two_second = create_resource(|| (), move |_| async move {
                             leptos::log!("creating two_second resource");
                             second_wait_fn(WAIT_TWO_SECONDS).await
                         });
                         view! {
-                            {move || one_second.read().map(|_|
+                            {move || one_second.get().map(|_|
                                 view! {
                                     <p id="loaded-1">"One Second: Loaded 1!"</p>
                                 }
                             )}
                             <Suspense fallback=|| "Loading 2...">
                                 {move || {
-                                    two_second.read().map(|x| view! {
+                                    two_second.get().map(|x| view! {
                                         <span id="loaded-2">"Loaded 2 (created inside first suspense)!: " {format!("{x:?}")}</span>
                                         <button on:click=move |_| set_count.update(|n| *n += 1)>
                                             {count}
@@ -193,7 +193,7 @@ fn Parallel() -> impl IntoView {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 {move || {
-                    one_second.read().map(move |_| view! {
+                    one_second.get().map(move |_| view! {
                         <p id="loaded-1">"One Second: Loaded 1!"</p>
                         <button on:click=move |_| set_count.update(|n| *n += 1)>
                             {count}
@@ -203,7 +203,7 @@ fn Parallel() -> impl IntoView {
             </Suspense>
             <Suspense fallback=|| "Loading 2...">
                 {move || {
-                    two_second.read().map(move |_| view! {
+                    two_second.get().map(move |_| view! {
                         <p id="loaded-2">"Two Second: Loaded 2!"</p>
                         <button id="second-count" on:click=move |_| set_count.update(|n| *n += 1)>
                             {count}
@@ -224,7 +224,7 @@ fn Single() -> impl IntoView {
         <div>
             <Suspense fallback=|| "Loading 1...">
             {move || {
-                one_second.read().map(|_| view! {
+                one_second.get().map(|_| view! {
                     <p id="loaded-1">"One Second: Loaded 1!"</p>
                 })
             }}
@@ -263,7 +263,7 @@ fn InsideComponentChild() -> impl IntoView {
     view! {
         <Suspense fallback=|| "Loading 1...">
         {move || {
-            one_second.read().map(|_| view! {
+            one_second.get().map(|_| view! {
                 <p id="loaded-1">"One Second: Loaded 1!"</p>
             })
         }}
