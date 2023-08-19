@@ -92,9 +92,5 @@ jobs:
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          if [ "${{ inputs.directory }}" = "INTERNAL" ]; then
-            echo No verification required
-          else
-            cd ${{ inputs.directory }}
-            cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
-          fi
+          cd ${{ inputs.directory }}
+          cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
