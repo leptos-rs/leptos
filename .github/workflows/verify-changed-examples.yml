@@ -82,11 +82,82 @@ jobs:
 
   test:
     name: Verify
+    runs-on: ubuntu-latest
     needs: [get-matrix]
     strategy:
       matrix: ${{ fromJSON(needs.get-matrix.outputs.matrix) }}
       fail-fast: false
-    uses: ./.github/workflows/run-cargo-make-task.yml
-    with:
-      directory: ${{ matrix.directory }}
-      cargo_make_task: "verify-flow"
+    steps:
+      # Setup environment
+      - name: Install playwright browser dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libegl1 libvpx7 libevent-2.1-7 libopus0 libopengl0 libwoff1 libharfbuzz-icu0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 libhyphen0 libmanette-0.2-0 libgles2 gstreamer1.0-libav
+
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt
+
+      - name: Add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Setup cargo-make
+        uses: davidB/rust-cargo-make@v1
+
+      - name: Cargo generate-lockfile
+        run: cargo generate-lockfile
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Trunk
+        uses: jetli/trunk-action@v0.4.0
+        with:
+          version: "latest"
+
+      - name: Print Trunk Version
+        run: trunk --version
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Chrome Webriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install chromium-chromedriver
+
+      # Run Cargo Make Task
+      - name: Verify
+        run: |
+          if [ "${{ matrix.directory }}" = "INTERNAL" ]; then
+            echo No verification required
+          else
+            cd ${{ matrix.directory }}
+            cargo make --profile=github-actions ci
+          fi
