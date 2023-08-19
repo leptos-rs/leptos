@@ -77,13 +77,14 @@ jobs:
             echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
           else
             # Create matrix with one item to prevent an empty vector error
-            echo "matrix={\"directory\":[\"INTERNAL\"]}" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"directory\":[\"NO_CHANGE\"]}" >> "$GITHUB_OUTPUT"
           fi
 
   test:
     name: Verify
     runs-on: ubuntu-latest
-    needs: [get-matrix]
+    needs: [get-example-changed, get-matrix]
+    if: needs.get-example-changed.outputs.example_changed == 'true'
     strategy:
       matrix: ${{ fromJSON(needs.get-matrix.outputs.matrix) }}
       fail-fast: false
@@ -155,9 +156,5 @@ jobs:
       # Run Cargo Make Task
       - name: Verify
         run: |
-          if [ "${{ matrix.directory }}" = "INTERNAL" ]; then
-            echo No verification required
-          else
-            cd ${{ matrix.directory }}
-            cargo make --profile=github-actions ci
-          fi
+          cd ${{ matrix.directory }}
+          cargo make --profile=github-actions ci
