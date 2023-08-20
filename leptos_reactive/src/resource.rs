@@ -568,6 +568,8 @@ where
     /// ```
     /// # use leptos_reactive::*;
     /// # if false {
+    /// # // for miniserde support
+    /// # #[cfg(not(any(feature="miniserde", feature="serde-lite")))] {
     /// let cats = create_resource(
     ///     || (),
     ///     |_| async { Ok(vec![0, 1, 2]) as Result<Vec<i32>, ()> },
@@ -575,6 +577,7 @@ where
     /// create_effect(move |_| {
     ///     cats.and_then(|data: &Vec<i32>| println!("{}", data.len()));
     /// });
+    /// # }
     /// # }
     /// ```
     #[track_caller]
