@@ -9,6 +9,7 @@ on:
       cargo_make_task:
         required: true
         type: string
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse

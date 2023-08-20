@@ -13,7 +13,11 @@ jobs:
     uses: ./.github/workflows/example-changed.yml
 
   get-matrix:
+    needs: [get-example-changed]
     uses: ./.github/workflows/changed-examples-matrix.yml
+    with:
+      example_changed: ${{ needs.get-example-changed.outputs.example_changed }}
+
   test:
     name: Verify
     needs: [get-example-changed, get-matrix]
