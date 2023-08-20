@@ -16,7 +16,7 @@ fn SelfUpdatingEffect() -> Element {
         }
     });
 
-    view! { cx,
+    view! {
       <h1>"Hello " {move || a().to_string()}</h1>
     }
 }
@@ -24,7 +24,7 @@ fn SelfUpdatingEffect() -> Element {
 #[component]
 fn Tests() -> Element {
     view! {
-        cx,
+
         <div>
             <div><SelfUpdatingEffect/></div>
             <div><BlockOrders/></div>
@@ -40,7 +40,7 @@ fn BlockOrders() -> Element {
     let c = "C";
 
     view! {
-        cx,
+
         <div>
             <div>"A"</div>
             <div>{a}</div>
@@ -112,7 +112,7 @@ fn TemplateConsumer() -> Element {
         .expect("couldn't clone template node");
 
     view! {
-        cx,
+
         <div id="template">
             /* <h1>"Template Consumer"</h1>
             {cloned_tpl} */
@@ -123,7 +123,7 @@ fn TemplateConsumer() -> Element {
 #[component]
 fn TemplateExample() -> Element {
     view! {
-        cx,
+
         <template>
             <div>"Template contents"</div>
         </template>

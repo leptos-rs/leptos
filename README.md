@@ -16,9 +16,9 @@
 use leptos::*;
 
 #[component]
-pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
+pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
     // create a reactive signal with the initial value
-    let (value, set_value) = create_signal(cx, initial_value);
+    let (value, set_value) = create_signal(initial_value);
 
     // create event handlers for our buttons
     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -27,19 +27,22 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
     let increment = move |_| set_value.update(|value| *value += 1);
 
     // create user interfaces with the declarative `view!` macro
-    view! { cx,
+    view! {
         <div>
-            <button on:click=clear>"Clear"</button>
-            <button on:click=decrement>"-1"</button>
+            <button on:click=clear>Clear</button>
+            <button on:click=decrement>-1</button>
+            // text nodes can be quoted or unquoted
             <span>"Value: " {value} "!"</span>
-            <button on:click=increment>"+1"</button>
+            <button on:click=increment>+1</button>
         </div>
     }
 }
 
 // Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
 pub fn main() {
-    mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
+    mount_to_body(|| view! {
+        <SimpleCounter initial_value=3 />
+    })
 }
 
 ```
@@ -113,7 +116,7 @@ People usually mean one of three things by this question.
 
 1. **Are the APIs stable?** i.e., will I have to rewrite my whole app from Leptos 0.1 to 0.2 to 0.3 to 0.4, or can I write it now and benefit from new features and updates as new versions come?
 
-The APIs are basically settled. We’re adding new features, but we’re very happy with where the type system and patterns have landed. I would not expect major breaking changes to your code to adapt to future releases. The sorts of breaking changes that we discuss are things like “Oh yeah, that function should probably take `cx` as its argument...” not major changes to the way you write your application.
+The APIs are basically settled. We’re adding new features, but we’re very happy with where the type system and patterns have landed. I would not expect major breaking changes to your code to adapt to future releases, in terms of architecture.
 
 2. **Are there bugs?**
 
@@ -152,13 +155,13 @@ There are some practical differences that make a significant difference:
 
 - **Templating:** Leptos uses a JSX-like template format (built on [syn-rsx](https://github.com/stoically/syn-rsx)) for its `view` macro. Sycamore offers the choice of its own templating DSL or a builder syntax.
 - **Server integration:** Leptos provides primitives that encourage HTML streaming and allow for easy async integration and RPC calls, even without WASM enabled, making it easy to opt into integrations between your frontend and backend code without pushing you toward any particular metaframework patterns.
-- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use [`create_rw_signal`](https://docs.rs/leptos/latest/leptos/fn.create_rw_signal.html) to give a unified read/write signal.)_
+- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(0);` _(If you prefer or if it's more convenient for your API, you can use [`create_rw_signal`](https://docs.rs/leptos/latest/leptos/fn.create_rw_signal.html) to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
   ```rust
-  let (count, set_count) = create_signal(cx, 0); // a signal
+  let (count, set_count) = create_signal(0); // a signal
   let double_count = move || count() * 2; // a derived signal
-  let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
+  let memoized_count = create_memo(move |_| count() * 3); // a memo
   // all are accessed by calling them
   assert_eq!(count(), 0);
   assert_eq!(double_count(), 0);

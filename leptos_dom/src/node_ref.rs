@@ -25,7 +25,6 @@ use std::cell::Cell;
 ///     };
 ///
 ///     view! {
-///       cx,
 ///       <div>
 ///       // `node_ref` loads the input
 ///       <input _ref=input_ref type="text"/>

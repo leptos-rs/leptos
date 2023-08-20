@@ -1,7 +1,7 @@
 pub use leptos::*;
 use miniserde::*;
-use web_sys::HtmlInputElement;
 use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Todos(pub Vec<Todo>);
@@ -72,13 +72,17 @@ pub struct Todo {
 }
 
 impl Todo {
-    pub fn new(cx: Scope, id: usize, title: String) -> Self {
-        Self::new_with_completed(cx, id, title, false)
+    pub fn new(id: usize, title: String) -> Self {
+        Self::new_with_completed(id, title, false)
     }
 
-    pub fn new_with_completed(cx: Scope, id: usize, title: String, completed: bool) -> Self {
-        let (title, set_title) = create_signal(cx, title);
-        let (completed, set_completed) = create_signal(cx, completed);
+    pub fn new_with_completed(
+        id: usize,
+        title: String,
+        completed: bool,
+    ) -> Self {
+        let (title, set_title) = create_signal(title);
+        let (completed, set_completed) = create_signal(completed);
         Self {
             id,
             title,
@@ -98,7 +102,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
+pub fn TodoMVC(todos: Todos) -> impl IntoView {
     let mut next_id = todos
         .0
         .iter()
@@ -240,7 +244,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
+pub fn Todo(todo: Todo) -> impl IntoView {
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
     //let input = NodeRef::new(cx);
