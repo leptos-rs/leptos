@@ -27,18 +27,6 @@ jobs:
 
     steps:
       # Setup environment
-      - name: Maybe install playwright browser dependencies
-        run: |
-          playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
-          echo playwright_count: $playwright_count
-          if [ $playwright_count -eq 1 ]; then
-              echo playwright required
-              sudo apt-get update
-              sudo apt-get install libegl1 libvpx7 libevent-2.1-7 libopus0 libopengl0 libwoff1 libharfbuzz-icu0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 libhyphen0 libmanette-0.2-0 libgles2 gstreamer1.0-libav
-          else
-              echo playwright is not required
-          fi
-
       - uses: actions/checkout@v3
 
       - name: Setup Rust
@@ -106,6 +94,18 @@ jobs:
               fi
           else
               echo chromedriver is not required
+          fi
+
+      - name: Maybe install playwright browser dependencies
+        run: |
+          playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
+          echo playwright_count: $playwright_count
+          if [ $playwright_count -eq 1 ]; then
+              echo playwright required
+              sudo apt-get update
+              sudo apt-get install libegl1 libvpx7 libevent-2.1-7 libopus0 libopengl0 libwoff1 libharfbuzz-icu0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 libhyphen0 libmanette-0.2-0 libgles2 gstreamer1.0-libav
+          else
+              echo playwright is not required
           fi
 
       # Run Cargo Make Task
