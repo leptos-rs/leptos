@@ -397,6 +397,24 @@ type, and each of the fields used to add props. It can be a little hard to
 understand how powerful this is until you hover over the component name or props
 and see the power of the `#[component]` macro combined with rust-analyzer here.
 
+> #### Advanced Topic: `#[component(transparent)]`
+>
+> All Leptos components return `-> impl IntoView`. Some, though, need to return
+> some data directly without any additional wrapping. These can be marked with
+> `#[component(transparent)]`, in which case they return exactly the value they
+> return, without the rendering system transforming them in any way.
+>
+> This is mostly used in two situations:
+>
+> 1. Creating wrappers around `<Suspense/>` or `<Transition/>`, which return a
+>    transparent suspense structure to integrate with SSR and hydration properly.
+> 2. Refactoring `<Route/>` definitions for `leptos_router` out into separate
+>    components, because `<Route/>` is a transparent component that returns a
+>    `RouteDefinition` struct rather than a view.
+>
+> In general, you should not need to use transparent components unless you are
+> creating custom wrapping components that fall into one of these two categories.
+
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/3-components-50t2e7?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A7%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A7%7D%5D)
 
 <iframe src="https://codesandbox.io/p/sandbox/3-components-50t2e7?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A7%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A7%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>

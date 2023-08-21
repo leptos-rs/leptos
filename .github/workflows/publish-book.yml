@@ -1,9 +1,8 @@
 name: Deploy book
 on:
   push:
-    paths: ['docs/book/**']
-    branches:
-      - main
+    tags:
+      - '*-?v[0-9]+*'
 
 jobs:
   deploy:
