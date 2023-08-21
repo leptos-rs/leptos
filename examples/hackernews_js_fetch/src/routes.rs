@@ -1,3 +1,4 @@
+pub mod counters;
 pub mod nav;
 pub mod stories;
 pub mod story;

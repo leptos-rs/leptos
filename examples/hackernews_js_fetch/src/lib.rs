@@ -7,7 +7,7 @@ mod api;
 pub mod error_template;
 pub mod fallback;
 mod routes;
-use routes::{nav::*, stories::*, story::*, users::*};
+use routes::{counters::*, nav::*, stories::*, story::*, users::*};
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
@@ -25,6 +25,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                         <Route path="users/:id" view=User/>
                         <Route path="stories/:id" view=Story/>
                         <Route path=":stories?" view=Stories/>
+                        <Route path="counter" view=Counter/>
                     </Routes>
                 </main>
             </Router>
@@ -49,6 +50,7 @@ cfg_if! {
 
     use axum::{
         Router,
+        routing::post
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use wasm_bindgen::prelude::*;
@@ -68,10 +70,13 @@ cfg_if! {
 
             let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
+            ClearServerCount::register_explicit().unwrap();
+            AdjustServerCount::register_explicit().unwrap();
+            GetServerCount::register_explicit().unwrap();
             // build our application with a route
             let app: axum::Router<(), axum::body::Body> = Router::new()
-
             .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> } )
+            .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
             .with_state(leptos_options);
 
             info!("creating handler instance");
