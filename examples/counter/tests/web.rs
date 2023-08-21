@@ -15,7 +15,7 @@ fn clear() {
     // note that we start at the initial value of 10
     mount_to(
         test_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=10 step=1/> },
+        || view! { <SimpleCounter initial_value=10 step=1/> },
     );
 
     // now we extract the buttons by iterating over the DOM
@@ -32,16 +32,17 @@ fn clear() {
 
     // now let's test the <div> against the expected value
     // we can do this by testing its `outerHTML`
+    let runtime = create_runtime();
     assert_eq!(
         div.outer_html(),
         // here we spawn a mini reactive system, just to render the
         // test case
-        run_scope(create_runtime(), |cx| {
+        {
             // it's as if we're creating it with a value of 0, right?
-            let (value, _set_value) = create_signal(cx, 0);
+            let (value, _set_value) = create_signal(0);
 
             // we can remove the event listeners because they're not rendered to HTML
-            view! { cx,
+            view! {
                 <div>
                     <button>"Clear"</button>
                     <button>"-1"</button>
@@ -52,7 +53,7 @@ fn clear() {
             // the view returned an HtmlElement<Div>, which is a smart pointer for
             // a DOM element. So we can still just call .outer_html()
             .outer_html()
-        })
+        }
     );
 
     // There's actually an easier way to do this...
@@ -61,10 +62,12 @@ fn clear() {
         let comparison_wrapper = document.create_element("section").unwrap();
         leptos::mount_to(
             comparison_wrapper.clone().unchecked_into(),
-            |cx| view! { cx, <SimpleCounter initial_value=0 step=1/>},
+            || view! { <SimpleCounter initial_value=0 step=1/>},
         );
         comparison_wrapper.inner_html()
     });
+
+    runtime.dispose();
 }
 
 #[wasm_bindgen_test]
@@ -75,7 +78,7 @@ fn inc() {
 
     mount_to(
         test_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=0 step=1/> },
+        || view! { <SimpleCounter initial_value=0 step=1/> },
     );
 
     // You can do testing with vanilla DOM operations
@@ -118,12 +121,14 @@ fn inc() {
 
     assert_eq!(text.text_content(), Some("Value: 0!".to_string()));
 
+    let runtime = create_runtime();
+
     // Or you can test against a sample view!
     assert_eq!(
         div.outer_html(),
-        run_scope(create_runtime(), |cx| {
-            let (value, _) = create_signal(cx, 0);
-            view! { cx,
+        {
+            let (value, _) = create_signal(0);
+            view! {
                 <div>
                     <button>"Clear"</button>
                     <button>"-1"</button>
@@ -132,17 +137,17 @@ fn inc() {
                 </div>
             }
         }
-        .outer_html())
+        .outer_html()
     );
 
     inc.click();
 
     assert_eq!(
         div.outer_html(),
-        run_scope(create_runtime(), |cx| {
+        {
             // because we've clicked, it's as if the signal is starting at 1
-            let (value, _) = create_signal(cx, 1);
-            view! { cx,
+            let (value, _) = create_signal(1);
+            view! {
                 <div>
                     <button>"Clear"</button>
                     <button>"-1"</button>
@@ -151,6 +156,8 @@ fn inc() {
                 </div>
             }
         }
-        .outer_html())
+        .outer_html()
     );
+
+    runtime.dispose();
 }

@@ -1,5 +1,4 @@
-#![forbid(unsafe_code)]
-use crate::{Scope, ScopeProperty};
+use crate::{with_runtime, Runtime};
 use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 
@@ -22,12 +21,12 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (a, set_a) = create_signal(cx, 0);
-/// let (b, set_b) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (a, set_a) = create_signal(0);
+/// let (b, set_b) = create_signal(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
 ///   log::debug!("Value: {}", a.get());
 /// });
@@ -36,7 +35,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
 ///   set_b.set(a.get() + 1);
@@ -44,7 +43,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// # if !cfg!(feature = "ssr") {
 /// # assert_eq!(b.get(), 2);
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -52,25 +51,26 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
         level = "trace",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
+pub fn create_effect<T>(f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
 {
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
-            let e = cx.runtime.create_effect(f);
-            //eprintln!("created effect {e:?}");
-            cx.push_scope_property(ScopeProperty::Effect(e))
+            let runtime = Runtime::current();
+            let e = runtime.create_effect(f);
+            //crate::macros::debug_warn!("creating effect {e:?}");
+            _ = with_runtime( |runtime| {
+                runtime.update_if_necessary(e);
+            });
         } else {
             // clear warnings
-            _ = cx;
             _ = f;
         }
     }
@@ -81,12 +81,12 @@ where
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (a, set_a) = create_signal(cx, 0);
-/// let (b, set_b) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (a, set_a) = create_signal(0);
+/// let (b, set_b) = create_signal(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// create_isomorphic_effect(cx, move |_| {
+/// create_isomorphic_effect(move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
 ///   log::debug!("Value: {}", a.get());
 /// });
@@ -95,35 +95,35 @@ where
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
-/// create_isomorphic_effect(cx, move |_| {
+/// create_isomorphic_effect(move |_| {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
 ///   set_b.set(a.get() + 1);
 /// });
 /// # assert_eq!(b.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_isomorphic_effect<T>(
-    cx: Scope,
-    f: impl Fn(Option<T>) -> T + 'static,
-) where
+pub fn create_isomorphic_effect<T>(f: impl Fn(Option<T>) -> T + 'static)
+where
     T: 'static,
 {
-    let e = cx.runtime.create_effect(f);
-    //eprintln!("created effect {e:?}");
-    cx.push_scope_property(ScopeProperty::Effect(e))
+    let runtime = Runtime::current();
+    let e = runtime.create_effect(f);
+    //crate::macros::debug_warn!("creating effect {e:?}");
+    _ = with_runtime(|runtime| {
+        runtime.update_if_necessary(e);
+    });
 }
 
 #[doc(hidden)]
@@ -133,17 +133,16 @@ pub fn create_isomorphic_effect<T>(
         level = "trace",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
 )]
 #[inline(always)]
-pub fn create_render_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
+pub fn create_render_effect<T>(f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
 {
-    create_effect(cx, f);
+    create_effect(f);
 }
 
 pub(crate) struct Effect<T, F>

@@ -110,18 +110,6 @@ pub trait ServerFunctionRegistry<T> {
     /// An error that can occur when registering a server function.
     type Error: std::error::Error;
 
-    /// Registers a server function at the given URL.
-    #[deprecated = "Explicit server function registration is no longer \
-                    required on most platforms (including Linux, macOS, iOS, \
-                    FreeBSD, Android, and Windows). If you are on another \
-                    platform and need to explicitly register server functions, \
-                    call ServerFn::register_explicit() instead."]
-    fn register(
-        url: &'static str,
-        server_function: SerializedFnTraitObj<T>,
-        encoding: Encoding,
-    ) -> Result<(), Self::Error>;
-
     /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
     /// this will explicitly register server functions.
@@ -421,20 +409,6 @@ where
             Ok(result)
         })
             as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
-    }
-
-    /// Registers the server function, allowing the server to query it by URL.
-    ///
-    /// This function is deprecated, as server functions are now registered automatically.
-    #[cfg(any(feature = "ssr", doc,))]
-    #[deprecated = "Explicit server function registration is no longer \
-                    required on most platforms (including Linux, macOS, iOS, \
-                    FreeBSD, Android, and Windows). If you are on another \
-                    platform and need to explicitly register server functions, \
-                    call ServerFn::register_explicit() instead."]
-    fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
-    {
-        Ok(())
     }
 
     /// Registers the server function explicitly on platforms that require it,

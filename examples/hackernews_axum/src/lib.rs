@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{component, view, IntoView, Scope};
+use leptos::{component, view, IntoView};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -10,10 +10,10 @@ mod routes;
 use routes::{nav::*, stories::*, story::*, users::*};
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    provide_meta_context(cx);
+pub fn App() -> impl IntoView {
+    provide_meta_context();
     view! {
-        cx,
+
         <>
             <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
             <Stylesheet id="leptos" href="/pkg/hackernews_axum.css"/>
@@ -41,8 +41,8 @@ cfg_if! {
         pub fn hydrate() {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
-            leptos::mount_to_body(move |cx| {
-                view! { cx, <App/> }
+            leptos::mount_to_body(move || {
+                view! {  <App/> }
             });
         }
     }

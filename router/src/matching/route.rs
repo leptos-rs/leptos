@@ -1,5 +1,5 @@
-use crate::{Method, SsrMode};
-use leptos::{leptos_dom::View, *};
+use crate::{Loader, Method, SsrMode};
+use leptos::leptos_dom::View;
 use std::rc::Rc;
 
 /// Defines a single route in a nested route tree. This is the return
@@ -14,11 +14,13 @@ pub struct RouteDefinition {
     /// Other route definitions nested within this one.
     pub children: Vec<RouteDefinition>,
     /// The view that should be displayed when this route is matched.
-    pub view: Rc<dyn Fn(Scope) -> View>,
+    pub view: Rc<dyn Fn() -> View>,
     /// The mode this route prefers during server-side rendering.
     pub ssr_mode: SsrMode,
     /// The HTTP request methods this route is able to handle.
     pub methods: &'static [Method],
+    /// A data loader function that will be called when this route is matched.
+    pub(crate) data: Option<Loader>,
 }
 
 impl std::fmt::Debug for RouteDefinition {

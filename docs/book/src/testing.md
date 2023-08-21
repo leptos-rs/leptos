@@ -14,8 +14,8 @@ For example, instead of embedding logic in a component directly like this:
 
 ```rust
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let (todos, set_todos) = create_signal(cx, vec![Todo { /* ... */ }]);
+pub fn TodoApp() -> impl IntoView {
+    let (todos, set_todos) = create_signal(vec![Todo { /* ... */ }]);
     // ⚠️ this is hard to test because it's embedded in the component
     let num_remaining = move || todos.with(|todos| {
         todos.iter().filter(|todo| !todo.completed).sum()
@@ -43,8 +43,8 @@ mod tests {
 }
 
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let (todos, set_todos) = create_signal(cx, Todos(vec![Todo { /* ... */ }]));
+pub fn TodoApp() -> impl IntoView {
+    let (todos, set_todos) = create_signal(Todos(vec![Todo { /* ... */ }]));
     // ✅ this has a test associated with it
     let num_remaining = move || todos.with(Todos::num_remaining);
 }
@@ -65,7 +65,7 @@ This is a fairly simple manual testing setup that uses the [`wasm-pack test`](ht
 
 #### Sample Test
 
-```rust
+````rust
 #[wasm_bindgen_test]
 fn clear() {
     let document = leptos::document();
@@ -74,7 +74,7 @@ fn clear() {
 
     mount_to(
         test_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=10 step=1/> },
+        || view! { <SimpleCounter initial_value=10 step=1/> },
     );
 
     let div = test_wrapper.query_selector("div").unwrap().unwrap();
@@ -86,11 +86,29 @@ fn clear() {
 
     clear.click();
 
-    assert_eq!(
-        div.outer_html(),
-        /* HTML expected */
-    );
-```
+```rust
+assert_eq!(
+    div.outer_html(),
+    // here we spawn a mini reactive system to render the test case
+    run_scope(create_runtime(), || {
+        // it's as if we're creating it with a value of 0, right?
+        let (value, set_value) = create_signal(0);
+
+        // we can remove the event listeners because they're not rendered to HTML
+        view! {
+            <div>
+                <button>"Clear"</button>
+                <button>"-1"</button>
+                <span>"Value: " {value} "!"</span>
+                <button>"+1"</button>
+            </div>
+        }
+        // the view returned an HtmlElement<Div>, which is a smart pointer for
+        // a DOM element. So we can still just call .outer_html()
+        .outer_html()
+    })
+);
+````
 
 ### [`wasm-bindgen-test` with `counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable/tests/web)
 

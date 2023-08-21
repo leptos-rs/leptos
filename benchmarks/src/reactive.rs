@@ -7,15 +7,15 @@ fn leptos_deep_creation(b: &mut Bencher) {
     let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(runtime, |cx| {
-            let signal = create_rw_signal(cx, 0);
+        create_scope(runtime, || {
+            let signal = create_rw_signal(0);
             let mut memos = Vec::<Memo<usize>>::new();
             for _ in 0..1000usize {
                 let prev = memos.last().copied();
                 if let Some(prev) = prev {
-                    memos.push(create_memo(cx, move |_| prev.get() + 1));
+                    memos.push(create_memo(move |_| prev.get() + 1));
                 } else {
-                    memos.push(create_memo(cx, move |_| signal.get() + 1));
+                    memos.push(create_memo(move |_| signal.get() + 1));
                 }
             }
         })
@@ -31,14 +31,14 @@ fn leptos_deep_update(b: &mut Bencher) {
     let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(runtime, |cx| {
-            let signal = create_rw_signal(cx, 0);
+        create_scope(runtime, || {
+            let signal = create_rw_signal(0);
             let mut memos = Vec::<Memo<usize>>::new();
             for _ in 0..1000usize {
                 if let Some(prev) = memos.last().copied() {
-                    memos.push(create_memo(cx, move |_| prev.get() + 1));
+                    memos.push(create_memo(move |_| prev.get() + 1));
                 } else {
-                    memos.push(create_memo(cx, move |_| signal.get() + 1));
+                    memos.push(create_memo(move |_| signal.get() + 1));
                 }
             }
             signal.set(1);
@@ -56,12 +56,11 @@ fn leptos_narrowing_down(b: &mut Bencher) {
     let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(runtime, |cx| {
-            let sigs =
-                (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
+        create_scope(runtime, || {
+            let sigs = (0..1000).map(|n| create_signal(n)).collect::<Vec<_>>();
             let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
             let writes = sigs.iter().map(|(_, w)| *w).collect::<Vec<_>>();
-            let memo = create_memo(cx, move |_| {
+            let memo = create_memo(move |_| {
                 reads.iter().map(|r| r.get()).sum::<i32>()
             });
             assert_eq!(memo(), 499500);
@@ -78,10 +77,10 @@ fn leptos_fanning_out(b: &mut Bencher) {
     let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(runtime, |cx| {
-            let sig = create_rw_signal(cx, 0);
+        create_scope(runtime, || {
+            let sig = create_rw_signal(0);
             let memos = (0..1000)
-                .map(|_| create_memo(cx, move |_| sig.get()))
+                .map(|_| create_memo(move |_| sig.get()))
                 .collect::<Vec<_>>();
             assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 0);
             sig.set(1);
@@ -99,17 +98,16 @@ fn leptos_narrowing_update(b: &mut Bencher) {
     let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(runtime, |cx| {
+        create_scope(runtime, || {
             let acc = Rc::new(Cell::new(0));
-            let sigs =
-                (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
+            let sigs = (0..1000).map(|n| create_signal(n)).collect::<Vec<_>>();
             let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
             let writes = sigs.iter().map(|(_, w)| *w).collect::<Vec<_>>();
-            let memo = create_memo(cx, move |_| {
+            let memo = create_memo(move |_| {
                 reads.iter().map(|r| r.get()).sum::<i32>()
             });
             assert_eq!(memo(), 499500);
-            create_isomorphic_effect(cx, {
+            create_isomorphic_effect({
                 let acc = Rc::clone(&acc);
                 move |_| {
                     acc.set(memo());
@@ -141,9 +139,9 @@ fn leptos_scope_creation_and_disposal(b: &mut Bencher) {
             .map(|_| {
                 create_scope(runtime, {
                     let acc = Rc::clone(&acc);
-                    move |cx| {
-                        let (r, w) = create_signal(cx, 0);
-                        create_isomorphic_effect(cx, {
+                    move || {
+                        let (r, w) = create_signal(0);
+                        create_isomorphic_effect({
                             move |_| {
                                 acc.set(r());
                             }
@@ -163,7 +161,9 @@ fn leptos_scope_creation_and_disposal(b: &mut Bencher) {
 
 #[bench]
 fn rs_deep_update(b: &mut Bencher) {
-    use reactive_signals::{Scope, Signal, signal, runtimes::ClientRuntime, types::Func};
+    use reactive_signals::{
+        runtimes::ClientRuntime, signal, types::Func, Scope, Signal,
+    };
 
     let sc = ClientRuntime::new_root_scope();
     b.iter(|| {
@@ -184,7 +184,9 @@ fn rs_deep_update(b: &mut Bencher) {
 
 #[bench]
 fn rs_fanning_out(b: &mut Bencher) {
-    use reactive_signals::{Scope, Signal, signal, runtimes::ClientRuntime, types::Func};
+    use reactive_signals::{
+        runtimes::ClientRuntime, signal, types::Func, Scope, Signal,
+    };
     let cx = ClientRuntime::new_root_scope();
 
     b.iter(|| {
@@ -200,18 +202,17 @@ fn rs_fanning_out(b: &mut Bencher) {
 
 #[bench]
 fn rs_narrowing_update(b: &mut Bencher) {
-    use reactive_signals::{Scope, Signal, signal, runtimes::ClientRuntime, types::Func};
+    use reactive_signals::{
+        runtimes::ClientRuntime, signal, types::Func, Scope, Signal,
+    };
     let cx = ClientRuntime::new_root_scope();
 
     b.iter(|| {
         let acc = Rc::new(Cell::new(0));
-        let sigs =
-            (0..1000).map(|n| signal!(cx, n)).collect::<Vec<_>>();
+        let sigs = (0..1000).map(|n| signal!(cx, n)).collect::<Vec<_>>();
         let memo = signal!(cx, {
             let sigs = sigs.clone();
-            move || {
-                sigs.iter().map(|r| r.get()).sum::<i32>()
-            }
+            move || sigs.iter().map(|r| r.get()).sum::<i32>()
         });
         assert_eq!(memo.get(), 499500);
         signal!(cx, {

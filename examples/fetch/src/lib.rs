@@ -37,26 +37,26 @@ async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
     }
 }
 
-pub fn fetch_example(cx: Scope) -> impl IntoView {
-    let (cat_count, set_cat_count) = create_signal::<CatCount>(cx, 0);
+pub fn fetch_example() -> impl IntoView {
+    let (cat_count, set_cat_count) = create_signal::<CatCount>(0);
 
     // we use local_resource here because
     // 1) our error type isn't serializable/deserializable
     // 2) we're not doing server-side rendering in this example anyway
     //    (during SSR, create_resource will begin loading on the server and resolve on the client)
-    let cats = create_local_resource(cx, cat_count, fetch_cats);
+    let cats = create_local_resource(cat_count, fetch_cats);
 
-    let fallback = move |cx, errors: RwSignal<Errors>| {
+    let fallback = move |errors: RwSignal<Errors>| {
         let error_list = move || {
             errors.with(|errors| {
                 errors
                     .iter()
-                    .map(|(_, e)| view! { cx, <li>{e.to_string()}</li> })
-                    .collect_view(cx)
+                    .map(|(_, e)| view! { <li>{e.to_string()}</li> })
+                    .collect_view()
             })
         };
 
-        view! { cx,
+        view! {
             <div class="error">
                 <h2>"Error"</h2>
                 <ul>{error_list}</ul>
@@ -67,18 +67,16 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
     // the renderer can handle Option<_> and Result<_> states
     // by displaying nothing for None if the resource is still loading
     // and by using the ErrorBoundary fallback to catch Err(_)
-    // so we'll just implement our happy path and let the framework handle the rest
+    // so we'll just use `.and_then()` to map over the happy path
     let cats_view = move || {
-        cats.read(cx).map(|data| {
-            data.map(|data| {
-                data.iter()
-                    .map(|s| view! { cx, <p><img src={s}/></p> })
-                    .collect_view(cx)
-            })
+        cats.and_then(|data| {
+            data.iter()
+                .map(|s| view! { <p><img src={s}/></p> })
+                .collect_view()
         })
     };
 
-    view! { cx,
+    view! {
         <div>
             <label>
                 "How many cats would you like?"
@@ -93,7 +91,7 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
             </label>
             <ErrorBoundary fallback>
                 <Transition fallback=move || {
-                    view! { cx, <div>"Loading (Suspense Fallback)..."</div> }
+                    view! { <div>"Loading (Suspense Fallback)..."</div> }
                 }>
                 <div>
                     {cats_view}

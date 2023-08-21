@@ -1,7 +1,6 @@
-#![forbid(unsafe_code)]
 use crate::{
-    create_effect, on_cleanup, store_value, Memo, ReadSignal, RwSignal, Scope,
-    SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    create_effect, on_cleanup, runtime::untrack, store_value, Memo, ReadSignal,
+    RwSignal, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
     SignalWithUntracked, StoredValue,
 };
 
@@ -9,15 +8,15 @@ use crate::{
 /// [`Signal<T>`].
 pub trait IntoSignal<T>: Sized {
     /// Consumes `self`, returning a [`Signal<T>`].
-    fn derive_signal(self, cx: Scope) -> Signal<T>;
+    fn derive_signal(self) -> Signal<T>;
 }
 
 impl<F, T> IntoSignal<T> for F
 where
     F: Fn() -> T + 'static,
 {
-    fn derive_signal(self, cx: Scope) -> Signal<T> {
-        Signal::derive(cx, self)
+    fn derive_signal(self) -> Signal<T> {
+        Signal::derive(self)
     }
 }
 
@@ -43,10 +42,10 @@ where
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(cx, move || count.get() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(2);
+/// let double_count = Signal::derive(move || count.get() * 2);
+/// let memoized_double_count = create_memo(move |_| count.get() * 2);
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -58,7 +57,7 @@ where
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 pub struct Signal<T>
 where
@@ -115,9 +114,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => {
-                cx.untrack(|| f.with_value(|f| f()))
-            }
+            SignalTypes::DerivedSignal(f) => untrack(|| f.with_value(|f| f())),
         }
     }
 
@@ -137,8 +134,8 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.try_get_untracked(),
             SignalTypes::Memo(m) => m.try_get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => {
-                cx.untrack(|| f.try_with_value(|f| f()))
+            SignalTypes::DerivedSignal(f) => {
+                untrack(|| f.try_with_value(|f| f()))
             }
         }
     }
@@ -161,10 +158,10 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.with_untracked(f),
             SignalTypes::Memo(s) => s.with_untracked(f),
-            SignalTypes::DerivedSignal(cx, v_f) => {
+            SignalTypes::DerivedSignal(v_f) => {
                 let mut o = None;
 
-                cx.untrack(|| o = Some(f(&v_f.with_value(|v_f| v_f()))));
+                untrack(|| o = Some(f(&v_f.with_value(|v_f| v_f()))));
 
                 o.unwrap()
             }
@@ -187,7 +184,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.try_with_untracked(f),
             SignalTypes::Memo(m) => m.try_with_untracked(f),
-            SignalTypes::DerivedSignal(_, s) => s.try_with_value(|t| f(&t())),
+            SignalTypes::DerivedSignal(s) => s.try_with_value(|t| f(&t())),
         }
     }
 }
@@ -196,12 +193,10 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (name, set_name) = create_signal(cx, "Alice".to_string());
-/// let name_upper =
-///     Signal::derive(cx, move || name.with(|n| n.to_uppercase()));
-/// let memoized_lower =
-///     create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
+/// # let runtime = create_runtime();
+/// let (name, set_name) = create_signal("Alice".to_string());
+/// let name_upper = Signal::derive(move || name.with(|n| n.to_uppercase()));
+/// let memoized_lower = create_memo(move |_| name.with(|n| n.to_lowercase()));
 ///
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: Signal<String>) -> usize {
@@ -221,7 +216,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// assert_eq!(name.get(), "Alice");
 /// assert_eq!(name_upper.get(), "ALICE");
 /// assert_eq!(memoized_lower.get(), "alice");
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
@@ -240,7 +235,7 @@ impl<T> SignalWith<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.with(f),
             SignalTypes::Memo(s) => s.with(f),
-            SignalTypes::DerivedSignal(_, s) => f(&s.with_value(|s| s())),
+            SignalTypes::DerivedSignal(s) => f(&s.with_value(|s| s())),
         }
     }
 
@@ -261,7 +256,7 @@ impl<T> SignalWith<T> for Signal<T> {
             SignalTypes::ReadSignal(r) => r.try_with(f).ok(),
 
             SignalTypes::Memo(m) => m.try_with(f),
-            SignalTypes::DerivedSignal(_, s) => s.try_with_value(|t| f(&t())),
+            SignalTypes::DerivedSignal(s) => s.try_with_value(|t| f(&t())),
         }
     }
 }
@@ -270,10 +265,10 @@ impl<T> SignalWith<T> for Signal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(cx, move || count.get() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(2);
+/// let double_count = Signal::derive(move || count.get() * 2);
+/// let memoized_double_count = create_memo(move |_| count.get() * 2);
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -283,14 +278,14 @@ impl<T> SignalWith<T> for Signal<T> {
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T: Clone> SignalGet<T> for Signal<T> {
     fn get(&self) -> T {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.get(),
             SignalTypes::Memo(m) => m.get(),
-            SignalTypes::DerivedSignal(_, s) => s.with_value(|t| t()),
+            SignalTypes::DerivedSignal(s) => s.with_value(|t| t()),
         }
     }
 
@@ -298,27 +293,24 @@ impl<T: Clone> SignalGet<T> for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.try_get(),
             SignalTypes::Memo(m) => m.try_get(),
-            SignalTypes::DerivedSignal(_, s) => s.try_with_value(|t| t()),
+            SignalTypes::DerivedSignal(s) => s.try_with_value(|t| t()),
         }
     }
 }
 
 impl<T: Clone> SignalStream<T> for Signal<T> {
-    fn to_stream(
-        &self,
-        cx: Scope,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+    fn to_stream(&self) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         match self.inner {
-            SignalTypes::ReadSignal(r) => r.to_stream(cx),
-            SignalTypes::Memo(m) => m.to_stream(cx),
-            SignalTypes::DerivedSignal(_, s) => {
+            SignalTypes::ReadSignal(r) => r.to_stream(),
+            SignalTypes::Memo(m) => m.to_stream(),
+            SignalTypes::DerivedSignal(s) => {
                 let (tx, rx) = futures::channel::mpsc::unbounded();
 
                 let close_channel = tx.clone();
 
-                on_cleanup(cx, move || close_channel.close_channel());
+                on_cleanup(move || close_channel.close_channel());
 
-                create_effect(cx, move |_| {
+                create_effect(move |_| {
                     let _ = s.try_with_value(|t| tx.unbounded_send(t()));
                 });
 
@@ -336,9 +328,9 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count.get() * 2);
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let double_count = Signal::derive(move || count.get() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -347,20 +339,14 @@ where
     ///
     /// assert_eq!(above_3(&count.into()), false);
     /// assert_eq!(above_3(&double_count), true);
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(
-            level = "trace",
-            skip_all,
-            fields(
-                cx = ?cx.id
-            )
-        )
+        instrument(level = "trace", skip_all)
     )]
-    pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
+    pub fn derive(derived_signal: impl Fn() -> T + 'static) -> Self {
         let span = ::tracing::Span::current();
 
         let derived_signal = move || {
@@ -369,22 +355,21 @@ where
         };
 
         Self {
-            inner: SignalTypes::DerivedSignal(
-                cx,
-                store_value(cx, Box::new(derived_signal)),
-            ),
+            inner: SignalTypes::DerivedSignal(store_value(Box::new(
+                derived_signal,
+            ))),
             #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
+}
 
-    /// Creates a signal that yields the default value of `T` when
-    /// you call `.get()` or `signal()`.
-    pub fn default(cx: Scope) -> Self
-    where
-        T: Default,
-    {
-        Self::derive(cx, || Default::default())
+impl<T> Default for Signal<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::derive(|| Default::default())
     }
 }
 
@@ -421,13 +406,32 @@ impl<T> From<Memo<T>> for Signal<T> {
     }
 }
 
+impl<T: Clone> From<T> for Signal<T> {
+    #[track_caller]
+    fn from(value: T) -> Self {
+        Self {
+            inner: SignalTypes::DerivedSignal(store_value(Box::new(
+                move || value.clone(),
+            ))),
+            #[cfg(any(debug_assertions, feature = "ssr"))]
+            defined_at: std::panic::Location::caller(),
+        }
+    }
+}
+
+impl From<&str> for Signal<String> {
+    fn from(value: &str) -> Self {
+        Self::from(value.to_string())
+    }
+}
+
 enum SignalTypes<T>
 where
     T: 'static,
 {
     ReadSignal(ReadSignal<T>),
     Memo(Memo<T>),
-    DerivedSignal(Scope, StoredValue<Box<dyn Fn() -> T>>),
+    DerivedSignal(StoredValue<Box<dyn Fn() -> T>>),
 }
 
 impl<T> Clone for SignalTypes<T> {
@@ -445,9 +449,7 @@ impl<T> std::fmt::Debug for SignalTypes<T> {
                 f.debug_tuple("ReadSignal").field(arg0).finish()
             }
             Self::Memo(arg0) => f.debug_tuple("Memo").field(arg0).finish(),
-            Self::DerivedSignal(_, _) => {
-                f.debug_tuple("DerivedSignal").finish()
-            }
+            Self::DerivedSignal(_) => f.debug_tuple("DerivedSignal").finish(),
         }
     }
 }
@@ -457,7 +459,7 @@ impl<T> PartialEq for SignalTypes<T> {
         match (self, other) {
             (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,
             (Self::Memo(l0), Self::Memo(r0)) => l0 == r0,
-            (Self::DerivedSignal(_, l0), Self::DerivedSignal(_, r0)) => {
+            (Self::DerivedSignal(l0), Self::DerivedSignal(r0)) => {
                 std::ptr::eq(l0, r0)
             }
             _ => false,
@@ -487,10 +489,10 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(cx, move || count.get() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(2);
+/// let double_count = MaybeSignal::derive(move || count.get() * 2);
+/// let memoized_double_count = create_memo(move |_| count.get() * 2);
 /// let static_value = 5;
 ///
 /// // this function takes either a reactive or non-reactive value
@@ -504,7 +506,7 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum MaybeSignal<T>
@@ -538,10 +540,10 @@ impl<T: Default> Default for MaybeSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(cx, move || count.get() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(2);
+/// let double_count = MaybeSignal::derive(move || count.get() * 2);
+/// let memoized_double_count = create_memo(move |_| count.get() * 2);
 /// let static_value: MaybeSignal<i32> = 5.into();
 ///
 /// // this function takes any kind of wrapped signal
@@ -553,7 +555,7 @@ impl<T: Default> Default for MaybeSignal<T> {
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// assert_eq!(above_3(&static_value.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
     #[cfg_attr(
@@ -593,12 +595,11 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (name, set_name) = create_signal(cx, "Alice".to_string());
+/// # let runtime = create_runtime();
+/// let (name, set_name) = create_signal("Alice".to_string());
 /// let name_upper =
-///     MaybeSignal::derive(cx, move || name.with(|n| n.to_uppercase()));
-/// let memoized_lower =
-///     create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
+///     MaybeSignal::derive(move || name.with(|n| n.to_uppercase()));
+/// let memoized_lower = create_memo(move |_| name.with(|n| n.to_lowercase()));
 /// let static_value: MaybeSignal<String> = "Bob".to_string().into();
 ///
 /// // this function takes any kind of wrapped signal
@@ -621,7 +622,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// assert_eq!(name_upper.get(), "ALICE");
 /// assert_eq!(memoized_lower.get(), "alice");
 /// assert_eq!(static_value.get(), "Bob");
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(
@@ -727,18 +728,15 @@ impl<T: Clone> SignalGetUntracked<T> for MaybeSignal<T> {
 
 impl<T: Clone> SignalStream<T> for MaybeSignal<T> {
     #[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    instrument(
-        level = "trace",
-        name = "MaybeSignal::to_stream()",
-        skip_all,
-        fields(ty = %std::any::type_name::<T>())
-    )
-)]
-    fn to_stream(
-        &self,
-        cx: Scope,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+        any(debug_assertions, feature = "ssr"),
+        instrument(
+            level = "trace",
+            name = "MaybeSignal::to_stream()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
+    fn to_stream(&self) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         match self {
             Self::Static(t) => {
                 let t = t.clone();
@@ -747,7 +745,7 @@ impl<T: Clone> SignalStream<T> for MaybeSignal<T> {
 
                 Box::pin(stream)
             }
-            Self::Dynamic(s) => s.to_stream(cx),
+            Self::Dynamic(s) => s.to_stream(),
         }
     }
 }
@@ -760,9 +758,9 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count.get() * 2);
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let double_count = Signal::derive(move || count.get() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
@@ -772,7 +770,7 @@ where
     /// assert_eq!(above_3(&count.into()), false);
     /// assert_eq!(above_3(&double_count.into()), true);
     /// assert_eq!(above_3(&2.into()), false);
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -781,13 +779,12 @@ where
             name = "MaybeSignal::derive()",
             skip_all,
             fields(
-                cx = ?cx.id,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
-    pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
-        Self::Dynamic(Signal::derive(cx, derived_signal))
+    pub fn derive(derived_signal: impl Fn() -> T + 'static) -> Self {
+        Self::Dynamic(Signal::derive(derived_signal))
     }
 }
 
@@ -848,12 +845,11 @@ impl From<&str> for MaybeSignal<String> {
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, Some(2));
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(Some(2));
 /// let double = |n| n * 2;
-/// let double_count = MaybeProp::derive(cx, move || count.get().map(double));
-/// let memoized_double_count =
-///     create_memo(cx, move |_| count.get().map(double));
+/// let double_count = MaybeProp::derive(move || count.get().map(double));
+/// let memoized_double_count = create_memo(move |_| count.get().map(double));
 /// let static_value = 5;
 ///
 /// // this function takes either a reactive or non-reactive value
@@ -868,10 +864,10 @@ impl From<&str> for MaybeSignal<String> {
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MaybeProp<T: 'static>(Option<MaybeSignal<Option<T>>>);
+pub struct MaybeProp<T: 'static>(pub(crate) Option<MaybeSignal<Option<T>>>);
 
 impl<T: Copy> Copy for MaybeProp<T> {}
 
@@ -885,12 +881,11 @@ impl<T> Default for MaybeProp<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, Some(2));
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(Some(2));
 /// let double = |n| n * 2;
-/// let double_count = MaybeProp::derive(cx, move || count.get().map(double));
-/// let memoized_double_count =
-///     create_memo(cx, move |_| count.get().map(double));
+/// let double_count = MaybeProp::derive(move || count.get().map(double));
+/// let memoized_double_count = create_memo(move |_| count.get().map(double));
 /// let static_value = 5;
 ///
 /// // this function takes either a reactive or non-reactive value
@@ -905,7 +900,7 @@ impl<T> Default for MaybeProp<T> {
 /// assert_eq!(above_3(&count.into()), false);
 /// assert_eq!(above_3(&double_count), true);
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T: Clone> SignalGet<Option<T>> for MaybeProp<T> {
     #[cfg_attr(
@@ -939,14 +934,12 @@ impl<T: Clone> SignalGet<Option<T>> for MaybeProp<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (name, set_name) = create_signal(cx, Some("Alice".to_string()));
-/// let name_upper = MaybeProp::derive(cx, move || {
-///     name.with(|n| n.as_ref().map(|n| n.to_uppercase()))
-/// });
-/// let memoized_lower = create_memo(cx, move |_| {
-///     name.with(|n| n.as_ref().map(|n| n.to_lowercase()))
-/// });
+/// # let runtime = create_runtime();
+/// let (name, set_name) = create_signal("Alice".to_string());
+/// let (maybe_name, set_maybe_name) = create_signal(None);
+/// let name_upper =
+///     MaybeProp::derive(move || Some(name.with(|n| n.to_uppercase())));
+/// let memoized_lower = create_memo(move |_| name.with(|n| n.to_lowercase()));
 /// let static_value: MaybeProp<String> = "Bob".to_string().into();
 ///
 /// // this function takes any kind of wrapped signal
@@ -961,15 +954,19 @@ impl<T: Clone> SignalGet<Option<T>> for MaybeProp<T> {
 /// }
 ///
 /// assert_eq!(current_len(&None::<String>.into()), 0);
+/// assert_eq!(current_len(&maybe_name.into()), 0);
 /// assert_eq!(current_len(&name_upper), 5);
 /// assert_eq!(current_len(&memoized_lower.into()), 5);
 /// assert_eq!(current_len(&static_value), 3);
 ///
-/// assert_eq!(name.get(), Some("Alice".to_string()));
+/// // Normal signals/memos return T
+/// assert_eq!(name.get(), "Alice".to_string());
+/// assert_eq!(memoized_lower.get(), "alice".to_string());
+///
+/// // MaybeProp::get() returns Option<T>
 /// assert_eq!(name_upper.get(), Some("ALICE".to_string()));
-/// assert_eq!(memoized_lower.get(), Some("alice".to_string()));
 /// assert_eq!(static_value.get(), Some("Bob".to_string()));
-/// # });
+/// # runtime.dispose();
 /// ```
 impl<T> MaybeProp<T> {
     /// Applies a function to the current value, returning the result.
@@ -1085,7 +1082,6 @@ impl<T: Clone> SignalStream<Option<T>> for MaybeProp<T> {
     )]
     fn to_stream(
         &self,
-        cx: Scope,
     ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Option<T>>>> {
         match &self.0 {
             None => Box::pin(futures::stream::once(async move { None })),
@@ -1096,7 +1092,7 @@ impl<T: Clone> SignalStream<Option<T>> for MaybeProp<T> {
 
                 Box::pin(stream)
             }
-            Some(MaybeSignal::Dynamic(s)) => s.to_stream(cx),
+            Some(MaybeSignal::Dynamic(s)) => s.to_stream(),
         }
     }
 }
@@ -1109,9 +1105,9 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, Some(2));
-    /// let double_count = Signal::derive(cx, move || count.get().map(|n| n * 2));
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let double_count = MaybeProp::derive(move || Some(count.get() * 2));
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &MaybeProp<i32>) -> bool {
@@ -1121,7 +1117,7 @@ where
     /// assert_eq!(above_3(&count.into()), false);
     /// assert_eq!(above_3(&double_count.into()), true);
     /// assert_eq!(above_3(&2.into()), false);
-    /// # });
+    /// # runtime.dispose();
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -1130,16 +1126,12 @@ where
             name = "MaybeProp::derive()",
             skip_all,
             fields(
-                cx = ?cx.id,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
-    pub fn derive(
-        cx: Scope,
-        derived_signal: impl Fn() -> Option<T> + 'static,
-    ) -> Self {
-        Self(Some(MaybeSignal::derive(cx, derived_signal)))
+    pub fn derive(derived_signal: impl Fn() -> Option<T> + 'static) -> Self {
+        Self(Some(MaybeSignal::derive(derived_signal)))
     }
 }
 
@@ -1188,6 +1180,30 @@ impl<T> From<Memo<Option<T>>> for MaybeProp<T> {
 impl<T> From<Signal<Option<T>>> for MaybeProp<T> {
     fn from(value: Signal<Option<T>>) -> Self {
         Self(Some(value.into()))
+    }
+}
+
+impl<T: Clone> From<ReadSignal<T>> for MaybeProp<T> {
+    fn from(value: ReadSignal<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl<T: Clone> From<RwSignal<T>> for MaybeProp<T> {
+    fn from(value: RwSignal<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl<T: Clone> From<Memo<T>> for MaybeProp<T> {
+    fn from(value: Memo<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
+    }
+}
+
+impl<T: Clone> From<Signal<T>> for MaybeProp<T> {
+    fn from(value: Signal<T>) -> Self {
+        Self(Some(MaybeSignal::derive(move || Some(value.get()))))
     }
 }
 

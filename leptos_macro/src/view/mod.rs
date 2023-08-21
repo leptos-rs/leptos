@@ -17,7 +17,6 @@ mod tests;
 pub(crate) use ide_helper::*;
 
 pub(crate) fn render_view(
-    cx: &Ident,
     nodes: &[Node],
     mode: Mode,
     global_class: Option<&TokenTree>,
@@ -34,13 +33,11 @@ pub(crate) fn render_view(
         match nodes.len() {
             0 => empty,
             1 => server_template::root_node_to_tokens_ssr(
-                cx,
                 &nodes[0],
                 global_class,
                 call_site,
             ),
             _ => server_template::fragment_to_tokens_ssr(
-                cx,
                 Span::call_site(),
                 nodes,
                 global_class,
@@ -51,7 +48,6 @@ pub(crate) fn render_view(
         match nodes.len() {
             0 => empty,
             1 => client_builder::node_to_tokens(
-                cx,
                 &nodes[0],
                 client_builder::TagType::Unknown,
                 None,
@@ -60,7 +56,6 @@ pub(crate) fn render_view(
             )
             .unwrap_or_default(),
             _ => client_builder::fragment_to_tokens(
-                cx,
                 Span::call_site(),
                 nodes,
                 true,
@@ -399,7 +394,7 @@ fn parse_event(event_name: &str) -> (&str, bool) {
 
 fn fancy_class_name<'a>(
     name: &str,
-    cx: &Ident,
+
     node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex class names:
@@ -428,7 +423,7 @@ fn fancy_class_name<'a>(
                 let value = &tuple.elems[1];
                 return Some((
                     quote! {
-                        #class(#class_name, (#cx, #value))
+                        #class(#class_name, (#value))
                     },
                     class_name,
                     value,
@@ -470,7 +465,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
 
 fn fancy_style_name<'a>(
     name: &str,
-    cx: &Ident,
+
     node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex dynamic style names:
@@ -498,7 +493,7 @@ fn fancy_style_name<'a>(
                 let value = &tuple.elems[1];
                 return Some((
                     quote! {
-                        #style(#style_name, (#cx, #value))
+                        #style(#style_name, (#value))
                     },
                     style_name,
                     value,

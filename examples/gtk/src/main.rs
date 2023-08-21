@@ -1,25 +1,23 @@
-use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Button};
+use gtk::{prelude::*, Application, ApplicationWindow, Button};
 use leptos::*;
 
 const APP_ID: &str = "dev.leptos.Counter";
 
 // Basic GTK app setup from https://gtk-rs.org/gtk4-rs/stable/latest/book/hello_world.html
 fn main() {
-    _ = create_scope(create_runtime(), |cx| {
-        // Create a new application
-        let app = Application::builder().application_id(APP_ID).build();
+    let _ = create_runtime();
+    // Create a new application
+    let app = Application::builder().application_id(APP_ID).build();
 
-        // Connect to "activate" signal of `app`
-        app.connect_activate(move |app| build_ui(cx, app));
+    // Connect to "activate" signal of `app`
+    app.connect_activate(build_ui);
 
-        // Run the application
-        app.run();
-    });
+    // Run the application
+    app.run();
 }
 
-fn build_ui(cx: Scope, app: &Application) {
-    let button = counter_button(cx);
+fn build_ui(app: &Application) {
+    let button = counter_button();
 
     // Create a window and set the title
     let window = ApplicationWindow::builder()
@@ -32,8 +30,8 @@ fn build_ui(cx: Scope, app: &Application) {
     window.present();
 }
 
-fn counter_button(cx: Scope) -> Button {
-    let (value, set_value) = create_signal(cx, 0);
+fn counter_button() -> Button {
+    let (value, set_value) = create_signal(0);
 
     // Create a button with label and margins
     let button = Button::builder()
@@ -50,7 +48,7 @@ fn counter_button(cx: Scope) -> Button {
         set_value.update(|value| *value += 1);
     });
 
-    create_effect(cx, {
+    create_effect({
         let button = button.clone();
         move |_| {
             button.set_label(&format!("Count: {}", value()));

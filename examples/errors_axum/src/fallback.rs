@@ -22,7 +22,7 @@ cfg_if! { if #[cfg(feature = "ssr")] {
         } else{
             let handler = leptos_axum::render_app_to_stream(
                 options.to_owned(),
-                move |cx| view!{ cx, <App/> }
+                move || view!{ <App/> }
             );
             handler(req).await.into_response()
         }

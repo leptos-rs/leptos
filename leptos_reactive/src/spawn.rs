@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use cfg_if::cfg_if;
 use std::future::Future;
 
@@ -27,8 +26,8 @@ use std::future::Future;
 ///
 /// // ❌ Write into a signal from `spawn_local` on the serevr
 /// #[component]
-/// fn UserBad(cx: Scope) -> impl IntoView {
-///     let signal = create_rw_signal(cx, String::new());
+/// fn UserBad() -> impl IntoView {
+///     let signal = create_rw_signal(String::new());
 ///
 ///     // ❌ If the rest of the response is already complete,
 ///     //    `signal` will no longer exist when `get_user` resolves
@@ -38,7 +37,7 @@ use std::future::Future;
 ///         signal.set(user_res);
 ///     });
 ///
-///     view!{cx,
+///     view! {
 ///         <p>
 ///             "This will be empty (hopefully the client will render it) -> "
 ///             {move || signal.get()}
@@ -48,20 +47,20 @@ use std::future::Future;
 ///
 /// // ✅ Use a resource and suspense
 /// #[component]
-/// fn UserGood(cx: Scope) -> impl IntoView {
+/// fn UserGood() -> impl IntoView {
 ///     // new resource with no dependencies (it will only called once)
-///     let user = create_resource(cx, || (), |_| async { get_user("john".into()).await });
-///     view!{cx,
+///     let user = create_resource(|| (), |_| async { get_user("john".into()).await });
+///     view! {
 ///         // handles the loading
-///         <Suspense fallback=move || view! {cx, <p>"Loading User"</p> }>
+///         <Suspense fallback=move || view! {<p>"Loading User"</p> }>
 ///             // handles the error from the resource
-///             <ErrorBoundary fallback=|cx, _| {view! {cx, <p>"Something went wrong"</p>}}>
+///             <ErrorBoundary fallback=|_| {view! {<p>"Something went wrong"</p>}}>
 ///                 {move || {
-///                     user.read(cx).map(move |x| {
+///                     user.read().map(move |x| {
 ///                         // the resource has a result
 ///                         x.map(move |y| {
 ///                             // successful call from the server fn
-///                             view!{cx, <p>"User result filled in server and client: "{y}</p>}
+///                             view! {<p>"User result filled in server and client: "{y}</p>}
 ///                         })
 ///                     })
 ///                 }}
@@ -82,7 +81,12 @@ where
         else if #[cfg(any(test, doctest))] {
             tokio_test::block_on(fut);
         } else if #[cfg(feature = "ssr")] {
-            tokio::task::spawn_local(fut);
+            use crate::Runtime;
+
+            let runtime = Runtime::current();
+            tokio::task::spawn_local(async move {
+                crate::TASK_RUNTIME.scope(Some(runtime), fut).await
+            });
         }  else {
             futures::executor::block_on(fut)
         }
