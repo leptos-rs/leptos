@@ -87,8 +87,13 @@ jobs:
 
       - name: Install Chrome Webriver
         run: |
-          sudo apt-get update
-          sudo apt-get install chromium-chromedriver
+          webdriver_count=$(cat Makefile.toml|  grep "cargo-make/webdriver.toml" | wc -l)
+          if [ $webdriver_count -eq 1]; then
+            sudo apt-get update
+            sudo apt-get install chromium-chromedriver
+          else
+            echo Skipped because ${{ inputs.directory }} does not depend on Webriver
+          fi
 
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
