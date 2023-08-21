@@ -73,9 +73,6 @@ where
     let owner =
         Owner::current().expect("<Suspense/> created with no reactive owner");
 
-    // provided for fallback
-    provide_context(context);
-
     // provide this SuspenseContext to any resources below it
     // run in a memo so the children are children of this parent
     let children = create_memo({
