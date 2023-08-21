@@ -83,6 +83,14 @@ where
         }
     });
 
+    // likewise for the fallback
+    let fallback = create_memo({
+        move |_| {
+            provide_context(context);
+            fallback().into_view()
+        }
+    });
+
     let current_id = HydrationCtx::next_component();
 
     let child = DynChild::new({
@@ -95,7 +103,7 @@ where
                 if context.ready() {
                     children_rendered
                 } else {
-                    fallback().into_view()
+                    fallback.get_untracked()
                 }
             }
             #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -172,7 +180,7 @@ where
                         );
 
                         // return the fallback for now, wrapped in fragment identifier
-                        fallback().into_view()
+                        fallback.get_untracked()
                     }
                 }
             }
