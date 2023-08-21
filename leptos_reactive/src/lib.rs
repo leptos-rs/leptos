@@ -111,8 +111,8 @@ pub use resource::*;
 use runtime::*;
 pub use runtime::{
     as_child_of_current_owner, batch, create_runtime, current_runtime,
-    on_cleanup, untrack, untrack_with_diagnostics, with_current_owner,
-    with_owner, Owner, RuntimeId,
+    on_cleanup, set_current_runtime, untrack, untrack_with_diagnostics,
+    with_current_owner, with_owner, Owner, RuntimeId,
 };
 pub use selector::*;
 pub use serialization::*;

@@ -80,6 +80,14 @@ pub fn current_runtime() -> RuntimeId {
     Runtime::current()
 }
 
+/// Sets the current reactive runtime.
+#[inline(always)]
+#[allow(unused_variables)]
+pub fn set_current_runtime(runtime: RuntimeId) {
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+    Runtime::set_runtime(Some(runtime));
+}
+
 /// A reactive owner.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Owner(pub(crate) NodeId);

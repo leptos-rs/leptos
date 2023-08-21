@@ -120,6 +120,7 @@ where
                     // show the fallback, but also prepare to stream HTML
                     else {
                         HydrationCtx::continue_from(current_id);
+                        let runtime = leptos_reactive::current_runtime();
 
                         SharedContext::register_suspense(
                             context,
@@ -128,6 +129,9 @@ where
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
+                                    leptos_reactive::set_current_runtime(
+                                        runtime,
+                                    );
                                     with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
@@ -149,6 +153,9 @@ where
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
+                                    leptos_reactive::set_current_runtime(
+                                        runtime,
+                                    );
                                     with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
