@@ -85,14 +85,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install Chrome Webriver
+      - name: Maybe Install Chromedriver
         run: |
-          webdriver_count=$(cat Makefile.toml|  grep "cargo-make/webdriver.toml" | wc -l)
-          if [ $webdriver_count -eq 1]; then
-            sudo apt-get update
-            sudo apt-get install chromium-chromedriver
+          webdriver_count=$(cat Makefile.toml | grep "cargo-make/webdriver.toml" | wc -l)
+          if [ $webdriver_count -eq 1 ]; then
+              if ! command -v chromedriver &>/dev/null; then
+                  echo chromedriver required
+                  sudo apt-get update
+                  sudo apt-get install chromium-chromedriver
+              else
+                  echo chromedriver is already installed
+              fi
           else
-            echo Skipped because ${{ inputs.directory }} does not depend on Webriver
+              echo chromedriver is not required
           fi
 
       # Run Cargo Make Task
