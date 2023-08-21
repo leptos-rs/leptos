@@ -1,11 +1,8 @@
 /// This file is mostly copied from the counters isomorphic example
 /// just to demonstrate server actions in wasm
-
 use leptos::*;
 use std::sync::atomic::{AtomicI32, Ordering};
 static COUNT: AtomicI32 = AtomicI32::new(0);
-
-
 
 // "/api" is an optional prefix that allows you to locate server functions wherever you'd like on the server
 #[server(GetServerCount, "/api")]
@@ -85,5 +82,3 @@ pub fn Counter(cx: Scope) -> impl IntoView {
         </div>
     }
 }
-
-
