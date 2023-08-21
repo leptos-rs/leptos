@@ -87,7 +87,8 @@ jobs:
 
       - name: Maybe Install Chromedriver
         run: |
-          webdriver_count=$(cat Makefile.toml | grep "cargo-make/webdriver.toml" | wc -l)
+          project_makefile=${{inputs.directory}}/Makefile.toml
+          webdriver_count=$(cat $project_makefile | grep "cargo-make/webdriver.toml" | wc -l)
           if [ $webdriver_count -eq 1 ]; then
               if ! command -v chromedriver &>/dev/null; then
                   echo chromedriver required
