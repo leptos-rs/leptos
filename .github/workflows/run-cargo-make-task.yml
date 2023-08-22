@@ -99,7 +99,6 @@ jobs:
       - name: Maybe install playwright browser dependencies
         run: |
           playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
-          echo playwright_count: $playwright_count
           if [ $playwright_count -eq 1 ]; then
               echo playwright required
               sudo apt-get update
