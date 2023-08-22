@@ -12,7 +12,7 @@ jobs:
   get-leptos-changed:
     uses: ./.github/workflows/get-leptos-changed.yml
 
-  matrix-job:
+  test:
     name: CI
     needs: [get-leptos-changed]
     if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
