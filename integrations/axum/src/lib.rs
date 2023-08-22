@@ -1168,29 +1168,35 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
-                
-                spawn_task!(async move {
-                        let app = {
-                            let full_path = full_path.clone();
-                            let (req, req_parts) = generate_request_and_parts(req).await;
-                            move || {
-                                provide_contexts(full_path, req_parts, req.into(), default_res_options);
-                                app_fn().into_view()
-                            }
-                        };
 
-                        let (stream, runtime) =
+                spawn_task!(async move {
+                    let app = {
+                        let full_path = full_path.clone();
+                        let (req, req_parts) =
+                            generate_request_and_parts(req).await;
+                        move || {
+                            provide_contexts(
+                                full_path,
+                                req_parts,
+                                req.into(),
+                                default_res_options,
+                            );
+                            app_fn().into_view()
+                        }
+                    };
+
+                    let (stream, runtime) =
                             render_to_stream_in_order_with_prefix_undisposed_with_context(
                                 app,
                                 || "".into(),
                                 add_context,
                             );
 
-                        // Extract the value of ResponseOptions from here
-                        let res_options =
-                            use_context::<ResponseOptions>().unwrap();
+                    // Extract the value of ResponseOptions from here
+                    let res_options = use_context::<ResponseOptions>().unwrap();
 
-                        let html = build_async_response(stream, &options, runtime).await;
+                    let html =
+                        build_async_response(stream, &options, runtime).await;
 
                     let new_res_parts = res_options.0.read().clone();
 
