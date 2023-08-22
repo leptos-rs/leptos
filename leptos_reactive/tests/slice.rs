@@ -3,32 +3,28 @@ use std::rc::Rc;
 #[test]
 fn slice() {
     use leptos_reactive::*;
-    let (cx, disposer) = raw_scope_and_disposer(create_runtime());
+    let runtime = create_runtime();
+
     // this could be serialized to and from localstorage with miniserde
     pub struct State {
         token: String,
         dark_mode: bool,
     }
 
-    let state = create_rw_signal(
-        cx,
-        State {
-            token: "".into(),
-            // this would cause flickering on reload,
-            // use a cookie for the initial value in real projects
-            dark_mode: false,
-        },
-    );
+    let state = create_rw_signal(State {
+        token: "".into(),
+        // this would cause flickering on reload,
+        // use a cookie for the initial value in real projects
+        dark_mode: false,
+    });
 
     let (token, set_token) = create_slice(
-        cx,
         state,
         |state| state.token.clone(),
         |state, value| state.token = value,
     );
 
     let (_, set_dark_mode) = create_slice(
-        cx,
         state,
         |state| state.dark_mode,
         |state, value| state.dark_mode = value,
@@ -37,7 +33,7 @@ fn slice() {
     let count_token_updates = Rc::new(std::cell::Cell::new(0));
 
     assert_eq!(count_token_updates.get(), 0);
-    create_isomorphic_effect(cx, {
+    create_isomorphic_effect({
         let count_token_updates = Rc::clone(&count_token_updates);
         move |_| {
             token.track();
@@ -53,5 +49,5 @@ fn slice() {
     // since token didn't change, there was also no update emitted
     assert_eq!(count_token_updates.get(), 2);
 
-    disposer.dispose();
+    runtime.dispose();
 }

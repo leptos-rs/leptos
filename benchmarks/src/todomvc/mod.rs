@@ -12,8 +12,8 @@ fn leptos_todomvc_ssr(b: &mut Bencher) {
     b.iter(|| {
         use crate::todomvc::leptos::*;
 
-        let html = ::leptos::ssr::render_to_string(|cx| {
-            view! { cx, <TodoMVC todos=Todos::new(cx)/> }
+        let html = ::leptos::ssr::render_to_string(|| {
+            view! { <TodoMVC todos=Todos::new()/> }
         });
         assert!(html.len() > 1);
     });

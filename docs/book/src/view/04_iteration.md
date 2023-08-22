@@ -19,30 +19,30 @@ any `Vec<IV> where IV: IntoView` into your view. In other words, if you can rend
 
 ```rust
 let values = vec![0, 1, 2];
-view! { cx,
+view! {
     // this will just render "012"
     <p>{values.clone()}</p>
     // or we can wrap them in <li>
     <ul>
         {values.into_iter()
-            .map(|n| view! { cx, <li>{n}</li>})
+            .map(|n| view! { <li>{n}</li>})
             .collect::<Vec<_>>()}
     </ul>
 }
 ```
 
-Leptos also provides a `.collect_view(cx)` helper function that allows you to collect any iterator of `T: IntoView` into `Vec<View>`.
+Leptos also provides a `.collect_view()` helper function that allows you to collect any iterator of `T: IntoView` into `Vec<View>`.
 
 ```rust
 let values = vec![0, 1, 2];
-view! { cx,
+view! {
     // this will just render "012"
     <p>{values.clone()}</p>
     // or we can wrap them in <li>
     <ul>
         {values.into_iter()
-            .map(|n| view! { cx, <li>{n}</li>})
-            .collect_view(cx)}
+            .map(|n| view! { <li>{n}</li>})
+            .collect_view()}
     </ul>
 }
 ```
@@ -52,13 +52,13 @@ You can render dynamic items as part of a static list.
 
 ```rust
 // create a list of N signals
-let counters = (1..=length).map(|idx| create_signal(cx, idx));
+let counters = (1..=length).map(|idx| create_signal(idx));
 
 // each item manages a reactive view
 // but the list itself will never change
 let counter_buttons = counters
     .map(|(count, set_count)| {
-        view! { cx,
+        view! {
             <li>
                 <button
                     on:click=move |_| set_count.update(|n| *n += 1)
@@ -68,9 +68,9 @@ let counter_buttons = counters
             </li>
         }
     })
-    .collect_view(cx);
+    .collect_view();
 
-view! { cx,
+view! {
     <ul>{counter_buttons}</ul>
 }
 ```
@@ -120,8 +120,8 @@ use leptos::*;
 // 2) for lists that grow, shrink, or move items, using <For/>
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn App() -> impl IntoView {
+    view! {
         <h1>"Iteration"</h1>
         <h2>"Static List"</h2>
         <p>"Use this pattern if the list itself is static."</p>
@@ -136,19 +136,19 @@ fn App(cx: Scope) -> impl IntoView {
 /// to add or remove any.
 #[component]
 fn StaticList(
-    cx: Scope,
+
     /// How many counters to include in this list.
     length: usize,
 ) -> impl IntoView {
     // create counter signals that start at incrementing numbers
-    let counters = (1..=length).map(|idx| create_signal(cx, idx));
+    let counters = (1..=length).map(|idx| create_signal(idx));
 
     // when you have a list that doesn't change, you can
     // manipulate it using ordinary Rust iterators
     // and collect it into a Vec<_> to insert it into the DOM
     let counter_buttons = counters
         .map(|(count, set_count)| {
-            view! { cx,
+            view! {
                 <li>
                     <button
                         on:click=move |_| set_count.update(|n| *n += 1)
@@ -163,7 +163,7 @@ fn StaticList(
     // Note that if `counter_buttons` were a reactive list
     // and its value changed, this would be very inefficient:
     // it would rerender every row every time the list changed.
-    view! { cx,
+    view! {
         <ul>{counter_buttons}</ul>
     }
 }
@@ -172,7 +172,7 @@ fn StaticList(
 /// remove counters.
 #[component]
 fn DynamicList(
-    cx: Scope,
+
     /// The number of counters to begin with.
     initial_length: usize,
 ) -> impl IntoView {
@@ -190,17 +190,17 @@ fn DynamicList(
     // we generate an initial list as in <StaticList/>
     // but this time we include the ID along with the signal
     let initial_counters = (0..initial_length)
-        .map(|id| (id, create_signal(cx, id + 1)))
+        .map(|id| (id, create_signal(id + 1)))
         .collect::<Vec<_>>();
 
     // now we store that initial list in a signal
     // this way, we'll be able to modify the list over time,
     // adding and removing counters, and it will change reactively
-    let (counters, set_counters) = create_signal(cx, initial_counters);
+    let (counters, set_counters) = create_signal(initial_counters);
 
     let add_counter = move |_| {
         // create a signal for the new counter
-        let sig = create_signal(cx, next_counter_id + 1);
+        let sig = create_signal(next_counter_id + 1);
         // add this counter to the list of counters
         set_counters.update(move |counters| {
             // since `.update()` gives us `&mut T`
@@ -211,7 +211,7 @@ fn DynamicList(
         next_counter_id += 1;
     };
 
-    view! { cx,
+    view! {
         <div>
             <button on:click=add_counter>
                 "Add Counter"
@@ -231,8 +231,8 @@ fn DynamicList(
                     key=|counter| counter.0
                     // the view function receives each item from your `each` iterator
                     // and returns a view
-                    view=move |cx, (id, (count, set_count))| {
-                        view! { cx,
+                    view=move |(id, (count, set_count))| {
+                        view! {
                             <li>
                                 <button
                                     on:click=move |_| set_count.update(|n| *n += 1)
@@ -258,7 +258,7 @@ fn DynamicList(
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

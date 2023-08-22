@@ -4,14 +4,15 @@ fn resource_returns_last_future() {
     {
         use futures::{channel::oneshot::channel, FutureExt};
         use leptos_reactive::{
-            create_resource, create_runtime, create_signal,
-            raw_scope_and_disposer, SignalGet, SignalSet,
+            create_resource, create_runtime, create_signal, SignalGet,
+            SignalSet,
         };
         use tokio::task;
         use tokio_test::block_on;
 
+        let runtime = create_runtime();
+
         block_on(task::LocalSet::new().run_until(async move {
-            let (cx, disposer) = raw_scope_and_disposer(create_runtime());
             task::spawn_local(async move {
                 // Set up a resource that can listen to two different futures that we can resolve independently
                 let (tx_1, rx_1) = channel::<()>();
@@ -19,10 +20,9 @@ fn resource_returns_last_future() {
                 let rx_1 = rx_1.shared();
                 let rx_2 = rx_2.shared();
 
-                let (channel_number, set_channel_number) = create_signal(cx, 1);
+                let (channel_number, set_channel_number) = create_signal(1);
 
                 let resource = create_resource(
-                    cx,
                     move || channel_number.get(),
                     move |channel_number| {
                         let rx_1 = rx_1.clone();
@@ -48,18 +48,19 @@ fn resource_returns_last_future() {
                 task::yield_now().await;
 
                 // Resource should still be loading
-                assert_eq!(resource.read(cx), None);
+                assert_eq!(resource.get(), None);
 
                 // Resolve second future
                 tx_2.send(()).unwrap();
                 task::yield_now().await;
 
                 // Resource should now be loaded
-                assert_eq!(resource.read(cx), Some(2));
+                assert_eq!(resource.get(), Some(2));
             })
             .await
             .unwrap();
-            disposer.dispose();
         }));
+
+        runtime.dispose();
     }
 }

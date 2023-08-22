@@ -18,14 +18,14 @@ if #[cfg(feature = "ssr")] {
         let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
+        let routes = generate_route_list(|| view! {  <App/> }).await;
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
         // build our application with a route
         let app = Router::new()
         .route("/favicon.ico", get(file_and_error_handler))
-        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> } )
+        .leptos_routes(&leptos_options, routes, || view! {  <App/> } )
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 
@@ -46,8 +46,8 @@ if #[cfg(feature = "ssr")] {
         pub fn main() {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
-            mount_to_body(|cx| {
-                view! { cx, <App/> }
+            mount_to_body(|| {
+                view! {  <App/> }
             });
         }
     }

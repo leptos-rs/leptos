@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::TokenStream;
 use std::str::FromStr;
 use syn::parse_quote;
 
@@ -29,9 +29,8 @@ macro_rules! assert_snapshot
     (client_template($assert:ident) => $input: expr) => {
         {
             let tokens = TokenStream::from_str($input).unwrap();
-            let cx = Ident::new("cx", Span::call_site());
             let nodes = rstml::parse2(tokens).unwrap();
-            let result = crate::view::client_template::render_template(&cx, &nodes);
+            let result = crate::view::client_template::render_template(&&nodes);
 
             assert_snapshot!(@assert $assert result)
         }
@@ -39,12 +38,11 @@ macro_rules! assert_snapshot
     (client_builder($assert:ident) => $input: expr) => {
         {
             let tokens = TokenStream::from_str($input).unwrap();
-            let cx = Ident::new("cx", Span::call_site());
             let nodes = rstml::parse2(tokens).unwrap();
             let mode = crate::view::Mode::Client;
             let global_class = None;
             let call_site = None;
-            let result = crate::view::render_view(&cx, &nodes, mode, global_class, call_site);
+            let result = crate::view::render_view(&&nodes, mode, global_class, call_site);
 
             assert_snapshot!(@assert $assert result)
         }
@@ -52,12 +50,11 @@ macro_rules! assert_snapshot
     (server_template($assert:ident) => $input: expr) => {
         {
             let tokens = TokenStream::from_str($input).unwrap();
-            let cx = Ident::new("cx", Span::call_site());
             let nodes = rstml::parse2(tokens).unwrap();
             let mode = crate::view::Mode::Ssr;
             let global_class = None;
             let call_site = None;
-            let result = crate::view::render_view(&cx, &nodes, mode, global_class, call_site);
+            let result = crate::view::render_view(&&nodes, mode, global_class, call_site);
 
             assert_snapshot!(@assert $assert result)
         }

@@ -40,13 +40,6 @@ TokenStream [
                 char: ',',
                 spacing: Alone,
             },
-            Ident {
-                sym: cx,
-            },
-            Punct {
-                char: ',',
-                spacing: Alone,
-            },
             Punct {
                 char: ':',
                 spacing: Joint,
@@ -113,9 +106,14 @@ TokenStream [
                             },
                         ],
                     },
-                    Literal {
-                        lit: 0,
-                        span: bytes(51..52),
+                    Group {
+                        delimiter: Brace,
+                        stream: TokenStream [
+                            Literal {
+                                lit: 0,
+                                span: bytes(51..52),
+                            },
+                        ],
                     },
                 ],
             },
@@ -150,9 +148,14 @@ TokenStream [
                             },
                         ],
                     },
-                    Literal {
-                        lit: 1,
-                        span: bytes(70..71),
+                    Group {
+                        delimiter: Brace,
+                        stream: TokenStream [
+                            Literal {
+                                lit: 1,
+                                span: bytes(70..71),
+                            },
+                        ],
                     },
                 ],
             },

@@ -2684,11 +2684,7 @@ TokenStream [
                     },
                     Group {
                         delimiter: Parenthesis,
-                        stream: TokenStream [
-                            Ident {
-                                sym: cx,
-                            },
-                        ],
+                        stream: TokenStream [],
                     },
                 ],
             },

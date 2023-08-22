@@ -1,9 +1,7 @@
-#![forbid(unsafe_code)]
 use crate::{
     create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
-    with_runtime, AnyComputation, RuntimeId, Scope, ScopeProperty,
-    SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
-    SignalWithUntracked,
+    with_runtime, AnyComputation, Runtime, SignalDispose, SignalGet,
+    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
 };
 use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 
@@ -36,8 +34,8 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
-/// # create_scope(create_runtime(), |cx| {
-/// let (value, set_value) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (value, set_value) = create_signal(0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
 /// let double_value = move || value.get() * 2;
@@ -46,30 +44,30 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 ///
 /// // but imagine the computation is really expensive
 /// let expensive = move || really_expensive_computation(value.get()); // lazy: doesn't run until called
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
 ///   log::debug!("expensive = {}", expensive());
 /// });
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // ❌ run #2: this calls `really_expensive_computation` a second time!
 ///   let value = expensive();
 ///   // do something else...
 /// });
 ///
 /// // instead, we create a memo
-/// // ✅ creation: the computation does not run on creation, because memos are lazy
-/// let memoized = create_memo(cx, move |_| really_expensive_computation(value.get()));
-/// create_effect(cx, move |_| {
-///   // 🆗 run #1: reading the memo for the first time causes the computation to run for the first time
+/// // 🆗 run #1: the calculation runs once immediately
+/// let memoized = create_memo(move |_| really_expensive_computation(value.get()));
+/// create_effect(move |_| {
+///   // 🆗 reads the current value of the memo
 ///   //    can be `memoized()` on nightly
 ///   log::debug!("memoized = {}", memoized.get());
 /// });
-/// create_effect(cx, move |_| {
-///   // ✅ reads the current value again **without re-running the calculation**
+/// create_effect(move |_| {
+///   // ✅ reads the current value **without re-running the calculation**
 ///   let value = memoized.get();
 ///   // do something else...
 /// });
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -77,23 +75,17 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
         level = "trace",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_memo<T>(
-    cx: Scope,
-    f: impl Fn(Option<&T>) -> T + 'static,
-) -> Memo<T>
+pub fn create_memo<T>(f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + 'static,
 {
-    let memo = cx.runtime.create_memo(f);
-    cx.push_scope_property(ScopeProperty::Effect(memo.id));
-    memo
+    Runtime::current().create_memo(f)
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -128,8 +120,8 @@ where
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
-/// # create_scope(create_runtime(), |cx| {
-/// let (value, set_value) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (value, set_value) = create_signal(0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
 /// let double_value = move || value.get() * 2;
@@ -138,36 +130,35 @@ where
 ///
 /// // but imagine the computation is really expensive
 /// let expensive = move || really_expensive_computation(value.get()); // lazy: doesn't run until called
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
 ///   log::debug!("expensive = {}", expensive());
 /// });
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // ❌ run #2: this calls `really_expensive_computation` a second time!
 ///   let value = expensive();
 ///   // do something else...
 /// });
 ///
 /// // instead, we create a memo
-//  // ✅ creation: the computation does not run on creation, because memos are lazy
-/// let memoized = create_memo(cx, move |_| really_expensive_computation(value.get()));
-/// create_effect(cx, move |_| {
-///   // 🆗 run #1: reading the memo for the first time causes the computation to run for the first time
-///   //    can be `memoized()` on nightly
+/// // 🆗 run #1: the calculation runs once immediately
+/// let memoized = create_memo(move |_| really_expensive_computation(value.get()));
+/// create_effect(move |_| {
+///  // 🆗 reads the current value of the memo
 ///   log::debug!("memoized = {}", memoized.get());
 /// });
-/// create_effect(cx, move |_| {
-///   // ✅ reads the current value again **without re-running the calculation**
+/// create_effect(move |_| {
+///   // ✅ reads the current value **without re-running the calculation**
+///   //    can be `memoized()` on nightly
 ///   let value = memoized.get();
 ///   // do something else...
 /// });
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 pub struct Memo<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -188,7 +179,6 @@ impl<T> Copy for Memo<T> {}
 impl<T> fmt::Debug for Memo<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("Memo");
-        s.field("runtime", &self.runtime);
         s.field("id", &self.id);
         s.field("ty", &self.ty);
         #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -201,7 +191,7 @@ impl<T> Eq for Memo<T> {}
 
 impl<T> PartialEq for Memo<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id
+        self.id == other.id
     }
 }
 
@@ -231,7 +221,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
         )
     )]
     fn get_untracked(&self) -> T {
-        with_runtime(self.runtime, move |runtime| {
+        with_runtime(move |runtime| {
             let f = |maybe_value: &Option<T>| {
                 maybe_value
                     .clone()
@@ -282,7 +272,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
         )
     )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             match self.id.try_with_no_subscription(runtime, forward_ref_to(f)) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
@@ -309,7 +299,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
     )]
     #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
         })
         .ok()
@@ -321,9 +311,9 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
-/// let double_count = create_memo(cx, move |_| count.get() * 2);
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(0);
+/// let double_count = create_memo(move |_| count.get() * 2);
 ///
 /// assert_eq!(double_count.get(), 0);
 /// set_count.set(1);
@@ -331,7 +321,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 /// // can be `double_count()` on nightly
 /// // assert_eq!(double_count(), 2);
 /// assert_eq!(double_count.get(), 2);
-/// # }).dispose();
+/// # runtime.dispose();
 /// #
 /// ```
 impl<T: Clone> SignalGet<T> for Memo<T> {
@@ -416,7 +406,7 @@ impl<T> SignalWith<T> for Memo<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.subscribe(runtime, diagnostics);
             self.id
                 .try_with_no_subscription(runtime, forward_ref_to(f))
@@ -441,19 +431,16 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
             )
         )
     )]
-    fn to_stream(
-        &self,
-        cx: Scope,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+    fn to_stream(&self) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
 
         let close_channel = tx.clone();
 
-        on_cleanup(cx, move || close_channel.close_channel());
+        on_cleanup(move || close_channel.close_channel());
 
         let this = *self;
 
-        create_effect(cx, move |_| {
+        create_effect(move |_| {
             let _ = tx.unbounded_send(this.get());
         });
 
@@ -463,7 +450,7 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
 
 impl<T> SignalDispose for Memo<T> {
     fn dispose(self) {
-        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
+        _ = with_runtime(|runtime| runtime.dispose_node(self.id));
     }
 }
 

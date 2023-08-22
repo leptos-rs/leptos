@@ -28,6 +28,7 @@ sqlx = { version = "0.6.2", features = [
 	"sqlite",
 ], optional = true }
 wasm-bindgen = "0.2"
+tokio = { version = "1", features = ["rt", "time"], optional = true }
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
@@ -39,6 +40,7 @@ ssr = [
 	"leptos_actix",
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
+	"dep:tokio",
 ]
 
 [package.metadata.cargo-all-features]

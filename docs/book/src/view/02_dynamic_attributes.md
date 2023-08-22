@@ -12,10 +12,10 @@ increment a counter.
 
 ```rust
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <button
             on:click=move |_| {
                 set_count.update(|n| *n += 1);
@@ -73,9 +73,9 @@ class=("button-20", move || count() % 2 == 1)
 Individual CSS properties can be directly updated with a similar `style:` syntax.
 
 ```rust
-let (x, set_x) = create_signal(cx, 0);
-let (y, set_y) = create_signal(cx, 0);
-view! { cx,
+let (x, set_x) = create_signal(0);
+let (y, set_y) = create_signal(0);
+view! {
     <div
         style="position: absolute"
         style:left=move || format!("{}px", x() + 100)
@@ -159,7 +159,7 @@ are designed to solve this problem for expensive calculations.
 >
 > ```rust
 > let html = "<p>This HTML will be injected.</p>";
-> view! { cx,
+> view! {
 >   <div inner_html=html/>
 > }
 > ```
@@ -177,15 +177,15 @@ are designed to solve this problem for expensive calculations.
 use leptos::*;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
     // a "derived signal" is a function that accesses other signals
     // we can use this to create reactive values that depend on the
     // values of one or more other signals
     let double_count = move || count() * 2;
 
-    view! { cx,
+    view! {
         <button
             on:click=move |_| {
                 set_count.update(|n| *n += 1);
@@ -227,7 +227,7 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 ```
 
