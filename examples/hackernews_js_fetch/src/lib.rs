@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{component, view, IntoView, Scope};
+use leptos::{component, view, IntoView};
 use leptos_meta::*;
 use leptos_router::*;
 use log::{info, Level};
@@ -10,10 +10,10 @@ mod routes;
 use routes::{counters::*, nav::*, stories::*, story::*, users::*};
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    provide_meta_context(cx);
+pub fn App() -> impl IntoView {
+    provide_meta_context();
     view! {
-        cx,
+
         <>
             <Link rel="shortcut icon" type_="image/ico" href="/public/favicon.ico"/>
             <Stylesheet id="leptos" href="/public/style.css"/>
@@ -42,8 +42,8 @@ cfg_if! {
         pub fn hydrate() {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
-            leptos::mount_to_body(move |cx| {
-                view! { cx, <App/> }
+            leptos::mount_to_body(move || {
+                view! { <App/> }
             });
         }
     } else if #[cfg(feature = "ssr")] {
@@ -68,14 +68,14 @@ cfg_if! {
             let leptos_options = LeptosOptions::builder().output_name("client").site_pkg_dir("pkg").build();
 
 
-            let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
+            let routes = generate_route_list(|| view! { <App/> }).await;
 
             ClearServerCount::register_explicit().unwrap();
             AdjustServerCount::register_explicit().unwrap();
             GetServerCount::register_explicit().unwrap();
             // build our application with a route
             let app: axum::Router<(), axum::body::Body> = Router::new()
-            .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> } )
+            .leptos_routes(&leptos_options, routes, || view! { <App/> } )
             .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
             .with_state(leptos_options);
 

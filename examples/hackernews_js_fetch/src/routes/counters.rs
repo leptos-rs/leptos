@@ -32,12 +32,11 @@ pub async fn clear_server_count() -> Result<i32, ServerFnError> {
 // it's invalidated by one of the user's own actions
 // This is the typical pattern for a CRUD app
 #[component]
-pub fn Counter(cx: Scope) -> impl IntoView {
-    let dec = create_action(cx, |_| adjust_server_count(-1, "decing".into()));
-    let inc = create_action(cx, |_| adjust_server_count(1, "incing".into()));
-    let clear = create_action(cx, |_| clear_server_count());
+pub fn Counter() -> impl IntoView {
+    let dec = create_action(|_| adjust_server_count(-1, "decing".into()));
+    let inc = create_action(|_| adjust_server_count(1, "incing".into()));
+    let clear = create_action(|_| clear_server_count());
     let counter = create_resource(
-        cx,
         move || {
             (
                 dec.version().get(),
@@ -48,20 +47,16 @@ pub fn Counter(cx: Scope) -> impl IntoView {
         |_| get_server_count(),
     );
 
-    let value = move || {
-        counter
-            .read(cx)
-            .map(|count| count.unwrap_or(0))
-            .unwrap_or(0)
-    };
+    let value =
+        move || counter.get().map(|count| count.unwrap_or(0)).unwrap_or(0);
     let error_msg = move || {
-        counter.read(cx).and_then(|res| match res {
+        counter.get().and_then(|res| match res {
             Ok(_) => None,
             Err(e) => Some(e),
         })
     };
 
-    view! { cx,
+    view! {
         <div>
             <h2>"Simple Counter"</h2>
             <p>
@@ -76,7 +71,7 @@ pub fn Counter(cx: Scope) -> impl IntoView {
             {move || {
                 error_msg()
                     .map(|msg| {
-                        view! { cx, <p>"Error: " {msg.to_string()}</p> }
+                        view! { <p>"Error: " {msg.to_string()}</p> }
                     })
             }}
         </div>
