@@ -5,7 +5,7 @@ use wasm_bindgen::UnwrapThrowExt;
 macro_rules! tracing_props {
     () => {
         ::leptos::leptos_dom::tracing::span!(
-            ::leptos::leptos_dom::tracing::Level::INFO,
+            ::leptos::leptos_dom::tracing::Level::DEBUG,
             "leptos_dom::tracing_props",
             props = String::from("[]")
         );
@@ -24,7 +24,7 @@ macro_rules! tracing_props {
             props.pop();
             props.push(']');
             ::leptos::leptos_dom::tracing::span!(
-                ::leptos::leptos_dom::tracing::Level::INFO,
+                ::leptos::leptos_dom::tracing::Level::DEBUG,
                 "leptos_dom::tracing_props",
                 props
             );
