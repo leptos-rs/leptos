@@ -9,6 +9,7 @@ on:
       cargo_make_task:
         required: true
         type: string
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
@@ -26,11 +27,6 @@ jobs:
 
     steps:
       # Setup environment
-      - name: Install playwright browser dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install libegl1 libvpx7 libevent-2.1-7 libopus0 libopengl0 libwoff1 libharfbuzz-icu0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 libhyphen0 libmanette-0.2-0 libgles2 gstreamer1.0-libav
-
       - uses: actions/checkout@v3
 
       - name: Setup Rust
@@ -84,17 +80,35 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install Chrome Webriver
+      - name: Maybe install chromedriver
         run: |
-          sudo apt-get update
-          sudo apt-get install chromium-chromedriver
+          project_makefile=${{inputs.directory}}/Makefile.toml
+          webdriver_count=$(cat $project_makefile | grep "cargo-make/webdriver.toml" | wc -l)
+          if [ $webdriver_count -eq 1 ]; then
+              if ! command -v chromedriver &>/dev/null; then
+                  echo chromedriver required
+                  sudo apt-get update
+                  sudo apt-get install chromium-chromedriver
+              else
+                  echo chromedriver is already installed
+              fi
+          else
+              echo chromedriver is not required
+          fi
+
+      - name: Maybe install playwright browser dependencies
+        run: |
+          playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
+          if [ $playwright_count -eq 1 ]; then
+              echo playwright required
+              sudo apt-get update
+              sudo apt-get install libegl1 libvpx7 libevent-2.1-7 libopus0 libopengl0 libwoff1 libharfbuzz-icu0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 libhyphen0 libmanette-0.2-0 libgles2 gstreamer1.0-libav
+          else
+              echo playwright is not required
+          fi
 
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
-          if [ "${{ inputs.directory }}" = "INTERNAL" ]; then
-            echo No verification required
-          else
-            cd ${{ inputs.directory }}
-            cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
-          fi
+          cd ${{ inputs.directory }}
+          cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
