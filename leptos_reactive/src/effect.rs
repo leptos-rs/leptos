@@ -1,4 +1,4 @@
-use crate::{with_runtime, Runtime};
+use crate::{node::NodeId, with_runtime, Disposer, Runtime, SignalDispose};
 use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 
@@ -57,21 +57,23 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_effect<T>(f: impl Fn(Option<T>) -> T + 'static)
+pub fn create_effect<T>(f: impl Fn(Option<T>) -> T + 'static) -> Effect
 where
     T: 'static,
 {
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
             let runtime = Runtime::current();
-            let e = runtime.create_effect(f);
+            let id = runtime.create_effect(f);
             //crate::macros::debug_warn!("creating effect {e:?}");
             _ = with_runtime( |runtime| {
-                runtime.update_if_necessary(e);
+                runtime.update_if_necessary(id);
             });
+            Effect { id }
         } else {
             // clear warnings
             _ = f;
+            Effect::default()
         }
     }
 }
@@ -114,16 +116,19 @@ where
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_isomorphic_effect<T>(f: impl Fn(Option<T>) -> T + 'static)
+pub fn create_isomorphic_effect<T>(
+    f: impl Fn(Option<T>) -> T + 'static,
+) -> Effect
 where
     T: 'static,
 {
     let runtime = Runtime::current();
-    let e = runtime.create_effect(f);
+    let id = runtime.create_effect(f);
     //crate::macros::debug_warn!("creating effect {e:?}");
     _ = with_runtime(|runtime| {
-        runtime.update_if_necessary(e);
+        runtime.update_if_necessary(id);
     });
+    Effect { id }
 }
 
 #[doc(hidden)]
@@ -143,6 +148,18 @@ where
     T: 'static,
 {
     create_effect(f);
+}
+
+/// A handle to an effect, can be used to explicitly dispose of the effect.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Effect {
+    pub(crate) id: NodeId,
+}
+
+impl SignalDispose for Effect {
+    fn dispose(self) {
+        drop(Disposer(self.id));
+    }
 }
 
 pub(crate) struct EffectState<T, F>

@@ -77,7 +77,7 @@ impl SuspenseContext {
                 if pending_resources.get() == 0 {
                     _ = tx.borrow_mut().try_send(());
                 }
-            })
+            });
         });
         async move {
             rx.next().await;
