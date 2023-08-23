@@ -74,18 +74,18 @@ pub(crate) fn fragment_to_tokens(
     let tokens = if lazy {
         quote! {
             {
-                ::leptos::Fragment::lazy(|| [
+                ::leptos::Fragment::lazy(|| ::std::vec![
                     #(#nodes),*
-                ].to_vec())
+                ])
                 #view_marker
             }
         }
     } else {
         quote! {
             {
-                ::leptos::Fragment::new([
+                ::leptos::Fragment::new(::std::vec![
                     #(#nodes),*
-                ].to_vec())
+                ])
                 #view_marker
             }
         }

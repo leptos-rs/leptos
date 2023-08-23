@@ -143,9 +143,9 @@ pub(crate) fn slot_to_tokens(
         let slot = Ident::new(&slot, span);
         if values.len() > 1 {
             quote! {
-                .#slot([
+                .#slot(::std::vec![
                     #(#values)*
-                ].to_vec())
+                ])
             }
         } else {
             let value = &values[0];

@@ -83,9 +83,9 @@ pub(crate) fn fragment_to_tokens_ssr(
     });
     quote! {
         {
-            leptos::Fragment::lazy(|| [
+            leptos::Fragment::lazy(|| ::std::vec![
                 #(#nodes),*
-            ].to_vec())
+            ])
             #view_marker
         }
     }
@@ -597,7 +597,7 @@ fn set_style_attribute_ssr(
     let static_style_attr = node
         .attributes()
         .iter()
-        .filter_map(|a| match a {
+        .find_map(|a| match a {
             NodeAttribute::Attribute(attr)
                 if attr.key.to_string() == "style" =>
             {
@@ -605,7 +605,6 @@ fn set_style_attribute_ssr(
             }
             _ => None,
         })
-        .next()
         .map(|style| format!("{style};"));
 
     let dyn_style_attr = node
