@@ -145,7 +145,7 @@ where
     create_effect(f);
 }
 
-pub(crate) struct Effect<T, F>
+pub(crate) struct EffectState<T, F>
 where
     T: 'static,
     F: Fn(Option<T>) -> T,
@@ -160,7 +160,7 @@ pub(crate) trait AnyComputation {
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool;
 }
 
-impl<T, F> AnyComputation for Effect<T, F>
+impl<T, F> AnyComputation for EffectState<T, F>
 where
     T: 'static,
     F: Fn(Option<T>) -> T,
