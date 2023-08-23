@@ -4,14 +4,14 @@ use leptos_router::*;
 const WAIT_ONE_SECOND: u64 = 1;
 const WAIT_TWO_SECONDS: u64 = 2;
 
-#[server(FirstWaitFn "/api")]
+#[server]
 async fn first_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
     tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await;
 
     Ok(())
 }
 
-#[server(SecondWaitFn "/api")]
+#[server]
 async fn second_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
     tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await;
 

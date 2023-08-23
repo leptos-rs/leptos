@@ -173,7 +173,7 @@ pub struct PostMetadata {
     title: String,
 }
 
-#[server(ListPostMetadata, "/api")]
+#[server]
 pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS
@@ -185,7 +185,7 @@ pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
         .collect())
 }
 
-#[server(GetPost, "/api")]
+#[server]
 pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS.iter().find(|post| post.id == id).cloned())

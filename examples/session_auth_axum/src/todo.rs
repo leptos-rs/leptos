@@ -107,7 +107,8 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
-#[server(DeleteTodo, "/api")]
+// The struct name and path prefix arguments are optional.
+#[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     let pool = pool()?;
 
