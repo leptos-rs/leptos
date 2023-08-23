@@ -4,7 +4,7 @@ use crate::{
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
     GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, SignalDispose,
     SignalGet, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
-    SuspenseContext, WriteSignal,
+    SpecialNonReactiveZone, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -523,7 +523,9 @@ where
     pub fn refetch(&self) {
         _ = with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.refetch()
+                SpecialNonReactiveZone::enter();
+                resource.refetch();
+                SpecialNonReactiveZone::exit();
             })
         });
     }
