@@ -156,9 +156,15 @@ pub struct Effect {
     pub(crate) id: NodeId,
 }
 
+impl From<Effect> for Disposer {
+    fn from(effect: Effect) -> Self {
+        Disposer(effect.id)
+    }
+}
+
 impl SignalDispose for Effect {
     fn dispose(self) {
-        drop(Disposer(self.id));
+        drop(Disposer::from(self));
     }
 }
 
