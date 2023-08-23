@@ -23,10 +23,17 @@ pub async fn render_to_string_async(
     view: impl FnOnce() -> View + 'static,
 ) -> String {
     let mut buf = String::new();
-    let mut stream = Box::pin(render_to_stream_in_order(view));
+    let (stream, runtime) =
+        render_to_stream_in_order_with_prefix_undisposed_with_context(
+            view,
+            || "".into(),
+            || {},
+        );
+    let mut stream = Box::pin(stream);
     while let Some(chunk) = stream.next().await {
         buf.push_str(&chunk);
     }
+    runtime.dispose();
     buf
 }
 
