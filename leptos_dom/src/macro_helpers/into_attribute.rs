@@ -1,3 +1,7 @@
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -263,6 +267,41 @@ macro_rules! attr_type {
     };
 }
 
+macro_rules! attr_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoAttribute for $signal_type
+        where
+            T: IntoAttribute + Clone,
+        {
+            fn into_attribute(self) -> Attribute {
+                let modified_fn = Rc::new(move || self.get().into_attribute());
+                Attribute::Fn(modified_fn)
+            }
+
+            impl_into_attr_boxed! {}
+        }
+    };
+}
+
+macro_rules! attr_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoAttribute for $signal_type
+        where
+            T: Clone,
+            Option<T>: IntoAttribute,
+        {
+            fn into_attribute(self) -> Attribute {
+                let modified_fn = Rc::new(move || self.get().into_attribute());
+                Attribute::Fn(modified_fn)
+            }
+
+            impl_into_attr_boxed! {}
+        }
+    };
+}
+
 attr_type!(&String);
 attr_type!(usize);
 attr_type!(u8);
@@ -279,6 +318,13 @@ attr_type!(i128);
 attr_type!(f32);
 attr_type!(f64);
 attr_type!(char);
+
+attr_signal_type!(ReadSignal<T>);
+attr_signal_type!(RwSignal<T>);
+attr_signal_type!(Memo<T>);
+attr_signal_type!(Signal<T>);
+attr_signal_type!(MaybeSignal<T>);
+attr_signal_type_optional!(MaybeProp<T>);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]

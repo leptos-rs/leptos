@@ -1,3 +1,7 @@
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 use std::{borrow::Cow, rc::Rc};
 
 /// todo docs
@@ -183,6 +187,37 @@ macro_rules! style_type {
     };
 }
 
+macro_rules! style_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoStyle for $signal_type
+        where
+            T: IntoStyle + Clone,
+        {
+            fn into_style(self) -> Style {
+                let modified_fn = Rc::new(move || self.get().into_style());
+                Style::Fn(modified_fn)
+            }
+        }
+    };
+}
+
+macro_rules! style_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoStyle for $signal_type
+        where
+            T: Clone,
+            Option<T>: IntoStyle,
+        {
+            fn into_style(self) -> Style {
+                let modified_fn = Rc::new(move || self.get().into_style());
+                Style::Fn(modified_fn)
+            }
+        }
+    };
+}
+
 style_type!(&String);
 style_type!(usize);
 style_type!(u8);
@@ -199,3 +234,10 @@ style_type!(i128);
 style_type!(f32);
 style_type!(f64);
 style_type!(char);
+
+style_signal_type!(ReadSignal<T>);
+style_signal_type!(RwSignal<T>);
+style_signal_type!(Memo<T>);
+style_signal_type!(Signal<T>);
+style_signal_type!(MaybeSignal<T>);
+style_signal_type_optional!(MaybeProp<T>);
