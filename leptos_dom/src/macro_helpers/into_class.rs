@@ -1,3 +1,8 @@
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
+
 /// Represents the different possible values a single class on an element could have,
 /// allowing you to do fine-grained updates to single items
 /// in [`Element.classList`](https://developer.mozilla.org/en-US/docs/Web/API/Element/classList).
@@ -113,3 +118,36 @@ pub(crate) fn class_expression(
         }
     }
 }
+
+macro_rules! class_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl IntoClass for $signal_type {
+            #[inline(always)]
+            fn into_class(self) -> Class {
+                let modified_fn = Box::new(move || self.get());
+                Class::Fn(modified_fn)
+            }
+        }
+    };
+}
+
+macro_rules! class_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl IntoClass for $signal_type {
+            #[inline(always)]
+            fn into_class(self) -> Class {
+                let modified_fn = Box::new(move || self.get().unwrap_or(false));
+                Class::Fn(modified_fn)
+            }
+        }
+    };
+}
+
+class_signal_type!(ReadSignal<bool>);
+class_signal_type!(RwSignal<bool>);
+class_signal_type!(Memo<bool>);
+class_signal_type!(Signal<bool>);
+class_signal_type!(MaybeSignal<bool>);
+class_signal_type_optional!(MaybeProp<bool>);

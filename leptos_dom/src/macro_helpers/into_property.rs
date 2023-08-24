@@ -1,3 +1,7 @@
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 use wasm_bindgen::JsValue;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -52,6 +56,37 @@ macro_rules! prop_type {
     };
 }
 
+macro_rules! prop_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoProperty for $signal_type
+        where
+            T: Into<JsValue> + Clone,
+        {
+            fn into_property(self) -> Property {
+                let modified_fn = Box::new(move || self.get().into());
+                Property::Fn(modified_fn)
+            }
+        }
+    };
+}
+
+macro_rules! prop_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoProperty for $signal_type
+        where
+            T: Clone,
+            Option<T>: Into<JsValue>,
+        {
+            fn into_property(self) -> Property {
+                let modified_fn = Box::new(move || self.get().into());
+                Property::Fn(modified_fn)
+            }
+        }
+    };
+}
+
 prop_type!(JsValue);
 prop_type!(String);
 prop_type!(&String);
@@ -71,6 +106,13 @@ prop_type!(i128);
 prop_type!(f32);
 prop_type!(f64);
 prop_type!(bool);
+
+prop_signal_type!(ReadSignal<T>);
+prop_signal_type!(RwSignal<T>);
+prop_signal_type!(Memo<T>);
+prop_signal_type!(Signal<T>);
+prop_signal_type!(MaybeSignal<T>);
+prop_signal_type_optional!(MaybeProp<T>);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::borrow::Cow;
