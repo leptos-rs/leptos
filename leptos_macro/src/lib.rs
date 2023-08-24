@@ -8,7 +8,6 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use rstml::{node::KeyedAttribute, parse};
-use server_fn_macro::server_macro_impl;
 use syn::parse_macro_input;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -34,6 +33,7 @@ mod params;
 mod view;
 use view::{client_template::render_template, render_view};
 mod component;
+mod server;
 mod slot;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -760,17 +760,23 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// If you call a server function from the client (i.e., when the `csr` or `hydrate` features
 /// are enabled), it will instead make a network request to the server.
 ///
-/// You can specify one, two, three, or four arguments to the server function:
-/// 1. **Required**: A type name that will be used to identify and register the server function
-///   (e.g., `MyServerFn`).
-/// 2. *Optional*: A URL prefix at which the function will be mounted when it’s registered
-///   (e.g., `"/api"`). Defaults to `"/"`.
-/// 3. *Optional*: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
-/// 4. *Optional*: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
+/// You can specify one, two, three, or four arguments to the server function. All of these arguments are optional.
+/// 1. A type name that will be used to identify and register the server function
+///   (e.g., `MyServerFn`). Defaults to a PascalCased version of the function name.
+/// 2. A URL prefix at which the function will be mounted when it’s registered
+///   (e.g., `"/api"`). Defaults to `"/api"`.
+/// 3. The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
+/// 4. A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
 ///
 /// ```rust,ignore
 /// // will generate a server function at `/api-prefix/hello`
 /// #[server(MyServerFnType, "/api-prefix", "Url", "hello")]
+/// pub async fn my_server_fn_type() /* ... */
+///
+/// // will generate a server function with struct `HelloWorld` and path
+/// // `/api/hello2349232342342` (hash based on location in source)
+/// #[server]
+/// pub async fn hello_world() /* ... */
 /// ```
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
@@ -859,16 +865,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    match server_macro_impl(
-        args.into(),
-        s.into(),
-        syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
-        None,
-        Some(syn::parse_quote!(::leptos::server_fn)),
-    ) {
-        Err(e) => e.to_compile_error().into(),
-        Ok(s) => s.to_token_stream().into(),
-    }
+    server::server_impl(args, s)
 }
 
 /// Derives a trait that parses a map of string keys and values into a typed
