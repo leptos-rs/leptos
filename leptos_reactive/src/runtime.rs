@@ -776,9 +776,12 @@ impl RuntimeId {
         with_runtime(|runtime| {
             let untracked_result;
 
-            if !diagnostics {
-                SpecialNonReactiveZone::enter();
-            }
+            #[cfg(debug_assertions)]
+            let prev = if !diagnostics {
+                SpecialNonReactiveZone::enter()
+            } else {
+                false
+            };
 
             let prev_observer =
                 SetObserverOnDrop(self, runtime.observer.take());
@@ -788,8 +791,9 @@ impl RuntimeId {
             runtime.observer.set(prev_observer.1);
             std::mem::forget(prev_observer); // avoid Drop
 
+            #[cfg(debug_assertions)]
             if !diagnostics {
-                SpecialNonReactiveZone::exit();
+                SpecialNonReactiveZone::exit(prev);
             }
 
             untracked_result
@@ -1235,9 +1239,13 @@ impl Drop for SetBatchingOnDrop {
 pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
     #[cfg(debug_assertions)]
     let cleanup_fn = move || {
-        crate::SpecialNonReactiveZone::enter();
+        #[cfg(debug_assertions)]
+        let prev = crate::SpecialNonReactiveZone::enter();
         cleanup_fn();
-        crate::SpecialNonReactiveZone::exit();
+        #[cfg(debug_assertions)]
+        {
+            crate::SpecialNonReactiveZone::exit(prev);
+        }
     };
     push_cleanup(Box::new(cleanup_fn))
 }
