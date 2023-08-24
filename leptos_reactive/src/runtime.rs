@@ -11,7 +11,7 @@ use crate::{
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
 use futures::stream::FuturesUnordered;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxHashMap, FxHasher};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
@@ -46,7 +46,8 @@ tokio::task_local! {
     pub(crate) static TASK_RUNTIME: Option<RuntimeId>;
 }
 
-type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+pub(crate) type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+pub(crate) type FxIndexMap<T, U> = IndexMap<T, U, BuildHasherDefault<FxHasher>>;
 
 // The data structure that owns all the signals, memos, effects,
 // and other data included in the reactive system.

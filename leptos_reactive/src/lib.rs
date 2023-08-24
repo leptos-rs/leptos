@@ -83,6 +83,7 @@ mod context;
 mod diagnostics;
 mod effect;
 mod hydration;
+mod lens;
 mod memo;
 mod node;
 mod resource;

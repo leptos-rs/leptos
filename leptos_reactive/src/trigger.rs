@@ -17,6 +17,12 @@ pub struct Trigger {
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+impl Default for Trigger {
+    fn default() -> Self {
+        create_trigger()
+    }
+}
+
 impl Trigger {
     /// Notifies any reactive code where this trigger is tracked to rerun.
     ///
@@ -29,7 +35,7 @@ impl Trigger {
 
     /// Attempts to notify any reactive code where this trigger is tracked to rerun.
     ///
-    /// Returns `None` if the runtime has been disposed.
+    /// Returns `false` if the runtime has been disposed.
     pub fn try_notify(&self) -> bool {
         with_runtime(|runtime| {
             runtime.mark_dirty(self.id);
