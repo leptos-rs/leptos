@@ -3,7 +3,7 @@ use crate::{
     node::{
         Disposer, NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType,
     },
-    AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
+    AnyComputation, AnyResource, EffectState, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, SerializableResource,
     SpecialNonReactiveZone, StoredValueId, Trigger, UnserializableResource,
     WriteSignal,
@@ -938,7 +938,7 @@ impl RuntimeId {
     {
         self.create_concrete_effect(
             Rc::new(RefCell::new(None::<T>)),
-            Rc::new(Effect {
+            Rc::new(EffectState {
                 f,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1002,7 +1002,7 @@ impl RuntimeId {
 
         let id = self.create_concrete_effect(
             Rc::new(RefCell::new(None::<()>)),
-            Rc::new(Effect {
+            Rc::new(EffectState {
                 f: effect_fn,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
