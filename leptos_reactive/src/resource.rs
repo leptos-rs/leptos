@@ -586,7 +586,9 @@ where
     }
 }
 
-impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
+impl<S, T> SignalUpdate for Resource<S, T> {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -642,11 +644,13 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
     }
 }
 
-impl<S, T> SignalWith<Option<T>> for Resource<S, T>
+impl<S, T> SignalWith for Resource<S, T>
 where
     S: Clone,
     T: Clone,
 {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -708,11 +712,13 @@ where
     }
 }
 
-impl<S, T> SignalGet<Option<T>> for Resource<S, T>
+impl<S, T> SignalGet for Resource<S, T>
 where
     S: Clone,
     T: Clone,
 {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -756,7 +762,9 @@ where
     }
 }
 
-impl<S, T> SignalSet<T> for Resource<S, T> {
+impl<S, T> SignalSet for Resource<S, T> {
+    type Value = T;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
