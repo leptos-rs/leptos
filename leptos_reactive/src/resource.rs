@@ -523,9 +523,13 @@ where
     pub fn refetch(&self) {
         _ = with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                SpecialNonReactiveZone::enter();
+                #[cfg(debug_assertions)]
+                let prev = SpecialNonReactiveZone::enter();
                 resource.refetch();
-                SpecialNonReactiveZone::exit();
+                #[cfg(debug_assertions)]
+                {
+                    SpecialNonReactiveZone::exit(prev);
+                }
             })
         });
     }

@@ -43,18 +43,18 @@ impl SpecialNonReactiveZone {
         false
     }
 
-    #[inline(always)]
-    pub fn enter() {
-        #[cfg(debug_assertions)]
-        {
-            IS_SPECIAL_ZONE.with(|val| val.set(true))
-        }
+    #[cfg(debug_assertions)]
+    pub fn enter() -> bool {
+        IS_SPECIAL_ZONE.with(|val| {
+            let prev = val.get();
+            val.set(true);
+            prev
+        })
     }
 
-    #[inline(always)]
-    pub fn exit() {
-        #[cfg(debug_assertions)]
-        {
+    #[cfg(debug_assertions)]
+    pub fn exit(prev: bool) {
+        if !prev {
             IS_SPECIAL_ZONE.with(|val| val.set(false))
         }
     }

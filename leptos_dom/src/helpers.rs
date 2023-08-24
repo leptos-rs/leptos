@@ -218,10 +218,10 @@ pub fn set_timeout_with_handle(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -273,10 +273,10 @@ pub fn debounce<T: 'static>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move |value| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(value);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -351,10 +351,10 @@ pub fn set_interval_with_handle(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -392,10 +392,10 @@ pub fn window_event_listener_untyped(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
