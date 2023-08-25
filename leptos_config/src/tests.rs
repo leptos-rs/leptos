@@ -1,4 +1,4 @@
-use crate::{env_w_default, from_str, Env, LeptosOptions};
+use crate::{env_w_default, env_wo_default, from_str, Env, LeptosOptions};
 use std::{net::SocketAddr, str::FromStr};
 
 #[test]
@@ -30,6 +30,17 @@ fn env_w_default_test() {
 }
 
 #[test]
+fn env_wo_default_test() {
+    std::env::set_var("LEPTOS_CONFIG_ENV_TEST", "custom");
+    assert_eq!(
+        env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(),
+        Some(String::from("custom"))
+    );
+    std::env::remove_var("LEPTOS_CONFIG_ENV_TEST");
+    assert_eq!(env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(), None);
+}
+
+#[test]
 fn try_from_env_test() {
     // Test config values from environment variables
     std::env::set_var("LEPTOS_OUTPUT_NAME", "app_test");
@@ -37,6 +48,7 @@ fn try_from_env_test() {
     std::env::set_var("LEPTOS_SITE_PKG_DIR", "my_pkg");
     std::env::set_var("LEPTOS_SITE_ADDR", "0.0.0.0:80");
     std::env::set_var("LEPTOS_RELOAD_PORT", "8080");
+    std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "8080");
 
     let config = LeptosOptions::try_from_env().unwrap();
     assert_eq!(config.output_name, "app_test");
@@ -48,4 +60,5 @@ fn try_from_env_test() {
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
+    assert_eq!(config.reload_external_port, Some(8080));
 }
