@@ -1256,3 +1256,29 @@ where
         }
     }
 }
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> FnOnce<()> for Resource<S, T> {
+    type Output = Option<T>;
+
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> FnMut<()> for Resource<S, T> {
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> Fn<()> for Resource<S, T> {
+    #[inline(always)]
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
