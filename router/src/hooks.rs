@@ -190,6 +190,7 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) {
         let to = to.to_string();
         if cfg!(any(feature = "csr", feature = "hydrate")) {
             request_animation_frame(move || {
+                #[allow(unused_variables)]
                 if let Err(e) = router.navigate_from_route(&to, &options) {
                     leptos::debug_warn!("use_navigate error: {e:?}");
                 }

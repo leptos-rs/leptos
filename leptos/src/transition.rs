@@ -1,8 +1,8 @@
 use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
-    create_isomorphic_effect, create_rw_signal, create_signal, use_context,
-    RwSignal, SignalGet, SignalSet, SignalSetter, SuspenseContext,
+    create_isomorphic_effect, create_rw_signal, use_context, RwSignal,
+    SignalGet, SignalSet, SignalSetter, SuspenseContext,
 };
 use std::{
     cell::{Cell, RefCell},

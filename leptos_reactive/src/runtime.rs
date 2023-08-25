@@ -1,12 +1,13 @@
+#[cfg(debug_assertions)]
+use crate::SpecialNonReactiveZone;
 use crate::{
     hydration::SharedContext,
     node::{
         Disposer, NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType,
     },
     AnyComputation, AnyResource, EffectState, Memo, MemoState, ReadSignal,
-    ResourceId, ResourceState, RwSignal, SerializableResource,
-    SpecialNonReactiveZone, StoredValueId, Trigger, UnserializableResource,
-    WriteSignal,
+    ResourceId, ResourceState, RwSignal, SerializableResource, StoredValueId,
+    Trigger, UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
@@ -771,7 +772,7 @@ impl RuntimeId {
     pub(crate) fn untrack<T>(
         self,
         f: impl FnOnce() -> T,
-        diagnostics: bool,
+        #[allow(unused)] diagnostics: bool,
     ) -> T {
         with_runtime(|runtime| {
             let untracked_result;
