@@ -79,8 +79,8 @@ impl ToTokens for Model {
             #[doc = ""]
             #docs
             #prop_docs
-            #[derive(::leptos::typed_builder::TypedBuilder)]
-            #[builder(doc)]
+            #[derive(::leptos::typed_builder_macro::TypedBuilder)]
+            #[builder(doc, crate_module_path=::leptos::typed_builder)]
             #vis struct #name #generics #where_clause {
                 #prop_builder_fields
             }
