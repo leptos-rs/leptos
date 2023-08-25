@@ -36,12 +36,12 @@ pub fn server_impl(
     };
     // default to PascalCase version of function name if no struct name given
     if args.struct_name.is_none() {
-        let upper_cammel_case_name = Converter::new()
+        let upper_camel_case_name = Converter::new()
             .from_case(Case::Snake)
             .to_case(Case::UpperCamel)
             .convert(sig.ident.to_string());
         args.struct_name =
-            Some(Ident::new(&upper_cammel_case_name, sig.ident.span()));
+            Some(Ident::new(&upper_camel_case_name, sig.ident.span()));
     }
     // default to "/api" if no prefix given
     if args.prefix.is_none() {
@@ -76,7 +76,7 @@ impl ToTokens for ServerFnArgs {
             self.struct_name.as_ref().map(|s| quote::quote! { #s, });
         let prefix = self.prefix.as_ref().map(|p| quote::quote! { #p, });
         let encoding = self.encoding.as_ref().map(|e| quote::quote! { #e, });
-        let fn_path = self.fn_path.as_ref().map(|f| quote::quote! { #f, });
+        let fn_path = self.fn_path.as_ref().map(|f| quote::quote! { #f });
         tokens.extend(quote::quote! {
             #struct_name
             #prefix
