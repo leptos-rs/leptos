@@ -41,3 +41,4 @@ jobs:
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "ci"
+      toolchain: nightly

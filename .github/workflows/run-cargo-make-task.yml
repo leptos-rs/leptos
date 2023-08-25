@@ -9,6 +9,9 @@ on:
       cargo_make_task:
         required: true
         type: string
+      toolchain:
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,14 +19,8 @@ env:
 
 jobs:
   test:
-    name: Run ${{ matrix.os }} (using rustc ${{ matrix.rust }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust:
-          - nightly
-        os:
-          - ubuntu-latest
+    name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
+    runs-on: ubuntu-latest
 
     steps:
       # Setup environment
@@ -32,7 +29,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: ${{ inputs.toolchain }}
           override: true
           components: rustfmt
 

@@ -26,3 +26,4 @@ jobs:
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "check"
+      toolchain: nightly
