@@ -1,8 +1,8 @@
 use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
-    create_isomorphic_effect, use_context, SignalGet, SignalSetter,
-    SuspenseContext,
+    create_isomorphic_effect, create_rw_signal, create_signal, use_context,
+    RwSignal, SignalGet, SignalSet, SignalSetter, SuspenseContext,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -83,7 +83,7 @@ where
 {
     let prev_children = Rc::new(RefCell::new(None::<View>));
 
-    let first_run = Rc::new(std::cell::Cell::new(true));
+    let first_run = create_rw_signal(true);
     let child_runs = Cell::new(0);
     let held_suspense_context = Rc::new(RefCell::new(None::<SuspenseContext>));
 
@@ -91,17 +91,18 @@ where
         crate::SuspenseProps::builder()
             .fallback({
                 let prev_child = Rc::clone(&prev_children);
-                let first_run = Rc::clone(&first_run);
                 move || {
                     let suspense_context = use_context::<SuspenseContext>()
                         .expect("there to be a SuspenseContext");
 
+                    let was_first_run =
+                        cfg!(feature = "csr") && first_run.get();
                     let is_first_run =
-                        is_first_run(&first_run, &suspense_context);
+                        is_first_run(first_run, &suspense_context);
                     first_run.set(false);
 
                     if let Some(prev_children) = &*prev_child.borrow() {
-                        if is_first_run {
+                        if is_first_run || was_first_run {
                             fallback().into_view()
                         } else {
                             prev_children.clone()
@@ -127,10 +128,12 @@ where
                 {
                     *prev_children.borrow_mut() = Some(frag.clone());
                 }
-                if is_first_run(&first_run, &suspense_context) {
+                if is_first_run(first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
                         || cfg!(feature = "csr");
-                    if !has_local_only || child_runs.get() > 0 {
+                    if (!has_local_only || child_runs.get() > 0)
+                        && !cfg!(feature = "csr")
+                    {
                         first_run.set(false);
                     }
                 }
@@ -149,7 +152,7 @@ where
 }
 
 fn is_first_run(
-    first_run: &Rc<Cell<bool>>,
+    first_run: RwSignal<bool>,
     suspense_context: &SuspenseContext,
 ) -> bool {
     if cfg!(feature = "csr") {
