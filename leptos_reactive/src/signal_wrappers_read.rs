@@ -28,12 +28,12 @@ where
 /// function call, `with()`, and `get()` APIs as other signals.
 ///
 /// ## Core Trait Implementations
-/// - [`.get()`](#impl-SignalGet<T>-for-Signal<T>) (or calling the signal as a function) clones the current
+/// - [`.get()`](#impl-SignalGet-for-Signal<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Signal<T>) clones the value of the signal
 ///   without reactively tracking it.
-/// - [`.with()`](#impl-SignalWith<T>-for-Signal<T>) allows you to reactively access the signal’s value without
+/// - [`.with()`](#impl-SignalWith-for-Signal<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Signal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
@@ -97,7 +97,9 @@ impl<T> PartialEq for Signal<T> {
 /// Please note that using `Signal::with_untracked` still clones the inner value,
 /// so there's no benefit to using it as opposed to calling
 /// `Signal::get_untracked`.
-impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
+impl<T: Clone> SignalGetUntracked for Signal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -141,7 +143,9 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     }
 }
 
-impl<T> SignalWithUntracked<T> for Signal<T> {
+impl<T> SignalWithUntracked for Signal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -218,7 +222,9 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// assert_eq!(memoized_lower.get(), "alice");
 /// # runtime.dispose();
 /// ```
-impl<T> SignalWith<T> for Signal<T> {
+impl<T> SignalWith for Signal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -280,7 +286,9 @@ impl<T> SignalWith<T> for Signal<T> {
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// # runtime.dispose();
 /// ```
-impl<T: Clone> SignalGet<T> for Signal<T> {
+impl<T: Clone> SignalGet for Signal<T> {
+    type Value = T;
+
     fn get(&self) -> T {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.get(),
@@ -475,12 +483,12 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// of the same type. This is especially useful for component properties.
 ///
 /// ## Core Trait Implementations
-/// - [`.get()`](#impl-SignalGet<T>-for-MaybeSignal<T>) (or calling the signal as a function) clones the current
+/// - [`.get()`](#impl-SignalGet-for-MaybeSignal<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeSignal<T>) clones the value of the signal
 ///   without reactively tracking it.
-/// - [`.with()`](#impl-SignalWith<T>-for-MaybeSignal<T>) allows you to reactively access the signal’s value without
+/// - [`.with()`](#impl-SignalWith-for-MaybeSignal<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeSignal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
@@ -557,7 +565,9 @@ impl<T: Default> Default for MaybeSignal<T> {
 /// assert_eq!(above_3(&static_value.into()), true);
 /// # runtime.dispose();
 /// ```
-impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
+impl<T: Clone> SignalGet for MaybeSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -624,7 +634,9 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// assert_eq!(static_value.get(), "Bob");
 /// # runtime.dispose();
 /// ```
-impl<T> SignalWith<T> for MaybeSignal<T> {
+impl<T> SignalWith for MaybeSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -658,7 +670,9 @@ impl<T> SignalWith<T> for MaybeSignal<T> {
     }
 }
 
-impl<T> SignalWithUntracked<T> for MaybeSignal<T> {
+impl<T> SignalWithUntracked for MaybeSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -692,7 +706,9 @@ impl<T> SignalWithUntracked<T> for MaybeSignal<T> {
     }
 }
 
-impl<T: Clone> SignalGetUntracked<T> for MaybeSignal<T> {
+impl<T: Clone> SignalGetUntracked for MaybeSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -831,12 +847,12 @@ impl From<&str> for MaybeSignal<String> {
 /// This creates an extremely flexible type for component libraries, etc.
 ///
 /// ## Core Trait Implementations
-/// - [`.get()`](#impl-SignalGet<T>-for-MaybeProp<T>) (or calling the signal as a function) clones the current
+/// - [`.get()`](#impl-SignalGet-for-MaybeProp<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeProp<T>) clones the value of the signal
 ///   without reactively tracking it.
-/// - [`.with()`](#impl-SignalWith<T>-for-MaybeProp<T>) allows you to reactively access the signal’s value without
+/// - [`.with()`](#impl-SignalWith-for-MaybeProp<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeProp<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
@@ -902,7 +918,9 @@ impl<T> Default for MaybeProp<T> {
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// # runtime.dispose();
 /// ```
-impl<T: Clone> SignalGet<Option<T>> for MaybeProp<T> {
+impl<T: Clone> SignalGet for MaybeProp<T> {
+    type Value = Option<T>;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1042,7 +1060,9 @@ impl<T> MaybeProp<T> {
     }
 }
 
-impl<T: Clone> SignalGetUntracked<Option<T>> for MaybeProp<T> {
+impl<T: Clone> SignalGetUntracked for MaybeProp<T> {
+    type Value = Option<T>;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(

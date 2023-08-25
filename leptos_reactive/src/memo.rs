@@ -206,7 +206,9 @@ fn forward_ref_to<T, O, F: FnOnce(&T) -> O>(
     }
 }
 
-impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
+impl<T: Clone> SignalGetUntracked for Memo<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -257,7 +259,9 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     }
 }
 
-impl<T> SignalWithUntracked<T> for Memo<T> {
+impl<T> SignalWithUntracked for Memo<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -324,7 +328,9 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 /// # runtime.dispose();
 /// #
 /// ```
-impl<T: Clone> SignalGet<T> for Memo<T> {
+impl<T: Clone> SignalGet for Memo<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -364,7 +370,9 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
     }
 }
 
-impl<T> SignalWith<T> for Memo<T> {
+impl<T> SignalWith for Memo<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(

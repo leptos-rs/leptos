@@ -77,7 +77,9 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
 
 impl<T> Copy for SignalSetter<T> {}
 
-impl<T> SignalSet<T> for SignalSetter<T> {
+impl<T> SignalSet for SignalSetter<T> {
+    type Value = T;
+
     fn set(&self, new_value: T) {
         match self.inner {
             SignalSetterTypes::Default => {}

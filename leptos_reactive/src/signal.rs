@@ -105,35 +105,41 @@ pub mod prelude {
 
 /// This trait allows getting an owned value of the signals
 /// inner type.
-pub trait SignalGet<T> {
+pub trait SignalGet {
+    /// The value held by the signal.
+    type Value;
+
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
     ///
     /// # Panics
     /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
-    fn get(&self) -> T;
+    fn get(&self) -> Self::Value;
 
     /// Clones and returns the signal value, returning [`Some`] if the signal
     /// is still alive, and [`None`] otherwise.
-    fn try_get(&self) -> Option<T>;
+    fn try_get(&self) -> Option<Self::Value>;
 }
 
 /// This trait allows obtaining an immutable reference to the signal's
 /// inner type.
-pub trait SignalWith<T> {
+pub trait SignalWith {
+    /// The value held by the signal.
+    type Value;
+
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal.
     ///
     /// # Panics
     /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
-    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+    fn with<O>(&self, f: impl FnOnce(&Self::Value) -> O) -> O;
 
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal. Returns [`Some`] if the signal is
     /// valid and the function ran, otherwise returns [`None`].
-    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+    fn try_with<O>(&self, f: impl FnOnce(&Self::Value) -> O) -> Option<O>;
 
     /// Subscribes to this signal in the current reactive scope without doing anything with its value.
     fn track(&self) {
@@ -142,31 +148,37 @@ pub trait SignalWith<T> {
 }
 
 /// This trait allows setting the value of a signal.
-pub trait SignalSet<T> {
+pub trait SignalSet {
+    /// The value held by the signal.
+    type Value;
+
     /// Sets the signal’s value and notifies subscribers.
     ///
     /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
     #[track_caller]
-    fn set(&self, new_value: T);
+    fn set(&self, new_value: Self::Value);
 
     /// Sets the signal’s value and notifies subscribers. Returns [`None`]
     /// if the signal is still valid, [`Some(T)`] otherwise.
     ///
     /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
-    fn try_set(&self, new_value: T) -> Option<T>;
+    fn try_set(&self, new_value: Self::Value) -> Option<Self::Value>;
 }
 
 /// This trait allows updating the inner value of a signal.
-pub trait SignalUpdate<T> {
+pub trait SignalUpdate {
+    /// The value held by the signal.
+    type Value;
+
     /// Applies a function to the current value to mutate it in place
     /// and notifies subscribers that the signal has changed.
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
     #[track_caller]
-    fn update(&self, f: impl FnOnce(&mut T));
+    fn update(&self, f: impl FnOnce(&mut Self::Value));
 
     /// Applies a function to the current value to mutate it in place
     /// and notifies subscribers that the signal has changed. Returns
@@ -174,45 +186,55 @@ pub trait SignalUpdate<T> {
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
-    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
+    fn try_update<O>(&self, f: impl FnOnce(&mut Self::Value) -> O)
+        -> Option<O>;
 }
 
 /// Trait implemented for all signal types which you can `get` a value
 /// from, such as [`ReadSignal`],
 /// [`Memo`](crate::Memo), etc., which allows getting the inner value without
 /// subscribing to the current scope.
-pub trait SignalGetUntracked<T> {
+pub trait SignalGetUntracked {
+    /// The value held by the signal.
+    type Value;
+
     /// Gets the signal's value without creating a dependency on the
     /// current scope.
     ///
     /// # Panics
     /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
-    fn get_untracked(&self) -> T;
+    fn get_untracked(&self) -> Self::Value;
 
     /// Gets the signal's value without creating a dependency on the
     /// current scope. Returns [`Some(T)`] if the signal is still
     /// valid, [`None`] otherwise.
-    fn try_get_untracked(&self) -> Option<T>;
+    fn try_get_untracked(&self) -> Option<Self::Value>;
 }
 
 /// This trait allows getting a reference to the signals inner value
 /// without creating a dependency on the signal.
-pub trait SignalWithUntracked<T> {
+pub trait SignalWithUntracked {
+    /// The value held by the signal.
+    type Value;
+
     /// Runs the provided closure with a reference to the current
     /// value without creating a dependency on the current scope.
     ///
     /// # Panics
     /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
     #[track_caller]
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+    fn with_untracked<O>(&self, f: impl FnOnce(&Self::Value) -> O) -> O;
 
     /// Runs the provided closure with a reference to the current
     /// value without creating a dependency on the current scope.
     /// Returns [`Some(O)`] if the signal is still valid, [`None`]
     /// otherwise.
     #[track_caller]
-    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+    fn try_with_untracked<O>(
+        &self,
+        f: impl FnOnce(&Self::Value) -> O,
+    ) -> Option<O>;
 }
 
 /// Trait implemented for all signal types which you can `set` the inner
@@ -419,7 +441,9 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
+impl<T: Clone> SignalGetUntracked for ReadSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -470,7 +494,9 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     }
 }
 
-impl<T> SignalWithUntracked<T> for ReadSignal<T> {
+impl<T> SignalWithUntracked for ReadSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -533,7 +559,9 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// assert_eq!(first_char(), 'B');
 /// # runtime.dispose();
 /// ```
-impl<T> SignalWith<T> for ReadSignal<T> {
+impl<T> SignalWith for ReadSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -600,7 +628,9 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 /// // assert_eq!(count.get(), 0);
 /// # runtime.dispose();
 /// ```
-impl<T: Clone> SignalGet<T> for ReadSignal<T> {
+impl<T: Clone> SignalGet for ReadSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -928,7 +958,9 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// assert_eq!(count.get(), 1);
 /// # runtime.dispose();
 /// ```
-impl<T> SignalUpdate<T> for WriteSignal<T> {
+impl<T> SignalUpdate for WriteSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1000,7 +1032,9 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// assert_eq!(count.get(), 1);
 /// # runtime.dispose();
 /// ```
-impl<T> SignalSet<T> for WriteSignal<T> {
+impl<T> SignalSet for WriteSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1217,7 +1251,9 @@ impl<T> From<T> for RwSignal<T> {
     }
 }
 
-impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
+impl<T: Clone> SignalGetUntracked for RwSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1279,7 +1315,9 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     }
 }
 
-impl<T> SignalWithUntracked<T> for RwSignal<T> {
+impl<T> SignalWithUntracked for RwSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1456,7 +1494,9 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// # runtime.dispose();
 /// #
 /// ```
-impl<T> SignalWith<T> for RwSignal<T> {
+impl<T> SignalWith for RwSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1524,7 +1564,9 @@ impl<T> SignalWith<T> for RwSignal<T> {
 /// # runtime.dispose();
 /// #
 /// ```
-impl<T: Clone> SignalGet<T> for RwSignal<T> {
+impl<T: Clone> SignalGet for RwSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1604,7 +1646,9 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// assert_eq!(count.get(), 1);
 /// # runtime.dispose();
 /// ```
-impl<T> SignalUpdate<T> for RwSignal<T> {
+impl<T> SignalUpdate for RwSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -1671,7 +1715,9 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 /// assert_eq!(count.get(), 1);
 /// # runtime.dispose();
 /// ```
-impl<T> SignalSet<T> for RwSignal<T> {
+impl<T> SignalSet for RwSignal<T> {
+    type Value = T;
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
