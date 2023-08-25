@@ -9,6 +9,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 /// Hydration data and other context that is shared between the server
 /// and the client.
 pub struct SharedContext {
+    /// Resources that initially needed to resolve from the server.
+    pub server_resources: HashSet<ResourceId>,
     /// Resources that have not yet resolved.
     pub pending_resources: HashSet<ResourceId>,
     /// Resources that have already resolved.
@@ -201,24 +203,27 @@ impl Default for SharedContext {
                 let pending_resources: HashSet<ResourceId> = pending_resources
                     .map_err(|_| ())
                     .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
-                    .unwrap_or_default();
+                    .unwrap();
 
                 let resolved_resources = js_sys::Reflect::get(
                     &web_sys::window().unwrap(),
                     &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
                 )
-                .unwrap_or(wasm_bindgen::JsValue::NULL);
+                .unwrap(); // unwrap_or(wasm_bindgen::JsValue::NULL);
 
                 let resolved_resources =
-                    serde_wasm_bindgen::from_value(resolved_resources).unwrap_or_default();
+                    serde_wasm_bindgen::from_value(resolved_resources).unwrap();
+
 
                 Self {
+                    server_resources: pending_resources.clone(),
                     pending_resources,
                     resolved_resources,
                     pending_fragments: Default::default(),
                 }
             } else {
                 Self {
+                    server_resources: Default::default(),
                     pending_resources: Default::default(),
                     resolved_resources: Default::default(),
                     pending_fragments: Default::default(),
