@@ -130,10 +130,7 @@ where
                 if is_first_run(&first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
                         || cfg!(feature = "csr");
-                    if (!has_local_only || child_runs.get() > 0)
-                        && (cfg!(feature = "csr")
-                            || HydrationCtx::is_hydrating())
-                    {
+                    if (!has_local_only || child_runs.get() > 0) {
                         first_run.set(false);
                     }
                 }
