@@ -28,9 +28,9 @@ use cfg_if::cfg_if;
 pub use components::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
-pub use events::typed as ev;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
+pub use events::{typed as ev, typed::EventHandler};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
