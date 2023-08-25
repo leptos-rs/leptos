@@ -56,8 +56,8 @@ pub struct LeptosOptions {
     #[builder(default = default_reload_port())]
     #[serde(default = "default_reload_port")]
     pub reload_port: u32,
-    // The port the Websocket watcher listens on on the client. EG when behind a reverse proxy.
-    // Defaults to match reload_port
+    /// The port the Websocket watcher listens on when on the client, e.g., when behind a reverse proxy.
+    /// Defaults to match reload_port
     #[builder(default)]
     #[serde(default)]
     pub reload_external_port: Option<u32>,
