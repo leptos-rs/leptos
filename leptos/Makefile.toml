@@ -58,5 +58,3 @@ args = [
 [tasks.check-release]
 command = "cargo"
 args = ["check", "--release"]
-
-# TODO: Remove this simulated change
