@@ -17,10 +17,10 @@ pub struct TitleContext {
 impl TitleContext {
     /// Converts the title into a string that can be used as the text content of a `<title>` tag.
     pub fn as_string(&self) -> Option<Oco<'static, str>> {
-        let title = self.text.borrow().as_ref().map(|f| f.get());
+        let title = self.text.borrow().as_ref().map(TextProp::get);
         title.map(|title| {
             if let Some(formatter) = &*self.formatter.borrow() {
-                (formatter.0)(title)
+                (formatter.0)(title.into_owned()).into()
             } else {
                 title
             }
@@ -36,11 +36,11 @@ impl std::fmt::Debug for TitleContext {
 
 /// A function that is applied to the text value before setting `document.title`.
 #[repr(transparent)]
-pub struct Formatter(Box<dyn Fn(Oco<'static, str>) -> Oco<'static, str>>);
+pub struct Formatter(Box<dyn Fn(String) -> String>);
 
 impl<F> From<F> for Formatter
 where
-    F: Fn(Oco<'static, str>) -> Oco<'static, str> + 'static,
+    F: Fn(String) -> String + 'static,
 {
     #[inline(always)]
     fn from(f: F) -> Formatter {

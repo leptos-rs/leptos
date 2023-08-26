@@ -10,7 +10,7 @@ That’s where the [`leptos_meta`](https://docs.rs/leptos_meta/latest/leptos_met
 
 `leptos_meta` provides special components that let you inject data from inside components anywhere in your application into the `<head>`:
 
-[`<Title/>`](https://docs.rs/leptos_meta/latest/leptos_meta/fn.Title.html) allows you to set the document’s title from any component. It also takes a `formatter` function that can be used to apply the same format to the title set by other pages. So, for example, if you put `<Title formatter=|text| format!("{text} — My Awesome Site").into()/>` in your `<App/>` component, and then `<Title text="Page 1"/>` and `<Title text="Page 2"/>` on your routes, you’ll get `Page 1 — My Awesome Site` and `Page 2 — My Awesome Site`.
+[`<Title/>`](https://docs.rs/leptos_meta/latest/leptos_meta/fn.Title.html) allows you to set the document’s title from any component. It also takes a `formatter` function that can be used to apply the same format to the title set by other pages. So, for example, if you put `<Title formatter=|text| format!("{text} — My Awesome Site")/>` in your `<App/>` component, and then `<Title text="Page 1"/>` and `<Title text="Page 2"/>` on your routes, you’ll get `Page 1 — My Awesome Site` and `Page 2 — My Awesome Site`.
 
 [`<Link/>`](https://docs.rs/leptos_meta/latest/leptos_meta/fn.Link.html) takes the standard attributes of the `<link>` element.
 

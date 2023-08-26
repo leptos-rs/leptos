@@ -23,7 +23,7 @@
 //!         // reactively sets document.title when `name` changes
 //!         text=move || name.get()
 //!         // applies the `formatter` function to the `text` value
-//!         formatter=|text| format!("“{text}” is your name").into()
+//!         formatter=|text| format!("“{text}” is your name")
 //!       />
 //!       <main>
 //!         <input
