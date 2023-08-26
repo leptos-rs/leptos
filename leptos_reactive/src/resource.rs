@@ -1,10 +1,12 @@
+#[cfg(debug_assertions)]
+use crate::SpecialNonReactiveZone;
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
     queue_microtask, runtime::with_runtime, serialization::Serializable,
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
     GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
     SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
-    SignalWith, SpecialNonReactiveZone, SuspenseContext, WriteSignal,
+    SignalWith, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -504,10 +506,22 @@ where
         instrument(level = "trace", skip_all,)
     )]
     pub fn loading(&self) -> Signal<bool> {
-        let loading = with_runtime(|runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.loading
-            })
+        #[allow(unused_variables)]
+        let (loading, is_from_server) = with_runtime(|runtime| {
+            let loading = runtime
+                .resource(self.id, |resource: &ResourceState<S, T>| {
+                    resource.loading
+                });
+            #[cfg(feature = "hydrate")]
+            let is_from_server = runtime
+                .shared_context
+                .borrow()
+                .server_resources
+                .contains(&self.id);
+
+            #[cfg(not(feature = "hydrate"))]
+            let is_from_server = false;
+            (loading, is_from_server)
         })
         .expect(
             "tried to call Resource::loading() in a runtime that has already \
@@ -519,24 +533,20 @@ where
             // if the loading signal is read outside Suspense
             // in hydrate mode, there will be a mismatch on first render
             // unless we delay a tick
-            if use_context::<SuspenseContext>().is_none()
-                && !loading.get_untracked()
-            {
-                let (initial, set_initial) = create_signal(true);
-                queue_microtask(move || set_initial.set(false));
-                Signal::derive(move || {
-                    if initial.get()
-                        && use_context::<SuspenseContext>().is_none()
-                    {
-                        true
-                    } else {
-                        loading.get()
-                    }
-                })
-            } else {
-                loading.into()
-            }
+            let (initial, set_initial) = create_signal(true);
+            queue_microtask(move || set_initial.set(false));
+            Signal::derive(move || {
+                if is_from_server
+                    && initial.get()
+                    && use_context::<SuspenseContext>().is_none()
+                {
+                    true
+                } else {
+                    loading.get()
+                }
+            })
         }
+
         #[cfg(not(feature = "hydrate"))]
         {
             loading.into()
@@ -785,6 +795,7 @@ where
         )
     )]
     #[inline(always)]
+    #[track_caller]
     fn try_get(&self) -> Option<Option<T>> {
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
