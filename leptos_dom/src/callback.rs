@@ -141,7 +141,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 pub struct HtmlCallback<In>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
 
 impl<In> HtmlCallback<In> {
-    /// todo
+    /// creates a new callback from the function or closure
     pub fn new<F, H>(f: F) -> Self
     where
         F: Fn(In) -> HtmlElement<H> + 'static,
