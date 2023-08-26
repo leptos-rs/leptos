@@ -1,6 +1,8 @@
+#[cfg(debug_assertions)]
+use super::ident_from_tag_name;
 use super::{
     client_builder::{fragment_to_tokens, TagType},
-    event_from_attribute_node, ident_from_tag_name,
+    event_from_attribute_node,
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};

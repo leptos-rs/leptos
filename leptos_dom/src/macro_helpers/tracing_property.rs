@@ -5,7 +5,7 @@ use wasm_bindgen::UnwrapThrowExt;
 macro_rules! tracing_props {
     () => {
         ::leptos::leptos_dom::tracing::span!(
-            ::leptos::leptos_dom::tracing::Level::DEBUG,
+            ::leptos::leptos_dom::tracing::Level::TRACE,
             "leptos_dom::tracing_props",
             props = String::from("[]")
         );
@@ -24,7 +24,7 @@ macro_rules! tracing_props {
             props.pop();
             props.push(']');
             ::leptos::leptos_dom::tracing::span!(
-                ::leptos::leptos_dom::tracing::Level::DEBUG,
+                ::leptos::leptos_dom::tracing::Level::TRACE,
                 "leptos_dom::tracing_props",
                 props
             );
@@ -48,10 +48,21 @@ impl<T: serde::Serialize> SerializeMatch for &Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        serde_json::to_string(self.value.get().unwrap_throw()).map_or_else(
-            |err| format!(r#"{{"name": "{name}", "error": "{err}"}}"#),
-            |value| format!(r#"{{"name": "{name}", "value": {value}}}"#),
-        )
+
+        // suppresses warnings when serializing signals into props
+        #[cfg(debug_assertions)]
+        let prev = leptos_reactive::SpecialNonReactiveZone::enter();
+
+        let value = serde_json::to_string(self.value.get().unwrap_throw())
+            .map_or_else(
+                |err| format!(r#"{{"name": "{name}", "error": "{err}"}}"#),
+                |value| format!(r#"{{"name": "{name}", "value": {value}}}"#),
+            );
+
+        #[cfg(debug_assertions)]
+        leptos_reactive::SpecialNonReactiveZone::exit(prev);
+
+        value
     }
 }
 
@@ -63,9 +74,7 @@ impl<T> DefaultMatch for Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        format!(
-            r#"{{"name": "{name}", "error": "The trait `serde::Serialize` is not implemented"}}"#
-        )
+        format!(r#"{{"name": "{name}", "value": "[unserializable value]"}}"#)
     }
 }
 
@@ -147,6 +156,8 @@ fn match_serialize() {
 
 #[test]
 fn match_no_serialize() {
+    #![allow(clippy::needless_borrow)]
+
     struct CustomStruct {
         field: &'static str,
     }
@@ -159,7 +170,7 @@ fn match_no_serialize() {
         .spez();
     assert_eq!(
         prop,
-        r#"{"name": "test", "error": "The trait `serde::Serialize` is not implemented"}"#
+        r#"{"name": "test", "value": "[unserializable value]"}"#
     );
     // Verification of ownership
     assert_eq!(test.field, "field");

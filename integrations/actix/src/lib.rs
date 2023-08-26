@@ -27,6 +27,7 @@ use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
 use std::{fmt::Display, future::Future, sync::Arc};
+#[cfg(debug_assertions)]
 use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
