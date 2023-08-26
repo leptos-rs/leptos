@@ -30,7 +30,7 @@ tracing = "0.1.37"
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = { git = "https://github.com/idanarye/rust-typed-builder", branch = "feature/issue-109-setting-crate_module_path" }
+typed-builder = "0.16"
 trybuild = "1"
 leptos = { path = "../leptos" }
 insta = "1.29"
