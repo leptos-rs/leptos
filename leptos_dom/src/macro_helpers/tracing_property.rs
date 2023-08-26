@@ -1,18 +1,18 @@
-use wasm_bindgen::UnwrapThrowExt;
+use leptos_reactive::untrack;
 
 #[macro_export]
 /// Use for tracing property
 macro_rules! tracing_props {
     () => {
         ::leptos::leptos_dom::tracing::span!(
-            ::leptos::leptos_dom::tracing::Level::DEBUG,
+            ::leptos::leptos_dom::tracing::Level::TRACE,
             "leptos_dom::tracing_props",
             props = String::from("[]")
         );
     };
     ($($prop:tt),+ $(,)?) => {
         {
-            use ::leptos::leptos_dom::tracing_property::{Match, SerializeMatch, DefaultMatch};
+            use ::leptos::leptos_dom::tracing_property::{Match, DebugMatch, DefaultMatch};
             let mut props = String::from('[');
             $(
                 let prop = (&&Match {
@@ -24,7 +24,7 @@ macro_rules! tracing_props {
             props.pop();
             props.push(']');
             ::leptos::leptos_dom::tracing::span!(
-                ::leptos::leptos_dom::tracing::Level::DEBUG,
+                ::leptos::leptos_dom::tracing::Level::TRACE,
                 "leptos_dom::tracing_props",
                 props
             );
@@ -40,18 +40,20 @@ pub struct Match<T> {
     pub value: std::cell::Cell<Option<T>>,
 }
 
-pub trait SerializeMatch {
+pub trait DebugMatch {
     type Return;
     fn spez(&self) -> Self::Return;
 }
-impl<T: serde::Serialize> SerializeMatch for &Match<&T> {
+impl<T: std::fmt::Debug> DebugMatch for &Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        serde_json::to_string(self.value.get().unwrap_throw()).map_or_else(
-            |err| format!(r#"{{"name": "{name}", "error": "{err}"}}"#),
-            |value| format!(r#"{{"name": "{name}", "value": {value}}}"#),
-        )
+        untrack(move || {
+            format!(
+                r#"{{"name": "{name}", "value": {:?}}}"#,
+                self.value.get().unwrap()
+            )
+        })
     }
 }
 
@@ -63,9 +65,7 @@ impl<T> DefaultMatch for Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        format!(
-            r#"{{"name": "{name}", "error": "The trait `serde::Serialize` is not implemented"}}"#
-        )
+        format!(r#"{{"name": "{name}", "value": "{{no Debug value}}"}}"#)
     }
 }
 
