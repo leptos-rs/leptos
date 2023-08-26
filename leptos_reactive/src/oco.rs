@@ -1,4 +1,4 @@
-//! This module contains the `Immutable` smart pointer,
+//! This module contains the `Oco` (Owned Clones Once) smart pointer,
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
 
@@ -16,8 +16,12 @@ use std::{
 /// an owned value, or a reference counted pointer. This is useful for
 /// storing immutable values, such as strings, in a way that is cheap to
 /// clone and pass around.
-/// The Clone implementation is amortized O(1), and will only clone the
-/// [`Oco::Owned`] variant once, while converting it into [`Oco::Counted`].
+/// 
+/// The `Clone` implementation is amortized `O(1)`. Cloning the [`Oco::Borrowed`]
+/// variant simply copies the references (`O(1)`). Cloning the [`Oco::Counted`] 
+/// variant increments a reference count (`O(1)`). Cloning the [`Oco::Owned`]
+/// variant upgrades it to [`Oco::Counted`], which requires an `O(n)` clone of the 
+/// data, but all subsequent clones will be `O(1)`. 
 pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     /// A static reference to a value.
     Borrowed(&'a T),
@@ -207,7 +211,7 @@ where
 }
 
 // ------------------------------------------------------------------------------------------------------
-// Cloning (have to be implemented manually because of the `Rc<T>: From<&<T as ToOwned>::Owned>` bound)
+// Cloning (has to be implemented manually because of the `Rc<T>: From<&<T as ToOwned>::Owned>` bound)
 // ------------------------------------------------------------------------------------------------------
 
 impl Clone for Oco<'_, str> {
