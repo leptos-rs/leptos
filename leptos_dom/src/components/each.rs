@@ -2,7 +2,7 @@
 use crate::hydration::HydrationKey;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use leptos_reactive::{as_child_of_current_owner, Disposer};
-use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
+use std::{cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use web::*;
 
@@ -79,9 +79,9 @@ impl Default for EachRepr {
         let id = HydrationCtx::id();
 
         let markers = (
-            Comment::new(Cow::Borrowed("</Each>"), &id, true),
+            Comment::new("</Each>", &id, true),
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Borrowed("<Each>"), &id, false),
+            Comment::new("<Each>", &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -224,13 +224,13 @@ impl EachItem {
 
         let markers = (
             if needs_closing {
-                Some(Comment::new(Cow::Borrowed("</EachItem>"), &id, true))
+                Some(Comment::new("</EachItem>", &id, true))
             } else {
                 None
             },
             #[cfg(debug_assertions)]
             if needs_closing {
-                Some(Comment::new(Cow::Borrowed("<EachItem>"), &id, false))
+                Some(Comment::new("<EachItem>", &id, false))
             } else {
                 None
             },

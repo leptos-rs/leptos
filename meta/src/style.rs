@@ -1,6 +1,5 @@
 use crate::use_head;
 use leptos::{nonce::use_nonce, *};
-use std::borrow::Cow;
 
 /// Injects an [HTMLStyleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLStyleElement) into the document
 /// head, accepting any of the valid attributes for that tag.
@@ -25,26 +24,26 @@ use std::borrow::Cow;
 pub fn Style(
     /// An ID for the `<script>` tag.
     #[prop(optional, into)]
-    id: Option<Cow<'static, str>>,
+    id: Option<Oco<'static, str>>,
     /// The [`media`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style#attr-media) attribute.
     #[prop(optional, into)]
-    media: Option<Cow<'static, str>>,
+    media: Option<Oco<'static, str>>,
     /// The [`nonce`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style#attr-nonce) attribute.
     #[prop(optional, into)]
-    nonce: Option<Cow<'static, str>>,
+    nonce: Option<Oco<'static, str>>,
     /// The [`title`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style#attr-title) attribute.
     #[prop(optional, into)]
-    title: Option<Cow<'static, str>>,
+    title: Option<Oco<'static, str>>,
     /// The [`blocking`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style#attr-blocking) attribute.
     #[prop(optional, into)]
-    blocking: Option<Cow<'static, str>>,
+    blocking: Option<Oco<'static, str>>,
     /// The content of the `<style>` tag.
     #[prop(optional)]
     children: Option<Box<dyn FnOnce() -> Fragment>>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
-    let id: Cow<'static, str> =
+    let id: Oco<'static, str> =
         id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag({

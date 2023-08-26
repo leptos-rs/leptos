@@ -24,6 +24,20 @@ impl ToHref for String {
     }
 }
 
+impl ToHref for Cow<'_, str> {
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+        let s = self.to_string();
+        Box::new(move || s.clone())
+    }
+}
+
+impl ToHref for Oco<'_, str> {
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+        let s = self.to_string();
+        Box::new(move || s.clone())
+    }
+}
+
 impl<F> ToHref for F
 where
     F: Fn() -> String + 'static,
@@ -65,7 +79,7 @@ pub fn A<H>(
     /// `[aria-current=page]` selector, you should prefer that, as it enables significant
     /// SSR optimizations.
     #[prop(optional, into)]
-    active_class: Option<Cow<'static, str>>,
+    active_class: Option<Oco<'static, str>>,
     /// An object of any type that will be pushed to router state
     #[prop(optional)]
     state: Option<State>,
@@ -78,7 +92,7 @@ pub fn A<H>(
     class: Option<AttributeValue>,
     /// Sets the `id` attribute on the underlying `<a>` tag, making it easier to target.
     #[prop(optional, into)]
-    id: Option<String>,
+    id: Option<Oco<'static, str>>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -95,37 +109,35 @@ where
         #[allow(unused)] state: Option<State>,
         #[allow(unused)] replace: bool,
         class: Option<AttributeValue>,
-        #[allow(unused)] active_class: Option<Cow<'static, str>>,
-        id: Option<String>,
+        #[allow(unused)] active_class: Option<Oco<'static, str>>,
+        id: Option<Oco<'static, str>>,
         children: Children,
     ) -> View {
         #[cfg(not(any(feature = "hydrate", feature = "csr")))]
         {
             _ = state;
-        }
-
-        #[cfg(not(any(feature = "hydrate", feature = "csr")))]
-        {
             _ = replace;
         }
 
         let location = use_location();
-        let is_active = create_memo(move |_| match href.get() {
-            None => false,
-
-            Some(to) => {
-                let path = to
-                    .split(['?', '#'])
-                    .next()
-                    .unwrap_or_default()
-                    .to_lowercase();
-                let loc = location.pathname.get().to_lowercase();
-                if exact {
-                    loc == path
-                } else {
-                    loc.starts_with(&path)
-                }
-            }
+        let is_active = create_memo(move |_| {
+            href.with(|href| {
+                href.as_deref().is_some_and(|to| {
+                    let path = to
+                        .split(['?', '#'])
+                        .next()
+                        .unwrap_or_default()
+                        .to_lowercase();
+                    location.pathname.with(|loc| {
+                        let loc = loc.to_lowercase();
+                        if exact {
+                            loc == path
+                        } else {
+                            loc.starts_with(&path)
+                        }
+                    })
+                })
+            })
         });
 
         #[cfg(feature = "ssr")]

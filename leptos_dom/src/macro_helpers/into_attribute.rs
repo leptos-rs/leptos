@@ -1,3 +1,4 @@
+use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
@@ -14,11 +15,11 @@ use wasm_bindgen::UnwrapThrowExt;
 #[derive(Clone)]
 pub enum Attribute {
     /// A plain string value.
-    String(Cow<'static, str>),
+    String(Oco<'static, str>),
     /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the attribute.
     Fn(Rc<dyn Fn() -> Attribute>),
     /// An optional string value, which sets the attribute to the value if `Some` and removes the attribute if `None`.
-    Option(Option<Cow<'static, str>>),
+    Option(Option<Oco<'static, str>>),
     /// A boolean attribute, which sets the attribute if `true` and removes the attribute if `false`.
     Bool(bool),
 }
@@ -29,7 +30,7 @@ impl Attribute {
     pub fn as_value_string(
         &self,
         attr_name: &'static str,
-    ) -> Cow<'static, str> {
+    ) -> Oco<'static, str> {
         match self {
             Attribute::String(value) => {
                 format!("{attr_name}=\"{value}\"").into()
@@ -46,14 +47,14 @@ impl Attribute {
                 .map(|value| format!("{attr_name}=\"{value}\"").into())
                 .unwrap_or_default(),
             Attribute::Bool(include) => {
-                Cow::Borrowed(if *include { attr_name } else { "" })
+                Oco::Borrowed(if *include { attr_name } else { "" })
             }
         }
     }
 
     /// Converts the attribute to its HTML value at that moment, not including
     /// the attribute name, so it can be rendered on the server.
-    pub fn as_nameless_value_string(&self) -> Option<Cow<'static, str>> {
+    pub fn as_nameless_value_string(&self) -> Option<Oco<'static, str>> {
         match self {
             Attribute::String(value) => Some(value.clone()),
             Attribute::Fn(f) => {
@@ -148,7 +149,7 @@ impl IntoAttribute for Option<Attribute> {
 impl IntoAttribute for String {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Cow::Owned(self))
+        Attribute::String(Oco::Owned(self))
     }
 
     impl_into_attr_boxed! {}
@@ -157,13 +158,22 @@ impl IntoAttribute for String {
 impl IntoAttribute for &'static str {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Cow::Borrowed(self))
+        Attribute::String(Oco::Borrowed(self))
     }
 
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Cow<'static, str> {
+impl IntoAttribute for Rc<str> {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(Oco::Counted(self))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Oco<'static, str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
         Attribute::String(self)
@@ -184,7 +194,7 @@ impl IntoAttribute for bool {
 impl IntoAttribute for Option<String> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Cow::Owned))
+        Attribute::Option(self.map(Oco::Owned))
     }
 
     impl_into_attr_boxed! {}
@@ -193,13 +203,31 @@ impl IntoAttribute for Option<String> {
 impl IntoAttribute for Option<&'static str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Cow::Borrowed))
+        Attribute::Option(self.map(Oco::Borrowed))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Option<Rc<str>> {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(Oco::Counted))
     }
 
     impl_into_attr_boxed! {}
 }
 
 impl IntoAttribute for Option<Cow<'static, str>> {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(Oco::from))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Option<Oco<'static, str>> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
         Attribute::Option(self)
@@ -331,7 +359,7 @@ attr_signal_type_optional!(MaybeProp<T>);
 #[inline(never)]
 pub fn attribute_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     value: Attribute,
 ) {
     use leptos_reactive::create_render_effect;

@@ -3,7 +3,7 @@ use crate::{
     Comment, IntoView, View,
 };
 use cfg_if::cfg_if;
-use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
+use std::{cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable, Text};
@@ -83,9 +83,9 @@ impl Mountable for DynChildRepr {
 impl DynChildRepr {
     fn new_with_id(id: HydrationKey) -> Self {
         let markers = (
-            Comment::new(Cow::Borrowed("</DynChild>"), &id, true),
+            Comment::new("</DynChild>", &id, true),
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Borrowed("<DynChild>"), &id, false),
+            Comment::new("<DynChild>", &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]

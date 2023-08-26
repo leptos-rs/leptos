@@ -4,9 +4,9 @@ use crate::{
 };
 use leptos::{
     create_memo, request_animation_frame, signal_prelude::*, use_context, Memo,
+    Oco,
 };
-use std::{borrow::Cow, rc::Rc, str::FromStr};
-
+use std::{rc::Rc, str::FromStr};
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
 /// The function creates a bidirectional sync mechanism between the state encapsulated in a signal and a URL query parameter.
@@ -45,7 +45,7 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 /// ```
 #[track_caller]
 pub fn create_query_signal<T>(
-    key: impl Into<Cow<'static, str>>,
+    key: impl Into<Oco<'static, str>>,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
     T: FromStr + ToString + PartialEq,
@@ -163,7 +163,7 @@ pub fn use_resolved_path(
         if path.starts_with('/') {
             Some(path)
         } else {
-            route.resolve_path_tracked(&path).map(String::from)
+            route.resolve_path_tracked(&path)
         }
     })
 }

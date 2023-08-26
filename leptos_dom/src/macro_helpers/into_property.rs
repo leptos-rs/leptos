@@ -115,13 +115,13 @@ prop_signal_type!(MaybeSignal<T>);
 prop_signal_type_optional!(MaybeProp<T>);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
+use leptos_reactive::Oco;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[inline(never)]
 pub(crate) fn property_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     value: Property,
 ) {
     use leptos_reactive::create_render_effect;

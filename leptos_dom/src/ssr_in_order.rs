@@ -12,7 +12,7 @@ use cfg_if::cfg_if;
 use futures::{channel::mpsc::UnboundedSender, Stream, StreamExt};
 use itertools::Itertools;
 use leptos_reactive::{
-    create_runtime, suspense::StreamChunk, RuntimeId, SharedContext,
+    create_runtime, suspense::StreamChunk, Oco, RuntimeId, SharedContext,
 };
 use std::{borrow::Cow, collections::VecDeque};
 
@@ -59,7 +59,7 @@ pub fn render_to_stream_in_order(
 #[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order_with_prefix(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     #[cfg(all(feature = "web", feature = "ssr"))]
     crate::console_error(
@@ -89,7 +89,7 @@ pub fn render_to_stream_in_order_with_prefix(
 #[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce() + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId) {
     HydrationCtx::reset_id();
@@ -287,12 +287,11 @@ impl View {
                             StringOrView::String(string) => {
                                 chunks.push_back(StreamChunk::Sync(string))
                             }
-                            StringOrView::View(view) => {
-                                view().into_stream_chunks_helper(
+                            StringOrView::View(view) => view()
+                                .into_stream_chunks_helper(
                                     chunks,
                                     is_script_or_style,
-                                );
-                            }
+                                ),
                         }
                     }
                 } else {
@@ -313,9 +312,9 @@ impl View {
                                 } else {
                                     Some(
                                         format!(
-                    " {name}=\"{}\"",
-                    html_escape::encode_double_quoted_attribute(&value)
-                  )
+                                            " {name}=\"{}\"",
+                                            html_escape::encode_double_quoted_attribute(&value)
+                                        )
                                         .into(),
                                     )
                                 }
@@ -350,7 +349,7 @@ impl View {
                                 }
                             }
                             ElementChildren::InnerHtml(inner_html) => {
-                                chunks.push_back(StreamChunk::Sync(inner_html));
+                                chunks.push_back(StreamChunk::Sync(inner_html))
                             }
                             // handled above
                             ElementChildren::Chunks(_) => unreachable!(),

@@ -4,9 +4,9 @@
 use super::{html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG, HydrationKey};
 use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
+use leptos_reactive::Oco;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::Lazy as LazyCell;
-use std::borrow::Cow;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
@@ -142,7 +142,7 @@ macro_rules! generate_svg_tags {
         }
 
         impl ElementDescriptor for [<$tag:camel $($second:camel $($third:camel)?)?>] {
-          fn name(&self) -> Cow<'static, str> {
+          fn name(&self) -> Oco<'static, str> {
             stringify!($tag).into()
           }
 

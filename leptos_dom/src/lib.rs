@@ -34,6 +34,7 @@ pub use events::{typed as ev, typed::EventHandler};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
+use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
@@ -240,7 +241,7 @@ cfg_if! {
     pub struct Element {
       #[doc(hidden)]
       #[cfg(debug_assertions)]
-      pub name: Cow<'static, str>,
+      pub name: Oco<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
       #[cfg(debug_assertions)]
@@ -261,9 +262,9 @@ cfg_if! {
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
-      name: Cow<'static, str>,
+      name: Oco<'static, str>,
       is_void: bool,
-      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
       children: ElementChildren,
       id: HydrationKey,
       #[cfg(debug_assertions)]
@@ -396,13 +397,13 @@ impl Element {
 struct Comment {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node: web_sys::Node,
-    content: Cow<'static, str>,
+    content: Oco<'static, str>,
 }
 
 impl Comment {
     #[inline]
     fn new(
-        content: impl Into<Cow<'static, str>>,
+        content: impl Into<Oco<'static, str>>,
         id: &HydrationKey,
         closing: bool,
     ) -> Self {
@@ -410,7 +411,7 @@ impl Comment {
     }
 
     fn new_inner(
-        content: Cow<'static, str>,
+        content: Oco<'static, str>,
         id: &HydrationKey,
         closing: bool,
     ) -> Self {
@@ -466,12 +467,13 @@ pub struct Text {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node: web_sys::Node,
     /// The current contents of the text node.
-    pub content: Cow<'static, str>,
+    pub content: Oco<'static, str>,
 }
 
 impl fmt::Debug for Text {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.content)
+        fmt::Debug::fmt(&self.content, f)
     }
 }
 
@@ -484,7 +486,7 @@ impl IntoView for Text {
 
 impl Text {
     /// Creates a new [`Text`].
-    pub fn new(content: Cow<'static, str>) -> Self {
+    pub fn new(content: Oco<'static, str>) -> Self {
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             node: crate::document()

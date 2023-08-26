@@ -65,14 +65,14 @@ impl Class {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
+use leptos_reactive::Oco;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
 #[inline(never)]
 pub fn class_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     value: Class,
 ) {
     use leptos_reactive::create_render_effect;

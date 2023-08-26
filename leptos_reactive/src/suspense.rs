@@ -1,14 +1,12 @@
 //! Types that handle asynchronous data loading via `<Suspense/>`.
 
 use crate::{
-    create_isomorphic_effect, create_rw_signal, create_signal, queue_microtask,
-    signal::SignalGet, store_value, ReadSignal, RwSignal, SignalSet,
-    SignalUpdate, StoredValue, WriteSignal,
+    create_isomorphic_effect, create_rw_signal, create_signal, oco::Oco,
+    queue_microtask, signal::SignalGet, store_value, ReadSignal, RwSignal,
+    SignalSet, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
-use std::{
-    borrow::Cow, cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc,
-};
+use std::{cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc};
 
 /// Tracks [`Resource`](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
@@ -172,7 +170,7 @@ impl Default for SuspenseContext {
 /// Represents a chunk in a stream of HTML.
 pub enum StreamChunk {
     /// A chunk of synchronous HTML.
-    Sync(Cow<'static, str>),
+    Sync(Oco<'static, str>),
     /// A future that resolves to be a list of additional chunks.
     Async {
         /// The HTML chunks this contains.

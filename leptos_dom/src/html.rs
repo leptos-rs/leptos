@@ -66,12 +66,13 @@ use crate::{
     macro_helpers::{IntoAttribute, IntoClass, IntoProperty, IntoStyle},
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
-use std::{borrow::Cow, fmt};
+use leptos_reactive::Oco;
+use std::fmt;
 
 /// Trait which allows creating an element tag.
 pub trait ElementDescriptor: ElementDescriptorBounds {
     /// The name of the element, i.e., `div`, `p`, `custom-element`.
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Oco<'static, str>;
 
     /// Determines if the tag is void, i.e., `<input>` and `<br>`.
     #[inline(always)]
@@ -126,7 +127,7 @@ where
 /// Represents potentially any element.
 #[derive(Clone, Debug)]
 pub struct AnyElement {
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: Oco<'static, str>,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     pub(crate) element: web_sys::HtmlElement,
     pub(crate) is_void: bool,
@@ -159,7 +160,7 @@ impl std::convert::AsRef<web_sys::HtmlElement> for AnyElement {
 }
 
 impl ElementDescriptor for AnyElement {
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.name.clone()
     }
 
@@ -178,7 +179,7 @@ impl ElementDescriptor for AnyElement {
 /// Represents a custom HTML element, such as `<my-element>`.
 #[derive(Clone, Debug)]
 pub struct Custom {
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     element: web_sys::HtmlElement,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -187,7 +188,7 @@ pub struct Custom {
 
 impl Custom {
     /// Creates a new custom element with the given tag name.
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>) -> Self {
         let name = name.into();
         let id = HydrationCtx::id();
 
@@ -266,7 +267,7 @@ impl std::convert::AsRef<web_sys::HtmlElement> for Custom {
 }
 
 impl ElementDescriptor for Custom {
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.name.clone()
     }
 
@@ -294,12 +295,12 @@ cfg_if! {
     #[derive(educe::Educe, Clone)]
     #[educe(Debug)]
     pub struct HtmlElement<El: ElementDescriptor> {
-      pub(crate) element: El,
-      pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-      #[educe(Debug(ignore))]
-      pub(crate) children: ElementChildren,
-      #[cfg(debug_assertions)]
-      pub(crate) view_marker: Option<String>
+        pub(crate) element: El,
+        pub(crate) attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
+        #[educe(Debug(ignore))]
+        pub(crate) children: ElementChildren,
+        #[cfg(debug_assertions)]
+        pub(crate) view_marker: Option<String>
     }
 
     #[derive(Clone, educe::Educe, PartialEq, Eq)]
@@ -308,14 +309,14 @@ cfg_if! {
         #[educe(Default)]
         Empty,
         Children(Vec<View>),
-        InnerHtml(Cow<'static, str>),
+        InnerHtml(Oco<'static, str>),
         Chunks(Vec<StringOrView>)
     }
 
     #[doc(hidden)]
     #[derive(Clone)]
     pub enum StringOrView {
-        String(Cow<'static, str>),
+        String(Oco<'static, str>),
         View(std::rc::Rc<dyn Fn() -> View>)
     }
 
@@ -445,7 +446,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Adds an `id` to the element.
     #[track_caller]
     #[inline(always)]
-    pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
+    pub fn id(self, id: impl Into<Oco<'static, str>>) -> Self {
         let id = id.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -575,7 +576,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
     pub fn attr(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         attr: impl IntoAttribute,
     ) -> Self {
         let name = name.into();
@@ -634,7 +635,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn class(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         class: impl IntoClass,
     ) -> Self {
         let name = name.into();
@@ -686,7 +687,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Adds a list of classes separated by ASCII whitespace to an element.
     #[track_caller]
     #[inline(always)]
-    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
+    pub fn classes(self, classes: impl Into<Oco<'static, str>>) -> Self {
         self.classes_inner(&classes.into())
     }
 
@@ -698,7 +699,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     ) -> Self
     where
         I: IntoIterator<Item = C>,
-        C: Into<Cow<'static, str>>,
+        C: Into<Oco<'static, str>>,
     {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -708,12 +709,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             leptos_reactive::create_effect(
                 move |prev_classes: Option<
-                    SmallVec<[Cow<'static, str>; 4]>,
+                    SmallVec<[Oco<'static, str>; 4]>,
                 >| {
                     let classes = classes_signal()
                         .into_iter()
                         .map(Into::into)
-                        .collect::<SmallVec<[Cow<'static, str>; 4]>>(
+                        .collect::<SmallVec<[Oco<'static, str>; 4]>>(
                     );
 
                     let new_classes = classes
@@ -797,7 +798,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn style(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         style: impl IntoStyle,
     ) -> Self {
         let name = name.into();
@@ -856,7 +857,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn prop(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         value: impl IntoProperty,
     ) -> Self {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1016,7 +1017,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// sanitize the input to avoid a cross-site scripting (XSS)
     /// vulnerability.
     #[inline(always)]
-    pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
+    pub fn inner_html(self, html: impl Into<Oco<'static, str>>) -> Self {
         let html = html.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1103,7 +1104,7 @@ pub fn custom<El: ElementDescriptor>(el: El) -> HtmlElement<Custom> {
 
 /// Creates a text node.
 #[inline(always)]
-pub fn text(text: impl Into<Cow<'static, str>>) -> Text {
+pub fn text(text: impl Into<Oco<'static, str>>) -> Text {
     Text::new(text.into())
 }
 
@@ -1190,7 +1191,7 @@ macro_rules! generate_html_tags {
 
         impl ElementDescriptor for [<$tag:camel $($trailing_)?>] {
           #[inline(always)]
-          fn name(&self) -> Cow<'static, str> {
+          fn name(&self) -> Oco<'static, str> {
             stringify!($tag).into()
           }
 

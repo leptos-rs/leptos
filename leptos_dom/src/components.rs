@@ -14,12 +14,12 @@ pub use dyn_child::*;
 pub use each::*;
 pub use errors::*;
 pub use fragment::*;
-use leptos_reactive::untrack_with_diagnostics;
+use leptos_reactive::{untrack_with_diagnostics, Oco};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::OnceCell;
+use std::fmt;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::rc::Rc;
-use std::{borrow::Cow, fmt};
 pub use unit::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -55,7 +55,7 @@ pub struct ComponentRepr {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     mounted: Rc<OnceCell<()>>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: Oco<'static, str>,
     #[cfg(debug_assertions)]
     _opening: Comment,
     /// The children of the component.
@@ -163,24 +163,24 @@ impl IntoView for ComponentRepr {
 impl ComponentRepr {
     /// Creates a new [`Component`].
     #[inline(always)]
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>) -> Self {
         Self::new_with_id_concrete(name.into(), HydrationCtx::id())
     }
 
     /// Creates a new [`Component`] with the given hydration ID.
     #[inline(always)]
     pub fn new_with_id(
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         id: HydrationKey,
     ) -> Self {
         Self::new_with_id_concrete(name.into(), id)
     }
 
-    fn new_with_id_concrete(name: Cow<'static, str>, id: HydrationKey) -> Self {
+    fn new_with_id_concrete(name: Oco<'static, str>, id: HydrationKey) -> Self {
         let markers = (
-            Comment::new(Cow::Owned(format!("</{name}>")), &id, true),
+            Comment::new(format!("</{name}>"), &id, true),
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Owned(format!("<{name}>")), &id, false),
+            Comment::new(format!("<{name}>"), &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -236,7 +236,7 @@ where
     V: IntoView,
 {
     id: HydrationKey,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     children_fn: F,
 }
 
@@ -246,7 +246,7 @@ where
     V: IntoView,
 {
     /// Creates a new component.
-    pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>, f: F) -> Self {
         Self {
             id: HydrationCtx::id(),
             name: name.into(),

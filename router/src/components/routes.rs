@@ -544,6 +544,7 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
         score: routes.last().unwrap().score() * 10000 - (index as i32),
     }
 }
+
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
@@ -567,7 +568,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
             id: route_def.id,
             matcher: Matcher::new_with_partial(&pattern, !is_leaf),
             pattern,
-            original_path: original_path.to_string(),
+            original_path: original_path.into_owned(),
         });
     }
     acc

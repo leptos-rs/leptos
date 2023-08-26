@@ -9,8 +9,8 @@ use crate::{
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::*;
-use std::{borrow::Cow, pin::Pin};
+use leptos_reactive::{Oco, *};
+use std::pin::Pin;
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
@@ -30,7 +30,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn render_to_string<F, N>(f: F) -> String
+pub fn render_to_string<F, N>(f: F) -> Oco<'static, str>
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,
@@ -42,7 +42,7 @@ where
 
     runtime.dispose();
 
-    html.into()
+    html
 }
 
 /// Renders a function to a stream of HTML strings.
@@ -87,7 +87,7 @@ pub fn render_to_stream(
 )]
 pub fn render_to_stream_with_prefix(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     let (stream, runtime) =
         render_to_stream_with_prefix_undisposed(view, prefix);
@@ -116,7 +116,7 @@ pub fn render_to_stream_with_prefix(
 )]
 pub fn render_to_stream_with_prefix_undisposed(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId) {
     render_to_stream_with_prefix_undisposed_with_context(view, prefix, || {})
 }
@@ -142,7 +142,7 @@ pub fn render_to_stream_with_prefix_undisposed(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce() + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId) {
     render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
@@ -179,7 +179,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce() + 'static,
     replace_blocks: bool,
 ) -> (impl Stream<Item = String>, RuntimeId) {
@@ -363,7 +363,7 @@ impl View {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    pub fn render_to_string(self) -> Cow<'static, str> {
+    pub fn render_to_string(self) -> Oco<'static, str> {
         #[cfg(all(feature = "web", feature = "ssr"))]
         crate::console_error(
             "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
@@ -381,7 +381,7 @@ impl View {
     pub(crate) fn render_to_string_helper(
         self,
         dont_escape_text: bool,
-    ) -> Cow<'static, str> {
+    ) -> Oco<'static, str> {
         match self {
             View::Text(node) => {
                 if dont_escape_text {
@@ -450,7 +450,7 @@ impl View {
                             )
                             .into()
                         })
-                            as Box<dyn FnOnce() -> Cow<'static, str>>,
+                            as Box<dyn FnOnce() -> Oco<'static, str>>,
                     ),
                     CoreComponent::DynChild(node) => {
                         let child = node.child.take();
@@ -500,7 +500,7 @@ impl View {
                                     "".into()
                                 }
                             })
-                                as Box<dyn FnOnce() -> Cow<'static, str>>,
+                                as Box<dyn FnOnce() -> Oco<'static, str>>,
                         )
                     }
                     CoreComponent::Each(node) => {
@@ -554,7 +554,7 @@ impl View {
                                     .join("")
                                     .into()
                             })
-                                as Box<dyn FnOnce() -> Cow<'static, str>>,
+                                as Box<dyn FnOnce() -> Oco<'static, str>>,
                         )
                     }
                 };
@@ -598,15 +598,15 @@ impl View {
                         .join("")
                         .into()
                 } else {
-                    let tag_name = el.name;
+                    let tag_name: Oco<'_, str> = el.name;
 
-                    let mut inner_html = None;
+                    let mut inner_html: Option<Oco<'_, str>> = None;
 
                     let attrs = el
                         .attrs
                         .into_iter()
                         .filter_map(
-                            |(name, value)| -> Option<Cow<'static, str>> {
+                            |(name, value)| -> Option<Oco<'static, str>> {
                                 if value.is_empty() {
                                     Some(format!(" {name}").into())
                                 } else if name == "inner_html" {
@@ -615,9 +615,9 @@ impl View {
                                 } else {
                                     Some(
                                         format!(
-                    " {name}=\"{}\"",
-                    html_escape::encode_double_quoted_attribute(&value)
-                  )
+                                            " {name}=\"{}\"",
+                                            html_escape::encode_double_quoted_attribute(&value)
+                                        )
                                         .into(),
                                     )
                                 }
@@ -729,9 +729,9 @@ pub(crate) fn render_serializers(
 }
 
 #[doc(hidden)]
-pub fn escape_attr<T>(value: &T) -> Cow<'_, str>
+pub fn escape_attr<T>(value: &T) -> Oco<'_, str>
 where
     T: AsRef<str>,
 {
-    html_escape::encode_double_quoted_attribute(value)
+    html_escape::encode_double_quoted_attribute(value).into()
 }

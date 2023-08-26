@@ -85,6 +85,7 @@ mod effect;
 mod hydration;
 mod memo;
 mod node;
+pub mod oco;
 mod resource;
 mod runtime;
 mod selector;
@@ -107,6 +108,7 @@ pub use effect::*;
 pub use hydration::{FragmentData, SharedContext};
 pub use memo::*;
 pub use node::Disposer;
+pub use oco::*;
 pub use resource::*;
 use runtime::*;
 pub use runtime::{

@@ -1,3 +1,4 @@
+use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
@@ -8,9 +9,9 @@ use std::{borrow::Cow, rc::Rc};
 #[derive(Clone)]
 pub enum Style {
     /// A plain string value.
-    Value(Cow<'static, str>),
+    Value(Oco<'static, str>),
     /// An optional string value, which sets the property to the value if `Some` and removes the property if `None`.
-    Option(Option<Cow<'static, str>>),
+    Option(Option<Oco<'static, str>>),
     /// A (presumably reactive) function, which will be run inside an effect to update the style.
     Fn(Rc<dyn Fn() -> Style>),
 }
@@ -45,28 +46,70 @@ pub trait IntoStyle {
 impl IntoStyle for &'static str {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Value(self.into())
+        Style::Value(Oco::Borrowed(self))
     }
 }
 
 impl IntoStyle for String {
     #[inline(always)]
     fn into_style(self) -> Style {
+        Style::Value(Oco::Owned(self))
+    }
+}
+
+impl IntoStyle for Rc<str> {
+    #[inline(always)]
+    fn into_style(self) -> Style {
+        Style::Value(Oco::Counted(self))
+    }
+}
+
+impl IntoStyle for Cow<'static, str> {
+    #[inline(always)]
+    fn into_style(self) -> Style {
         Style::Value(self.into())
+    }
+}
+
+impl IntoStyle for Oco<'static, str> {
+    #[inline(always)]
+    fn into_style(self) -> Style {
+        Style::Value(self)
     }
 }
 
 impl IntoStyle for Option<&'static str> {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Option(self.map(Cow::Borrowed))
+        Style::Option(self.map(Oco::Borrowed))
     }
 }
 
 impl IntoStyle for Option<String> {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Option(self.map(Cow::Owned))
+        Style::Option(self.map(Oco::Owned))
+    }
+}
+
+impl IntoStyle for Option<Rc<str>> {
+    #[inline(always)]
+    fn into_style(self) -> Style {
+        Style::Option(self.map(Oco::Counted))
+    }
+}
+
+impl IntoStyle for Option<Cow<'static, str>> {
+    #[inline(always)]
+    fn into_style(self) -> Style {
+        Style::Option(self.map(Oco::from))
+    }
+}
+
+impl IntoStyle for Option<Oco<'static, str>> {
+    #[inline(always)]
+    fn into_style(self) -> Style {
+        Style::Option(self)
     }
 }
 
@@ -87,7 +130,7 @@ impl Style {
     pub fn as_value_string(
         &self,
         style_name: &'static str,
-    ) -> Option<Cow<'static, str>> {
+    ) -> Option<Oco<'static, str>> {
         match self {
             Style::Value(value) => {
                 Some(format!("{style_name}: {value};").into())
@@ -111,10 +154,11 @@ impl Style {
 #[inline(never)]
 pub fn style_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     value: Style,
 ) {
     use leptos_reactive::create_render_effect;
+    use std::ops::Deref;
     use wasm_bindgen::JsCast;
 
     let el = el.unchecked_ref::<web_sys::HtmlElement>();
@@ -132,16 +176,16 @@ pub fn style_helper(
                     _ => unreachable!(),
                 };
                 if old.as_ref() != Some(&new) {
-                    style_expression(&style_list, &name, new.as_ref(), true)
+                    style_expression(&style_list, &name, new.as_deref(), true)
                 }
                 new
             });
         }
         Style::Value(value) => {
-            style_expression(&style_list, &name, Some(&value), false)
+            style_expression(&style_list, &name, Some(value.deref()), false)
         }
         Style::Option(value) => {
-            style_expression(&style_list, &name, value.as_ref(), false)
+            style_expression(&style_list, &name, value.as_deref(), false)
         }
     };
 }
@@ -151,7 +195,7 @@ pub fn style_helper(
 pub(crate) fn style_expression(
     style_list: &web_sys::CssStyleDeclaration,
     style_name: &str,
-    value: Option<&Cow<'static, str>>,
+    value: Option<&str>,
     force: bool,
 ) {
     use crate::HydrationCtx;
@@ -160,7 +204,7 @@ pub(crate) fn style_expression(
         let style_name = wasm_bindgen::intern(style_name);
 
         if let Some(value) = value {
-            if let Err(e) = style_list.set_property(style_name, &value) {
+            if let Err(e) = style_list.set_property(style_name, value) {
                 crate::error!("[HtmlElement::style()] {e:?}");
             }
         } else {
