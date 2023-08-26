@@ -1,3 +1,5 @@
+use wasm_bindgen::UnwrapThrowExt;
+
 #[macro_export]
 /// Use for tracing property
 macro_rules! tracing_props {
@@ -10,7 +12,7 @@ macro_rules! tracing_props {
     };
     ($($prop:tt),+ $(,)?) => {
         {
-            use ::leptos::leptos_dom::tracing_property::{Match, DebugMatch, DefaultMatch};
+            use ::leptos::leptos_dom::tracing_property::{Match, SerializeMatch, DefaultMatch};
             let mut props = String::from('[');
             $(
                 let prop = (&&Match {
@@ -38,18 +40,29 @@ pub struct Match<T> {
     pub value: std::cell::Cell<Option<T>>,
 }
 
-pub trait DebugMatch {
+pub trait SerializeMatch {
     type Return;
     fn spez(&self) -> Self::Return;
 }
-impl<T: std::fmt::Debug> DebugMatch for &Match<&T> {
+impl<T: serde::Serialize> SerializeMatch for &Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        format!(
-            r#"{{"name": "{name}", "value": {:?}}}"#,
-            self.value.get().unwrap()
-        )
+
+        // suppresses warnings when serializing signals into props
+        #[cfg(debug_assertions)]
+        let prev = leptos_reactive::SpecialNonReactiveZone::enter();
+
+        let value = serde_json::to_string(self.value.get().unwrap_throw())
+            .map_or_else(
+                |err| format!(r#"{{"name": "{name}", "error": "{err}"}}"#),
+                |value| format!(r#"{{"name": "{name}", "value": {value}}}"#),
+            );
+
+        #[cfg(debug_assertions)]
+        leptos_reactive::SpecialNonReactiveZone::exit(prev);
+
+        value
     }
 }
 
@@ -61,7 +74,7 @@ impl<T> DefaultMatch for Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        format!(r#"{{"name": "{name}", "value": "{{no Debug value}}"}}"#)
+        format!(r#"{{"name": "{name}", "value": "[unserializable value]"}}"#)
     }
 }
 
@@ -143,6 +156,8 @@ fn match_serialize() {
 
 #[test]
 fn match_no_serialize() {
+    #![allow(clippy::needless_borrow)]
+
     struct CustomStruct {
         field: &'static str,
     }
@@ -155,7 +170,7 @@ fn match_no_serialize() {
         .spez();
     assert_eq!(
         prop,
-        r#"{"name": "test", "error": "The trait `serde::Serialize` is not implemented"}"#
+        r#"{"name": "test", "value": "[unserializable value]"}"#
     );
     // Verification of ownership
     assert_eq!(test.field, "field");
