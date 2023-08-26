@@ -67,7 +67,7 @@ use crate::{
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
 use leptos_reactive::Oco;
-use std::{borrow::Cow, fmt};
+use std::fmt;
 
 /// Trait which allows creating an element tag.
 pub trait ElementDescriptor: ElementDescriptorBounds {

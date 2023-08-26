@@ -492,41 +492,6 @@ impl<'a> From<Oco<'a, str>> for Oco<'a, [u8]> {
     }
 }
 
-impl<'a> TryFrom<Oco<'a, [u8]>> for Oco<'a, str> {
-    type Error = FromUtf8Error;
-
-    /// Converts a `Oco<'a, [u8]>` into a `Oco<'a, str>` without copying or allocating.
-    /// This is a fallible conversion, as the bytes must be valid UTF-8.
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::oco::Oco;
-    /// # use std::rc::Rc;
-    /// let s = Rc::<[u8]>::from(b"hello".as_slice());
-    /// let oco = Oco::<[u8]>::from(s.clone());
-    /// assert!(oco.is_counted());
-    /// let oco_str = Oco::<str>::try_from(oco).unwrap();
-    /// assert_eq!(oco_str.as_bytes(), s.as_ref());
-    /// assert!(oco_str.is_counted());
-    /// ```
-    /// # Errors
-    /// Returns an error if the bytes are not valid UTF-8.
-    fn try_from(value: Oco<'a, [u8]>) -> Result<Self, Self::Error> {
-        match value {
-            Oco::Borrowed(v) => Ok(Oco::Borrowed(std::str::from_utf8(v)?)),
-            Oco::Owned(v) => Ok(Oco::Owned(String::from_utf8(v)?)),
-            Oco::Counted(v) => match std::str::from_utf8(&v) {
-                Ok(..) => Ok(Oco::Counted(
-                    // SAFETY: the [u8] slice is a valid utf8, so it is safe to convert it to a str
-                    unsafe {
-                        Rc::<str>::from_raw(Rc::into_raw(v) as *const str)
-                    },
-                )),
-                Err(e) => Err(e.into()),
-            },
-        }
-    }
-}
-
 /// Error returned from [`Oco::try_from`] for unsuccessful
 /// conversion from `Oco<'_, [u8]>` to `Oco<'_, str>`.
 #[derive(Debug, Clone, thiserror::Error)]

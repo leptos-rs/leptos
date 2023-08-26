@@ -164,18 +164,9 @@ impl IntoAttribute for &'static str {
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for &'static str {
-    #[inline(always)]
-    fn into_attribute(self) -> Attribute {
-        Attribute::String(Oco::Borrowed(self))
-    }
-
-    impl_into_attr_boxed! {}
-}
-
 impl IntoAttribute for Rc<str> {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
+    fn into_attribute(self) -> Attribute {
         Attribute::String(Oco::Counted(self))
     }
 
