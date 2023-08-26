@@ -16,12 +16,12 @@ use std::{
 /// an owned value, or a reference counted pointer. This is useful for
 /// storing immutable values, such as strings, in a way that is cheap to
 /// clone and pass around.
-/// 
+///
 /// The `Clone` implementation is amortized `O(1)`. Cloning the [`Oco::Borrowed`]
-/// variant simply copies the references (`O(1)`). Cloning the [`Oco::Counted`] 
+/// variant simply copies the references (`O(1)`). Cloning the [`Oco::Counted`]
 /// variant increments a reference count (`O(1)`). Cloning the [`Oco::Owned`]
-/// variant upgrades it to [`Oco::Counted`], which requires an `O(n)` clone of the 
-/// data, but all subsequent clones will be `O(1)`. 
+/// variant upgrades it to [`Oco::Counted`], which requires an `O(n)` clone of the
+/// data, but all subsequent clones will be `O(1)`.
 pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     /// A static reference to a value.
     Borrowed(&'a T),
