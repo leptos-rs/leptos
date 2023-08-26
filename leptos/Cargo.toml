@@ -16,7 +16,8 @@ leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 tracing = "0.1"
-typed-builder = "0.14"
+typed-builder = "0.16"
+typed-builder-macro = "0.16"
 server_fn = { workspace = true }
 web-sys = { version = "0.3.63", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }

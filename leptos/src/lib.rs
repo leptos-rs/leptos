@@ -175,7 +175,6 @@ pub use leptos_server::{
     ServerFnErrorErr,
 };
 pub use server_fn::{self, ServerFn as _};
-pub use typed_builder;
 #[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
 pub use {leptos_macro::template, wasm_bindgen, web_sys};
 mod error_boundary;
@@ -195,6 +194,12 @@ pub use text_prop::TextProp;
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
+#[doc(hidden)]
+pub use typed_builder;
+#[doc(hidden)]
+pub use typed_builder::Optional;
+#[doc(hidden)]
+pub use typed_builder_macro;
 extern crate self as leptos;
 
 /// The most common type for the `children` property on components,
