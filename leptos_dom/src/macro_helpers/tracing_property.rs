@@ -1,5 +1,3 @@
-use leptos_reactive::untrack;
-
 #[macro_export]
 /// Use for tracing property
 macro_rules! tracing_props {
@@ -48,12 +46,10 @@ impl<T: std::fmt::Debug> DebugMatch for &Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        untrack(move || {
-            format!(
-                r#"{{"name": "{name}", "value": {:?}}}"#,
-                self.value.get().unwrap()
-            )
-        })
+        format!(
+            r#"{{"name": "{name}", "value": {:?}}}"#,
+            self.value.get().unwrap()
+        )
     }
 }
 
