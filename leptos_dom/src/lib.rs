@@ -9,6 +9,7 @@
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
+mod callback;
 mod components;
 mod events;
 pub mod helpers;
@@ -24,6 +25,7 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
+pub use callback::*;
 use cfg_if::cfg_if;
 pub use components::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
