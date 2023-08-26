@@ -43,7 +43,7 @@ cfg_if! {
             let conf = get_configuration(None).await.unwrap();
 
             let addr = conf.leptos_options.site_addr;
-            let routes = generate_route_list(|cx| view! { cx, <Counters/> });
+            let routes = generate_route_list(|| view! { <Counters/> });
 
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
@@ -52,36 +52,15 @@ cfg_if! {
                 App::new()
                     .service(counter_events)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    // serve JS/WASM/CSS from `pkg`
-                    .service(Files::new("/pkg", format!("{site_root}/pkg")))
-                    // serve other assets from the `assets` directory
-                    .service(Files::new("/assets", site_root))
-                    // serve the favicon from /favicon.ico
-                    .service(favicon)
-                    .leptos_routes(
-                        leptos_options.to_owned(),
-                        routes.to_owned(),
-                        Counters,
-                    )
-                    .app_data(web::Data::new(leptos_options.to_owned()))
+                    .leptos_routes(leptos_options.to_owned(), routes.to_owned(), || view! { <Counters/> })
+                    .service(Files::new("/", site_root))
                     //.wrap(middleware::Compress::default())
             })
             .bind(&addr)?
             .run()
             .await
         }
-
-        #[actix_web::get("favicon.ico")]
-        async fn favicon(
-            leptos_options: actix_web::web::Data<leptos::LeptosOptions>,
-        ) -> actix_web::Result<actix_files::NamedFile> {
-            let leptos_options = leptos_options.into_inner();
-            let site_root = &leptos_options.site_root;
-            Ok(actix_files::NamedFile::open(format!(
-                "{site_root}/favicon.ico"
-            ))?)
         }
-    }
 
     // client-only main for Trunk
     else {

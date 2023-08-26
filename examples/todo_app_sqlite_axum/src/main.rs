@@ -19,17 +19,17 @@ cfg_if! {
     //Define a handler to test extractor with state
     async fn custom_handler(Path(id): Path<String>, State(options): State<LeptosOptions>, req: Request<AxumBody>) -> Response{
             let handler = leptos_axum::render_app_to_stream_with_context(options,
-            move |cx| {
-                provide_context(cx, id.clone());
+            move || {
+                provide_context(id.clone());
             },
-            |cx| view! { cx, <TodoApp/> }
+            || view! { <TodoApp/> }
         );
             handler(req).await.into_response()
     }
 
     #[tokio::main]
     async fn main() {
-        simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+        simple_logger::init_with_level(log::Level::Error).expect("couldn't initialize logging");
 
         let _conn = db().await.expect("couldn't connect to DB");
         /* sqlx::migrate!()
@@ -48,13 +48,13 @@ cfg_if! {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+        let routes = generate_route_list(|| view! { <TodoApp/> }).await;
 
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <TodoApp/> } )
+        .leptos_routes(&leptos_options, routes, || view! { <TodoApp/> } )
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 

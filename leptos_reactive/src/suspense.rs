@@ -1,10 +1,9 @@
 //! Types that handle asynchronous data loading via `<Suspense/>`.
 
-#![forbid(unsafe_code)]
 use crate::{
     create_isomorphic_effect, create_rw_signal, create_signal, oco::Oco,
     queue_microtask, signal::SignalGet, store_value, ReadSignal, RwSignal,
-    Scope, SignalSet, SignalUpdate, StoredValue, WriteSignal,
+    SignalSet, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
 use std::{cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc};
@@ -29,8 +28,8 @@ pub struct GlobalSuspenseContext(Rc<RefCell<SuspenseContext>>);
 
 impl GlobalSuspenseContext {
     /// Creates an empty global suspense context.
-    pub fn new(cx: Scope) -> Self {
-        Self(Rc::new(RefCell::new(SuspenseContext::new(cx))))
+    pub fn new() -> Self {
+        Self(Rc::new(RefCell::new(SuspenseContext::new())))
     }
 
     /// Runs a function with a reference to the underlying suspense context.
@@ -39,9 +38,15 @@ impl GlobalSuspenseContext {
     }
 
     /// Runs a function with a reference to the underlying suspense context.
-    pub fn reset(&self, cx: Scope) {
+    pub fn reset(&self) {
         let mut inner = self.0.borrow_mut();
-        _ = std::mem::replace(&mut *inner, SuspenseContext::new(cx));
+        _ = std::mem::replace(&mut *inner, SuspenseContext::new());
+    }
+}
+
+impl Default for GlobalSuspenseContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -59,18 +64,18 @@ impl SuspenseContext {
     }
 
     /// Returns a `Future` that resolves when this suspense is resolved.
-    pub fn to_future(&self, cx: Scope) -> impl Future<Output = ()> {
+    pub fn to_future(&self) -> impl Future<Output = ()> {
         use futures::StreamExt;
 
         let pending_resources = self.pending_resources;
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let tx = RefCell::new(tx);
         queue_microtask(move || {
-            create_isomorphic_effect(cx, move |_| {
+            create_isomorphic_effect(move |_| {
                 if pending_resources.get() == 0 {
                     _ = tx.borrow_mut().try_send(());
                 }
-            })
+            });
         });
         async move {
             rx.next().await;
@@ -94,11 +99,11 @@ impl Eq for SuspenseContext {}
 
 impl SuspenseContext {
     /// Creates an empty suspense context.
-    pub fn new(cx: Scope) -> Self {
-        let (pending_resources, set_pending_resources) = create_signal(cx, 0);
-        let pending_serializable_resources = create_rw_signal(cx, 0);
-        let has_local_only = store_value(cx, true);
-        let should_block = store_value(cx, false);
+    pub fn new() -> Self {
+        let (pending_resources, set_pending_resources) = create_signal(0);
+        let pending_serializable_resources = create_rw_signal(0);
+        let has_local_only = store_value(true);
+        let should_block = store_value(false);
         Self {
             pending_resources,
             set_pending_resources,
@@ -153,6 +158,12 @@ impl SuspenseContext {
         self.pending_resources
             .try_with(|n| *n == 0)
             .unwrap_or(false)
+    }
+}
+
+impl Default for SuspenseContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

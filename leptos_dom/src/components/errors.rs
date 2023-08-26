@@ -34,7 +34,7 @@ impl IntoIterator for Errors {
     }
 }
 
-/// An owning iterator over all the errors contained in the [Errors] struct.
+/// An owning iterator over all the errors contained in the [`Errors`] struct.
 #[repr(transparent)]
 pub struct IntoIter(std::collections::hash_map::IntoIter<ErrorKey, Error>);
 
@@ -49,7 +49,7 @@ impl Iterator for IntoIter {
     }
 }
 
-/// An iterator over all the errors contained in the [Errors] struct.
+/// An iterator over all the errors contained in the [`Errors`] struct.
 #[repr(transparent)]
 pub struct Iter<'a>(std::collections::hash_map::Iter<'a, ErrorKey, Error>);
 
@@ -69,9 +69,9 @@ where
     T: IntoView + 'static,
     E: Into<Error>,
 {
-    fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
-        let id = ErrorKey(HydrationCtx::peek().fragment.to_string().into());
-        let errors = use_context::<RwSignal<Errors>>(cx);
+    fn into_view(self) -> crate::View {
+        let id = ErrorKey(HydrationCtx::peek().to_string().into());
+        let errors = use_context::<RwSignal<Errors>>();
         match self {
             Ok(stuff) => {
                 if let Some(errors) = errors {
@@ -79,7 +79,7 @@ where
                         errors.0.remove(&id);
                     });
                 }
-                stuff.into_view(cx)
+                stuff.into_view()
             }
             Err(error) => {
                 let error = error.into();
@@ -100,7 +100,7 @@ where
                         cfg_if! {
                           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                             use leptos_reactive::{on_cleanup, queue_microtask};
-                            on_cleanup(cx, move || {
+                            on_cleanup(move || {
                               queue_microtask(move || {
                                 errors.update(|errors: &mut Errors| {
                                   errors.remove(&id);
@@ -119,7 +119,7 @@ where
                         );
                     }
                 }
-                ().into_view(cx)
+                ().into_view()
             }
         }
     }

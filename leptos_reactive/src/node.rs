@@ -1,9 +1,23 @@
-use crate::AnyComputation;
+use crate::{with_runtime, AnyComputation};
 use std::{any::Any, cell::RefCell, rc::Rc};
 
 slotmap::new_key_type! {
     /// Unique ID assigned to a signal.
     pub struct NodeId;
+}
+
+/// Handle to dispose of a reactive node.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Disposer(pub(crate) NodeId);
+
+impl Drop for Disposer {
+    fn drop(&mut self) {
+        let id = self.0;
+        _ = with_runtime(|runtime| {
+            runtime.cleanup_node(id);
+            runtime.dispose_node(id);
+        });
+    }
 }
 
 #[derive(Clone)]

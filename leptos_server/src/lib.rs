@@ -33,21 +33,19 @@
 //! crate that is enabled).
 //!
 //! ```rust,ignore
-//! # use leptos::*;
+//! use leptos::*;
 //! #[server(ReadFromDB)]
-//! async fn read_posts(cx: Scope, how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
+//! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 //!   // do some server-only work here to access the database
-//!   let posts = ...;
+//!   let posts = todo!();;
 //!   Ok(posts)
 //! }
 //!
 //! // call the function
-//! # run_scope(create_runtime(), |cx| {
 //! spawn_local(async {
 //!   let posts = read_posts(3, "my search".to_string()).await;
 //!   log::debug!("posts = {posts:#?}");
-//! })
-//! # });
+//! });
 //! ```
 //!
 //! If you call this function from the client, it will serialize the function arguments and `POST`
@@ -67,9 +65,9 @@
 //!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 //!   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
 //!   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
-//! - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
-//!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
-//!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
+//! - Context comes from the server. [`use_context`](leptos_reactive::use_context) can be used to access specific
+//!   server-related data, as documented in the server integrations. This allows accessing things like HTTP request
+//!   headers as needed. However, server functions *not* have access to reactive state that exists in the client.
 //!
 //! ## Server Function Encodings
 //!
@@ -115,7 +113,6 @@
 //! CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of
 //! your app is not available.
 
-use leptos_reactive::*;
 pub use server_fn::{
     error::ServerFnErrorErr, Encoding, Payload, ServerFnError,
 };
@@ -135,11 +132,11 @@ use std::{
 #[cfg(any(feature = "ssr", doc))]
 /// A concrete type for a server function.
 #[derive(Clone)]
-pub struct ServerFnTraitObj(pub server_fn::ServerFnTraitObj<Scope>);
+pub struct ServerFnTraitObj(pub server_fn::ServerFnTraitObj<()>);
 
 #[cfg(any(feature = "ssr", doc))]
 impl std::ops::Deref for ServerFnTraitObj {
-    type Target = server_fn::ServerFnTraitObj<Scope>;
+    type Target = server_fn::ServerFnTraitObj<()>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -157,7 +154,7 @@ impl std::ops::DerefMut for ServerFnTraitObj {
 impl ServerFnTraitObj {
     /// Create a new `ServerFnTraitObj` from a `server_fn::ServerFnTraitObj`.
     pub const fn from_generic_server_fn(
-        server_fn: server_fn::ServerFnTraitObj<Scope>,
+        server_fn: server_fn::ServerFnTraitObj<()>,
     ) -> Self {
         Self(server_fn)
     }
@@ -167,7 +164,7 @@ impl ServerFnTraitObj {
 inventory::collect!(ServerFnTraitObj);
 
 #[allow(unused)]
-type ServerFunction = server_fn::ServerFnTraitObj<Scope>;
+type ServerFunction = server_fn::ServerFnTraitObj<()>;
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
@@ -185,16 +182,8 @@ lazy_static::lazy_static! {
 pub struct LeptosServerFnRegistry;
 
 #[cfg(any(feature = "ssr", doc))]
-impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
+impl server_fn::ServerFunctionRegistry<()> for LeptosServerFnRegistry {
     type Error = ServerRegistrationFnError;
-
-    fn register(
-        _url: &'static str,
-        _server_function: server_fn::SerializedFnTraitObj<Scope>,
-        _encoding: Encoding,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
 
     /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
@@ -202,7 +191,7 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     fn register_explicit(
         prefix: &'static str,
         url: &'static str,
-        server_function: server_fn::SerializedFnTraitObj<Scope>,
+        server_function: server_fn::SerializedFnTraitObj<()>,
         encoding: Encoding,
     ) -> Result<(), Self::Error> {
         // store it in the hashmap
@@ -236,7 +225,7 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     }
 
     /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
-    fn get(url: &str) -> Option<server_fn::ServerFnTraitObj<Scope>> {
+    fn get(url: &str) -> Option<server_fn::ServerFnTraitObj<()>> {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .ok()
@@ -244,7 +233,7 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     }
 
     /// Returns the server function trait obj registered at the given URL, or `None` if no function is registered at that URL.
-    fn get_trait_obj(url: &str) -> Option<server_fn::ServerFnTraitObj<Scope>> {
+    fn get_trait_obj(url: &str) -> Option<server_fn::ServerFnTraitObj<()>> {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .ok()
@@ -340,22 +329,20 @@ pub fn server_fn_by_path(path: &str) -> Option<ServerFnTraitObj> {
 /// ```
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_trait_obj_by_path(path: &str) -> Option<ServerFnTraitObj> {
-    server_fn::server_fn_trait_obj_by_path::<Scope, LeptosServerFnRegistry>(
-        path,
-    )
-    .map(ServerFnTraitObj::from_generic_server_fn)
+    server_fn::server_fn_trait_obj_by_path::<(), LeptosServerFnRegistry>(path)
+        .map(ServerFnTraitObj::from_generic_server_fn)
 }
 
 /// Get the Encoding of a server fn if one is registered at that path. Otherwise, return None
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_encoding_by_path(path: &str) -> Option<Encoding> {
-    server_fn::server_fn_encoding_by_path::<Scope, LeptosServerFnRegistry>(path)
+    server_fn::server_fn_encoding_by_path::<(), LeptosServerFnRegistry>(path)
 }
 
 /// Returns the set of currently-registered server function paths, for debugging purposes.
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fns_by_path() -> Vec<&'static str> {
-    server_fn::server_fns_by_path::<Scope, LeptosServerFnRegistry>()
+    server_fn::server_fns_by_path::<(), LeptosServerFnRegistry>()
 }
 
 /// Defines a "server function." A server function can be called from the server or the client,
@@ -370,18 +357,7 @@ pub fn server_fns_by_path() -> Vec<&'static str> {
 /// can be queried on the server for routing purposes by calling [server_fn_by_path].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
-pub trait ServerFn: server_fn::ServerFn<Scope> {
-    /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(any(feature = "ssr", doc))]
-    #[deprecated = "Explicit server function registration is no longer \
-                    required on most platforms (including Linux, macOS, iOS, \
-                    FreeBSD, Android, and Windows). If you are on another \
-                    platform and need to explicitly register server functions, \
-                    call ServerFn::register_explicit() instead."]
-    fn register() -> Result<(), ServerFnError> {
-        Ok(())
-    }
-
+pub trait ServerFn: server_fn::ServerFn<()> {
     #[cfg(any(feature = "ssr", doc))]
     /// Explicitly registers the server function on platforms that require it,
     /// allowing the server to query it by URL.
@@ -393,4 +369,4 @@ pub trait ServerFn: server_fn::ServerFn<Scope> {
     }
 }
 
-impl<T> ServerFn for T where T: server_fn::ServerFn<Scope> {}
+impl<T> ServerFn for T where T: server_fn::ServerFn<()> {}

@@ -11,15 +11,14 @@ struct CounterUpdater {
 }
 
 #[component]
-pub fn Counters(cx: Scope) -> impl IntoView {
-    let (next_counter_id, set_next_counter_id) = create_signal(cx, 0);
-    let (counters, set_counters) = create_signal::<CounterHolder>(cx, vec![]);
-    provide_context(cx, CounterUpdater { set_counters });
-    provide_meta_context(cx);
+pub fn Counters() -> impl IntoView {
+    let (next_counter_id, set_next_counter_id) = create_signal(0);
+    let (counters, set_counters) = create_signal::<CounterHolder>(vec![]);
+    provide_context(CounterUpdater { set_counters });
 
     let add_counter = move |_| {
         let id = next_counter_id.get();
-        let sig = create_signal(cx, 0);
+        let sig = create_signal(0);
         set_counters.update(move |counters| counters.push((id, sig)));
         set_next_counter_id.update(|id| *id += 1);
     };
@@ -27,7 +26,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
     let add_many_counters = move |_| {
         let next_id = next_counter_id.get();
         let new_counters = (next_id..next_id + MANY_COUNTERS).map(|id| {
-            let signal = create_signal(cx, 0);
+            let signal = create_signal(0);
             (id, signal)
         });
 
@@ -39,7 +38,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
         set_counters.update(|counters| counters.clear());
     };
 
-    view! { cx,
+    view! {
         <Title text="Counters (Stable)" />
         <div>
             <button on:click=add_counter>
@@ -68,9 +67,8 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                 <For
                     each={move || counters.get()}
                     key={|counter| counter.0}
-                    view=move |cx, (id, (value, set_value))| {
+                    view=move |(id, (value, set_value))| {
                         view! {
-                            cx,
                             <Counter id value set_value/>
                         }
                     }
@@ -82,19 +80,18 @@ pub fn Counters(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Counter(
-    cx: Scope,
     id: usize,
     value: ReadSignal<i32>,
     set_value: WriteSignal<i32>,
 ) -> impl IntoView {
-    let CounterUpdater { set_counters } = use_context(cx).unwrap();
+    let CounterUpdater { set_counters } = use_context().unwrap();
 
     let input = move |ev| {
         set_value
             .set(event_target_value(&ev).parse::<i32>().unwrap_or_default())
     };
 
-    view! { cx,
+    view! {
         <li>
             <button data-testid="decrement_count" on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
             <input data-testid="counter_input" type="text"

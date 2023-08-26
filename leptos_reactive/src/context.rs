@@ -1,9 +1,7 @@
-#![forbid(unsafe_code)]
-
-use crate::{runtime::with_runtime, Scope};
+use crate::runtime::with_runtime;
 use std::any::{Any, TypeId};
 
-/// Provides a context value of type `T` to the current reactive [`Scope`](crate::Scope)
+/// Provides a context value of type `T` to the current reactive node
 /// and all of its descendants. This can be consumed using [`use_context`](crate::use_context).
 ///
 /// This is useful for passing values down to components or functions lower in a
@@ -25,45 +23,57 @@ use std::any::{Any, TypeId};
 /// struct ValueSetter(WriteSignal<i32>);
 ///
 /// #[component]
-/// pub fn Provider(cx: Scope) -> impl IntoView {
-///     let (value, set_value) = create_signal(cx, 0);
+/// pub fn Provider() -> impl IntoView {
+///     let (value, set_value) = create_signal(0);
 ///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD
-///     provide_context(cx, ValueSetter(set_value));
+///     provide_context(ValueSetter(set_value));
 ///
 ///     // because <Consumer/> is nested inside <Provider/>,
 ///     // it has access to the provided context
-///     view! { cx, <div><Consumer/></div> }
+///     view! { <div><Consumer/></div> }
 /// }
 ///
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> impl IntoView {
+/// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
-///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
-///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
+///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
+///     let set_value = use_context::<ValueSetter>().unwrap().0;
 /// }
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn provide_context<T>(cx: Scope, value: T)
+#[track_caller]
+pub fn provide_context<T>(value: T)
 where
     T: Clone + 'static,
 {
     let id = value.type_id();
+    #[cfg(debug_assertions)]
+    let defined_at = std::panic::Location::caller();
 
-    _ = with_runtime(cx.runtime, |runtime| {
-        let mut contexts = runtime.scope_contexts.borrow_mut();
-        let context = contexts.entry(cx.id).unwrap().or_default();
-        context.insert(id, Box::new(value) as Box<dyn Any>);
-    });
+    with_runtime(|runtime| {
+        let mut contexts = runtime.contexts.borrow_mut();
+        let owner = runtime.owner.get();
+        if let Some(owner) = owner {
+            let context = contexts.entry(owner).unwrap().or_default();
+            context.insert(id, Box::new(value) as Box<dyn Any>);
+        } else {
+            crate::macros::debug_warn!(
+                "At {defined_at}, you are calling provide_context() outside \
+                 the reactive system.",
+            );
+        }
+    })
+    .expect("provide_context failed");
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current [`Scope`](crate::Scope) and iterating
+/// it upwards, beginning from the current reactive owner and iterating
 /// through its parents, if any. The context value should have been provided elsewhere
 /// using [`provide_context`](crate::provide_context).
 ///
@@ -86,24 +96,24 @@ where
 /// struct ValueSetter(WriteSignal<i32>);
 ///
 /// #[component]
-/// pub fn Provider(cx: Scope) -> impl IntoView {
-///     let (value, set_value) = create_signal(cx, 0);
+/// pub fn Provider() -> impl IntoView {
+///     let (value, set_value) = create_signal(0);
 ///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD
-///     provide_context(cx, ValueSetter(set_value));
+///     provide_context(ValueSetter(set_value));
 ///
 ///     // because <Consumer/> is nested inside <Provider/>,
 ///     // it has access to the provided context
-///     view! { cx, <div><Consumer/></div> }
+///     view! { <div><Consumer/></div> }
 /// }
 ///
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> impl IntoView {
+/// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
-///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
-///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
+///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
+///     let set_value = use_context::<ValueSetter>().unwrap().0;
 ///
 /// }
 /// ```
@@ -111,35 +121,23 @@ where
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn use_context<T>(cx: Scope) -> Option<T>
+pub fn use_context<T>() -> Option<T>
 where
     T: Clone + 'static,
 {
-    let id = TypeId::of::<T>();
-    with_runtime(cx.runtime, |runtime| {
-        let local_value = {
-            let contexts = runtime.scope_contexts.borrow();
-            let context = contexts.get(cx.id);
-            context
-                .and_then(|context| {
-                    context.get(&id).and_then(|val| val.downcast_ref::<T>())
-                })
-                .cloned()
-        };
-        match local_value {
-            Some(val) => Some(val),
-            None => {
-                runtime
-                    .scope_parents
-                    .borrow()
-                    .get(cx.id)
-                    .and_then(|parent| {
-                        use_context::<T>(Scope {
-                            runtime: cx.runtime,
-                            id: *parent,
-                        })
-                    })
-            }
+    let ty = TypeId::of::<T>();
+
+    with_runtime(|runtime| {
+        let owner = runtime.owner.get();
+        if let Some(owner) = owner {
+            runtime.get_context(owner, ty)
+        } else {
+            crate::macros::debug_warn!(
+                "At {}, you are calling use_context() outside the reactive \
+                 system.",
+                std::panic::Location::caller()
+            );
+            None
         }
     })
     .ok()
@@ -147,7 +145,7 @@ where
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current [Scope](crate::Scope) and iterating
+/// it upwards, beginning from the current reactive owner and iterating
 /// through its parents, if any. The context value should have been provided elsewhere
 /// using [provide_context](crate::provide_context).
 ///
@@ -170,35 +168,43 @@ where
 /// struct ValueSetter(WriteSignal<i32>);
 ///
 /// #[component]
-/// pub fn Provider(cx: Scope) -> impl IntoView {
-///     let (value, set_value) = create_signal(cx, 0);
+/// pub fn Provider() -> impl IntoView {
+///     let (value, set_value) = create_signal(0);
 ///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD
-///     provide_context(cx, ValueSetter(set_value));
+///     provide_context(ValueSetter(set_value));
 ///
 ///     // because <Consumer/> is nested inside <Provider/>,
 ///     // it has access to the provided context
-///     view! { cx, <div><Consumer/></div> }
+///     view! { <div><Consumer/></div> }
 /// }
 ///
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> impl IntoView {
+/// pub fn Consumer() -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
-///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
-///     let set_value = expect_context::<ValueSetter>(cx).0;
+///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
+///     let set_value = expect_context::<ValueSetter>().0;
 ///
 ///     todo!()
 /// }
 /// ```
-pub fn expect_context<T>(cx: Scope) -> T
+///
+/// ## Panics
+/// Panics if a context of this type is not found in the current reactive
+/// owner or its ancestors.
+#[track_caller]
+pub fn expect_context<T>() -> T
 where
     T: Clone + 'static,
 {
-    use_context(cx).unwrap_or_else(|| {
+    let location = std::panic::Location::caller();
+
+    use_context().unwrap_or_else(|| {
         panic!(
-            "context of type {:?} to be present",
+            "{:?} expected context of type {:?} to be present",
+            location,
             std::any::type_name::<T>()
         )
     })

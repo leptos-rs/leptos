@@ -25,10 +25,10 @@ async fn custom_handler(
 ) -> Response {
     let handler = leptos_axum::render_app_to_stream_with_context(
         options.clone(),
-        move |cx| {
-            provide_context(cx, id.clone());
+        move || {
+            provide_context(id.clone());
         },
-        |cx| view! { cx, <App/> },
+        || view! { <App/> },
     );
     handler(req).await.into_response()
 }
@@ -48,13 +48,13 @@ async fn main() {
     let conf = get_configuration(None).await.unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
-    let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
+    let routes = generate_route_list(|| view! { <App/> }).await;
 
     // build our application with a route
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> })
+        .leptos_routes(&leptos_options, routes, || view! { <App/> })
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 

@@ -1,0 +1,11 @@
+extend = { path = "../../cargo-make/main.toml" }
+
+[tasks.test]
+env = { RUN_AUTOMATICALLY = false }
+condition = { env_true = ["RUN_AUTOMATICALLY"] }
+
+[tasks.ci]
+
+[tasks.test-ui]
+command = "cargo"
+args = ["test", "--test", "manage_todos", "--", "--fail-fast", "${@}"]

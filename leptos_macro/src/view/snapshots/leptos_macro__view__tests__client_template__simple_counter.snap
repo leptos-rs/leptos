@@ -76,7 +76,7 @@ fn view() {
         );
         ::leptos::leptos_dom::mount_child(
             ::leptos::leptos_dom::MountKind::Before(&_el8.clone()),
-            &{ { value } }.into_view(cx),
+            &{ { value } }.into_view(),
         );
         ::leptos::leptos_dom::add_event_helper(
             ::leptos::wasm_bindgen::JsCast::unchecked_ref(&_el10),

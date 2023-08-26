@@ -1,4 +1,8 @@
-use leptos_reactive::{Oco, Scope};
+use leptos_reactive::Oco;
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -13,9 +17,9 @@ pub enum Attribute {
     /// A plain string value.
     String(Oco<'static, str>),
     /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the attribute.
-    Fn(Scope, Rc<dyn Fn() -> Attribute>),
+    Fn(Rc<dyn Fn() -> Attribute>),
     /// An optional string value, which sets the attribute to the value if `Some` and removes the attribute if `None`.
-    Option(Scope, Option<Oco<'static, str>>),
+    Option(Option<Oco<'static, str>>),
     /// A boolean attribute, which sets the attribute if `true` and removes the attribute if `false`.
     Bool(bool),
 }
@@ -31,14 +35,14 @@ impl Attribute {
             Attribute::String(value) => {
                 format!("{attr_name}=\"{value}\"").into()
             }
-            Attribute::Fn(_, f) => {
+            Attribute::Fn(f) => {
                 let mut value = f();
-                while let Attribute::Fn(_, f) = value {
+                while let Attribute::Fn(f) = value {
                     value = f();
                 }
                 value.as_value_string(attr_name)
             }
-            Attribute::Option(_, value) => value
+            Attribute::Option(value) => value
                 .as_ref()
                 .map(|value| format!("{attr_name}=\"{value}\"").into())
                 .unwrap_or_default(),
@@ -53,14 +57,14 @@ impl Attribute {
     pub fn as_nameless_value_string(&self) -> Option<Oco<'static, str>> {
         match self {
             Attribute::String(value) => Some(value.clone()),
-            Attribute::Fn(_, f) => {
+            Attribute::Fn(f) => {
                 let mut value = f();
-                while let Attribute::Fn(_, f) = value {
+                while let Attribute::Fn(f) = value {
                     value = f();
                 }
                 value.as_nameless_value_string()
             }
-            Attribute::Option(_, value) => value.as_ref().cloned(),
+            Attribute::Option(value) => value.as_ref().cloned(),
             Attribute::Bool(include) => {
                 if *include {
                     Some("".into())
@@ -76,8 +80,8 @@ impl PartialEq for Attribute {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::String(l0), Self::String(r0)) => l0 == r0,
-            (Self::Fn(_, _), Self::Fn(_, _)) => false,
-            (Self::Option(_, l0), Self::Option(_, r0)) => l0 == r0,
+            (Self::Fn(_), Self::Fn(_)) => false,
+            (Self::Option(l0), Self::Option(r0)) => l0 == r0,
             (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
             _ => false,
         }
@@ -88,23 +92,21 @@ impl std::fmt::Debug for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-            Self::Fn(_, _) => f.debug_tuple("Fn").finish(),
-            Self::Option(_, arg0) => {
-                f.debug_tuple("Option").field(arg0).finish()
-            }
+            Self::Fn(_) => f.debug_tuple("Fn").finish(),
+            Self::Option(arg0) => f.debug_tuple("Option").field(arg0).finish(),
             Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
         }
     }
 }
 
-/// Converts some type into an [Attribute].
+/// Converts some type into an [`Attribute`].
 ///
 /// This is implemented by default for Rust primitive and string types.
 pub trait IntoAttribute {
-    /// Converts the object into an [Attribute].
-    fn into_attribute(self, cx: Scope) -> Attribute;
+    /// Converts the object into an [`Attribute`].
+    fn into_attribute(self) -> Attribute;
     /// Helper function for dealing with `Box<dyn IntoAttribute>`.
-    fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute;
+    fn into_attribute_boxed(self: Box<Self>) -> Attribute;
 }
 
 impl<T: IntoAttribute + 'static> From<T> for Box<dyn IntoAttribute> {
@@ -116,12 +118,12 @@ impl<T: IntoAttribute + 'static> From<T> for Box<dyn IntoAttribute> {
 
 impl IntoAttribute for Attribute {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
+    fn into_attribute(self) -> Attribute {
         self
     }
 
     #[inline(always)]
-    fn into_attribute_boxed(self: Box<Self>, _: Scope) -> Attribute {
+    fn into_attribute_boxed(self: Box<Self>) -> Attribute {
         *self
     }
 }
@@ -129,16 +131,16 @@ impl IntoAttribute for Attribute {
 macro_rules! impl_into_attr_boxed {
     () => {
         #[inline(always)]
-        fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-            self.into_attribute(cx)
+        fn into_attribute_boxed(self: Box<Self>) -> Attribute {
+            self.into_attribute()
         }
     };
 }
 
 impl IntoAttribute for Option<Attribute> {
     #[inline(always)]
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        self.unwrap_or(Attribute::Option(cx, None))
+    fn into_attribute(self) -> Attribute {
+        self.unwrap_or(Attribute::Option(None))
     }
 
     impl_into_attr_boxed! {}
@@ -146,8 +148,8 @@ impl IntoAttribute for Option<Attribute> {
 
 impl IntoAttribute for String {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
-        Attribute::String(self.into())
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(Oco::Owned(self))
     }
 
     impl_into_attr_boxed! {}
@@ -155,17 +157,26 @@ impl IntoAttribute for String {
 
 impl IntoAttribute for &'static str {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
-        Attribute::String(self.into())
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(Oco::Borrowed(self))
     }
 
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Cow<'static, str> {
+impl IntoAttribute for &'static str {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(Oco::Borrowed(self))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Rc<str> {
     #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
-        Attribute::String(self.into())
+        Attribute::String(Oco::Counted(self))
     }
 
     impl_into_attr_boxed! {}
@@ -173,7 +184,7 @@ impl IntoAttribute for Cow<'static, str> {
 
 impl IntoAttribute for Oco<'static, str> {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
+    fn into_attribute(self) -> Attribute {
         Attribute::String(self)
     }
 
@@ -182,7 +193,7 @@ impl IntoAttribute for Oco<'static, str> {
 
 impl IntoAttribute for bool {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
+    fn into_attribute(self) -> Attribute {
         Attribute::Bool(self)
     }
 
@@ -191,8 +202,8 @@ impl IntoAttribute for bool {
 
 impl IntoAttribute for Option<String> {
     #[inline(always)]
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(Oco::from))
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(Oco::Owned))
     }
 
     impl_into_attr_boxed! {}
@@ -200,8 +211,17 @@ impl IntoAttribute for Option<String> {
 
 impl IntoAttribute for Option<&'static str> {
     #[inline(always)]
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(Oco::from))
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(Oco::Borrowed))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Option<Rc<str>> {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(Oco::Counted))
     }
 
     impl_into_attr_boxed! {}
@@ -209,8 +229,8 @@ impl IntoAttribute for Option<&'static str> {
 
 impl IntoAttribute for Option<Cow<'static, str>> {
     #[inline(always)]
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(Oco::from))
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(Oco::from))
     }
 
     impl_into_attr_boxed! {}
@@ -218,8 +238,8 @@ impl IntoAttribute for Option<Cow<'static, str>> {
 
 impl IntoAttribute for Option<Oco<'static, str>> {
     #[inline(always)]
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self)
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self)
     }
 
     impl_into_attr_boxed! {}
@@ -230,65 +250,91 @@ where
     T: Fn() -> U + 'static,
     U: IntoAttribute,
 {
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        let modified_fn = Rc::new(move || (self)().into_attribute(cx));
-        Attribute::Fn(cx, modified_fn)
+    fn into_attribute(self) -> Attribute {
+        let modified_fn = Rc::new(move || (self)().into_attribute());
+        Attribute::Fn(modified_fn)
     }
 
     impl_into_attr_boxed! {}
 }
 
-impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
-    #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
-        self.1.into_attribute(self.0)
-    }
-
-    impl_into_attr_boxed! {}
-}
-
-impl IntoAttribute for (Scope, Option<Box<dyn IntoAttribute>>) {
-    fn into_attribute(self, _: Scope) -> Attribute {
-        match self.1 {
-            Some(bx) => bx.into_attribute_boxed(self.0),
-            None => Attribute::Option(self.0, None),
+impl IntoAttribute for Option<Box<dyn IntoAttribute>> {
+    fn into_attribute(self) -> Attribute {
+        match self {
+            Some(bx) => bx.into_attribute_boxed(),
+            None => Attribute::Option(None),
         }
     }
 
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for (Scope, Box<dyn IntoAttribute>) {
+/* impl IntoAttribute for Box<dyn IntoAttribute> {
     #[inline(always)]
-    fn into_attribute(self, _: Scope) -> Attribute {
-        self.1.into_attribute_boxed(self.0)
+    fn into_attribute(self) -> Attribute {
+        self.into_attribute_boxed()
     }
 
     impl_into_attr_boxed! {}
-}
+} */
 
 macro_rules! attr_type {
     ($attr_type:ty) => {
         impl IntoAttribute for $attr_type {
-            fn into_attribute(self, _: Scope) -> Attribute {
+            fn into_attribute(self) -> Attribute {
                 Attribute::String(self.to_string().into())
             }
 
             #[inline]
-            fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-                self.into_attribute(cx)
+            fn into_attribute_boxed(self: Box<Self>) -> Attribute {
+                self.into_attribute()
             }
         }
 
         impl IntoAttribute for Option<$attr_type> {
-            fn into_attribute(self, cx: Scope) -> Attribute {
-                Attribute::Option(cx, self.map(|n| n.to_string().into()))
+            fn into_attribute(self) -> Attribute {
+                Attribute::Option(self.map(|n| n.to_string().into()))
             }
 
             #[inline]
-            fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-                self.into_attribute(cx)
+            fn into_attribute_boxed(self: Box<Self>) -> Attribute {
+                self.into_attribute()
             }
+        }
+    };
+}
+
+macro_rules! attr_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoAttribute for $signal_type
+        where
+            T: IntoAttribute + Clone,
+        {
+            fn into_attribute(self) -> Attribute {
+                let modified_fn = Rc::new(move || self.get().into_attribute());
+                Attribute::Fn(modified_fn)
+            }
+
+            impl_into_attr_boxed! {}
+        }
+    };
+}
+
+macro_rules! attr_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoAttribute for $signal_type
+        where
+            T: Clone,
+            Option<T>: IntoAttribute,
+        {
+            fn into_attribute(self) -> Attribute {
+                let modified_fn = Rc::new(move || self.get().into_attribute());
+                Attribute::Fn(modified_fn)
+            }
+
+            impl_into_attr_boxed! {}
         }
     };
 }
@@ -310,6 +356,13 @@ attr_type!(f32);
 attr_type!(f64);
 attr_type!(char);
 
+attr_signal_type!(ReadSignal<T>);
+attr_signal_type!(RwSignal<T>);
+attr_signal_type!(Memo<T>);
+attr_signal_type!(Signal<T>);
+attr_signal_type!(MaybeSignal<T>);
+attr_signal_type_optional!(MaybeProp<T>);
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
 #[inline(never)]
@@ -320,9 +373,9 @@ pub fn attribute_helper(
 ) {
     use leptos_reactive::create_render_effect;
     match value {
-        Attribute::Fn(cx, f) => {
+        Attribute::Fn(f) => {
             let el = el.clone();
-            create_render_effect(cx, move |old| {
+            create_render_effect(move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) {
                     attribute_expression(&el, &name, new.clone(), true);
@@ -355,7 +408,7 @@ pub(crate) fn attribute_expression(
                     el.set_attribute(attr_name, value).unwrap_throw();
                 }
             }
-            Attribute::Option(_, value) => {
+            Attribute::Option(value) => {
                 if attr_name == "inner_html" {
                     el.set_inner_html(&value.unwrap_or_default());
                 } else {

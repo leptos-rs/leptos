@@ -1,6 +1,6 @@
 use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{
-    create_effect, create_rw_signal, signal_prelude::*, RwSignal, Scope,
+    create_effect, create_rw_signal, signal_prelude::*, RwSignal,
 };
 use std::cell::Cell;
 
@@ -13,8 +13,8 @@ use std::cell::Cell;
 /// use leptos::html::Input;
 ///
 /// #[component]
-/// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///     let input_ref = create_node_ref::<Input>(cx);
+/// pub fn MyComponent() -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>();
 ///
 ///     let on_click = move |_| {
 ///         let node =
@@ -25,7 +25,6 @@ use std::cell::Cell;
 ///     };
 ///
 ///     view! {
-///       cx,
 ///       <div>
 ///       // `node_ref` loads the input
 ///       <input _ref=input_ref type="text"/>
@@ -49,8 +48,8 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 /// use leptos::html::Input;
 ///
 /// #[component]
-/// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///     let input_ref = create_node_ref::<Input>(cx);
+/// pub fn MyComponent() -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>();
 ///
 ///     let on_click = move |_| {
 ///         let node =
@@ -72,10 +71,8 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 /// }
 /// ```
 #[inline(always)]
-pub fn create_node_ref<T: ElementDescriptor + 'static>(
-    cx: Scope,
-) -> NodeRef<T> {
-    NodeRef(create_rw_signal(cx, None))
+pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
+    NodeRef(create_rw_signal(None))
 }
 
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
@@ -130,14 +127,14 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     /// Runs the provided closure when the `NodeRef` has been connected
     /// with it's [`HtmlElement`].
     #[inline(always)]
-    pub fn on_load<F>(self, cx: Scope, f: F)
+    pub fn on_load<F>(self, f: F)
     where
         T: Clone,
         F: FnOnce(HtmlElement<T>) + 'static,
     {
         let f = Cell::new(Some(f));
 
-        create_effect(cx, move |_| {
+        create_effect(move |_| {
             if let Some(node_ref) = self.get() {
                 f.take().unwrap()(node_ref);
             }

@@ -1,53 +1,45 @@
-error: this method requires a `Scope` parameter
+error: return type is incorrect
  --> tests/ui/component_absolute.rs:2:1
   |
-2 | fn missing_scope() {}
-  | ^^^^^^^^^^^^^^^^^^
-  |
-  = help: try `fn missing_scope(cx: Scope, /* ... */)`
-
-error: return type is incorrect
- --> tests/ui/component_absolute.rs:5:1
-  |
-5 | fn missing_return_type(cx: ::leptos::Scope) {
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | fn missing_return_type() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = help: return signature must be `-> impl IntoView`
 
 error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `default` and `into`
-  --> tests/ui/component_absolute.rs:10:52
-   |
-10 | fn unknown_prop_option(cx: ::leptos::Scope, #[prop(hello)] test: bool) -> impl ::leptos::IntoView {
-   |                                                    ^^^^^
+ --> tests/ui/component_absolute.rs:5:31
+  |
+5 | fn unknown_prop_option(#[prop(hello)] test: bool) -> impl ::leptos::IntoView {
+  |                               ^^^^^
 
 error: `optional` conflicts with mutually exclusive `optional_no_strip`
-  --> tests/ui/component_absolute.rs:18:12
+  --> tests/ui/component_absolute.rs:11:12
    |
-18 |     #[prop(optional, optional_no_strip)] conflicting: bool,
+11 |     #[prop(optional, optional_no_strip)] conflicting: bool,
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: `optional` conflicts with mutually exclusive `strip_option`
-  --> tests/ui/component_absolute.rs:27:12
+  --> tests/ui/component_absolute.rs:18:12
    |
-27 |     #[prop(optional, strip_option)] conflicting: bool,
+18 |     #[prop(optional, strip_option)] conflicting: bool,
    |            ^^^^^^^^^^^^^^^^^^^^^^
 
 error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
-  --> tests/ui/component_absolute.rs:36:12
+  --> tests/ui/component_absolute.rs:25:12
    |
-36 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
+25 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: unexpected end of input, expected assignment `=`
-  --> tests/ui/component_absolute.rs:45:19
+  --> tests/ui/component_absolute.rs:32:19
    |
-45 |     #[prop(default)] default: bool,
+32 |     #[prop(default)] default: bool,
    |                   ^
 
 error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
 
        = help: try `#[prop(default=5 * 10)]`
-  --> tests/ui/component_absolute.rs:54:22
+  --> tests/ui/component_absolute.rs:39:22
    |
-54 |     #[prop(default= |)] default: bool,
+39 |     #[prop(default= |)] default: bool,
    |                      ^

@@ -29,15 +29,15 @@ all its children and descendants using `provide_context`.
 
 ```rust
 #[component]
-fn App(cx: Scope) -> impl IntoView {
+fn App() -> impl IntoView {
     // here we create a signal in the root that can be consumed
     // anywhere in the app.
-    let (count, set_count) = create_signal(cx, 0);
+    let (count, set_count) = create_signal(0);
     // we'll pass the setter to specific components,
     // but provide the count itself to the whole app via context
-    provide_context(cx, count);
+    provide_context(count);
 
-    view! { cx,
+    view! {
         // SetterButton is allowed to modify the count
         <SetterButton set_count/>
         // These consumers can only read from it
@@ -57,14 +57,14 @@ fn App(cx: Scope) -> impl IntoView {
 ```rust
 /// A component that does some "fancy" math with the global count
 #[component]
-fn FancyMath(cx: Scope) -> impl IntoView {
+fn FancyMath() -> impl IntoView {
     // here we consume the global count signal with `use_context`
-    let count = use_context::<ReadSignal<u32>>(cx)
+    let count = use_context::<ReadSignal<u32>>()
         // we know we just provided this in the parent component
         .expect("there to be a `count` signal provided");
     let is_even = move || count() & 1 == 0;
 
-    view! { cx,
+    view! {
         <div class="consumer blue">
             "The number "
             <strong>{count}</strong>
@@ -89,17 +89,17 @@ struct GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(cx: Scope) -> Self {
+    pub fn new() -> Self {
         Self {
-            count: create_rw_signal(cx, 0),
-            name: create_rw_signal(cx, "Bob".to_string())
+            count: create_rw_signal(0),
+            name: create_rw_signal("Bob".to_string())
         }
     }
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    provide_context(cx, GlobalState::new(cx));
+fn App() -> impl IntoView {
+    provide_context(GlobalState::new());
 
     // etc.
 }
@@ -117,8 +117,8 @@ struct GlobalState {
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    provide_context(cx, create_rw_signal(GlobalState::default()));
+fn App() -> impl IntoView {
+    provide_context(create_rw_signal(GlobalState::default()));
 
     // etc.
 }
@@ -127,8 +127,8 @@ fn App(cx: Scope) -> impl IntoView {
 But there’s a problem: because our whole state is wrapped in one signal, updating the value of one field will cause reactive updates in parts of the UI that only depend on the other.
 
 ```rust
-let state = expect_context::<RwSignal<GlobalState>>(cx);
-view! { cx,
+let state = expect_context::<RwSignal<GlobalState>>();
+view! {
     <button on:click=move |_| state.update(|n| *n += 1)>"+1"</button>
     <p>{move || state.with(|state| state.name.clone())}</p>
 }
@@ -143,12 +143,12 @@ Here, instead of reading from the state signal directly, we create “slices” 
 ```rust
 /// A component that updates the count in the global state.
 #[component]
-fn GlobalStateCounter(cx: Scope) -> impl IntoView {
-    let state = expect_context::<RwSignal<GlobalState>>(cx);
+fn GlobalStateCounter() -> impl IntoView {
+    let state = expect_context::<RwSignal<GlobalState>>();
 
     // `create_slice` lets us create a "lens" into the data
     let (count, set_count) = create_slice(
-        cx,
+
         // we take a slice *from* `state`
         state,
         // our getter returns a "slice" of the data
@@ -157,7 +157,7 @@ fn GlobalStateCounter(cx: Scope) -> impl IntoView {
         |state, n| state.count = n,
     );
 
-    view! { cx,
+    view! {
         <div class="consumer blue">
             <button
                 on:click=move |_| {
@@ -214,15 +214,15 @@ use leptos::*;
 // components using provide_context(). Changing it will only cause rerendering
 // in the specific places it is actually used, not the whole app.
 #[component]
-fn Option2(cx: Scope) -> impl IntoView {
+fn Option2() -> impl IntoView {
     // here we create a signal in the root that can be consumed
     // anywhere in the app.
-    let (count, set_count) = create_signal(cx, 0);
+    let (count, set_count) = create_signal(0);
     // we'll pass the setter to specific components,
     // but provide the count itself to the whole app via context
-    provide_context(cx, count);
+    provide_context(count);
 
-    view! { cx,
+    view! {
         <h1>"Option 2: Passing Signals"</h1>
         // SetterButton is allowed to modify the count
         <SetterButton set_count/>
@@ -237,8 +237,8 @@ fn Option2(cx: Scope) -> impl IntoView {
 
 /// A button that increments our global counter.
 #[component]
-fn SetterButton(cx: Scope, set_count: WriteSignal<u32>) -> impl IntoView {
-    view! { cx,
+fn SetterButton(set_count: WriteSignal<u32>) -> impl IntoView {
+    view! {
         <div class="provider red">
             <button on:click=move |_| set_count.update(|count| *count += 1)>
                 "Increment Global Count"
@@ -249,14 +249,14 @@ fn SetterButton(cx: Scope, set_count: WriteSignal<u32>) -> impl IntoView {
 
 /// A component that does some "fancy" math with the global count
 #[component]
-fn FancyMath(cx: Scope) -> impl IntoView {
+fn FancyMath() -> impl IntoView {
     // here we consume the global count signal with `use_context`
-    let count = use_context::<ReadSignal<u32>>(cx)
+    let count = use_context::<ReadSignal<u32>>()
         // we know we just provided this in the parent component
         .expect("there to be a `count` signal provided");
     let is_even = move || count() & 1 == 0;
 
-    view! { cx,
+    view! {
         <div class="consumer blue">
             "The number "
             <strong>{count}</strong>
@@ -272,17 +272,17 @@ fn FancyMath(cx: Scope) -> impl IntoView {
 
 /// A component that shows a list of items generated from the global count.
 #[component]
-fn ListItems(cx: Scope) -> impl IntoView {
+fn ListItems() -> impl IntoView {
     // again, consume the global count signal with `use_context`
-    let count = use_context::<ReadSignal<u32>>(cx).expect("there to be a `count` signal provided");
+    let count = use_context::<ReadSignal<u32>>().expect("there to be a `count` signal provided");
 
     let squares = move || {
         (0..count())
-            .map(|n| view! { cx, <li>{n}<sup>"2"</sup> " is " {n * n}</li> })
+            .map(|n| view! { <li>{n}<sup>"2"</sup> " is " {n * n}</li> })
             .collect::<Vec<_>>()
     };
 
-    view! { cx,
+    view! {
         <div class="consumer green">
             <ul>{squares}</ul>
         </div>
@@ -304,13 +304,13 @@ struct GlobalState {
 }
 
 #[component]
-fn Option3(cx: Scope) -> impl IntoView {
+fn Option3() -> impl IntoView {
     // we'll provide a single signal that holds the whole state
     // each component will be responsible for creating its own "lens" into it
-    let state = create_rw_signal(cx, GlobalState::default());
-    provide_context(cx, state);
+    let state = create_rw_signal(GlobalState::default());
+    provide_context(state);
 
-    view! { cx,
+    view! {
         <h1>"Option 3: Passing Signals"</h1>
         <div class="red consumer" style="width: 100%">
             <h2>"Current Global State"</h2>
@@ -329,12 +329,12 @@ fn Option3(cx: Scope) -> impl IntoView {
 
 /// A component that updates the count in the global state.
 #[component]
-fn GlobalStateCounter(cx: Scope) -> impl IntoView {
-    let state = use_context::<RwSignal<GlobalState>>(cx).expect("state to have been provided");
+fn GlobalStateCounter() -> impl IntoView {
+    let state = use_context::<RwSignal<GlobalState>>().expect("state to have been provided");
 
     // `create_slice` lets us create a "lens" into the data
     let (count, set_count) = create_slice(
-        cx,
+
         // we take a slice *from* `state`
         state,
         // our getter returns a "slice" of the data
@@ -343,7 +343,7 @@ fn GlobalStateCounter(cx: Scope) -> impl IntoView {
         |state, n| state.count = n,
     );
 
-    view! { cx,
+    view! {
         <div class="consumer blue">
             <button
                 on:click=move |_| {
@@ -360,14 +360,14 @@ fn GlobalStateCounter(cx: Scope) -> impl IntoView {
 
 /// A component that updates the count in the global state.
 #[component]
-fn GlobalStateInput(cx: Scope) -> impl IntoView {
-    let state = use_context::<RwSignal<GlobalState>>(cx).expect("state to have been provided");
+fn GlobalStateInput() -> impl IntoView {
+    let state = use_context::<RwSignal<GlobalState>>().expect("state to have been provided");
 
     // this slice is completely independent of the `count` slice
     // that we created in the other component
     // neither of them will cause the other to rerun
     let (name, set_name) = create_slice(
-        cx,
+
         // we take a slice *from* `state`
         state,
         // our getter returns a "slice" of the data
@@ -376,7 +376,7 @@ fn GlobalStateInput(cx: Scope) -> impl IntoView {
         |state, n| state.name = n,
     );
 
-    view! { cx,
+    view! {
         <div class="consumer green">
             <input
                 type="text"
@@ -395,7 +395,7 @@ fn GlobalStateInput(cx: Scope) -> impl IntoView {
 // Because we defined it as `fn App`, we can now use it in a
 // template as <App/>
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <Option2/><Option3/> })
+    leptos::mount_to_body(|| view! { <Option2/><Option3/> })
 }
 
 ```

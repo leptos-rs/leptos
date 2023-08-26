@@ -40,3 +40,23 @@ wasm-pack build --target=web --debug --no-default-features --features=hydrate
 ```bash
 cargo run --no-default-features --features=ssr
 ```
+
+## Testing
+
+This example includes quality checks and end-to-end testing.
+
+To get started run this once.
+
+```bash
+cargo make ci
+```
+
+To only run the UI tests...
+
+```bash
+cargo make start-webdriver
+cargo leptos watch # or cargo run...
+cargo make test-ui
+```
+
+_See the [E2E README](./e2e/README.md) for more information about the testing strategy._

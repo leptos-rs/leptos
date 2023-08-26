@@ -26,6 +26,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
   "slots",
   "ssr_modes",
   "ssr_modes_axum",
+  "suspense_tests",
   "tailwind",
   "tailwind_csr_trunk",
   "timer",

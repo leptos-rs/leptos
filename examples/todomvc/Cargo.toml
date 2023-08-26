@@ -8,7 +8,7 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["nightly"] }
+leptos = { path = "../../leptos", features = ["nightly", "serde"] }
 log = "0.4"
 console_log = "1"
 console_error_panic_hook = "0.1.7"

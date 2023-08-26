@@ -8,10 +8,10 @@ use leptos::{nonce::use_nonce, *};
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
+/// fn MyApp() -> impl IntoView {
+///     provide_meta_context();
 ///
-///     view! { cx,
+///     view! {
 ///       <main>
 ///         <Link rel="preload"
 ///           href="myFont.woff2"
@@ -25,7 +25,6 @@ use leptos::{nonce::use_nonce, *};
 /// ```
 #[component(transparent)]
 pub fn Link(
-    cx: Scope,
     /// The [`id`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-id) attribute.
     #[prop(optional, into)]
     id: Option<Oco<'static, str>>,
@@ -81,7 +80,7 @@ pub fn Link(
     #[prop(optional, into)]
     blocking: Option<Oco<'static, str>>,
 ) -> impl IntoView {
-    let meta = use_head(cx);
+    let meta = use_head();
     let next_id = meta.tags.get_next_id();
     let id: Oco<'static, str> =
         id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
@@ -89,7 +88,7 @@ pub fn Link(
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
         let id = id.clone();
         move || {
-            leptos::leptos_dom::html::link(cx)
+            leptos::leptos_dom::html::link()
                 .attr("id", id)
                 .attr("as", as_)
                 .attr("crossorigin", crossorigin)
@@ -108,9 +107,9 @@ pub fn Link(
                 .attr("title", title)
                 .attr("type", type_)
                 .attr("blocking", blocking)
-                .attr("nonce", use_nonce(cx))
+                .attr("nonce", use_nonce())
         }
     });
 
-    meta.tags.register(cx, id, builder_el.into_any());
+    meta.tags.register(id, builder_el.into_any());
 }

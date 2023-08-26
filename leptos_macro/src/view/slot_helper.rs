@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 pub(crate) fn slot_to_tokens(
-    cx: &Ident,
     node: &NodeElement,
     slot: &KeyedAttribute,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
@@ -63,7 +62,7 @@ pub(crate) fn slot_to_tokens(
                 .unwrap_or_else(|| quote! { #name });
 
             quote! {
-                .#name(#[allow(unused_braces)] #value)
+                .#name(#[allow(unused_braces)] {#value})
             }
         });
 
@@ -101,7 +100,6 @@ pub(crate) fn slot_to_tokens(
         }
 
         let children = fragment_to_tokens(
-            cx,
             span,
             &node.children,
             true,
@@ -124,7 +122,7 @@ pub(crate) fn slot_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        move |#cx, #(#bindables)*| #children #view_marker
+                        move |#(#bindables)*| #children #view_marker
                     })
                 }
             } else {
@@ -132,7 +130,7 @@ pub(crate) fn slot_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        Box::new(move |#cx| #children #view_marker)
+                        Box::new(move || #children #view_marker)
                     })
                 }
             }
@@ -145,9 +143,9 @@ pub(crate) fn slot_to_tokens(
         let slot = Ident::new(&slot, span);
         if values.len() > 1 {
             quote! {
-                .#slot([
+                .#slot(::std::vec![
                     #(#values)*
-                ].to_vec())
+                ])
             }
         } else {
             let value = &values[0];

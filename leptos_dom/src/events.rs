@@ -60,10 +60,10 @@ pub fn add_event_listener<E>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = Box::new(move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         });
       }
     }
@@ -89,10 +89,10 @@ pub(crate) fn add_event_listener_undelegated<E>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = Box::new(move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         });
       }
     }
