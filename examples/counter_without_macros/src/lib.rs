@@ -5,7 +5,6 @@ use leptos::{ev, html::*, *};
 pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
     let (count, set_count) = create_signal(Count::new(initial_value, step));
 
-    // elements are created by calling a function with a Scope argument
     // the function name is the same as the HTML tag name
     div()
         // children can be added with .child()
@@ -25,20 +24,13 @@ pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
                     set_count.update(|count| count.decrease())
                 })
                 .child("-1"),
-            span()
-                .child("Value: ")
-                // reactive values are passed to .child() as a tuple
-                // (Scope, [child function]) so an effect can be created
-                .child(move || count.get().value())
-                .child("!"),
-        ))
-        .child(
+            span().child(("Value: ", move || count.get().value(), "!")),
             button()
                 .on(ev::click, move |_| {
                     set_count.update(|count| count.increase())
                 })
                 .child("+1"),
-        )
+        ))
 }
 
 #[derive(Debug, Clone)]
