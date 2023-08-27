@@ -1,18 +1,19 @@
 [tasks.clean]
 dependencies = [
-    "clean-cargo",
-    "clean-trunk",
-    "clean-node_modules",
-    "clean-playwright",
+  "clean-cargo",
+  "clean-trunk",
+  "clean-node_modules",
+  "clean-playwright",
 ]
 
 [tasks.clean-cargo]
-command = "cargo"
-args = ["clean"]
+command = "rm"
+args = ["-rf", "target"]
 
 [tasks.clean-trunk]
-command = "trunk"
-args = ["clean"]
+script = '''
+find . -type d -name target | xargs rm -rf
+'''
 
 [tasks.clean-node_modules]
 script = '''
