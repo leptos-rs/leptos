@@ -98,9 +98,13 @@ jobs:
           for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
           do
             pw_dir=$(dirname $pw_path)
-            echo Installing playwright browser dependencies in $pw_dir
-            cd $pw_dir
-            npx playwright install
+            if [ ! -v $pw_dir ]; then
+              echo "Playwright required in $pw_dir"
+              cd $pw_dir
+              pnpm dlx playwright install --with-deps
+            else
+              echo Playwright is not required
+            fi
           done
 
       # Run Cargo Make Task
