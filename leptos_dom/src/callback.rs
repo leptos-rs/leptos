@@ -1,49 +1,58 @@
-/// # Callbacks
-/// Callbacks define a standard way to store functions and closures,
-/// in particular in component properties.
-///
-/// # Creating callbacks
-/// You can always create a callback from a closure, but the prefered way is to use `prop(into)`
-/// inside your component:
-/// ```
-/// #[component]
-/// fn MyComponent(#[prop(into)] render_number: Callback<i32, String>) {
-///     view! {
-///         <div>
-///             {render_number.call(42)}
-///         </div>
-///     }
-/// }
-/// ```
-///
-/// # Calling callbacks
-/// All callbacks implement the [Callable] trait.
-/// Simply use `my_callback.call(input)`
-///
-/// # Types
-/// This modules defines:
-/// - [Callback], the most basic callback type
-/// - [SyncCallback] for scenarios when you need `Send` and `Sync`
-/// - [HtmlCallback] for a function that returns a [HtmlElement]
-/// - [ViewCallback] for a function that returns some kind of [view][IntoView]
-///
-/// # Copying vs cloning
-/// All callbacks type defined in this module are [Clone] but not [Copy].
-/// To solve this issue, use [StoredValue]; see [StoredCallback] for more
-/// ```
-/// let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
-/// let stored_callback = store_value(callback);
-/// view!{
-///     <div>
-///         {move || callback.call(1)}
-///         {move || callback.call(42)}
-///     </div>
-/// }
-/// ```
-///
-/// Note that for each callback type `T`, `StoredValue<T>` implements `Call`, so you can call them
-/// without even thinking about it.
-
+//! Callbacks define a standard way to store functions and closures,
+//! in particular for component properties.
+//!
+//! # How to use them
+//! You can always create a callback from a closure, but the prefered way is to use `prop(into)`
+//! when you define your component:
+//! ```
+//! #[component]
+//! fn MyComponent(#[prop(into)] render_number: Callback<i32, String>) {
+//!     view! {
+//!         <div>
+//!             {render_number.call(42)}
+//!         </div>
+//!     }
+//! }
+//! ```
+//!
+//! That way, you can create it from a closure directly:
+//! ```
+//! fn test() -> impl IntoView {
+//!     view!{
+//!         <MyComponent render_number = |x| x.to_string()>
+//!     }
+//! }
+//! ```
+//!
+//! *Notes*: 
+//! - in this example, you should use a generic type that implements `Fn(i32) -> String`.
+//!   Callbacks are more usefull when you want optional generic props. 
+//! - All callbacks implement the `Callable` trait. You have to write `my_callback.call(input)`
+//!
+//!
+//! # Types
+//! This modules defines:
+//! - [Callback], the most basic callback type
+//! - [SyncCallback] for scenarios when you need `Send` and `Sync`
+//! - [HtmlCallback] for a function that returns a [HtmlElement]
+//! - [ViewCallback] for a function that returns some kind of [view][IntoView]
+//!
+//! # Copying vs cloning
+//! All callbacks type defined in this module are [Clone] but not [Copy].
+//! To solve this issue, use [StoredValue]; see [StoredCallback] for more
+//! ```
+//! let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
+//! let stored_callback = store_value(callback);
+//! view! {
+//!     <div>
+//!         {move || callback.call(1)}
+//!         {move || callback.call(42)}
+//!     </div>
+//! }
+//! ```
+//!
+//! Note that for each callback type `T`, `StoredValue<T>` implements `Call`, so you can call them
+//! without even thinking about it.
 
 use crate::{AnyElement, ElementDescriptor, HtmlElement, IntoView, View};
 use leptos_reactive::StoredValue;
@@ -56,7 +65,7 @@ pub trait Callable<In, Out = ()> {
 }
 
 /// The most basic leptos callback type.
-/// It is intended to make passing a function to your component easy.
+/// For how to use callbacks, see [here][crate::callback]
 ///
 /// # Example
 /// ```
@@ -75,9 +84,6 @@ pub trait Callable<In, Out = ()> {
 ///     }
 /// }
 /// ```
-///
-/// Note that in this scenario, you should use a generic component instead.
-/// You should use callback mainly for optional generic props.
 ///
 /// # Cloning
 /// See [StoredCallback]
@@ -112,12 +118,12 @@ where
 
 /// a callback type that can be copied.
 /// `StoredCallback<In,Out>` is just an alias for `StoredValue<Callback<In, Out>>`.
-/// 
+///
 /// # Example
 /// ```
 /// let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
 /// let stored_callback: StoredCallback<i32, String> = store_value(callback);
-/// view!{
+/// view! {
 ///     <div>
 ///         {move || callback.call(1)}
 ///         {move || callback.call(42)}
@@ -130,7 +136,7 @@ where
 ///
 ///
 /// Note that a prop should never be a [StoredCallback]:
-/// you have to call [store_value] inside your component code.
+/// you have to call [store_value][leptos_reactive::store_value] inside your component code.
 pub type StoredCallback<In, Out> = StoredValue<Callback<In, Out>>;
 
 impl<F, In, Out> Callable<In, Out> for StoredValue<F>
@@ -157,8 +163,9 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 }
 
 /// A special callback type that returns any Html element.
-///
 /// You can use it exactly the same way as a classic callback.
+///
+/// For how to use callbacks, see [here][crate::callback]
 ///
 /// # Example
 ///
@@ -188,7 +195,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 ///     </div>
 /// }
 #[derive(Clone)]
-pub struct HtmlCallback<In=()>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
+pub struct HtmlCallback<In = ()>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
 
 impl<In> HtmlCallback<In> {
     /// creates a new callback from the function or closure
@@ -226,7 +233,7 @@ impl IntoView for HtmlCallback<()> {
 /// A special callback type that returns any View
 ///
 /// You can use it exactly the same way as a classic callback.
-///
+/// For how to use callbacks, see [here][crate::callback]
 ///
 /// ```
 /// #[component]

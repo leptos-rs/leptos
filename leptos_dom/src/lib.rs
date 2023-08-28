@@ -9,7 +9,7 @@
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
-mod callback;
+pub mod callback;
 mod components;
 mod events;
 pub mod helpers;
