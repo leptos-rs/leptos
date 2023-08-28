@@ -1,5 +1,49 @@
-// inspired by:
-// https://github.com/lpotthast/leptonic/blob/f8a270ae5512561a92f5deca057f7999940de11b/leptonic/src/callback.rs
+/// # Callbacks
+/// Callbacks define a standard way to store functions and closures,
+/// in particular in component properties.
+///
+/// # Creating callbacks
+/// You can always create a callback from a closure, but the prefered way is to use `prop(into)`
+/// inside your component:
+/// ```
+/// #[component]
+/// fn MyComponent(#[prop(into)] render_number: Callback<i32, String>) {
+///     view! {
+///         <div>
+///             {render_number.call(42)}
+///         </div>
+///     }
+/// }
+/// ```
+///
+/// # Calling callbacks
+/// All callbacks implement the [Callable] trait.
+/// Simply use `my_callback.call(input)`
+///
+/// # Types
+/// This modules defines:
+/// - [Callback], the most basic callback type
+/// - [SyncCallback] for scenarios when you need `Send` and `Sync`
+/// - [HtmlCallback] for a function that returns a [HtmlElement]
+/// - [ViewCallback] for a function that returns some kind of [view][IntoView]
+///
+/// # Copying vs cloning
+/// All callbacks type defined in this module are [Clone] but not [Copy].
+/// To solve this issue, use [StoredValue]; see [StoredCallback] for more
+/// ```
+/// let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
+/// let stored_callback = store_value(callback);
+/// view!{
+///     <div>
+///         {move || callback.call(1)}
+///         {move || callback.call(42)}
+///     </div>
+/// }
+/// ```
+///
+/// Note that for each callback type `T`, `StoredValue<T>` implements `Call`, so you can call them
+/// without even thinking about it.
+
 
 use crate::{AnyElement, ElementDescriptor, HtmlElement, IntoView, View};
 use leptos_reactive::StoredValue;
@@ -14,7 +58,7 @@ pub trait Callable<In, Out = ()> {
 /// The most basic leptos callback type.
 /// It is intended to make passing a function to your component easy.
 ///
-/// # Usage when you write a component
+/// # Example
 /// ```
 /// #[component]
 /// fn MyComponent(#[prop(into)] render_number: Callback<i32, String>) {
@@ -24,11 +68,11 @@ pub trait Callable<In, Out = ()> {
 ///         </div>
 ///     }
 /// }
-/// ```
-/// # Usage when you use your component
-/// ```
-/// view! {
-///     <MyComponent callback=move |x| x.to_string()/>
+///
+/// fn test() -> impl IntoView {
+///     view! {
+///         <MyComponent callback=move |x| x.to_string()/>
+///     }
 /// }
 /// ```
 ///
@@ -36,9 +80,8 @@ pub trait Callable<In, Out = ()> {
 /// You should use callback mainly for optional generic props.
 ///
 /// # Cloning
-/// The default [Callback] type can be cloned cheaply but cannot be copied.
-/// If you want to use the callback in a lot of closures, you will have to clone it each time.
-/// To avoid that, see [StoredCallback]
+/// See [StoredCallback]
+
 #[derive(Clone)]
 pub struct Callback<In, Out = ()>(Rc<dyn Fn(In) -> Out>);
 
@@ -68,13 +111,26 @@ where
 }
 
 /// a callback type that can be copied.
+/// `StoredCallback<In,Out>` is just an alias for `StoredValue<Callback<In, Out>>`.
+/// 
+/// # Example
+/// ```
+/// let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
+/// let stored_callback: StoredCallback<i32, String> = store_value(callback);
+/// view!{
+///     <div>
+///         {move || callback.call(1)}
+///         {move || callback.call(42)}
+///     </div>
+/// }
+/// ```
 ///
-/// To create it, just use [store_value] on your callback.
+/// Note that in this example, you can replace `Callback` by `SyncCallback` or `ViewCallback`, and
+/// it will work in the same way.
+///
 ///
 /// Note that a prop should never be a [StoredCallback]:
 /// you have to call [store_value] inside your component code.
-///
-/// You can store any callback type, and use it as a callback.
 pub type StoredCallback<In, Out> = StoredValue<Callback<In, Out>>;
 
 impl<F, In, Out> Callable<In, Out> for StoredValue<F>
@@ -86,9 +142,7 @@ where
     }
 }
 
-/// a callback type that
-/// - can be cloned
-/// - is `Send` and `Sync` if the input type is
+/// a callback type that is `Send` and `Sync` if the input type is
 #[derive(Clone)]
 pub struct SyncCallback<In, Out = ()>(Arc<dyn Fn(In) -> Out>);
 
@@ -104,9 +158,9 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 
 /// A special callback type that returns any Html element.
 ///
-/// # Usage when you write your component
 /// You can use it exactly the same way as a classic callback.
 ///
+/// # Example
 ///
 /// ```
 /// #[component]
@@ -117,14 +171,10 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 ///         </div>
 ///     }
 /// }
-/// ```
-///
-/// # Usage when you use your component
-/// Again, use it the same way as a classic callback.
-///
-/// ```
-/// view! {
-///     <MyComponent callback=move |x| view!{<span>{x}</span>}/>
+/// fn test() -> impl IntoView {
+///     view! {
+///         <MyComponent callback=move |x| view!{<span>{x}</span>}/>
+///     }
 /// }
 /// ```
 ///
@@ -138,7 +188,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 ///     </div>
 /// }
 #[derive(Clone)]
-pub struct HtmlCallback<In>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
+pub struct HtmlCallback<In=()>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
 
 impl<In> HtmlCallback<In> {
     /// creates a new callback from the function or closure
@@ -175,7 +225,6 @@ impl IntoView for HtmlCallback<()> {
 
 /// A special callback type that returns any View
 ///
-/// # Usage when you write your component
 /// You can use it exactly the same way as a classic callback.
 ///
 ///
@@ -188,14 +237,10 @@ impl IntoView for HtmlCallback<()> {
 ///         </div>
 ///     }
 /// }
-/// ```
-///
-/// # Usage when you use your component
-/// Again, use it the same way as a classic callback.
-///
-/// ```
-/// view! {
-///     <MyComponent callback=move |x| view!{<span>{x}</span>}/>
+/// fn test() -> impl IntoView {
+///     view! {
+///         <MyComponent callback=move |x| view!{<span>{x}</span>}/>
+///     }
 /// }
 /// ```
 ///
