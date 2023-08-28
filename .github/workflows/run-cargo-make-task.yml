@@ -95,14 +95,17 @@ jobs:
 
       - name: Maybe install playwright browser dependencies
         run: |
-          playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
-          if [ $playwright_count -eq 1 ]; then
-              echo playwright required
-              sudo apt-get update
-              sudo apt-get install libegl1 libvpx7 libevent-2.1-7 libopus0 libopengl0 libwoff1 libharfbuzz-icu0 libgstreamer-plugins-base1.0-0 libgstreamer-gl1.0-0 libhyphen0 libmanette-0.2-0 libgles2 gstreamer1.0-libav
-          else
-              echo playwright is not required
-          fi
+          for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
+          do
+            pw_dir=$(dirname $pw_path)
+            if [ ! -v $pw_dir ]; then
+              echo "Playwright required in $pw_dir"
+              cd $pw_dir
+              pnpm dlx playwright install --with-deps
+            else
+              echo Playwright is not required
+            fi
+          done
 
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
