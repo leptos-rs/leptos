@@ -98,6 +98,7 @@ jobs:
           playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
           if [ $playwright_count -eq 1 ]; then
               echo playwright required
+              cd ${{inputs.directory}}
               pnpm playwright install
           else
               echo playwright is not required
