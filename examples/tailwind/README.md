@@ -109,5 +109,3 @@ Many thanks to GreatGreg for putting together this guide. You can find the origi
 
 - Run `cargo make setup` to install dependencies
 - Run `cargo leptos test` or `cargo leptos end-to-end` to run the test
-
-TODO: Remove this simulated change
