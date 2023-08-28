@@ -70,6 +70,18 @@ There are a few things to note about the way you define a server function, too.
 - We provide the macro a path. This is a prefix for the path at which we’ll mount a server function handler on our server. (See examples for [Actix](https://github.com/leptos-rs/leptos/blob/main/examples/todo_app_sqlite/src/main.rs#L44) and [Axum](https://github.com/leptos-rs/leptos/blob/598523cd9d0d775b017cb721e41ebae9349f01e2/examples/todo_app_sqlite_axum/src/main.rs#L51).)
 - You’ll need to have `serde` as a dependency with the `derive` featured enabled for the macro to work properly. You can easily add it to `Cargo.toml` with `cargo add serde --features=derive`.
 
+## Server Function URL Prefixes
+
+You can optionally define a specific URL prefix to be used in the definition of the server function.
+This is done by providing an optional 2nd argument to the `#[server]` macro.
+By default the URL prefix will be `/`, if not specified.
+Here are some examples:
+
+```rust
+#[server(AddTodo)]         // will use the default URL prefix of `/`
+#[server(AddTodo, "/api")] // will use the URL prefix of `/api`
+```
+
 ## Server Function Encodings
 
 By default, the server function call is a `POST` request that serializes the arguments as URL-encoded form data in the body of the request. (This means that server functions can be called from HTML forms, which we’ll see in a future chapter.) But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]` macro to specify an alternate encoding:
@@ -104,6 +116,28 @@ In other words, you have two choices:
 > The reason we use `POST` or `GET` with URL-encoded data by default is the `<form>` support. For better or for worse, HTML forms don’t support `PUT` or `DELETE`, and they don’t support sending JSON. This means that if you use anything but a `GET` or `POST` request with URL-encoded data, it can only work once WASM has loaded. As we’ll see [in a later chapter](../progressive_enhancement), this isn’t always a great idea.
 >
 > The CBOR encoding is suported for historical reasons; an earlier version of server functions used a URL encoding that didn’t support nested objects like structs or vectors as server function arguments, which CBOR did. But note that the CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of your app is not available.
+
+
+## Server Functions Endpoint Paths
+
+You can optionally define a specific endpoint path to be used in the URL.
+By default, a unique path will be generated.
+This is done by providing an optional 4th argument to the `#[server]` macro.
+Leptos will generate the function endpoint path by concatenating the URL prefix (2nd argument) and the endpoint path (4th argument).
+For example,
+
+```rust
+#[server(MyServerFnType, "/api", "Url", "hello")]
+```
+
+will generate a server function endpoint at `/api/hello` that accepts a POST request.
+
+> ** Can I use the same server function endpoint path with multiple encodings?**
+>
+> Yes, but server functions must have unique paths.
+> If you want to use the same function with different encodings, you’ll need to define it multiple times with different paths.
+> For example, if you define a POST method on the path `/api/hello` with the  and a GET method on the same `/api/hello` path.
+> The server function handler (Actix or Axum) will override one of them depending on the order of the definitions.
 
 ## An Important Note on Security
 

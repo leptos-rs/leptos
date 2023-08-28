@@ -818,6 +818,12 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - Your server must be ready to handle the server functions at the API prefix you list. The easiest way to do this
 ///   is to use the `handle_server_fns` function from [`leptos_actix`](https://docs.rs/leptos_actix/latest/leptos_actix/fn.handle_server_fns.html)
 ///   or [`leptos_axum`](https://docs.rs/leptos_axum/latest/leptos_axum/fn.handle_server_fns.html).
+/// - **Server functons must have unique paths**. `handle_server_fns` handles all server functions.
+///   It looks a server function up by the URL prefix and endpoint path.
+///   This is because server functions are intended to have unique paths.
+///   Hence, you cannot define two server functions with the same URL prefix and endpoint path,
+///   even if they have different URL encodings,
+///   e.g. a POST method in `/api` and a GET method in `/api`.
 ///
 /// ## Server Function Encodings
 ///
