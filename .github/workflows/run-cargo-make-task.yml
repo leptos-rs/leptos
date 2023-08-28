@@ -95,14 +95,13 @@ jobs:
 
       - name: Maybe install playwright browser dependencies
         run: |
-          playwright_count=$(find ${{inputs.directory}} -name playwright.config.ts | wc -l)
-          if [ $playwright_count -eq 1 ]; then
-              echo playwright required
-              cd ${{inputs.directory}}
-              pnpm playwright install
-          else
-              echo playwright is not required
-          fi
+          for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
+          do
+            pw_dir=$(dirname $pw_path)
+            echo Installing playwright browser dependencies in $pw_dir
+            cd $pw_dir
+            pnpm playwright install
+          done
 
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
