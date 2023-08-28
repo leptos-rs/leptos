@@ -100,7 +100,7 @@ jobs:
             pw_dir=$(dirname $pw_path)
             echo Installing playwright browser dependencies in $pw_dir
             cd $pw_dir
-            pnpm playwright install
+            npx playwright install
           done
 
       # Run Cargo Make Task
