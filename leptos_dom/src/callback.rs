@@ -18,15 +18,15 @@
 //! That way, you can create it from a closure directly:
 //! ```
 //! fn test() -> impl IntoView {
-//!     view!{
+//!     view! {
 //!         <MyComponent render_number = |x| x.to_string()>
 //!     }
 //! }
 //! ```
 //!
-//! *Notes*: 
+//! *Notes*:
 //! - in this example, you should use a generic type that implements `Fn(i32) -> String`.
-//!   Callbacks are more usefull when you want optional generic props. 
+//!   Callbacks are more usefull when you want optional generic props.
 //! - All callbacks implement the `Callable` trait. You have to write `my_callback.call(input)`
 //!
 //!
