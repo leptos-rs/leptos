@@ -555,14 +555,22 @@ where
     let status = resp.status();
     #[cfg(not(target_arch = "wasm32"))]
     let status = status.as_u16();
-    if (500..=599).contains(&status) {
+    if (400..=599).contains(&status) {
         let text = resp.text().await.unwrap_or_default();
-        #[cfg(target_arch = "wasm32")]
-        let status_text = resp.status_text();
-        #[cfg(not(target_arch = "wasm32"))]
-        let status_text = status.to_string();
-        return Err(serde_json::from_str(&text)
-            .unwrap_or(ServerFnError::ServerError(status_text)));
+        return Err(match serde_json::from_str(&text) {
+            Ok(e) => e,
+            Err(_) => {
+                #[cfg(target_arch = "wasm32")]
+                let status_text = resp.status_text();
+                #[cfg(not(target_arch = "wasm32"))]
+                let status_text = status.to_string();
+                ServerFnError::ServerError(if text.is_empty() {
+                    format!("{} {}", status, status_text)
+                } else {
+                    format!("{} {}: {}", status, status_text, text)
+                })
+            }
+        });
     }
 
     // Decoding the body of the request
@@ -582,12 +590,6 @@ where
         #[cfg(not(target_arch = "wasm32"))]
         let binary = binary.as_ref();
 
-        if status == 400 {
-            return Err(ServerFnError::ServerError(
-                "No server function was found at this URL.".to_string(),
-            ));
-        }
-
         ciborium::de::from_reader(binary)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
@@ -595,10 +597,6 @@ where
             .text()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-
-        if status == 400 {
-            return Err(ServerFnError::ServerError(text));
-        }
 
         let mut deserializer = JSONDeserializer::from_str(&text);
         T::deserialize(&mut deserializer)
