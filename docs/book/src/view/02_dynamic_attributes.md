@@ -145,7 +145,7 @@ Derived signals let you create reactive computed values that can be used in mult
 places in your application with minimal overhead.
 
 Note: Using a derived signal like this means that the calculation runs once per
-signal change per place we access `double_count`; in other words, twice. This is a
+signal change and once per place we access `double_count`; in other words, twice. This is a
 very cheap calculation, so that’s fine. We’ll look at memos in a later chapter, which
 are designed to solve this problem for expensive calculations.
 
