@@ -74,12 +74,12 @@ There are a few things to note about the way you define a server function, too.
 
 You can optionally define a specific URL prefix to be used in the definition of the server function.
 This is done by providing an optional 2nd argument to the `#[server]` macro.
-By default the URL prefix will be `/`, if not specified.
+By default the URL prefix will be `/api`, if not specified.
 Here are some examples:
 
 ```rust
-#[server(AddTodo)]         // will use the default URL prefix of `/`
-#[server(AddTodo, "/api")] // will use the URL prefix of `/api`
+#[server(AddTodo)]         // will use the default URL prefix of `/api`
+#[server(AddTodo, "/foo")] // will use the URL prefix of `/foo`
 ```
 
 ## Server Function Encodings
@@ -120,24 +120,17 @@ In other words, you have two choices:
 
 ## Server Functions Endpoint Paths
 
-You can optionally define a specific endpoint path to be used in the URL.
-By default, a unique path will be generated.
-This is done by providing an optional 4th argument to the `#[server]` macro.
-Leptos will generate the function endpoint path by concatenating the URL prefix (2nd argument) and the endpoint path (4th argument).
+By default, a unique path will be generated. You can optionally define a specific endpoint path to be used in the URL. This is done by providing an optional 4th argument to the `#[server]` macro. Leptos will generate the complete path by concatenating the URL prefix (2nd argument) and the endpoint path (4th argument).
 For example,
 
 ```rust
 #[server(MyServerFnType, "/api", "Url", "hello")]
 ```
-
 will generate a server function endpoint at `/api/hello` that accepts a POST request.
 
-> ** Can I use the same server function endpoint path with multiple encodings?**
+> **Can I use the same server function endpoint path with multiple encodings?**
 >
-> Yes, but server functions must have unique paths.
-> If you want to use the same function with different encodings, you’ll need to define it multiple times with different paths.
-> For example, if you define a POST method on the path `/api/hello` with the  and a GET method on the same `/api/hello` path.
-> The server function handler (Actix or Axum) will override one of them depending on the order of the definitions.
+> No. Different server functions must have unique paths. The `#[server]` macro automatically generates unique paths, but you need to be careful if you choose to specify the complete path manually, as the server looks up server functions by their path.
 
 ## An Important Note on Security
 
