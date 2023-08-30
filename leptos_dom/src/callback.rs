@@ -5,21 +5,22 @@
 //! You can always create a callback from a closure, but the prefered way is to use `prop(into)`
 //! when you define your component:
 //! ```
+//! # use leptos::*;
+//! # use leptos::leptos_dom::{Callback, Callable};
 //! #[component]
-//! fn MyComponent(#[prop(into)] render_number: Callback<i32, String>) {
+//! fn MyComponent(
+//!     #[prop(into)] render_number: Callback<i32, String>,
+//! ) -> impl IntoView {
 //!     view! {
 //!         <div>
 //!             {render_number.call(42)}
 //!         </div>
 //!     }
 //! }
-//! ```
-//!
-//! That way, you can create it from a closure directly:
-//! ```
+//! // now you can use it from a closure directly:
 //! fn test() -> impl IntoView {
 //!     view! {
-//!         <MyComponent render_number = |x| x.to_string()>
+//!         <MyComponent render_number = |x: i32| x.to_string()/>
 //!     }
 //! }
 //! ```
@@ -41,13 +42,20 @@
 //! All callbacks type defined in this module are [Clone] but not [Copy].
 //! To solve this issue, use [StoredValue]; see [StoredCallback] for more
 //! ```
-//! let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
-//! let stored_callback = store_value(callback);
-//! view! {
-//!     <div>
-//!         {move || callback.call(1)}
-//!         {move || callback.call(42)}
-//!     </div>
+//! # use leptos::*;
+//! # use leptos::leptos_dom::{Callback, Callable};
+//! fn test() -> impl IntoView {
+//!     let callback: Callback<i32, String> =
+//!         Callback::new(|x: i32| x.to_string());
+//!     let stored_callback = store_value(callback);
+//!
+//!     view! {
+//!         <div>
+//!             // `stored_callback` can be moved multiple times
+//!             {move || stored_callback.call(1)}
+//!             {move || stored_callback.call(42)}
+//!         </div>
+//!     }
 //! }
 //! ```
 //!
@@ -69,8 +77,12 @@ pub trait Callable<In, Out = ()> {
 ///
 /// # Example
 /// ```
+/// # use leptos::*;
+/// # use leptos::leptos_dom::{Callable, Callback};
 /// #[component]
-/// fn MyComponent(#[prop(into)] render_number: Callback<i32, String>) {
+/// fn MyComponent(
+///     #[prop(into)] render_number: Callback<i32, String>,
+/// ) -> impl IntoView {
 ///     view! {
 ///         <div>
 ///             {render_number.call(42)}
@@ -80,7 +92,7 @@ pub trait Callable<In, Out = ()> {
 ///
 /// fn test() -> impl IntoView {
 ///     view! {
-///         <MyComponent callback=move |x| x.to_string()/>
+///         <MyComponent render_number=move |x: i32| x.to_string()/>
 ///     }
 /// }
 /// ```
@@ -116,18 +128,24 @@ where
     }
 }
 
-/// a callback type that can be copied.
-/// `StoredCallback<In,Out>` is just an alias for `StoredValue<Callback<In, Out>>`.
+/// A callback type that implements `Copy`.
+/// `StoredCallback<In,Out>` is an alias for `StoredValue<Callback<In, Out>>`.
 ///
 /// # Example
 /// ```
-/// let callback: Callback<i32, String> = Callback::new(|x| x.to_string);
-/// let stored_callback: StoredCallback<i32, String> = store_value(callback);
-/// view! {
-///     <div>
-///         {move || callback.call(1)}
-///         {move || callback.call(42)}
-///     </div>
+/// # use leptos::*;
+/// # use leptos::leptos_dom::{Callback, StoredCallback, Callable};
+/// fn test() -> impl IntoView {
+///     let callback: Callback<i32, String> =
+///         Callback::new(|x: i32| x.to_string());
+///     let stored_callback: StoredCallback<i32, String> =
+///         store_value(callback);
+///     view! {
+///         <div>
+///             {move || stored_callback.call(1)}
+///             {move || stored_callback.call(42)}
+///         </div>
+///     }
 /// }
 /// ```
 ///
@@ -170,8 +188,12 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 /// # Example
 ///
 /// ```
+/// # use leptos::*;
+/// # use leptos::leptos_dom::{Callable, HtmlCallback};
 /// #[component]
-/// fn MyComponent(#[prop(into)] render_number: HtmlCallback<i32>) {
+/// fn MyComponent(
+///     #[prop(into)] render_number: HtmlCallback<i32>,
+/// ) -> impl IntoView {
 ///     view! {
 ///         <div>
 ///             {render_number.call(42)}
@@ -180,7 +202,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 /// }
 /// fn test() -> impl IntoView {
 ///     view! {
-///         <MyComponent callback=move |x| view!{<span>{x}</span>}/>
+///         <MyComponent render_number=move |x: i32| view!{<span>{x}</span>}/>
 ///     }
 /// }
 /// ```
@@ -230,14 +252,18 @@ impl IntoView for HtmlCallback<()> {
     }
 }
 
-/// A special callback type that returns any View
+/// A special callback type that returns any [`View`].
 ///
 /// You can use it exactly the same way as a classic callback.
 /// For how to use callbacks, see [here][crate::callback]
 ///
 /// ```
+/// # use leptos::*;
+/// # use leptos::leptos_dom::{ViewCallback, Callable};
 /// #[component]
-/// fn MyComponent(#[prop(into)] render_number: ViewCallback<i32>) {
+/// fn MyComponent(
+///     #[prop(into)] render_number: ViewCallback<i32>,
+/// ) -> impl IntoView {
 ///     view! {
 ///         <div>
 ///             {render_number.call(42)}
@@ -246,7 +272,7 @@ impl IntoView for HtmlCallback<()> {
 /// }
 /// fn test() -> impl IntoView {
 ///     view! {
-///         <MyComponent callback=move |x| view!{<span>{x}</span>}/>
+///         <MyComponent render_number=move |x: i32| view!{<span>{x}</span>}/>
 ///     }
 /// }
 /// ```
