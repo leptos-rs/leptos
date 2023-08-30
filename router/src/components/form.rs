@@ -409,6 +409,13 @@ where
 
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
+
+        // If the response was redirected then a JSON will not be available in the response, instead
+        // it will be an actual page, so we don't want to try to parse it.
+        if resp.redirected() {
+            return;
+        }
+
         spawn_local(async move {
             let body = JsFuture::from(
                 resp.text().expect("couldn't get .text() from Response"),
