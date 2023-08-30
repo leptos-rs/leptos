@@ -19,7 +19,7 @@ pub fn impl_params(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 				let span = field.span();
 
 				quote_spanned! {
-					span => #ident: <#ty>::into_param(map.get(#field_name_string).map(|n| n.as_str()), #field_name_string)?
+					span => #ident: <#ty>::into_param(map.get(#field_name_string).map(::std::string::String::as_str), #field_name_string)?
 				}
 			})
             .collect()
