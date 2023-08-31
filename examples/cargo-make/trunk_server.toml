@@ -12,6 +12,25 @@ script = '''
   pkill -f "trunk"
 '''
 
+[tasks.trunk-status]
+script = '''
+  if [ -z $(pidof trunk) ]; then
+    echo trunk is not running
+  else
+    echo trunk is up
+  fi
+'''
+
+[tasks.maybe-start-trunk]
+script = '''
+  if [ -z $(pidof trunk) ]; then
+    echo Starting trunk...
+    cargo make start-trunk ${@} & 
+  else
+    echo Trunk already started
+  fi
+'''
+
 # ALIASES
 
 [tasks.dev]

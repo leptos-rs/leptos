@@ -1,0 +1,17 @@
+extend = [
+    { path = "../cargo-make/playwright.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
+]
+
+[tasks.integration-test]
+dependencies = [
+    "maybe-start-trunk",
+    "wait-one",
+    "test-playwright",
+    "stop-trunk",
+]
+
+[tasks.wait-one]
+script = '''
+sleep 1
+'''
