@@ -28,7 +28,7 @@ use std::hash::Hash;
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
-///         view=move | counter: Counter| {
+///         view=move |counter: Counter| {
 ///           view! {
 ///             <button>"Value: " {move || counter.count.get()}</button>
 ///           }
