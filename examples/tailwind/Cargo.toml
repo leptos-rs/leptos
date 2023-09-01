@@ -84,7 +84,7 @@ site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
 # Defaults to pkg	
 site-pkg-dir = "pkg"
- # The tailwind input file.
+# The tailwind input file.
 #
 # Optional, Activates the tailwind build
 tailwind-input-file = "style/tailwind.css"
