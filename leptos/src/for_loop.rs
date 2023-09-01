@@ -18,7 +18,7 @@ use std::hash::Hash;
 ///
 /// #[component]
 /// fn Counters() -> impl IntoView {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>( vec![]);
+///   let (counters, set_counters) = create_signal::<Vec<Counter>>(vec![]);
 ///
 ///   view! {
 ///     <div>
@@ -28,7 +28,7 @@ use std::hash::Hash;
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
-///         view=move | counter: Counter| {
+///         view=move |counter: Counter| {
 ///           view! {
 ///             <button>"Value: " {move || counter.count.get()}</button>
 ///           }
