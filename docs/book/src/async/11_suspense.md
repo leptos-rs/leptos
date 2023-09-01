@@ -4,7 +4,7 @@ In the previous chapter, we showed how you can create a simple loading screen to
 
 ```rust
 let (count, set_count) = create_signal(0);
-let a = create_resource(count, |count| async move { load_a(count).await });
+let once = create_resource(count, |count| async move { load_a(count).await });
 
 view! {
     <h1>"My Data"</h1>
