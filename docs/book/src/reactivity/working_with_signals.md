@@ -63,7 +63,7 @@ if names.with(Vec::is_empty) {
 }
 ```
 
-After all, `.with()` simply takes a function that takes the value by reference. Since `Vec::is_empty` takes `&self`, we can pass it in directly and avoid the unncessary closure.
+After all, `.with()` simply takes a function that takes the value by reference. Since `Vec::is_empty` takes `&self`, we can pass it in directly and avoid the unnecessary closure.
 
 ## Making signals depend on each other
 
