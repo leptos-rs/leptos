@@ -258,7 +258,7 @@ impl ToTokens for Model {
             .count();
 
         let dyn_attrs_props = props
-            .into_iter()
+            .iter()
             .filter(
                 |Prop {
                      prop_opts: PropOpt { dyn_attrs, .. },
