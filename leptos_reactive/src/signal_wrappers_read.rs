@@ -6,16 +6,29 @@ use crate::{
 
 /// Helper trait for converting `Fn() -> T` closures into
 /// [`Signal<T>`].
-pub trait IntoSignal<T>: Sized {
+pub trait IntoSignal: Sized {
+    /// The value yielded by the signal.
+    type Value;
+
     /// Consumes `self`, returning a [`Signal<T>`].
-    fn derive_signal(self) -> Signal<T>;
+    #[deprecated = "Will be removed in `leptos v0.6`. Please use `IntoSignal::into_signal()` instead."]
+    fn derive_signal(self) -> Signal<Self::Value>;
+
+    /// Consumes `self`, returning a [`Signal<T>`].
+    fn into_signal(self) -> Signal<Self::Value>;
 }
 
-impl<F, T> IntoSignal<T> for F
+impl<F, T> IntoSignal for F
 where
     F: Fn() -> T + 'static,
 {
+    type Value = T;
+
     fn derive_signal(self) -> Signal<T> {
+        self.into_signal()
+    }
+
+    fn into_signal(self) -> Signal<Self::Value> {
         Signal::derive(self)
     }
 }
