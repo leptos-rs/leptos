@@ -33,7 +33,7 @@ impl IntoClass for bool {
     }
 
     fn into_class_boxed(self: Box<Self>) -> Class {
-        Class::Value(*self)
+        (*self).into_class()
     }
 }
 
@@ -48,7 +48,7 @@ where
     }
 
     fn into_class_boxed(self: Box<Self>) -> Class {
-        Class::Fn(self)
+        (*self).into_class()
     }
 }
 

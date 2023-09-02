@@ -41,7 +41,7 @@ where
     }
 
     fn into_property_boxed(self: Box<Self>) -> Property {
-        Property::Fn(Box::new(move || self().into()))
+        (*self).into_property()
     }
 }
 
@@ -54,9 +54,7 @@ macro_rules! prop_type {
             }
 
             fn into_property_boxed(self: Box<Self>) -> Property {
-                let this = *self;
-
-                this.into_property()
+                (*self).into_property()
             }
         }
 
@@ -67,9 +65,7 @@ macro_rules! prop_type {
             }
 
             fn into_property_boxed(self: Box<Self>) -> Property {
-                let this = *self;
-
-                this.into_property()
+                (*self).into_property()
             }
         }
     };
@@ -102,9 +98,8 @@ macro_rules! prop_signal_type_optional {
             T: Clone,
             Option<T>: Into<JsValue>,
         {
-            fn into_property(self) -> Property {
-                let modified_fn = Box::new(move || self.get().into());
-                Property::Fn(modified_fn)
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
             }
 
             fn into_property_boxed(self: Box<Self>) -> Property {
