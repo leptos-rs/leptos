@@ -33,6 +33,7 @@ pub(crate) fn component_to_tokens(
             !attr.key.to_string().starts_with("bind:")
                 && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
+                && !attr.key.to_string().starts_with("dyn:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -70,6 +71,7 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let events = attrs
+        .clone()
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
             let (event_type, handler) = event_from_attribute_node(attr, true);
@@ -79,6 +81,20 @@ pub(crate) fn component_to_tokens(
             }
         })
         .collect::<Vec<_>>();
+
+    let dyn_attrs = attrs
+        .filter(|attr| attr.key.to_string().starts_with("dyn:"))
+        .filter_map(|attr| {
+            let name = &attr.key.to_string();
+            let name = name.strip_prefix("dyn:");
+            let value = attr.value().map(|v| {
+                quote! { #v }
+            })?;
+            Some(quote! { (#name, #value.into_attribute()) })
+        })
+        .collect::<Vec<_>>();
+
+    let dyn_attrs = quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) };
 
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
@@ -149,14 +165,19 @@ pub(crate) fn component_to_tokens(
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
-        ::leptos::component_view(
-            &#name,
-            ::leptos::component_props_builder(&#name)
-                #(#props)*
-                #(#slots)*
-                #children
-                .build()
-        )
+        {
+            use ::leptos::DynAttrs;
+
+            ::leptos::component_view(
+                &#name,
+                ::leptos::component_props_builder(&#name)
+                    #(#props)*
+                    #(#slots)*
+                    #children
+                    .build()
+                    #dyn_attrs
+            )
+        }
     };
 
     // (Temporarily?) removed
