@@ -15,7 +15,7 @@ use wasm_bindgen::UnwrapThrowExt;
 pub enum Property {
     /// A static JavaScript value.
     Value(JsValue),
-    /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
+    /// A (presumably reactive) function, which will be run inside an effect to update the property.
     Fn(Box<dyn Fn() -> JsValue>),
 }
 
@@ -25,6 +25,9 @@ pub enum Property {
 pub trait IntoProperty {
     /// Converts the object into a [`Property`].
     fn into_property(self) -> Property;
+
+    /// Helper function for dealing with `Box<dyn IntoAttribute>`.
+    fn into_property_boxed(self: Box<Self>) -> Property;
 }
 
 impl<T, U> IntoProperty for T
@@ -36,6 +39,10 @@ where
         let modified_fn = Box::new(move || self().into());
         Property::Fn(modified_fn)
     }
+
+    fn into_property_boxed(self: Box<Self>) -> Property {
+        Property::Fn(Box::new(move || self().into()))
+    }
 }
 
 macro_rules! prop_type {
@@ -45,12 +52,24 @@ macro_rules! prop_type {
             fn into_property(self) -> Property {
                 Property::Value(self.into())
             }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                let this = *self;
+
+                this.into_property()
+            }
         }
 
         impl IntoProperty for Option<$prop_type> {
             #[inline(always)]
             fn into_property(self) -> Property {
                 Property::Value(self.into())
+            }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                let this = *self;
+
+                this.into_property()
             }
         }
     };
@@ -67,6 +86,10 @@ macro_rules! prop_signal_type {
                 let modified_fn = Box::new(move || self.get().into());
                 Property::Fn(modified_fn)
             }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
+            }
         }
     };
 }
@@ -82,6 +105,10 @@ macro_rules! prop_signal_type_optional {
             fn into_property(self) -> Property {
                 let modified_fn = Box::new(move || self.get().into());
                 Property::Fn(modified_fn)
+            }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
             }
         }
     };
