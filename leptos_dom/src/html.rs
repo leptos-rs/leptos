@@ -63,7 +63,9 @@ cfg_if! {
 use crate::{
     ev::EventDescriptor,
     hydration::HydrationCtx,
-    macro_helpers::{IntoAttribute, IntoClass, IntoProperty, IntoStyle},
+    macro_helpers::{
+        Attribute, IntoAttribute, IntoClass, IntoProperty, IntoStyle,
+    },
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
 use leptos_reactive::Oco;
@@ -593,8 +595,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         {
-            use crate::macro_helpers::Attribute;
-
             let mut this = self;
 
             let mut attr = attr.into_attribute();
@@ -620,6 +620,18 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             this
         }
+    }
+
+    /// Adds multiple attributes to the element
+    #[track_caller]
+    pub fn attrs(
+        mut self,
+        attrs: impl std::iter::IntoIterator<Item = (&'static str, Attribute)>,
+    ) -> Self {
+        for (name, value) in attrs {
+            self = self.attr(name, value);
+        }
+        self
     }
 
     /// Adds a class to an element.

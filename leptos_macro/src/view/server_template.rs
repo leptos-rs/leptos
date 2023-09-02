@@ -265,6 +265,31 @@ fn element_to_tokens_ssr(
                 );
             }
         }
+        for attr in node.attributes() {
+            use syn::{Expr, ExprRange, RangeLimits, Stmt};
+
+            if let NodeAttribute::Block(NodeBlock::ValidBlock(block)) = attr {
+                if let Some(Stmt::Expr(
+                    Expr::Range(ExprRange {
+                        start: None,
+                        limits: RangeLimits::HalfOpen(_),
+                        end: Some(end),
+                        ..
+                    }),
+                    _,
+                )) = block.stmts.first()
+                {
+                    // should basically be the resolved attributes, joined on spaces, placed into
+                    // the template
+                    template.push_str(" {}");
+                    holes.push(quote! {
+                        {#end}.into_iter().filter_map(|(name, attr)| {
+                           Some(format!("{}={}", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
+                        }).collect::<Vec<_>>().join(" ")
+                    });
+                };
+            }
+        }
 
         // insert hydration ID
         let hydration_id = if is_root {
