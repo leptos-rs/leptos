@@ -11,14 +11,17 @@ fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
         Some(val) => val,
         None => options.reload_port,
     };
+    let protocol = match options.reload_ws_protocol {
+        leptos_config::ReloadWSProtocol::WS => "'ws://'",
+        leptos_config::ReloadWSProtocol::WSS => "'wss://'",
+    };
     match std::env::var("LEPTOS_WATCH").is_ok() {
         true => format!(
             r#"
                 <script crossorigin=""{nonce_str}>(function () {{
                     {}
-                    let protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
                     let host = window.location.hostname;
-                    let ws = new WebSocket(protocol + host + ':{reload_port}/live_reload');
+                    let ws = new WebSocket({protocol} + host + ':{reload_port}/live_reload');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
                         if (msg.all) window.location.reload();
