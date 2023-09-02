@@ -247,6 +247,16 @@ impl ToTokens for Model {
             }
         };
 
+        let count = props
+            .iter()
+            .filter(
+                |Prop {
+                     prop_opts: PropOpt { dyn_attrs, .. },
+                     ..
+                 }| *dyn_attrs,
+            )
+            .count();
+
         let dyn_attrs_props = props
             .into_iter()
             .filter(
@@ -258,7 +268,7 @@ impl ToTokens for Model {
             .enumerate()
             .map(|(idx, Prop { name, .. })| {
                 let ident = &name.ident;
-                if idx != 0 {
+                if idx < count - 1 {
                     quote! {
                         self.#ident = v.clone().into();
                     }
@@ -268,9 +278,6 @@ impl ToTokens for Model {
                     }
                 }
             })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
             .collect::<TokenStream>();
 
         let output = quote! {
