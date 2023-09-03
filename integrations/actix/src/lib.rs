@@ -6,6 +6,7 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
+use actix_http::header::HeaderName;
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -870,27 +871,46 @@ async fn render_app_async_helper(
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
-pub fn generate_route_list<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+pub async fn generate_route_list<IV>(
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+    static_context: Option<StaticRenderContext>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(app_fn, None)
+    generate_route_list_with_exclusions(
+        options,
+        app_fn,
+        additional_context,
+        static_context,
+        None,
+    )
+    .await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
-pub fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+pub async fn generate_route_list_with_exclusions<IV>(
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+    static_context: Option<StaticRenderContext>,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    let mut routes = leptos_router::generate_route_list_inner(app_fn);
+    let mut routes = leptos_router::generate_route_list_inner(
+        options,
+        app_fn,
+        additional_context,
+        static_context,
+    )
+    .await;
 
     // Actix's Router doesn't follow Leptos's
     // Match `*` or `*someword` to replace with replace it with "/{tail.*}
@@ -908,21 +928,37 @@ where
                     "/".to_string(),
                     listing.mode(),
                     listing.methods(),
+                    listing.static_rendered(),
                 );
             }
-            RouteListing::new(listing.path(), listing.mode(), listing.methods())
+            RouteListing::new(
+                listing.path(),
+                listing.mode(),
+                listing.methods(),
+                listing.static_rendered(),
+            )
         })
         .map(|listing| {
             let path = wildcard_re
                 .replace_all(listing.path(), "{tail:.*}")
                 .to_string();
             let path = capture_re.replace_all(&path, "{$1}").to_string();
-            RouteListing::new(path, listing.mode(), listing.methods())
+            RouteListing::new(
+                path,
+                listing.mode(),
+                listing.methods(),
+                listing.static_rendered(),
+            )
         })
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![RouteListing::new("/", Default::default(), [Method::Get])]
+        vec![RouteListing::new(
+            "/",
+            Default::default(),
+            [Method::Get],
+            false,
+        )]
     } else {
         // Routes to exclude from auto generation
         if let Some(excluded_routes) = excluded_routes {
@@ -935,6 +971,40 @@ where
 pub enum DataResponse<T> {
     Data(T),
     Response(actix_web::dev::Response<BoxBody>),
+}
+
+fn static_route(options: LeptosOptions, method: Method) -> Route {
+    let handler = move |req: HttpRequest| {
+        Box::pin({
+            let options = options.clone();
+            let path =
+                format!("{}{}.html", options.site_root, req.path().to_string());
+            async move {
+                match tokio::fs::read_to_string(path).await {
+                    Ok(body) => {
+                        let mut res = HttpResponse::new(StatusCode::OK);
+                        res.headers_mut().insert(
+                            HeaderName::from_static("content-type"),
+                            "text/html".parse().unwrap(),
+                        );
+                        res.set_body(body)
+                    }
+                    Err(e) => {
+                        tracing::error!("Error reading file: {}", e);
+                        HttpResponse::new(StatusCode::NOT_FOUND)
+                            .set_body("Not Found".into())
+                    }
+                }
+            }
+        })
+    };
+    match method {
+        Method::Get => web::get().to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
+    }
 }
 
 /// This trait allows one to pass a list of routes and a render function to Actix's router, letting us avoid
@@ -1001,7 +1071,10 @@ where
             let mode = listing.mode();
 
             for method in listing.methods() {
-                router = router.route(
+                router = if listing.static_rendered() {
+                    router.route(path, static_route(options.clone(), method))
+                } else {
+                    router.route(
                     path,
                     match mode {
                         SsrMode::OutOfOrder => {
@@ -1036,7 +1109,8 @@ where
                             method,
                         ),
                     },
-                );
+                )
+                };
             }
         }
         router

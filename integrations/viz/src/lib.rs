@@ -991,19 +991,32 @@ where
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+    static_context: Option<StaticRenderContext>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(app_fn, None).await
+    generate_route_list_with_exclusions(
+        options,
+        app_fn,
+        additional_context,
+        static_context,
+        None,
+    )
+    .await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+    static_context: Option<StaticRenderContext>,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
@@ -1021,7 +1034,13 @@ where
     local
         .run_until(async move {
             tokio::task::spawn_local(async move {
-                let routes = leptos_router::generate_route_list_inner(app_fn);
+                let routes = leptos_router::generate_route_list_inner(
+                    options.clone(),
+                    app_fn,
+                    additional_context,
+                    static_context,
+                )
+                .await;
                 let mut writable = routes_inner.0.write();
                 *writable = routes;
             })
@@ -1041,6 +1060,7 @@ where
                     "/".to_string(),
                     listing.mode(),
                     listing.methods(),
+                    listing.static_rendered(),
                 )
             } else {
                 listing
@@ -1053,12 +1073,53 @@ where
             "/",
             Default::default(),
             [leptos_router::Method::Get],
+            false,
         )]
     } else {
         if let Some(excluded_routes) = excluded_routes {
             routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
         }
         routes
+    }
+}
+
+fn static_route(
+    options: LeptosOptions,
+) -> impl Fn(
+    Request,
+) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static {
+    move |req: Request| {
+        Box::pin({
+            let options = options.clone();
+            let (head, _) = req.into_parts();
+            let path = format!(
+                "{}{}.html",
+                options.site_root,
+                head.uri.path().to_string()
+            );
+            async move {
+                match tokio::fs::read_to_string(path).await {
+                    Ok(body) => {
+                        let mut res = Response::html(body);
+                        let _ = res.headers_mut().insert(
+                            "Content-Type",
+                            HeaderValue::from_static("text/html"),
+                        );
+                        return Ok(res);
+                    }
+                    Err(e) => {
+                        tracing::error!("Error reading file: {}", e);
+                        let mut res =
+                            Response::text::<&'static str>("Not Found");
+                        *res.status_mut() = StatusCode::NOT_FOUND;
+                        return Ok(res);
+                    }
+                }
+            }
+        })
     }
 }
 
@@ -1122,13 +1183,9 @@ impl LeptosRoutes for Router {
             let path = listing.path();
             let mode = listing.mode();
 
-            listing.methods().fold(router, |router, method| match mode {
-                SsrMode::OutOfOrder => {
-                    let s = render_app_to_stream_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    );
+            listing.methods().fold(router, |router, method| {
+                if listing.static_rendered() {
+                    let s = static_route(options.clone());
                     match method {
                         leptos_router::Method::Get => router.get(path, s),
                         leptos_router::Method::Post => router.post(path, s),
@@ -1136,49 +1193,106 @@ impl LeptosRoutes for Router {
                         leptos_router::Method::Delete => router.delete(path, s),
                         leptos_router::Method::Patch => router.patch(path, s),
                     }
-                }
-                SsrMode::PartiallyBlocked => {
-                    let s =
+                } else {
+                    match mode {
+                        SsrMode::OutOfOrder => {
+                            let s = render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => {
+                                    router.get(path, s)
+                                }
+                                leptos_router::Method::Post => {
+                                    router.post(path, s)
+                                }
+                                leptos_router::Method::Put => {
+                                    router.put(path, s)
+                                }
+                                leptos_router::Method::Delete => {
+                                    router.delete(path, s)
+                                }
+                                leptos_router::Method::Patch => {
+                                    router.patch(path, s)
+                                }
+                            }
+                        }
+                        SsrMode::PartiallyBlocked => {
+                            let s =
                         render_app_to_stream_with_context_and_replace_blocks(
                             options.clone(),
                             additional_context.clone(),
                             app_fn.clone(),
                             true,
                         );
-                    match method {
-                        leptos_router::Method::Get => router.get(path, s),
-                        leptos_router::Method::Post => router.post(path, s),
-                        leptos_router::Method::Put => router.put(path, s),
-                        leptos_router::Method::Delete => router.delete(path, s),
-                        leptos_router::Method::Patch => router.patch(path, s),
-                    }
-                }
-                SsrMode::InOrder => {
-                    let s = render_app_to_stream_in_order_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    );
-                    match method {
-                        leptos_router::Method::Get => router.get(path, s),
-                        leptos_router::Method::Post => router.post(path, s),
-                        leptos_router::Method::Put => router.put(path, s),
-                        leptos_router::Method::Delete => router.delete(path, s),
-                        leptos_router::Method::Patch => router.patch(path, s),
-                    }
-                }
-                SsrMode::Async => {
-                    let s = render_app_async_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    );
-                    match method {
-                        leptos_router::Method::Get => router.get(path, s),
-                        leptos_router::Method::Post => router.post(path, s),
-                        leptos_router::Method::Put => router.put(path, s),
-                        leptos_router::Method::Delete => router.delete(path, s),
-                        leptos_router::Method::Patch => router.patch(path, s),
+                            match method {
+                                leptos_router::Method::Get => {
+                                    router.get(path, s)
+                                }
+                                leptos_router::Method::Post => {
+                                    router.post(path, s)
+                                }
+                                leptos_router::Method::Put => {
+                                    router.put(path, s)
+                                }
+                                leptos_router::Method::Delete => {
+                                    router.delete(path, s)
+                                }
+                                leptos_router::Method::Patch => {
+                                    router.patch(path, s)
+                                }
+                            }
+                        }
+                        SsrMode::InOrder => {
+                            let s = render_app_to_stream_in_order_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => {
+                                    router.get(path, s)
+                                }
+                                leptos_router::Method::Post => {
+                                    router.post(path, s)
+                                }
+                                leptos_router::Method::Put => {
+                                    router.put(path, s)
+                                }
+                                leptos_router::Method::Delete => {
+                                    router.delete(path, s)
+                                }
+                                leptos_router::Method::Patch => {
+                                    router.patch(path, s)
+                                }
+                            }
+                        }
+                        SsrMode::Async => {
+                            let s = render_app_async_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => {
+                                    router.get(path, s)
+                                }
+                                leptos_router::Method::Post => {
+                                    router.post(path, s)
+                                }
+                                leptos_router::Method::Put => {
+                                    router.put(path, s)
+                                }
+                                leptos_router::Method::Delete => {
+                                    router.delete(path, s)
+                                }
+                                leptos_router::Method::Patch => {
+                                    router.patch(path, s)
+                                }
+                            }
+                        }
                     }
                 }
             })

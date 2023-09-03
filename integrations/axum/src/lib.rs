@@ -1210,12 +1210,22 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+    static_context: Option<StaticRenderContext>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(app_fn, None).await
+    generate_route_list_with_exclusions(
+        options,
+        app_fn,
+        additional_context,
+        static_context,
+        None,
+    )
+    .await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1224,7 +1234,10 @@ where
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+    static_context: Option<StaticRenderContext>,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
@@ -1242,7 +1255,13 @@ where
     local
         .run_until(async move {
             tokio::task::spawn_local(async move {
-                let routes = leptos_router::generate_route_list_inner(app_fn);
+                let routes = leptos_router::generate_route_list_inner(
+                    options,
+                    app_fn,
+                    additional_context,
+                    static_context,
+                )
+                .await;
                 let mut writable = routes_inner.0.write();
                 *writable = routes;
             })
@@ -1262,6 +1281,7 @@ where
                     "/".to_string(),
                     listing.mode(),
                     listing.methods(),
+                    listing.static_rendered(),
                 )
             } else {
                 listing
@@ -1274,6 +1294,7 @@ where
             "/",
             Default::default(),
             [leptos_router::Method::Get],
+            false,
         )]
     } else {
         // Routes to exclude from auto generation
@@ -1320,6 +1341,50 @@ where
         T: 'static;
 }
 
+fn static_route(
+    options: LeptosOptions,
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<Box<dyn Future<Output = Response<String>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static {
+    move |req: Request<Body>| {
+        Box::pin({
+            let options = options.clone();
+            let (head, _) = req.into_parts();
+            let path = format!(
+                "{}{}.html",
+                options.site_root,
+                head.uri.path().to_string()
+            );
+            async move {
+                match tokio::fs::read_to_string(path).await {
+                    Ok(body) => {
+                        let mut res = Response::new(body);
+                        let _ = res.headers_mut().insert(
+                            "Content-Type",
+                            HeaderValue::from_static("text/html"),
+                        );
+                        res
+                    }
+                    Err(e) => {
+                        tracing::error!("Error reading file: {}", e);
+                        let mut res = Response::new("Not Found".into());
+                        *res.status_mut() = StatusCode::NOT_FOUND;
+                        return res;
+                    }
+                }
+            }
+        })
+    }
+}
+
+// (format!(
+//                 "{}{}.html",
+//                 options.site_root, path
+//             )
+
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl<S> LeptosRoutes<S> for axum::Router<S>
@@ -1356,7 +1421,20 @@ where
             let path = listing.path();
 
             for method in listing.methods() {
-                router = router.route(
+                router = if listing.static_rendered() {
+                    let s = static_route(LeptosOptions::from_ref(options));
+                    router.route(
+                        path,
+                        match method {
+                            leptos_router::Method::Get => get(s),
+                            leptos_router::Method::Post => post(s),
+                            leptos_router::Method::Put => put(s),
+                            leptos_router::Method::Delete => delete(s),
+                            leptos_router::Method::Patch => patch(s),
+                        },
+                    )
+                } else {
+                    router.route(
                     path,
                     match listing.mode() {
                         SsrMode::OutOfOrder => {
@@ -1417,7 +1495,8 @@ where
                             }
                         }
                     },
-                );
+                )
+                };
             }
         }
         router

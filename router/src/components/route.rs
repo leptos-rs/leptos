@@ -1,12 +1,14 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    ParamsMap, RouterContext, SsrMode,
+    ParamsMap, RouterContext, SsrMode, StaticParamsMap, StaticRenderContext,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
     any::Any,
     borrow::Cow,
     cell::{Cell, RefCell},
+    future::Future,
+    pin::Pin,
     rc::Rc,
 };
 
@@ -78,6 +80,8 @@ where
         ssr,
         methods,
         data,
+        false,
+        None,
     )
 }
 
@@ -136,8 +140,64 @@ where
         ssr,
         methods,
         data,
+        false,
+        None,
     )
 }
+
+/// Describes a portion of the nested layout of the app, specifying the route it should match,
+/// the element it should display, and data that should be loaded alongside the route.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
+#[component(transparent)]
+pub fn StaticRoute<E, F, P, S>(
+    /// The path fragment that this route should match. This can be static (`users`),
+    /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
+    /// wildcard (`user/*any`).
+    path: P,
+    /// The view that should be shown when this route is matched. This can be any function
+    /// that returns a type that implements [IntoView] (like `|| view! { <p>"Show this"</p> })`
+    /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
+    view: F,
+    /// The data required to fill any dynamic segments in the path during static rendering.
+    static_data: S,
+    /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
+    /// The HTTP methods that this route can handle (defaults to only `GET`).
+    #[prop(default = &[Method::Get])]
+    methods: &'static [Method],
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
+    /// `children` may be empty or include nested routes.
+    #[prop(optional)]
+    children: Option<Children>,
+) -> impl IntoView
+where
+    E: IntoView,
+    F: Fn() -> E + 'static,
+    P: std::fmt::Display,
+    S: Fn(
+            &StaticRenderContext,
+        ) -> Pin<Box<dyn Future<Output = StaticParamsMap>>>
+        + 'static,
+{
+    define_route(
+        children,
+        path.to_string(),
+        Rc::new(move || view().into_view()),
+        ssr,
+        methods,
+        data,
+        true,
+        Some(Rc::new(static_data)),
+    )
+}
+
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
@@ -149,6 +209,16 @@ pub(crate) fn define_route(
     ssr_mode: SsrMode,
     methods: &'static [Method],
     data: Option<Loader>,
+    static_render: bool,
+    static_data: Option<
+        Rc<
+            dyn Fn(
+                    &StaticRenderContext,
+                )
+                    -> Pin<Box<dyn Future<Output = StaticParamsMap>>>
+                + 'static,
+        >,
+    >,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
@@ -179,6 +249,8 @@ pub(crate) fn define_route(
         ssr_mode,
         methods,
         data,
+        static_render,
+        static_data,
     }
 }
 

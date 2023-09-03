@@ -1,4 +1,4 @@
-use crate::{Loader, Method, SsrMode};
+use crate::{Loader, Method, SsrMode, StaticData};
 use leptos::leptos_dom::View;
 use std::rc::Rc;
 
@@ -21,6 +21,10 @@ pub struct RouteDefinition {
     pub methods: &'static [Method],
     /// A data loader function that will be called when this route is matched.
     pub(crate) data: Option<Loader>,
+    /// Whether to statically generate this route's content and render from a static file.
+    pub static_render: bool,
+    /// The data required to fill any dynamic segments in the path during static rendering.
+    pub static_data: Option<StaticData>,
 }
 
 impl std::fmt::Debug for RouteDefinition {
@@ -29,6 +33,7 @@ impl std::fmt::Debug for RouteDefinition {
             .field("path", &self.path)
             .field("children", &self.children)
             .field("ssr_mode", &self.ssr_mode)
+            .field("static_render", &self.static_render)
             .finish()
     }
 }
