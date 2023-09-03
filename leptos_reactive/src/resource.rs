@@ -1166,14 +1166,12 @@ where
                         resolved.set(true);
                         set_value.try_update(|n| *n = Some(res));
                         set_loading.try_update(|n| *n = false);
+                    }
 
-                        for suspense_context in
-                            suspense_contexts.borrow().iter()
-                        {
-                            suspense_context.decrement(
-                                serializable != ResourceSerialization::Local,
-                            );
-                        }
+                    for suspense_context in suspense_contexts.borrow().iter() {
+                        suspense_context.decrement(
+                            serializable != ResourceSerialization::Local,
+                        );
                     }
                 }
             })
