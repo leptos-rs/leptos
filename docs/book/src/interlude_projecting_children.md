@@ -50,7 +50,6 @@ If you want to really understand the issue here, it may help to look at the expa
 
 ```rust
 Suspense(
-
     ::leptos::component_props_builder(&Suspense)
         .fallback(|| ())
         .children({
@@ -61,7 +60,6 @@ Suspense(
                     leptos::Fragment::lazy(|| {
                         vec![
                             (Show(
-
                                 ::leptos::component_props_builder(&Show)
                                     .when(|| true)
 									// but fallback is moved into Show here

@@ -235,9 +235,9 @@ At the very most, you might consider memoizing the final node before running som
 
 ```rust
 let text = create_memo(move |_| {
-  d()
+    d()
 });
 create_effect(move |_| {
-  engrave_text_into_bar_of_gold(&text());
+    engrave_text_into_bar_of_gold(&text());
 });
 ```

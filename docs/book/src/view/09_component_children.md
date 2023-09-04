@@ -47,7 +47,6 @@ Let’s define a component that takes some children and a render prop.
 ```rust
 #[component]
 pub fn TakesChildren<F, IV>(
-
     /// Takes a function (type F) that returns anything that can be
     /// converted into a View (type IV)
     render_prop: F,
