@@ -453,8 +453,7 @@ fn root_route(
 
         create_effect(move |prev| {
             let root = root_view.get();
-            let is_fallback =
-                !global_suspense.with_inner(SuspenseContext::ready);
+            let is_fallback = !global_suspense.with_inner(|c| c.ready().get());
             if prev.is_none() {
                 set_current_view.set(root);
             } else if !is_fallback {
@@ -462,7 +461,7 @@ fn root_route(
                     let global_suspense = global_suspense.clone();
                     move || {
                         let is_fallback = untrack(move || {
-                            !global_suspense.with_inner(SuspenseContext::ready)
+                            !global_suspense.with_inner(|c| c.ready().get())
                         });
                         if !is_fallback {
                             set_current_view.set(root);

@@ -1,9 +1,9 @@
 //! Types that handle asynchronous data loading via `<Suspense/>`.
 
 use crate::{
-    create_isomorphic_effect, create_rw_signal, create_signal, oco::Oco,
-    queue_microtask, signal::SignalGet, store_value, ReadSignal, RwSignal,
-    SignalSet, SignalUpdate, StoredValue, WriteSignal,
+    create_isomorphic_effect, create_memo, create_rw_signal, create_signal,
+    oco::Oco, queue_microtask, signal::SignalGet, store_value, Memo,
+    ReadSignal, RwSignal, SignalSet, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
 use std::{cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc};
@@ -154,10 +154,9 @@ impl SuspenseContext {
     }
 
     /// Tests whether all of the pending resources have resolved.
-    pub fn ready(&self) -> bool {
-        self.pending_resources
-            .try_with(|n| *n == 0)
-            .unwrap_or(false)
+    pub fn ready(&self) -> Memo<bool> {
+        let pending = self.pending_resources;
+        create_memo(move |_| pending.try_with(|n| *n == 0).unwrap_or(false))
     }
 }
 

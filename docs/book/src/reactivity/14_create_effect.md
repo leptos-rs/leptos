@@ -50,7 +50,6 @@ let (use_last, set_use_last) = create_signal(true);
 // any time one of the source signals changes
 create_effect(move |_| {
     log(
-
         if use_last() {
             format!("{} {}", first(), last())
         } else {
@@ -122,7 +121,6 @@ Like `create_resource`, `watch` takes a first argument, which is reactively trac
 let (num, set_num) = create_signal(0);
 
 let stop = watch(
-
     move || num.get(),
     move |num, prev_num, _| {
         log::debug!("Number: {}; Prev: {:?}", num, prev_num);
