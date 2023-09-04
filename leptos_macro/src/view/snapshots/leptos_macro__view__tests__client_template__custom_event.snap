@@ -1,0 +1,19 @@
+---
+source: leptos_macro/src/view/tests.rs
+assertion_line: 101
+expression: pretty(result)
+---
+fn view() {
+    ::leptos::component_view(
+            &ExternalComponent,
+            ::leptos::component_props_builder(&ExternalComponent).build(),
+        )
+        .into_view()
+        .on(
+            ::leptos::leptos_dom::ev::undelegated(
+                ::leptos::leptos_dom::ev::Custom::new("custom.event.clear"),
+            ),
+            move |_: Event| set_value(0),
+        )
+}
+
