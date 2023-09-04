@@ -1,5 +1,7 @@
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use leptos_reactive::SignalGet;
 use leptos_reactive::{
     create_memo, provide_context, SignalGetUntracked, SuspenseContext,
 };
@@ -93,6 +95,9 @@ where
 
     let current_id = HydrationCtx::next_component();
 
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    let ready = context.ready();
+
     let child = DynChild::new({
         move || {
             // pull lazy memo before checking if context is ready
@@ -100,7 +105,7 @@ where
 
             #[cfg(any(feature = "csr", feature = "hydrate"))]
             {
-                if context.ready() {
+                if ready.get() {
                     children_rendered
                 } else {
                     fallback.get_untracked()
