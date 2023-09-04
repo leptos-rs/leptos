@@ -143,7 +143,6 @@ where
     for route in static_routes {
         let mut path = StaticPath::new(&route.path);
         for p in path.parents().into_iter().rev() {
-            println!("Checking {:?}", p.path());
             match static_data.get(p.path()) {
                 Some(data) => path.add_params(data),
                 None => {}
@@ -153,11 +152,9 @@ where
             Some(data) => path.add_params(data),
             None => {}
         }
-        println!("Rendering {:?}", path);
         // find all parent routes and resolve all static_data
         // grab each parent route's static_data and add the parameters to the path
         for path in path.into_paths() {
-            println!("Rendering {}", path);
             let url = format!("http://leptos{}", path);
             let app = {
                 let app_fn = app_fn.clone();
