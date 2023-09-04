@@ -11,7 +11,8 @@ pub trait IntoSignal: Sized {
     type Value;
 
     /// Consumes `self`, returning a [`Signal<T>`].
-    #[deprecated = "Will be removed in `leptos v0.6`. Please use `IntoSignal::into_signal()` instead."]
+    #[deprecated = "Will be removed in `leptos v0.6`. Please use \
+                    `IntoSignal::into_signal()` instead."]
     fn derive_signal(self) -> Signal<Self::Value>;
 
     /// Consumes `self`, returning a [`Signal<T>`].
