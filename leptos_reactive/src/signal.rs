@@ -1790,6 +1790,35 @@ impl<T> SignalDispose for RwSignal<T> {
 }
 
 impl<T> RwSignal<T> {
+    /// Creates a reactive signal with the getter and setter unified in one value.
+    /// You may prefer this style, or it may be easier to pass around in a context
+    /// or as a function argument.
+    ///
+    /// This is identical to [`create_rw_signal`].
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// let count = RwSignal::new(0);
+    ///
+    /// // ✅ set the value
+    /// count.set(1);
+    /// assert_eq!(count.get(), 1);
+    ///
+    /// // ❌ you can call the getter within the setter
+    /// // count.set(count.get() + 1);
+    ///
+    /// // ✅ however, it's more efficient to use .update() and mutate the value in place
+    /// count.update(|count: &mut i32| *count += 1);
+    /// assert_eq!(count.get(), 2);
+    /// # runtime.dispose();
+    /// #
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new(value: T) -> Self {
+        create_rw_signal(value)
+    }
+
     /// Returns a read-only handle to the signal.
     ///
     /// Useful if you're trying to give read access to another component but ensure that it can't write
