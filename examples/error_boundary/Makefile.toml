@@ -1,1 +1,4 @@
-extend = [{ path = "../cargo-make/main.toml" }]
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/playwright-trunk-test.toml" },
+]
