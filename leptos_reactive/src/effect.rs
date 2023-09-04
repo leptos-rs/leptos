@@ -162,6 +162,32 @@ where
     pub fn new_isomorphic(f: impl Fn(Option<T>) -> T + 'static) -> Self {
         create_isomorphic_effect(f)
     }
+
+    /// Applies the given closure to the most recent value of the effect.
+    ///
+    /// Because effect functions can return values, each time an effect runs it
+    /// consumes its previous value. This allows an effect to store additional state
+    /// (like a DOM node, a timeout handle, or a type that implements `Drop`) and
+    /// keep it alive across multiple runs.
+    ///
+    /// This method allows access to the effect’s value outside the effect function.
+    /// The next time a signal change causes the effect to run, it will receive the
+    /// mutated value.
+    pub fn with_value_mut<U>(
+        &self,
+        f: impl FnOnce(&mut Option<T>) -> U,
+    ) -> Option<U> {
+        with_runtime(|runtime| {
+            let nodes = runtime.nodes.borrow();
+            let node = nodes.get(self.id)?;
+            let value = node.value.clone()?;
+            let mut value = value.borrow_mut();
+            let value = value.downcast_mut()?;
+            Some(f(value))
+        })
+        .ok()
+        .flatten()
+    }
 }
 
 /// Creates an effect; unlike effects created by [`create_effect`], isomorphic effects will run on
