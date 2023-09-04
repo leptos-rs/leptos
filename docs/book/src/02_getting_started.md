@@ -55,7 +55,9 @@ Create a simple `index.html` in the root of the `leptos-tutorial` directory
 <!DOCTYPE html>
 <html>
   <head></head>
-  <body></body>
+  <body>
+    <link data-trunk rel="rust" href="Cargo.toml"/>
+  </body>
 </html>
 ```
 
