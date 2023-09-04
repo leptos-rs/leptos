@@ -26,7 +26,7 @@ pub trait IntoProperty {
     /// Converts the object into a [`Property`].
     fn into_property(self) -> Property;
 
-    /// Helper function for dealing with `Box<dyn IntoAttribute>`.
+    /// Helper function for dealing with `Box<dyn IntoProperty>`.
     fn into_property_boxed(self: Box<Self>) -> Property;
 }
 

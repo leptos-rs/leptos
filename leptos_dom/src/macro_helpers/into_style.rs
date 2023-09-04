@@ -42,7 +42,7 @@ pub trait IntoStyle {
     /// Converts the object into a [`Style`].
     fn into_style(self) -> Style;
 
-    /// Helper function for dealing with `Box<dyn IntoAttribute>`.
+    /// Helper function for dealing with `Box<dyn IntoStyle>`.
     fn into_style_boxed(self: Box<Self>) -> Style;
 }
 
