@@ -147,11 +147,18 @@ pub(crate) fn component_to_tokens(
         }
     });
 
+    let generics = &node.open_tag.generics;
+    let generics = if generics.lt_token.is_some() {
+        quote! { ::#generics }
+    } else {
+        quote! {}
+    };
+
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
         ::leptos::component_view(
             &#name,
-            ::leptos::component_props_builder(&#name)
+            ::leptos::component_props_builder(&#name #generics)
                 #(#props)*
                 #(#slots)*
                 #children
