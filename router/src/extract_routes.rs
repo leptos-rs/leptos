@@ -142,16 +142,16 @@ where
     // TODO: maybe make this concurrent in some capacity
     for route in static_routes {
         let mut path = StaticPath::new(&route.path);
-        match static_data.get(path.path()) {
-            Some(data) => path.add_params(data),
-            None => {}
-        }
-        for p in path.parents() {
+        for p in path.parents().into_iter().rev() {
             println!("Checking {:?}", p.path());
             match static_data.get(p.path()) {
                 Some(data) => path.add_params(data),
                 None => {}
             }
+        }
+        match static_data.get(path.path()) {
+            Some(data) => path.add_params(data),
+            None => {}
         }
         println!("Rendering {:?}", path);
         // find all parent routes and resolve all static_data
