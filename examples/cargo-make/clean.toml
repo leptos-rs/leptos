@@ -12,7 +12,7 @@ args = ["-rf", "target"]
 
 [tasks.clean-trunk]
 script = '''
-find . -type d -name target | xargs rm -rf
+find . -type d -name dist | xargs rm -rf
 '''
 
 [tasks.clean-node_modules]

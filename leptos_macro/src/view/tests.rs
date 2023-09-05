@@ -112,5 +112,8 @@ for_all_modes! {
             initial_value=0
             step=1
         />
+    "#,
+    test_custom_event => r#"
+        <ExternalComponent on:custom.event.clear=move |_: Event| set_value(0) />
     "#
 }

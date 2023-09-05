@@ -99,7 +99,9 @@ where
                         cfg!(feature = "csr") && first_run.get();
                     let is_first_run =
                         is_first_run(first_run, &suspense_context);
-                    first_run.set(false);
+                    if was_first_run {
+                        first_run.set(false)
+                    }
 
                     if let Some(prev_children) = &*prev_child.borrow() {
                         if is_first_run || was_first_run {

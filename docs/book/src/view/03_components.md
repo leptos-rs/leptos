@@ -35,9 +35,7 @@ Instead, let’s create a `<ProgressBar/>` component.
 
 ```rust
 #[component]
-fn ProgressBar(
-
-) -> impl IntoView {
+fn ProgressBar() -> impl IntoView {
     view! {
         <progress
             max="50"
@@ -64,7 +62,6 @@ In Leptos, you define props by giving additional arguments to the component func
 ```rust
 #[component]
 fn ProgressBar(
-
     progress: ReadSignal<i32>
 ) -> impl IntoView {
     view! {
@@ -118,7 +115,6 @@ argument to the component function with `#[prop(optional)]`.
 ```rust
 #[component]
 fn ProgressBar(
-
     // mark this prop optional
     // you can specify it or not when you use <ProgressBar/>
     #[prop(optional)]
@@ -149,7 +145,6 @@ with `#[prop(default = ...)`.
 ```rust
 #[component]
 fn ProgressBar(
-
     #[prop(default = 100)]
     max: u16,
     progress: ReadSignal<i32>
@@ -199,7 +194,6 @@ implement the trait `Fn() -> i32`. So you could use a generic component:
 ```rust
 #[component]
 fn ProgressBar<F>(
-
     #[prop(default = 100)]
     max: u16,
     progress: F
@@ -254,7 +248,6 @@ reactive value.
 ```rust
 #[component]
 fn ProgressBar(
-
     #[prop(default = 100)]
     max: u16,
     #[prop(into)]
@@ -373,7 +366,6 @@ component function, and each one of the props:
 /// Shows progress toward a goal.
 #[component]
 fn ProgressBar(
-
     /// The maximum value of the progress bar.
     #[prop(default = 100)]
     max: u16,

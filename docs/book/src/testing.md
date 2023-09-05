@@ -37,7 +37,7 @@ impl Todos {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_remaining {
+    fn test_remaining() {
         // ...
     }
 }

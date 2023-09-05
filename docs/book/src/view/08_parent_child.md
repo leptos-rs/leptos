@@ -72,10 +72,7 @@ pub fn App() -> impl IntoView {
 
 
 #[component]
-pub fn ButtonB<F>(
-
-    on_click: F,
-) -> impl IntoView
+pub fn ButtonB<F>(on_click: F) -> impl IntoView
 where
     F: Fn(MouseEvent) + 'static,
 {

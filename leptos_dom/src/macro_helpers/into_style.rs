@@ -41,12 +41,19 @@ impl std::fmt::Debug for Style {
 pub trait IntoStyle {
     /// Converts the object into a [`Style`].
     fn into_style(self) -> Style;
+
+    /// Helper function for dealing with `Box<dyn IntoStyle>`.
+    fn into_style_boxed(self: Box<Self>) -> Style;
 }
 
 impl IntoStyle for &'static str {
     #[inline(always)]
     fn into_style(self) -> Style {
         Style::Value(Oco::Borrowed(self))
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
     }
 }
 
@@ -55,12 +62,20 @@ impl IntoStyle for String {
     fn into_style(self) -> Style {
         Style::Value(Oco::Owned(self))
     }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
+    }
 }
 
 impl IntoStyle for Rc<str> {
     #[inline(always)]
     fn into_style(self) -> Style {
         Style::Value(Oco::Counted(self))
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (self).into_style()
     }
 }
 
@@ -69,12 +84,20 @@ impl IntoStyle for Cow<'static, str> {
     fn into_style(self) -> Style {
         Style::Value(self.into())
     }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
+    }
 }
 
 impl IntoStyle for Oco<'static, str> {
     #[inline(always)]
     fn into_style(self) -> Style {
         Style::Value(self)
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
     }
 }
 
@@ -83,12 +106,20 @@ impl IntoStyle for Option<&'static str> {
     fn into_style(self) -> Style {
         Style::Option(self.map(Oco::Borrowed))
     }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
+    }
 }
 
 impl IntoStyle for Option<String> {
     #[inline(always)]
     fn into_style(self) -> Style {
         Style::Option(self.map(Oco::Owned))
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (self).into_style()
     }
 }
 
@@ -97,6 +128,10 @@ impl IntoStyle for Option<Rc<str>> {
     fn into_style(self) -> Style {
         Style::Option(self.map(Oco::Counted))
     }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
+    }
 }
 
 impl IntoStyle for Option<Cow<'static, str>> {
@@ -104,12 +139,20 @@ impl IntoStyle for Option<Cow<'static, str>> {
     fn into_style(self) -> Style {
         Style::Option(self.map(Oco::from))
     }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
+    }
 }
 
 impl IntoStyle for Option<Oco<'static, str>> {
     #[inline(always)]
     fn into_style(self) -> Style {
         Style::Option(self)
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
     }
 }
 
@@ -122,6 +165,10 @@ where
     fn into_style(self) -> Style {
         let modified_fn = Rc::new(move || (self)().into_style());
         Style::Fn(modified_fn)
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        (*self).into_style()
     }
 }
 
@@ -221,11 +268,19 @@ macro_rules! style_type {
             fn into_style(self) -> Style {
                 Style::Value(self.to_string().into())
             }
+
+            fn into_style_boxed(self: Box<Self>) -> Style {
+                (*self).into_style()
+            }
         }
 
         impl IntoStyle for Option<$style_type> {
             fn into_style(self) -> Style {
                 Style::Option(self.map(|n| n.to_string().into()))
+            }
+
+            fn into_style_boxed(self: Box<Self>) -> Style {
+                (*self).into_style()
             }
         }
     };
@@ -242,6 +297,10 @@ macro_rules! style_signal_type {
                 let modified_fn = Rc::new(move || self.get().into_style());
                 Style::Fn(modified_fn)
             }
+
+            fn into_style_boxed(self: Box<Self>) -> Style {
+                (*self).into_style()
+            }
         }
     };
 }
@@ -257,6 +316,10 @@ macro_rules! style_signal_type_optional {
             fn into_style(self) -> Style {
                 let modified_fn = Rc::new(move || self.get().into_style());
                 Style::Fn(modified_fn)
+            }
+
+            fn into_style_boxed(self: Box<Self>) -> Style {
+                (*self).into_style()
             }
         }
     };

@@ -21,12 +21,19 @@ pub enum Class {
 pub trait IntoClass {
     /// Converts the object into a [`Class`].
     fn into_class(self) -> Class;
+
+    /// Helper function for dealing with `Box<dyn IntoClass>`.
+    fn into_class_boxed(self: Box<Self>) -> Class;
 }
 
 impl IntoClass for bool {
     #[inline(always)]
     fn into_class(self) -> Class {
         Class::Value(self)
+    }
+
+    fn into_class_boxed(self: Box<Self>) -> Class {
+        (*self).into_class()
     }
 }
 
@@ -38,6 +45,10 @@ where
     fn into_class(self) -> Class {
         let modified_fn = Box::new(self);
         Class::Fn(modified_fn)
+    }
+
+    fn into_class_boxed(self: Box<Self>) -> Class {
+        (*self).into_class()
     }
 }
 
@@ -128,6 +139,10 @@ macro_rules! class_signal_type {
                 let modified_fn = Box::new(move || self.get());
                 Class::Fn(modified_fn)
             }
+
+            fn into_class_boxed(self: Box<Self>) -> Class {
+                (*self).into_class()
+            }
         }
     };
 }
@@ -140,6 +155,10 @@ macro_rules! class_signal_type_optional {
             fn into_class(self) -> Class {
                 let modified_fn = Box::new(move || self.get().unwrap_or(false));
                 Class::Fn(modified_fn)
+            }
+
+            fn into_class_boxed(self: Box<Self>) -> Class {
+                (*self).into_class()
             }
         }
     };

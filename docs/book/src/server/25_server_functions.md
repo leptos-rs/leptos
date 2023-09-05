@@ -33,7 +33,6 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 #[component]
 pub fn BusyButton() -> impl IntoView {
 	view! {
-
         <button on:click=move |_| {
             spawn_local(async {
                 add_todo("So much to do!".to_string()).await;

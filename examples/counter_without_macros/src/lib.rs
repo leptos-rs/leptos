@@ -3,7 +3,7 @@ use leptos::{ev, html::*, *};
 /// A simple counter view.
 // A component is really just a function call: it runs once to create the DOM and reactive system
 pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
-    let (count, set_count) = create_signal(Count::new(initial_value, step));
+    let count = RwSignal::new(Count::new(initial_value, step));
 
     // the function name is the same as the HTML tag name
     div()
@@ -17,18 +17,14 @@ pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
                 // typed events found in leptos::ev
                 // 1) prevent typos in event names
                 // 2) allow for correct type inference in callbacks
-                .on(ev::click, move |_| set_count.update(|count| count.clear()))
+                .on(ev::click, move |_| count.update(Count::clear))
                 .child("Clear"),
             button()
-                .on(ev::click, move |_| {
-                    set_count.update(|count| count.decrease())
-                })
+                .on(ev::click, move |_| count.update(Count::decrease))
                 .child("-1"),
             span().child(("Value: ", move || count.get().value(), "!")),
             button()
-                .on(ev::click, move |_| {
-                    set_count.update(|count| count.increase())
-                })
+                .on(ev::click, move |_| count.update(Count::increase))
                 .child("+1"),
         ))
 }
