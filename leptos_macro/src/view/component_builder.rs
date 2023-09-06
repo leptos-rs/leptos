@@ -94,7 +94,11 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
-    let dyn_attrs = quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) };
+    let dyn_attrs = if dyn_attrs.is_empty() {
+        quote! {}
+    } else {
+        quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) }
+    };
 
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
