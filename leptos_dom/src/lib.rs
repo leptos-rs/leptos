@@ -15,7 +15,7 @@ mod events;
 pub mod helpers;
 pub mod html;
 mod hydration;
-mod logging;
+pub mod logging;
 mod macro_helpers;
 pub mod math;
 mod node_ref;
@@ -41,7 +41,6 @@ use leptos_reactive::Oco;
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
-pub use logging::*;
 pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

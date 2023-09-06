@@ -1,6 +1,6 @@
 mod api;
 use crate::api::*;
-use leptos::*;
+use leptos::{logging::log, *};
 use leptos_router::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -122,9 +122,9 @@ pub struct ContactParams {
 
 #[component]
 pub fn Contact() -> impl IntoView {
-    log::debug!("rendering <Contact/>");
+    log!("rendering <Contact/>");
 
-    log::debug!(
+    log!(
         "ExampleContext should be Some(42). It is {:?}",
         use_context::<ExampleContext>()
     );
@@ -178,13 +178,13 @@ pub fn Contact() -> impl IntoView {
 
 #[component]
 pub fn About() -> impl IntoView {
-    log::debug!("rendering <About/>");
+    log!("rendering <About/>");
 
     on_cleanup(|| {
         log!("cleaning up <About/>");
     });
 
-    log::debug!(
+    log!(
         "ExampleContext should be Some(0). It is {:?}",
         use_context::<ExampleContext>()
     );
@@ -209,7 +209,7 @@ pub fn About() -> impl IntoView {
 
 #[component]
 pub fn Settings() -> impl IntoView {
-    log::debug!("rendering <Settings/>");
+    log!("rendering <Settings/>");
 
     on_cleanup(|| {
         log!("cleaning up <Settings/>");

@@ -155,10 +155,10 @@ pub mod ssr {
     pub use leptos_dom::{ssr::*, ssr_in_order::*};
 }
 pub use leptos_dom::{
-    self, create_node_ref, debug_warn, document, error, ev, helpers::*, html,
-    log, math, mount_to, mount_to_body, nonce, svg, warn, window, Attribute,
-    Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
-    IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
+    self, create_node_ref, document, ev, helpers::*, html, logging, math,
+    mount_to, mount_to_body, nonce, svg, window, Attribute, Class, CollectView,
+    Errors, Fragment, HtmlElement, IntoAttribute, IntoClass, IntoProperty,
+    IntoStyle, IntoView, NodeRef, Property, View,
 };
 
 /// Types to make it easier to handle errors in your application.
