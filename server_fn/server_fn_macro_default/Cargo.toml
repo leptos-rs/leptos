@@ -14,9 +14,5 @@ proc-macro = true
 syn = { version = "2", features = ["full"] }
 server_fn_macro = { workspace = true }
 
-[dev-dependencies]
-server_fn = { version = "0.2" }
-serde = "1"
-
 [features]
 nightly = ["server_fn_macro/nightly"]

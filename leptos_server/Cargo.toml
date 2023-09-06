@@ -18,9 +18,6 @@ thiserror = "1"
 tracing = "0.1"
 inventory = "0.3"
 
-[dev-dependencies]
-leptos = { path = "../leptos" }
-
 [features]
 csr = ["leptos_reactive/csr", "leptos_macro/csr"]
 default-tls = ["server_fn/default-tls"]

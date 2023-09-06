@@ -22,9 +22,6 @@ server_fn = { workspace = true }
 web-sys = { version = "0.3.63", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
-[dev-dependencies]
-leptos = { path = "." }
-
 [features]
 default = ["serde"]
 template_macro = ["leptos_dom/web", "web-sys", "wasm-bindgen"]
