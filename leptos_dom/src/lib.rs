@@ -15,6 +15,7 @@ mod events;
 pub mod helpers;
 pub mod html;
 mod hydration;
+/// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging;
 mod macro_helpers;
 pub mod math;
@@ -852,7 +853,7 @@ where
     N: IntoView,
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
-    crate::console_warn(
+    crate::logging::console_warn(
         "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as \
          features, which may cause issues like <Suspense/>` failing to work \
          silently.",
