@@ -66,6 +66,10 @@ pub struct LeptosOptions {
     #[builder(default)]
     #[serde(default)]
     pub reload_ws_protocol: ReloadWSProtocol,
+    /// The path of a custom 404 Not Found page to display when statically serving content, defaults to `site_root/404.html`
+    #[builder(default = default_not_found_path())]
+    #[serde(default = "default_not_found_path")]
+    pub not_found_path: String,
 }
 
 impl LeptosOptions {
@@ -103,6 +107,7 @@ impl LeptosOptions {
             reload_ws_protocol: ws_from_str(
                 env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
             )?,
+            not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?,
         })
     }
 }
@@ -126,6 +131,11 @@ fn default_site_addr() -> SocketAddr {
 fn default_reload_port() -> u32 {
     3001
 }
+
+fn default_not_found_path() -> String {
+    "/404".to_string()
+}
+
 fn env_wo_default(key: &str) -> Result<Option<String>, LeptosConfigError> {
     match std::env::var(key) {
         Ok(val) => Ok(Some(val)),

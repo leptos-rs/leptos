@@ -6,7 +6,7 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::header::HeaderName;
+use actix_http::header::{HeaderName, HeaderValue};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -872,22 +872,12 @@ async fn render_app_async_helper(
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub async fn generate_route_list<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-    static_context: Option<StaticRenderContext>,
-) -> Vec<RouteListing>
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(
-        options,
-        app_fn,
-        additional_context,
-        static_context,
-        None,
-    )
-    .await
+    generate_route_list_with_exclusions(app_fn, None).await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -895,22 +885,14 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub async fn generate_route_list_with_exclusions<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-    static_context: Option<StaticRenderContext>,
     excluded_routes: Option<Vec<String>>,
-) -> Vec<RouteListing>
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    let mut routes = leptos_router::generate_route_list_inner(
-        options,
-        app_fn,
-        additional_context,
-        static_context,
-    )
-    .await;
+    let (mut routes, static_data_map) =
+        leptos_router::generate_route_list_inner(app_fn).await;
 
     // Actix's Router doesn't follow Leptos's
     // Match `*` or `*someword` to replace with replace it with "/{tail.*}
@@ -926,12 +908,14 @@ where
             if path.is_empty() {
                 return RouteListing::new(
                     "/".to_string(),
+                    listing.path(),
                     listing.mode(),
                     listing.methods(),
                     listing.static_rendered(),
                 );
             }
             RouteListing::new(
+                listing.path(),
                 listing.path(),
                 listing.mode(),
                 listing.methods(),
@@ -945,6 +929,7 @@ where
             let path = capture_re.replace_all(&path, "{$1}").to_string();
             RouteListing::new(
                 path,
+                listing.path(),
                 listing.mode(),
                 listing.methods(),
                 listing.static_rendered(),
@@ -952,20 +937,25 @@ where
         })
         .collect::<Vec<_>>();
 
-    if routes.is_empty() {
-        vec![RouteListing::new(
-            "/",
-            Default::default(),
-            [Method::Get],
-            false,
-        )]
-    } else {
-        // Routes to exclude from auto generation
-        if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
-        }
-        routes
-    }
+    (
+        if routes.is_empty() {
+            vec![RouteListing::new(
+                "/",
+                "",
+                Default::default(),
+                [Method::Get],
+                false,
+            )]
+        } else {
+            // Routes to exclude from auto generation
+            if let Some(excluded_routes) = excluded_routes {
+                routes
+                    .retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            }
+            routes
+        },
+        static_data_map,
+    )
 }
 
 pub enum DataResponse<T> {
@@ -985,14 +975,59 @@ fn static_route(options: LeptosOptions, method: Method) -> Route {
                         let mut res = HttpResponse::new(StatusCode::OK);
                         res.headers_mut().insert(
                             HeaderName::from_static("content-type"),
-                            "text/html".parse().unwrap(),
+                            HeaderValue::from_static("text/html"),
                         );
                         res.set_body(body)
                     }
                     Err(e) => {
                         tracing::error!("Error reading file: {}", e);
-                        HttpResponse::new(StatusCode::NOT_FOUND)
-                            .set_body("Not Found".into())
+                        match e.kind() {
+                            std::io::ErrorKind::NotFound => {
+                                match tokio::fs::read_to_string(format!(
+                                    "{}{}.html",
+                                    options.site_root, options.not_found_path
+                                ))
+                                .await
+                                {
+                                    Ok(body) => {
+                                        let mut res = HttpResponse::new(
+                                            StatusCode::NOT_FOUND,
+                                        );
+                                        res.headers_mut().insert(
+                                            HeaderName::from_static(
+                                                "content-type",
+                                            ),
+                                            HeaderValue::from_static(
+                                                "text/html",
+                                            ),
+                                        );
+                                        res.set_body(body)
+                                    }
+                                    Err(e) => match e.kind() {
+                                        std::io::ErrorKind::NotFound => {
+                                            let res = HttpResponse::new(
+                                                StatusCode::NOT_FOUND,
+                                            );
+                                            res.set_body("Not Found".into())
+                                        }
+                                        _ => {
+                                            let  res = HttpResponse::new(
+                                                    StatusCode::INTERNAL_SERVER_ERROR
+                                            );
+                                            res.set_body(
+                                                "Internal Server Error".into(),
+                                            )
+                                        }
+                                    },
+                                }
+                            }
+                            _ => {
+                                let res = HttpResponse::new(
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                );
+                                res.set_body("Internal Server Error".into())
+                            }
+                        }
                     }
                 }
             }

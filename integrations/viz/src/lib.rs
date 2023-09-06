@@ -23,7 +23,7 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{pin::Pin, sync::Arc};
-use tokio::task::{spawn_blocking, LocalSet};
+use tokio::task::spawn_blocking;
 use viz::{
     headers::{HeaderMap, HeaderName, HeaderValue},
     Body, Bytes, Error, Handler, IntoResponse, Request, RequestExt, Response,
@@ -991,65 +991,26 @@ where
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-    static_context: Option<StaticRenderContext>,
-) -> Vec<RouteListing>
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(
-        options,
-        app_fn,
-        additional_context,
-        static_context,
-        None,
-    )
-    .await
+    generate_route_list_with_exclusions(app_fn, None).await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list_with_exclusions<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-    static_context: Option<StaticRenderContext>,
     excluded_routes: Option<Vec<String>>,
-) -> Vec<RouteListing>
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    #[derive(Default, Clone, Debug)]
-    pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
-
-    let routes = Routes::default();
-    let routes_inner = routes.clone();
-
-    let local = LocalSet::new();
-    // Run the local task set.
-
-    local
-        .run_until(async move {
-            tokio::task::spawn_local(async move {
-                let routes = leptos_router::generate_route_list_inner(
-                    options.clone(),
-                    app_fn,
-                    additional_context,
-                    static_context,
-                )
-                .await;
-                let mut writable = routes_inner.0.write();
-                *writable = routes;
-            })
-            .await
-            .unwrap();
-        })
-        .await;
-
-    let routes = routes.0.read().to_owned();
+    let (routes, static_data_map) =
+        leptos_router::generate_route_list_inner(app_fn).await;
     // Viz's Router defines Root routes as "/" not ""
     let mut routes = routes
         .into_iter()
@@ -1058,6 +1019,7 @@ where
             if path.is_empty() {
                 RouteListing::new(
                     "/".to_string(),
+                    listing.path(),
                     listing.mode(),
                     listing.methods(),
                     listing.static_rendered(),
@@ -1068,19 +1030,24 @@ where
         })
         .collect::<Vec<_>>();
 
-    if routes.is_empty() {
-        vec![RouteListing::new(
-            "/",
-            Default::default(),
-            [leptos_router::Method::Get],
-            false,
-        )]
-    } else {
-        if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
-        }
-        routes
-    }
+    (
+        if routes.is_empty() {
+            vec![RouteListing::new(
+                "/",
+                "",
+                Default::default(),
+                [leptos_router::Method::Get],
+                false,
+            )]
+        } else {
+            if let Some(excluded_routes) = excluded_routes {
+                routes
+                    .retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            }
+            routes
+        },
+        static_data_map,
+    )
 }
 
 fn static_route(
@@ -1108,14 +1075,59 @@ fn static_route(
                             "Content-Type",
                             HeaderValue::from_static("text/html"),
                         );
-                        return Ok(res);
+                        Ok(res)
                     }
                     Err(e) => {
                         tracing::error!("Error reading file: {}", e);
-                        let mut res =
-                            Response::text::<&'static str>("Not Found");
-                        *res.status_mut() = StatusCode::NOT_FOUND;
-                        return Ok(res);
+                        match e.kind() {
+                            std::io::ErrorKind::NotFound => {
+                                match tokio::fs::read_to_string(format!(
+                                    "{}{}.html",
+                                    options.site_root, options.not_found_path
+                                ))
+                                .await
+                                {
+                                    Ok(body) => {
+                                        let mut res = Response::html(body);
+                                        let _ = res.headers_mut().insert(
+                                            "Content-Type",
+                                            HeaderValue::from_static(
+                                                "text/html",
+                                            ),
+                                        );
+                                        Ok(res)
+                                    }
+                                    Err(e) => match e.kind() {
+                                        std::io::ErrorKind::NotFound => {
+                                            let mut res =
+                                                Response::text::<&'static str>(
+                                                    "Not Found",
+                                                );
+                                            *res.status_mut() =
+                                                StatusCode::NOT_FOUND;
+                                            Ok(res)
+                                        }
+                                        _ => {
+                                            let mut res =
+                                                Response::text::<&'static str>(
+                                                    "Internal Server Error",
+                                                );
+                                            *res.status_mut() =
+                                                    StatusCode::INTERNAL_SERVER_ERROR;
+                                            Ok(res)
+                                        }
+                                    },
+                                }
+                            }
+                            _ => {
+                                let mut res = Response::text::<&'static str>(
+                                    "Internal Server Error",
+                                );
+                                *res.status_mut() =
+                                    StatusCode::INTERNAL_SERVER_ERROR;
+                                Ok(res)
+                            }
+                        }
                     }
                 }
             }

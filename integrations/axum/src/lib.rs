@@ -36,7 +36,6 @@ use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
-use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
@@ -1210,22 +1209,12 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-    static_context: Option<StaticRenderContext>,
-) -> Vec<RouteListing>
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(
-        options,
-        app_fn,
-        additional_context,
-        static_context,
-        None,
-    )
-    .await
+    generate_route_list_with_exclusions(app_fn, None).await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1234,43 +1223,14 @@ where
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list_with_exclusions<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-    static_context: Option<StaticRenderContext>,
     excluded_routes: Option<Vec<String>>,
-) -> Vec<RouteListing>
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    #[derive(Default, Clone, Debug)]
-    pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
-
-    let routes = Routes::default();
-    let routes_inner = routes.clone();
-
-    let local = LocalSet::new();
-    // Run the local task set.
-
-    local
-        .run_until(async move {
-            tokio::task::spawn_local(async move {
-                let routes = leptos_router::generate_route_list_inner(
-                    options,
-                    app_fn,
-                    additional_context,
-                    static_context,
-                )
-                .await;
-                let mut writable = routes_inner.0.write();
-                *writable = routes;
-            })
-            .await
-            .unwrap();
-        })
-        .await;
-
-    let routes = routes.0.read().to_owned();
+    let (routes, static_data_map) =
+        leptos_router::generate_route_list_inner(app_fn).await;
     // Axum's Router defines Root routes as "/" not ""
     let mut routes = routes
         .into_iter()
@@ -1279,6 +1239,7 @@ where
             if path.is_empty() {
                 RouteListing::new(
                     "/".to_string(),
+                    listing.path(),
                     listing.mode(),
                     listing.methods(),
                     listing.static_rendered(),
@@ -1289,20 +1250,25 @@ where
         })
         .collect::<Vec<_>>();
 
-    if routes.is_empty() {
-        vec![RouteListing::new(
-            "/",
-            Default::default(),
-            [leptos_router::Method::Get],
-            false,
-        )]
-    } else {
-        // Routes to exclude from auto generation
-        if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
-        }
-        routes
-    }
+    (
+        if routes.is_empty() {
+            vec![RouteListing::new(
+                "/",
+                "",
+                Default::default(),
+                [leptos_router::Method::Get],
+                false,
+            )]
+        } else {
+            // Routes to exclude from auto generation
+            if let Some(excluded_routes) = excluded_routes {
+                routes
+                    .retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            }
+            routes
+        },
+        static_data_map,
+    )
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
@@ -1370,9 +1336,53 @@ fn static_route(
                     }
                     Err(e) => {
                         tracing::error!("Error reading file: {}", e);
-                        let mut res = Response::new("Not Found".into());
-                        *res.status_mut() = StatusCode::NOT_FOUND;
-                        return res;
+                        match e.kind() {
+                            std::io::ErrorKind::NotFound => {
+                                match tokio::fs::read_to_string(format!(
+                                    "{}{}.html",
+                                    options.site_root, options.not_found_path
+                                ))
+                                .await
+                                {
+                                    Ok(body) => {
+                                        let mut res = Response::new(body);
+                                        let _ = res.headers_mut().insert(
+                                            "Content-Type",
+                                            HeaderValue::from_static(
+                                                "text/html",
+                                            ),
+                                        );
+                                        res
+                                    }
+                                    Err(e) => match e.kind() {
+                                        std::io::ErrorKind::NotFound => {
+                                            let mut res = Response::new(
+                                                "Not Found".into(),
+                                            );
+                                            *res.status_mut() =
+                                                StatusCode::NOT_FOUND;
+                                            res
+                                        }
+                                        _ => {
+                                            let mut res = Response::new(
+                                                "Internal Server Error".into(),
+                                            );
+                                            *res.status_mut() =
+                                                    StatusCode::INTERNAL_SERVER_ERROR;
+                                            res
+                                        }
+                                    },
+                                }
+                            }
+                            _ => {
+                                let mut res = Response::new(
+                                    "Internal Server Error".into(),
+                                );
+                                *res.status_mut() =
+                                    StatusCode::INTERNAL_SERVER_ERROR;
+                                res
+                            }
+                        }
                     }
                 }
             }
