@@ -51,7 +51,7 @@ echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
 
 [tasks.test-report]
 workspace = false
-description = "report ci test runners and tools for each example - OPTION: [all]"
+description = "report web testing technology used by examples - OPTION: [all]"
 script = '''
 set -emu
 
@@ -62,9 +62,7 @@ YELLOW="\e[0;33m"
 RESET="\e[0m"
 
 echo
-echo "${YELLOW}Test Report${RESET}"
-echo
-echo "${ITALIC}Pass the option \"all\" to show all the examples${RESET}"
+echo "${YELLOW}Web Test Technology${RESET}"
 echo
 
 makefile_paths=$(find . -name Makefile.toml -not -path '*/target/*' -not -path '*/node_modules/*' |
@@ -80,15 +78,7 @@ for path in $makefile_paths; do
 
   crate_symbols=
 
-  test_count=$(grep -r --exclude-dir=target --exclude-dir=node_modules --fixed-strings "#[test]" | wc -l)
-  if [ $test_count -gt 0 ]; then
-      crate_symbols="T"
-  fi
-
-  rstest_count=$(grep -r --exclude-dir=target --exclude-dir=node_modules --fixed-strings "#[rstest]" | wc -l)
-  if [ $rstest_count -gt 0 ]; then
-      crate_symbols=$crate_symbols"R"
-  fi
+  pw_count=$(find . -name playwright.config.ts | wc -l)
 
   while read -r line; do
       case $line in
@@ -96,21 +86,35 @@ for path in $makefile_paths; do
           crate_symbols=$crate_symbols"C"
           ;;
       *"fantoccini"*)
-          crate_symbols=$crate_symbols"F"
+          crate_symbols=$crate_symbols"D"
           ;;
       esac
   done <"./Cargo.toml"
 
   while read -r line; do
     case $line in
-      *"cargo-make/wasm-test"*)
+      *"cargo-make/wasm-test.toml"*)
           crate_symbols=$crate_symbols"W"
         ;;
-      *"cargo-make/playwright"*)
+      *"cargo-make/playwright-test.toml"*)
           crate_symbols=$crate_symbols"P"
+          crate_symbols=$crate_symbols"N"
         ;;
-      *"cargo-make/cargo-leptos-test"*)
+      *"cargo-make/playwright-trunk-test.toml"*)
+          crate_symbols=$crate_symbols"P"
+          crate_symbols=$crate_symbols"T"
+        ;;
+      *"cargo-make/trunk_server.toml"*)
+          crate_symbols=$crate_symbols"T"
+        ;;
+      *"cargo-make/cargo-leptos-webdriver-test.toml"*)
           crate_symbols=$crate_symbols"L"
+        ;;
+      *"cargo-make/cargo-leptos-test.toml"*)
+          crate_symbols=$crate_symbols"L"
+          if [ $pw_count -gt 0 ]; then
+            crate_symbols=$crate_symbols"P"
+          fi
         ;;
     esac
   done <"./Makefile.toml"
@@ -135,20 +139,15 @@ for path in $makefile_paths; do
   cd ${start_path}
 done
 
-c="${BOLD}${YELLOW}C${RESET} = Cucumber Test"
-f="${BOLD}${YELLOW}F${RESET} = Fantoccini WebDriver"
-l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos Test"
-p="${BOLD}${YELLOW}P${RESET} = Playwright Test"
-r="${BOLD}${YELLOW}R${RESET} = RS Test"
-u="${BOLD}${YELLOW}U${RESET} = Unit Test"
-w="${BOLD}${YELLOW}W${RESET} = WASM Test"
+c="${BOLD}${YELLOW}C${RESET} = Cucumber"
+d="${BOLD}${YELLOW}D${RESET} = WebDriver"
+l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
+n="${BOLD}${YELLOW}N${RESET} = Node"
+p="${BOLD}${YELLOW}P${RESET} = Playwright"
+t="${BOLD}${YELLOW}T${RESET} = Trunk"
+w="${BOLD}${YELLOW}W${RESET} = WASM"
 
 echo
-echo "${ITALIC}Keys:${RESET}\n  $c\n  $f\n  $l\n  $p\n  $r\n  $u\n  $w"
+echo "${ITALIC}Keys:${RESET} $c, $d, $l, $n, $p, $t, $w"
 echo
 '''
-
-# ALIASES
-
-[tasks.tr]
-alias = "test-report"
