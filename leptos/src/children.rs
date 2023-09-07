@@ -25,6 +25,7 @@ impl<F> ToChildren<F> for Children
 where
     F: FnOnce() -> Fragment + 'static,
 {
+    #[inline]
     fn to_children(f: F) -> Self {
         Box::new(f)
     }
@@ -34,6 +35,7 @@ impl<F> ToChildren<F> for ChildrenFn
 where
     F: Fn() -> Fragment + 'static,
 {
+    #[inline]
     fn to_children(f: F) -> Self {
         Rc::new(f)
     }
@@ -43,6 +45,7 @@ impl<F> ToChildren<F> for ChildrenFnMut
 where
     F: FnMut() -> Fragment + 'static,
 {
+    #[inline]
     fn to_children(f: F) -> Self {
         Box::new(f)
     }
@@ -52,6 +55,7 @@ impl<F> ToChildren<F> for BoxedChildrenFn
 where
     F: Fn() -> Fragment + 'static,
 {
+    #[inline]
     fn to_children(f: F) -> Self {
         Box::new(f)
     }
