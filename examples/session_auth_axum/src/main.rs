@@ -16,7 +16,7 @@ if #[cfg(feature = "ssr")] {
     use session_auth_axum::state::AppState;
     use session_auth_axum::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
-    use leptos::{loggging::log, view, provide_context, get_configuration};
+    use leptos::{logging::log, view, provide_context, get_configuration};
     use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
     use axum_session::{SessionConfig, SessionLayer, SessionStore};
     use axum_session_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
