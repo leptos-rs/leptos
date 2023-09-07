@@ -2,7 +2,3 @@ extend = { path = "./cargo-leptos.toml" }
 
 [tasks.integration-test]
 dependencies = ["install-cargo-leptos", "cargo-leptos-e2e"]
-
-[tasks.cargo-leptos-e2e]
-command = "cargo"
-args = ["leptos", "end-to-end"]

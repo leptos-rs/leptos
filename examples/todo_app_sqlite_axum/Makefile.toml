@@ -1,22 +1,10 @@
 extend = [
     { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/webdriver.toml" },
-    { path = "../cargo-make/cargo-leptos.toml" },
+    { path = "../cargo-make/cargo-leptos-webdriver-test.toml" },
 ]
 
 [env]
-APP_PROCESS_NAME = "todo_app_sqlite_axum"
-
-[tasks.integration-test]
-dependencies = [
-    "install-cargo-leptos",
-    "start-webdriver",
-    "test-e2e-with-auto-start",
-]
-
-[tasks.test-e2e-with-auto-start]
-command = "cargo"
-args = ["leptos", "end-to-end"]
+CLIENT_PROCESS_NAME = "todo_app_sqlite_axum"
 
 [tasks.test-ui]
 cwd = "./e2e"
