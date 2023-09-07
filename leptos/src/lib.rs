@@ -200,19 +200,9 @@ pub use typed_builder;
 pub use typed_builder::Optional;
 #[doc(hidden)]
 pub use typed_builder_macro;
+mod children;
+pub use children::*;
 extern crate self as leptos;
-
-/// The most common type for the `children` property on components,
-/// which can only be called once.
-pub type Children = Box<dyn FnOnce() -> Fragment>;
-
-/// A type for the `children` property on components that can be called
-/// more than once.
-pub type ChildrenFn = Box<dyn Fn() -> Fragment>;
-
-/// A type for the `children` property on components that can be called
-/// more than once, but may mutate the children.
-pub type ChildrenFnMut = Box<dyn FnMut() -> Fragment>;
 
 /// A type for taking anything that implements [`IntoAttribute`].
 ///

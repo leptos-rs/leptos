@@ -61,14 +61,14 @@ pub fn Suspense<F, E, V>(
     /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
     fallback: F,
     /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
-    children: Box<dyn Fn() -> V>,
+    children: Rc<dyn Fn() -> V>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
     V: IntoView + 'static,
 {
-    let orig_children = Rc::new(children);
+    let orig_children = children;
     let context = SuspenseContext::new();
 
     #[cfg(not(any(feature = "csr", feature = "hydrate")))]
