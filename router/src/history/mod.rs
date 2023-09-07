@@ -88,11 +88,11 @@ impl History for BrowserIntegration {
                         state: change.state,
                     },
                 ) {
-                    leptos::error!("{e:#?}");
+                    leptos::logging::error!("{e:#?}");
                 }
                 set_location.set(Self::current());
             } else {
-                leptos::warn!("RouterContext not found");
+                leptos::logging::warn!("RouterContext not found");
             }
         });
 

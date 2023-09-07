@@ -11,7 +11,7 @@ pub fn create_location(
         path.with(|path| match Url::try_from(path.as_str()) {
             Ok(url) => url,
             Err(e) => {
-                leptos::error!("[Leptos Router] Invalid path {path}\n\n{e:?}");
+                leptos::logging::error!("[Leptos Router] Invalid path {path}\n\n{e:?}");
                 prev.cloned().unwrap()
             }
         })

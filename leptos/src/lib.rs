@@ -155,11 +155,18 @@ pub mod ssr {
     pub use leptos_dom::{ssr::*, ssr_in_order::*};
 }
 pub use leptos_dom::{
-    self, create_node_ref, document, ev, helpers::*, html, logging, math,
+    self, create_node_ref, document, ev, helpers::*, html, math,
     mount_to, mount_to_body, nonce, svg, window, Attribute, Class, CollectView,
     Errors, Fragment, HtmlElement, IntoAttribute, IntoClass, IntoProperty,
     IntoStyle, IntoView, NodeRef, Property, View,
 };
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging {
+    pub use leptos_dom::log;
+    pub use leptos_dom::warn;
+    pub use leptos_dom::error;
+    pub use leptos_dom::debug_warn;
+}
 
 /// Types to make it easier to handle errors in your application.
 pub mod error {
