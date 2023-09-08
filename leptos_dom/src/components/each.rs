@@ -55,7 +55,7 @@ pub struct EachRepr {
     pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for EachRepr {
@@ -175,7 +175,7 @@ pub(crate) struct EachItem {
     pub(crate) child: View,
     closing: Option<Comment>,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for EachItem {
@@ -506,9 +506,14 @@ where
     }
 }
 
-#[derive(educe::Educe)]
-#[educe(Debug)]
-struct HashRun<T>(#[educe(Debug(ignore))] T);
+struct HashRun<T>(T);
+
+impl<T> fmt::Debug for HashRun<T> {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.debug_tuple("HashRun").finish()
+    }
+}
 
 /// Calculates the operations needed to get from `from` to `to`.
 #[allow(dead_code)] // not used in SSR but useful to have available for testing

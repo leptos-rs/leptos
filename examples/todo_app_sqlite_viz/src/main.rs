@@ -67,7 +67,7 @@ cfg_if! {
 
         // run our app with hyper
         // `viz::Server` is a re-export of `hyper::Server`
-        log!("listening on http://{}", &addr);
+        logging::log!("listening on http://{}", &addr);
         viz::Server::bind(&addr)
             .serve(ServiceMaker::from(app))
             .await

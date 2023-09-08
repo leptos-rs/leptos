@@ -144,7 +144,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        Box::new(move || #children #view_marker)
+                        ::leptos::ToChildren::to_children(move || #children #view_marker)
                     })
                 }
             }

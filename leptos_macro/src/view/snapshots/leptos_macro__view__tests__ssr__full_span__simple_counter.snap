@@ -687,7 +687,7 @@ TokenStream [
                     },
                     Ident {
                         sym: click,
-                        span: bytes(337..342),
+                        span: bytes(357..362),
                     },
                     Punct {
                         char: ',',
@@ -802,7 +802,7 @@ TokenStream [
                     },
                     Ident {
                         sym: click,
-                        span: bytes(343..348),
+                        span: bytes(383..388),
                     },
                     Punct {
                         char: ',',
@@ -959,7 +959,7 @@ TokenStream [
                     },
                     Ident {
                         sym: click,
-                        span: bytes(349..354),
+                        span: bytes(429..434),
                     },
                     Punct {
                         char: ',',
@@ -1208,7 +1208,7 @@ TokenStream [
                                         delimiter: Parenthesis,
                                         stream: TokenStream [
                                             Literal {
-                                                lit: "<div id=\"_{}\"><button id=\"_{}\">Clear</button><button id=\"_{}\">-1</button><span id=\"_{}\">Value: ",
+                                                lit: "<div{}><button{}>Clear</button><button{}>-1</button><span{}>Value: ",
                                             },
                                             Punct {
                                                 char: ',',
@@ -1263,52 +1263,50 @@ TokenStream [
                                                 stream: TokenStream [],
                                             },
                                             Punct {
-                                                char: ',',
-                                                spacing: Alone,
-                                            },
-                                            Punct {
-                                                char: ':',
-                                                spacing: Joint,
-                                            },
-                                            Punct {
-                                                char: ':',
+                                                char: '.',
                                                 spacing: Alone,
                                             },
                                             Ident {
-                                                sym: leptos,
+                                                sym: map,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: id,
+                                                    },
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: format,
+                                                    },
+                                                    Punct {
+                                                        char: '!',
+                                                        spacing: Alone,
+                                                    },
+                                                    Group {
+                                                        delimiter: Parenthesis,
+                                                        stream: TokenStream [
+                                                            Literal {
+                                                                lit: " data-hk=\"{id}\"",
+                                                                span: bytes(337..356),
+                                                            },
+                                                        ],
+                                                    },
+                                                ],
                                             },
                                             Punct {
-                                                char: ':',
-                                                spacing: Joint,
-                                            },
-                                            Punct {
-                                                char: ':',
+                                                char: '.',
                                                 spacing: Alone,
                                             },
                                             Ident {
-                                                sym: leptos_dom,
-                                            },
-                                            Punct {
-                                                char: ':',
-                                                spacing: Joint,
-                                            },
-                                            Punct {
-                                                char: ':',
-                                                spacing: Alone,
-                                            },
-                                            Ident {
-                                                sym: HydrationCtx,
-                                            },
-                                            Punct {
-                                                char: ':',
-                                                spacing: Joint,
-                                            },
-                                            Punct {
-                                                char: ':',
-                                                spacing: Alone,
-                                            },
-                                            Ident {
-                                                sym: id,
+                                                sym: unwrap_or_default,
                                             },
                                             Group {
                                                 delimiter: Parenthesis,
@@ -1367,6 +1365,56 @@ TokenStream [
                                                 stream: TokenStream [],
                                             },
                                             Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: map,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: id,
+                                                    },
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: format,
+                                                    },
+                                                    Punct {
+                                                        char: '!',
+                                                        spacing: Alone,
+                                                    },
+                                                    Group {
+                                                        delimiter: Parenthesis,
+                                                        stream: TokenStream [
+                                                            Literal {
+                                                                lit: " data-hk=\"{id}\"",
+                                                                span: bytes(363..382),
+                                                            },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: unwrap_or_default,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [],
+                                            },
+                                            Punct {
                                                 char: ',',
                                                 spacing: Alone,
                                             },
@@ -1413,6 +1461,158 @@ TokenStream [
                                             },
                                             Ident {
                                                 sym: id,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: map,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: id,
+                                                    },
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: format,
+                                                    },
+                                                    Punct {
+                                                        char: '!',
+                                                        spacing: Alone,
+                                                    },
+                                                    Group {
+                                                        delimiter: Parenthesis,
+                                                        stream: TokenStream [
+                                                            Literal {
+                                                                lit: " data-hk=\"{id}\"",
+                                                                span: bytes(389..408),
+                                                            },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: unwrap_or_default,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [],
+                                            },
+                                            Punct {
+                                                char: ',',
+                                                spacing: Alone,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Joint,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: leptos,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Joint,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: leptos_dom,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Joint,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: HydrationCtx,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Joint,
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: id,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: map,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: id,
+                                                    },
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: format,
+                                                    },
+                                                    Punct {
+                                                        char: '!',
+                                                        spacing: Alone,
+                                                    },
+                                                    Group {
+                                                        delimiter: Parenthesis,
+                                                        stream: TokenStream [
+                                                            Literal {
+                                                                lit: " data-hk=\"{id}\"",
+                                                                span: bytes(409..428),
+                                                            },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: unwrap_or_default,
                                             },
                                             Group {
                                                 delimiter: Parenthesis,
@@ -1685,7 +1885,7 @@ TokenStream [
                                         delimiter: Parenthesis,
                                         stream: TokenStream [
                                             Literal {
-                                                lit: "!</span><button id=\"_{}\">+1</button></div>",
+                                                lit: "!</span><button{}>+1</button></div>",
                                             },
                                             Punct {
                                                 char: ',',
@@ -1734,6 +1934,56 @@ TokenStream [
                                             },
                                             Ident {
                                                 sym: id,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: map,
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: id,
+                                                    },
+                                                    Punct {
+                                                        char: '|',
+                                                        spacing: Alone,
+                                                    },
+                                                    Ident {
+                                                        sym: format,
+                                                    },
+                                                    Punct {
+                                                        char: '!',
+                                                        spacing: Alone,
+                                                    },
+                                                    Group {
+                                                        delimiter: Parenthesis,
+                                                        stream: TokenStream [
+                                                            Literal {
+                                                                lit: " data-hk=\"{id}\"",
+                                                                span: bytes(435..454),
+                                                            },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            Punct {
+                                                char: '.',
+                                                spacing: Alone,
+                                            },
+                                            Ident {
+                                                sym: unwrap_or_default,
                                             },
                                             Group {
                                                 delimiter: Parenthesis,

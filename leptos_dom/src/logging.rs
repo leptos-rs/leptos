@@ -6,21 +6,21 @@ use wasm_bindgen::JsValue;
 /// or via `println!()` (if not in the browser).
 #[macro_export]
 macro_rules! log {
-    ($($t:tt)*) => ($crate::console_log(&format_args!($($t)*).to_string()))
+    ($($t:tt)*) => ($crate::logging::console_log(&format_args!($($t)*).to_string()))
 }
 
 /// Uses `println!()`-style formatting to log warnings to the console (in the browser)
 /// or via `eprintln!()` (if not in the browser).
 #[macro_export]
 macro_rules! warn {
-    ($($t:tt)*) => ($crate::console_warn(&format_args!($($t)*).to_string()))
+    ($($t:tt)*) => ($crate::logging::console_warn(&format_args!($($t)*).to_string()))
 }
 
 /// Uses `println!()`-style formatting to log errors to the console (in the browser)
 /// or via `eprintln!()` (if not in the browser).
 #[macro_export]
 macro_rules! error {
-    ($($t:tt)*) => ($crate::console_error(&format_args!($($t)*).to_string()))
+    ($($t:tt)*) => ($crate::logging::console_error(&format_args!($($t)*).to_string()))
 }
 
 /// Uses `println!()`-style formatting to log warnings to the console (in the browser)

@@ -64,7 +64,7 @@ pub fn Style(
         for node in frag.nodes {
             match node {
                 View::Text(text) => style.push_str(&text.content),
-                _ => leptos::warn!(
+                _ => leptos::logging::warn!(
                     "Only text nodes are supported as children of <Style/>."
                 ),
             }
