@@ -56,25 +56,23 @@ impl ResponseParts {
     }
 }
 
-/// Adding this Struct to your Scope inside of a Server Fn or Elements will allow you to override details of the Response
-/// like StatusCode and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
-/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced
+/// Allows you to override details of the HTTP response like the status code and add Headers/Cookies.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
-    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write();
         *writable = parts
     }
-    /// Set the status of the returned Response
+    /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
-    /// Insert a header, overwriting any previous value with the same key
+    /// Insert a header, overwriting any previous value with the same key.
     pub fn insert_header(
         &self,
         key: header::HeaderName,
@@ -84,7 +82,7 @@ impl ResponseOptions {
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
-    /// Append a header, leaving any header with the same key intact
+    /// Append a header, leaving any header with the same key intact.
     pub fn append_header(
         &self,
         key: header::HeaderName,
