@@ -273,7 +273,7 @@ impl<T> SignalWith for Signal<T> {
     )]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         match self.inner {
-            SignalTypes::ReadSignal(r) => r.try_with(f).ok(),
+            SignalTypes::ReadSignal(r) => r.try_with(f),
 
             SignalTypes::Memo(m) => m.try_with(f),
             SignalTypes::DerivedSignal(s) => s.try_with_value(|t| f(&t())),

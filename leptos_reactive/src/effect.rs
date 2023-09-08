@@ -1,6 +1,9 @@
-use crate::{node::NodeId, with_runtime, Disposer, Runtime, SignalDispose};
+use crate::{
+    arena::NodeId, runtime::ThreadArena, with_runtime, Disposer, Runtime,
+    SignalDispose,
+};
 use cfg_if::cfg_if;
-use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
+use std::marker::PhantomData;
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 /// `create_effect` immediately runs the given function once, tracks its dependence
@@ -177,16 +180,8 @@ where
         &self,
         f: impl FnOnce(&mut Option<T>) -> U,
     ) -> Option<U> {
-        with_runtime(|runtime| {
-            let nodes = runtime.nodes.borrow();
-            let node = nodes.get(self.id)?;
-            let value = node.value.clone()?;
-            let mut value = value.borrow_mut();
-            let value = value.downcast_mut()?;
-            Some(f(value))
-        })
-        .ok()
-        .flatten()
+        let mut value = ThreadArena::get_mut::<Option<T>>(&self.id)?;
+        Some(f(&mut *value))
     }
 }
 
@@ -296,7 +291,7 @@ where
 }
 
 pub(crate) trait AnyComputation {
-    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool;
+    fn run(&self, node: NodeId) -> bool;
 }
 
 impl<T, F> AnyComputation for EffectState<T, F>
@@ -316,15 +311,13 @@ where
             )
         )
     )]
-    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
+    fn run(&self, node: NodeId) -> bool {
         // we defensively take and release the BorrowMut twice here
         // in case a change during the effect running schedules a rerun
         // ideally this should never happen, but this guards against panic
         let curr_value = {
             // downcast value
-            let mut value = value.borrow_mut();
-            let value = value
-                .downcast_mut::<Option<T>>()
+            let mut value = ThreadArena::get_mut::<Option<T>>(&node)
                 .expect("to downcast effect value");
             value.take()
         };
@@ -333,9 +326,7 @@ where
         let new_value = (self.f)(curr_value);
 
         // set new value
-        let mut value = value.borrow_mut();
-        let value = value
-            .downcast_mut::<Option<T>>()
+        let mut value = ThreadArena::get_mut::<Option<T>>(&node)
             .expect("to downcast effect value");
         *value = Some(new_value);
 

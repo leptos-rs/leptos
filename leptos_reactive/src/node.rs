@@ -1,10 +1,7 @@
-use crate::{with_runtime, AnyComputation};
-use std::{any::Any, cell::RefCell, rc::Rc};
-
-slotmap::new_key_type! {
-    /// Unique ID assigned to a signal.
-    pub struct NodeId;
-}
+use crate::{
+    arena::NodeId, runtime::ThreadArena, with_runtime, AnyComputation,
+};
+use std::rc::Rc;
 
 /// Handle to dispose of a reactive node.
 #[derive(Debug, PartialEq, Eq)]
@@ -14,6 +11,7 @@ impl Drop for Disposer {
     fn drop(&mut self) {
         let id = self.0;
         _ = with_runtime(|runtime| {
+            ThreadArena::remove(&id);
             runtime.cleanup_node(id);
             runtime.dispose_node(id);
         });
@@ -22,17 +20,8 @@ impl Drop for Disposer {
 
 #[derive(Clone)]
 pub(crate) struct ReactiveNode {
-    pub value: Option<Rc<RefCell<dyn Any>>>,
     pub state: ReactiveNodeState,
     pub node_type: ReactiveNodeType,
-}
-
-impl ReactiveNode {
-    pub fn value(&self) -> Rc<RefCell<dyn Any>> {
-        self.value
-            .clone()
-            .expect("ReactiveNode.value to have a value")
-    }
 }
 
 #[derive(Clone)]

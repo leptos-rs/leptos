@@ -1,23 +1,22 @@
 #[cfg(debug_assertions)]
 use crate::SpecialNonReactiveZone;
 use crate::{
+    arena::{Arena, ArenaOwner, NodeId},
     hydration::SharedContext,
-    node::{
-        Disposer, NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType,
-    },
+    node::{Disposer, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
     AnyComputation, AnyResource, EffectState, Memo, MemoState, ReadSignal,
-    ResourceId, ResourceState, RwSignal, SerializableResource, StoredValueId,
-    Trigger, UnserializableResource, WriteSignal,
+    ResourceId, ResourceState, RwSignal, SerializableResource, Trigger,
+    UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
 use futures::stream::FuturesUnordered;
 use indexmap::IndexSet;
 use rustc_hash::{FxHashMap, FxHasher};
-use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
+use slotmap::SlotMap;
 use std::{
     any::{Any, TypeId},
-    cell::{Cell, RefCell},
+    cell::{Cell, Ref, RefCell, RefMut},
     fmt::Debug,
     future::Future,
     marker::PhantomData,
@@ -30,12 +29,13 @@ pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 cfg_if! {
     if #[cfg(any(feature = "csr", feature = "hydrate"))] {
         thread_local! {
+            pub(crate) static ARENA: &'static Arena = Box::leak(Box::new(Arena::new()));
             pub(crate) static RUNTIME: Runtime = Runtime::new();
         }
     } else {
         thread_local! {
+            pub(crate) static ARENA: &'static Arena = Box::leak(Box::new(Arena::new()));
             pub(crate) static RUNTIMES: RefCell<SlotMap<RuntimeId, Runtime>> = Default::default();
-
             pub(crate) static CURRENT_RUNTIME: Cell<Option<RuntimeId>> = Default::default();
         }
     }
@@ -53,27 +53,52 @@ type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 // and other data included in the reactive system.
 #[derive(Default)]
 pub(crate) struct Runtime {
+    pub arena: ArenaOwner,
     pub shared_context: RefCell<SharedContext>,
     pub owner: Cell<Option<NodeId>>,
     pub observer: Cell<Option<NodeId>>,
     #[allow(clippy::type_complexity)]
-    pub on_cleanups:
-        RefCell<SparseSecondaryMap<NodeId, Vec<Box<dyn FnOnce()>>>>,
-    pub stored_values: RefCell<SlotMap<StoredValueId, Rc<RefCell<dyn Any>>>>,
-    pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
+    pub on_cleanups: RefCell<FxHashMap<NodeId, Vec<Box<dyn FnOnce()>>>>,
+    pub nodes: RefCell<FxHashMap<NodeId, ReactiveNode>>,
     pub node_subscribers:
-        RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
-    pub node_sources:
-        RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
-    pub node_owners: RefCell<SecondaryMap<NodeId, NodeId>>,
-    pub node_properties:
-        RefCell<SparseSecondaryMap<NodeId, Vec<ScopeProperty>>>,
+        RefCell<FxHashMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
+    pub node_sources: RefCell<FxHashMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
+    pub node_owners: RefCell<FxHashMap<NodeId, NodeId>>,
+    pub node_properties: RefCell<FxHashMap<NodeId, Vec<ScopeProperty>>>,
     #[allow(clippy::type_complexity)]
-    pub contexts:
-        RefCell<SparseSecondaryMap<NodeId, FxHashMap<TypeId, Box<dyn Any>>>>,
+    pub contexts: RefCell<FxHashMap<NodeId, FxHashMap<TypeId, Box<dyn Any>>>>,
     pub pending_effects: RefCell<Vec<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
     pub batching: Cell<bool>,
+}
+
+impl Default for ArenaOwner {
+    fn default() -> ArenaOwner {
+        ArenaOwner {
+            arena: ARENA.with(|a| *a),
+            owned: Default::default(),
+        }
+    }
+}
+
+pub(crate) struct ThreadArena;
+
+impl ThreadArena {
+    fn this() -> &'static Arena {
+        ARENA.with(|a| *a)
+    }
+
+    pub fn get<T: 'static>(id: &NodeId) -> Option<Ref<'_, T>> {
+        Self::this().get::<T>(id)
+    }
+
+    pub fn get_mut<T: 'static>(id: &NodeId) -> Option<RefMut<'_, T>> {
+        Self::this().get_mut::<T>(id)
+    }
+
+    pub fn remove(id: &NodeId) -> Option<Box<dyn Any>> {
+        Self::this().remove(id)
+    }
 }
 
 /// The current reactive runtime.
@@ -142,7 +167,7 @@ impl Runtime {
                 let sources = self.node_sources.borrow();
 
                 // rather than cloning the entire FxIndexSet, only allocate a `Vec` for the node ids
-                sources.get(node_id).map(|n| {
+                sources.get(&node_id).map(|n| {
                     let sources = n.borrow();
                     // in case Vec::from_iterator specialization doesn't work, do it manually
                     let mut sources_vec = Vec::with_capacity(sources.len());
@@ -175,7 +200,7 @@ impl Runtime {
 
     pub(crate) fn cleanup_node(&self, node_id: NodeId) {
         // first, run our cleanups, if any
-        let c = { self.on_cleanups.borrow_mut().remove(node_id) };
+        let c = { self.on_cleanups.borrow_mut().remove(&node_id) };
         if let Some(cleanups) = c {
             for cleanup in cleanups {
                 cleanup();
@@ -183,7 +208,7 @@ impl Runtime {
         }
 
         // dispose of any of our properties
-        let properties = { self.node_properties.borrow_mut().remove(node_id) };
+        let properties = { self.node_properties.borrow_mut().remove(&node_id) };
         if let Some(properties) = properties {
             for property in properties {
                 self.cleanup_property(property);
@@ -194,9 +219,8 @@ impl Runtime {
     pub(crate) fn update(&self, node_id: NodeId) {
         let node = {
             let nodes = self.nodes.borrow();
-            nodes.get(node_id).cloned()
+            nodes.get(&node_id).cloned()
         };
-
         if let Some(node) = node {
             // memos and effects rerun
             // signals simply have their value
@@ -204,13 +228,12 @@ impl Runtime {
                 ReactiveNodeType::Signal | ReactiveNodeType::Trigger => true,
                 ReactiveNodeType::Memo { ref f }
                 | ReactiveNodeType::Effect { ref f } => {
-                    let value = node.value();
                     // set this node as the observer
                     self.with_observer(node_id, move || {
                         // clean up sources of this memo/effect
                         self.cleanup_sources(node_id);
 
-                        f.run(value)
+                        f.run(node_id)
                     })
                 }
             };
@@ -219,10 +242,10 @@ impl Runtime {
             if changed {
                 let subs = self.node_subscribers.borrow();
 
-                if let Some(subs) = subs.get(node_id) {
+                if let Some(subs) = subs.get(&node_id) {
                     let mut nodes = self.nodes.borrow_mut();
                     for sub_id in subs.borrow().iter() {
-                        if let Some(sub) = nodes.get_mut(*sub_id) {
+                        if let Some(sub) = nodes.get_mut(sub_id) {
                             sub.state = ReactiveNodeState::Dirty;
                         }
                     }
@@ -241,53 +264,53 @@ impl Runtime {
             | ScopeProperty::Trigger(node)
             | ScopeProperty::Effect(node) => {
                 // run all cleanups for this node
-                let cleanups = { self.on_cleanups.borrow_mut().remove(node) };
+                let cleanups = { self.on_cleanups.borrow_mut().remove(&node) };
                 for cleanup in cleanups.into_iter().flatten() {
                     cleanup();
                 }
 
                 // clean up all children
                 let properties =
-                    { self.node_properties.borrow_mut().remove(node) };
+                    { self.node_properties.borrow_mut().remove(&node) };
                 for property in properties.into_iter().flatten() {
                     self.cleanup_property(property);
                 }
 
                 // each of the subs needs to remove the node from its dependencies
                 // so that it doesn't try to read the (now disposed) signal
-                let subs = self.node_subscribers.borrow_mut().remove(node);
+                let subs = self.node_subscribers.borrow_mut().remove(&node);
 
                 if let Some(subs) = subs {
                     let source_map = self.node_sources.borrow();
                     for effect in subs.borrow().iter() {
-                        if let Some(effect_sources) = source_map.get(*effect) {
+                        if let Some(effect_sources) = source_map.get(effect) {
                             effect_sources.borrow_mut().remove(&node);
                         }
                     }
                 }
 
                 // no longer needs to track its sources
-                self.node_sources.borrow_mut().remove(node);
+                self.node_sources.borrow_mut().remove(&node);
 
                 // remove the node from the graph
-                let node = { self.nodes.borrow_mut().remove(node) };
+                let node = ThreadArena::remove(&node);
                 drop(node);
             }
             ScopeProperty::Resource(id) => {
                 self.resources.borrow_mut().remove(id);
             }
             ScopeProperty::StoredValue(id) => {
-                self.stored_values.borrow_mut().remove(id);
+                ThreadArena::remove(&id);
             }
         }
     }
 
     pub(crate) fn cleanup_sources(&self, node_id: NodeId) {
         let sources = self.node_sources.borrow();
-        if let Some(sources) = sources.get(node_id) {
+        if let Some(sources) = sources.get(&node_id) {
             let subs = self.node_subscribers.borrow();
             for source in sources.borrow().iter() {
-                if let Some(source) = subs.get(*source) {
+                if let Some(source) = subs.get(source) {
                     source.borrow_mut().remove(&node_id);
                 }
             }
@@ -295,7 +318,7 @@ impl Runtime {
     }
 
     fn current_state(&self, node: NodeId) -> ReactiveNodeState {
-        match self.nodes.borrow().get(node) {
+        match self.nodes.borrow().get(&node) {
             None => ReactiveNodeState::Clean,
             Some(node) => node.state,
         }
@@ -316,7 +339,7 @@ impl Runtime {
 
     fn mark_clean(&self, node: NodeId) {
         let mut nodes = self.nodes.borrow_mut();
-        if let Some(node) = nodes.get_mut(node) {
+        if let Some(node) = nodes.get_mut(&node) {
             node.state = ReactiveNodeState::Clean;
         }
     }
@@ -324,7 +347,7 @@ impl Runtime {
     pub(crate) fn mark_dirty(&self, node: NodeId) {
         let mut nodes = self.nodes.borrow_mut();
 
-        if let Some(current_node) = nodes.get_mut(node) {
+        if let Some(current_node) = nodes.get_mut(&node) {
             if current_node.state == ReactiveNodeState::DirtyMarked {
                 return;
             }
@@ -376,7 +399,7 @@ impl Runtime {
 
             let mut stack = Vec::new();
 
-            if let Some(children) = subscribers.get(node) {
+            if let Some(children) = subscribers.get(&node) {
                 stack.push(RefIter::new(children.borrow(), |children| {
                     children.iter()
                 }));
@@ -388,7 +411,7 @@ impl Runtime {
                         return IterResult::Empty;
                     };
 
-                    while let Some(node) = nodes.get_mut(child) {
+                    while let Some(node) = nodes.get_mut(&child) {
                         if node.state == ReactiveNodeState::Check
                             || node.state == ReactiveNodeState::DirtyMarked
                         {
@@ -403,7 +426,7 @@ impl Runtime {
                             current_observer,
                         );
 
-                        if let Some(children) = subscribers.get(child) {
+                        if let Some(children) = subscribers.get(&child) {
                             let children = children.borrow();
 
                             if !children.is_empty() {
@@ -470,9 +493,9 @@ impl Runtime {
     }
 
     pub(crate) fn dispose_node(&self, node: NodeId) {
-        self.node_sources.borrow_mut().remove(node);
-        self.node_subscribers.borrow_mut().remove(node);
-        self.nodes.borrow_mut().remove(node);
+        self.node_sources.borrow_mut().remove(&node);
+        self.node_subscribers.borrow_mut().remove(&node);
+        ThreadArena::remove(&node);
     }
 
     #[track_caller]
@@ -485,10 +508,8 @@ impl Runtime {
     ) {
         let mut properties = self.node_properties.borrow_mut();
         if let Some(owner) = self.owner.get() {
-            if let Some(entry) = properties.entry(owner) {
-                let entry = entry.or_default();
-                entry.push(property);
-            }
+            let mut entry = properties.entry(owner).or_default();
+            entry.push(property);
 
             if let Some(node) = property.to_node_id() {
                 let mut owners = self.node_owners.borrow_mut();
@@ -509,7 +530,7 @@ impl Runtime {
     ) -> Option<T> {
         let contexts = self.contexts.borrow();
 
-        let context = contexts.get(node);
+        let context = contexts.get(&node);
         let local_value = context.and_then(|context| {
             context
                 .get(&ty)
@@ -521,7 +542,7 @@ impl Runtime {
             None => self
                 .node_owners
                 .borrow()
-                .get(node)
+                .get(&node)
                 .and_then(|parent| self.get_context(*parent, ty)),
         }
     }
@@ -552,7 +573,7 @@ impl Runtime {
         property: ScopeProperty,
     ) {
         let mut properties = self.node_properties.borrow_mut();
-        if let Some(properties) = properties.get_mut(owner) {
+        if let Some(properties) = properties.get_mut(&owner) {
             // remove this property from the list, if found
             if let Some(index) = properties.iter().position(|p| p == &property)
             {
@@ -564,7 +585,7 @@ impl Runtime {
 
         if let Some(node) = property.to_node_id() {
             let mut owners = self.node_owners.borrow_mut();
-            owners.remove(node);
+            owners.remove(&node);
         }
     }
 }
@@ -658,11 +679,14 @@ where
             runtime.owner.set(owner);
             runtime.observer.set(owner);
 
-            let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: None,
-                state: ReactiveNodeState::Clean,
-                node_type: ReactiveNodeType::Trigger,
-            });
+            let id = runtime.arena.insert(None::<()>);
+            runtime.nodes.borrow_mut().insert(
+                id,
+                ReactiveNode {
+                    state: ReactiveNodeState::Clean,
+                    node_type: ReactiveNodeType::Trigger,
+                },
+            );
             runtime.push_scope_property(ScopeProperty::Trigger(id));
             let disposer = Disposer(id);
 
@@ -809,11 +833,14 @@ impl RuntimeId {
     #[inline(always)] // only because it's placed here to fit in with the other create methods
     pub(crate) fn create_trigger(self) -> Trigger {
         let id = with_runtime(|runtime| {
-            let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: None,
-                state: ReactiveNodeState::Clean,
-                node_type: ReactiveNodeType::Trigger,
-            });
+            let id = runtime.arena.insert(None::<()>);
+            runtime.nodes.borrow_mut().insert(
+                id,
+                ReactiveNode {
+                    state: ReactiveNodeState::Clean,
+                    node_type: ReactiveNodeType::Trigger,
+                },
+            );
             runtime.push_scope_property(ScopeProperty::Trigger(id));
             id
         })
@@ -828,16 +855,17 @@ impl RuntimeId {
         }
     }
 
-    pub(crate) fn create_concrete_signal(
-        self,
-        value: Rc<RefCell<dyn Any>>,
-    ) -> NodeId {
+    pub(crate) fn create_concrete_signal(self, value: Box<dyn Any>) -> NodeId {
         with_runtime(|runtime| {
-            let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Some(value),
-                state: ReactiveNodeState::Clean,
-                node_type: ReactiveNodeType::Signal,
-            });
+            let id = runtime.arena.insert_boxed(value);
+            runtime.nodes.borrow_mut().insert(
+                id,
+                ReactiveNode {
+                    state: ReactiveNodeState::Clean,
+                    node_type: ReactiveNodeType::Signal,
+                },
+            );
+
             runtime.push_scope_property(ScopeProperty::Signal(id));
             id
         })
@@ -853,9 +881,7 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = self.create_concrete_signal(
-            Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>
-        );
+        let id = self.create_concrete_signal(Box::new(value));
 
         (
             ReadSignal {
@@ -879,9 +905,7 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = self.create_concrete_signal(
-            Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>
-        );
+        let id = self.create_concrete_signal(Box::new(value));
         RwSignal {
             id,
             ty: PhantomData,
@@ -892,17 +916,20 @@ impl RuntimeId {
 
     pub(crate) fn create_concrete_effect(
         self,
-        value: Rc<RefCell<dyn Any>>,
+        value: Box<dyn Any>,
         effect: Rc<dyn AnyComputation>,
     ) -> NodeId {
         with_runtime(|runtime| {
-            let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Some(Rc::clone(&value)),
-                state: ReactiveNodeState::Dirty,
-                node_type: ReactiveNodeType::Effect {
-                    f: Rc::clone(&effect),
+            let id = runtime.arena.insert_boxed(value);
+            runtime.nodes.borrow_mut().insert(
+                id,
+                ReactiveNode {
+                    state: ReactiveNodeState::Dirty,
+                    node_type: ReactiveNodeType::Effect {
+                        f: Rc::clone(&effect),
+                    },
                 },
-            });
+            );
             runtime.push_scope_property(ScopeProperty::Effect(id));
             id
         })
@@ -911,17 +938,20 @@ impl RuntimeId {
 
     pub(crate) fn create_concrete_memo(
         self,
-        value: Rc<RefCell<dyn Any>>,
+        value: Box<dyn Any>,
         computation: Rc<dyn AnyComputation>,
     ) -> NodeId {
         with_runtime(|runtime| {
-            let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Some(value),
-                // memos are lazy, so are dirty when created
-                // will be run the first time we ask for it
-                state: ReactiveNodeState::Dirty,
-                node_type: ReactiveNodeType::Memo { f: computation },
-            });
+            let id = runtime.arena.insert_boxed(value);
+            runtime.nodes.borrow_mut().insert(
+                id,
+                ReactiveNode {
+                    // memos are lazy, so are dirty when created
+                    // will be run the first time we ask for it
+                    state: ReactiveNodeState::Dirty,
+                    node_type: ReactiveNodeType::Memo { f: computation },
+                },
+            );
             runtime.push_scope_property(ScopeProperty::Effect(id));
             id
         })
@@ -938,7 +968,7 @@ impl RuntimeId {
         T: Any + 'static,
     {
         self.create_concrete_effect(
-            Rc::new(RefCell::new(None::<T>)),
+            Box::new(None::<T>),
             Rc::new(EffectState {
                 f,
                 ty: PhantomData,
@@ -1002,7 +1032,7 @@ impl RuntimeId {
         };
 
         let id = self.create_concrete_effect(
-            Rc::new(RefCell::new(None::<()>)),
+            Box::new(None::<()>),
             Rc::new(EffectState {
                 f: effect_fn,
                 ty: PhantomData,
@@ -1013,8 +1043,9 @@ impl RuntimeId {
 
         (id, move || {
             with_runtime(|runtime| {
-                runtime.nodes.borrow_mut().remove(id);
-                runtime.node_sources.borrow_mut().remove(id);
+                ThreadArena::remove(&id);
+                runtime.nodes.borrow_mut().remove(&id);
+                runtime.node_sources.borrow_mut().remove(&id);
             })
             .expect(
                 "tried to stop a watch in a runtime that has been disposed",
@@ -1033,7 +1064,7 @@ impl RuntimeId {
     {
         Memo {
             id: self.create_concrete_memo(
-                Rc::new(RefCell::new(None::<T>)),
+                Box::new(None::<T>),
                 Rc::new(MemoState {
                     f,
                     t: PhantomData,
@@ -1050,16 +1081,20 @@ impl RuntimeId {
 
 impl Runtime {
     pub fn new() -> Self {
-        let root = ReactiveNode {
-            value: None,
-            state: ReactiveNodeState::Clean,
-            node_type: ReactiveNodeType::Trigger,
-        };
-        let mut nodes: SlotMap<NodeId, ReactiveNode> = SlotMap::default();
-        let root_id = nodes.insert(root);
+        let mut arena = ArenaOwner::default();
+        let mut nodes: FxHashMap<NodeId, ReactiveNode> = Default::default();
+        let root_id = arena.insert(None::<()>);
+        nodes.insert(
+            root_id,
+            ReactiveNode {
+                state: ReactiveNodeState::Clean,
+                node_type: ReactiveNodeType::Trigger,
+            },
+        );
 
         Self {
             owner: Cell::new(Some(root_id)),
+            arena,
             nodes: RefCell::new(nodes),
             ..Self::default()
         }
@@ -1159,15 +1194,6 @@ impl Runtime {
         }
         f
     }
-
-    /// Do not call on triggers
-    pub(crate) fn get_value(
-        &self,
-        node_id: NodeId,
-    ) -> Option<Rc<RefCell<dyn Any>>> {
-        let signals = self.nodes.borrow();
-        signals.get(node_id).map(|node| node.value())
-    }
 }
 
 impl PartialEq for Runtime {
@@ -1259,7 +1285,7 @@ fn push_cleanup(cleanup_fn: Box<dyn FnOnce()>) {
     _ = with_runtime(|runtime| {
         if let Some(owner) = runtime.owner.get() {
             let mut cleanups = runtime.on_cleanups.borrow_mut();
-            if let Some(entries) = cleanups.get_mut(owner) {
+            if let Some(entries) = cleanups.get_mut(&owner) {
                 entries.push(cleanup_fn);
             } else {
                 cleanups.insert(owner, vec![cleanup_fn]);
@@ -1274,7 +1300,7 @@ pub(crate) enum ScopeProperty {
     Signal(NodeId),
     Effect(NodeId),
     Resource(ResourceId),
-    StoredValue(StoredValueId),
+    StoredValue(NodeId),
 }
 
 impl ScopeProperty {

@@ -1,9 +1,10 @@
 use crate::{
-    create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
-    with_runtime, AnyComputation, Runtime, SignalDispose, SignalGet,
-    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
+    arena::NodeId, create_effect, diagnostics::AccessDiagnostics, on_cleanup,
+    runtime::ThreadArena, with_runtime, AnyComputation, Runtime, SignalDispose,
+    SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    SignalWithUntracked,
 };
-use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
+use std::{fmt, marker::PhantomData};
 
 // IMPLEMENTATION NOTE:
 // Memos are implemented "lazily," i.e., the inner computation is not run
@@ -282,8 +283,8 @@ impl<T: Clone> SignalGetUntracked for Memo<T> {
                     .expect("invariant: must have already been initialized")
             };
             match self.id.try_with_no_subscription(runtime, f) {
-                Ok(t) => t,
-                Err(_) => panic_getting_dead_memo(
+                Some(t) => t,
+                None => panic_getting_dead_memo(
                     #[cfg(any(debug_assertions, feature = "ssr"))]
                     self.defined_at,
                 ),
@@ -330,8 +331,8 @@ impl<T> SignalWithUntracked for Memo<T> {
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         with_runtime(|runtime| {
             match self.id.try_with_no_subscription(runtime, forward_ref_to(f)) {
-                Ok(t) => t,
-                Err(_) => panic_getting_dead_memo(
+                Some(t) => t,
+                None => panic_getting_dead_memo(
                     #[cfg(any(debug_assertions, feature = "ssr"))]
                     self.defined_at,
                 ),
@@ -356,7 +357,7 @@ impl<T> SignalWithUntracked for Memo<T> {
     #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(|runtime| {
-            self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
+            self.id.try_with_no_subscription(runtime, |v: &T| f(v))
         })
         .ok()
         .flatten()
@@ -468,9 +469,7 @@ impl<T> SignalWith for Memo<T> {
 
         with_runtime(|runtime| {
             self.id.subscribe(runtime, diagnostics);
-            self.id
-                .try_with_no_subscription(runtime, forward_ref_to(f))
-                .ok()
+            self.id.try_with_no_subscription(runtime, forward_ref_to(f))
         })
         .ok()
         .flatten()
@@ -544,12 +543,12 @@ where
             )
         )
     )]
-    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
+    fn run(&self, node: NodeId) -> bool {
         let (new_value, is_different) = {
-            let value = value.borrow();
-            let curr_value = value
-                .downcast_ref::<Option<T>>()
-                .expect("to downcast memo value");
+            let curr_value = match ThreadArena::get::<Option<T>>(&node) {
+                Some(t) => t,
+                _ => return false,
+            };
 
             // run the effect
             let new_value = (self.f)(curr_value.as_ref());
@@ -557,11 +556,8 @@ where
             (new_value, is_different)
         };
         if is_different {
-            let mut value = value.borrow_mut();
-            let curr_value = value
-                .downcast_mut::<Option<T>>()
-                .expect("to downcast memo value");
-            *curr_value = Some(new_value);
+            let mut value = ThreadArena::get_mut::<Option<T>>(&node).unwrap();
+            *value = Some(new_value);
         }
 
         is_different

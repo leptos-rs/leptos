@@ -60,7 +60,7 @@ where
         let mut contexts = runtime.contexts.borrow_mut();
         let owner = runtime.owner.get();
         if let Some(owner) = owner {
-            let context = contexts.entry(owner).unwrap().or_default();
+            let context = contexts.entry(owner).or_default();
             context.insert(id, Box::new(value) as Box<dyn Any>);
         } else {
             crate::macros::debug_warn!(

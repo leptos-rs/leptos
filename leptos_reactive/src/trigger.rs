@@ -1,7 +1,7 @@
 use crate::{
+    arena::NodeId,
     diagnostics,
     diagnostics::*,
-    node::NodeId,
     runtime::{with_runtime, Runtime},
     SignalGet, SignalSet, SignalUpdate,
 };

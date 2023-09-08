@@ -2,7 +2,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
-#![cfg_attr(feature = "nightly", feature(type_name_of_val))]
+#![feature(type_name_of_val)]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
@@ -76,6 +76,7 @@
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 extern crate tracing;
 
+mod arena;
 #[macro_use]
 mod signal;
 mod context;

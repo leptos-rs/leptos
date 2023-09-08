@@ -1116,8 +1116,7 @@ where
 
         let v = self
             .value
-            .try_with(|n| n.as_ref().map(|n| Some(f(n))))
-            .ok()?
+            .try_with(|n| n.as_ref().map(|n| Some(f(n))))?
             .flatten();
 
         self.handle_result(location, global_suspense_cx, suspense_cx, v)
@@ -1132,7 +1131,7 @@ where
         let global_suspense_cx = use_context::<GlobalSuspenseContext>();
         let suspense_cx = use_context::<SuspenseContext>();
 
-        let v = self.value.try_with(|n| f(n)).ok();
+        let v = self.value.try_with(|n| f(n));
 
         self.handle_result(location, global_suspense_cx, suspense_cx, v)
     }

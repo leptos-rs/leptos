@@ -1,19 +1,20 @@
 use crate::{
-    console_warn, create_effect, diagnostics, diagnostics::*,
-    macros::debug_warn, node::NodeId, on_cleanup, runtime::with_runtime,
+    arena::NodeId,
+    console_warn, create_effect, diagnostics,
+    diagnostics::*,
+    macros::debug_warn,
+    on_cleanup, queue_microtask,
+    runtime::{with_runtime, ThreadArena},
     Runtime,
 };
 use futures::Stream;
 use std::{
-    any::Any,
-    cell::RefCell,
+    cell::{Ref, RefMut},
     fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
     pin::Pin,
-    rc::Rc,
 };
-use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
     ($($ty:ident $(($method_name:ident))?),*) => {
@@ -101,6 +102,43 @@ pub mod prelude {
     pub use crate::{
         memo::*, selector::*, signal_wrappers_read::*, signal_wrappers_write::*,
     };
+}
+
+/// This trait allows getting a reference to a signal's inner type.
+pub trait SignalRead {
+    /// The value held by the signal.
+    type Value;
+
+    /// Returns a [Ref] to the current value held by the signal, and subscribes
+    /// the running effect to this signal.
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
+    #[track_caller]
+    fn read(&self) -> Ref<'_, Self::Value>;
+
+    /// Returns a [Ref] to the current value held by the signal, and subscribes
+    /// the running effect to this signal, returning [`Some`] if the signal
+    /// is still alive, and [`None`] otherwise.
+    fn try_read(&self) -> Option<Ref<'_, Self::Value>>;
+}
+
+/// This trait allows getting a mutable reference to a signal's inner type.
+pub trait SignalWrite {
+    /// The value held by the signal.
+    type Value;
+
+    /// Returns a [RefMut] to the current value held by the signal,
+    /// and notifies subscribers that the signal has changed.
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that is owned by a reactive node that has been disposed.
+    #[track_caller]
+    fn write(&self) -> RefMut<'_, Self::Value>;
+
+    /// Returns a [Ref] to the current value held by the signal, and notifies subscribers that the
+    /// signal has changed, returning [`Some`] if the signal is still alive, and [`None`] otherwise.
+    fn try_write(&self) -> Option<RefMut<'_, Self::Value>>;
 }
 
 /// This trait allows getting an owned value of the signals
@@ -441,6 +479,24 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+impl<T> SignalRead for ReadSignal<T> {
+    type Value = T;
+
+    fn read(&self) -> Ref<'_, Self::Value> {
+        self.id.read(
+            #[cfg(debug_assesrtions)]
+            self.defined_at,
+        )
+    }
+
+    fn try_read(&self) -> Option<Ref<'_, Self::Value>> {
+        self.id.try_read(
+            #[cfg(debug_assertions)]
+            self.defined_at,
+        )
+    }
+}
+
 impl<T: Clone> SignalGetUntracked for ReadSignal<T> {
     type Value = T;
 
@@ -463,8 +519,8 @@ impl<T: Clone> SignalGetUntracked for ReadSignal<T> {
         })
         .expect("runtime to be alive")
         {
-            Ok(t) => t,
-            Err(_) => panic_getting_dead_signal(
+            Some(t) => t,
+            None => panic_getting_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
@@ -487,7 +543,7 @@ impl<T: Clone> SignalGetUntracked for ReadSignal<T> {
     #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
         with_runtime(|runtime| {
-            self.id.try_with_no_subscription(runtime, Clone::clone).ok()
+            self.id.try_with_no_subscription(runtime, Clone::clone)
         })
         .ok()
         .flatten()
@@ -535,7 +591,7 @@ impl<T> SignalWithUntracked for ReadSignal<T> {
 
         match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
         {
-            Ok(Ok(o)) => Some(o),
+            Ok(Some(o)) => Some(o),
             _ => None,
         }
     }
@@ -583,8 +639,8 @@ impl<T> SignalWith for ReadSignal<T> {
         match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
             .expect("runtime to be alive")
         {
-            Ok(o) => o,
-            Err(_) => panic_getting_dead_signal(
+            Some(o) => o,
+            None => panic_getting_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
@@ -609,7 +665,7 @@ impl<T> SignalWith for ReadSignal<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics).ok())
+        with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
             .ok()
             .flatten()
     }
@@ -653,8 +709,8 @@ impl<T: Clone> SignalGet for ReadSignal<T> {
         })
         .expect("runtime to be alive")
         {
-            Ok(t) => t,
-            Err(_) => panic_getting_dead_signal(
+            Some(t) => t,
+            None => panic_getting_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
@@ -675,7 +731,7 @@ impl<T: Clone> SignalGet for ReadSignal<T> {
         )
     )]
     fn try_get(&self) -> Option<T> {
-        self.try_with(Clone::clone).ok()
+        self.try_with(Clone::clone)
     }
 }
 
@@ -728,21 +784,11 @@ where
 
         self.id
             .try_with_no_subscription_by_id(f)
-            .unwrap_or_else(|_| {
-                #[cfg(not(debug_assertions))]
-                {
-                    panic!("tried to access ReadSignal that has been disposed")
-                }
-                #[cfg(debug_assertions)]
-                {
-                    panic!(
-                        "at {}, tried to access ReadSignal<{}> defined at {}, \
-                         but it has already been disposed",
-                        caller,
-                        std::any::type_name::<T>(),
-                        self.defined_at
-                    )
-                }
+            .unwrap_or_else(|| {
+                panic_getting_dead_signal(
+                    #[cfg(debug_assertions)]
+                    self.defined_at,
+                )
             })
     }
 
@@ -750,17 +796,13 @@ where
     /// the running effect.
     #[track_caller]
     #[inline(always)]
-    pub(crate) fn try_with<U>(
-        &self,
-        f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError> {
+    pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let diagnostics = diagnostics!(self);
 
         match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
         {
-            Ok(Ok(v)) => Ok(v),
-            Ok(Err(e)) => Err(e),
-            Err(_) => Err(SignalError::RuntimeDisposed),
+            Ok(Some(v)) => Some(v),
+            _ => None,
         }
     }
 }
@@ -853,6 +895,24 @@ where
     pub(crate) ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
+}
+
+impl<T> SignalWrite for WriteSignal<T> {
+    type Value = T;
+
+    fn write(&self) -> RefMut<'_, Self::Value> {
+        self.id.write(
+            #[cfg(debug_assertions)]
+            self.defined_at,
+        )
+    }
+
+    fn try_write(&self) -> Option<RefMut<'_, Self::Value>> {
+        self.id.try_write(
+            #[cfg(debug_assertions)]
+            self.defined_at,
+        )
+    }
 }
 
 impl<T> SignalSetUntracked<T> for WriteSignal<T>
@@ -1274,21 +1334,11 @@ impl<T: Clone> SignalGetUntracked for RwSignal<T> {
 
         self.id
             .try_with_no_subscription_by_id(Clone::clone)
-            .unwrap_or_else(|_| {
-                #[cfg(not(debug_assertions))]
-                {
-                    panic!("tried to access RwSignal that has been disposed")
-                }
-                #[cfg(debug_assertions)]
-                {
-                    panic!(
-                        "at {}, tried to access RwSignal<{}> defined at {}, \
-                         but it has already been disposed",
-                        caller,
-                        std::any::type_name::<T>(),
-                        self.defined_at
-                    )
-                }
+            .unwrap_or_else(|| {
+                panic_getting_dead_signal(
+                    #[cfg(debug_assertions)]
+                    self.defined_at,
+                )
             })
     }
 
@@ -1308,7 +1358,7 @@ impl<T: Clone> SignalGetUntracked for RwSignal<T> {
     #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
         with_runtime(|runtime| {
-            self.id.try_with_no_subscription(runtime, Clone::clone).ok()
+            self.id.try_with_no_subscription(runtime, Clone::clone)
         })
         .ok()
         .flatten()
@@ -1335,20 +1385,11 @@ impl<T> SignalWithUntracked for RwSignal<T> {
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id
             .try_with_no_subscription_by_id(f)
-            .unwrap_or_else(|_| {
-                #[cfg(not(debug_assertions))]
-                {
-                    panic!("tried to access RwSignal that has been disposed")
-                }
-                #[cfg(debug_assertions)]
-                {
-                    panic!(
-                        "tried to access RwSignal<{}> defined at {}, but it \
-                         has already been disposed",
-                        std::any::type_name::<T>(),
-                        self.defined_at
-                    )
-                }
+            .unwrap_or_else(|| {
+                panic_getting_dead_signal(
+                    #[cfg(debug_assertions)]
+                    self.defined_at,
+                )
             })
     }
 
@@ -1372,7 +1413,7 @@ impl<T> SignalWithUntracked for RwSignal<T> {
 
         match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
         {
-            Ok(Ok(o)) => Some(o),
+            Ok(Some(o)) => Some(o),
             _ => None,
         }
     }
@@ -1518,8 +1559,8 @@ impl<T> SignalWith for RwSignal<T> {
         match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
             .expect("runtime to be alive")
         {
-            Ok(o) => o,
-            Err(_) => panic_getting_dead_signal(
+            Some(o) => o,
+            None => panic_getting_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
@@ -1544,7 +1585,7 @@ impl<T> SignalWith for RwSignal<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics).ok())
+        with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
             .ok()
             .flatten()
     }
@@ -1592,8 +1633,8 @@ impl<T: Clone> SignalGet for RwSignal<T> {
         })
         .expect("runtime to be alive")
         {
-            Ok(t) => t,
-            Err(_) => panic_getting_dead_signal(
+            Some(t) => t,
+            None => panic_getting_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
@@ -1618,7 +1659,7 @@ impl<T: Clone> SignalGet for RwSignal<T> {
         let diagnostics = diagnostics!(self);
 
         with_runtime(|runtime| {
-            self.id.try_with(runtime, Clone::clone, diagnostics).ok()
+            self.id.try_with(runtime, Clone::clone, diagnostics)
         })
         .ok()
         .flatten()
@@ -1940,16 +1981,6 @@ impl<T> RwSignal<T> {
     }
 }
 
-#[derive(Debug, Error)]
-pub(crate) enum SignalError {
-    #[error("tried to access a signal in a runtime that had been disposed")]
-    RuntimeDisposed,
-    #[error("tried to access a signal that had been disposed")]
-    Disposed,
-    #[error("error casting signal to type {0}")]
-    Type(&'static str),
-}
-
 impl NodeId {
     #[track_caller]
     pub(crate) fn subscribe(
@@ -1961,16 +1992,15 @@ impl NodeId {
         if let Some(observer) = runtime.observer.get() {
             // add this observer to this node's dependencies (to allow notification)
             let mut subs = runtime.node_subscribers.borrow_mut();
-            if let Some(subs) = subs.entry(*self) {
-                subs.or_default().borrow_mut().insert(observer);
-            }
+            subs.entry(*self).or_default().borrow_mut().insert(observer);
 
             // add this node to the observer's sources (to allow cleanup)
             let mut sources = runtime.node_sources.borrow_mut();
-            if let Some(sources) = sources.entry(observer) {
-                let sources = sources.or_default();
-                sources.borrow_mut().insert(*self);
-            }
+            sources
+                .entry(observer)
+                .or_default()
+                .borrow_mut()
+                .insert(*self);
         } else {
             #[cfg(all(debug_assertions, not(feature = "ssr")))]
             {
@@ -2000,21 +2030,11 @@ impl NodeId {
         }
     }
 
-    fn try_with_no_subscription_inner(
-        &self,
-        runtime: &Runtime,
-    ) -> Result<Rc<RefCell<dyn Any>>, SignalError> {
-        runtime.update_if_necessary(*self);
-        let nodes = runtime.nodes.borrow();
-        let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
-        Ok(node.value())
-    }
-
     #[inline(always)]
     pub(crate) fn try_with_no_subscription_by_id<T, U>(
         &self,
         f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError>
+    ) -> Option<U>
     where
         T: 'static,
     {
@@ -2028,17 +2048,13 @@ impl NodeId {
         &self,
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError>
+    ) -> Option<U>
     where
         T: 'static,
     {
-        let value = self.try_with_no_subscription_inner(runtime)?;
-        let value = value.borrow();
-        let value = value
-            .downcast_ref::<T>()
-            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))
-            .expect("to downcast signal type");
-        Ok(f(value))
+        runtime.update_if_necessary(*self);
+        let value = ThreadArena::get::<T>(self)?;
+        Some(f(&value))
     }
 
     #[track_caller]
@@ -2048,12 +2064,11 @@ impl NodeId {
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
         diagnostics: AccessDiagnostics,
-    ) -> Result<U, SignalError>
+    ) -> Option<U>
     where
         T: 'static,
     {
         self.subscribe(runtime, diagnostics);
-
         self.try_with_no_subscription(runtime, f)
     }
 
@@ -2061,7 +2076,6 @@ impl NodeId {
     #[track_caller]
     fn update_value<T, U>(
         &self,
-
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<
             &'static std::panic::Location<'static>,
@@ -2074,18 +2088,8 @@ impl NodeId {
         let location = std::panic::Location::caller();
 
         with_runtime(|runtime| {
-            if let Some(value) = runtime.get_value(*self) {
-                let mut value = value.borrow_mut();
-                if let Some(value) = value.downcast_mut::<T>() {
-                    Some(f(value))
-                } else {
-                    debug_warn!(
-                        "[Signal::update] failed when downcasting to \
-                         Signal<{}>",
-                        std::any::type_name::<T>()
-                    );
-                    None
-                }
+            if let Some(ref mut value) = ThreadArena::get_mut::<T>(self) {
+                Some(f(value))
             } else {
                 #[cfg(debug_assertions)]
                 {
@@ -2109,6 +2113,73 @@ impl NodeId {
         .unwrap_or_default()
     }
 
+    pub(crate) fn try_read<T: 'static>(
+        &self,
+        #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<
+            'static,
+        >,
+    ) -> Option<Ref<'_, T>> {
+        with_runtime(|runtime| {
+            let diagnostics = diagnostics!(self);
+            self.subscribe(runtime, diagnostics);
+        });
+        ThreadArena::get::<T>(self)
+    }
+
+    pub(crate) fn read<T: 'static>(
+        &self,
+        #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<
+            'static,
+        >,
+    ) -> Ref<'_, T> {
+        self.try_read(
+            #[cfg(debug_assertions)]
+            defined_at,
+        )
+        .unwrap_or_else(|| {
+            panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                defined_at,
+            )
+        })
+    }
+
+    pub(crate) fn try_write<T: 'static>(
+        &self,
+        #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<
+            'static,
+        >,
+    ) -> Option<RefMut<'_, T>> {
+        // delay notification a tick, until you've hopefully done whatever work
+        let id = *self;
+        queue_microtask(move || {
+            with_runtime(|runtime| {
+                runtime.mark_dirty(id);
+                runtime.run_effects();
+            });
+        });
+
+        ThreadArena::get_mut::<T>(self)
+    }
+
+    pub(crate) fn write<T: 'static>(
+        &self,
+        #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<
+            'static,
+        >,
+    ) -> RefMut<'_, T> {
+        self.try_write(
+            #[cfg(debug_assertions)]
+            defined_at,
+        )
+        .unwrap_or_else(|| {
+            panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                defined_at,
+            )
+        })
+    }
+
     #[inline(always)]
     #[track_caller]
     pub(crate) fn update<T, U>(
@@ -2125,18 +2196,10 @@ impl NodeId {
         let location = std::panic::Location::caller();
 
         with_runtime(|runtime| {
-            let updated = if let Some(value) = runtime.get_value(*self) {
-                let mut value = value.borrow_mut();
-                if let Some(value) = value.downcast_mut::<T>() {
-                    Some(f(value))
-                } else {
-                    debug_warn!(
-                        "[Signal::update] failed when downcasting to \
-                         Signal<{}>",
-                        std::any::type_name::<T>()
-                    );
-                    None
-                }
+            let updated = if let Some(ref mut value) =
+                ThreadArena::get_mut::<T>(self)
+            {
+                Some(f(value))
             } else {
                 #[cfg(debug_assertions)]
                 {

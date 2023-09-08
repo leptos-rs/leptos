@@ -8,6 +8,7 @@ repository = "https://github.com/leptos-rs/leptos"
 description = "Reactive system for the Leptos web framework."
 
 [dependencies]
+elsa = "1"
 slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde-lite = { version = "0.4", optional = true }

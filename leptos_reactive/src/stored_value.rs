@@ -1,16 +1,11 @@
-use crate::{with_runtime, Runtime, ScopeProperty};
+use crate::{
+    arena::NodeId, runtime::ThreadArena, with_runtime, Runtime, ScopeProperty,
+};
 use std::{
-    cell::RefCell,
     fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    rc::Rc,
 };
-
-slotmap::new_key_type! {
-    /// Unique ID assigned to a [`StoredValue`].
-    pub(crate) struct StoredValueId;
-}
 
 /// A **non-reactive** wrapper for any value, which can be created with [`store_value`].
 ///
@@ -25,7 +20,7 @@ pub struct StoredValue<T>
 where
     T: 'static,
 {
-    id: StoredValueId,
+    id: NodeId,
     ty: PhantomData<T>,
 }
 
@@ -89,7 +84,9 @@ impl<T> StoredValue<T> {
     where
         T: Clone,
     {
-        self.try_get_value().expect("could not get stored value")
+        ThreadArena::get::<T>(&self.id)
+            .expect("could not get stored value")
+            .clone()
     }
 
     /// Same as [`StoredValue::get_value`] but will not panic by default.
@@ -98,7 +95,7 @@ impl<T> StoredValue<T> {
     where
         T: Clone,
     {
-        self.try_with_value(T::clone)
+        ThreadArena::get::<T>(&self.id).map(|n| n.clone())
     }
 
     /// Applies a function to the current stored value and returns the result.
@@ -130,17 +127,8 @@ impl<T> StoredValue<T> {
     /// Same as [`StoredValue::with_value`] but returns [`Some(O)]` only if
     /// the stored value has not yet been disposed. [`None`] otherwise.
     pub fn try_with_value<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(|runtime| {
-            let value = {
-                let values = runtime.stored_values.borrow();
-                values.get(self.id)?.clone()
-            };
-            let value = value.borrow();
-            let value = value.downcast_ref::<T>()?;
-            Some(f(value))
-        })
-        .ok()
-        .flatten()
+        let value = ThreadArena::get(&self.id)?;
+        Some(f(&value))
     }
 
     /// Updates the stored value.
@@ -190,17 +178,8 @@ impl<T> StoredValue<T> {
     /// Same as [`Self::update_value`], but returns [`Some(O)`] if the
     /// stored value has not yet been disposed, [`None`] otherwise.
     pub fn try_update_value<O>(self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        with_runtime(|runtime| {
-            let value = {
-                let values = runtime.stored_values.borrow();
-                values.get(self.id)?.clone()
-            };
-            let mut value = value.borrow_mut();
-            let value = value.downcast_mut::<T>()?;
-            Some(f(value))
-        })
-        .ok()
-        .flatten()
+        let mut value = ThreadArena::get_mut::<T>(&self.id)?;
+        Some(f(&mut *value))
     }
 
     /// Sets the stored value.
@@ -226,27 +205,13 @@ impl<T> StoredValue<T> {
     /// Same as [`Self::set_value`], but returns [`None`] if the
     /// stored value has not yet been disposed, [`Some(T)`] otherwise.
     pub fn try_set_value(&self, value: T) -> Option<T> {
-        with_runtime(|runtime| {
-            let n = {
-                let values = runtime.stored_values.borrow();
-                values.get(self.id).map(Rc::clone)
-            };
-
-            if let Some(n) = n {
-                let mut n = n.borrow_mut();
-                let n = n.downcast_mut::<T>();
-                if let Some(n) = n {
-                    *n = value;
-                    None
-                } else {
-                    Some(value)
-                }
-            } else {
-                Some(value)
+        match ThreadArena::get_mut::<T>(&self.id) {
+            Some(mut curr) => {
+                *curr = value;
+                None
             }
-        })
-        .ok()
-        .flatten()
+            None => Some(value),
+        }
     }
 }
 
@@ -294,10 +259,7 @@ where
     T: 'static,
 {
     let id = with_runtime(|runtime| {
-        let id = runtime
-            .stored_values
-            .borrow_mut()
-            .insert(Rc::new(RefCell::new(value)));
+        let id = runtime.arena.insert(value);
         runtime.push_scope_property(ScopeProperty::StoredValue(id));
         id
     })
