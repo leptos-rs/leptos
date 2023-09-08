@@ -5,10 +5,10 @@ extend = [
 
 [tasks.integration-test]
 dependencies = [
-    "maybe-start-trunk",
+    "maybe-start-client",
     "wait-one",
     "test-playwright",
-    "stop-trunk",
+    "stop-client",
 ]
 
 [tasks.wait-one]
