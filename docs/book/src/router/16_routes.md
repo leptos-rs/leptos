@@ -101,3 +101,44 @@ Now if you navigate to `/` or to `/users` you’ll get the home page or the `<Us
 Note that you can define your routes in any order. The router scores each route to see how good a match it is, rather than simply trying to match them top to bottom.
 
 Simple enough?
+
+## Conditional Routes
+
+`leptos_router` is based on the assumption that you have one and only one `<Routes/>` component in your app. It uses this to generate routes on the server side, optimize route matching by caching calculated branches, and render your application.
+
+You should not conditionally render `<Routes/>` using another component like `<Show/>` or `<Suspense/>`.
+
+```rust
+// ❌ don't do this!
+view! {
+  <Show when=|| is_loaded() fallback=|| view! { <p>"Loading"</p> }>
+    <Routes>
+      <Route path="/" view=Home/>
+    </Routes>
+  </Show>
+}
+```
+
+Instead, you can use nested routing to render your `<Routes/>` once, and conditionally render the router outlet:
+
+```rust
+// ✅ do this instead!
+view! {
+  <Routes>
+    // parent route
+    <Route path="/" view=move || {
+      view! {
+        // only show the outlet if data have loaded
+        <Show when=|| is_loaded() fallback=|| view! { <p>"Loading"</p> }>
+          <Outlet/>
+        </Show>
+      }
+    }>
+      // nested child route
+      <Route path="/" view=Home/>
+    </Route>
+  </Routes>
+}
+```
+
+If this looks bizarre, don’t worry! The next section of the book is about this kind of nested routing.
