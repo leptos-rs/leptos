@@ -20,6 +20,49 @@ use std::{
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 ///
 /// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
+///
+/// You should not conditionally render `<Routes/>` using another component like `<Show/>` or `<Suspense/>`.
+///
+/// ```rust
+/// # use leptos::*;
+/// # use leptos_router::*;
+/// # if false {
+/// // ❌ don't do this!
+/// view! {
+///   <Show when=|| 1 == 2 fallback=|| view! { <p>"Loading"</p> }>
+///     <Routes>
+///       <Route path="/" view=|| "Home"/>
+///     </Routes>
+///   </Show>
+/// }
+/// # ;}
+/// ```
+///
+/// Instead, you can use nested routing to render your `<Routes/>` once, and conditionally render the router outlet:
+///
+/// ```rust
+/// # use leptos::*;
+/// # use leptos_router::*;
+/// # if false {
+/// // ✅ do this instead!
+/// view! {
+///   <Routes>
+///     // parent route
+///     <Route path="/" view=move || {
+///       view! {
+///         // only show the outlet if data have loaded
+///         <Show when=|| 1 == 2 fallback=|| view! { <p>"Loading"</p> }>
+///           <Outlet/>
+///         </Show>
+///       }
+///     }>
+///       // nested child route
+///       <Route path="/" view=|| "Home"/>
+///     </Route>
+///   </Routes>
+/// }
+/// # ;}
+/// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
@@ -230,6 +273,18 @@ thread_local! {
 impl Branches {
     pub fn initialize(base: &str, children: Fragment) {
         BRANCHES.with(|branches| {
+            #[cfg(debug_assertions)]
+            {
+                if cfg!(any(feature = "csr", feature = "hydrate"))
+                    && !branches.borrow().is_empty()
+                {
+                    leptos::logging::warn!(
+                        "You should only render the <Routes/> component once \
+                         in your app. Please see the docs at https://docs.rs/leptos_router/latest/leptos_router/fn.Routes.html."
+                    );
+                }
+            }
+
             let mut current = branches.borrow_mut();
             if !current.contains_key(base) {
                 let mut branches = Vec::new();
