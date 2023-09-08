@@ -13,7 +13,7 @@ fn simple_ssr_test() {
         </div>
     };
 
-    if cfg!(feature = "experimental-islands") {
+    if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
             rendered.into_view().render_to_string(),
             "<div><button>-1</button><span>Value: \
@@ -59,7 +59,7 @@ fn ssr_test_with_components() {
         </div>
     };
 
-    if cfg!(feature = "experimental-islands") {
+    if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
             rendered.into_view().render_to_string(),
             "<div class=\"counters\"><div><button>-1</button><span>Value: \
@@ -105,7 +105,7 @@ fn ssr_test_with_snake_case_components() {
         </div>
     };
 
-    if cfg!(feature = "experimental-islands") {
+    if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
             rendered.into_view().render_to_string(),
             "<div class=\"counters\"><div><button>-1</button><span>Value: \
@@ -137,7 +137,7 @@ fn test_classes() {
         <div class="my big" class:a={move || value.get() > 10} class:red=true class:car={move || value.get() > 1}></div>
     };
 
-    if cfg!(feature = "experimental-islands") {
+    if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
             rendered.into_view().render_to_string(),
             "<div class=\"my big  red car\"></div>"
@@ -165,7 +165,7 @@ fn ssr_with_styles() {
         </div>
     };
 
-    if cfg!(feature = "experimental-islands") {
+    if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
             rendered.into_view().render_to_string(),
             "<div class=\" myclass\"><button class=\"btn \
@@ -192,7 +192,7 @@ fn ssr_option() {
         <option/>
     };
 
-    if cfg!(feature = "experimental-islands") {
+    if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
             rendered.into_view().render_to_string(),
             "<option></option>"
