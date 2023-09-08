@@ -62,7 +62,7 @@ pub fn render_to_stream_in_order_with_prefix(
     prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     #[cfg(all(feature = "web", feature = "ssr"))]
-    crate::console_error(
+    crate::logging::console_error(
         "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
          enabled as features, which may cause issues like <Suspense/>` \
          failing to work silently.\n",

@@ -15,7 +15,8 @@ mod events;
 pub mod helpers;
 pub mod html;
 mod hydration;
-mod logging;
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging;
 mod macro_helpers;
 pub mod math;
 mod node_ref;
@@ -41,7 +42,6 @@ use leptos_reactive::Oco;
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
-pub use logging::*;
 pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -853,7 +853,7 @@ where
     N: IntoView,
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
-    crate::console_warn(
+    crate::logging::console_warn(
         "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as \
          features, which may cause issues like <Suspense/>` failing to work \
          silently.",

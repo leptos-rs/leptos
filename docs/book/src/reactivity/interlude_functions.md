@@ -20,7 +20,7 @@ let text = move || if count_is_odd() {
 // an effect automatically tracks the signals it depends on
 // and reruns when they change
 create_effect(move |_| {
-    log!("text = {}", text());
+    logging::log!("text = {}", text());
 });
 
 view! {

@@ -241,7 +241,7 @@ impl Branches {
                             .as_transparent()
                             .and_then(|t| t.downcast_ref::<RouteDefinition>());
                         if def.is_none() {
-                            warn!(
+                            leptos::logging::warn!(
                                 "[NOTE] The <Routes/> component should \
                                  include *only* <Route/>or <ProtectedRoute/> \
                                  components, or some \

@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::*;
+use leptos::{logging::log, *};
 
 // boilerplate to run in different modes
 cfg_if! {

@@ -16,7 +16,7 @@ Calling a `ReadSignal` as a function is syntax sugar for `.get()`. Calling a `Wr
 ```rust
 let (count, set_count) = create_signal(0);
 set_count(1);
-log!(count());
+logging::log!(count());
 ```
 
 is the same as
@@ -24,7 +24,7 @@ is the same as
 ```rust
 let (count, set_count) = create_signal(0);
 set_count.set(1);
-log!(count.get());
+logging::log!(count.get());
 ```
 
 You might notice that `.get()` and `.set()` can be implemented in terms of `.with()` and `.update()`. In other words, `count.get()` is identical with `count.with(|n| n.clone())`, and `count.set(1)` is implemented by doing `count.update(|n| *n = 1)`.
