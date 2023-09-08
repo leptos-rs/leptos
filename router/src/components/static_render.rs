@@ -370,12 +370,14 @@ pub enum StaticResponse {
 
 #[doc(hidden)]
 #[inline(always)]
+#[cfg(feature = "ssr")]
 pub fn static_file_path(options: &LeptosOptions, path: &str) -> String {
     format!("{}{}.html", options.site_root, path)
 }
 
 #[doc(hidden)]
 #[inline(always)]
+#[cfg(feature = "ssr")]
 pub fn not_found_path(options: &LeptosOptions) -> String {
     format!("{}{}.html", options.site_root, options.not_found_path)
 }
@@ -440,6 +442,7 @@ pub fn incremental_static_route(
 }
 
 #[doc(hidden)]
+#[cfg(feature = "ssr")]
 pub async fn render_dynamic<IV>(
     path: &str,
     options: &LeptosOptions,
