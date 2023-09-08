@@ -204,6 +204,7 @@ where
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
 )]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn define_route(
     children: Option<Children>,
     path: String,
