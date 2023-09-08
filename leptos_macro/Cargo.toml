@@ -17,7 +17,7 @@ cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.10"
 prettyplease = "0.2.4"
-proc-macro-error = "1"
+proc-macro-error = { version = "1", default-features = false }
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }

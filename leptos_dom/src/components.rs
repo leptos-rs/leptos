@@ -25,16 +25,20 @@ pub use unit::*;
 use wasm_bindgen::JsCast;
 
 /// The core foundational leptos components.
-#[derive(educe::Educe)]
-#[educe(Default, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum CoreComponent {
     /// The [Unit] component.
-    #[educe(Default)]
     Unit(UnitRepr),
     /// The [DynChild] component.
     DynChild(DynChildRepr),
     /// The [Each] component.
     Each(EachRepr),
+}
+
+impl Default for CoreComponent {
+    fn default() -> Self {
+        Self::Unit(UnitRepr::default())
+    }
 }
 
 impl fmt::Debug for CoreComponent {
