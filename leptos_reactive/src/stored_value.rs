@@ -308,4 +308,50 @@ where
     }
 }
 
+impl<T> StoredValue<T> {
+    /// Creates a **non-reactive** wrapper for any value by storing it within
+    /// the reactive system.
+    ///
+    /// Like the signal types (e.g., [`ReadSignal`](crate::ReadSignal)
+    /// and [`RwSignal`](crate::RwSignal)), it is `Copy` and `'static`. Unlike the signal
+    /// types, it is not reactive; accessing it does not cause effects to subscribe, and
+    /// updating it does not notify anything else.
+    /// ```compile_fail
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// // this structure is neither `Copy` nor `Clone`
+    /// pub struct MyUncloneableData {
+    ///   pub value: String
+    /// }
+    ///
+    /// // ❌ this won't compile, as it can't be cloned or copied into the closures
+    /// let data = MyUncloneableData { value: "a".into() };
+    /// let callback_a = move || data.value == "a";
+    /// let callback_b = move || data.value == "b";
+    /// # runtime.dispose();
+    /// ```
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// // this structure is neither `Copy` nor `Clone`
+    /// pub struct MyUncloneableData {
+    ///     pub value: String,
+    /// }
+    ///
+    /// // ✅ you can move the `StoredValue` and access it with .with_value()
+    /// let data = StoredValue::new(MyUncloneableData { value: "a".into() });
+    /// let callback_a = move || data.with_value(|data| data.value == "a");
+    /// let callback_b = move || data.with_value(|data| data.value == "b");
+    /// # runtime.dispose();
+    /// ```
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime.
+    #[inline(always)]
+    #[track_caller]
+    pub fn new(value: T) -> Self {
+        store_value(value)
+    }
+}
+
 impl_get_fn_traits!(StoredValue(get_value));

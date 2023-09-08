@@ -522,17 +522,7 @@ pub(crate) fn event_from_attribute_node(
 
     let handler = attribute_value(attr);
 
-    #[allow(unused_variables)]
-    let (name, name_undelegated) = parse_event(&event_name);
-
-    let event_type = TYPED_EVENTS
-        .binary_search(&name)
-        .map(|_| (name))
-        .unwrap_or(CUSTOM_EVENT);
-
-    let Ok(event_type) = event_type.parse::<TokenStream>() else {
-        abort!(attr.key, "couldn't parse event name");
-    };
+    let (event_type, _, name_undelegated) = parse_event_name(&event_name);
 
     let event_type = if force_undelegated || name_undelegated {
         quote! { ::leptos::leptos_dom::ev::undelegated(::leptos::leptos_dom::ev::#event_type) }

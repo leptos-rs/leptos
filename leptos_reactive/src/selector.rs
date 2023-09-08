@@ -124,6 +124,50 @@ impl<T> Selector<T>
 where
     T: PartialEq + Eq + Clone + Hash + 'static,
 {
+    /// Creates a conditional signal that only notifies subscribers when a change
+    /// in the source signal’s value changes whether it is equal to the key value
+    /// (as determined by [`PartialEq`].)
+    ///
+    /// **You probably don’t need this,** but it can be a very useful optimization
+    /// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
+    /// because it reduces them from `O(n)` to `O(1)`.
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # use std::rc::Rc;
+    /// # use std::cell::RefCell;
+    /// # let runtime = create_runtime();
+    /// let a = RwSignal::new(0);
+    /// let is_selected = Selector::new(move || a.get());
+    /// let total_notifications = Rc::new(RefCell::new(0));
+    /// let not = Rc::clone(&total_notifications);
+    /// create_isomorphic_effect({
+    ///     let is_selected = is_selected.clone();
+    ///     move |_| {
+    ///         if is_selected.selected(5) {
+    ///             *not.borrow_mut() += 1;
+    ///         }
+    ///     }
+    /// });
+    ///
+    /// assert_eq!(is_selected.selected(5), false);
+    /// assert_eq!(*total_notifications.borrow(), 0);
+    /// a.set(5);
+    /// assert_eq!(is_selected.selected(5), true);
+    /// assert_eq!(*total_notifications.borrow(), 1);
+    /// a.set(5);
+    /// assert_eq!(is_selected.selected(5), true);
+    /// assert_eq!(*total_notifications.borrow(), 1);
+    /// a.set(4);
+    /// assert_eq!(is_selected.selected(5), false);
+    ///  # runtime.dispose()
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new(source: impl Fn() -> T + Clone + 'static) -> Self {
+        create_selector_with_fn(source, PartialEq::eq)
+    }
+
     /// Reactively checks whether the given key is selected.
     pub fn selected(&self, key: T) -> bool {
         let owner = self.owner;
