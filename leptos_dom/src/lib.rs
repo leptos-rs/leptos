@@ -268,7 +268,7 @@ cfg_if! {
       is_void: bool,
       attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
       children: ElementChildren,
-      id: HydrationKey,
+      id: Option<HydrationKey>,
       #[cfg(debug_assertions)]
       /// Optional marker for the view macro source, in debug mode.
       pub view_marker: Option<String>
@@ -406,7 +406,7 @@ impl Comment {
     #[inline]
     fn new(
         content: impl Into<Oco<'static, str>>,
-        id: &HydrationKey,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         Self::new_inner(content.into(), id, closing)
@@ -414,7 +414,7 @@ impl Comment {
 
     fn new_inner(
         content: Oco<'static, str>,
-        id: &HydrationKey,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         cfg_if! {
@@ -436,7 +436,8 @@ impl Comment {
                 node.set_text_content(Some(&format!(" {content} ")));
 
                 #[cfg(feature = "hydrate")]
-                if HydrationCtx::is_hydrating() {
+                if HydrationCtx::is_hydrating() && id.is_some() {
+                    let id = id.as_ref().unwrap();
                     let id = HydrationCtx::to_string(id, closing);
 
                     if let Some(marker) = hydration::get_marker(&id) {
@@ -467,7 +468,7 @@ pub struct Text {
     /// to update the node without recreating it, we need to be able
     /// to possibly reuse a previous node.
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    node: web_sys::Node,
+    pub(crate) node: web_sys::Node,
     /// The current contents of the text node.
     pub content: Oco<'static, str>,
 }
@@ -872,18 +873,35 @@ where
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
-    F: Fn() -> N + 'static,
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    mount_to_with_stop_hydrating(parent, true, f)
+}
+
+/// Runs the provided closure and mounts the result to the provided element.
+pub fn mount_to_with_stop_hydrating<F, N>(
+    parent: web_sys::HtmlElement,
+    stop_hydrating: bool,
+    f: F,
+) where
+    F: FnOnce() -> N + 'static,
     N: IntoView,
 {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             let node = f().into_view();
-            HydrationCtx::stop_hydrating();
-            parent.append_child(&node.get_mountable_node()).unwrap();
+            if stop_hydrating {
+                HydrationCtx::stop_hydrating();
+            }
+            // TODO is this *ever* needed? unnecessarily remounts hydrated child
+            // parent.append_child(&node.get_mountable_node()).unwrap();
+            _ = parent;
             std::mem::forget(node);
       } else {
         _ = parent;
         _ = f;
+        _ = stop_hydrating;
         crate::warn!("`mount_to` should not be called outside the browser.");
       }
     }

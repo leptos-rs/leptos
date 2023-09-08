@@ -22,7 +22,7 @@ pub struct DynChildRepr {
     pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for DynChildRepr {
@@ -81,7 +81,7 @@ impl Mountable for DynChildRepr {
 }
 
 impl DynChildRepr {
-    fn new_with_id(id: HydrationKey) -> Self {
+    fn new_with_id(id: Option<HydrationKey>) -> Self {
         let markers = (
             Comment::new("</DynChild>", &id, true),
             #[cfg(debug_assertions)]
@@ -126,7 +126,7 @@ where
     CF: Fn() -> N + 'static,
     N: IntoView,
 {
-    id: crate::HydrationKey,
+    id: Option<HydrationKey>,
     child_fn: CF,
 }
 
@@ -146,7 +146,7 @@ where
     #[doc(hidden)]
     #[track_caller]
     #[inline(always)]
-    pub const fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
+    pub const fn new_with_id(id: Option<HydrationKey>, child_fn: CF) -> Self {
         Self { id, child_fn }
     }
 }

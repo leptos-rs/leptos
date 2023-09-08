@@ -2,10 +2,11 @@ use crate::{
     runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
     SuspenseContext,
 };
-use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
+#[cfg(feature = "experimental-islands")]
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet, VecDeque};
-
+#[doc(hidden)]
 /// Hydration data and other context that is shared between the server
 /// and the client.
 pub struct SharedContext {
@@ -17,6 +18,8 @@ pub struct SharedContext {
     pub resolved_resources: HashMap<ResourceId, String>,
     /// Suspended fragments that have not yet resolved.
     pub pending_fragments: HashMap<String, FragmentData>,
+    #[cfg(feature = "experimental-islands")]
+    pub no_hydrate: bool,
 }
 
 impl SharedContext {
@@ -194,41 +197,87 @@ impl Eq for SharedContext {}
 #[allow(clippy::derivable_impls)]
 impl Default for SharedContext {
     fn default() -> Self {
-        cfg_if! {
-            if #[cfg(all(feature = "hydrate", target_arch = "wasm32"))] {
-                let pending_resources = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
-                );
-                let pending_resources: HashSet<ResourceId> = pending_resources
-                    .map_err(|_| ())
-                    .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
-                    .unwrap();
+        #[cfg(feature = "hydrate")]
+        {
+            let pending_resources = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
+            );
+            let pending_resources: HashSet<ResourceId> = pending_resources
+                .map_err(|_| ())
+                .and_then(|pr| {
+                    serde_wasm_bindgen::from_value(pr).map_err(|_| ())
+                })
+                .unwrap();
 
-                let resolved_resources = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
-                )
-                .unwrap(); // unwrap_or(wasm_bindgen::JsValue::NULL);
+            let resolved_resources = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
+            )
+            .unwrap(); // unwrap_or(wasm_bindgen::JsValue::NULL);
 
-                let resolved_resources =
-                    serde_wasm_bindgen::from_value(resolved_resources).unwrap();
+            let resolved_resources =
+                serde_wasm_bindgen::from_value(resolved_resources).unwrap();
 
-
-                Self {
-                    server_resources: pending_resources.clone(),
-                    pending_resources,
-                    resolved_resources,
-                    pending_fragments: Default::default(),
-                }
-            } else {
-                Self {
-                    server_resources: Default::default(),
-                    pending_resources: Default::default(),
-                    resolved_resources: Default::default(),
-                    pending_fragments: Default::default(),
-                }
+            Self {
+                server_resources: pending_resources.clone(),
+                //events: Default::default(),
+                pending_resources,
+                resolved_resources,
+                pending_fragments: Default::default(),
+                #[cfg(feature = "experimental-islands")]
+                no_hydrate: true,
             }
         }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            Self {
+                server_resources: Default::default(),
+                //events: Default::default(),
+                pending_resources: Default::default(),
+                resolved_resources: Default::default(),
+                pending_fragments: Default::default(),
+                #[cfg(feature = "experimental-islands")]
+                no_hydrate: true,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "experimental-islands")]
+thread_local! {
+  pub static NO_HYDRATE: Cell<bool> = Cell::new(true);
+}
+
+#[cfg(feature = "experimental-islands")]
+impl SharedContext {
+    /// Whether the renderer should currently add hydration IDs.
+    pub fn no_hydrate() -> bool {
+        NO_HYDRATE.with(Cell::get)
+    }
+
+    /// Sets whether the renderer should not add hydration IDs.
+    pub fn set_no_hydrate(hydrate: bool) {
+        NO_HYDRATE.with(|cell| cell.set(hydrate));
+    }
+
+    /// Turns on hydration for the duration of the function call
+    #[inline(always)]
+    pub fn with_hydration<T>(f: impl FnOnce() -> T) -> T {
+        let prev = SharedContext::no_hydrate();
+        SharedContext::set_no_hydrate(false);
+        let v = f();
+        SharedContext::set_no_hydrate(prev);
+        v
+    }
+
+    /// Turns off hydration for the duration of the function call
+    #[inline(always)]
+    pub fn no_hydration<T>(f: impl FnOnce() -> T) -> T {
+        let prev = SharedContext::no_hydrate();
+        SharedContext::set_no_hydrate(true);
+        let v = f();
+        SharedContext::set_no_hydrate(prev);
+        v
     }
 }

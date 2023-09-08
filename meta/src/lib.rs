@@ -275,7 +275,9 @@ impl MetaContext {
         }
         tags.push_str(&self.tags.as_string());
 
-        HydrationCtx::continue_from(prev_key);
+        if let Some(prev_key) = prev_key {
+            HydrationCtx::continue_from(prev_key);
+        }
         tags
     }
 }
