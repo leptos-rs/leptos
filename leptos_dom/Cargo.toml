@@ -67,6 +67,7 @@ features = [
   "CustomEvent",
   "DeviceMotionEvent",
   "DeviceOrientationEvent",
+  "DomStringMap",
   "DragEvent",
   "ErrorEvent",
   "Event",
@@ -170,6 +171,7 @@ hydrate = ["leptos_reactive/hydrate", "web"]
 ssr = ["leptos_reactive/ssr"]
 nightly = ["leptos_reactive/nightly"]
 nonce = ["dep:base64", "dep:getrandom", "dep:rand"]
+experimental-islands = ["leptos_reactive/experimental-islands"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

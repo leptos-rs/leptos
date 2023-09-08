@@ -1138,8 +1138,8 @@ impl Runtime {
             .borrow()
             .iter()
             .filter_map(|(resource_id, res)| {
-                if matches!(res, AnyResource::Serializable(_)) {
-                    Some(resource_id)
+                if let AnyResource::Serializable(res) = res {
+                    res.should_send_to_client().then_some(resource_id)
                 } else {
                     None
                 }
@@ -1154,7 +1154,9 @@ impl Runtime {
         let resources = { self.resources.borrow().clone() };
         for (id, resource) in resources.iter() {
             if let AnyResource::Serializable(resource) = resource {
-                f.push(resource.to_serialization_resolver(id));
+                if resource.should_send_to_client() {
+                    f.push(resource.to_serialization_resolver(id));
+                }
             }
         }
         f

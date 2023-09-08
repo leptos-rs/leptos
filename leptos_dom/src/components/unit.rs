@@ -17,7 +17,7 @@ use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 pub struct UnitRepr {
     comment: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for UnitRepr {

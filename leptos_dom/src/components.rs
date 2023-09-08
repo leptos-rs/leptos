@@ -66,7 +66,7 @@ pub struct ComponentRepr {
     pub children: Vec<View>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
     #[cfg(debug_assertions)]
     pub(crate) view_marker: Option<String>,
 }
@@ -175,12 +175,15 @@ impl ComponentRepr {
     #[inline(always)]
     pub fn new_with_id(
         name: impl Into<Oco<'static, str>>,
-        id: HydrationKey,
+        id: Option<HydrationKey>,
     ) -> Self {
         Self::new_with_id_concrete(name.into(), id)
     }
 
-    fn new_with_id_concrete(name: Oco<'static, str>, id: HydrationKey) -> Self {
+    fn new_with_id_concrete(
+        name: Oco<'static, str>,
+        id: Option<HydrationKey>,
+    ) -> Self {
         let markers = (
             Comment::new(format!("</{name}>"), &id, true),
             #[cfg(debug_assertions)]
@@ -239,7 +242,7 @@ where
     F: FnOnce() -> V,
     V: IntoView,
 {
-    id: HydrationKey,
+    id: Option<HydrationKey>,
     name: Oco<'static, str>,
     children_fn: F,
 }
