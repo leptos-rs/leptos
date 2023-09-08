@@ -33,7 +33,7 @@ pub(crate) fn component_to_tokens(
             !attr.key.to_string().starts_with("bind:")
                 && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
-                && !attr.key.to_string().starts_with("dyn:")
+                && !attr.key.to_string().starts_with("attr:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -83,10 +83,10 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let dyn_attrs = attrs
-        .filter(|attr| attr.key.to_string().starts_with("dyn:"))
+        .filter(|attr| attr.key.to_string().starts_with("attr:"))
         .filter_map(|attr| {
             let name = &attr.key.to_string();
-            let name = name.strip_prefix("dyn:");
+            let name = name.strip_prefix("attr:");
             let value = attr.value().map(|v| {
                 quote! { #v }
             })?;
@@ -176,19 +176,15 @@ pub(crate) fn component_to_tokens(
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
-        {
-            use ::leptos::DynAttrs;
-
-            ::leptos::component_view(
-                &#name,
-                ::leptos::component_props_builder(&#name #generics)
-                    #(#props)*
-                    #(#slots)*
-                    #children
-                    .build()
-                    #dyn_attrs
-            )
-        }
+        ::leptos::component_view(
+            &#name,
+            ::leptos::component_props_builder(&#name #generics)
+                #(#props)*
+                #(#slots)*
+                #children
+                .build()
+                #dyn_attrs
+        )
     };
 
     // (Temporarily?) removed

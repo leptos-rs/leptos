@@ -251,9 +251,9 @@ impl ToTokens for Model {
             .iter()
             .filter(
                 |Prop {
-                     prop_opts: PropOpt { dyn_attrs, .. },
+                     prop_opts: PropOpt { attrs, .. },
                      ..
-                 }| *dyn_attrs,
+                 }| *attrs,
             )
             .count();
 
@@ -261,9 +261,9 @@ impl ToTokens for Model {
             .iter()
             .filter(
                 |Prop {
-                     prop_opts: PropOpt { dyn_attrs, .. },
+                     prop_opts: PropOpt { attrs, .. },
                      ..
-                 }| *dyn_attrs,
+                 }| *attrs,
             )
             .enumerate()
             .map(|(idx, Prop { name, .. })| {
@@ -546,7 +546,7 @@ struct PropOpt {
     #[attribute(example = "5 * 10")]
     default: Option<syn::Expr>,
     into: bool,
-    dyn_attrs: bool,
+    attrs: bool,
 }
 
 struct TypedBuilderOpts {
@@ -559,7 +559,7 @@ struct TypedBuilderOpts {
 impl TypedBuilderOpts {
     fn from_opts(opts: &PropOpt, is_ty_option: bool) -> Self {
         Self {
-            default: opts.optional || opts.optional_no_strip || opts.dyn_attrs,
+            default: opts.optional || opts.optional_no_strip || opts.attrs,
             default_with_value: opts.default.clone(),
             strip_option: opts.strip_option || opts.optional && is_ty_option,
             into: opts.into,
