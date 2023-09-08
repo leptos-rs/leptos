@@ -294,21 +294,29 @@ cfg_if! {
   // Server needs to build a virtualized DOM tree
   } else {
     /// Represents an HTML element.
-    #[derive(educe::Educe, Clone)]
-    #[educe(Debug)]
+    #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
         pub(crate) element: El,
         pub(crate) attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
-        #[educe(Debug(ignore))]
         pub(crate) children: ElementChildren,
         #[cfg(debug_assertions)]
         pub(crate) view_marker: Option<String>
     }
 
-    #[derive(Clone, educe::Educe, PartialEq, Eq)]
-    #[educe(Default)]
+    // debug without `children` field
+    impl<El: ElementDescriptor> fmt::Debug for HtmlElement<El> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("HtmlElement")
+                .field("element", &self.element)
+                .field("attrs", &self.attrs)
+                .field("view_marker", &self.view_marker)
+                .finish()
+        }
+    }
+
+    #[derive(Clone, Default, PartialEq, Eq)]
     pub(crate) enum ElementChildren {
-        #[educe(Default)]
+        #[default]
         Empty,
         Children(Vec<View>),
         InnerHtml(Oco<'static, str>),

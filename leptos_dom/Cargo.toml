@@ -12,7 +12,6 @@ async-recursion = "1"
 base64 = { version = "0.21", optional = true }
 cfg-if = "1"
 drain_filter_polyfill = "0.1"
-educe = "0.4"
 futures = "0.3"
 getrandom = { version = "0.2", optional = true }
 html-escape = "0.2"
