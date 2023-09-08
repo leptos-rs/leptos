@@ -524,7 +524,7 @@ fn create_branches(
         let routes = create_routes(
             def,
             base,
-            static_valid && def.static_render,
+            static_valid && def.static_mode.is_some(),
             parents_path,
         );
         for route in routes {
@@ -539,7 +539,7 @@ fn create_branches(
                     &route.pattern,
                     stack,
                     branches,
-                    static_valid && route.key.static_render,
+                    static_valid && route.key.static_mode.is_some(),
                     &format!("{}{}", parents_path, def.path),
                 );
             }
@@ -572,7 +572,7 @@ fn create_routes(
 ) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
-    if is_leaf && route_def.static_render && !static_valid {
+    if is_leaf && route_def.static_mode.is_some() && !static_valid {
         panic!(
             "Static rendering is not valid for route '{}{}', all parent \
              routes must also be statically renderable.",

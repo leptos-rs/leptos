@@ -27,7 +27,7 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
-use std::{fmt::Display, future::Future, sync::Arc};
+use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
 #[cfg(debug_assertions)]
 use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -911,7 +911,7 @@ where
                     listing.path(),
                     listing.mode(),
                     listing.methods(),
-                    listing.static_rendered(),
+                    listing.static_mode(),
                 );
             }
             RouteListing::new(
@@ -919,7 +919,7 @@ where
                 listing.path(),
                 listing.mode(),
                 listing.methods(),
-                listing.static_rendered(),
+                listing.static_mode(),
             )
         })
         .map(|listing| {
@@ -932,7 +932,7 @@ where
                 listing.path(),
                 listing.mode(),
                 listing.methods(),
-                listing.static_rendered(),
+                listing.static_mode(),
             )
         })
         .collect::<Vec<_>>();
@@ -944,7 +944,7 @@ where
                 "",
                 Default::default(),
                 [Method::Get],
-                false,
+                None,
             )]
         } else {
             // Routes to exclude from auto generation
@@ -963,82 +963,176 @@ pub enum DataResponse<T> {
     Response(actix_web::dev::Response<BoxBody>),
 }
 
-fn static_route(options: LeptosOptions, method: Method) -> Route {
-    let handler = move |req: HttpRequest| {
-        Box::pin({
-            let options = options.clone();
-            let path =
-                format!("{}{}.html", options.site_root, req.path().to_string());
-            async move {
-                match tokio::fs::read_to_string(path).await {
-                    Ok(body) => {
-                        let mut res = HttpResponse::new(StatusCode::OK);
-                        res.headers_mut().insert(
-                            HeaderName::from_static("content-type"),
-                            HeaderValue::from_static("text/html"),
-                        );
-                        res.set_body(body)
+fn handle_static_response<'a, IV>(
+    path: &'a str,
+    options: &'a LeptosOptions,
+    app_fn: &'a (impl Fn() -> IV + Clone + Send + 'static),
+    additional_context: &'a (impl Fn() + 'static + Clone + Send),
+    res: StaticResponse,
+) -> Pin<Box<dyn Future<Output = HttpResponse<String>> + 'a>>
+where
+    IV: IntoView + 'static,
+{
+    Box::pin(async move {
+        match res {
+            StaticResponse::ReturnResponse {
+                body,
+                status,
+                content_type,
+            } => {
+                let mut res = HttpResponse::new(match status {
+                    StaticStatusCode::Ok => StatusCode::OK,
+                    StaticStatusCode::NotFound => StatusCode::NOT_FOUND,
+                    StaticStatusCode::InternalServerError => {
+                        StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    Err(e) => {
-                        tracing::error!("Error reading file: {}", e);
-                        match e.kind() {
-                            std::io::ErrorKind::NotFound => {
-                                match tokio::fs::read_to_string(format!(
-                                    "{}{}.html",
-                                    options.site_root, options.not_found_path
-                                ))
-                                .await
-                                {
-                                    Ok(body) => {
-                                        let mut res = HttpResponse::new(
-                                            StatusCode::NOT_FOUND,
-                                        );
-                                        res.headers_mut().insert(
-                                            HeaderName::from_static(
-                                                "content-type",
-                                            ),
-                                            HeaderValue::from_static(
-                                                "text/html",
-                                            ),
-                                        );
-                                        res.set_body(body)
-                                    }
-                                    Err(e) => match e.kind() {
-                                        std::io::ErrorKind::NotFound => {
-                                            let res = HttpResponse::new(
-                                                StatusCode::NOT_FOUND,
-                                            );
-                                            res.set_body("Not Found".into())
-                                        }
-                                        _ => {
-                                            let  res = HttpResponse::new(
-                                                    StatusCode::INTERNAL_SERVER_ERROR
-                                            );
-                                            res.set_body(
-                                                "Internal Server Error".into(),
-                                            )
-                                        }
-                                    },
-                                }
-                            }
-                            _ => {
-                                let res = HttpResponse::new(
-                                    StatusCode::INTERNAL_SERVER_ERROR,
-                                );
-                                res.set_body("Internal Server Error".into())
-                            }
-                        }
+                });
+                if let Some(v) = content_type {
+                    res.headers_mut().insert(
+                        HeaderName::from_static("content-type"),
+                        HeaderValue::from_static(v),
+                    );
+                }
+                res.set_body(body)
+            }
+            StaticResponse::RenderDynamic => {
+                handle_static_response(
+                    path,
+                    options,
+                    app_fn,
+                    additional_context,
+                    render_dynamic(
+                        path,
+                        options,
+                        app_fn.clone(),
+                        additional_context.clone(),
+                    )
+                    .await,
+                )
+                .await
+            }
+            StaticResponse::RenderNotFound => {
+                handle_static_response(
+                    path,
+                    options,
+                    app_fn,
+                    additional_context,
+                    not_found_page(
+                        tokio::fs::read_to_string(not_found_path(options))
+                            .await,
+                    ),
+                )
+                .await
+            }
+            StaticResponse::WriteFile { body, path } => {
+                if let Some(path) = path.parent() {
+                    if let Err(e) = std::fs::create_dir_all(path) {
+                        tracing::error!(
+                            "encountered error {} writing directories {}",
+                            e,
+                            path.display()
+                        );
                     }
                 }
+                if let Err(e) = std::fs::write(&path, &body) {
+                    tracing::error!(
+                        "encountered error {} writing file {}",
+                        e,
+                        path.display()
+                    );
+                }
+                handle_static_response(
+                    path.to_str().unwrap(),
+                    options,
+                    app_fn,
+                    additional_context,
+                    StaticResponse::ReturnResponse {
+                        body,
+                        status: StaticStatusCode::Ok,
+                        content_type: Some("text/html"),
+                    },
+                )
+                .await
             }
-        })
-    };
-    match method {
-        Method::Get => web::get().to(handler),
-        Method::Post => web::post().to(handler),
-        Method::Put => web::put().to(handler),
-        Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler),
+        }
+    })
+}
+
+fn static_route<IV>(
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    method: Method,
+    mode: StaticMode,
+) -> Route
+where
+    IV: IntoView + 'static,
+{
+    match mode {
+        StaticMode::Incremental => {
+            let handler = move |req: HttpRequest| {
+                Box::pin({
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
+                    async move {
+                        handle_static_response(
+                            req.path(),
+                            &options,
+                            &app_fn,
+                            &additional_context,
+                            incremental_static_route(
+                                tokio::fs::read_to_string(static_file_path(
+                                    &options,
+                                    req.path(),
+                                ))
+                                .await,
+                            ),
+                        )
+                        .await
+                    }
+                })
+            };
+            match method {
+                Method::Get => web::get().to(handler),
+                Method::Post => web::post().to(handler),
+                Method::Put => web::put().to(handler),
+                Method::Delete => web::delete().to(handler),
+                Method::Patch => web::patch().to(handler),
+            }
+        }
+        StaticMode::Upfront => {
+            let handler = move |req: HttpRequest| {
+                Box::pin({
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
+                    async move {
+                        handle_static_response(
+                            req.path(),
+                            &options,
+                            &app_fn,
+                            &additional_context,
+                            upfront_static_route(
+                                tokio::fs::read_to_string(static_file_path(
+                                    &options,
+                                    req.path(),
+                                ))
+                                .await,
+                            ),
+                        )
+                        .await
+                    }
+                })
+            };
+            match method {
+                Method::Get => web::get().to(handler),
+                Method::Post => web::post().to(handler),
+                Method::Put => web::put().to(handler),
+                Method::Delete => web::delete().to(handler),
+                Method::Patch => web::patch().to(handler),
+            }
+        }
     }
 }
 
@@ -1106,8 +1200,17 @@ where
             let mode = listing.mode();
 
             for method in listing.methods() {
-                router = if listing.static_rendered() {
-                    router.route(path, static_route(options.clone(), method))
+                router = if let Some(static_mode) = listing.static_mode() {
+                    router.route(
+                        path,
+                        static_route(
+                            options.clone(),
+                            app_fn.clone(),
+                            additional_context.clone(),
+                            method,
+                            static_mode,
+                        ),
+                    )
                 } else {
                     router.route(
                     path,

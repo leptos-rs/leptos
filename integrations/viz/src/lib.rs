@@ -1022,7 +1022,7 @@ where
                     listing.path(),
                     listing.mode(),
                     listing.methods(),
-                    listing.static_rendered(),
+                    listing.static_mode(),
                 )
             } else {
                 listing
@@ -1037,7 +1037,7 @@ where
                 "",
                 Default::default(),
                 [leptos_router::Method::Get],
-                false,
+                None,
             )]
         } else {
             if let Some(excluded_routes) = excluded_routes {
@@ -1050,88 +1050,240 @@ where
     )
 }
 
-fn static_route(
+fn handle_static_response<IV>(
+    path: String,
     options: LeptosOptions,
-) -> impl Fn(
-    Request,
-) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static {
-    move |req: Request| {
-        Box::pin({
-            let options = options.clone();
-            let (head, _) = req.into_parts();
-            let path = format!(
-                "{}{}.html",
-                options.site_root,
-                head.uri.path().to_string()
-            );
-            async move {
-                match tokio::fs::read_to_string(path).await {
-                    Ok(body) => {
-                        let mut res = Response::html(body);
-                        let _ = res.headers_mut().insert(
-                            "Content-Type",
-                            HeaderValue::from_static("text/html"),
-                        );
-                        Ok(res)
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
+    additional_context: impl Fn() + Clone + Send + Sync + 'static,
+    res: StaticResponse,
+) -> Pin<Box<dyn Future<Output = Result<Response>> + 'static>>
+where
+    IV: IntoView + 'static,
+{
+    Box::pin(async move {
+        match res {
+            StaticResponse::ReturnResponse {
+                body,
+                status,
+                content_type,
+            } => {
+                let mut res = Response::html(body);
+                if let Some(v) = content_type {
+                    res.headers_mut().insert(
+                        HeaderName::from_static("content-type"),
+                        HeaderValue::from_static(v),
+                    );
+                }
+                *res.status_mut() = match status {
+                    StaticStatusCode::Ok => StatusCode::OK,
+                    StaticStatusCode::NotFound => StatusCode::NOT_FOUND,
+                    StaticStatusCode::InternalServerError => {
+                        StatusCode::INTERNAL_SERVER_ERROR
                     }
-                    Err(e) => {
-                        tracing::error!("Error reading file: {}", e);
-                        match e.kind() {
-                            std::io::ErrorKind::NotFound => {
-                                match tokio::fs::read_to_string(format!(
-                                    "{}{}.html",
-                                    options.site_root, options.not_found_path
-                                ))
-                                .await
-                                {
-                                    Ok(body) => {
-                                        let mut res = Response::html(body);
-                                        let _ = res.headers_mut().insert(
-                                            "Content-Type",
-                                            HeaderValue::from_static(
-                                                "text/html",
-                                            ),
-                                        );
-                                        Ok(res)
-                                    }
-                                    Err(e) => match e.kind() {
-                                        std::io::ErrorKind::NotFound => {
-                                            let mut res =
-                                                Response::text::<&'static str>(
-                                                    "Not Found",
-                                                );
-                                            *res.status_mut() =
-                                                StatusCode::NOT_FOUND;
-                                            Ok(res)
-                                        }
-                                        _ => {
-                                            let mut res =
-                                                Response::text::<&'static str>(
-                                                    "Internal Server Error",
-                                                );
-                                            *res.status_mut() =
-                                                    StatusCode::INTERNAL_SERVER_ERROR;
-                                            Ok(res)
-                                        }
-                                    },
-                                }
-                            }
-                            _ => {
-                                let mut res = Response::text::<&'static str>(
-                                    "Internal Server Error",
-                                );
-                                *res.status_mut() =
-                                    StatusCode::INTERNAL_SERVER_ERROR;
-                                Ok(res)
-                            }
-                        }
+                };
+                Ok(res)
+            }
+            StaticResponse::RenderDynamic => {
+                let res = render_dynamic(
+                    &path,
+                    &options,
+                    app_fn.clone(),
+                    additional_context.clone(),
+                )
+                .await;
+                handle_static_response(
+                    path,
+                    options,
+                    app_fn,
+                    additional_context,
+                    res,
+                )
+                .await
+            }
+            StaticResponse::RenderNotFound => {
+                let res = not_found_page(
+                    tokio::fs::read_to_string(not_found_path(&options)).await,
+                );
+                handle_static_response(
+                    path,
+                    options,
+                    app_fn,
+                    additional_context,
+                    res,
+                )
+                .await
+            }
+            StaticResponse::WriteFile { body, path } => {
+                if let Some(path) = path.parent() {
+                    if let Err(e) = std::fs::create_dir_all(path) {
+                        tracing::error!(
+                            "encountered error {} writing directories {}",
+                            e,
+                            path.display()
+                        );
                     }
                 }
+                if let Err(e) = std::fs::write(&path, &body) {
+                    tracing::error!(
+                        "encountered error {} writing file {}",
+                        e,
+                        path.display()
+                    );
+                }
+                handle_static_response(
+                    path.to_str().unwrap().to_string(),
+                    options,
+                    app_fn,
+                    additional_context,
+                    StaticResponse::ReturnResponse {
+                        body,
+                        status: StaticStatusCode::Ok,
+                        content_type: Some("text/html"),
+                    },
+                )
+                .await
             }
-        })
+        }
+    })
+}
+
+fn static_route<IV>(
+    router: Router,
+    path: &str,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
+    additional_context: impl Fn() + Clone + Send + Sync + 'static,
+    method: leptos_router::Method,
+    mode: StaticMode,
+) -> Router
+where
+    IV: IntoView + 'static,
+{
+    match mode {
+        StaticMode::Incremental => {
+            let handler = move |req: Request| {
+                Box::pin({
+                    let path = req.path().to_string();
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
+
+                    async move {
+                        let (tx, rx) = futures::channel::oneshot::channel();
+                        spawn_blocking(move || {
+                            let path = path.clone();
+                            let options = options.clone();
+                            let app_fn = app_fn.clone();
+                            let additional_context = additional_context.clone();
+                            tokio::runtime::Runtime::new()
+                                .expect("couldn't spawn runtime")
+                                .block_on({
+                                    let path = path.clone();
+                                    let options = options.clone();
+                                    let app_fn = app_fn.clone();
+                                    let additional_context =
+                                        additional_context.clone();
+                                    async move {
+                                        tokio::task::LocalSet::new().run_until(async {
+                                            let res = incremental_static_route(
+                                                tokio::fs::read_to_string(
+                                                    static_file_path(
+                                                        &options,
+                                                    &path,
+                                                    ),
+                                                )
+                                                .await,
+                                            );
+                                            let res = handle_static_response(
+                                                path.clone(),
+                                                options,
+                                                app_fn,
+                                                additional_context,
+                                                res,
+                                            )
+                                            .await;
+
+                                        let _ = tx.send(res);
+                                        }).await;
+                                    }
+                                })
+                        });
+
+                        rx.await.expect("to complete HTML rendering")
+                    }
+                })
+            };
+            match method {
+                leptos_router::Method::Get => router.get(path, handler),
+                leptos_router::Method::Post => router.post(path, handler),
+                leptos_router::Method::Put => router.put(path, handler),
+                leptos_router::Method::Delete => router.delete(path, handler),
+                leptos_router::Method::Patch => router.patch(path, handler),
+            }
+        }
+        StaticMode::Upfront => {
+            let handler = move |req: Request| {
+                Box::pin({
+                    let path = req.path().to_string();
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
+
+                    async move {
+                        let (tx, rx) = futures::channel::oneshot::channel();
+                        spawn_blocking(move || {
+                            let path = path.clone();
+                            let options = options.clone();
+                            let app_fn = app_fn.clone();
+                            let additional_context = additional_context.clone();
+                            tokio::runtime::Runtime::new()
+                                .expect("couldn't spawn runtime")
+                                .block_on({
+                                    let path = path.clone();
+                                    let options = options.clone();
+                                    let app_fn = app_fn.clone();
+                                    let additional_context =
+                                        additional_context.clone();
+                                    async move {
+                                        tokio::task::LocalSet::new()
+                                            .run_until(async {
+                                                let res = upfront_static_route(
+                                                    tokio::fs::read_to_string(
+                                                        static_file_path(
+                                                            &options, &path,
+                                                        ),
+                                                    )
+                                                    .await,
+                                                );
+                                                let res =
+                                                    handle_static_response(
+                                                        path.clone(),
+                                                        options,
+                                                        app_fn,
+                                                        additional_context,
+                                                        res,
+                                                    )
+                                                    .await;
+
+                                                let _ = tx.send(res);
+                                            })
+                                            .await;
+                                    }
+                                })
+                        });
+
+                        rx.await.expect("to complete HTML rendering")
+                    }
+                })
+            };
+            match method {
+                leptos_router::Method::Get => router.get(path, handler),
+                leptos_router::Method::Post => router.post(path, handler),
+                leptos_router::Method::Put => router.put(path, handler),
+                leptos_router::Method::Delete => router.delete(path, handler),
+                leptos_router::Method::Patch => router.patch(path, handler),
+            }
+        }
     }
 }
 
@@ -1196,15 +1348,16 @@ impl LeptosRoutes for Router {
             let mode = listing.mode();
 
             listing.methods().fold(router, |router, method| {
-                if listing.static_rendered() {
-                    let s = static_route(options.clone());
-                    match method {
-                        leptos_router::Method::Get => router.get(path, s),
-                        leptos_router::Method::Post => router.post(path, s),
-                        leptos_router::Method::Put => router.put(path, s),
-                        leptos_router::Method::Delete => router.delete(path, s),
-                        leptos_router::Method::Patch => router.patch(path, s),
-                    }
+                if let Some(static_mode) = listing.static_mode() {
+                    static_route(
+                        router,
+                        path,
+                        options.clone(),
+                        app_fn.clone(),
+                        additional_context.clone(),
+                        method,
+                        static_mode,
+                    )
                 } else {
                     match mode {
                         SsrMode::OutOfOrder => {

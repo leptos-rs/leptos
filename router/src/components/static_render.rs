@@ -13,6 +13,7 @@ use std::{
     fmt::Display,
     future::Future,
     hash::{BuildHasherDefault, Hash, Hasher},
+    path::PathBuf,
     pin::Pin,
     rc::Rc,
 };
@@ -134,8 +135,8 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
         Self {
             path,
             segments: path
-                .split("/")
-                .filter(|s| s.len() > 0)
+                .split('/')
+                .filter(|s| !s.is_empty())
                 .map(|s| match s.chars().next() {
                     Some(':') => Param(&s[1..]),
                     Some('*') => Wildcard(&s[1..]),
@@ -194,7 +195,7 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
     }
 
     pub fn parent(&self) -> Option<StaticPath<'b, 'a>> {
-        if self.path == "/" || self.path == "" {
+        if self.path == "/" || self.path.is_empty() {
             return None;
         }
         self.path
@@ -225,8 +226,9 @@ impl Hash for StaticPath<'_, '_> {
 
 impl StaticPath<'_, '_> {}
 
+#[doc(hidden)]
 #[repr(transparent)]
-pub struct ResolvedStaticPath(String);
+pub struct ResolvedStaticPath(pub String);
 
 impl Display for ResolvedStaticPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -257,10 +259,8 @@ impl ResolvedStaticPath {
             }
         };
         let (stream, runtime) = leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(app, move || "".into(), additional_context.clone());
-        leptos_integration_utils::build_async_response(
-            stream, &options, runtime,
-        )
-        .await
+        leptos_integration_utils::build_async_response(stream, options, runtime)
+            .await
     }
 
     #[cfg(feature = "ssr")]
@@ -290,7 +290,7 @@ pub async fn build_static_routes<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     additional_context: impl Fn() + 'static + Clone,
     static_context: StaticRenderContext,
-    routes: &Vec<RouteListing>,
+    routes: &[RouteListing],
     static_data_map: &StaticDataMap,
 ) -> Result<(), std::io::Error>
 where
@@ -307,23 +307,21 @@ where
     }
     let static_routes = routes
         .iter()
-        .filter(|route| route.static_rendered())
+        .filter(|route| route.static_mode().is_some())
         .collect::<Vec<_>>();
     // TODO: maybe make this concurrent in some capacity
     for route in static_routes {
-        let mut path = StaticPath::new(&route.leptos_path());
+        let mut path = StaticPath::new(route.leptos_path());
         for p in path.parents().into_iter().rev() {
-            match static_data.get(p.path()) {
-                Some(data) => path.add_params(data),
-                None => {}
+            if let Some(data) = static_data.get(p.path()) {
+                path.add_params(data);
             }
         }
-        match static_data.get(path.path()) {
-            Some(data) => path.add_params(data),
-            None => {}
+        if let Some(data) = static_data.get(path.path()) {
+            path.add_params(data);
         }
         for path in path.into_paths() {
-            path.write(&options, app_fn.clone(), additional_context.clone())
+            path.write(options, app_fn.clone(), additional_context.clone())
                 .await?;
         }
     }
@@ -336,3 +334,124 @@ pub type StaticDataFn = dyn Fn(&StaticRenderContext) -> Pin<Box<dyn Future<Outpu
     + 'static;
 
 pub type StaticDataMap = HashMap<String, Option<StaticData>>;
+
+/// The mode to use when rendering the route statically.
+/// On mode `Upfront`, the route will be built with the server is started using the provided static
+/// data. On mode `Incremental`, the route will be built on the first request to it and then cached
+/// and returned statically for subsequent requests.
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum StaticMode {
+    #[default]
+    Upfront,
+    Incremental,
+}
+
+#[doc(hidden)]
+pub enum StaticStatusCode {
+    Ok,
+    NotFound,
+    InternalServerError,
+}
+
+#[doc(hidden)]
+pub enum StaticResponse {
+    ReturnResponse {
+        body: String,
+        status: StaticStatusCode,
+        content_type: Option<&'static str>,
+    },
+    RenderDynamic,
+    RenderNotFound,
+    WriteFile {
+        body: String,
+        path: PathBuf,
+    },
+}
+
+#[doc(hidden)]
+#[inline(always)]
+pub fn static_file_path(options: &LeptosOptions, path: &str) -> String {
+    format!("{}{}.html", options.site_root, path)
+}
+
+#[doc(hidden)]
+#[inline(always)]
+pub fn not_found_path(options: &LeptosOptions) -> String {
+    format!("{}{}.html", options.site_root, options.not_found_path)
+}
+
+#[doc(hidden)]
+#[inline(always)]
+pub fn upfront_static_route(
+    res: Result<String, std::io::Error>,
+) -> StaticResponse {
+    match res {
+        Ok(body) => StaticResponse::ReturnResponse {
+            body,
+            status: StaticStatusCode::Ok,
+            content_type: Some("text/html"),
+        },
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => StaticResponse::RenderNotFound,
+            _ => {
+                tracing::error!("error reading file: {}", e);
+                StaticResponse::ReturnResponse {
+                    body: "Internal Server Error".into(),
+                    status: StaticStatusCode::InternalServerError,
+                    content_type: None,
+                }
+            }
+        },
+    }
+}
+
+#[doc(hidden)]
+#[inline(always)]
+pub fn not_found_page(res: Result<String, std::io::Error>) -> StaticResponse {
+    match res {
+        Ok(body) => StaticResponse::ReturnResponse {
+            body,
+            status: StaticStatusCode::NotFound,
+            content_type: Some("text/html"),
+        },
+        Err(e) => {
+            tracing::error!("error reading not found file: {}", e);
+            StaticResponse::ReturnResponse {
+                body: "Internal Server Error".into(),
+                status: StaticStatusCode::InternalServerError,
+                content_type: None,
+            }
+        }
+    }
+}
+
+#[doc(hidden)]
+pub fn incremental_static_route(
+    res: Result<String, std::io::Error>,
+) -> StaticResponse {
+    match res {
+        Ok(body) => StaticResponse::ReturnResponse {
+            body,
+            status: StaticStatusCode::Ok,
+            content_type: Some("text/html"),
+        },
+        Err(_) => StaticResponse::RenderDynamic,
+    }
+}
+
+#[doc(hidden)]
+pub async fn render_dynamic<IV>(
+    path: &str,
+    options: &LeptosOptions,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+) -> StaticResponse
+where
+    IV: IntoView + 'static,
+{
+    let body = ResolvedStaticPath(path.into())
+        .build(options, app_fn, additional_context)
+        .await;
+    let path = Path::new(&options.site_root).join(format!(".{}.html", path));
+    StaticResponse::WriteFile { body, path }
+}

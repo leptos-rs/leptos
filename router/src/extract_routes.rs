@@ -1,6 +1,6 @@
 use crate::{
     Branch, Method, RouterIntegrationContext, ServerIntegration, SsrMode,
-    StaticDataMap, StaticParamsMap, StaticPath,
+    StaticDataMap, StaticMode, StaticParamsMap, StaticPath,
 };
 use leptos::*;
 use std::{
@@ -20,7 +20,7 @@ pub struct RouteListing {
     leptos_path: String,
     mode: SsrMode,
     methods: HashSet<Method>,
-    static_rendered: bool,
+    static_mode: Option<StaticMode>,
 }
 
 impl RouteListing {
@@ -30,14 +30,14 @@ impl RouteListing {
         leptos_path: impl ToString,
         mode: SsrMode,
         methods: impl IntoIterator<Item = Method>,
-        static_rendered: bool,
+        static_mode: Option<StaticMode>,
     ) -> Self {
         Self {
             path: path.to_string(),
             leptos_path: leptos_path.to_string(),
             mode,
             methods: methods.into_iter().collect(),
-            static_rendered,
+            static_mode,
         }
     }
 
@@ -63,8 +63,8 @@ impl RouteListing {
 
     /// Whether this route is statically rendered.
     #[inline(always)]
-    pub fn static_rendered(&self) -> bool {
-        self.static_rendered
+    pub fn static_mode(&self) -> Option<StaticMode> {
+        self.static_mode
     }
 
     /// Build a route statically, will return `Ok(true)` on success or `Ok(false)` when the route
@@ -73,16 +73,16 @@ impl RouteListing {
     pub async fn build_static<IV>(
         &self,
         options: &LeptosOptions,
-        app_fn: impl Fn() -> IV + 'static + Clone,
-        additional_context: impl Fn() + 'static + Clone,
+        app_fn: impl Fn() -> IV + Send + 'static + Clone,
+        additional_context: impl Fn() + Send + 'static + Clone,
         params: &StaticParamsMap,
     ) -> Result<bool, std::io::Error>
     where
         IV: IntoView + 'static,
     {
-        match self.static_rendered {
-            false => Ok(false),
-            true => {
+        match self.static_mode {
+            None => Ok(false),
+            Some(_) => {
                 let mut path = StaticPath::new(&self.leptos_path);
                 path.add_params(params);
                 for path in path.into_paths() {
@@ -142,19 +142,19 @@ where
             let route = branch
                 .routes
                 .last()
-                .map(|route| (route.key.static_render, route.pattern.clone()));
+                .map(|route| (route.key.static_mode, route.pattern.clone()));
             for route in branch.routes.iter() {
                 static_data_map.insert(
                     route.pattern.to_string(),
                     route.key.static_data.clone(),
                 );
             }
-            route.map(|(static_rendered, path)| RouteListing {
+            route.map(|(static_mode, path)| RouteListing {
                 leptos_path: path.clone(),
                 path,
                 mode,
                 methods: methods.clone(),
-                static_rendered,
+                static_mode,
             })
         })
         .collect::<Vec<_>>();

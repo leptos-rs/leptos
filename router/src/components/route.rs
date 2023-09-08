@@ -1,6 +1,7 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    ParamsMap, RouterContext, SsrMode, StaticParamsMap, StaticRenderContext,
+    ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap,
+    StaticRenderContext,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
@@ -80,7 +81,7 @@ where
         ssr,
         methods,
         data,
-        false,
+        None,
         None,
     )
 }
@@ -140,7 +141,7 @@ where
         ssr,
         methods,
         data,
-        false,
+        None,
         None,
     )
 }
@@ -162,10 +163,11 @@ pub fn StaticRoute<E, F, P, S>(
     /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
     /// The data required to fill any dynamic segments in the path during static rendering.
-    static_data: S,
-    /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
     #[prop(optional)]
-    ssr: SsrMode,
+    static_data: Option<S>,
+    /// The static route mode
+    #[prop(optional)]
+    mode: StaticMode,
     /// The HTTP methods that this route can handle (defaults to only `GET`).
     #[prop(default = &[Method::Get])]
     methods: &'static [Method],
@@ -190,11 +192,11 @@ where
         children,
         path.to_string(),
         Rc::new(move || view().into_view()),
-        ssr,
+        SsrMode::default(),
         methods,
         data,
-        true,
-        Some(Rc::new(static_data)),
+        Some(mode),
+        static_data.map(|s| Rc::new(s) as _),
     )
 }
 
@@ -209,16 +211,8 @@ pub(crate) fn define_route(
     ssr_mode: SsrMode,
     methods: &'static [Method],
     data: Option<Loader>,
-    static_render: bool,
-    static_data: Option<
-        Rc<
-            dyn Fn(
-                    &StaticRenderContext,
-                )
-                    -> Pin<Box<dyn Future<Output = StaticParamsMap>>>
-                + 'static,
-        >,
-    >,
+    static_mode: Option<StaticMode>,
+    static_data: Option<StaticData>,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
@@ -249,7 +243,7 @@ pub(crate) fn define_route(
         ssr_mode,
         methods,
         data,
-        static_render,
+        static_mode,
         static_data,
     }
 }
