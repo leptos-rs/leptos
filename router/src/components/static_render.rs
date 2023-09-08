@@ -288,6 +288,28 @@ impl ResolvedStaticPath {
 pub async fn build_static_routes<IV>(
     options: &LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
+    static_context: StaticRenderContext,
+    routes: &[RouteListing],
+    static_data_map: &StaticDataMap,
+) -> Result<(), std::io::Error>
+where
+    IV: IntoView + 'static,
+{
+    build_static_routes_with_additional_context(
+        options,
+        app_fn,
+        || {},
+        static_context,
+        routes,
+        static_data_map,
+    )
+    .await
+}
+
+#[cfg(feature = "ssr")]
+pub async fn build_static_routes_with_additional_context<IV>(
+    options: &LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Clone,
     additional_context: impl Fn() + 'static + Clone,
     static_context: StaticRenderContext,
     routes: &[RouteListing],
