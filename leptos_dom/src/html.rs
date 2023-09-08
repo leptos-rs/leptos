@@ -306,11 +306,12 @@ cfg_if! {
     // debug without `children` field
     impl<El: ElementDescriptor> fmt::Debug for HtmlElement<El> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("HtmlElement")
-                .field("element", &self.element)
-                .field("attrs", &self.attrs)
-                .field("view_marker", &self.view_marker)
-                .finish()
+            let mut builder = f.debug_struct("HtmlElement");
+            builder.field("element", &self.element);
+            builder.field("attrs", &self.attrs);
+            #[cfg(debug_assertions)]
+            builder.field("view_marker", &self.view_marker);
+            builder.finish()
         }
     }
 
