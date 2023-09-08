@@ -197,7 +197,7 @@ impl Eq for SharedContext {}
 #[allow(clippy::derivable_impls)]
 impl Default for SharedContext {
     fn default() -> Self {
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
         {
             let pending_resources = js_sys::Reflect::get(
                 &web_sys::window().unwrap(),
@@ -229,7 +229,7 @@ impl Default for SharedContext {
                 no_hydrate: true,
             }
         }
-        #[cfg(not(feature = "hydrate"))]
+        #[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
         {
             Self {
                 server_resources: Default::default(),

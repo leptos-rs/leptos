@@ -146,12 +146,10 @@ impl History for BrowserIntegration {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # if false {
 /// let integration = ServerIntegration {
 ///     path: "http://leptos.rs/".to_string(),
 /// };
 /// provide_context(RouterIntegrationContext::new(integration));
-/// # }
 /// ```
 #[derive(Clone)]
 pub struct RouterIntegrationContext(pub Rc<dyn History>);
