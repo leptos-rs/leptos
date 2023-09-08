@@ -769,11 +769,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             if matches!(self.children, ElementChildren::Chunks(_)) {
                 let location = std::panic::Location::caller();
                 crate::warn!(
-                    "\n\nWARNING: At {location}, you call .dyn_classes() on an \
-                     HtmlElement<_> that was created with the `view!` macro. \
-                     The macro applies optimizations during SSR that prevent \
-                     calling this method successfully. You should not mix the \
-                     `view` macro and the builder syntax when using SSR.\n\n",
+                    "\n\nWARNING: At {location}, you call .dyn_classes() on \
+                     an HtmlElement<_> that was created with the `view!` \
+                     macro. The macro applies optimizations during SSR that \
+                     prevent calling this method successfully. You should not \
+                     mix the `view` macro and the builder syntax when using \
+                     SSR.\n\n",
                 );
             }
         }
@@ -1103,10 +1104,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     {
                         let location = std::panic::Location::caller();
                         crate::debug_warn!(
-                            "\n\nWARNING: At {location}, you call .child() on an \
-                             HtmlElement<_> that was created with the `view!` \
-                             macro. The macro applies optimizations during \
-                             SSR that prevent calling this method \
+                            "\n\nWARNING: At {location}, you call .child() on \
+                             an HtmlElement<_> that was created with the \
+                             `view!` macro. The macro applies optimizations \
+                             during SSR that prevent calling this method \
                              successfully. You should not mix the `view` \
                              macro and the builder syntax when using SSR.\n\n"
                         );

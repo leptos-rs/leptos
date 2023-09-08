@@ -808,7 +808,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 ///   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
 ///   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
-/// - **Context comes from the server.** Server functions are provided access to the HTTP request and other relevant 
+/// - **Context comes from the server.** Server functions are provided access to the HTTP request and other relevant
 ///   server data via the server integrations, but they do *not* have access to reactive state that exists in the client.
 /// - Your server must be ready to handle the server functions at the API prefix you list. The easiest way to do this
 ///   is to use the `handle_server_fns` function from [`leptos_actix`](https://docs.rs/leptos_actix/latest/leptos_actix/fn.handle_server_fns.html)
