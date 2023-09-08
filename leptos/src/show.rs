@@ -1,5 +1,5 @@
-use leptos::component;
-use leptos_dom::{Fragment, IntoView};
+use leptos::{component, ChildrenFn};
+use leptos_dom::IntoView;
 use leptos_reactive::{create_memo, signal_prelude::*};
 
 /// A component that will show its children when the `when` condition is `true`,
@@ -38,7 +38,7 @@ pub fn Show<F, W, IV>(
     /// The scope the component is running in
 
     /// The components Show wraps
-    children: Box<dyn Fn() -> Fragment>,
+    children: ChildrenFn,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false

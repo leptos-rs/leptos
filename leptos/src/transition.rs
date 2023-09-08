@@ -114,7 +114,7 @@ where
                     }
                 }
             })
-            .children(Box::new(move || {
+            .children(Rc::new(move || {
                 let frag = children().into_view();
 
                 if let Some(suspense_context) = use_context::<SuspenseContext>()
