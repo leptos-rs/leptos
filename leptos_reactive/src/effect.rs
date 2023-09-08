@@ -63,12 +63,20 @@ where
 {
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
+            use crate::{Owner, queue_microtask, with_owner};
+
             let runtime = Runtime::current();
+            let owner = Owner::current();
             let id = runtime.create_effect(f);
-            //crate::macros::debug_warn!("creating effect {e:?}");
-            _ = with_runtime( |runtime| {
-                runtime.update_if_necessary(id);
+
+            queue_microtask(move || {
+                with_owner(owner.unwrap(), move || {
+                    _ = with_runtime( |runtime| {
+                        runtime.update_if_necessary(id);
+                    });
+                });
             });
+
             Effect { id, ty: PhantomData }
         } else {
             // clear warnings
