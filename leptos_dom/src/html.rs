@@ -590,6 +590,20 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         name: impl Into<Oco<'static, str>>,
         attr: impl IntoAttribute,
     ) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .attr() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         let name = name.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -659,6 +673,20 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         name: impl Into<Oco<'static, str>>,
         class: impl IntoClass,
     ) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .class() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         let name = name.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -709,6 +737,20 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     #[inline(always)]
     pub fn classes(self, classes: impl Into<Oco<'static, str>>) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .classes() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         self.classes_inner(&classes.into())
     }
 
@@ -722,6 +764,20 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         I: IntoIterator<Item = C>,
         C: Into<Oco<'static, str>>,
     {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .dyn_classes() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             use smallvec::SmallVec;
@@ -822,6 +878,20 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         name: impl Into<Oco<'static, str>>,
         style: impl IntoStyle,
     ) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .style() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         let name = name.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1017,12 +1087,30 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 ElementChildren::Children(ref mut children) => {
                     children.push(child);
                 }
-                _ => {
-                    crate::debug_warn!(
-                        "Don’t call .child() on an HtmlElement if you’ve \
-                         already called .inner_html() or \
-                         HtmlElement::from_chunks()."
-                    );
+                ElementChildren::InnerHtml(_) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        let location = std::panic::Location::caller();
+                        crate::debug_warn!(
+                            "At {location}, you call .child() on an HTML \
+                             element that already had inner_html provided. \
+                             This will have no effect."
+                        );
+                    }
+                }
+                ElementChildren::Chunks(_) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        let location = std::panic::Location::caller();
+                        crate::debug_warn!(
+                            "\n\nWARNING: At {location}, you call .child() on an \
+                             HtmlElement<_> that was created with the `view!` \
+                             macro. The macro applies optimizations during \
+                             SSR that prevent calling this method \
+                             successfully. You should not mix the `view` \
+                             macro and the builder syntax when using SSR.\n\n"
+                        );
+                    }
                 }
             }
 
