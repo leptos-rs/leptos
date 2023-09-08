@@ -422,7 +422,7 @@ impl ToTokens for Model {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
                     #deserialize_island_props
-                    ::leptos::mount_to_with_stop_hydrating(el, false, move || {
+                    ::leptos::leptos_dom::mount_to_with_stop_hydrating(el, false, move || {
                         #name(#island_props)
                     })
                 }
