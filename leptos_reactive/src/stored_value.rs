@@ -84,6 +84,7 @@ impl<T> StoredValue<T> {
     /// // assert_eq!(data().value, "a");
     /// # runtime.dispose();
     /// ```
+    #[must_use]
     #[track_caller]
     pub fn get_value(&self) -> T
     where
@@ -347,7 +348,6 @@ impl<T> StoredValue<T> {
     ///
     /// ## Panics
     /// Panics if there is no current reactive runtime.
-    #[inline(always)]
     #[track_caller]
     pub fn new(value: T) -> Self {
         store_value(value)

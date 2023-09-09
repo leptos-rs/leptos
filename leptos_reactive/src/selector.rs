@@ -82,7 +82,7 @@ where
             *v.borrow_mut() = Some(next_value.clone());
             if prev.as_ref() != Some(&next_value) {
                 let subs = { subs.borrow().clone() };
-                for (key, signal) in subs.into_iter() {
+                for (key, signal) in subs {
                     if f(&key, &next_value)
                         || (prev.is_some() && f(&key, prev.as_ref().unwrap()))
                     {

@@ -96,14 +96,14 @@ impl<T: ?Sized + ToOwned> Deref for Oco<'_, T> {
 impl<T: ?Sized + ToOwned> Borrow<T> for Oco<'_, T> {
     #[inline(always)]
     fn borrow(&self) -> &T {
-        self.deref()
+        &**self
     }
 }
 
 impl<T: ?Sized + ToOwned> AsRef<T> for Oco<'_, T> {
     #[inline(always)]
     fn as_ref(&self) -> &T {
-        self.deref()
+        &**self
     }
 }
 
@@ -378,7 +378,7 @@ where
     T: ToOwned,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (**self).hash(state)
+        (**self).hash(state);
     }
 }
 

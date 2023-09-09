@@ -111,7 +111,7 @@ pub use memo::*;
 pub use node::Disposer;
 pub use oco::*;
 pub use resource::*;
-use runtime::*;
+use runtime::{Runtime, ScopeProperty, with_runtime};
 pub use runtime::{
     as_child_of_current_owner, batch, create_runtime, current_runtime,
     on_cleanup, set_current_runtime, untrack, untrack_with_diagnostics,

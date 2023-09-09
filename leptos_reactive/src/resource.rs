@@ -337,10 +337,10 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         version: Rc::new(Cell::new(0)),
-        suspense_contexts: Default::default(),
+        suspense_contexts: Rc::default(),
         serializable: ResourceSerialization::Local,
         #[cfg(feature = "experimental-islands")]
-        should_send_to_client: Default::default(),
+        should_send_to_client: Rc::default(),
     });
 
     let id = with_runtime(|runtime| {
@@ -376,7 +376,7 @@ where
     _ = id;
     SUPPRESS_RESOURCE_LOAD.with(|s| {
         if !s.get() {
-            r.load(false)
+            r.load(false);
         }
     });
 }
@@ -574,7 +574,7 @@ where
                 {
                     SpecialNonReactiveZone::exit(prev);
                 }
-            })
+            });
         });
     }
 
@@ -632,7 +632,7 @@ where
     /// ```
     #[track_caller]
     pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
-        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+        self.map(|data| data.as_ref().map(f).map_err(Clone::clone))
     }
 }
 
@@ -677,7 +677,7 @@ impl<S, T> SignalUpdate for Resource<S, T> {
                 if resource.loading.get_untracked() {
                     resource.version.set(resource.version.get() + 1);
                     for suspense_context in
-                        resource.suspense_contexts.borrow().iter()
+                        &*resource.suspense_contexts.borrow()
                     {
                         suspense_context.decrement(
                             resource.serializable
@@ -1039,7 +1039,7 @@ where
         T: Serializable + 'static,
         Fu: Future<Output = T> + 'static,
     {
-        create_resource(|| (), move |_| fetcher())
+        create_resource(|| (), move |()| fetcher())
     }
 }
 
@@ -1236,7 +1236,7 @@ where
                                 );
                             }
                         }
-                    })
+                    });
                 }
             }
         };
@@ -1293,7 +1293,7 @@ where
             // increment counter everywhere it's read
             let suspense_contexts = self.suspense_contexts.clone();
 
-            for suspense_context in suspense_contexts.borrow().iter() {
+            for suspense_context in &*suspense_contexts.borrow() {
                 suspense_context.increment(
                     self.serializable != ResourceSerialization::Local,
                 );
@@ -1318,13 +1318,13 @@ where
                         set_loading.try_update(|n| *n = false);
                     }
 
-                    for suspense_context in suspense_contexts.borrow().iter() {
+                    for suspense_context in &*suspense_contexts.borrow() {
                         suspense_context.decrement(
                             serializable != ResourceSerialization::Local,
                         );
                     }
                 }
-            })
+            });
         });
     }
     #[cfg_attr(
@@ -1357,7 +1357,7 @@ where
                         );
                     }
                 }
-            })
+            });
         });
         Box::pin(async move {
             rx.next()

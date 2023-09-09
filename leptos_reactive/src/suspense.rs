@@ -28,6 +28,7 @@ pub struct GlobalSuspenseContext(Rc<RefCell<SuspenseContext>>);
 
 impl GlobalSuspenseContext {
     /// Creates an empty global suspense context.
+    #[must_use]
     pub fn new() -> Self {
         Self(Rc::new(RefCell::new(SuspenseContext::new())))
     }
@@ -53,12 +54,14 @@ impl Default for GlobalSuspenseContext {
 impl SuspenseContext {
     /// Whether the suspense contains local resources at this moment,
     /// and therefore can't be serialized
+    #[must_use]
     pub fn has_local_only(&self) -> bool {
         self.has_local_only.get_value()
     }
 
     /// Whether any blocking resources are read under this suspense context,
     /// meaning the HTML stream should not begin until it has resolved.
+    #[must_use]
     pub fn should_block(&self) -> bool {
         self.should_block.get_value()
     }
@@ -99,6 +102,7 @@ impl Eq for SuspenseContext {}
 
 impl SuspenseContext {
     /// Creates an empty suspense context.
+    #[must_use]
     pub fn new() -> Self {
         let (pending_resources, set_pending_resources) = create_signal(0);
         let pending_serializable_resources = create_rw_signal(0);
@@ -134,7 +138,7 @@ impl SuspenseContext {
         queue_microtask(move || {
             setter.update(|n| {
                 if *n > 0 {
-                    *n -= 1
+                    *n -= 1;
                 }
             });
             if serializable {
@@ -154,6 +158,7 @@ impl SuspenseContext {
     }
 
     /// Tests whether all of the pending resources have resolved.
+    #[must_use]
     pub fn ready(&self) -> Memo<bool> {
         let pending = self.pending_resources;
         create_memo(move |_| pending.try_with(|n| *n == 0).unwrap_or(false))

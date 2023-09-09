@@ -945,7 +945,7 @@ impl<T: Clone> SignalGet for MaybeProp<T> {
         )
     )]
     fn get(&self) -> Option<T> {
-        self.0.as_ref().and_then(|s| s.get())
+        self.0.as_ref().and_then(SignalGet::get)
     }
 
     #[cfg_attr(
@@ -958,7 +958,7 @@ impl<T: Clone> SignalGet for MaybeProp<T> {
         )
     )]
     fn try_get(&self) -> Option<Option<T>> {
-        self.0.as_ref().and_then(|s| s.try_get())
+        self.0.as_ref().and_then(SignalGet::try_get)
     }
 }
 
@@ -1087,7 +1087,7 @@ impl<T: Clone> SignalGetUntracked for MaybeProp<T> {
         )
     )]
     fn get_untracked(&self) -> Option<T> {
-        self.0.as_ref().and_then(|inner| inner.get_untracked())
+        self.0.as_ref().and_then(SignalGetUntracked::get_untracked)
     }
 
     #[cfg_attr(
@@ -1100,7 +1100,9 @@ impl<T: Clone> SignalGetUntracked for MaybeProp<T> {
         )
     )]
     fn try_get_untracked(&self) -> Option<Option<T>> {
-        self.0.as_ref().and_then(|inner| inner.try_get_untracked())
+        self.0
+            .as_ref()
+            .and_then(SignalGetUntracked::try_get_untracked)
     }
 }
 

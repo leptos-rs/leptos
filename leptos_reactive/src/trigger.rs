@@ -1,6 +1,6 @@
 use crate::{
     diagnostics,
-    diagnostics::*,
+    diagnostics::AccessDiagnostics,
     node::NodeId,
     runtime::{with_runtime, Runtime},
     SignalGet, SignalSet, SignalUpdate,
@@ -24,12 +24,13 @@ impl Trigger {
     /// Panics if there is no current reactive runtime, or if the
     /// trigger has been disposed.
     pub fn notify(&self) {
-        assert!(self.try_notify(), "Trigger::notify(): runtime not alive")
+        assert!(self.try_notify(), "Trigger::notify(): runtime not alive");
     }
 
     /// Attempts to notify any reactive code where this trigger is tracked to rerun.
     ///
     /// Returns `None` if the runtime has been disposed.
+    #[must_use]
     pub fn try_notify(&self) -> bool {
         with_runtime(|runtime| {
             runtime.mark_dirty(self.id);
@@ -44,11 +45,12 @@ impl Trigger {
     /// Panics if there is no current reactive runtime, or if the
     /// trigger has been disposed.
     pub fn track(&self) {
-        assert!(self.try_track(), "Trigger::track(): runtime not alive")
+        assert!(self.try_track(), "Trigger::track(): runtime not alive");
     }
 
     /// Attempts to subscribe the running effect to this trigger, returning
     /// `None` if the runtime has been disposed.
+    #[must_use]
     pub fn try_track(&self) -> bool {
         let diagnostics = diagnostics!(self);
 
@@ -115,7 +117,7 @@ impl SignalGet for Trigger {
     #[track_caller]
     #[inline(always)]
     fn get(&self) {
-        self.track()
+        self.track();
     }
 
     #[cfg_attr(
@@ -153,7 +155,7 @@ impl SignalUpdate for Trigger {
     )]
     #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut ())) {
-        self.try_update(f).expect("runtime to be alive")
+        self.try_update(f).expect("runtime to be alive");
     }
 
     #[cfg_attr(
@@ -201,7 +203,7 @@ impl SignalSet for Trigger {
         )
     )]
     #[inline(always)]
-    fn set(&self, _: ()) {
+    fn set(&self, (): ()) {
         self.notify();
     }
 
@@ -218,7 +220,7 @@ impl SignalSet for Trigger {
         )
     )]
     #[inline(always)]
-    fn try_set(&self, _: ()) -> Option<()> {
+    fn try_set(&self, (): ()) -> Option<()> {
         self.try_notify().then_some(())
     }
 }

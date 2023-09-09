@@ -1,5 +1,5 @@
 use crate::{
-    console_warn, create_effect, diagnostics, diagnostics::*,
+    console_warn, create_effect, diagnostics, diagnostics::AccessDiagnostics,
     macros::debug_warn, node::NodeId, on_cleanup, runtime::with_runtime,
     Runtime,
 };
@@ -760,7 +760,7 @@ where
         {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(SignalError::RuntimeDisposed),
+            Err(()) => Err(SignalError::RuntimeDisposed),
         }
     }
 }
@@ -1974,7 +1974,7 @@ impl NodeId {
         } else {
             #[cfg(all(debug_assertions, not(feature = "ssr")))]
             {
-                if !SpecialNonReactiveZone::is_inside() {
+                if !crate::diagnostics::SpecialNonReactiveZone::is_inside() {
                     let AccessDiagnostics {
                         called_at,
                         defined_at,

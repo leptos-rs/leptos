@@ -94,7 +94,7 @@ impl<T> SignalSet for SignalSetter<T> {
             SignalSetterTypes::Default => {}
             SignalSetterTypes::Write(w) => w.set(new_value),
             SignalSetterTypes::Mapped(s) => {
-                s.with_value(|setter| setter(new_value))
+                s.with_value(|setter| setter(new_value));
             }
         }
     }

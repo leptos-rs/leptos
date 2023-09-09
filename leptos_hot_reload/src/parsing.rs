@@ -14,6 +14,7 @@ use rstml::node::NodeElement;
 /// // variable
 /// {path::x}
 /// ```
+#[must_use]
 pub fn block_to_primitive_expression(block: &syn::Block) -> Option<&syn::Expr> {
     // its empty block, or block with multi lines
     if block.stmts.len() != 1 {
@@ -29,6 +30,7 @@ pub fn block_to_primitive_expression(block: &syn::Block) -> Option<&syn::Expr> {
 ///
 /// This function doesn't convert literal wrapped inside block
 /// like: `{"string"}`.
+#[must_use]
 pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     match &value {
         syn::Expr::Lit(lit) => match &lit.lit {
@@ -42,10 +44,12 @@ pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     }
 }
 
+#[must_use]
 pub fn is_component_tag_name(name: &str) -> bool {
     name.starts_with(|c: char| c.is_ascii_uppercase())
 }
 
+#[must_use]
 pub fn is_component_node(node: &NodeElement) -> bool {
     is_component_tag_name(&node.name().to_string())
 }

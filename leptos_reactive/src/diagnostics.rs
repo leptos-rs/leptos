@@ -37,13 +37,14 @@ impl SpecialNonReactiveZone {
     pub(crate) fn is_inside() -> bool {
         #[cfg(debug_assertions)]
         {
-            IS_SPECIAL_ZONE.with(|val| val.get())
+            IS_SPECIAL_ZONE.with(Cell::get)
         }
         #[cfg(not(debug_assertions))]
         false
     }
 
     #[cfg(debug_assertions)]
+    #[must_use]
     pub fn enter() -> bool {
         IS_SPECIAL_ZONE.with(|val| {
             let prev = val.get();
@@ -55,7 +56,7 @@ impl SpecialNonReactiveZone {
     #[cfg(debug_assertions)]
     pub fn exit(prev: bool) {
         if !prev {
-            IS_SPECIAL_ZONE.with(|val| val.set(false))
+            IS_SPECIAL_ZONE.with(|val| val.set(false));
         }
     }
 }

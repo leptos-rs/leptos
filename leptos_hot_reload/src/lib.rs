@@ -33,6 +33,7 @@ pub struct ViewMacros {
 }
 
 impl ViewMacros {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -76,7 +77,7 @@ impl ViewMacros {
             let rsx =
                 rstml::parse2(tokens.collect::<proc_macro2::TokenStream>())?;
             let template = LNode::parse_view(rsx)?;
-            views.push(MacroInvocation { id, template })
+            views.push(MacroInvocation { id, template });
         }
         Ok(views)
     }
@@ -136,7 +137,7 @@ pub struct ViewMacroVisitor<'a> {
 
 impl<'ast> Visit<'ast> for ViewMacroVisitor<'ast> {
     fn visit_macro(&mut self, node: &'ast Macro) {
-        let ident = node.path.get_ident().map(|n| n.to_string());
+        let ident = node.path.get_ident().map(ToString::to_string);
         if ident == Some("view".to_string()) {
             self.views.push(node);
         }

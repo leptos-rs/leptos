@@ -85,10 +85,10 @@ where
 
             let runtime = Runtime::current();
             tokio::task::spawn_local(async move {
-                crate::TASK_RUNTIME.scope(Some(runtime), fut).await
+                crate::TASK_RUNTIME.scope(Some(runtime), fut).await;
             });
         }  else {
-            futures::executor::block_on(fut)
+            futures::executor::block_on(fut);
         }
     }
 }

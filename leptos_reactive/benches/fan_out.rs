@@ -66,10 +66,10 @@ fn leptos_fan_out(c: &mut Criterion) {
 
     c.bench_function("leptos_fan_out", |b| {
         b.iter(|| {
-            create_scope(runtime, |cx| {
-                let sig = create_rw_signal(cx, 0);
+            create_scope(runtime, || {
+                let sig = create_rw_signal(0);
                 let memos = (0..1000)
-                    .map(|_| create_memo(cx, move |_| sig.get()))
+                    .map(|_| create_memo(move |_| sig.get()))
                     .collect::<Vec<_>>();
                 assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 0);
                 sig.set(1);

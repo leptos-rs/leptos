@@ -1,9 +1,9 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
-//! Implementation of the server_fn macro.
+//! Implementation of the `server_fn` macro.
 //!
-//! This crate contains the implementation of the server_fn macro. [server_macro_impl] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
+//! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
 
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use proc_macro_error::abort;
@@ -12,7 +12,8 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
-    *,
+    token, Attribute, Block, FnArg, Generics, Ident, Meta, Path, PathArguments,
+    Result, Token, Type, Visibility,
 };
 
 /// Describes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
@@ -39,7 +40,7 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
     }
 }
 
-/// The implementation of the server_fn macro.
+/// The implementation of the `server_fn` macro.
 /// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
 /// **The Context comes from the server.** Optionally, the first argument of a server function
 /// can be a custom context. This context can be used to inject dependencies like the HTTP request
@@ -65,7 +66,8 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 ///     }
 /// }
 /// ```
-
+///
+/// # Errors
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
@@ -195,8 +197,7 @@ pub fn server_macro_impl(
     };
 
     let server_fn_path = server_fn_path
-        .map(|path| quote!(#path))
-        .unwrap_or_else(|| quote! { server_fn });
+        .map_or_else(|| quote! { server_fn }, |path| quote!(#path));
 
     let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
         Some(_) => "SERVER_FN_OVERRIDE_KEY",
@@ -336,18 +337,16 @@ impl Parse for ServerFnName {
         let _comma = input.parse()?;
         let prefix = input.parse()?;
         let _comma2 = input.parse()?;
-        let encoding = input
-            .parse::<Literal>()
-            .map(|encoding| {
-                match encoding.to_string().to_lowercase().as_str() {
-                    "\"url\"" => syn::parse_quote!(Encoding::Url),
-                    "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
-                    "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
-                    "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
-                    _ => abort!(encoding, "Encoding Not Found"),
-                }
-            })
-            .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));
+        let encoding = input.parse::<Literal>().map_or_else(
+            |_| syn::parse_quote!(Encoding::Url),
+            |encoding| match encoding.to_string().to_lowercase().as_str() {
+                "\"url\"" => syn::parse_quote!(Encoding::Url),
+                "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
+                "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
+                "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
+                _ => abort!(encoding, "Encoding Not Found"),
+            },
+        );
         let _comma3 = input.parse()?;
         let fn_path = input.parse()?;
 

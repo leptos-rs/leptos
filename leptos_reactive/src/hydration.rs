@@ -1,6 +1,7 @@
 use crate::{
-    runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
-    SuspenseContext,
+    runtime::{PinnedFuture, Runtime},
+    suspense::StreamChunk,
+    with_runtime, ResourceId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
 #[cfg(feature = "experimental-islands")]
@@ -29,7 +30,7 @@ impl SharedContext {
         instrument(level = "trace", skip_all,)
     )]
     pub fn all_resources() -> Vec<ResourceId> {
-        with_runtime(|runtime| runtime.all_resources()).unwrap_or_default()
+        with_runtime(Runtime::all_resources).unwrap_or_default()
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope that are
@@ -39,7 +40,7 @@ impl SharedContext {
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_resources() -> Vec<ResourceId> {
-        with_runtime(|runtime| runtime.pending_resources()).unwrap_or_default()
+        with_runtime(Runtime::pending_resources).unwrap_or_default()
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
@@ -49,8 +50,7 @@ impl SharedContext {
     )]
     pub fn serialization_resolvers(
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(|runtime| runtime.serialization_resolvers())
-            .unwrap_or_default()
+        with_runtime(Runtime::serialization_resolvers).unwrap_or_default()
     }
 
     /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
@@ -106,7 +106,7 @@ impl SharedContext {
                     })),
                 },
             );
-        })
+        });
     }
 
     /// Takes the pending HTML for a single `<Suspense/>` node.
@@ -232,11 +232,11 @@ impl Default for SharedContext {
         #[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
         {
             Self {
-                server_resources: Default::default(),
+                server_resources: HashSet::default(),
                 //events: Default::default(),
-                pending_resources: Default::default(),
-                resolved_resources: Default::default(),
-                pending_fragments: Default::default(),
+                pending_resources: HashSet::default(),
+                resolved_resources: HashMap::default(),
+                pending_fragments: HashMap::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
             }

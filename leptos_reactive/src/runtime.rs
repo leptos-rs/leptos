@@ -34,9 +34,9 @@ cfg_if! {
         }
     } else {
         thread_local! {
-            pub(crate) static RUNTIMES: RefCell<SlotMap<RuntimeId, Runtime>> = Default::default();
+            pub(crate) static RUNTIMES: RefCell<SlotMap<RuntimeId, Runtime>> = RefCell::default();
 
-            pub(crate) static CURRENT_RUNTIME: Cell<Option<RuntimeId>> = Default::default();
+            pub(crate) static CURRENT_RUNTIME: Cell<Option<RuntimeId>> = Cell::default();
         }
     }
 }
@@ -123,9 +123,9 @@ impl Runtime {
                 TASK_RUNTIME.try_with(|trt| *trt)
                     .ok()
                     .flatten()
-                    .unwrap_or_else(|| CURRENT_RUNTIME.with(|id| id.get()).unwrap_or_default())
+                    .unwrap_or_else(|| CURRENT_RUNTIME.with(Cell::get).unwrap_or_default())
             } else {
-                CURRENT_RUNTIME.with(|id| id.get()).unwrap_or_default()
+                CURRENT_RUNTIME.with(Cell::get).unwrap_or_default()
             }
         }
     }
@@ -133,7 +133,7 @@ impl Runtime {
     #[cfg(not(any(feature = "csr", feature = "hydrate")))]
     #[inline(always)]
     pub(crate) fn set_runtime(id: Option<RuntimeId>) {
-        CURRENT_RUNTIME.with(|curr| curr.set(id))
+        CURRENT_RUNTIME.with(|curr| curr.set(id));
     }
 
     pub(crate) fn update_if_necessary(&self, node_id: NodeId) {
@@ -146,7 +146,7 @@ impl Runtime {
                     let sources = n.borrow();
                     // in case Vec::from_iterator specialization doesn't work, do it manually
                     let mut sources_vec = Vec::with_capacity(sources.len());
-                    sources_vec.extend(sources.iter().cloned());
+                    sources_vec.extend(sources.iter().copied());
                     sources_vec
                 })
             };
@@ -221,7 +221,7 @@ impl Runtime {
 
                 if let Some(subs) = subs.get(node_id) {
                     let mut nodes = self.nodes.borrow_mut();
-                    for sub_id in subs.borrow().iter() {
+                    for sub_id in &*subs.borrow() {
                         if let Some(sub) = nodes.get_mut(*sub_id) {
                             sub.state = ReactiveNodeState::Dirty;
                         }
@@ -259,7 +259,7 @@ impl Runtime {
 
                 if let Some(subs) = subs {
                     let source_map = self.node_sources.borrow();
-                    for effect in subs.borrow().iter() {
+                    for effect in &*subs.borrow() {
                         if let Some(effect_sources) = source_map.get(*effect) {
                             effect_sources.borrow_mut().remove(&node);
                         }
@@ -286,7 +286,7 @@ impl Runtime {
         let sources = self.node_sources.borrow();
         if let Some(sources) = sources.get(node_id) {
             let subs = self.node_subscribers.borrow();
-            for source in sources.borrow().iter() {
+            for source in &*sources.borrow() {
                 if let Some(source) = subs.get(*source) {
                     source.borrow_mut().remove(&node_id);
                 }
@@ -452,7 +452,7 @@ impl Runtime {
 
         if matches!(node.node_type, ReactiveNodeType::Effect { .. } if current_observer != Some(node_id))
         {
-            pending_effects.push(node_id)
+            pending_effects.push(node_id);
         }
 
         if node.state == ReactiveNodeState::Dirty {
@@ -778,10 +778,10 @@ impl RuntimeId {
             let untracked_result;
 
             #[cfg(debug_assertions)]
-            let prev = if !diagnostics {
-                SpecialNonReactiveZone::enter()
-            } else {
+            let prev = if diagnostics {
                 false
+            } else {
+                SpecialNonReactiveZone::enter()
             };
 
             let prev_observer =
@@ -1152,7 +1152,7 @@ impl Runtime {
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
         let f = FuturesUnordered::new();
         let resources = { self.resources.borrow().clone() };
-        for (id, resource) in resources.iter() {
+        for (id, resource) in &resources {
             if let AnyResource::Serializable(resource) = resource {
                 if resource.should_send_to_client() {
                     f.push(resource.to_serialization_resolver(id));
@@ -1168,7 +1168,7 @@ impl Runtime {
         node_id: NodeId,
     ) -> Option<Rc<RefCell<dyn Any>>> {
         let signals = self.nodes.borrow();
-        signals.get(node_id).map(|node| node.value())
+        signals.get(node_id).map(ReactiveNode::value)
     }
 }
 
@@ -1238,7 +1238,6 @@ impl Drop for SetBatchingOnDrop {
 ///
 /// It runs after child nodes have been disposed, but before signals, effects, and resources
 /// are invalidated.
-#[inline(always)]
 pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
     #[cfg(debug_assertions)]
     let cleanup_fn = move || {
@@ -1250,7 +1249,7 @@ pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
             crate::SpecialNonReactiveZone::exit(prev);
         }
     };
-    push_cleanup(Box::new(cleanup_fn))
+    push_cleanup(Box::new(cleanup_fn));
 }
 
 #[cfg_attr(

@@ -11,8 +11,8 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 
-/// A Struct to allow us to parse LeptosOptions from the file. Not really needed, most interactions should
-/// occur with LeptosOptions
+/// A Struct to allow us to parse [`LeptosOptions`] from the file. Not really needed, most interactions should
+/// occur with [`LeptosOptions`]
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ConfFile {
@@ -145,7 +145,7 @@ fn env_w_default(
 }
 
 /// An enum that can be used to define the environment Leptos is running in.
-/// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
+/// Setting this to the `PROD` variant will not include the `WebSocket` code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum Env {
@@ -259,7 +259,7 @@ impl TryFrom<String> for ReloadWSProtocol {
     }
 }
 
-/// Loads [LeptosOptions] from a Cargo.toml text content with layered overrides.
+/// Loads [`LeptosOptions`] from a Cargo.toml text content with layered overrides.
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
 pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
     let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
@@ -300,7 +300,7 @@ pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
         .map_err(|e| LeptosConfigError::ConfigError(e.to_string()))
 }
 
-/// Loads [LeptosOptions] from a Cargo.toml with layered overrides. If an env var is specified, like `LEPTOS_ENV`,
+/// Loads [`LeptosOptions`] from a Cargo.toml with layered overrides. If an env var is specified, like `LEPTOS_ENV`,
 /// it will override a setting in the file. It takes in an optional path to a Cargo.toml file. If None is provided,
 /// you'll need to set the options as environment variables or rely on the defaults. This is the preferred
 /// approach for cargo-leptos. If Some("./Cargo.toml") is provided, Leptos will read in the settings itself. This
@@ -315,7 +315,7 @@ pub async fn get_configuration(
     }
 }
 
-/// Loads [LeptosOptions] from a Cargo.toml with layered overrides. Leptos will read in the settings itself. This
+/// Loads [`LeptosOptions`] from a Cargo.toml with layered overrides. Leptos will read in the settings itself. This
 /// option currently does not allow dashes in file or folder names, as all dashes become underscores
 pub async fn get_config_from_file<P: AsRef<Path>>(
     path: P,
@@ -325,7 +325,7 @@ pub async fn get_config_from_file<P: AsRef<Path>>(
     get_config_from_str(&text)
 }
 
-/// Loads [LeptosOptions] from environment variables or rely on the defaults
+/// Loads [`LeptosOptions`] from environment variables or rely on the defaults
 pub fn get_config_from_env() -> Result<ConfFile, LeptosConfigError> {
     Ok(ConfFile {
         leptos_options: LeptosOptions::try_from_env()?,

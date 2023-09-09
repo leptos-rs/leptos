@@ -61,9 +61,9 @@ impl LNode {
                 views.push(LNode::Text(text.value_string()));
             }
             Node::Block(block) => {
-                let code = block.into_token_stream();
-                let code = code.to_string();
-                views.push(LNode::DynChild(code));
+                views.push(LNode::DynChild(
+                    block.into_token_stream().to_string(),
+                ));
             }
             Node::Element(el) => {
                 if is_component_node(&el) {
@@ -83,7 +83,7 @@ impl LNode {
                                     attr.key.to_string(),
                                     format!("{:#?}", attr.value()),
                                 )),
-                                _ => None,
+                                NodeAttribute::Block(_) => None,
                             })
                             .collect(),
                         children,
@@ -151,8 +151,9 @@ impl LNode {
                         LAttributeValue::Static(value) => {
                             Some(format!("{name}=\"{value}\" "))
                         }
-                        LAttributeValue::Dynamic => None,
-                        LAttributeValue::Noop => None,
+                        LAttributeValue::Dynamic | LAttributeValue::Noop => {
+                            None
+                        }
                     })
                     .collect::<String>();
 
