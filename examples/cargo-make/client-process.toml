@@ -1,0 +1,35 @@
+[tasks.start-client]
+
+[tasks.stop-client]
+condition = { env_set = ["CLIENT_PROCESS_NAME"] }
+script = '''
+  if [ ! -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
+    pkill -ef ${CLIENT_PROCESS_NAME}
+  fi
+'''
+
+[tasks.client-status]
+condition = { env_set = ["CLIENT_PROCESS_NAME"] }
+script = '''
+  if [ -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
+    echo "  ${CLIENT_PROCESS_NAME} is not running"
+  else
+    echo "  ${CLIENT_PROCESS_NAME} is up"
+  fi
+'''
+
+[tasks.maybe-start-client]
+condition = { env_set = ["CLIENT_PROCESS_NAME"] }
+script = '''
+  if [ -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
+    echo "  Starting ${CLIENT_PROCESS_NAME}"
+    cargo make start-client ${@} & 
+  else
+    echo "  ${CLIENT_PROCESS_NAME} is already started"
+  fi
+'''
+
+# ALIASES
+
+[tasks.dev]
+alias = "maybe-start-client"

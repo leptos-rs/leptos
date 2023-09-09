@@ -1,0 +1,272 @@
+---
+source: leptos_macro/src/view/tests.rs
+assertion_line: 101
+expression: result
+---
+TokenStream [
+    Punct {
+        char: ':',
+        spacing: Joint,
+    },
+    Punct {
+        char: ':',
+        spacing: Alone,
+    },
+    Ident {
+        sym: leptos,
+    },
+    Punct {
+        char: ':',
+        spacing: Joint,
+    },
+    Punct {
+        char: ':',
+        spacing: Alone,
+    },
+    Ident {
+        sym: component_view,
+    },
+    Group {
+        delimiter: Parenthesis,
+        stream: TokenStream [
+            Punct {
+                char: '&',
+                spacing: Alone,
+            },
+            Ident {
+                sym: ExternalComponent,
+                span: bytes(11..28),
+            },
+            Punct {
+                char: ',',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: leptos,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: component_props_builder,
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Punct {
+                        char: '&',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: ExternalComponent,
+                        span: bytes(11..28),
+                    },
+                ],
+            },
+            Punct {
+                char: '.',
+                spacing: Alone,
+            },
+            Ident {
+                sym: build,
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [],
+            },
+        ],
+    },
+    Punct {
+        char: '.',
+        spacing: Alone,
+    },
+    Ident {
+        sym: into_view,
+    },
+    Group {
+        delimiter: Parenthesis,
+        stream: TokenStream [],
+    },
+    Punct {
+        char: '.',
+        spacing: Alone,
+    },
+    Ident {
+        sym: on,
+    },
+    Group {
+        delimiter: Parenthesis,
+        stream: TokenStream [
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: leptos,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: leptos_dom,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: ev,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: undelegated,
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: leptos,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: leptos_dom,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: ev,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: Custom,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Joint,
+                    },
+                    Punct {
+                        char: ':',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: new,
+                    },
+                    Group {
+                        delimiter: Parenthesis,
+                        stream: TokenStream [
+                            Literal {
+                                lit: "custom.event.clear",
+                            },
+                        ],
+                    },
+                ],
+            },
+            Punct {
+                char: ',',
+                spacing: Alone,
+            },
+            Ident {
+                sym: move,
+                span: bytes(51..55),
+            },
+            Punct {
+                char: '|',
+                spacing: Alone,
+                span: bytes(56..57),
+            },
+            Ident {
+                sym: _,
+                span: bytes(57..58),
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+                span: bytes(58..59),
+            },
+            Ident {
+                sym: Event,
+                span: bytes(60..65),
+            },
+            Punct {
+                char: '|',
+                spacing: Alone,
+                span: bytes(65..66),
+            },
+            Ident {
+                sym: set_value,
+                span: bytes(67..76),
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Literal {
+                        lit: 0,
+                        span: bytes(77..78),
+                    },
+                ],
+                span: bytes(76..79),
+            },
+        ],
+    },
+]

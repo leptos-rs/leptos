@@ -246,7 +246,7 @@ pub fn set_timeout_with_handle(
 /// listeners to prevent them from firing constantly as you type.
 ///
 /// ```
-/// use leptos::{leptos_dom::helpers::debounce, *};
+/// use leptos::{leptos_dom::helpers::debounce, logging::log, *};
 ///
 /// #[component]
 /// fn DebouncedButton() -> impl IntoView {
@@ -430,7 +430,7 @@ pub fn window_event_listener_untyped(
 /// Creates a window event listener from a typed event, returning a
 /// cancelable handle.
 /// ```
-/// use leptos::{leptos_dom::helpers::window_event_listener, *};
+/// use leptos::{leptos_dom::helpers::window_event_listener, logging::log, *};
 ///
 /// #[component]
 /// fn App() -> impl IntoView {

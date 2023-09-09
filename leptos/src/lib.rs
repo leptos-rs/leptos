@@ -155,19 +155,32 @@ pub mod ssr {
     pub use leptos_dom::{ssr::*, ssr_in_order::*};
 }
 pub use leptos_dom::{
-    self, create_node_ref, debug_warn, document, error, ev, helpers::*, html,
-    log, math, mount_to, mount_to_body, nonce, svg, warn, window, Attribute,
-    Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
-    IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
+    self, create_node_ref, document, ev,
+    helpers::{
+        event_target, event_target_checked, event_target_value,
+        request_animation_frame, request_animation_frame_with_handle,
+        request_idle_callback, request_idle_callback_with_handle, set_interval,
+        set_interval_with_handle, set_timeout, set_timeout_with_handle,
+        window_event_listener, window_event_listener_untyped,
+    },
+    html, math, mount_to, mount_to_body, nonce, svg, window, Attribute, Class,
+    CollectView, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
+    IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging {
+    pub use leptos_dom::{debug_warn, error, log, warn};
+}
 
 /// Types to make it easier to handle errors in your application.
 pub mod error {
     pub use server_fn::error::{Error, Result};
 }
+#[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
+pub use leptos_macro::template;
 #[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
-pub use leptos_macro::{component, server, slot, view, Params};
+pub use leptos_macro::{component, island, server, slot, view, Params};
 pub use leptos_reactive::*;
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
@@ -175,8 +188,6 @@ pub use leptos_server::{
     ServerFnErrorErr,
 };
 pub use server_fn::{self, ServerFn as _};
-#[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
-pub use {leptos_macro::template, wasm_bindgen, web_sys};
 mod error_boundary;
 pub use error_boundary::*;
 mod animated_show;
@@ -184,11 +195,18 @@ mod for_loop;
 mod show;
 pub use animated_show::*;
 pub use for_loop::*;
+#[cfg(feature = "experimental-islands")]
+pub use serde;
+#[cfg(feature = "experimental-islands")]
+pub use serde_json;
 pub use show::*;
 pub use suspense_component::*;
 mod suspense_component;
 mod text_prop;
 mod transition;
+// used by the component macro to generate islands
+#[doc(hidden)]
+pub use const_format;
 pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
@@ -200,19 +218,26 @@ pub use typed_builder;
 pub use typed_builder::Optional;
 #[doc(hidden)]
 pub use typed_builder_macro;
+#[doc(hidden)]
+#[cfg(any(
+    feature = "csr",
+    feature = "hydrate",
+    feature = "template_macro"
+))]
+pub use wasm_bindgen; // used in islands
+#[doc(hidden)]
+#[cfg(any(
+    feature = "csr",
+    feature = "hydrate",
+    feature = "template_macro"
+))]
+pub use web_sys; // used in islands
+// used by the component macro to generate islands
+#[doc(hidden)]
+pub use xxhash_rust;
+mod children;
+pub use children::*;
 extern crate self as leptos;
-
-/// The most common type for the `children` property on components,
-/// which can only be called once.
-pub type Children = Box<dyn FnOnce() -> Fragment>;
-
-/// A type for the `children` property on components that can be called
-/// more than once.
-pub type ChildrenFn = Box<dyn Fn() -> Fragment>;
-
-/// A type for the `children` property on components that can be called
-/// more than once, but may mutate the children.
-pub type ChildrenFnMut = Box<dyn FnMut() -> Fragment>;
 
 /// A type for taking anything that implements [`IntoAttribute`].
 ///

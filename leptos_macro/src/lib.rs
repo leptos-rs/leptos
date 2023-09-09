@@ -404,8 +404,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 /// The `#[component]` macro allows you to annotate plain Rust functions as components
 /// and use them within your Leptos [view](crate::view!) as if they were custom HTML elements. The
-/// component function takes a [Scope](https://docs.rs/leptos/latest/leptos/struct.Scope.html)
-/// and any number of other arguments. When you use the component somewhere else,
+/// component function takes any number of other arguments. When you use the component somewhere else,
 /// the names of its arguments are the names of the properties you use in the [view](crate::view!) macro.
 ///
 /// Every component function should have the return type `-> impl IntoView`.
@@ -535,7 +534,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// 5. You can access the children passed into the component with the `children` property, which takes
-///    an argument of the type `Children`. This is an alias for `Box<dyn FnOnce(Scope) -> Fragment>`.
+///    an argument of the type `Children`. This is an alias for `Box<dyn FnOnce() -> Fragment>`.
 ///    If you need `children` to be a `Fn` or `FnMut`, you can use the `ChildrenFn` or `ChildrenFnMut`
 ///    type aliases.
 ///
@@ -628,6 +627,33 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 
     parse_macro_input!(s as component::Model)
         .is_transparent(is_transparent)
+        .into_token_stream()
+        .into()
+}
+
+/// TODO docs for islands
+#[proc_macro_error::proc_macro_error]
+#[proc_macro_attribute]
+pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let is_transparent = if !args.is_empty() {
+        let transparent = parse_macro_input!(args as syn::Ident);
+
+        if transparent != "transparent" {
+            abort!(
+                transparent,
+                "only `transparent` is supported";
+                help = "try `#[island(transparent)]` or `#[island]`"
+            );
+        }
+
+        true
+    } else {
+        false
+    };
+
+    parse_macro_input!(s as component::Model)
+        .is_transparent(is_transparent)
+        .is_island()
         .into_token_stream()
         .into()
 }
@@ -780,10 +806,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
-/// and deserializable with `serde`. Optionally, its first argument can be a Leptos
-/// [Scope](https://docs.rs/leptos/latest/leptos/struct.Scope.html),
-/// which will be injected *on the server side.* This can be used to inject the raw HTTP request or other
-/// server-side context into the server function.
+/// and deserializable with `serde`.
 ///
 /// ```ignore
 /// # use leptos::*; use serde::{Serialize, Deserialize};
@@ -812,9 +835,8 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 ///   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
 ///   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
-/// - **The `Scope` comes from the server.** Optionally, the first argument of a server function
-///   can be a Leptos `Scope`. This scope can be used to inject dependencies like the HTTP request
-///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
+/// - **Context comes from the server.** Server functions are provided access to the HTTP request and other relevant
+///   server data via the server integrations, but they do *not* have access to reactive state that exists in the client.
 /// - Your server must be ready to handle the server functions at the API prefix you list. The easiest way to do this
 ///   is to use the `handle_server_fns` function from [`leptos_actix`](https://docs.rs/leptos_actix/latest/leptos_actix/fn.handle_server_fns.html)
 ///   or [`leptos_axum`](https://docs.rs/leptos_axum/latest/leptos_axum/fn.handle_server_fns.html).

@@ -107,16 +107,16 @@ impl<E: FromWasmAbi> Custom<E> {
     /// # use leptos::*;
     /// # let runtime = create_runtime();
     /// # let canvas_ref: NodeRef<html::Canvas> = create_node_ref();
-    /// let mut non_passive_wheel = ev::Custom::<ev::WheelEvent>::new("wheel");
     /// # if false {
+    /// let mut non_passive_wheel = ev::Custom::<ev::WheelEvent>::new("wheel");
     /// let options = non_passive_wheel.options_mut();
     /// options.passive(false);
-    /// # }
     /// canvas_ref.on_load(move |canvas: HtmlElement<html::Canvas>| {
     ///     canvas.on(non_passive_wheel, move |_event| {
     ///         // Handle _event
     ///     });
     /// });
+    /// # }
     /// # runtime.dispose();
     /// ```
     ///

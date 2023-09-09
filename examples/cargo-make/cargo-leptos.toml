@@ -1,5 +1,11 @@
+extend = { path = "../cargo-make/client-process.toml" }
+
 [tasks.install-cargo-leptos]
 install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
+
+[tasks.cargo-leptos-e2e]
+command = "cargo"
+args = ["leptos", "end-to-end"]
 
 [tasks.build]
 clear = true
@@ -25,31 +31,3 @@ install_crate = "cargo-all-features"
 [tasks.start-client]
 command = "cargo"
 args = ["leptos", "watch"]
-
-[tasks.stop-client]
-condition = { env_set = ["APP_PROCESS_NAME"] }
-script = '''
-  if [ ! -z $(pidof ${APP_PROCESS_NAME}) ]; then
-    pkill -f todo_app_sqlite
-  fi
-
-  if [ ! -z $(pidof ${APP_PROCESS_NAME}) ]; then
-    pkill -f cargo-leptos
-  fi
-'''
-
-[tasks.client-status]
-condition = { env_set = ["APP_PROCESS_NAME"] }
-script = '''
-  if [ -z $(pidof ${APP_PROCESS_NAME}) ]; then
-    echo "  ${APP_PROCESS_NAME} is not running"
-  else
-    echo "  ${APP_PROCESS_NAME} is up"
-  fi
-
-  if [ -z $(pidof cargo-leptos) ]; then
-    echo "  cargo-leptos is not running"
-  else
-    echo "  cargo-leptos is up"
-  fi
-'''

@@ -1,3 +1,5 @@
+#[cfg(feature = "experimental-islands")]
+use crate::SharedContext;
 #[cfg(debug_assertions)]
 use crate::SpecialNonReactiveZone;
 use crate::{
@@ -204,6 +206,8 @@ where
         version: Rc::new(Cell::new(0)),
         suspense_contexts: Default::default(),
         serializable,
+        #[cfg(feature = "experimental-islands")]
+        should_send_to_client: Default::default(),
     });
 
     let id = with_runtime(|runtime| {
@@ -335,6 +339,8 @@ where
         version: Rc::new(Cell::new(0)),
         suspense_contexts: Default::default(),
         serializable: ResourceSerialization::Local,
+        #[cfg(feature = "experimental-islands")]
+        should_send_to_client: Default::default(),
     });
 
     let id = with_runtime(|runtime| {
@@ -904,6 +910,139 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+impl<S, T> Resource<S, T>
+where
+    S: 'static,
+    T: 'static,
+{
+    /// Creates a [`Resource`](crate::Resource), which is a signal that reflects the
+    /// current state of an asynchronous task, allowing you to integrate `async`
+    /// [`Future`]s into the synchronous reactive system.
+    ///
+    /// Takes a `fetcher` function that generates a [`Future`] when called and a
+    /// `source` signal that provides the argument for the `fetcher`. Whenever the
+    /// value of the `source` changes, a new [`Future`] will be created and run.
+    ///
+    /// When server-side rendering is used, the server will handle running the
+    /// [`Future`] and will stream the result to the client. This process requires the
+    /// output type of the Future to be [`Serializable`]. If your output cannot be
+    /// serialized, or you just want to make sure the [`Future`] runs locally, use
+    /// [`create_local_resource()`].
+    ///
+    /// This is identical with [`create_resource`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// // any old async function; maybe this is calling a REST API or something
+    /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
+    ///   // pretend we're fetching cat pics
+    ///   vec![how_many.to_string()]
+    /// }
+    ///
+    /// // a signal that controls how many cat pics we want
+    /// let (how_many_cats, set_how_many_cats) = create_signal(1);
+    ///
+    /// // create a resource that will refetch whenever `how_many_cats` changes
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
+    /// let cats = Resource::new(move || how_many_cats.get(), fetch_cat_picture_urls);
+    ///
+    /// // when we read the signal, it contains either
+    /// // 1) None (if the Future isn't ready yet) or
+    /// // 2) Some(T) (if the future's already resolved)
+    /// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
+    ///
+    /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
+    /// set_how_many_cats.set(2);
+    /// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new<Fu>(
+        source: impl Fn() -> S + 'static,
+        fetcher: impl Fn(S) -> Fu + 'static,
+    ) -> Resource<S, T>
+    where
+        S: PartialEq + Clone + 'static,
+        T: Serializable + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        create_resource(source, fetcher)
+    }
+
+    /// Creates a _local_ [`Resource`](crate::Resource), which is a signal that
+    /// reflects the current state of an asynchronous task, allowing you to
+    /// integrate `async` [`Future`]s into the synchronous reactive system.
+    ///
+    /// Takes a `fetcher` function that generates a [`Future`] when called and a
+    /// `source` signal that provides the argument for the `fetcher`. Whenever the
+    /// value of the `source` changes, a new [`Future`] will be created and run.
+    ///
+    /// Unlike [`create_resource()`], this [`Future`] is always run on the local system
+    /// and therefore it's result type does not need to be [`Serializable`].
+    ///
+    /// This is identical with [`create_local_resource`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
+    /// struct ComplicatedUnserializableStruct {
+    ///     // something here that can't be serialized
+    /// }
+    /// // any old async function; maybe this is calling a REST API or something
+    /// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
+    ///     // do some work
+    ///     ComplicatedUnserializableStruct {}
+    /// }
+    ///
+    /// // create the resource; it will run but not be serialized
+    /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+    /// let result =
+    ///     create_local_resource(move || (), |_| setup_complicated_struct());
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn local<Fu>(
+        source: impl Fn() -> S + 'static,
+        fetcher: impl Fn(S) -> Fu + 'static,
+    ) -> Resource<S, T>
+    where
+        S: PartialEq + Clone + 'static,
+        T: 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        let initial_value = None;
+        create_local_resource_with_initial_value(source, fetcher, initial_value)
+    }
+}
+
+impl<T> Resource<(), T>
+where
+    T: 'static,
+{
+    /// Creates a resource that will only load once, and will not respond
+    /// to any reactive changes, including changes in any reactive variables
+    /// read in its fetcher.
+    ///
+    /// This identical to `create_resource(|| (), move |_| fetcher())`.
+    #[inline(always)]
+    #[track_caller]
+    pub fn once<Fu>(fetcher: impl Fn() -> Fu + 'static) -> Resource<(), T>
+    where
+        T: Serializable + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        create_resource(|| (), move |_| fetcher())
+    }
+}
+
 // Resources
 slotmap::new_key_type! {
     /// Unique ID assigned to a [`Resource`](crate::Resource).
@@ -945,6 +1084,8 @@ where
     version: Rc<Cell<usize>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
     serializable: ResourceSerialization,
+    #[cfg(feature = "experimental-islands")]
+    should_send_to_client: Rc<Cell<Option<bool>>>,
 }
 
 /// Whether and how the resource can be serialized.
@@ -1122,6 +1263,15 @@ where
             return;
         }
 
+        // if it's 1) in normal mode and is read, or
+        // 2) is in island mode and read in an island, tell it to ship
+        #[cfg(feature = "experimental-islands")]
+        if self.should_send_to_client.get().is_none()
+            && !SharedContext::no_hydrate()
+        {
+            self.should_send_to_client.set(Some(true));
+        }
+
         let version = self.version.get() + 1;
         self.version.set(version);
         self.scheduled.set(false);
@@ -1230,6 +1380,8 @@ pub(crate) trait SerializableResource {
         &self,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
+
+    fn should_send_to_client(&self) -> bool;
 }
 
 impl<S, T> SerializableResource for ResourceState<S, T>
@@ -1240,16 +1392,34 @@ where
     fn as_any(&self) -> &dyn Any {
         self
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
+    #[inline(always)]
     fn to_serialization_resolver(
         &self,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
         let fut = self.resource_to_serialization_resolver(id);
         Box::pin(fut)
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    #[inline(always)]
+    fn should_send_to_client(&self) -> bool {
+        #[cfg(feature = "experimental-islands")]
+        {
+            self.should_send_to_client.get() == Some(true)
+        }
+        #[cfg(not(feature = "experimental-islands"))]
+        {
+            true
+        }
     }
 }
 

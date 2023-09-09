@@ -38,7 +38,7 @@ where
                             }
                             api::Error::Api(err) => err.message,
                         };
-                        error!(
+                        log::error!(
                             "Unable to login with {}: {msg}",
                             credentials.email
                         );

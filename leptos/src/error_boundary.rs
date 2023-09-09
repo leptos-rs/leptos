@@ -77,7 +77,7 @@ where
             matches!(child, View::Suspense(_, _))
             || matches!(child, View::Component(repr) if repr.name() == "Transition")
         }) {
-            crate::debug_warn!("You are using a <Suspense/> or \
+            leptos_dom::logging::console_warn("You are using a <Suspense/> or \
             <Transition/> as the direct child of an <ErrorBoundary/>. To ensure correct \
             hydration, these should be reorganized so that the <ErrorBoundary/> is a child \
             of the <Suspense/> or <Transition/> instead: \n\

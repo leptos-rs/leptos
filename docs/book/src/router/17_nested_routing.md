@@ -153,6 +153,43 @@ pub fn ContactList() -> impl IntoView {
 }
 ```
 
+## Refactoring Route Definitions
+
+You don’t need to define all your routes in one place if you don’t want to. You can refactor any `<Route/>` and its children out into a separate component.
+
+For example, you can refactor the example above to use two separate components:
+
+```rust
+#[component]
+fn App() -> impl IntoView {
+  view! {
+    <Router>
+      <Routes>
+        <Route path="/contacts" view=ContactList>
+          <ContactInfoRoutes/>
+          <Route path="" view=|| view! {
+            <p>"Select a contact to view more info."</p>
+          }/>
+        </Route>
+      </Routes>
+    </Router>
+  }
+}
+
+#[component(transparent)]
+fn ContactInfoRoutes() -> impl IntoView {
+  view! {
+    <Route path=":id" view=ContactInfo>
+      <Route path="" view=EmailAndPhone/>
+      <Route path="address" view=Address/>
+      <Route path="messages" view=Messages/>
+    </Route>
+  }
+}
+```
+
+This second component is a `#[component(transparent)]`, meaning it just returns its data, not a view: in this case, it's a [`RouteDefinition`](https://docs.rs/leptos_router/latest/leptos_router/struct.RouteDefinition.html) struct, which is what the `<Route/>` returns. As long as it is marked `#[component(transparent)]`, this sub-route can be defined wherever you want, and inserted as a component into your tree of route definitions.
+
 ## Nested Routing and Performance
 
 All of this is nice, conceptually, but again—what’s the big deal?
