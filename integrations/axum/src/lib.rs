@@ -1508,11 +1508,11 @@ impl<B> From<Request<B>> for ExtractorHelper {
 ///
 /// ```rust,ignore
 /// #[server(QueryExtract, "/api")]
-/// pub async fn query_extract(cx: Scope) -> Result<String, ServerFnError> {
+/// pub async fn query_extract() -> Result<String, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::extract;
 ///
-///     extract(cx, |method: Method, res: Query<MyQuery>| async move {
+///     extract(|method: Method, res: Query<MyQuery>| async move {
 ///             format!("{method:?} and {}", res.q)
 ///         },
 ///     )
@@ -1541,7 +1541,7 @@ where
 ///
 /// ```rust,ignore
 /// #[server(QueryExtract, "/api")]
-/// pub async fn query_extract(cx: Scope) -> Result<String, ServerFnError> {
+/// pub async fn query_extract() -> Result<String, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::extract;
 ///     let state: ServerState = use_context::<crate::ServerState>()
