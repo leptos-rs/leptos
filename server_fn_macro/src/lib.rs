@@ -332,6 +332,7 @@ struct ServerFnName {
 }
 
 impl Parse for ServerFnName {
+    #[allow(clippy::used_underscore_binding)]
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let struct_name = input.parse()?;
         let _comma = input.parse()?;
@@ -423,6 +424,7 @@ impl Parse for ServerFnBody {
             .collect();
 
         Ok(Self {
+            attrs,
             vis,
             async_token,
             fn_token,
@@ -433,7 +435,6 @@ impl Parse for ServerFnBody {
             output_arrow,
             return_ty,
             block,
-            attrs,
             docs,
         })
     }

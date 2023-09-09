@@ -204,10 +204,10 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         version: Rc::new(Cell::new(0)),
-        suspense_contexts: Default::default(),
+        suspense_contexts: Rc::default(),
         serializable,
         #[cfg(feature = "experimental-islands")]
-        should_send_to_client: Default::default(),
+        should_send_to_client: Rc::default(),
     });
 
     let id = with_runtime(|runtime| {

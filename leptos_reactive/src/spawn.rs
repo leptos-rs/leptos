@@ -82,10 +82,11 @@ where
             tokio_test::block_on(fut);
         } else if #[cfg(feature = "ssr")] {
             use crate::Runtime;
+            use crate::runtime::TASK_RUNTIME;
 
             let runtime = Runtime::current();
             tokio::task::spawn_local(async move {
-                crate::TASK_RUNTIME.scope(Some(runtime), fut).await;
+                TASK_RUNTIME.scope(Some(runtime), fut).await;
             });
         }  else {
             futures::executor::block_on(fut);

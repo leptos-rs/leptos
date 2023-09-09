@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
@@ -111,12 +112,12 @@ pub use memo::*;
 pub use node::Disposer;
 pub use oco::*;
 pub use resource::*;
-use runtime::{Runtime, ScopeProperty, with_runtime};
 pub use runtime::{
     as_child_of_current_owner, batch, create_runtime, current_runtime,
     on_cleanup, set_current_runtime, untrack, untrack_with_diagnostics,
     with_current_owner, with_owner, Owner, RuntimeId,
 };
+use runtime::{with_runtime, Runtime, ScopeProperty};
 pub use selector::*;
 pub use serialization::*;
 pub use signal::{prelude as signal_prelude, *};

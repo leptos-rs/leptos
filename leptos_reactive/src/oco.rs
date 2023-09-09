@@ -96,14 +96,14 @@ impl<T: ?Sized + ToOwned> Deref for Oco<'_, T> {
 impl<T: ?Sized + ToOwned> Borrow<T> for Oco<'_, T> {
     #[inline(always)]
     fn borrow(&self) -> &T {
-        &**self
+        self.deref()
     }
 }
 
 impl<T: ?Sized + ToOwned> AsRef<T> for Oco<'_, T> {
     #[inline(always)]
     fn as_ref(&self) -> &T {
-        &**self
+        self.deref()
     }
 }
 
