@@ -43,10 +43,7 @@ async fn get_configuration_from_file_ok() {
     let path: &Path = cargo_tmp.as_ref();
     let path_s = path.to_string_lossy().to_string();
 
-    let config = get_configuration(Some(&path_s))
-        .await
-        .unwrap()
-        .leptos_options;
+    let config = get_configuration(Some(&path_s)).unwrap().leptos_options;
 
     assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
@@ -68,7 +65,7 @@ async fn get_configuration_from_invalid_file() {
     }
     let path: &Path = cargo_tmp.as_ref();
     let path_s = path.to_string_lossy().to_string();
-    assert!(get_configuration(Some(&path_s)).await.is_err());
+    assert!(get_configuration(Some(&path_s)).is_err());
 }
 
 #[tokio::test]
@@ -80,7 +77,7 @@ async fn get_configuration_from_empty_file() {
     }
     let path: &Path = cargo_tmp.as_ref();
     let path_s = path.to_string_lossy().to_string();
-    assert!(get_configuration(Some(&path_s)).await.is_err());
+    assert!(get_configuration(Some(&path_s)).is_err());
 }
 
 #[tokio::test]
@@ -91,10 +88,7 @@ async fn get_config_from_file_ok() {
         write!(output, "{CARGO_TOML_CONTENT_OK}").unwrap();
     }
 
-    let config = get_config_from_file(&cargo_tmp)
-        .await
-        .unwrap()
-        .leptos_options;
+    let config = get_config_from_file(&cargo_tmp).unwrap().leptos_options;
 
     assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
@@ -114,7 +108,7 @@ async fn get_config_from_file_invalid() {
         let mut output = File::create(&cargo_tmp).unwrap();
         write!(output, "{CARGO_TOML_CONTENT_ERR}").unwrap();
     }
-    assert!(get_config_from_file(&cargo_tmp).await.is_err());
+    assert!(get_config_from_file(&cargo_tmp).is_err());
 }
 
 #[tokio::test]
@@ -124,7 +118,7 @@ async fn get_config_from_file_empty() {
         let mut output = File::create(&cargo_tmp).unwrap();
         write!(output, "").unwrap();
     }
-    assert!(get_config_from_file(&cargo_tmp).await.is_err());
+    assert!(get_config_from_file(&cargo_tmp).is_err());
 }
 
 #[test]
@@ -153,7 +147,7 @@ async fn get_config_from_env() {
     std::env::set_var("LEPTOS_RELOAD_PORT", "8080");
     std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "8080");
 
-    let config = get_configuration(None).await.unwrap().leptos_options;
+    let config = get_configuration(None).unwrap().leptos_options;
     assert_eq!(config.output_name, "app-test");
 
     assert_eq!(config.site_root, "my_target/site");
@@ -172,7 +166,7 @@ async fn get_config_from_env() {
     std::env::remove_var("LEPTOS_RELOAD_PORT");
     std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "443");
 
-    let config = get_configuration(None).await.unwrap().leptos_options;
+    let config = get_configuration(None).unwrap().leptos_options;
     assert_eq!(config.site_root, "target/site");
     assert_eq!(config.site_pkg_dir, "pkg");
     assert_eq!(

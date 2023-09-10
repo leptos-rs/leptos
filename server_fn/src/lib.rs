@@ -438,7 +438,6 @@ where
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
 ///
 /// # Panics
-///
 #[cfg(not(feature = "ssr"))]
 #[allow(clippy::too_many_lines)]
 pub async fn call_server_fn<T, C: 'static>(
