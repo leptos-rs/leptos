@@ -64,7 +64,12 @@ inventory::collect!(DefaultServerFnTraitObj);
 ///     }
 /// }
 /// ```
+///
+/// # Panics
+///
+/// Will panic if the server function registry is poisoned.
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fn_by_path(
     path: &str,
 ) -> Option<&'static DefaultServerFnTraitObj> {
@@ -76,7 +81,12 @@ pub fn server_fn_by_path(
 }
 
 /// Returns the set of currently-registered server function paths, for debugging purposes.
+///
+/// # Panics
+///
+/// Will panic if the server function registry is poisoned.
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fns_by_path() -> Vec<&'static str> {
     REGISTERED_SERVER_FUNCTIONS
         .read()
@@ -93,6 +103,7 @@ pub struct DefaultServerFnTraitObj(ServerFnTraitObj<()>);
 #[cfg(any(feature = "ssr", doc))]
 impl DefaultServerFnTraitObj {
     /// Creates a new server function with the given prefix, URL, encoding, and function.
+    #[must_use]
     pub const fn from_generic_server_fn(f: ServerFnTraitObj<()>) -> Self {
         Self(f)
     }

@@ -189,6 +189,7 @@ impl Oco<'_, Path> {
     /// let s: &Path = oco.as_path();
     /// assert_eq!(s, Path::new("Hello"));
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn as_path(&self) -> &Path {
         self

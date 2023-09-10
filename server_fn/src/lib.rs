@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::module_name_repetitions)]
 #![deny(missing_docs)]
 
 //! # Server Functions
@@ -72,7 +73,7 @@
 //! - **Return types must implement [Serialize](serde::Serialize).**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
-//! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
+//! - **Arguments must be implement [`serde::Serialize`].** They are serialized as an `application/x-www-form-urlencoded`
 //!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 //!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 
@@ -174,16 +175,19 @@ impl<T> ServerFnTraitObj<T> {
     }
 
     /// Returns the prefix of the server function.
+    #[must_use]
     pub fn prefix(&self) -> &str {
         self.prefix
     }
 
     /// Returns the URL of the server function.
+    #[must_use]
     pub fn url(&self) -> &str {
         self.url
     }
 
     /// Returns the encoding of the server function.
+    #[must_use]
     pub fn encoding(&self) -> Encoding {
         self.encoding
     }
@@ -244,6 +248,7 @@ pub enum Payload {
 /// }
 /// ```
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
 ) -> Option<ServerFnTraitObj<T>> {
@@ -252,6 +257,7 @@ pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 
 /// Returns a trait obj of the server fn for calling purposes
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fn_trait_obj_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
 ) -> Option<ServerFnTraitObj<T>> {
@@ -260,6 +266,7 @@ pub fn server_fn_trait_obj_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 
 /// Returns the Encoding of the server fn  at a particular path
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fn_encoding_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
 ) -> Option<Encoding> {
@@ -268,6 +275,7 @@ pub fn server_fn_encoding_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 
 /// Returns the set of currently-registered server function paths, for debugging purposes.
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fns_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 ) -> Vec<&'static str> {
     R::paths_registered()
@@ -323,7 +331,7 @@ impl quote::ToTokens for Encoding {
 ///
 /// Server functions are created using the `server` macro.
 ///
-/// The set of server functions can be queried on the server for routing purposes by calling [server_fn_by_path].
+/// The set of server functions can be queried on the server for routing purposes by calling [`server_fn_by_path`].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn<T: 'static>
@@ -428,7 +436,11 @@ where
 }
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
+///
+/// # Panics
+///
 #[cfg(not(feature = "ssr"))]
+#[allow(clippy::too_many_lines)]
 pub async fn call_server_fn<T, C: 'static>(
     url: &str,
     args: impl ServerFn<C>,
@@ -439,14 +451,16 @@ where
 {
     use ciborium::ser::into_writer;
     use serde_json::Deserializer as JSONDeserializer;
-    #[cfg(not(target_arch = "wasm32"))]
-    let url = format!("{}{}", get_server_url(), url);
 
     #[derive(Debug)]
     enum Payload {
         Binary(Vec<u8>),
         Url(String),
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let url = format!("{}{}", get_server_url(), url);
+
     let args_encoded = match &enc {
         Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => Payload::Url(
             serde_qs::to_string(&args)
@@ -557,19 +571,18 @@ where
     let status = status.as_u16();
     if (400..=599).contains(&status) {
         let text = resp.text().await.unwrap_or_default();
-        return Err(match serde_json::from_str(&text) {
-            Ok(e) => e,
-            Err(_) => {
-                #[cfg(target_arch = "wasm32")]
-                let status_text = resp.status_text();
-                #[cfg(not(target_arch = "wasm32"))]
-                let status_text = status.to_string();
-                ServerFnError::ServerError(if text.is_empty() {
-                    format!("{} {}", status, status_text)
-                } else {
-                    format!("{} {}: {}", status, status_text, text)
-                })
-            }
+        return Err(if let Ok(e) = serde_json::from_str(&text) {
+            e
+        } else {
+            #[cfg(target_arch = "wasm32")]
+            let status_text = resp.status_text();
+            #[cfg(not(target_arch = "wasm32"))]
+            let status_text = status.to_string();
+            ServerFnError::ServerError(if text.is_empty() {
+                format!("{status} {status_text}")
+            } else {
+                format!("{status} {status_text}: {text}")
+            })
         });
     }
 
@@ -613,8 +626,12 @@ static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
 static ROOT_URL: once_cell::sync::OnceCell<&'static str> =
     once_cell::sync::OnceCell::new();
 
-#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 /// Set the root server url that all server function paths are relative to for the client. On WASM this will default to the origin.
+///
+/// # Panics
+///
+/// Will panic if the `ROOT_URL` is empty.
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 pub fn set_server_url(url: &'static str) {
     ROOT_URL.set(url).unwrap();
 }

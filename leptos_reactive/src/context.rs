@@ -194,6 +194,7 @@ where
 /// ## Panics
 /// Panics if a context of this type is not found in the current reactive
 /// owner or its ancestors.
+#[must_use]
 #[track_caller]
 pub fn expect_context<T>() -> T
 where
