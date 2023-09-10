@@ -1476,14 +1476,19 @@ impl ExtractorHelper {
         }
     }
 
-    pub async fn extract<F, T, U>(&self, f: F) -> Result<U, T::Rejection>
+    pub async fn extract<F, T, U, S>(
+        &self,
+        f: F,
+        s: S,
+    ) -> Result<U, T::Rejection>
     where
-        F: Extractor<T, U>,
-        T: std::fmt::Debug + Send + FromRequestParts<()> + 'static,
+        S: Sized,
+        F: Extractor<T, U, S>,
+        T: std::fmt::Debug + Send + FromRequestParts<S> + 'static,
         T::Rejection: std::fmt::Debug + Send + 'static,
     {
         let mut parts = self.parts.lock().await;
-        let data = T::from_request_parts(&mut parts, &()).await?;
+        let data = T::from_request_parts(&mut parts, &s).await?;
         Ok(f.call(data).await)
     }
 }
@@ -1516,15 +1521,48 @@ impl<B> From<Request<B>> for ExtractorHelper {
 /// }
 /// ```
 ///
-/// > Note: For now, the Axum `extract` function only supports extractors for
-/// which the state is `()`, i.e., you can't yet use it to extract `State(_)`.
-/// You can access `State(_)` by using a custom handler that extracts the state
-/// and then provides it via context.
-/// [Click here for an example](https://github.com/leptos-rs/leptos/blob/a5f73b441c079f9138102b3a7d8d4828f045448c/examples/session_auth_axum/src/main.rs#L91-L92).
+/// > This function only supports extractors for
+/// which the state is `()`. If the state is not `()`, use [`extract_with_state`].
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
-pub async fn extract<T, U>(f: impl Extractor<T, U>) -> Result<U, T::Rejection>
+pub async fn extract<T, U>(
+    f: impl Extractor<T, U, ()>,
+) -> Result<U, T::Rejection>
 where
     T: std::fmt::Debug + Send + FromRequestParts<()> + 'static,
+    T::Rejection: std::fmt::Debug + Send + 'static,
+{
+    extract_with_state((), f).await
+}
+
+/// A helper to make it easier to use Axum extractors in server functions. This takes
+/// a handler function and state as its arguments. The handler rules similar to Axum
+/// [handlers](https://docs.rs/axum/latest/axum/extract/index.html#intro): it is an async function
+/// whose arguments are “extractors.”
+///
+/// ```rust,ignore
+/// #[server(QueryExtract, "/api")]
+/// pub async fn query_extract() -> Result<String, ServerFnError> {
+///     use axum::{extract::Query, http::Method};
+///     use leptos_axum::extract;
+///     let state: ServerState = use_context::<crate::ServerState>()
+///          .ok_or(ServerFnError::ServerError("No server state".to_string()))?;
+///
+///     extract_with_state(&state, |method: Method, res: Query<MyQuery>| async move {
+///             format!("{method:?} and {}", res.q)
+///         },
+///     )
+///     .await
+///     .map_err(|e| ServerFnError::ServerError("Could not extract method and query...".to_string()))
+/// }
+/// ```
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+pub async fn extract_with_state<T, U, S>(
+    state: S,
+    f: impl Extractor<T, U, S>,
+) -> Result<U, T::Rejection>
+where
+    S: Sized,
+    T: std::fmt::Debug + Send + FromRequestParts<S> + 'static,
     T::Rejection: std::fmt::Debug + Send + 'static,
 {
     use_context::<ExtractorHelper>()
@@ -1532,23 +1570,25 @@ where
             "should have had ExtractorHelper provided by the leptos_axum \
              integration",
         )
-        .extract(f)
+        .extract(f, state)
         .await
 }
 
-pub trait Extractor<T, U>
+pub trait Extractor<T, U, S>
 where
-    T: FromRequestParts<()>,
+    S: Sized,
+    T: FromRequestParts<S>,
 {
     fn call(self, args: T) -> Pin<Box<dyn Future<Output = U>>>;
 }
 
 macro_rules! factory_tuple ({ $($param:ident)* } => {
-    impl<Func, Fut, U, $($param,)*> Extractor<($($param,)*), U> for Func
+    impl<Func, Fut, U, S, $($param,)*> Extractor<($($param,)*), U, S> for Func
     where
-        $($param: FromRequestParts<()> + Send,)*
+        $($param: FromRequestParts<S> + Send,)*
         Func: FnOnce($($param),*) -> Fut + 'static,
         Fut: Future<Output = U> + 'static,
+        S: Sized + Send + Sync
     {
         #[inline]
         #[allow(non_snake_case)]
