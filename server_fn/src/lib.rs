@@ -408,7 +408,7 @@ where
                         .map_err(|e| {
                             ServerFnError::Serialization(e.to_string())
                         }) {
-                        Ok(_) => Payload::Binary(buffer),
+                        Ok(()) => Payload::Binary(buffer),
                         Err(e) => return Err(e),
                     }
                 }

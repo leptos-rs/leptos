@@ -1953,7 +1953,7 @@ pub(crate) enum SignalError {
 impl NodeId {
     #[track_caller]
     pub(crate) fn subscribe(
-        &self,
+        self,
         runtime: &Runtime,
         #[allow(unused)] diagnostics: AccessDiagnostics,
     ) {
@@ -1961,7 +1961,7 @@ impl NodeId {
         if let Some(observer) = runtime.observer.get() {
             // add this observer to this node's dependencies (to allow notification)
             let mut subs = runtime.node_subscribers.borrow_mut();
-            if let Some(subs) = subs.entry(*self) {
+            if let Some(subs) = subs.entry(self) {
                 subs.or_default().borrow_mut().insert(observer);
             }
 
@@ -1969,7 +1969,7 @@ impl NodeId {
             let mut sources = runtime.node_sources.borrow_mut();
             if let Some(sources) = sources.entry(observer) {
                 let sources = sources.or_default();
-                sources.borrow_mut().insert(*self);
+                sources.borrow_mut().insert(self);
             }
         } else {
             #[cfg(all(debug_assertions, not(feature = "ssr")))]
@@ -2001,18 +2001,18 @@ impl NodeId {
     }
 
     fn try_with_no_subscription_inner(
-        &self,
+        self,
         runtime: &Runtime,
     ) -> Result<Rc<RefCell<dyn Any>>, SignalError> {
-        runtime.update_if_necessary(*self);
+        runtime.update_if_necessary(self);
         let nodes = runtime.nodes.borrow();
-        let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
+        let node = nodes.get(self).ok_or(SignalError::Disposed)?;
         Ok(node.value())
     }
 
     #[inline(always)]
     pub(crate) fn try_with_no_subscription_by_id<T, U>(
-        &self,
+        self,
         f: impl FnOnce(&T) -> U,
     ) -> Result<U, SignalError>
     where
@@ -2025,7 +2025,7 @@ impl NodeId {
     #[track_caller]
     #[inline(always)]
     pub(crate) fn try_with_no_subscription<T, U>(
-        &self,
+        self,
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
     ) -> Result<U, SignalError>
@@ -2044,7 +2044,7 @@ impl NodeId {
     #[track_caller]
     #[inline(always)]
     pub(crate) fn try_with<T, U>(
-        &self,
+        self,
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
         diagnostics: AccessDiagnostics,
@@ -2060,7 +2060,7 @@ impl NodeId {
     #[inline(always)]
     #[track_caller]
     fn update_value<T, U>(
-        &self,
+        self,
 
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<
@@ -2074,7 +2074,7 @@ impl NodeId {
         let location = std::panic::Location::caller();
 
         with_runtime(|runtime| {
-            if let Some(value) = runtime.get_value(*self) {
+            if let Some(value) = runtime.get_value(self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))
@@ -2112,7 +2112,7 @@ impl NodeId {
     #[inline(always)]
     #[track_caller]
     pub(crate) fn update<T, U>(
-        &self,
+        self,
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<
             &'static std::panic::Location<'static>,
@@ -2125,7 +2125,7 @@ impl NodeId {
         let location = std::panic::Location::caller();
 
         with_runtime(|runtime| {
-            let updated = if let Some(value) = runtime.get_value(*self) {
+            let updated = if let Some(value) = runtime.get_value(self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))
@@ -2160,7 +2160,7 @@ impl NodeId {
             // notify subscribers
             if updated.is_some() {
                 // mark descendants dirty
-                runtime.mark_dirty(*self);
+                runtime.mark_dirty(self);
 
                 runtime.run_effects();
             }
@@ -2172,7 +2172,7 @@ impl NodeId {
 
     #[inline(always)]
     pub(crate) fn update_with_no_effect<T, U>(
-        &self,
+        self,
 
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<

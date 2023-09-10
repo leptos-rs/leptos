@@ -353,7 +353,7 @@ async fn handle_server_fns_inner(
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
 /// async fn main() {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
 ///
@@ -423,7 +423,7 @@ where
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
 /// async fn main() {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
 ///
@@ -819,7 +819,7 @@ fn provide_contexts(
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
 /// async fn main() {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
 ///

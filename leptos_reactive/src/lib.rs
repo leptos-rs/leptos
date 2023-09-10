@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::inline_always)]
 #![deny(missing_docs)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]

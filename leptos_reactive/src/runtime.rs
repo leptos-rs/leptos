@@ -322,6 +322,7 @@ impl Runtime {
         }
     }
 
+    #[allow(clippy::items_after_statements)]
     pub(crate) fn mark_dirty(&self, node: NodeId) {
         let mut nodes = self.nodes.borrow_mut();
 
@@ -806,6 +807,7 @@ impl RuntimeId {
         )
     }
 
+    #[allow(clippy::unused_self)]
     #[track_caller]
     #[inline(always)] // only because it's placed here to fit in with the other create methods
     pub(crate) fn create_trigger(self) -> Trigger {
@@ -829,6 +831,7 @@ impl RuntimeId {
         }
     }
 
+    #[allow(clippy::unused_self)]
     pub(crate) fn create_concrete_signal(
         self,
         value: Rc<RefCell<dyn Any>>,
@@ -891,6 +894,7 @@ impl RuntimeId {
         }
     }
 
+    #[allow(clippy::unused_self)]
     pub(crate) fn create_concrete_effect(
         self,
         value: Rc<RefCell<dyn Any>>,
@@ -910,6 +914,7 @@ impl RuntimeId {
         .expect("tried to create an effect in a runtime that has been disposed")
     }
 
+    #[allow(clippy::unused_self)]
     pub(crate) fn create_concrete_memo(
         self,
         value: Rc<RefCell<dyn Any>>,

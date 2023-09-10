@@ -177,7 +177,7 @@ where
     /// # Panics
     ///
     /// Will panic if v is None.
-    pub fn selected(&self, key: &T) -> bool {
+    pub fn selected(&self, key: T) -> bool {
         let owner = self.owner;
         let read = {
             let mut subs = self.subs.borrow_mut();
@@ -186,7 +186,7 @@ where
             }))
         };
         _ = read.try_with(|n| *n);
-        (self.f)(key, self.v.borrow().as_ref().unwrap())
+        (self.f)(&key, self.v.borrow().as_ref().unwrap())
     }
 
     /// Removes the listener for the given key.
