@@ -261,6 +261,10 @@ impl TryFrom<String> for ReloadWSProtocol {
 
 /// Loads [`LeptosOptions`] from a Cargo.toml text content with layered overrides.
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
+///
+/// # Errors
+///
+/// Will return [`LeptosConfigError`] if section does not exist or deserialization configuration failure.
 #[allow(clippy::missing_panics_doc)]
 pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
     let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
@@ -306,6 +310,10 @@ pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
 /// you'll need to set the options as environment variables or rely on the defaults. This is the preferred
 /// approach for cargo-leptos. If Some("./Cargo.toml") is provided, Leptos will read in the settings itself. This
 /// option currently does not allow dashes in file or folder names, as all dashes become underscores
+///
+/// # Errors
+///
+/// Will return [`LeptosConfigError`] if the configuration fetch fails.
 pub fn get_configuration(
     path: Option<&str>,
 ) -> Result<ConfFile, LeptosConfigError> {
@@ -318,6 +326,10 @@ pub fn get_configuration(
 
 /// Loads [`LeptosOptions`] from a Cargo.toml with layered overrides. Leptos will read in the settings itself. This
 /// option currently does not allow dashes in file or folder names, as all dashes become underscores
+///
+/// # Errors
+///
+/// Will return [`LeptosConfigError`] if the configuration fetch fails from file.
 pub fn get_config_from_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<ConfFile, LeptosConfigError> {
@@ -327,10 +339,13 @@ pub fn get_config_from_file<P: AsRef<Path>>(
 }
 
 /// Loads [`LeptosOptions`] from environment variables or rely on the defaults
+///
+/// # Errors
+///
+/// Will return [`LeptosConfigError`] if the configuration fetch fails from environment.
 pub fn get_config_from_env() -> Result<ConfFile, LeptosConfigError> {
-    Ok(ConfFile {
-        leptos_options: LeptosOptions::try_from_env()?,
-    })
+    LeptosOptions::try_from_env()
+        .map(|leptos_options| ConfFile { leptos_options })
 }
 
 #[path = "tests.rs"]

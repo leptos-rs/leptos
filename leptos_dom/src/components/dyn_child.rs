@@ -112,7 +112,7 @@ impl DynChildRepr {
             document_fragment,
             #[cfg(debug_assertions)]
             opening: markers.1,
-            child: Default::default(),
+            child: Rc::default(),
             closing: markers.0,
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             id,
@@ -160,6 +160,7 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "<DynChild />", skip_all)
     )]
+    #[allow(clippy::too_many_lines)]
     #[inline]
     fn into_view(self) -> View {
         // concrete inner function

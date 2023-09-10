@@ -895,6 +895,7 @@ impl RuntimeId {
     }
 
     #[allow(clippy::unused_self)]
+    #[allow(clippy::needless_pass_by_value)]
     pub(crate) fn create_concrete_effect(
         self,
         value: Rc<RefCell<dyn Any>>,

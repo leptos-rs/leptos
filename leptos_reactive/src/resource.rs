@@ -368,6 +368,7 @@ where
 }
 
 #[cfg(not(feature = "hydrate"))]
+#[allow(clippy::needless_pass_by_value)]
 fn load_resource<S, T>(id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Clone + 'static,

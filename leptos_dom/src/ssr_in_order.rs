@@ -251,7 +251,7 @@ impl View {
                 }
             }
             View::Text(node) => {
-                chunks.push_back(StreamChunk::Sync(node.content))
+                chunks.push_back(StreamChunk::Sync(node.content));
             }
             View::Component(node) => {
                 #[cfg(debug_assertions)]
@@ -288,7 +288,7 @@ impl View {
                     for chunk in el_chunks {
                         match chunk {
                             StringOrView::String(string) => {
-                                chunks.push_back(StreamChunk::Sync(string))
+                                chunks.push_back(StreamChunk::Sync(string));
                             }
                             StringOrView::View(view) => view()
                                 .into_stream_chunks_helper(
@@ -352,7 +352,7 @@ impl View {
                                 }
                             }
                             ElementChildren::InnerHtml(inner_html) => {
-                                chunks.push_back(StreamChunk::Sync(inner_html))
+                                chunks.push_back(StreamChunk::Sync(inner_html));
                             }
                             // handled above
                             ElementChildren::Chunks(_) => unreachable!(),
@@ -427,7 +427,11 @@ impl View {
                                             // into one single node, so we need to artificially make the
                                             // browser create the dynamic text as it's own text node
                                             chunks.push_back(
-                                                if !cfg!(debug_assertions) {
+                                                if cfg!(debug_assertions) {
+                                                    StreamChunk::Sync(html_escape::encode_safe(
+                                                        &content
+                                                    ).to_string().into())
+                                                } else {
                                                     StreamChunk::Sync(
                                                         format!(
                                                             "<!>{}",
@@ -437,10 +441,6 @@ impl View {
                                                         )
                                                         .into(),
                                                     )
-                                                } else {
-                                                    StreamChunk::Sync(html_escape::encode_safe(
-                                                        &content
-                                                    ).to_string().into())
                                                 },
                                             );
                                         } else {
@@ -472,12 +472,14 @@ impl View {
 
                                         #[cfg(debug_assertions)]
                                         if !is_el {
-                                            chunks.push_back(StreamChunk::Sync(
-                                                id.to_marker(
-                                                    false,
-                                                    "each-item",
+                                            chunks.push_back(
+                                                StreamChunk::Sync(
+                                                    id.to_marker(
+                                                        false,
+                                                        "each-item",
+                                                    ),
                                                 ),
-                                            ))
+                                            );
                                         };
                                         node.child.into_stream_chunks_helper(
                                             chunks,

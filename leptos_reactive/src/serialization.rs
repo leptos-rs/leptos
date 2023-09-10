@@ -30,9 +30,17 @@ where
     Self: Sized,
 {
     /// Serializes the object to a string.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if serializing an object as a string fails.
     fn ser(&self) -> Result<String, SerializationError>;
 
     /// Deserializes the object from some bytes.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if deserializing a string to an object fails.
     fn de(bytes: &str) -> Result<Self, SerializationError>;
 }
 

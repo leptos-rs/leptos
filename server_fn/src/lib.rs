@@ -114,6 +114,10 @@ pub trait ServerFunctionRegistry<T> {
     /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
     /// this will explicitly register server functions.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` when the registration function fails.
     fn register_explicit(
         prefix: &'static str,
         url: &'static str,
@@ -421,6 +425,10 @@ where
 
     /// Registers the server function explicitly on platforms that require it,
     /// allowing the server to query it by URL.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`ServerFnError`] when the registration function fails.
     #[cfg(any(feature = "ssr", doc,))]
     fn register_in_explicit<R: ServerFunctionRegistry<T>>(
     ) -> Result<(), ServerFnError> {
@@ -437,7 +445,13 @@ where
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
 ///
+/// # Errors
+///
+/// Will return [`ServerFnError`] that can occur when using server functions.
+///
 /// # Panics
+///
+/// Will panic if the binary data is transferred via GET request in a query string.
 #[cfg(not(feature = "ssr"))]
 #[allow(clippy::too_many_lines)]
 pub async fn call_server_fn<T, C: 'static>(

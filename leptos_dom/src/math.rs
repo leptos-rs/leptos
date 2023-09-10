@@ -1,4 +1,4 @@
-//! Exports types for working with MathML elements.
+//! Exports types for working with `MathML` elements.
 
 use super::{AnyElement, ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
@@ -155,6 +155,7 @@ macro_rules! generate_math_tags {
         }
 
         #[$meta]
+        #[must_use]
         pub fn [<$tag $(_ $second $(_ $third)?)? $($trailing_)?>]() -> HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]> {
           HtmlElement::new([<$tag:camel $($second:camel $($third:camel)?)?>]::default())
         }

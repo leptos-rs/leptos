@@ -362,7 +362,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
           } else {
             Self {
               attrs: smallvec![],
-              children: Default::default(),
+              children: ElementChildren::default(),
               element,
               #[cfg(debug_assertions)]
               view_marker: None
@@ -655,7 +655,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// # Panics
     /// This directly uses the browser’s `classList` API, which means it will throw
     /// a runtime error if you pass more than a single class name. If you want to
-    /// pass more than one class name at a time, you can use [HtmlElement::classes].
+    /// pass more than one class name at a time, you can use [`HtmlElement::classes`].
     #[track_caller]
     pub fn class(
         self,

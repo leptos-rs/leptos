@@ -112,6 +112,7 @@ impl IntoAttribute for Option<Nonce> {
 ///     }
 /// }
 /// ```
+#[must_use]
 pub fn use_nonce() -> Option<Nonce> {
     use_context::<Nonce>()
 }

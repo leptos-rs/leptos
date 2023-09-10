@@ -177,6 +177,7 @@ where
     /// # Panics
     ///
     /// Will panic if v is None.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn selected(&self, key: T) -> bool {
         let owner = self.owner;
         let read = {

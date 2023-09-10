@@ -132,6 +132,7 @@ where
 
 impl Errors {
     /// Returns `true` if there are no errors.
+    #[must_use]
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()

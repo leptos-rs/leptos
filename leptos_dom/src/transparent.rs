@@ -17,6 +17,7 @@ impl Transparent {
     }
 
     /// Returns some reference to the inner value if it is of type `T`, or `None` if it isn't.
+    #[must_use]
     #[inline(always)]
     pub fn downcast_ref<T>(&self) -> Option<&T>
     where

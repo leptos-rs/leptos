@@ -33,14 +33,14 @@
 //!
 //! # Types
 //! This modules defines:
-//! - [Callback], the most basic callback type
-//! - [SyncCallback] for scenarios when you need `Send` and `Sync`
-//! - [HtmlCallback] for a function that returns a [HtmlElement]
-//! - [ViewCallback] for a function that returns some kind of [view][IntoView]
+//! - [`Callback`], the most basic callback type
+//! - [`SyncCallback`] for scenarios when you need `Send` and `Sync`
+//! - [`HtmlCallback`] for a function that returns a [`HtmlElement`]
+//! - [`ViewCallback`] for a function that returns some kind of [`view`][IntoView]
 //!
 //! # Copying vs cloning
-//! All callbacks type defined in this module are [Clone] but not [Copy].
-//! To solve this issue, use [StoredValue]; see [StoredCallback] for more
+//! All callbacks type defined in this module are [`Clone`] but not [`Copy`].
+//! To solve this issue, use [`StoredValue`]; see [`StoredCallback`] for more
 //! ```
 //! # use leptos::*;
 //! # use leptos::leptos_dom::{Callback, Callable};
@@ -98,7 +98,7 @@ pub trait Callable<In, Out = ()> {
 /// ```
 ///
 /// # Cloning
-/// See [StoredCallback]
+/// See [`StoredCallback`]
 
 pub struct Callback<In, Out = ()>(Rc<dyn Fn(In) -> Out>);
 
@@ -164,8 +164,8 @@ where
 /// it will work in the same way.
 ///
 ///
-/// Note that a prop should never be a [StoredCallback]:
-/// you have to call [store_value][leptos_reactive::store_value] inside your component code.
+/// Note that a prop should never be a [`StoredCallback`]:
+/// you have to call [`store_value`][leptos_reactive::store_value] inside your component code.
 pub type StoredCallback<In, Out> = StoredValue<Callback<In, Out>>;
 
 impl<F, In, Out> Callable<In, Out> for StoredValue<F>
@@ -231,13 +231,15 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 ///
 /// # `HtmlCallback` with empty input type.
 /// Note that when `my_html_callback` is `HtmlCallback<()>`, you can use it more easily because it
-/// implements [IntoView]
+/// implements [`IntoView`]
 ///
+/// ```
 /// view!{
 ///     <div>
 ///         {render_number}
 ///     </div>
 /// }
+/// ```
 pub struct HtmlCallback<In = ()>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
 
 impl<In> fmt::Debug for HtmlCallback<In> {
@@ -312,13 +314,15 @@ impl IntoView for HtmlCallback<()> {
 ///
 /// # `ViewCallback` with empty input type.
 /// Note that when `my_view_callback` is `ViewCallback<()>`, you can use it more easily because it
-/// implements [IntoView]
+/// implements [`IntoView`]
 ///
+/// ```
 /// view!{
 ///     <div>
 ///         {render_number}
 ///     </div>
 /// }
+/// ```
 pub struct ViewCallback<In>(Rc<dyn Fn(In) -> View>);
 
 impl<In> fmt::Debug for ViewCallback<In> {

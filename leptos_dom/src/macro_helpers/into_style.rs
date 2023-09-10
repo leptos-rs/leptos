@@ -20,7 +20,6 @@ impl PartialEq for Style {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Value(l0), Self::Value(r0)) => l0 == r0,
-            (Self::Fn(_), Self::Fn(_)) => false,
             (Self::Option(l0), Self::Option(r0)) => l0 == r0,
             _ => false,
         }
@@ -174,6 +173,7 @@ where
 
 impl Style {
     /// Converts the style to its HTML value at that moment so it can be rendered on the server.
+    #[must_use]
     pub fn as_value_string(
         &self,
         style_name: &'static str,

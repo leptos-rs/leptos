@@ -295,7 +295,11 @@ fn ooo_body_stream_recurse(
             futures::stream::once(async move {
                 let pending = SharedContext::pending_fragments();
 
-                if !pending.is_empty() {
+                if pending.is_empty() {
+                    Box::pin(futures::stream::once(async move {
+                        String::default()
+                    }))
+                } else {
                     let fragments = FuturesUnordered::new();
                     let serializers = SharedContext::serialization_resolvers();
                     for (fragment_id, data) in pending {
@@ -310,10 +314,6 @@ fn ooo_body_stream_recurse(
                         serializers,
                     ))
                         as Pin<Box<dyn Stream<Item = String>>>
-                } else {
-                    Box::pin(futures::stream::once(async move {
-                        Default::default()
-                    }))
                 }
             })
             .flatten(),
@@ -476,10 +476,10 @@ impl View {
                                         // and the browser automatically merges the dynamic text
                                         // into one single node, so we need to artificially make the
                                         // browser create the dynamic text as it's own text node
-                                        if !cfg!(debug_assertions) {
-                                            format!("<!>{content}",).into()
-                                        } else {
+                                        if cfg!(debug_assertions) {
                                             content
+                                        } else {
+                                            format!("<!>{content}",).into()
                                         }
                                     } else {
                                         child.render_to_string_helper(
@@ -645,7 +645,7 @@ impl View {
                     }
                 }
             }
-            View::Transparent(_) => Default::default(),
+            View::Transparent(_) => Oco::default(),
         }
     }
 }

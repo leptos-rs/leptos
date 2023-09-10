@@ -64,7 +64,7 @@ impl fmt::Debug for EachRepr {
 
         f.write_str("<Each>\n")?;
 
-        for child in self.children.borrow().deref() {
+        for child in &*self.children.borrow() {
             let mut pad_adapter = pad_adapter::PadAdapter::new(f);
 
             writeln!(pad_adapter, "{:#?}", child.as_ref().unwrap())?;
@@ -113,7 +113,7 @@ impl Default for EachRepr {
             mounted: Default::default(),
             #[cfg(debug_assertions)]
             opening: markers.1,
-            children: Default::default(),
+            children: Rc::default(),
             closing: markers.0,
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             id,
@@ -628,7 +628,7 @@ fn group_adjacent_moves(moved: Vec<DiffOpMove>) -> Vec<DiffOpMove> {
         }
     }
     if let Some(prev) = prev {
-        new_moved.push(prev)
+        new_moved.push(prev);
     }
     new_moved
 }

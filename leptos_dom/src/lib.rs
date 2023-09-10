@@ -1,5 +1,7 @@
-#![deny(missing_docs)]
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
+#![allow(clippy::inline_always)]
+#![allow(clippy::module_name_repetitions)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 
@@ -241,7 +243,7 @@ impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
     )]
     fn collect_view(self) -> View {
         self.into_iter()
-            .map(|v| v.into_view())
+            .map(IntoView::into_view)
             .collect::<Fragment>()
             .into_view()
     }
@@ -319,6 +321,7 @@ cfg_if! {
 
 impl Element {
     /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement>`].
+    #[must_use]
     pub fn into_html_element(self) -> HtmlElement<AnyElement> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -395,8 +398,8 @@ impl Element {
             Self {
               name: el.name(),
               is_void: el.is_void(),
-              attrs: Default::default(),
-              children: Default::default(),
+              attrs: SmallVec::default(),
+              children: ElementChildren::default(),
               id: *el.hydration_id(),
               #[cfg(debug_assertions)]
               view_marker: None
@@ -500,6 +503,7 @@ impl IntoView for Text {
 
 impl Text {
     /// Creates a new [`Text`].
+    #[must_use]
     pub fn new(content: Oco<'static, str>) -> Self {
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -552,7 +556,7 @@ impl fmt::Debug for View {
 /// The default [`View`] is the [`Unit`] core-component.
 impl Default for View {
     fn default() -> Self {
-        Self::CoreComponent(Default::default())
+        Self::CoreComponent(CoreComponent::default())
     }
 }
 
@@ -672,6 +676,7 @@ impl View {
 
     /// Returns [`Some`] [`Text`] if the view is of this type. [`None`]
     /// otherwise.
+    #[must_use]
     pub fn as_text(&self) -> Option<&Text> {
         if let Self::Text(t) = self {
             Some(t)
@@ -682,6 +687,7 @@ impl View {
 
     /// Returns [`Some`] [`Element`] if the view is of this type. [`None`]
     /// otherwise.
+    #[must_use]
     pub fn as_element(&self) -> Option<&Element> {
         if let Self::Element(el) = self {
             Some(el)
@@ -692,6 +698,7 @@ impl View {
 
     /// Returns [`Some`] [`Transparent`] if the view is of this type. [`None`]
     /// otherwise.
+    #[must_use]
     pub fn as_transparent(&self) -> Option<&Transparent> {
         match &self {
             Self::Transparent(t) => Some(t),
@@ -887,7 +894,7 @@ where
     F: FnOnce() -> N + 'static,
     N: IntoView,
 {
-    mount_to_with_stop_hydrating(parent, true, f)
+    mount_to_with_stop_hydrating(parent, true, f);
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
@@ -929,7 +936,7 @@ thread_local! {
 /// This is cached as a thread-local variable, so calling `window()` multiple times
 /// requires only one call out to JavaScript.
 pub fn window() -> web_sys::Window {
-    WINDOW.with(|window| window.clone())
+    WINDOW.with(Clone::clone)
 }
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
@@ -937,7 +944,7 @@ pub fn window() -> web_sys::Window {
 /// This is cached as a thread-local variable, so calling `document()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
-    DOCUMENT.with(|document| document.clone())
+    DOCUMENT.with(Clone::clone)
 }
 
 /// Returns true if running on the server (SSR).
@@ -955,6 +962,7 @@ pub fn document() -> web_sys::Document {
 ///     // if on the browser, do something else
 /// };
 /// ```
+#[must_use]
 pub const fn is_server() -> bool {
     !is_browser()
 }
@@ -969,22 +977,26 @@ pub const fn is_server() -> bool {
 ///     // if on the server, do something else
 /// };
 /// ```
+#[must_use]
 pub const fn is_browser() -> bool {
     cfg!(all(target_arch = "wasm32", feature = "web"))
 }
 
 /// Returns true if `debug_assertions` are enabled.
+///
 /// ```
 /// # use leptos_dom::is_dev;
 /// if is_dev() {
 ///     // log something or whatever
 /// }
 /// ```
+#[must_use]
 pub const fn is_dev() -> bool {
     cfg!(debug_assertions)
 }
 
 /// Returns true if `debug_assertions` are disabled.
+#[must_use]
 pub const fn is_release() -> bool {
     !is_dev()
 }
@@ -1097,7 +1109,7 @@ where
     )]
     fn into_view(self) -> View {
         self.into_iter()
-            .map(|v| v.into_view())
+            .map(IntoView::into_view)
             .collect::<Fragment>()
             .into_view()
     }

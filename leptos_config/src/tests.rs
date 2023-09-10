@@ -77,5 +77,5 @@ fn try_from_env_test() {
     assert_eq!(config.reload_port, 8080);
     assert_eq!(config.reload_external_port, Some(8080));
     assert_eq!(config.env, Env::PROD);
-    assert_eq!(config.reload_ws_protocol, ReloadWSProtocol::WSS)
+    assert_eq!(config.reload_ws_protocol, ReloadWSProtocol::WSS);
 }
