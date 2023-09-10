@@ -266,6 +266,18 @@ pub trait Props {
 }
 
 #[doc(hidden)]
+pub trait DynAttrs {
+    fn dyn_attrs(self, _args: Vec<(&'static str, Attribute)>) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+}
+
+impl DynAttrs for () {}
+
+#[doc(hidden)]
 pub trait PropsOrNoPropsBuilder {
     type Builder;
     fn builder_or_not() -> Self::Builder;

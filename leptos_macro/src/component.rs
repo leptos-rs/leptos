@@ -332,6 +332,39 @@ impl ToTokens for Model {
             }
         };
 
+        let count = props
+            .iter()
+            .filter(
+                |Prop {
+                     prop_opts: PropOpt { attrs, .. },
+                     ..
+                 }| *attrs,
+            )
+            .count();
+
+        let dyn_attrs_props = props
+            .iter()
+            .filter(
+                |Prop {
+                     prop_opts: PropOpt { attrs, .. },
+                     ..
+                 }| *attrs,
+            )
+            .enumerate()
+            .map(|(idx, Prop { name, .. })| {
+                let ident = &name.ident;
+                if idx < count - 1 {
+                    quote! {
+                        self.#ident = v.clone().into();
+                    }
+                } else {
+                    quote! {
+                        self.#ident = v.into();
+                    }
+                }
+            })
+            .collect::<TokenStream>();
+
         let body = quote! {
             #body
             #destructure_props
@@ -458,6 +491,13 @@ impl ToTokens for Model {
                 type Builder = #props_builder_name #generics;
                 fn builder() -> Self::Builder {
                     #props_name::builder()
+                }
+            }
+
+            impl #impl_generics ::leptos::DynAttrs for #props_name #generics #where_clause {
+                fn dyn_attrs(mut self, v: Vec<(&'static str, ::leptos::Attribute)>) -> Self {
+                    #dyn_attrs_props
+                    self
                 }
             }
 
@@ -699,6 +739,7 @@ struct PropOpt {
     #[attribute(example = "5 * 10")]
     default: Option<syn::Expr>,
     into: bool,
+    attrs: bool,
 }
 
 struct TypedBuilderOpts {
@@ -711,7 +752,7 @@ struct TypedBuilderOpts {
 impl TypedBuilderOpts {
     fn from_opts(opts: &PropOpt, is_ty_option: bool) -> Self {
         Self {
-            default: opts.optional || opts.optional_no_strip,
+            default: opts.optional || opts.optional_no_strip || opts.attrs,
             default_with_value: opts.default.clone(),
             strip_option: opts.strip_option || opts.optional && is_ty_option,
             into: opts.into,
