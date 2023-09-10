@@ -89,7 +89,7 @@ We can solve this problem by using the [`store_value`](https://docs.rs/leptos/la
 In this case, it’s really simple:
 
 ```rust
-pub fn LoggedIn<F, IV>(F, children: ChildrenFn) -> impl IntoView
+pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
 where
     F: Fn() -> IV + 'static,
     IV: IntoView,
