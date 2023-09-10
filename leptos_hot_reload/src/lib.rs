@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 extern crate proc_macro;
 
 use anyhow::Result;
@@ -126,7 +128,7 @@ impl std::fmt::Debug for MacroInvocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MacroInvocation")
             .field("id", &self.id)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

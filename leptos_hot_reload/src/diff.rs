@@ -227,6 +227,7 @@ impl LNode {
         additions.chain(removals)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn diff_children(
         path: &[usize],
         old: &[LNode],

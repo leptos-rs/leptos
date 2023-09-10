@@ -261,6 +261,7 @@ impl TryFrom<String> for ReloadWSProtocol {
 
 /// Loads [`LeptosOptions`] from a Cargo.toml text content with layered overrides.
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
+#[allow(clippy::missing_panics_doc)]
 pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
     let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
     let re_workspace: Regex =

@@ -51,15 +51,12 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 /// ```ignore
 /// #[proc_macro_attribute]
 /// pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-///     let server_context = Some(ServerContext {
-///         ty: syn::parse_quote!(MyContext),
-///         path: syn::parse_quote!(my_crate::prelude::MyContext),
-///     });
 ///     match server_macro_impl(
 ///         args.into(),
 ///         s.into(),
-///         Some(server_context),
-///         Some(syn::parse_quote!(my_crate::exports::server_fn)),
+///         &syn::parse_quote!(my_crate::exports::server_fn),
+///         &Some(syn::parse_quote!(MyContext))
+///         Some(syn::parse_quote!(my_crate::prelude::MyContext)),
 ///     ) {
 ///         Err(e) => e.to_compile_error().into(),
 ///         Ok(s) => s.to_token_stream().into(),
@@ -68,11 +65,12 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 /// ```
 ///
 /// # Errors
+#[allow(clippy::too_many_lines)]
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
-    trait_obj_wrapper: Type,
-    server_context: Option<ServerContext>,
+    trait_obj_wrapper: &Type,
+    server_context: &Option<ServerContext>,
     server_fn_path: Option<Path>,
 ) -> Result<TokenStream2> {
     let ServerFnName {

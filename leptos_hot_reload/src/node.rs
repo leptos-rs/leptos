@@ -38,6 +38,13 @@ pub enum LAttributeValue {
 }
 
 impl LNode {
+    /// # Errors
+    ///
+    /// Will return `Err` if parsing the node fails.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the last element is None.
     pub fn parse_view(nodes: Vec<Node>) -> Result<LNode> {
         let mut out = Vec::new();
         for node in nodes {

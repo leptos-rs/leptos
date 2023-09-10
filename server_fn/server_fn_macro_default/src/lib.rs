@@ -57,8 +57,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
-        syn::parse_quote!(server_fn::default::DefaultServerFnTraitObj),
-        None,
+        &syn::parse_quote!(server_fn::default::DefaultServerFnTraitObj),
+        &None,
         Some(syn::parse_quote!(server_fn)),
     ) {
         Err(e) => e.to_compile_error().into(),

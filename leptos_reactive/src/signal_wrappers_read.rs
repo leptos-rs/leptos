@@ -530,7 +530,7 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// # runtime.dispose();
 /// ```
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaybeSignal<T>
 where
     T: 'static,
@@ -540,17 +540,6 @@ where
     /// A reactive signal that contains a value of type `T`.
     Dynamic(Signal<T>),
 }
-
-impl<T: Clone> Clone for MaybeSignal<T> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Static(item) => Self::Static(item.clone()),
-            Self::Dynamic(signal) => Self::Dynamic(*signal),
-        }
-    }
-}
-
-impl<T: Copy> Copy for MaybeSignal<T> {}
 
 impl<T: Default> Default for MaybeSignal<T> {
     fn default() -> Self {

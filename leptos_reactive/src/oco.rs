@@ -134,6 +134,7 @@ impl Oco<'_, str> {
     /// let s: &str = oco.as_str();
     /// assert_eq!(s, "Hello");
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn as_str(&self) -> &str {
         self
@@ -152,6 +153,7 @@ impl Oco<'_, CStr> {
     /// let s: &CStr = oco.as_c_str();
     /// assert_eq!(s, CStr::from_bytes_with_nul(b"Hello\0").unwrap());
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn as_c_str(&self) -> &CStr {
         self
@@ -169,6 +171,7 @@ impl Oco<'_, OsStr> {
     /// let s: &OsStr = oco.as_os_str();
     /// assert_eq!(s, OsStr::new("Hello"));
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn as_os_str(&self) -> &OsStr {
         self

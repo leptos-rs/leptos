@@ -58,6 +58,10 @@ where
 /// **You probably don’t need this,** but it can be a very useful optimization
 /// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
 /// because it reduces them from `O(n)` to `O(1)`.
+///
+/// # Panics
+///
+/// Will panic if the current reactive owner is None.
 pub fn create_selector_with_fn<T>(
     source: impl Fn() -> T + 'static,
     f: impl Fn(&T, &T) -> bool + Clone + 'static,
@@ -169,7 +173,11 @@ where
     }
 
     /// Reactively checks whether the given key is selected.
-    pub fn selected(&self, key: T) -> bool {
+    ///
+    /// # Panics
+    ///
+    /// Will panic if v is None.
+    pub fn selected(&self, key: &T) -> bool {
         let owner = self.owner;
         let read = {
             let mut subs = self.subs.borrow_mut();
@@ -178,7 +186,7 @@ where
             }))
         };
         _ = read.try_with(|n| *n);
-        (self.f)(&key, self.v.borrow().as_ref().unwrap())
+        (self.f)(key, self.v.borrow().as_ref().unwrap())
     }
 
     /// Removes the listener for the given key.

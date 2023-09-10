@@ -51,8 +51,8 @@ pub fn server_impl(
     match server_fn_macro::server_macro_impl(
         quote::quote!(#args),
         mapped_body,
-        syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
-        None,
+        &syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
+        &None,
         Some(syn::parse_quote!(::leptos::server_fn)),
     ) {
         Err(e) => e.to_compile_error().into(),

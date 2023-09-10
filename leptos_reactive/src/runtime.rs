@@ -77,6 +77,7 @@ pub(crate) struct Runtime {
 }
 
 /// The current reactive runtime.
+#[must_use]
 pub fn current_runtime() -> RuntimeId {
     Runtime::current()
 }

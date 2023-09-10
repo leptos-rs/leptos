@@ -137,7 +137,7 @@ impl SharedContext {
         let mut ready = with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let ready = FuturesUnordered::new();
-            for (_, data) in shared_context.pending_fragments.iter_mut() {
+            for data in shared_context.pending_fragments.values_mut() {
                 if data.should_block {
                     if let Some(is_ready) = data.is_ready.take() {
                         ready.push(is_ready);
