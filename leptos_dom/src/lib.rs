@@ -862,6 +862,7 @@ where
 
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        crate::logging::console_log("mounting");
         mount_to(crate::document().body().expect("body element to exist"), f)
       } else {
         _ = f;
@@ -894,9 +895,9 @@ pub fn mount_to_with_stop_hydrating<F, N>(
             if stop_hydrating {
                 HydrationCtx::stop_hydrating();
             }
-            // TODO is this *ever* needed? unnecessarily remounts hydrated child
-            // parent.append_child(&node.get_mountable_node()).unwrap();
-            _ = parent;
+            if cfg!(feature = "csr") {
+                parent.append_child(&node.get_mountable_node()).unwrap();
+            }
             std::mem::forget(node);
       } else {
         _ = parent;

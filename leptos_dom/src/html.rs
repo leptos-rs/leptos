@@ -34,6 +34,7 @@ cfg_if! {
         v
     }
 
+    #[allow(unused)]
     fn is_meta_tag() -> bool {
         IS_META.with(|m| m.get())
     }
@@ -196,6 +197,7 @@ impl Custom {
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         let element = if HydrationCtx::is_hydrating() && id.is_some() {
+            #[allow(unused)]
             let id = id.unwrap();
             #[cfg(feature = "hydrate")]
             if let Some(el) = crate::hydration::get_element(&id.to_string()) {
@@ -1328,8 +1330,8 @@ macro_rules! generate_html_tags {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn create_leptos_element(
-    tag: &str,
-    id: Option<HydrationKey>,
+    #[allow(unused)] tag: &str,
+    #[allow(unused)] id: Option<HydrationKey>,
     clone_element: fn() -> web_sys::HtmlElement,
 ) -> web_sys::HtmlElement {
     #[cfg(not(debug_assertions))]

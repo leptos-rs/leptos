@@ -55,6 +55,7 @@ macro_rules! generate_math_tags {
 
         impl Default for [<$tag:camel $($second:camel $($third:camel)?)?>] {
           fn default() -> Self {
+            #[allow(unused)]
             let id = HydrationCtx::id();
 
             #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
