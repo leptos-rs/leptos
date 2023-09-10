@@ -27,6 +27,7 @@ pub enum Attribute {
 impl Attribute {
     /// Converts the attribute to its HTML value at that moment, including the attribute name,
     /// so it can be rendered on the server.
+    #[must_use]
     pub fn as_value_string(
         &self,
         attr_name: &'static str,
@@ -80,7 +81,6 @@ impl PartialEq for Attribute {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::String(l0), Self::String(r0)) => l0 == r0,
-            (Self::Fn(_), Self::Fn(_)) => false,
             (Self::Option(l0), Self::Option(r0)) => l0 == r0,
             (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
             _ => false,

@@ -229,8 +229,9 @@ impl ComponentRepr {
         }
     }
 
-    #[cfg(any(debug_assertions, feature = "ssr"))]
     /// Returns the name of the component.
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }

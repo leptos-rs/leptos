@@ -81,6 +81,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     /// This tracks reactively, so that node references can be used in effects.
     /// Initially, the value will be `None`, but once it is loaded the effect
     /// will rerun and its value will be `Some(Element)`.
+    #[must_use]
     #[track_caller]
     #[inline(always)]
     pub fn get(&self) -> Option<HtmlElement<T>>
@@ -93,6 +94,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     /// Gets the element that is currently stored in the reference.
     ///
     /// This **does not** track reactively.
+    #[must_use]
     #[track_caller]
     #[inline(always)]
     pub fn get_untracked(&self) -> Option<HtmlElement<T>>

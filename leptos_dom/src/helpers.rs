@@ -29,12 +29,14 @@ pub fn get_property(
 }
 
 /// Returns the current [`window.location`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
+#[must_use]
 pub fn location() -> web_sys::Location {
     window().location()
 }
 
 /// Current [`window.location.hash`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location)
 /// without the beginning #.
+#[must_use]
 pub fn location_hash() -> Option<String> {
     if is_server() {
         None
@@ -44,12 +46,14 @@ pub fn location_hash() -> Option<String> {
 }
 
 /// Current [`window.location.pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
+#[must_use]
 pub fn location_pathname() -> Option<String> {
     location().pathname().ok()
 }
 
 /// Helper function to extract [`Event.target`](https://developer.mozilla.org/en-US/docs/Web/API/Event/target)
 /// from any event.
+#[must_use]
 pub fn event_target<T>(event: &web_sys::Event) -> T
 where
     T: JsCast,
@@ -60,6 +64,7 @@ where
 /// Helper function to extract `event.target.value` from an event.
 ///
 /// This is useful in the `on:input` or `on:change` listeners for an `<input>` element.
+#[must_use]
 pub fn event_target_value<T>(event: &T) -> String
 where
     T: JsCast,
@@ -75,6 +80,7 @@ where
 /// Helper function to extract `event.target.checked` from an event.
 ///
 /// This is useful in the `on:change` listeners for an `<input type="checkbox">` element.
+#[must_use]
 pub fn event_target_checked(ev: &web_sys::Event) -> bool {
     ev.target()
         .unwrap()
@@ -111,6 +117,13 @@ pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
 pub fn request_animation_frame_with_handle(
     cb: impl FnOnce() + 'static,
 ) -> Result<AnimationFrameRequestHandle, JsValue> {
+    #[inline(never)]
+    fn raf(cb: JsValue) -> Result<AnimationFrameRequestHandle, JsValue> {
+        window()
+            .request_animation_frame(cb.as_ref().unchecked_ref())
+            .map(AnimationFrameRequestHandle)
+    }
+
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
@@ -119,13 +132,6 @@ pub fn request_animation_frame_with_handle(
           cb();
         };
       }
-    }
-
-    #[inline(never)]
-    fn raf(cb: JsValue) -> Result<AnimationFrameRequestHandle, JsValue> {
-        window()
-            .request_animation_frame(cb.as_ref().unchecked_ref())
-            .map(AnimationFrameRequestHandle)
     }
 
     raf(Closure::once_into_js(cb))
@@ -160,6 +166,15 @@ pub fn request_idle_callback(cb: impl Fn() + 'static) {
 pub fn request_idle_callback_with_handle(
     cb: impl Fn() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
+    #[inline(never)]
+    fn ric(cb: Box<dyn Fn()>) -> Result<IdleCallbackHandle, JsValue> {
+        let cb = Closure::wrap(cb).into_js_value();
+
+        window()
+            .request_idle_callback(cb.as_ref().unchecked_ref())
+            .map(IdleCallbackHandle)
+    }
+
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
@@ -168,15 +183,6 @@ pub fn request_idle_callback_with_handle(
           cb();
         };
       }
-    }
-
-    #[inline(never)]
-    fn ric(cb: Box<dyn Fn()>) -> Result<IdleCallbackHandle, JsValue> {
-        let cb = Closure::wrap(cb).into_js_value();
-
-        window()
-            .request_idle_callback(cb.as_ref().unchecked_ref())
-            .map(IdleCallbackHandle)
     }
 
     ric(Box::new(cb))
@@ -215,6 +221,16 @@ pub fn set_timeout_with_handle(
     cb: impl FnOnce() + 'static,
     duration: Duration,
 ) -> Result<TimeoutHandle, JsValue> {
+    #[inline(never)]
+    fn st(cb: JsValue, duration: Duration) -> Result<TimeoutHandle, JsValue> {
+        window()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                cb.as_ref().unchecked_ref(),
+                duration.as_millis().try_into().unwrap_throw(),
+            )
+            .map(TimeoutHandle)
+    }
+
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
@@ -225,16 +241,6 @@ pub fn set_timeout_with_handle(
           leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
-    }
-
-    #[inline(never)]
-    fn st(cb: JsValue, duration: Duration) -> Result<TimeoutHandle, JsValue> {
-        window()
-            .set_timeout_with_callback_and_timeout_and_arguments_0(
-                cb.as_ref().unchecked_ref(),
-                duration.as_millis().try_into().unwrap_throw(),
-            )
-            .map(TimeoutHandle)
     }
 
     st(Closure::once_into_js(cb), duration)
@@ -348,18 +354,6 @@ pub fn set_interval_with_handle(
     cb: impl Fn() + 'static,
     duration: Duration,
 ) -> Result<IntervalHandle, JsValue> {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb();
-          leptos_reactive::SpecialNonReactiveZone::exit(prev);
-        };
-      }
-    }
-
     #[inline(never)]
     fn si(
         cb: Box<dyn Fn()>,
@@ -373,6 +367,18 @@ pub fn set_interval_with_handle(
                 duration.as_millis().try_into().unwrap_throw(),
             )
             .map(IntervalHandle)
+    }
+
+    cfg_if::cfg_if! {
+      if #[cfg(debug_assertions)] {
+        let span = ::tracing::Span::current();
+        let cb = move || {
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
+          let _guard = span.enter();
+          cb();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
+        };
+      }
     }
 
     si(Box::new(cb), duration)
@@ -389,18 +395,6 @@ pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
 ) -> WindowListenerHandle {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move |e| {
-          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit(prev);
-        };
-      }
-    }
-
     if !is_server() {
         #[inline(never)]
         fn wel(
@@ -419,6 +413,18 @@ pub fn window_event_listener_untyped(
                     cb.unchecked_ref(),
                 );
             }))
+        }
+
+        cfg_if::cfg_if! {
+          if #[cfg(debug_assertions)] {
+            let span = ::tracing::Span::current();
+            let cb = move |e| {
+              let prev = leptos_reactive::SpecialNonReactiveZone::enter();
+              let _guard = span.enter();
+              cb(e);
+              leptos_reactive::SpecialNonReactiveZone::exit(prev);
+            };
+          }
         }
 
         wel(Box::new(cb), event_name)
@@ -451,7 +457,7 @@ where
     E::EventType: JsCast,
 {
     window_event_listener_untyped(&event.name(), move |e| {
-        cb(e.unchecked_into::<E::EventType>())
+        cb(e.unchecked_into::<E::EventType>());
     })
 }
 

@@ -18,7 +18,7 @@ where
         instrument(level = "info", skip_all,)
     )]
     fn into_fragment(self) -> Fragment {
-        self.into_iter().map(|v| v.into_view()).collect()
+        self.into_iter().map(IntoView::into_view).collect()
     }
 }
 
@@ -61,6 +61,7 @@ impl From<Fragment> for View {
 
 impl Fragment {
     /// Creates a new [`Fragment`] from a [`Vec<Node>`].
+    #[must_use]
     #[inline(always)]
     pub fn new(nodes: Vec<View>) -> Self {
         Self::new_with_id(HydrationCtx::id(), nodes)
@@ -73,6 +74,7 @@ impl Fragment {
     }
 
     /// Creates a new [`Fragment`] with the given hydration ID from a [`Vec<Node>`].
+    #[must_use]
     #[inline(always)]
     pub const fn new_with_id(
         id: Option<HydrationKey>,
@@ -93,13 +95,15 @@ impl Fragment {
     }
 
     /// Returns the fragment's hydration ID.
+    #[must_use]
     #[inline(always)]
     pub fn id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 
-    #[cfg(debug_assertions)]
     /// Adds an optional marker indicating the view macro source.
+    #[cfg(debug_assertions)]
+    #[must_use]
     pub fn with_view_marker(mut self, marker: impl Into<String>) -> Self {
         self.view_marker = Some(marker.into());
         self

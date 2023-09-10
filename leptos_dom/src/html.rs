@@ -386,8 +386,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
-    #[cfg(debug_assertions)]
     /// Adds an optional marker indicating the view macro source.
+    #[cfg(debug_assertions)]
+    #[must_use]
     #[inline(always)]
     pub fn with_view_marker(mut self, marker: impl Into<String>) -> Self {
         self.view_marker = Some(marker.into());
@@ -444,6 +445,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds an `id` to the element.
+    #[must_use]
     #[track_caller]
     #[inline(always)]
     pub fn id(self, id: impl Into<Oco<'static, str>>) -> Self {
@@ -472,6 +474,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Binds the element reference to [`NodeRef`].
+    #[must_use]
     #[inline(always)]
     pub fn node_ref(self, node_ref: NodeRef<El>) -> Self
     where
@@ -492,6 +495,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// This method will only ever run at most once. If this element
     /// is unmounted and remounted, or moved somewhere else, it will not
     /// re-run unless you call this method again.
+    #[must_use]
     pub fn on_mount(self, f: impl FnOnce(Self) + 'static) -> Self {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -572,8 +576,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds an attribute to this element.
-    #[track_caller]
     #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
+    #[must_use]
+    #[track_caller]
     pub fn attr(
         self,
         name: impl Into<Oco<'static, str>>,
@@ -627,7 +632,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         this.attrs.push((name, value));
                     }
                 }
-                _ => unreachable!(),
+                Attribute::Fn(_) => unreachable!(),
             }
 
             this
@@ -635,6 +640,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds multiple attributes to the element
+    #[must_use]
     #[track_caller]
     pub fn attrs(
         mut self,
@@ -723,6 +729,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds a list of classes separated by ASCII whitespace to an element.
+    #[must_use]
     #[track_caller]
     #[inline(always)]
     pub fn classes(self, classes: impl Into<Oco<'static, str>>) -> Self {
@@ -744,6 +751,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Sets the class on the element as the class signal changes.
+    #[must_use]
     #[track_caller]
     pub fn dyn_classes<I, C>(
         self,
@@ -862,6 +870,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// **Note**: In the builder syntax, this will be overwritten by the `style`
     /// attribute if you use `.attr("style", /* */)`. In the `view` macro, they
     /// are automatically re-ordered so that this over-writing does not happen.
+    #[must_use]
     #[track_caller]
     pub fn style(
         self,
@@ -1115,6 +1124,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Be very careful when using this method. Always remember to
     /// sanitize the input to avoid a cross-site scripting (XSS)
     /// vulnerability.
+    #[must_use]
     #[inline(always)]
     pub fn inner_html(self, html: impl Into<Oco<'static, str>>) -> Self {
         let html = html.into();
@@ -1183,7 +1193,7 @@ impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
         instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
     )]
     fn into_view(self) -> View {
-        Fragment::new(self.into_iter().map(|el| el.into_view()).collect())
+        Fragment::new(self.into_iter().map(IntoView::into_view).collect())
             .into_view()
     }
 }

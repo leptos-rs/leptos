@@ -4,7 +4,7 @@ use leptos_reactive::Oco;
 use std::marker::PhantomData;
 use wasm_bindgen::convert::FromWasmAbi;
 
-/// A trait for converting types into [web_sys events](web_sys).
+/// A trait for converting types into [`web_sys` events](web_sys).
 pub trait EventDescriptor: Clone {
     /// The [`web_sys`] event type, such as [`web_sys::MouseEvent`].
     type EventType: FromWasmAbi;
@@ -130,12 +130,15 @@ impl<E: FromWasmAbi> Custom<E> {
 /// Type that can respond to DOM events
 pub trait DOMEventResponder: Sized {
     /// Adds handler to specified event
+    #[must_use]
     fn add<E: EventDescriptor + 'static>(
         self,
         event: E,
         handler: impl FnMut(E::EventType) + 'static,
     ) -> Self;
+
     /// Same as [add](DOMEventResponder::add), but with [`EventHandler`]
+    #[must_use]
     #[inline]
     fn add_handler(self, handler: impl EventHandler) -> Self {
         handler.attach(self)

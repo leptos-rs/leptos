@@ -296,9 +296,9 @@ fn ooo_body_stream_recurse(
                 let pending = SharedContext::pending_fragments();
 
                 if pending.is_empty() {
-                    Box::pin(futures::stream::once(async move {
-                        String::default()
-                    }))
+                    Box::pin(futures::stream::once(
+                        async move { String::default() },
+                    ))
                 } else {
                     let fragments = FuturesUnordered::new();
                     let serializers = SharedContext::serialization_resolvers();

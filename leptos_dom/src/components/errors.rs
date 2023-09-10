@@ -151,7 +151,7 @@ impl Errors {
     where
         E: Into<Error>,
     {
-        self.0.insert(Default::default(), error.into());
+        self.0.insert(ErrorKey::default(), error.into());
     }
 
     /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
@@ -160,6 +160,7 @@ impl Errors {
     }
 
     /// An iterator over all the errors, in arbitrary order.
+    #[must_use]
     #[inline(always)]
     pub fn iter(&self) -> Iter<'_> {
         Iter(self.0.iter())

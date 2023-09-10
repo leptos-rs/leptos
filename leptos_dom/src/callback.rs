@@ -234,7 +234,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 /// implements [`IntoView`]
 ///
 /// ```
-/// view!{
+/// view! {
 ///     <div>
 ///         {render_number}
 ///     </div>
@@ -317,7 +317,7 @@ impl IntoView for HtmlCallback<()> {
 /// implements [`IntoView`]
 ///
 /// ```
-/// view!{
+/// view! {
 ///     <div>
 ///         {render_number}
 ///     </div>

@@ -130,6 +130,7 @@ pub struct HydrationCtx;
 
 impl HydrationCtx {
     /// If you're in an hydration context, get the next `id` without incrementing it.
+    #[must_use]
     pub fn peek() -> Option<HydrationKey> {
         #[cfg(all(
             feature = "experimental-islands",
@@ -149,11 +150,13 @@ impl HydrationCtx {
     }
 
     /// Get the next `id` without incrementing it.
+    #[must_use]
     pub fn peek_always() -> HydrationKey {
         ID.with(|id| *id.borrow())
     }
 
     /// Increments the current hydration `id` and returns it
+    #[must_use]
     pub fn id() -> Option<HydrationKey> {
         #[cfg(all(
             feature = "experimental-islands",
@@ -178,6 +181,7 @@ impl HydrationCtx {
     }
 
     /// Resets the hydration `id` for the next component, and returns it
+    #[must_use]
     pub fn next_component() -> HydrationKey {
         ID.with(|id| {
             let mut id = id.borrow_mut();
@@ -188,6 +192,7 @@ impl HydrationCtx {
     }
 
     /// Resets the hydration `id` for the next component, and returns it
+    #[must_use]
     pub fn next_error() -> HydrationKey {
         ID.with(|id| {
             let mut id = id.borrow_mut();
@@ -251,6 +256,7 @@ impl HydrationCtx {
     }
 
     /// Whether the UI is currently in the process of hydrating from the server-sent HTML.
+    #[must_use]
     #[inline(always)]
     pub fn is_hydrating() -> bool {
         #[cfg(feature = "hydrate")]
