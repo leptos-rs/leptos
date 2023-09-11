@@ -210,13 +210,7 @@ pub fn TodoMVC() -> impl IntoView {
     // focus the main input on load
     create_effect(move |_| {
         if let Some(input) = input_ref.get() {
-            // We use request_animation_frame here because the NodeRef
-            // is filled when the element is created, but before it's mounted
-            // to the DOM. Calling .focus() before it's mounted does nothing.
-            // So inside, we wait a tick for the browser to mount it, then .focus()
-            request_animation_frame(move || {
-                let _ = input.focus();
-            });
+            let _ = input.focus();
         }
     });
 
