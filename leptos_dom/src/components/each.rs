@@ -12,7 +12,7 @@ mod web {
         mount_child, prepare_to_move, MountKind, Mountable, RANGE,
     };
     pub use drain_filter_polyfill::VecExt as VecDrainFilterExt;
-    pub use leptos_reactive::create_effect;
+    pub use leptos_reactive::create_render_effect;
     pub use std::cell::OnceCell;
     pub use wasm_bindgen::JsCast;
 }
@@ -406,90 +406,100 @@ where
         let each_fn = as_child_of_current_owner(each_fn);
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        create_effect(move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
-            let mut children_borrow = children.borrow_mut();
+        create_render_effect(
+            move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
+                let mut children_borrow = children.borrow_mut();
 
-            #[cfg(all(
-                not(debug_assertions),
-                target_arch = "wasm32",
-                feature = "web"
-            ))]
-            let opening = if let Some(Some(child)) = children_borrow.get(0) {
-                // correctly remove opening <!--<EachItem/>-->
-                let child_opening = child.get_opening_node();
-                #[cfg(debug_assertions)]
+                #[cfg(all(
+                    not(debug_assertions),
+                    target_arch = "wasm32",
+                    feature = "web"
+                ))]
+                let opening = if let Some(Some(child)) = children_borrow.get(0)
                 {
-                    use crate::components::dyn_child::NonViewMarkerSibling;
-                    child_opening
-                        .previous_non_view_marker_sibling()
-                        .unwrap_or(child_opening)
+                    // correctly remove opening <!--<EachItem/>-->
+                    let child_opening = child.get_opening_node();
+                    #[cfg(debug_assertions)]
+                    {
+                        use crate::components::dyn_child::NonViewMarkerSibling;
+                        child_opening
+                            .previous_non_view_marker_sibling()
+                            .unwrap_or(child_opening)
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        child_opening
+                    }
+                } else {
+                    closing.clone()
+                };
+
+                let items_iter = items_fn().into_iter();
+
+                let (capacity, _) = items_iter.size_hint();
+                let mut hashed_items = FxIndexSet::with_capacity_and_hasher(
+                    capacity,
+                    Default::default(),
+                );
+
+                if let Some(HashRun(prev_hash_run)) = prev_hash_run {
+                    if !prev_hash_run.is_empty() {
+                        let mut items = Vec::with_capacity(capacity);
+                        for item in items_iter {
+                            hashed_items.insert(key_fn(&item));
+                            items.push(Some(item));
+                        }
+
+                        let cmds = diff(&prev_hash_run, &hashed_items);
+
+                        apply_diff(
+                            #[cfg(all(
+                                target_arch = "wasm32",
+                                feature = "web"
+                            ))]
+                            &opening,
+                            #[cfg(all(
+                                target_arch = "wasm32",
+                                feature = "web"
+                            ))]
+                            &closing,
+                            cmds,
+                            &mut children_borrow,
+                            items,
+                            &each_fn,
+                        );
+                        return HashRun(hashed_items);
+                    }
                 }
-                #[cfg(not(debug_assertions))]
-                {
-                    child_opening
-                }
-            } else {
-                closing.clone()
-            };
 
-            let items_iter = items_fn().into_iter();
+                // if previous run is empty
+                *children_borrow = Vec::with_capacity(capacity);
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                let fragment = crate::document().create_document_fragment();
 
-            let (capacity, _) = items_iter.size_hint();
-            let mut hashed_items = FxIndexSet::with_capacity_and_hasher(
-                capacity,
-                Default::default(),
-            );
+                for item in items_iter {
+                    hashed_items.insert(key_fn(&item));
+                    let (child, disposer) = each_fn(item);
+                    let each_item = EachItem::new(disposer, child.into_view());
 
-            if let Some(HashRun(prev_hash_run)) = prev_hash_run {
-                if !prev_hash_run.is_empty() {
-                    let mut items = Vec::with_capacity(capacity);
-                    for item in items_iter {
-                        hashed_items.insert(key_fn(&item));
-                        items.push(Some(item));
+                    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                    {
+                        _ = fragment
+                            .append_child(&each_item.get_mountable_node());
                     }
 
-                    let cmds = diff(&prev_hash_run, &hashed_items);
-
-                    apply_diff(
-                        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                        &opening,
-                        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                        &closing,
-                        cmds,
-                        &mut children_borrow,
-                        items,
-                        &each_fn,
-                    );
-                    return HashRun(hashed_items);
+                    children_borrow.push(Some(each_item));
                 }
-            }
-
-            // if previous run is empty
-            *children_borrow = Vec::with_capacity(capacity);
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let fragment = crate::document().create_document_fragment();
-
-            for item in items_iter {
-                hashed_items.insert(key_fn(&item));
-                let (child, disposer) = each_fn(item);
-                let each_item = EachItem::new(disposer, child.into_view());
 
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                {
-                    _ = fragment.append_child(&each_item.get_mountable_node());
-                }
+                closing
+                    .unchecked_ref::<web_sys::Element>()
+                    .before_with_node_1(&fragment)
+                    .expect("before to not err");
 
-                children_borrow.push(Some(each_item));
-            }
-
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            closing
-                .unchecked_ref::<web_sys::Element>()
-                .before_with_node_1(&fragment)
-                .expect("before to not err");
-
-            HashRun(hashed_items)
-        });
+                HashRun(hashed_items)
+            },
+        );
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         {

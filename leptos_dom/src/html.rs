@@ -719,7 +719,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             let class_list = self.element.as_ref().class_list();
 
-            leptos_reactive::create_effect(
+            leptos_reactive::create_render_effect(
                 move |prev_classes: Option<
                     SmallVec<[Oco<'static, str>; 4]>,
                 >| {
