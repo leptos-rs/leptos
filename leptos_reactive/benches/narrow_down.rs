@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::{rc::Rc};
+use std::rc::Rc;
 
 fn rs_narrow_down(c: &mut Criterion) {
     use reactive_signals::{runtimes::ClientRuntime, signal};
