@@ -85,7 +85,7 @@ pub fn Routes(
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>() {
         Branches::with(&base, |branches| {
-            *context.0.borrow_mut() = branches.to_vec()
+            *context.0.borrow_mut() = branches.to_vec();
         });
     }
 
@@ -165,17 +165,17 @@ pub fn AnimatedRoutes(
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>() {
         Branches::with(&base, |branches| {
-            *context.0.borrow_mut() = branches.to_vec()
+            *context.0.borrow_mut() = branches.to_vec();
         });
     }
 
     let animation = Animation {
-        outro,
         start,
+        outro,
         intro,
-        finally,
         outro_back,
         intro_back,
+        finally,
     };
     let is_back = use_is_back_navigation();
     let (animation_state, set_animation_state) =
@@ -256,7 +256,7 @@ pub fn AnimatedRoutes(
                         let (next, _) = animation
                             .next_state(&current, is_back.get_untracked());
                         *current_state = next;
-                    })
+                    });
                 }
             }
         })
@@ -316,7 +316,7 @@ impl Branches {
                 );
                 current.insert(base.to_string(), branches);
             }
-        })
+        });
     }
 
     pub fn with<T>(base: &str, cb: impl FnOnce(&[Branch]) -> T) -> T {

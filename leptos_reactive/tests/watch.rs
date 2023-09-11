@@ -19,7 +19,8 @@ fn watch_runs() {
 
             move |a, prev_a, prev_ret| {
                 let formatted = format!(
-                    "Value is {a}; Prev is {prev_a:?}; Prev return is {prev_ret:?}"
+                    "Value is {a}; Prev is {prev_a:?}; Prev return is \
+                     {prev_ret:?}"
                 );
                 *b.borrow_mut() = formatted;
 
