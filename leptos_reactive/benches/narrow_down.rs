@@ -59,6 +59,7 @@ fn sycamore_narrow_down(c: &mut Criterion) {
     });
 }
 
+/*
 fn leptos_narrow_down(c: &mut Criterion) {
     use leptos_reactive::*;
     let runtime = create_runtime();
@@ -79,12 +80,13 @@ fn leptos_narrow_down(c: &mut Criterion) {
     });
     runtime.dispose();
 }
+*/
 
 criterion_group!(
     narrow_down,
     rs_narrow_down,
     l021_narrow_down,
     sycamore_narrow_down,
-    leptos_narrow_down
+    // leptos_narrow_down
 );
 criterion_main!(narrow_down);

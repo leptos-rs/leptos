@@ -74,6 +74,7 @@ fn sycamore_deep_update(c: &mut Criterion) {
     });
 }
 
+/*
 fn leptos_deep_update(c: &mut Criterion) {
     use leptos::*;
     let runtime = create_runtime();
@@ -99,12 +100,13 @@ fn leptos_deep_update(c: &mut Criterion) {
     });
     runtime.dispose();
 }
+*/
 
 criterion_group!(
     deep,
     rs_deep_update,
     l021_deep_update,
     sycamore_deep_update,
-    leptos_deep_update
+    // leptos_deep_update
 );
 criterion_main!(deep);

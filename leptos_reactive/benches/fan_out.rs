@@ -60,6 +60,7 @@ fn sycamore_fan_out(c: &mut Criterion) {
     });
 }
 
+/*
 fn leptos_fan_out(c: &mut Criterion) {
     use leptos_reactive::*;
     let runtime = create_runtime();
@@ -80,12 +81,13 @@ fn leptos_fan_out(c: &mut Criterion) {
     });
     runtime.dispose();
 }
+*/
 
 criterion_group!(
     fan_out,
     rs_fan_out,
     l021_fan_out,
     sycamore_fan_out,
-    leptos_fan_out
+    // leptos_fan_out
 );
 criterion_main!(fan_out);
