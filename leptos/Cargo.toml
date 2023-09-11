@@ -10,7 +10,6 @@ readme = "../README.md"
 
 [dependencies]
 cfg-if = "1"
-const_format = "0.2"
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
@@ -24,7 +23,6 @@ serde_json = { version = "1", optional = true }
 server_fn = { workspace = true }
 web-sys = { version = "0.3.63", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
-xxhash-rust = "0.8"
 
 [features]
 default = ["serde"]
