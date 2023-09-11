@@ -188,9 +188,9 @@ fn element_to_tokens(
     ) {
         template.push_str("/>");
         return this_el_ident;
-    } else {
-        template.push('>');
     }
+
+    template.push('>');
 
     // iterate over children
     let mut prev_sib = prev_sib;
@@ -298,7 +298,7 @@ fn attr_to_tokens(
             crate::view::event_from_attribute_node(node, false);
         expressions.push(quote! {
             ::leptos::leptos_dom::add_event_helper(::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #event_type, #handler);
-        })
+        });
     }
     // Properties
     else if let Some(name) = name.strip_prefix("prop:") {

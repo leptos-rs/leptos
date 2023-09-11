@@ -40,6 +40,9 @@ impl ViewMacros {
         Self::default()
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the path is not UTF-8 path or the contents of the file cannot be parsed.
     pub fn update_from_paths<T: AsRef<Path>>(&self, paths: &[T]) -> Result<()> {
         let mut views = HashMap::new();
 
@@ -62,6 +65,9 @@ impl ViewMacros {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the contents of the file cannot be parsed.
     pub fn parse_file(path: &Utf8PathBuf) -> Result<Vec<MacroInvocation>> {
         let mut file = File::open(path)?;
         let mut content = String::new();
@@ -84,6 +90,9 @@ impl ViewMacros {
         Ok(views)
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the contents of the file cannot be parsed.
     pub fn patch(&self, path: &Utf8PathBuf) -> Result<Option<Patches>> {
         let new_views = Self::parse_file(path)?;
         let mut lock = self.views.write();

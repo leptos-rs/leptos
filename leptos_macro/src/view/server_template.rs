@@ -125,7 +125,7 @@ pub(crate) fn root_element_to_tokens_ssr(
 
         // push final chunk
         if !template.is_empty() {
-            chunks.push(SsrElementChunks::String { template, holes })
+            chunks.push(SsrElementChunks::String { template, holes });
         }
 
         let chunks = chunks.into_iter().map(|chunk| match chunk {
@@ -233,7 +233,7 @@ fn element_to_tokens_ssr(
             chunks.push(SsrElementChunks::String {
                 template: std::mem::take(template),
                 holes: std::mem::take(holes),
-            })
+            });
         }
 
         chunks.push(SsrElementChunks::View(quote! {
@@ -316,7 +316,7 @@ fn element_to_tokens_ssr(
 
                 holes.push(quote! {
                   (#value).into_attribute().as_nameless_value_string().unwrap_or_default()
-                })
+                });
             } else {
                 for child in &node.children {
                     match child {
@@ -366,7 +366,7 @@ fn element_to_tokens_ssr(
                                     chunks.push(SsrElementChunks::String {
                                         template: std::mem::take(template),
                                         holes: std::mem::take(holes),
-                                    })
+                                    });
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
                                     {#block}.into_view()
@@ -412,7 +412,7 @@ fn attribute_to_tokens_ssr<'a>(
 
         exprs_for_compiler.push(quote! {
             leptos::leptos_dom::helpers::ssr_event_listener(::leptos::ev::#event_type, #handler);
-        })
+        });
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
         || name.strip_prefix("style:").is_some()
@@ -440,7 +440,7 @@ fn attribute_to_tokens_ssr<'a>(
             proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
-            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773");
         };
 
         if name != "class" && name != "style" {
@@ -461,7 +461,7 @@ fn attribute_to_tokens_ssr<'a>(
                             .as_nameless_value_string()
                             .map(|a| format!("{}=\"{}\"", #name, leptos::leptos_dom::ssr::escape_attr(&a)))
                             .unwrap_or_default()
-                    })
+                    });
                 }
             } else {
                 template.push_str(&name);

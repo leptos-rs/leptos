@@ -1,5 +1,7 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::too_many_lines)]
 
 #[macro_use]
 extern crate proc_macro_error;
@@ -352,7 +354,9 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let config = rstml::ParserConfig::default().recover_block(true);
     let parser = rstml::Parser::new(config);
     let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
-    let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+    let errors = errors
+        .into_iter()
+        .map(proc_macro2_diagnostics::Diagnostic::emit_as_expr_tokens);
     let nodes_output = render_view(
         &nodes,
         Mode::default(),
@@ -581,7 +585,9 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
+    let is_transparent = if args.is_empty() {
+        false
+    } else {
         let transparent = parse_macro_input!(args as syn::Ident);
 
         if transparent != "transparent" {
@@ -593,8 +599,6 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         }
 
         true
-    } else {
-        false
     };
 
     parse_macro_input!(s as component::Model)
@@ -677,7 +681,9 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
+    let is_transparent = if args.is_empty() {
+        false
+    } else {
         let transparent = parse_macro_input!(args as syn::Ident);
 
         if transparent != "transparent" {
@@ -689,8 +695,6 @@ pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         }
 
         true
-    } else {
-        false
     };
 
     parse_macro_input!(s as component::Model)

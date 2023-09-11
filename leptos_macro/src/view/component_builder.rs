@@ -40,10 +40,7 @@ pub(crate) fn component_to_tokens(
 
             let value = attr
                 .value()
-                .map(|v| {
-                    quote! { #v }
-                })
-                .unwrap_or_else(|| quote! { #name });
+                .map_or_else(|| quote! { #name }, |v| quote! { #v });
 
             quote! {
                 .#name(#[allow(unused_braces)] {#value})

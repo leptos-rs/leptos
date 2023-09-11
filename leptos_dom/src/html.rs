@@ -300,7 +300,7 @@ cfg_if! {
             builder.field("attrs", &self.attrs);
             #[cfg(debug_assertions)]
             builder.field("view_marker", &self.view_marker);
-            builder.finish()
+            builder.finish_non_exhaustive()
         }
     }
 
@@ -662,6 +662,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// This directly uses the browser’s `classList` API, which means it will throw
     /// a runtime error if you pass more than a single class name. If you want to
     /// pass more than one class name at a time, you can use [`HtmlElement::classes`].
+    #[must_use]
     #[track_caller]
     pub fn class(
         self,
@@ -921,7 +922,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     match value {
                         Style::Value(value) => Some(value),
                         Style::Option(value) => value,
-                        _ => unreachable!(),
+                        Style::Fn(_) => unreachable!(),
                     }
                 }
             };
@@ -944,6 +945,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Sets a property on an element.
+    #[must_use]
     #[track_caller]
     pub fn prop(
         self,
@@ -968,6 +970,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds an event listener to this element.
+    #[must_use]
     #[track_caller]
     #[inline(always)]
     pub fn on<E: EventDescriptor + 'static>(
@@ -1026,6 +1029,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Optionally adds an event listener to this element.
     ///
     /// ## Example
+    ///
     /// ```rust
     /// # use leptos::*;
     /// #[component]
@@ -1041,6 +1045,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// }
     /// #
     /// ```
+    #[must_use]
     #[track_caller]
     #[inline(always)]
     pub fn optional_event<E: EventDescriptor + 'static>(
@@ -1057,6 +1062,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds a child to this element.
+    #[must_use]
     #[track_caller]
     pub fn child(self, child: impl IntoView) -> Self {
         let child = child.into_view();

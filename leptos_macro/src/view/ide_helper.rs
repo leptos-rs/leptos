@@ -43,7 +43,7 @@ impl IdeTagHelper {
     pub fn save_element_completion(&mut self, node: &NodeElement) {
         self.save_tag_completion(node.name());
         if let Some(close_tag) = node.close_tag.as_ref().map(|c| &c.name) {
-            self.save_tag_completion(close_tag)
+            self.save_tag_completion(close_tag);
         }
     }
 
@@ -126,7 +126,7 @@ impl IdeTagHelper {
                     let mut idents =
                         vec![Self::create_custom_tag_fn_path(c.value().span())];
                     if let Some(p) = c.punct() {
-                        idents.push(Self::create_custom_tag_fn_path(p.span()))
+                        idents.push(Self::create_custom_tag_fn_path(p.span()));
                     }
                     idents
                 })

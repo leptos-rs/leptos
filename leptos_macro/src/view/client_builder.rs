@@ -172,6 +172,7 @@ pub(crate) fn element_to_tokens(
             parent_type = TagType::Math;
             quote! { ::leptos::leptos_dom::math::#name() }
         } else if is_ambiguous_element(&tag) {
+            #[allow(clippy::match_same_arms)]
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
@@ -197,7 +198,7 @@ pub(crate) fn element_to_tokens(
         };
 
         if let Some(close_tag) = close_tag {
-            ide_helper_close_tag.save_tag_completion(close_tag)
+            ide_helper_close_tag.save_tag_completion(close_tag);
         }
 
         let attrs = node.attributes().iter().filter_map(|node| {
@@ -502,15 +503,14 @@ pub(crate) fn attribute_to_tokens(
             proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
-            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773");
         };
 
         // all other attributes
-        let value = match node.value() {
-            Some(value) => {
-                quote! { #value }
-            }
-            None => quote_spanned! { span => "" },
+        let value = if let Some(value) = node.value() {
+            quote! { #value }
+        } else {
+            quote_spanned! { span => "" }
         };
 
         let attr = match &node.key {

@@ -40,7 +40,7 @@ pub enum LAttributeValue {
 impl LNode {
     /// # Errors
     ///
-    /// Will return `Err` if parsing the node fails.
+    /// Will return `Err` if parsing the view fails.
     ///
     /// # Panics
     ///
@@ -57,6 +57,9 @@ impl LNode {
         }
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if parsing the node fails.
     pub fn parse_node(node: Node, views: &mut Vec<LNode>) -> Result<()> {
         match node {
             Node::Fragment(frag) => {

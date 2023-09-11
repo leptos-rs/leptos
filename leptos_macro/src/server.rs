@@ -82,7 +82,7 @@ impl ToTokens for ServerFnArgs {
             #prefix
             #encoding
             #fn_path
-        })
+        });
     }
 }
 

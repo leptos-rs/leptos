@@ -2,7 +2,7 @@
 use crate::hydration::HydrationKey;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use leptos_reactive::{as_child_of_current_owner, Disposer};
-use std::{cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
+use std::{cell::RefCell, fmt, hash::Hash, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use web::*;
 

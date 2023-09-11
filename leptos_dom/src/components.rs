@@ -81,25 +81,25 @@ impl fmt::Debug for ComponentRepr {
 
             #[cfg(not(debug_assertions))]
             return f.write_str("<Component />");
-        } else {
-            #[cfg(debug_assertions)]
-            writeln!(f, "<{}>", self.name)?;
-            #[cfg(not(debug_assertions))]
-            f.write_str("<Component>")?;
-
-            let mut pad_adapter = pad_adapter::PadAdapter::new(f);
-
-            for child in &self.children {
-                writeln!(pad_adapter, "{child:#?}")?;
-            }
-
-            #[cfg(debug_assertions)]
-            write!(f, "</{}>", self.name)?;
-            #[cfg(not(debug_assertions))]
-            f.write_str("</Component>")?;
-
-            Ok(())
         }
+
+        #[cfg(debug_assertions)]
+        writeln!(f, "<{}>", self.name)?;
+        #[cfg(not(debug_assertions))]
+        f.write_str("<Component>")?;
+
+        let mut pad_adapter = pad_adapter::PadAdapter::new(f);
+
+        for child in &self.children {
+            writeln!(pad_adapter, "{child:#?}")?;
+        }
+
+        #[cfg(debug_assertions)]
+        write!(f, "</{}>", self.name)?;
+        #[cfg(not(debug_assertions))]
+        f.write_str("</Component>")?;
+
+        Ok(())
     }
 }
 

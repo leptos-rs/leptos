@@ -35,13 +35,13 @@ impl Parse for Model {
         drain_filter(&mut item.attrs, |attr| match &attr.meta {
             Meta::NameValue(attr) => attr.path == parse_quote!(doc),
             Meta::List(attr) => attr.path == parse_quote!(prop),
-            _ => false,
+            Meta::Path(_) => false,
         });
         item.fields.iter_mut().for_each(|arg| {
             drain_filter(&mut arg.attrs, |attr| match &attr.meta {
                 Meta::NameValue(attr) => attr.path == parse_quote!(doc),
                 Meta::List(attr) => attr.path == parse_quote!(prop),
-                _ => false,
+                Meta::Path(_) => false,
             });
         });
 
@@ -92,7 +92,7 @@ impl ToTokens for Model {
             }
         };
 
-        tokens.append_all(output)
+        tokens.append_all(output);
     }
 }
 
@@ -111,9 +111,7 @@ impl Prop {
                 abort!(e.span(), e.to_string());
             });
 
-        let name = if let Some(i) = arg.ident {
-            i
-        } else {
+        let Some(name) = arg.ident else {
             abort!(
                 arg.ident,
                 "only `prop: bool` style types are allowed within the \
@@ -244,22 +242,22 @@ fn generate_prop_docs(props: &[Prop]) -> TokenStream {
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 
-    let required_prop_docs = if !required_prop_docs.is_empty() {
+    let required_prop_docs = if required_prop_docs.is_empty() {
+        quote! {}
+    } else {
         quote! {
             #[doc = "# Required Props"]
             #required_prop_docs
         }
-    } else {
-        quote! {}
     };
 
-    let optional_prop_docs = if !optional_prop_docs.is_empty() {
+    let optional_prop_docs = if optional_prop_docs.is_empty() {
+        quote! {}
+    } else {
         quote! {
             #[doc = "# Optional Props"]
             #optional_prop_docs
         }
-    } else {
-        quote! {}
     };
 
     quote! {
@@ -307,14 +305,14 @@ fn prop_to_doc(
     match style {
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
-                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
-                } else {
+                &if prop_opts.into {
                     format!(
                         "- **{}**: `impl`[`Into<{}>`]",
                         quote!(#name),
                         pretty_ty
                     )
+                } else {
+                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
                 },
                 name.span(),
             );
@@ -328,16 +326,16 @@ fn prop_to_doc(
         }
         PropDocStyle::Inline => {
             let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
+                &if prop_opts.into {
                     format!(
-                        "**{}**: [`{}`]{}",
+                        "**{}**: `impl`[`Into<{}>`]{}",
                         quote!(#name),
                         pretty_ty,
                         docs.typed_builder()
                     )
                 } else {
                     format!(
-                        "**{}**: `impl`[`Into<{}>`]{}",
+                        "**{}**: [`{}`]{}",
                         quote!(#name),
                         pretty_ty,
                         docs.typed_builder()

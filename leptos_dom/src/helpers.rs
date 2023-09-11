@@ -395,7 +395,7 @@ pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
 ) -> WindowListenerHandle {
-    if !is_server() {
+    if is_server() {
         #[inline(never)]
         fn wel(
             cb: Box<dyn FnMut(web_sys::Event)>,
@@ -427,10 +427,10 @@ pub fn window_event_listener_untyped(
           }
         }
 
-        wel(Box::new(cb), event_name)
-    } else {
-        WindowListenerHandle(Box::new(|| ()))
+        return wel(Box::new(cb), event_name);
     }
+
+    WindowListenerHandle(Box::new(|| ()))
 }
 
 /// Creates a window event listener from a typed event, returning a
@@ -473,7 +473,7 @@ impl std::fmt::Debug for WindowListenerHandle {
 impl WindowListenerHandle {
     /// Removes the event listener.
     pub fn remove(self) {
-        (self.0)()
+        (self.0)();
     }
 }
 

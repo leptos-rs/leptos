@@ -233,7 +233,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 /// Note that when `my_html_callback` is `HtmlCallback<()>`, you can use it more easily because it
 /// implements [`IntoView`]
 ///
-/// ```
+/// ```ignore
 /// view! {
 ///     <div>
 ///         {render_number}
@@ -316,7 +316,7 @@ impl IntoView for HtmlCallback<()> {
 /// Note that when `my_view_callback` is `ViewCallback<()>`, you can use it more easily because it
 /// implements [`IntoView`]
 ///
-/// ```
+/// ```ignore
 /// view! {
 ///     <div>
 ///         {render_number}

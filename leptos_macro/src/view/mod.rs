@@ -236,10 +236,10 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
 }
 
 fn convert_to_snake_case(name: String) -> String {
-    if !name.is_case(Snake) {
-        name.to_case(Snake)
-    } else {
+    if name.is_case(Snake) {
         name
+    } else {
+        name.to_case(Snake)
     }
 }
 
@@ -418,7 +418,7 @@ fn fancy_class_name<'a>(
                         class_name.span(),
                         "class name must be a string literal"
                     );
-                    Default::default()
+                    String::new()
                 };
                 let value = &tuple.elems[1];
                 return Some((
@@ -428,12 +428,12 @@ fn fancy_class_name<'a>(
                     class_name,
                     value,
                 ));
-            } else {
-                proc_macro_error::emit_error!(
-                    tuple.span(),
-                    "class tuples must have two elements."
-                )
             }
+
+            proc_macro_error::emit_error!(
+                tuple.span(),
+                "class tuples must have two elements."
+            );
         }
     }
     None
@@ -456,7 +456,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             );
             Ident::new("", span)
         }
-        _ => Ident::new(
+        NodeName::Punctuated(_) => Ident::new(
             &tag_name.to_string().replace(['-', ':'], "_"),
             tag_name.span(),
         ),
@@ -488,7 +488,7 @@ fn fancy_style_name<'a>(
                         style_name.span(),
                         "style name must be a string literal"
                     );
-                    Default::default()
+                    String::new()
                 };
                 let value = &tuple.elems[1];
                 return Some((
@@ -498,12 +498,12 @@ fn fancy_style_name<'a>(
                     style_name,
                     value,
                 ));
-            } else {
-                proc_macro_error::emit_error!(
-                    tuple.span(),
-                    "style tuples must have two elements."
-                )
             }
+
+            proc_macro_error::emit_error!(
+                tuple.span(),
+                "style tuples must have two elements."
+            );
         }
     }
     None

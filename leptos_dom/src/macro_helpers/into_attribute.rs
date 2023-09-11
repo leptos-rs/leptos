@@ -55,6 +55,7 @@ impl Attribute {
 
     /// Converts the attribute to its HTML value at that moment, not including
     /// the attribute name, so it can be rendered on the server.
+    #[must_use]
     pub fn as_nameless_value_string(&self) -> Option<Oco<'static, str>> {
         match self {
             Attribute::String(value) => Some(value.clone()),

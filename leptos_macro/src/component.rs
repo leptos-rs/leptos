@@ -43,14 +43,14 @@ impl Parse for Model {
         drain_filter(&mut item.attrs, |attr| match &attr.meta {
             Meta::NameValue(attr) => attr.path == parse_quote!(doc),
             Meta::List(attr) => attr.path == parse_quote!(prop),
-            _ => false,
+            Meta::Path(_) => false,
         });
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
                 drain_filter(&mut ty.attrs, |attr| match &attr.meta {
                     Meta::NameValue(attr) => attr.path == parse_quote!(doc),
                     Meta::List(attr) => attr.path == parse_quote!(prop),
-                    _ => false,
+                    Meta::Path(_) => false,
                 });
             }
         });
@@ -95,10 +95,10 @@ pub fn drain_filter<T>(
 
 pub fn convert_from_snake_case(name: &Ident) -> Ident {
     let name_str = name.to_string();
-    if !name_str.is_case(Snake) {
-        name.clone()
-    } else {
+    if name_str.is_case(Snake) {
         Ident::new(&name_str.to_case(Pascal), name.span())
+    } else {
+        name.clone()
     }
 }
 
@@ -216,7 +216,7 @@ impl ToTokens for Model {
 
         let component_id = name.to_string();
         let hydrate_fn_name =
-            Ident::new(&format!("_island_{}", component_id), name.span());
+            Ident::new(&format!("_island_{component_id}"), name.span());
 
         let island_serialize_props = if is_island_with_other_props {
             quote! {
@@ -516,7 +516,7 @@ impl ToTokens for Model {
             }
         };
 
-        tokens.append_all(output)
+        tokens.append_all(output);
     }
 }
 
@@ -545,9 +545,7 @@ struct Prop {
 
 impl Prop {
     fn new(arg: FnArg) -> Self {
-        let typed = if let FnArg::Typed(ty) = arg {
-            ty
-        } else {
+        let FnArg::Typed(typed) = arg else {
             abort!(arg, "receiver not allowed in `fn`");
         };
 
@@ -557,9 +555,7 @@ impl Prop {
                 abort!(e.span(), e.to_string());
             });
 
-        let name = if let Pat::Ident(i) = *typed.pat {
-            i
-        } else {
+        let Pat::Ident(name) = *typed.pat else {
             abort!(
                 typed.pat,
                 "only `prop: bool` style types are allowed within the \
@@ -593,20 +589,22 @@ impl ToTokens for Docs {
 
 impl Docs {
     pub fn new(attrs: &[Attribute]) -> Self {
+        // todo fix docs stuff
+        const RUST_START: &str = "# let runtime = ::leptos::create_runtime();";
+        const RUST_END: &str = "# runtime.dispose();";
+        const RSX_START: &str = "# ::leptos::view! {";
+        const RSX_END: &str = "# };";
+
         #[derive(Debug, Copy, Clone, PartialEq, Eq)]
         enum ViewCodeFenceState {
             Outside,
             Rust,
             Rsx,
         }
+
         let mut quotes = "```".to_string();
-        let mut quote_ws = "".to_string();
+        let mut quote_ws = String::new();
         let mut view_code_fence_state = ViewCodeFenceState::Outside;
-        // todo fix docs stuff
-        const RUST_START: &str = "# let runtime = ::leptos::create_runtime();";
-        const RUST_END: &str = "# runtime.dispose();";
-        const RSX_START: &str = "# ::leptos::view! {";
-        const RSX_END: &str = "# };";
 
         // Seperated out of chain to allow rustfmt to work
         let map = |(doc, span): (String, Span)| {
@@ -688,11 +686,12 @@ impl Docs {
 
         if view_code_fence_state != ViewCodeFenceState::Outside {
             if view_code_fence_state == ViewCodeFenceState::Rust {
-                attrs.push((format!("{quote_ws}{RUST_END}"), Span::call_site()))
+                attrs
+                    .push((format!("{quote_ws}{RUST_END}"), Span::call_site()));
             } else {
-                attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()))
+                attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()));
             }
-            attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()))
+            attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()));
         }
 
         Self(attrs)
@@ -719,10 +718,10 @@ impl Docs {
     pub fn typed_builder(&self) -> String {
         let doc_str = self.0.iter().map(|s| s.0.as_str()).join("\n");
 
-        if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
-            format!("\n\n{doc_str}")
-        } else {
+        if doc_str.chars().filter(|c| *c != '\n').count() == 0 {
             String::new()
+        } else {
+            format!("\n\n{doc_str}")
         }
     }
 }
@@ -771,10 +770,10 @@ impl TypedBuilderOpts {
             quote! {}
         };
 
-        if !default.is_empty() {
-            quote! { #[serde(#default)] }
-        } else {
+        if default.is_empty() {
             quote! {}
+        } else {
+            quote! { #[serde(#default)] }
         }
     }
 }
@@ -924,22 +923,22 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 
-    let required_prop_docs = if !required_prop_docs.is_empty() {
+    let required_prop_docs = if required_prop_docs.is_empty() {
+        quote! {}
+    } else {
         quote! {
             #[doc = "# Required Props"]
             #required_prop_docs
         }
-    } else {
-        quote! {}
     };
 
-    let optional_prop_docs = if !optional_prop_docs.is_empty() {
+    let optional_prop_docs = if optional_prop_docs.is_empty() {
+        quote! {}
+    } else {
         quote! {
             #[doc = "# Optional Props"]
             #optional_prop_docs
         }
-    } else {
-        quote! {}
     };
 
     quote! {
@@ -1036,13 +1035,13 @@ fn prop_to_doc(
     match style {
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
-                    format!("- **{}**: [`{pretty_ty}`]", quote!(#name))
-                } else {
+                &if prop_opts.into {
                     format!(
                         "- **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
                         quote!(#name),
                     )
+                } else {
+                    format!("- **{}**: [`{pretty_ty}`]", quote!(#name))
                 },
                 name.ident.span(),
             );
@@ -1056,16 +1055,16 @@ fn prop_to_doc(
         }
         PropDocStyle::Inline => {
             let arg_ty_doc = LitStr::new(
-                &if !prop_opts.into {
+                &if prop_opts.into {
                     format!(
-                        "**{}**: [`{}`]{}",
+                        "**{}**: `impl`[`Into<{}>`]{}",
                         quote!(#name),
                         pretty_ty,
                         docs.typed_builder()
                     )
                 } else {
                     format!(
-                        "**{}**: `impl`[`Into<{}>`]{}",
+                        "**{}**: [`{}`]{}",
                         quote!(#name),
                         pretty_ty,
                         docs.typed_builder()
