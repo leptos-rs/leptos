@@ -84,12 +84,12 @@
 //!
 //! The four options use different combinations of HTTP verbs and encoding methods:
 //!
-//! | Name              | Method | Request     | Response |
-//! | ----------------- | ------ | ----------- | -------- |
-//! | **Url** (default) | POST   | URL encoded | JSON     |
-//! | **GetJson**       | GET    | URL encoded | JSON     |
-//! | **Cbor**          | POST   | CBOR        | CBOR     |
-//! | **GetCbor**       | GET    | URL encoded | CBOR     |
+//! | Name                | Method | Request     | Response |
+//! | ------------------- | ------ | ----------- | -------- |
+//! | **`Url`** (default) | POST   | URL encoded | JSON     |
+//! | **`GetJson`**       | GET    | URL encoded | JSON     |
+//! | **`Cbor`**          | POST   | CBOR        | CBOR     |
+//! | **`GetCbor`**       | GET    | URL encoded | CBOR     |
 //!
 //! In other words, you have two choices:
 //!
@@ -272,6 +272,10 @@ pub enum ServerRegistrationFnError {
 }
 
 /// Get a `ServerFunction` struct containing info about the server fn
+///
+/// # Panics
+///
+/// Will panic if `REGISTERED_SERVER_FUNCTIONS` is poisoned.
 #[cfg(any(feature = "ssr", doc))]
 #[must_use]
 pub fn server_fn_by_path(path: &str) -> Option<ServerFnTraitObj> {
@@ -367,6 +371,10 @@ pub trait ServerFn: server_fn::ServerFn<()> {
     ///
     /// Explicit server function registration is no longer required on most platforms
     /// (including Linux, macOS, iOS, FreeBSD, Android, and Windows)
+    ///
+    /// # Errors
+    ///
+    /// Will return [`ServerFnError`] when the registration function fails.
     fn register_explicit() -> Result<(), ServerFnError> {
         Self::register_in_explicit::<LeptosServerFnRegistry>()
     }
