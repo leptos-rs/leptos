@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use super::{component_builder::component_to_tokens, IdeTagHelper};
 use crate::attribute_value;
 use itertools::Either;

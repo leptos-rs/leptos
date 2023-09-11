@@ -59,7 +59,7 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 ///
 /// The input to the `async` function should always be a single value,
 /// but it can be of any type. The argument is always passed by reference to the
-/// function, because it is stored in [Action::input] as well.
+/// function, because it is stored in [`Action::input`] as well.
 ///
 /// ```rust
 /// # use leptos::*;
@@ -93,7 +93,7 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
-        self.0.with_value(|a| a.dispatch(input))
+        self.0.with_value(|a| a.dispatch(input));
     }
 
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
@@ -133,6 +133,7 @@ where
 
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `ActionForm` component in `leptos_router`.
+    #[must_use]
     pub fn url(&self) -> Option<String> {
         self.0.with_value(|a| a.url.as_ref().cloned())
     }
@@ -156,6 +157,7 @@ where
     }
 
     /// How many times the action has successfully resolved.
+    #[must_use]
     pub fn version(&self) -> RwSignal<usize> {
         self.0.with_value(|a| a.version)
     }
@@ -249,7 +251,7 @@ where
                     pending.set(false);
                 }
             });
-        })
+        });
     }
 }
 

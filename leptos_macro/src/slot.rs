@@ -128,6 +128,7 @@ impl Prop {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, AttributeDerive)]
 #[attribute(ident = prop)]
 struct PropOpt {

@@ -61,7 +61,7 @@
 //! - **Return types must be [Serializable](leptos_reactive::Serializable).**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
-//! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
+//! - **Arguments must be implement [`serde::Serialize`].** They are serialized as an `application/x-www-form-urlencoded`
 //!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 //!   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
 //!   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
@@ -153,6 +153,7 @@ impl std::ops::DerefMut for ServerFnTraitObj {
 #[cfg(any(feature = "ssr", doc))]
 impl ServerFnTraitObj {
     /// Create a new `ServerFnTraitObj` from a `server_fn::ServerFnTraitObj`.
+    #[must_use]
     pub const fn from_generic_server_fn(
         server_fn: server_fn::ServerFnTraitObj<()>,
     ) -> Self {
@@ -213,11 +214,10 @@ impl server_fn::ServerFunctionRegistry<()> for LeptosServerFnRegistry {
         match prev {
             Some(_) => {
                 Err(ServerRegistrationFnError::AlreadyRegistered(format!(
-                    "There was already a server function registered at {:?}. \
-                     This can happen if you use the same server function name \
-                     in two different modules
+                    "There was already a server function registered at \
+                     {url:?}. This can happen if you use the same server \
+                     function name in two different modules
                 on `stable` or in `release` mode.",
-                    url
                 )))
             }
             None => Ok(()),
@@ -252,7 +252,7 @@ impl server_fn::ServerFunctionRegistry<()> for LeptosServerFnRegistry {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .ok()
-            .map(|fns| fns.keys().cloned().collect())
+            .map(|fns| fns.keys().copied().collect())
             .unwrap_or_default()
     }
 }
@@ -271,8 +271,9 @@ pub enum ServerRegistrationFnError {
     Poisoned(String),
 }
 
-/// Get a ServerFunction struct containing info about the server fn
+/// Get a `ServerFunction` struct containing info about the server fn
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fn_by_path(path: &str) -> Option<ServerFnTraitObj> {
     REGISTERED_SERVER_FUNCTIONS
         .read()
@@ -335,12 +336,14 @@ pub fn server_fn_trait_obj_by_path(path: &str) -> Option<ServerFnTraitObj> {
 
 /// Get the Encoding of a server fn if one is registered at that path. Otherwise, return None
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fn_encoding_by_path(path: &str) -> Option<Encoding> {
     server_fn::server_fn_encoding_by_path::<(), LeptosServerFnRegistry>(path)
 }
 
 /// Returns the set of currently-registered server function paths, for debugging purposes.
 #[cfg(any(feature = "ssr", doc))]
+#[must_use]
 pub fn server_fns_by_path() -> Vec<&'static str> {
     server_fn::server_fns_by_path::<(), LeptosServerFnRegistry>()
 }
@@ -354,7 +357,7 @@ pub fn server_fns_by_path() -> Vec<&'static str> {
 /// Server functions are created using the `server` macro.
 ///
 /// The function should be registered by calling `ServerFn::register()`. The set of server functions
-/// can be queried on the server for routing purposes by calling [server_fn_by_path].
+/// can be queried on the server for routing purposes by calling [`server_fn_by_path`].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn: server_fn::ServerFn<()> {

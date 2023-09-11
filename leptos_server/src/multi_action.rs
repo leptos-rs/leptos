@@ -40,7 +40,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// The input to the `async` function should always be a single value,
 /// but it can be of any type. The argument is always passed by reference to the
-/// function, because it is stored in [Submission::input] as well.
+/// function, because it is stored in [`Submission::input`] as well.
 ///
 /// ```rust
 /// # use leptos::*;
@@ -99,7 +99,7 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
-        self.0.with_value(|a| a.dispatch(input))
+        self.0.with_value(|a| a.dispatch(input));
     }
 
     /// The set of all submissions to this multi-action.
@@ -108,11 +108,12 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
-        self.0.with_value(|a| a.submissions())
+        self.0.with_value(MultiActionState::submissions)
     }
 
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
+    #[must_use]
     pub fn url(&self) -> Option<String> {
         self.0.with_value(|a| a.url.as_ref().cloned())
     }
@@ -159,7 +160,7 @@ where
     action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
 
-/// An action that has been submitted by dispatching it to a [MultiAction](crate::MultiAction).
+/// An action that has been submitted by dispatching it to a [`MultiAction`](crate::MultiAction).
 pub struct Submission<I, O>
 where
     I: 'static,
@@ -189,6 +190,7 @@ where
     O: 'static,
 {
     /// Whether this submission is currently waiting to resolve.
+    #[must_use]
     pub fn pending(&self) -> ReadSignal<bool> {
         self.pending.read_only()
     }
@@ -236,7 +238,7 @@ where
             input.set(None);
             pending.set(false);
             version.update(|n| *n += 1);
-        })
+        });
     }
 
     /// The set of all submissions to this multi-action.

@@ -71,7 +71,6 @@ struct ServerFnArgs {
 }
 
 impl ToTokens for ServerFnArgs {
-    #[allow(clippy::used_underscore_binding)]
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name =
             self.struct_name.as_ref().map(|s| quote::quote! { #s, });
@@ -88,6 +87,7 @@ impl ToTokens for ServerFnArgs {
 }
 
 impl Parse for ServerFnArgs {
+    #[allow(clippy::used_underscore_binding)]
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let struct_name = input.parse()?;
         let _comma = input.parse()?;

@@ -225,7 +225,7 @@ impl ToTokens for Model {
         } else {
             quote! {}
         };
-        let island_serialized_props = if is_island_with_other_props {
+        let island_serialized_data_props = if is_island_with_other_props {
             quote! {
                 .attr("data-props", _leptos_ser_props)
             }
@@ -269,7 +269,7 @@ impl ToTokens for Model {
                     )
                     .attr("data-component", #component_id)
                     .attr("data-hkc", ::leptos::leptos_dom::HydrationCtx::peek_always().to_string())
-                    #island_serialized_props
+                    #island_serialized_data_props
                     .child(#component)
                 }
             }
@@ -726,6 +726,7 @@ impl Docs {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, AttributeDerive)]
 #[attribute(ident = prop)]
 struct PropOpt {
