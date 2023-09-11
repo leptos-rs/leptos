@@ -1,4 +1,4 @@
-        macro_rules! debug_warn {
+macro_rules! debug_warn {
     ($($x:tt)*) => {
         {
             #[cfg(debug_assertions)]
