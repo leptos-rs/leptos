@@ -65,6 +65,34 @@ if names.with(Vec::is_empty) {
 
 After all, `.with()` simply takes a function that takes the value by reference. Since `Vec::is_empty` takes `&self`, we can pass it in directly and avoid the unnecessary closure.
 
+There are some helper macros to make using `.with()` and `.update()` easier to use, especially when using multiple signals.
+
+```rust
+let (first, _) = create_signal("Bob".to_string());
+let (middle, _) = create_signal("J.".to_string());
+let (last, _) = create_signal("Smith".to_string());
+```
+
+If you wanted to concatenate these 3 signals together without unnecessary cloning, you would have to write something like:
+
+```rust
+let name = move || {
+	first.with(|first| {
+		middle.with(|middle| last.with(|last| format!("{first} {middle} {last}")))
+	})
+};
+```
+
+Which is very long and annoying to write.
+
+Instead, you can use the `with!` macro to get references to all the signals at the same time.
+
+```rust
+let name = move || with!(|first, middle, last| format!("{first} {middle} {last}"));
+```
+
+This expands to the same thing as above. Take a look at the `with!` docs for more info, and the corresponding macros `update!`, `with_value!` and `update_value!`.
+
 ## Making signals depend on each other
 
 Often people ask about situations in which some signal needs to change based on some other signal’s value. There are three good ways to do this, and one that’s less than ideal but okay under controlled circumstances.
