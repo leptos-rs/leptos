@@ -591,6 +591,7 @@ impl<'a> FromIterator<Oco<'a, str>> for String {
     }
 }
 
+#[allow(clippy::default_trait_access)]
 #[cfg(test)]
 mod tests {
     use super::*;

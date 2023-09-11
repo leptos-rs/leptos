@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
@@ -7,7 +8,7 @@
 //! using the [Leptos](https://github.com/leptos-rs/leptos) web framework.
 //!
 //! Document metadata is updated automatically when running in the browser. For server-side
-//! rendering, after the component tree is rendered to HTML, [MetaContext::dehydrate] can generate
+//! rendering, after the component tree is rendered to HTML, [`MetaContext::dehydrate`] can generate
 //! HTML that should be injected into the `<head>` of the HTML document being rendered.
 //!
 //! ```
@@ -37,7 +38,7 @@
 //! # Feature Flags
 //! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
+//! - `hydrate` Hydration: use this to add interactivity to an `SSRed` Leptos app
 //! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
 //!   of calling signals as functions. Enable this feature to support `stable` Rust.
 //!

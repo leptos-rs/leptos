@@ -1207,7 +1207,8 @@ impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: ElementDescriptor>(el: &El) -> HtmlElement<Custom> {
+#[allow(clippy::needless_pass_by_value)]
+pub fn custom<El: ElementDescriptor>(el: El) -> HtmlElement<Custom> {
     HtmlElement::new(Custom {
         name: el.name(),
         #[cfg(all(target_arch = "wasm32", feature = "web"))]

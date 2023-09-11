@@ -66,7 +66,7 @@ pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
 }
 
 fn begins_with_query_or_hash(text: &str) -> bool {
-    matches!(text.chars().next(), Some('#') | Some('?'))
+    matches!(text.chars().next(), Some('#' | '?'))
 }
 
 fn remove_wildcard(text: &str) -> String {

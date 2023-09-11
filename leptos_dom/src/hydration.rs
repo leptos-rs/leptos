@@ -119,7 +119,7 @@ mod tests {
                 error: 2,
                 id: 3
             })
-        )
+        );
     }
 }
 
