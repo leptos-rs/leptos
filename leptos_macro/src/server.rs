@@ -71,6 +71,7 @@ struct ServerFnArgs {
 }
 
 impl ToTokens for ServerFnArgs {
+    #[allow(clippy::used_underscore_binding)]
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name =
             self.struct_name.as_ref().map(|s| quote::quote! { #s, });

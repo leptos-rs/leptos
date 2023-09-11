@@ -45,7 +45,7 @@ async fn main() {
     // _ = CauseInternalServerError::register();
 
     // Setting this to None means we'll be using cargo-leptos and its env vars
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(|| view! { <App/> }).await;
