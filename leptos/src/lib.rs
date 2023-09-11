@@ -204,9 +204,7 @@ pub use suspense_component::*;
 mod suspense_component;
 mod text_prop;
 mod transition;
-// used by the component macro to generate islands
-#[doc(hidden)]
-pub use const_format;
+
 pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
@@ -232,9 +230,6 @@ pub use wasm_bindgen; // used in islands
     feature = "template_macro"
 ))]
 pub use web_sys; // used in islands
-// used by the component macro to generate islands
-#[doc(hidden)]
-pub use xxhash_rust;
 mod children;
 pub use children::*;
 extern crate self as leptos;
