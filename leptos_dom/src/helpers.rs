@@ -80,6 +80,10 @@ where
 /// Helper function to extract `event.target.checked` from an event.
 ///
 /// This is useful in the `on:change` listeners for an `<input type="checkbox">` element.
+///
+/// # Panics
+///
+/// Will panic if the event target does not exist.
 #[must_use]
 pub fn event_target_checked(ev: &web_sys::Event) -> bool {
     ev.target()
@@ -435,6 +439,7 @@ pub fn window_event_listener_untyped(
 
 /// Creates a window event listener from a typed event, returning a
 /// cancelable handle.
+///
 /// ```
 /// use leptos::{leptos_dom::helpers::window_event_listener, logging::log, *};
 ///
@@ -449,6 +454,7 @@ pub fn window_event_listener_untyped(
 ///     on_cleanup(move || handle.remove());
 /// }
 /// ```
+#[allow(clippy::needless_pass_by_value)]
 pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
     event: E,
     cb: impl Fn(E::EventType) + 'static,
@@ -477,8 +483,9 @@ impl WindowListenerHandle {
     }
 }
 
-#[doc(hidden)]
 /// This exists only to enable type inference on event listeners when in SSR mode.
+#[doc(hidden)]
+#[allow(clippy::needless_pass_by_value)]
 pub fn ssr_event_listener<E: crate::ev::EventDescriptor + 'static>(
     event: E,
     event_handler: impl FnMut(E::EventType) + 'static,

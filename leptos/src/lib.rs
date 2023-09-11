@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 //! # About Leptos
@@ -58,7 +59,7 @@
 //!   [`todo_app_sqlite_viz`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_viz)
 //!   show how to build a full-stack app using server functions and database connections.
 //! - [`tailwind`](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind) shows how to integrate
-//!   TailwindCSS with `cargo-leptos`.
+//!   `TailwindCSS` with `cargo-leptos`.
 //!
 //! Details on how to run each example can be found in its README.
 //!
@@ -79,7 +80,7 @@
 //! - `nightly`: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
 //! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
+//! - `hydrate` Hydration: use this to add interactivity to an `SSRed` Leptos app
 //! - `serde` (*Default*) In SSR/hydrate mode, uses [`serde`](https://docs.rs/serde/latest/serde/) to serialize resources and send them
 //!   from the server to the client.
 //! - `serde-lite` In SSR/hydrate mode, uses [`serde-lite`](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
@@ -262,6 +263,7 @@ pub trait Props {
 
 #[doc(hidden)]
 pub trait DynAttrs {
+    #[must_use]
     fn dyn_attrs(self, _args: Vec<(&'static str, Attribute)>) -> Self
     where
         Self: Sized,

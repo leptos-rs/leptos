@@ -100,9 +100,9 @@ where
     T: Serializable + 'static,
 {
     let res = if blocking {
-        create_blocking_resource(|| (), move |_| future())
+        create_blocking_resource(|| (), move |()| future())
     } else {
-        create_resource(|| (), move |_| future())
+        create_resource(|| (), move |()| future())
     };
     let view = store_value(children);
 

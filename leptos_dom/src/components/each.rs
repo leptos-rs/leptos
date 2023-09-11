@@ -580,9 +580,9 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
             //      have been added before it, and it has moved by 2
             if let Some(from_item) = from_item {
                 if let Some(to_item) = to.get_full(from_item) {
-                    let moves_forward_by = (to_item.0 as i32) - (index as i32);
-                    let move_in_dom = moves_forward_by
-                        != (added.len() as i32) - (removed.len() as i32);
+                    let moves_forward_by = to_item.0 - index;
+                    let move_in_dom =
+                        moves_forward_by != added.len() - removed.len();
 
                     let op = DiffOpMove {
                         from: index,

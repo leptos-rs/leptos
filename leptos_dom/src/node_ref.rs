@@ -128,6 +128,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
 
     /// Runs the provided closure when the `NodeRef` has been connected
     /// with it's [`HtmlElement`].
+    #[allow(clippy::missing_panics_doc)]
     #[inline(always)]
     pub fn on_load<F>(self, f: F)
     where

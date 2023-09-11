@@ -278,11 +278,24 @@ macro_rules! collection_callback {
 
 use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
 
+impl<T, S: ::std::hash::BuildHasher> EventHandler for HashSet<T, S>
+where
+    T: EventHandler,
+{
+    #[inline]
+    fn attach<R: DOMEventResponder>(self, target: R) -> R {
+        let mut target = target;
+        for item in self {
+            target = item.attach(target);
+        }
+        target
+    }
+}
+
 collection_callback! {
   Vec,
   BTreeSet,
   BinaryHeap,
-  HashSet,
   LinkedList,
   VecDeque,
 }

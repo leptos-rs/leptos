@@ -100,7 +100,7 @@ where
                     let is_first_run =
                         is_first_run(first_run, &suspense_context);
                     if was_first_run {
-                        first_run.set(false)
+                        first_run.set(false);
                     }
 
                     if let Some(prev_children) = &*prev_child.borrow() {
@@ -144,7 +144,7 @@ where
                 let pending = suspense_context.pending_resources;
                 create_isomorphic_effect(move |_| {
                     if let Some(set_pending) = set_pending {
-                        set_pending.set(pending.get() > 0)
+                        set_pending.set(pending.get() > 0);
                     }
                 });
                 frag
@@ -160,6 +160,7 @@ fn is_first_run(
     if cfg!(feature = "csr") {
         false
     } else {
+        #[allow(clippy::match_same_arms)]
         match (
             first_run.get(),
             cfg!(feature = "hydrate"),

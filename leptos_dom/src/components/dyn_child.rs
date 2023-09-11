@@ -164,6 +164,7 @@ where
     #[inline]
     fn into_view(self) -> View {
         // concrete inner function
+        #[allow(clippy::needless_pass_by_value)]
         #[inline(never)]
         fn create_dyn_view(
             component: DynChildRepr,

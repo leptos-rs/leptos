@@ -8,6 +8,8 @@ pub struct TextProp(Rc<dyn Fn() -> Oco<'static, str>>);
 
 impl TextProp {
     /// Accesses the current value of the property.
+    #[allow(clippy::inline_always)]
+    #[must_use]
     #[inline(always)]
     pub fn get(&self) -> Oco<'static, str> {
         (self.0)()
@@ -52,7 +54,6 @@ where
     F: Fn() -> S + 'static,
     S: Into<Oco<'static, str>>,
 {
-    #[inline(always)]
     fn from(s: F) -> Self {
         TextProp(Rc::new(move || s().into()))
     }

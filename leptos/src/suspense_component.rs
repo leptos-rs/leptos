@@ -192,9 +192,9 @@ where
         }
     })
     .into_view();
-    let core_component = match child {
-        leptos_dom::View::CoreComponent(repr) => repr,
-        _ => unreachable!(),
+
+    let leptos_dom::View::CoreComponent(core_component) = child else {
+        unreachable!()
     };
 
     HydrationCtx::continue_from(current_id);

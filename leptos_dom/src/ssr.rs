@@ -9,6 +9,7 @@ use crate::{
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
+#[allow(clippy::wildcard_imports)]
 use leptos_reactive::{Oco, *};
 use std::pin::Pin;
 
@@ -36,7 +37,7 @@ where
     N: IntoView,
 {
     HydrationCtx::reset_id();
-    let runtime = leptos_reactive::create_runtime();
+    let runtime = create_runtime();
 
     let html = f().into_view().render_to_string();
 

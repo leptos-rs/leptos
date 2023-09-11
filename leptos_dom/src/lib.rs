@@ -383,13 +383,13 @@ impl IntoView for Element {
 
 impl Element {
     #[track_caller]
-    fn new<El: ElementDescriptor>(el: El) -> Self {
+    fn new<El: ElementDescriptor>(el: &El) -> Self {
         cfg_if! {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
               Self {
                 #[cfg(debug_assertions)]
                 name: el.name(),
-                element: el.as_ref().clone(),
+                element: el.clone(),
                 #[cfg(debug_assertions)]
                 view_marker: None
               }
@@ -708,6 +708,10 @@ impl View {
 
     /// Returns [`Ok(HtmlElement<AnyElement>)`] if this [`View`] is
     /// of type [`Element`]. [`Err(View)`] otherwise.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the current view type is not an element.
     pub fn into_html_element(self) -> Result<HtmlElement<AnyElement>, Self> {
         if let Self::Element(el) = self {
             Ok(el.into_html_element())
@@ -740,6 +744,7 @@ impl View {
         self.on_impl(event, Box::new(event_handler))
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn on_impl<E: ev::EventDescriptor + 'static>(
         self,
         event: E,
@@ -889,7 +894,7 @@ where
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
-pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
+pub fn mount_to<F, N>(parent: &web_sys::HtmlElement, f: F)
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,
@@ -899,7 +904,7 @@ where
 
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn mount_to_with_stop_hydrating<F, N>(
-    parent: web_sys::HtmlElement,
+    parent: &web_sys::HtmlElement,
     stop_hydrating: bool,
     f: F,
 ) where

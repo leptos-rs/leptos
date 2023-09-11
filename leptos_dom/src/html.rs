@@ -945,6 +945,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Sets a property on an element.
+    #[allow(clippy::needless_pass_by_value)]
     #[must_use]
     #[track_caller]
     pub fn prop(
@@ -970,6 +971,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds an event listener to this element.
+    #[allow(clippy::needless_pass_by_value)]
     #[must_use]
     #[track_caller]
     #[inline(always)]
@@ -1174,7 +1176,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
 
             let id = *element.hydration_id();
 
-            let mut element = Element::new(element);
+            let mut element = Element::new(&element);
 
             if let Some(id) = id {
                 attrs.push(("data-hk".into(), id.to_string().into()));
@@ -1205,11 +1207,11 @@ impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: ElementDescriptor>(el: El) -> HtmlElement<Custom> {
+pub fn custom<El: ElementDescriptor>(el: &El) -> HtmlElement<Custom> {
     HtmlElement::new(Custom {
         name: el.name(),
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        element: el.as_ref().clone(),
+        element: el.clone(),
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         id: *el.hydration_id(),
     })

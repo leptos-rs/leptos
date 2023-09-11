@@ -38,6 +38,7 @@ pub struct AdditionalAttributesIter<'a>(
 impl<'a> Iterator for AdditionalAttributesIter<'a> {
     type Item = &'a (String, TextProp);
 
+    #[allow(clippy::inline_always)]
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
