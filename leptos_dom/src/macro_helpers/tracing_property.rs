@@ -117,7 +117,7 @@ fn match_primitive() {
     assert_eq!(prop, r#"{"name": "test", "value": -1}"#);
 
     // f64
-    let test = 3.14;
+    let test = std::f64::consts::PI;
     let prop = (&&Match {
         name: stringify! {test},
         value: std::cell::Cell::new(Some(&test)),
