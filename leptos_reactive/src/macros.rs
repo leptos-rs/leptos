@@ -180,9 +180,9 @@ macro_rules! update {
 #[macro_export]
 macro_rules! update_value {
     (|$ident:ident $(,)?| $body:expr) => {
-        $ident.update(|$ident| $body)
+        $ident.update_value(|$ident| $body)
     };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
-        $first.update(|$first| update!(|$($rest),+| $body))
+        $first.update_value(|$first| update_value!(|$($rest),+| $body))
     };
 }
