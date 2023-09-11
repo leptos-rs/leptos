@@ -631,7 +631,77 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         .into()
 }
 
-/// TODO docs for islands
+/// Defines a component as an interactive island when you are using the
+/// `experimental-islands` feature of Leptos. Apart from the macro name,
+/// the API is the same as the [`component`](macro@component) macro.
+///
+/// When you activate the `experimental-islands` feature, every `#[component]`
+/// is server-only by default. This "default to server" behavior is important:
+/// you opt into shipping code to the client, rather than opting out. You can
+/// opt into client-side interactivity for any given component by changing from
+///  `#[component]` to `#[island]`—the two macros are otherwise identical.
+///
+/// Everything that is included inside an island will be compiled to WASM and
+/// shipped to the browser. So the key to really benefiting from this architecture
+/// is to make islands as small as possible, and include only the minimal
+/// required amount of functionality in islands themselves.
+///
+/// Only code included in an island itself is compiled to WASM. This means:
+/// 1. `children` can be provided from a server `#[component]` to an `#[island]`
+/// without the island needing to be able to hydrate them.
+/// 2. Props can be passed from the server to an island.
+///
+/// ## Present Limitations
+/// A few noteworthy limitations, at the moment:
+/// 1. `children` are completely opaque in islands. You can't iterate over `children`;
+/// in fact they're all bundled into a single `<leptos-children>` HTML element.
+/// 2. Similarly, `children` need to be used in the HTML rendered on the server.
+/// If they need to be displayed conditionally, they should be included in the HTML
+/// and rendered or not using `display: none` rather than `<Show>` or ordinary control flow.
+/// This is because the children aren't serialized at all, other than as HTML: if that
+/// HTML isn't present in the DOM, even if hidden, it is never sent and not available
+/// to the client at all.
+///
+/// ## Example
+/// ```rust,ignore
+/// use leptos::*;
+///
+/// #[component]
+/// pub fn App() -> impl IntoView {
+///     // this would panic if it ran in the browser
+///     // but because this isn't an island, it only runs on the server
+///     let file =
+///         std::fs::read_to_string("./src/is_this_a_server_component.txt")
+///             .unwrap();
+///     let len = file.len();
+///
+///     view! {
+///         <p>"The starting value for the button is the file's length."</p>
+///         // `value` is serialized and given to the island as a prop
+///         <Island value=len>
+///             // `file` is only available on the server
+///             // island props are projected in, so we can nest
+///             // server-only content inside islands inside server content etc.
+///             <p>{file}</p>
+///         </Island>
+///     }
+/// }
+///
+/// #[island]
+/// pub fn Island(
+///     #[prop(into)] value: RwSignal<usize>,
+///     children: Children,
+/// ) -> impl IntoView {
+///     // because `RwSignal<T>` implements `From<T>`, we can pass in a plain
+///     // value and use it as the starting value of a signal here
+///     view! {
+///         <button on:click=move |_| value.update(|n| *n += 1)>
+///             {value}
+///         </button>
+///         {children()}
+///     }
+/// }
+/// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
