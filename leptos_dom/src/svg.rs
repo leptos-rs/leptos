@@ -2,7 +2,7 @@
 
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use super::{html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG, HydrationKey};
-use super::{ElementDescriptor, HtmlElement};
+use super::{AnyElement, ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
 use leptos_reactive::Oco;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -142,6 +142,12 @@ macro_rules! generate_svg_tags {
           }
 
           generate_svg_tags! { @void $($void)? }
+        }
+
+        impl From<HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]>> for HtmlElement<AnyElement> {
+          fn from(element: HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]>) -> Self {
+            element.into_any()
+          }
         }
 
         #[$meta]
