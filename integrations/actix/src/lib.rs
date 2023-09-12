@@ -1162,7 +1162,7 @@ impl LeptosRoutes for &mut ServiceConfig {
 ///
 /// # Panics
 ///
-/// Will panic if the [`HttpRequest`][actix_web::HttpRequest] is not provided from context.
+/// Will panic if the [`HttpRequest`](actix_web::HttpRequest) is not provided from context.
 pub async fn extract<F, E>(
     f: F,
 ) -> Result<<<F as Extractor<E>>::Future as Future>::Output, ServerFnError>
