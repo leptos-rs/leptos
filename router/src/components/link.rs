@@ -157,11 +157,12 @@ where
                     })
                     .attr(
                         "class",
-                        class.map(|class| class.into_attribute_boxed()),
+                        class.map(IntoAttribute::into_attribute_boxed),
                     );
 
                 for class_name in active_class.split_ascii_whitespace() {
-                    a = a.class(class_name.to_string(), move || is_active.get())
+                    a = a
+                        .class(class_name.to_string(), move || is_active.get());
                 }
 
                 a.attr("id", id).child(children()).into_view()

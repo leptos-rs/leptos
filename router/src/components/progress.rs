@@ -23,14 +23,14 @@ pub fn RoutingProgress(
     #[prop(optional, into)]
     class: String,
 ) -> impl IntoView {
-    const INCREMENT_EVERY_MS: f32 = 5.0;
-    let expected_increments =
-        max_time.as_secs_f32() / (INCREMENT_EVERY_MS / 1000.0);
+    const INCREMENT_EVERY_SS: f32 = 5.0 / 1000.0;
+    let expected_increments = max_time.as_secs_f32() / INCREMENT_EVERY_SS;
     let percent_per_increment = 100.0 / expected_increments;
 
     let (is_showing, set_is_showing) = create_signal(false);
     let (progress, set_progress) = create_signal(0.0);
 
+    #[allow(clippy::option_option)]
     create_effect(move |prev: Option<Option<IntervalHandle>>| {
         if is_routing.get() && !is_showing.get() {
             set_is_showing.set(true);
@@ -38,7 +38,7 @@ pub fn RoutingProgress(
                 move || {
                     set_progress.update(|n| *n += percent_per_increment);
                 },
-                std::time::Duration::from_millis(INCREMENT_EVERY_MS as u64),
+                std::time::Duration::from_secs_f32(INCREMENT_EVERY_SS),
             )
             .ok()
         } else if is_routing.get() && is_showing.get() {

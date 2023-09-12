@@ -42,7 +42,6 @@ impl<F> From<F> for Formatter
 where
     F: Fn(String) -> String + 'static,
 {
-    #[inline(always)]
     fn from(f: F) -> Formatter {
         Formatter(Box::new(f))
     }

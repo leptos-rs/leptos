@@ -2,37 +2,6 @@ use super::params::ParamsMap;
 use crate::{State, Url};
 use leptos::*;
 
-/// Creates a reactive location from the given path and state.
-pub fn create_location(
-    path: ReadSignal<String>,
-    state: ReadSignal<State>,
-) -> Location {
-    let url = create_memo(move |prev: Option<&Url>| {
-        path.with(|path| match Url::try_from(path.as_str()) {
-            Ok(url) => url,
-            Err(e) => {
-                leptos::logging::error!(
-                    "[Leptos Router] Invalid path {path}\n\n{e:?}"
-                );
-                prev.cloned().unwrap()
-            }
-        })
-    });
-
-    let pathname = create_memo(move |_| url.with(|url| url.pathname.clone()));
-    let search = create_memo(move |_| url.with(|url| url.search.clone()));
-    let hash = create_memo(move |_| url.with(|url| url.hash.clone()));
-    let query = create_memo(move |_| url.with(|url| url.search_params.clone()));
-
-    Location {
-        pathname,
-        search,
-        hash,
-        query,
-        state,
-    }
-}
-
 /// A reactive description of the current URL, containing equivalents to the local parts of
 /// the browser's [`Location`](https://developer.mozilla.org/en-US/docs/Web/API/Location).
 #[derive(Debug, Clone, PartialEq)]
@@ -66,10 +35,42 @@ pub struct LocationChange {
 impl Default for LocationChange {
     fn default() -> Self {
         Self {
-            value: Default::default(),
+            value: String::new(),
             replace: true,
             scroll: true,
-            state: Default::default(),
+            state: State::default(),
         }
+    }
+}
+
+/// Creates a reactive location from the given path and state.
+#[must_use]
+pub fn create_location(
+    path: ReadSignal<String>,
+    state: ReadSignal<State>,
+) -> Location {
+    let url = create_memo(move |prev: Option<&Url>| {
+        path.with(|path| match Url::try_from(path.as_str()) {
+            Ok(url) => url,
+            Err(e) => {
+                leptos::logging::error!(
+                    "[Leptos Router] Invalid path {path}\n\n{e:?}"
+                );
+                prev.cloned().unwrap()
+            }
+        })
+    });
+
+    let pathname = create_memo(move |_| url.with(|url| url.pathname.clone()));
+    let search = create_memo(move |_| url.with(|url| url.search.clone()));
+    let hash = create_memo(move |_| url.with(|url| url.hash.clone()));
+    let query = create_memo(move |_| url.with(|url| url.search_params.clone()));
+
+    Location {
+        pathname,
+        search,
+        hash,
+        query,
+        state,
     }
 }

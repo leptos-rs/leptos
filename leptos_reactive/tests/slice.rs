@@ -3,7 +3,6 @@ use std::rc::Rc;
 #[test]
 fn slice() {
     use leptos_reactive::*;
-    let runtime = create_runtime();
 
     // this could be serialized to and from localstorage with miniserde
     pub struct State {
@@ -11,8 +10,10 @@ fn slice() {
         dark_mode: bool,
     }
 
+    let runtime = create_runtime();
+
     let state = create_rw_signal(State {
-        token: "".into(),
+        token: String::new(),
         // this would cause flickering on reload,
         // use a cookie for the initial value in real projects
         dark_mode: false,

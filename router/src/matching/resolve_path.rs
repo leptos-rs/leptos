@@ -4,6 +4,7 @@
 use std::borrow::Cow;
 
 #[doc(hidden)]
+#[must_use]
 pub fn resolve_path<'a>(
     base: &'a str,
     path: &'a str,
@@ -39,14 +40,11 @@ fn has_scheme(path: &str) -> bool {
     path.starts_with("//")
         || path.starts_with("tel:")
         || path.starts_with("mailto:")
-        || path
-            .split_once("://")
-            .map(|(prefix, _)| {
-                prefix.chars().all(
-                    |c: char| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
-                )
-            })
-            .unwrap_or(false)
+        || path.split_once("://").is_some_and(|(prefix, _)| {
+            prefix
+                .chars()
+                .all(|c: char| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'))
+        })
 }
 
 #[doc(hidden)]
@@ -60,6 +58,7 @@ fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
 }
 
 #[doc(hidden)]
+#[must_use]
 pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
     let from = remove_wildcard(&normalize(from, false));
     from + &normalize(to, false)
@@ -71,8 +70,7 @@ fn begins_with_query_or_hash(text: &str) -> bool {
 
 fn remove_wildcard(text: &str) -> String {
     text.split_once('*')
-        .map(|(prefix, _)| prefix.trim_end_matches('/'))
-        .unwrap_or(text)
+        .map_or(text, |(prefix, _)| prefix.trim_end_matches('/'))
         .to_string()
 }
 

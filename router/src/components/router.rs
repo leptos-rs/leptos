@@ -77,7 +77,7 @@ impl std::fmt::Debug for RouterContextInner {
             .field("state", &self.state)
             .field("set_state", &self.set_state)
             .field("path_stack", &self.path_stack)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -176,7 +176,7 @@ impl RouterContext {
             referrers,
             state,
             set_state,
-            possible_routes: Default::default(),
+            possible_routes: RefCell::default(),
             is_back: create_rw_signal(false),
         });
 
@@ -194,16 +194,19 @@ impl RouterContext {
     }
 
     /// The current [`pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Location/pathname).
+    #[must_use]
     pub fn pathname(&self) -> Memo<String> {
         self.inner.location.pathname
     }
 
-    /// The [RouteContext] of the base route.
+    /// The [`RouteContext`] of the base route.
+    #[must_use]
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
     }
 
     /// A list of all possible routes this router can match.
+    #[must_use]
     pub fn possible_branches(&self) -> Vec<Branch> {
         self.inner
             .possible_routes
@@ -277,7 +280,7 @@ impl RouterContextInner {
                         let is_navigating_back = self.is_back.get_untracked();
                         if !is_navigating_back {
                             path_stack.update_value(|stack| {
-                                stack.push(resolved_to.clone())
+                                stack.push(resolved_to.clone());
                             });
                         }
 
@@ -288,7 +291,9 @@ impl RouterContextInner {
                         spawn_local(async move {
                             if let Some(set_is_routing) = set_is_routing {
                                 if let Some(global) = global_suspense {
-                                    global.with_inner(|s| s.to_future()).await;
+                                    global
+                                        .with_inner(SuspenseContext::to_future)
+                                        .await;
                                 }
                                 set_is_routing.0.set(false);
                             }
@@ -432,7 +437,7 @@ pub enum NavigationError {
     MaxRedirects,
 }
 
-/// Options that can be used to configure a navigation. Used with [use_navigate](crate::use_navigate).
+/// Options that can be used to configure a navigation. Used with [`use_navigate`](crate::use_navigate).
 #[derive(Clone, Debug)]
 pub struct NavigateOptions {
     /// Whether the URL being navigated to should be resolved relative to the current route.

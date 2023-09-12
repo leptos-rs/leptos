@@ -113,6 +113,7 @@ pub fn Outlet() -> impl IntoView {
 ///
 /// Each of these properties is optional, and the router will transition to the next correct state
 /// whenever an `animationend` event fires.
+#[allow(clippy::too_many_lines)]
 #[component]
 pub fn AnimatedOutlet(
     /// Base classes to be applied to the `<div>` wrapping the outlet during any animation state.
@@ -147,12 +148,12 @@ pub fn AnimatedOutlet(
     });
 
     let animation = Animation {
-        outro,
         start,
+        outro,
         intro,
-        finally,
         outro_back,
         intro_back,
+        finally,
     };
     let (animation_state, set_animation_state) =
         create_signal(AnimationState::Finally);

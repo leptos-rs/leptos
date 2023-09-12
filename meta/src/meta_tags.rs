@@ -45,11 +45,11 @@ pub fn Meta(
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag(move || {
         leptos::leptos_dom::html::meta()
-            .attr("charset", move || charset.as_ref().map(|v| v.get()))
-            .attr("name", move || name.as_ref().map(|v| v.get()))
-            .attr("property", move || property.as_ref().map(|v| v.get()))
-            .attr("http-equiv", move || http_equiv.as_ref().map(|v| v.get()))
-            .attr("content", move || content.as_ref().map(|v| v.get()))
+            .attr("charset", move || charset.as_ref().map(TextProp::get))
+            .attr("name", move || name.as_ref().map(TextProp::get))
+            .attr("property", move || property.as_ref().map(TextProp::get))
+            .attr("http-equiv", move || http_equiv.as_ref().map(TextProp::get))
+            .attr("content", move || content.as_ref().map(TextProp::get))
     });
 
     meta.tags.register(id.into(), builder_el.into_any());

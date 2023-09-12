@@ -250,7 +250,7 @@ impl RouteContext {
     /// including param values in their places.
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
-    /// For the opposite behavior, see [RouteContext::original_path].
+    /// For the opposite behavior, see [`RouteContext::original_path`].
     #[track_caller]
     pub fn path(&self) -> String {
         #[cfg(debug_assertions)]
@@ -261,7 +261,7 @@ impl RouteContext {
                 "at {caller}, you call `.path()` on a `<Route/>` that has \
                  already been disposed"
             );
-            Default::default()
+            String::new()
         })
     }
 
@@ -273,12 +273,14 @@ impl RouteContext {
     /// with the param name rather than the matched parameter itself.
     ///
     /// e.g., this will return `/article/:id` rather than `/article/0`
-    /// For the opposite behavior, see [RouteContext::path].
+    /// For the opposite behavior, see [`RouteContext::path`].
+    #[must_use]
     pub fn original_path(&self) -> &str {
         &self.inner.original_path
     }
 
     /// A reactive wrapper for the route parameters that are currently matched.
+    #[must_use]
     pub fn params(&self) -> Memo<ParamsMap> {
         self.inner.params
     }
@@ -293,7 +295,7 @@ impl RouteContext {
                 original_path: path.to_string(),
                 params: create_memo(|_| ParamsMap::new()),
                 outlet: Box::new(move || fallback.as_ref().map(move |f| f())),
-                data: Default::default(),
+                data: RefCell::default(),
             }),
         }
     }
@@ -314,11 +316,13 @@ impl RouteContext {
     }
 
     /// The nested child route, if any.
+    #[must_use]
     pub fn child(&self) -> Option<RouteContext> {
         (self.inner.child)()
     }
 
     /// The view associated with the current route.
+    #[must_use]
     pub fn outlet(&self) -> impl IntoView {
         (self.inner.outlet)()
     }
@@ -349,7 +353,7 @@ impl std::fmt::Debug for RouteContextInner {
         f.debug_struct("RouteContextInner")
             .field("path", &self.path)
             .field("ParamsMap", &self.params)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

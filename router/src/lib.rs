@@ -1,3 +1,4 @@
+#![allow(clippy::module_name_repetitions)]
 #![forbid(unsafe_code)]
 
 //! # Leptos Router
@@ -176,7 +177,7 @@
 //! # Feature Flags
 //! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
+//! - `hydrate` Hydration: use this to add interactivity to an `SSRed` Leptos app
 //! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
 //!   of calling signals as functions. Enable this feature to support `stable` Rust.
 //!

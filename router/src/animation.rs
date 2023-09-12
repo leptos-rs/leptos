@@ -60,8 +60,9 @@ impl Animation {
                 };
                 (next, false)
             }
-            AnimationState::Intro => (AnimationState::Finally, false),
-            AnimationState::IntroBack => (AnimationState::Finally, false),
+            AnimationState::Intro | AnimationState::IntroBack => {
+                (AnimationState::Finally, false)
+            }
             AnimationState::Finally => {
                 if outro.is_some() {
                     if is_back {

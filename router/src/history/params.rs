@@ -13,6 +13,7 @@ pub struct ParamsMap(pub LinearMap<String, String>);
 
 impl ParamsMap {
     /// Creates an empty map.
+    #[must_use]
     #[inline(always)]
     pub fn new() -> Self {
         Self(LinearMap::new())
@@ -69,7 +70,7 @@ impl Default for ParamsMap {
     }
 }
 
-/// A declarative way of creating a [ParamsMap].
+/// A declarative way of creating a [`ParamsMap`].
 ///
 /// ```
 /// # use leptos_router::params_map;
@@ -98,7 +99,7 @@ macro_rules! params_map {
 
 /// A simple method of deserializing key-value data (like route params or URL search)
 /// into a concrete data type. `Self` should typically be a struct in which
-/// each field's type implements [FromStr].
+/// each field's type implements [`FromStr`].
 pub trait Params
 where
     Self: Sized,

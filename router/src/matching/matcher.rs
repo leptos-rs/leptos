@@ -55,7 +55,7 @@ impl Matcher {
             .collect::<Vec<_>>();
 
         let loc_len = loc_segments.len();
-        let len_diff: i32 = loc_len as i32 - self.len as i32;
+        let len_diff = loc_len - self.len;
 
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
@@ -89,7 +89,7 @@ impl Matcher {
                     let value = if len_diff > 0 {
                         loc_segments[self.len..].join("/")
                     } else {
-                        "".into()
+                        String::new()
                     };
                     params.insert(splat.into(), value);
                 }

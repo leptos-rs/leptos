@@ -331,6 +331,7 @@ impl Branches {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn route_states(
     base: String,
     router: &RouterContext,
@@ -343,7 +344,7 @@ fn route_states(
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
-    let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
+    let next: Rc<RefCell<Vec<RouteContext>>> = Rc::default();
     let router = Rc::clone(&router.inner);
 
     let owner =
@@ -360,9 +361,9 @@ fn route_states(
             let prev_routes = prev.as_ref().map(|p| &p.routes);
 
             // are the new route matches the same as the previous route matches so far?
-            let mut equal = prev_matches
-                .map(|prev_matches| next_matches.len() == prev_matches.len())
-                .unwrap_or(false);
+            let mut equal = prev_matches.is_some_and(|prev_matches| {
+                next_matches.len() == prev_matches.len()
+            });
 
             for i in 0..next_matches.len() {
                 let next = next.clone();

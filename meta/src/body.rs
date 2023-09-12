@@ -15,6 +15,7 @@ pub struct BodyContext {
 impl BodyContext {
     /// Converts the `<body>` metadata into an HTML string.
     #[cfg(any(feature = "ssr", doc))]
+    #[must_use]
     pub fn as_string(&self) -> Option<String> {
         let class = self.class.borrow().as_ref().map(|val| {
             format!(

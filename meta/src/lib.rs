@@ -76,10 +76,10 @@ pub use style::*;
 pub use stylesheet::*;
 pub use title::*;
 
-/// Contains the current state of meta tags. To access it, you can use [use_head].
+/// Contains the current state of meta tags. To access it, you can use [`use_head`].
 ///
 /// This should generally by provided somewhere in the root of your application using
-/// [provide_meta_context].
+/// [`provide_meta_context`].
 #[derive(Clone, Default, Debug)]
 pub struct MetaContext {
     /// Metadata associated with the `<html>` element
@@ -116,6 +116,7 @@ impl std::fmt::Debug for MetaTagsContext {
 impl MetaTagsContext {
     /// Converts metadata tags into an HTML string.
     #[cfg(any(feature = "ssr", docs))]
+    #[must_use]
     pub fn as_string(&self) -> String {
         self.els
             .borrow()
@@ -187,8 +188,8 @@ impl MetaTagsContext {
     }
 }
 
-/// Provides a [MetaContext], if there is not already one provided. This ensures that you can provide it
-/// at the highest possible level, without overwriting a [MetaContext] that has already been provided
+/// Provides a [`MetaContext`], if there is not already one provided. This ensures that you can provide it
+/// at the highest possible level, without overwriting a [`MetaContext`] that has already been provided
 /// (for example, by a server-rendering integration.)
 pub fn provide_meta_context() {
     if use_context::<MetaContext>().is_none() {
@@ -196,14 +197,15 @@ pub fn provide_meta_context() {
     }
 }
 
-/// Returns the current [MetaContext].
+/// Returns the current [`MetaContext`].
 ///
-/// If there is no [MetaContext] in this or any parent scope, this will
-/// create a new [MetaContext] and provide it to the current scope.
+/// If there is no [`MetaContext`] in this or any parent scope, this will
+/// create a new [`MetaContext`] and provide it to the current scope.
 ///
 /// Note that this may cause confusing behavior, e.g., if multiple nested routes independently
-/// call `use_head()` but a single [MetaContext] has not been provided at the application root.
-/// The best practice is always to call [provide_meta_context] early in the application.
+/// call `use_head()` but a single [`MetaContext`] has not been provided at the application root.
+/// The best practice is always to call [`provide_meta_context`] early in the application.
+#[must_use]
 pub fn use_head() -> MetaContext {
     #[cfg(debug_assertions)]
     feature_warning();
@@ -226,9 +228,10 @@ pub fn use_head() -> MetaContext {
 }
 
 impl MetaContext {
-    /// Creates an empty [MetaContext].
+    /// Creates an empty [`MetaContext`].
+    #[must_use]
     pub fn new() -> Self {
-        Default::default()
+        MetaContext::default()
     }
 
     #[cfg(feature = "ssr")]
@@ -262,6 +265,7 @@ impl MetaContext {
     /// # runtime.dispose();
     /// # }
     /// ```
+    #[must_use]
     pub fn dehydrate(&self) -> String {
         use leptos::leptos_dom::HydrationCtx;
 
@@ -287,6 +291,7 @@ impl MetaContext {
 /// and open the `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
 #[cfg(feature = "ssr")]
+#[must_use]
 pub fn generate_head_metadata() -> String {
     let (head, body) = generate_head_metadata_separated();
     format!("{head}</head><{body}>")
@@ -296,11 +301,12 @@ pub fn generate_head_metadata() -> String {
 /// and on the opening `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
 #[cfg(feature = "ssr")]
+#[must_use]
 pub fn generate_head_metadata_separated() -> (String, String) {
     let meta = use_context::<MetaContext>();
     let head = meta
         .as_ref()
-        .map(|meta| meta.dehydrate())
+        .map(MetaContext::dehydrate)
         .unwrap_or_default();
     let body_meta = meta
         .as_ref()

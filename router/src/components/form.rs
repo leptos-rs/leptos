@@ -65,6 +65,7 @@ pub fn Form<A>(
 where
     A: ToHref + 'static,
 {
+    #[allow(clippy::too_many_lines)]
     fn inner(
         method: Option<&'static str>,
         action: Memo<Option<String>>,
@@ -149,14 +150,8 @@ where
                                     match Url::try_from(resp_url.as_str()) {
                                         Ok(url) => {
                                             if url.origin
-                                                != current_window_origin()
+                                                == current_window_origin()
                                             {
-                                                _ = window()
-                                                    .location()
-                                                    .set_href(
-                                                        resp_url.as_str(),
-                                                    );
-                                            } else {
                                                 navigate(
                                                     &format!(
                                                         "{}{}{}",
@@ -170,7 +165,13 @@ where
                                                         url.search,
                                                     ),
                                                     navigate_options,
-                                                )
+                                                );
+                                            } else {
+                                                _ = window()
+                                                    .location()
+                                                    .set_href(
+                                                        resp_url.as_str(),
+                                                    );
                                             }
                                         }
                                         Err(e) => warn!("{}", e),
@@ -222,14 +223,8 @@ where
                                     match Url::try_from(resp_url.as_str()) {
                                         Ok(url) => {
                                             if url.origin
-                                                != current_window_origin()
+                                                == current_window_origin()
                                             {
-                                                _ = window()
-                                                    .location()
-                                                    .set_href(
-                                                        resp_url.as_str(),
-                                                    );
-                                            } else {
                                                 navigate(
                                                     &format!(
                                                         "{}{}{}",
@@ -243,7 +238,13 @@ where
                                                         url.search,
                                                     ),
                                                     navigate_options,
-                                                )
+                                                );
+                                            } else {
+                                                _ = window()
+                                                    .location()
+                                                    .set_href(
+                                                        resp_url.as_str(),
+                                                    );
                                             }
                                         }
                                         Err(e) => warn!("{}", e),
@@ -274,11 +275,11 @@ where
             .attr("class", class)
             .child(children());
         if let Some(node_ref) = node_ref {
-            form = form.node_ref(node_ref)
+            form = form.node_ref(node_ref);
         };
         if let Some(attributes) = attributes {
             let attributes = attributes.get();
-            for (attr_name, attr_value) in attributes.into_iter() {
+            for (attr_name, attr_value) in &attributes {
                 let attr_name = attr_name.to_owned();
                 let attr_value = attr_value.to_owned();
                 form = form.attr(attr_name, move || attr_value.get());
@@ -288,7 +289,7 @@ where
     }
 
     let action = use_resolved_path(move || action.to_href()());
-    let class = class.map(|bx| bx.into_attribute_boxed());
+    let class = class.map(IntoAttribute::into_attribute_boxed);
     inner(
         method,
         action,
@@ -484,7 +485,7 @@ where
             });
         });
     });
-    let class = class.map(|bx| bx.into_attribute_boxed());
+    let class = class.map(IntoAttribute::into_attribute_boxed);
 
     #[cfg(debug_assertions)]
     {
@@ -581,7 +582,7 @@ where
         }
     };
 
-    let class = class.map(|bx| bx.into_attribute_boxed());
+    let class = class.map(IntoAttribute::into_attribute_boxed);
     let mut form = form()
         .attr("method", "POST")
         .attr("action", action)
@@ -589,11 +590,11 @@ where
         .attr("class", class)
         .child(children());
     if let Some(node_ref) = node_ref {
-        form = form.node_ref(node_ref)
+        form = form.node_ref(node_ref);
     };
     if let Some(attributes) = attributes {
         let attributes = attributes.get();
-        for (attr_name, attr_value) in attributes.into_iter() {
+        for (attr_name, attr_value) in &attributes {
             let attr_name = attr_name.to_owned();
             let attr_value = attr_value.to_owned();
             form = form.attr(attr_name, move || attr_value.get());
@@ -718,9 +719,17 @@ where
     Self: Sized + serde::de::DeserializeOwned,
 {
     /// Tries to deserialize the data, given only the `submit` event.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`serde_qs::Error`] if form data deserialization fails via an event.
     fn from_event(ev: &web_sys::Event) -> Result<Self, serde_qs::Error>;
 
     /// Tries to deserialize the data, given the actual form data.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`serde_qs::Error`] if form data deserialization fails.
     fn from_form_data(
         form_data: &web_sys::FormData,
     ) -> Result<Self, serde_qs::Error>;
