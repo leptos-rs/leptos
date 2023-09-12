@@ -382,8 +382,9 @@ impl IntoView for Element {
 }
 
 impl Element {
+    #[allow(clippy::needless_pass_by_value)]
     #[track_caller]
-    fn new<El: ElementDescriptor>(el: &El) -> Self {
+    fn new<El: ElementDescriptor>(el: El) -> Self {
         cfg_if! {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
               Self {

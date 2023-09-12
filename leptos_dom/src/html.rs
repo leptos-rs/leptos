@@ -1176,7 +1176,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
 
             let id = *element.hydration_id();
 
-            let mut element = Element::new(&element);
+            let mut element = Element::new(element);
 
             if let Some(id) = id {
                 attrs.push(("data-hk".into(), id.to_string().into()));
