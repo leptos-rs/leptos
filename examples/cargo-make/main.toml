@@ -1,8 +1,9 @@
 extend = [
-    { path = "../cargo-make/compile.toml" },
-    { path = "../cargo-make/clean.toml" },
-    { path = "../cargo-make/lint.toml" },
-    { path = "../cargo-make/node.toml" },
+    { path = "./compile.toml" },
+    { path = "./clean.toml" },
+    { path = "./lint.toml" },
+    { path = "./node.toml" },
+    { path = "./process.toml" },
 ]
 
 # CI Stages

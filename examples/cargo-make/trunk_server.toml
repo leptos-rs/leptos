@@ -1,5 +1,3 @@
-extend = { path = "../cargo-make/client-process.toml" }
-
 [env]
 CLIENT_PROCESS_NAME = "trunk"
 

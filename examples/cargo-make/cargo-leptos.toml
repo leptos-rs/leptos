@@ -1,5 +1,3 @@
-extend = { path = "../cargo-make/client-process.toml" }
-
 [tasks.install-cargo-leptos]
 install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
 
@@ -29,5 +27,6 @@ args = ["check-all-features", "--release"]
 install_crate = "cargo-all-features"
 
 [tasks.start-client]
+dependencies = ["install-cargo-leptos"]
 command = "cargo"
 args = ["leptos", "watch"]
