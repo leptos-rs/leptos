@@ -1,6 +1,6 @@
 use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{
-    create_effect, create_rw_signal, signal_prelude::*, RwSignal,
+    create_render_effect, create_rw_signal, signal_prelude::*, RwSignal,
 };
 use std::cell::Cell;
 
@@ -134,7 +134,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     {
         let f = Cell::new(Some(f));
 
-        create_effect(move |_| {
+        create_render_effect(move |_| {
             if let Some(node_ref) = self.get() {
                 f.take().unwrap()(node_ref);
             }

@@ -3,14 +3,21 @@ use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
-/// `create_effect` immediately runs the given function once, tracks its dependence
+/// `create_effect` queues the given function to run once, tracks its dependence
 /// on any signal values read within it, and reruns the function whenever the value
 /// of a dependency changes.
 ///
 /// Effects are intended to run *side-effects* of the system, not to synchronize state
-/// *within* the system. In other words: don't write to signals within effects.
+/// *within* the system. In other words: don't write to signals within effects, unless
+/// you’re coordinating with some other non-reactive side effect.
 /// (If you need to define a signal that depends on the value of other signals, use a
 /// derived signal or [`create_memo`](crate::create_memo)).
+///
+/// This first run is queued for the next microtask, i.e., it runs after all other
+/// synchronous code has completed. In practical terms, this means that if you use
+/// `create_effect` in the body of the component, it will run *after* the view has been
+/// created and (presumably) mounted. (If you need an effect that runs immediately, use
+/// [`create_render_effect`].)
 ///
 /// The effect function is called with an argument containing whatever value it returned
 /// the last time it ran. On the initial run, this is `None`.
@@ -63,12 +70,20 @@ where
 {
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
+            use crate::{Owner, queue_microtask, with_owner};
+
             let runtime = Runtime::current();
+            let owner = Owner::current();
             let id = runtime.create_effect(f);
-            //crate::macros::debug_warn!("creating effect {e:?}");
-            _ = with_runtime( |runtime| {
-                runtime.update_if_necessary(id);
+
+            queue_microtask(move || {
+                with_owner(owner.unwrap(), move || {
+                    _ = with_runtime( |runtime| {
+                        runtime.update_if_necessary(id);
+                    });
+                });
             });
+
             Effect { id, ty: PhantomData }
         } else {
             // clear warnings
@@ -246,7 +261,10 @@ where
     }
 }
 
-#[doc(hidden)]
+/// Creates an effect exactly like [`create_effect`], but runs immediately rather
+/// than being queued until the end of the current microtask. This is mostly used
+/// inside the renderer but is available for use cases in which scheduling the effect
+/// for the next tick is not optimal.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
@@ -258,11 +276,26 @@ where
     )
 )]
 #[inline(always)]
-pub fn create_render_effect<T>(f: impl Fn(Option<T>) -> T + 'static)
+pub fn create_render_effect<T>(
+    f: impl Fn(Option<T>) -> T + 'static,
+) -> Effect<T>
 where
     T: 'static,
 {
-    create_effect(f);
+    cfg_if! {
+        if #[cfg(not(feature = "ssr"))] {
+            let runtime = Runtime::current();
+            let id = runtime.create_effect(f);
+            _ = with_runtime( |runtime| {
+                runtime.update_if_necessary(id);
+            });
+            Effect { id, ty: PhantomData }
+        } else {
+            // clear warnings
+            _ = f;
+            Effect { id: Default::default(), ty: PhantomData }
+        }
+    }
 }
 
 /// A handle to an effect, can be used to explicitly dispose of the effect.

@@ -87,43 +87,6 @@ The WASM version of your app, running in the browser, expects to find three item
 
 It’s pretty rare that you do this intentionally, but it could happen from somehow running different logic on the server and in the browser. If you’re seeing warnings like this and you don’t think it’s your fault, it’s much more likely that it’s a bug with `<Suspense/>` or something. Feel free to go ahead and open an [issue](https://github.com/leptos-rs/leptos/issues) or [discussion](https://github.com/leptos-rs/leptos/discussions) on GitHub for help.
 
-### Mutating the DOM during rendering
-
-This is a slightly more common way to create a client/server mismatch: updating a signal _during rendering_ in a way that mutates the view.
-
-```rust
-#[component]
-pub fn App() -> impl IntoView {
-    let (loaded, set_loaded) = create_signal(false);
-
-    // create_effect only runs on the client
-    create_effect(move |_| {
-        // do something like reading from localStorage
-        set_loaded(true);
-    });
-
-    move || {
-        if loaded() {
-            view! { <p>"Hello, world!"</p> }.into_any()
-        } else {
-            view! { <div class="loading">"Loading..."</div> }.into_any()
-        }
-    }
-}
-```
-
-This one gives us the scary panic
-
-```
-panicked at 'assertion failed: `(left == right)`
-  left: `"DIV"`,
- right: `"P"`: SSR and CSR elements have the same hydration key but different node kinds.
-```
-
-And a handy link to this page!
-
-The problem here is that `create_effect` runs **immediately** and **synchronously**, but only in the browser. As a result, on the server, `loaded` is false, and a `<div>` is rendered. But on the browser, by the time the view is being rendered, `loaded` has already been set to `true`, and the browser is expecting to find a `<p>`.
-
 #### Solution
 
 You can simply tell the effect to wait a tick before updating the signal, by using something like `request_animation_frame`, which will set a short timeout and then update the signal before the next frame.
