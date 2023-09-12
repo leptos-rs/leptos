@@ -17,7 +17,7 @@ pub(crate) use debug_warn;
 
 /// Provides a simpler way to use [`SignalWith::with`](crate::SignalWith::with).
 ///
-/// To use with [stored values](crate::StoredValue), see the [`with_value!`]
+/// To use with [stored values](crate::StoredValue), see the [`with_value`](crate::with_value)
 /// macro instead.
 ///
 /// The general syntax looks like:
@@ -108,7 +108,7 @@ macro_rules! with_value {
 /// Provides a simpler way to use
 /// [`SignalUpdate::update`](crate::SignalUpdate::update).
 ///
-/// To use with [stored values](crate::StoredValue), see the [`update_value!`]
+/// To use with [stored values](crate::StoredValue), see the [`update_value`](crate::update_value)
 /// macro instead.
 ///
 /// The general syntax looks like:
@@ -149,7 +149,7 @@ macro_rules! update {
 /// Provides a simpler way to use
 /// [`StoredValue::update_value`](crate::StoredValue::update_value).
 ///
-/// To use with [signals](crate::SignalUpdate::update), see the [`update!`]
+/// To use with [signals](crate::SignalUpdate::update), see the [`update`]
 /// macro instead.
 ///
 /// The general syntax looks like:
