@@ -19,7 +19,7 @@ pub(crate) struct Animation {
 impl Animation {
     pub(crate) fn next_state(
         &self,
-        current: &AnimationState,
+        current: AnimationState,
         is_back: bool,
     ) -> (AnimationState, bool) {
         let Animation {

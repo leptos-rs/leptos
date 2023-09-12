@@ -168,7 +168,7 @@ pub fn AnimatedOutlet(
                 None => (animation_state, next_outlet),
                 Some((prev_state, prev_outlet)) => {
                     let (next_state, can_advance) = animation
-                        .next_state(prev_state, is_back.get_untracked());
+                        .next_state(*prev_state, is_back.get_untracked());
 
                     if can_advance {
                         (next_state, next_outlet)
@@ -241,7 +241,7 @@ pub fn AnimatedOutlet(
                 let current = current_animation.get();
                 set_animation_state.update(|current_state| {
                     let (next, _) =
-                        animation.next_state(&current, is_back.get_untracked());
+                        animation.next_state(current, is_back.get_untracked());
                     *current_state = next;
                 });
             }

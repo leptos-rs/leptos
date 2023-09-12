@@ -49,6 +49,8 @@ impl Matcher {
         }
     }
 
+    #[allow(clippy::cast_possible_wrap)]
+    #[allow(clippy::cast_possible_truncation)]
     #[doc(hidden)]
     #[must_use]
     pub fn test(&self, location: &str) -> Option<PathMatch> {
@@ -58,7 +60,7 @@ impl Matcher {
             .collect::<Vec<_>>();
 
         let loc_len = loc_segments.len();
-        let len_diff = loc_len - self.len;
+        let len_diff: i32 = loc_len as i32 - self.len as i32;
 
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location

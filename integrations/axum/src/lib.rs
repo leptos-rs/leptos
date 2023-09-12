@@ -50,7 +50,7 @@ pub struct RequestParts {
     pub body: Bytes,
 }
 
-/// Convert http::Parts to RequestParts(and vice versa). Body and Extensions will
+/// Convert [`http::Parts`] to RequestParts(and vice versa). Body and Extensions will
 /// be lost in the conversion
 impl From<Parts> for RequestParts {
     fn from(parts: Parts) -> Self {
@@ -65,7 +65,7 @@ impl From<Parts> for RequestParts {
 }
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
-/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
+/// Typically contained inside of a [`ResponseOptions`]. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
     pub status: Option<StatusCode>,
@@ -91,7 +91,7 @@ impl ResponseOptions {
     /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write();
-        *writable = parts
+        *writable = parts;
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
@@ -114,7 +114,7 @@ impl ResponseOptions {
 }
 
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a StatusCode of 302 and a LOCATION header with the provided value.
+/// it sets a `StatusCode` of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>() {
@@ -229,7 +229,7 @@ async fn handle_server_fns_inner(
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
     let fn_name = fn_name
         .strip_prefix('/')
-        .map(|fn_name| fn_name.to_string())
+        .map(ToString::to_string)
         .unwrap_or(fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
@@ -250,7 +250,7 @@ async fn handle_server_fns_inner(
                 // Add this so that we can set headers and status of the response
                 provide_context(ResponseOptions::default());
 
-                let query: &Bytes = &query.unwrap_or("".to_string()).into();
+                let query: &Bytes = &query.unwrap_or(String::new()).into();
                 let data = match &server_fn.encoding() {
                     Encoding::Url | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,
@@ -754,7 +754,7 @@ async fn generate_response(
     ));
 
     if let Some(status) = res_options.status {
-        *res.status_mut() = status
+        *res.status_mut() = status;
     }
     let mut res_headers = res_options.headers.clone();
     res.headers_mut().extend(res_headers.drain());
@@ -1083,7 +1083,7 @@ where
                 )
                     as PinnedHtmlStream));
                 if let Some(status) = res_options.status {
-                    *res.status_mut() = status
+                    *res.status_mut() = status;
                 }
                 let mut res_headers = res_options.headers.clone();
                 res.headers_mut().extend(res_headers.drain());
@@ -1193,7 +1193,7 @@ where
                 let res_options = res_options3.0.read();
 
                 if let Some(status) = res_options.status {
-                    *res.status_mut() = status
+                    *res.status_mut() = status;
                 }
                 let mut res_headers = res_options.headers.clone();
                 res.headers_mut().extend(res_headers.drain());
@@ -1270,13 +1270,13 @@ where
     if routes.is_empty() {
         vec![RouteListing::new(
             "/",
-            Default::default(),
+            SsrMode::default(),
             [leptos_router::Method::Get],
         )]
     } else {
         // Routes to exclude from auto generation
         if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()));
         }
         routes
     }
@@ -1289,6 +1289,7 @@ where
     LeptosOptions: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
+    #[must_use]
     fn leptos_routes<IV>(
         self,
         options: &S,
@@ -1298,6 +1299,7 @@ where
     where
         IV: IntoView + 'static;
 
+    #[must_use]
     fn leptos_routes_with_context<IV>(
         self,
         options: &S,
@@ -1308,6 +1310,7 @@ where
     where
         IV: IntoView + 'static;
 
+    #[must_use]
     fn leptos_routes_with_handler<H, T>(
         self,
         paths: Vec<RouteListing>,
@@ -1350,7 +1353,7 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for listing in paths.iter() {
+        for listing in &paths {
             let path = listing.path();
 
             for method in listing.methods() {
@@ -1432,7 +1435,7 @@ where
         T: 'static,
     {
         let mut router = self;
-        for listing in paths.iter() {
+        for listing in &paths {
             for method in listing.methods() {
                 router = router.route(
                     listing.path(),

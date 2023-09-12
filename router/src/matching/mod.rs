@@ -18,7 +18,7 @@ pub(crate) struct RouteMatch {
 
 pub(crate) fn get_route_matches(
     base: &str,
-    location: String,
+    location: &str,
 ) -> Rc<Vec<RouteMatch>> {
     #[cfg(feature = "ssr")]
     {
@@ -30,7 +30,7 @@ pub(crate) fn get_route_matches(
 
         ROUTE_MATCH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
-            Rc::clone(cache.get_or_insert(location.clone(), || {
+            Rc::clone(cache.get_or_insert(location.to_string(), || {
                 build_route_matches(base, location)
             }))
         })
@@ -40,10 +40,10 @@ pub(crate) fn get_route_matches(
     build_route_matches(base, location)
 }
 
-fn build_route_matches(base: &str, location: String) -> Rc<Vec<RouteMatch>> {
+fn build_route_matches(base: &str, location: &str) -> Rc<Vec<RouteMatch>> {
     Rc::new(Branches::with(base, |branches| {
         for branch in branches {
-            if let Some(matches) = branch.matcher(&location) {
+            if let Some(matches) = branch.matcher(location) {
                 return matches;
             }
         }

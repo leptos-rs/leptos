@@ -44,6 +44,10 @@ impl Default for LocationChange {
 }
 
 /// Creates a reactive location from the given path and state.
+///
+/// # Panics
+///
+/// Will panic if path can not be converted to [`Url`].
 #[must_use]
 pub fn create_location(
     path: ReadSignal<String>,

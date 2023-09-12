@@ -18,6 +18,7 @@ pub struct RouteListing {
 
 impl RouteListing {
     /// Create a route listing from its parts.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new(
         path: impl ToString,
         mode: SsrMode,
@@ -74,7 +75,7 @@ where
     let branches = branches.0.borrow();
     let routes = branches
         .iter()
-        .flat_map(|branch| {
+        .filter_map(|branch| {
             let mode = branch
                 .routes
                 .iter()

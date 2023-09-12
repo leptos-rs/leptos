@@ -193,8 +193,8 @@ pub fn AnimatedRoutes(
             let prev_matches = prev
                 .map(|(_, r)| r)
                 .cloned()
-                .map(|location| get_route_matches(&base, location));
-            let matches = get_route_matches(&base, next_route.clone());
+                .map(|location| get_route_matches(&base, &location));
+            let matches = get_route_matches(&base, &next_route);
             let same_route = prev_matches
                 .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
                 == matches.get(0).as_ref().map(|r| r.route.key.clone());
@@ -205,7 +205,7 @@ pub fn AnimatedRoutes(
                     None => (animation_state, next_route),
                     Some((prev_state, prev_route)) => {
                         let (next_state, can_advance) = animation
-                            .next_state(prev_state, is_back.get_untracked());
+                            .next_state(*prev_state, is_back.get_untracked());
 
                         if can_advance || !is_complete.get() {
                             (next_state, next_route)
@@ -254,7 +254,7 @@ pub fn AnimatedRoutes(
                     let current = current_animation.get();
                     set_animation_state.update(|current_state| {
                         let (next, _) = animation
-                            .next_state(&current, is_back.get_untracked());
+                            .next_state(current, is_back.get_untracked());
                         *current_state = next;
                     });
                 }
@@ -271,6 +271,7 @@ thread_local! {
 }
 
 impl Branches {
+    #[allow(clippy::needless_pass_by_value)]
     pub fn initialize(base: &str, children: Fragment) {
         BRANCHES.with(|branches| {
             #[cfg(debug_assertions)]
@@ -332,6 +333,7 @@ impl Branches {
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::similar_names)]
 fn route_states(
     base: String,
     router: &RouterContext,
@@ -339,8 +341,9 @@ fn route_states(
     root_equal: &Rc<Cell<bool>>,
 ) -> Memo<RouterState> {
     // whenever path changes, update matches
-    let matches =
-        create_memo(move |_| get_route_matches(&base, current_route.get()));
+    let matches = create_memo(move |_| {
+        get_route_matches(&base, &current_route.get())
+    });
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
@@ -455,6 +458,7 @@ fn route_states(
     })
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn root_route(
     base_route: RouteContext,
     route_states: Memo<RouterState>,
@@ -547,6 +551,8 @@ pub struct RouteData {
 }
 
 impl RouteData {
+    #[allow(clippy::cast_possible_wrap)]
+    #[allow(clippy::cast_possible_truncation)]
     fn score(&self) -> i32 {
         let (pattern, splat) = match self.pattern.split_once("/*") {
             Some((p, s)) => (p, Some(s)),
@@ -556,8 +562,8 @@ impl RouteData {
             .split('/')
             .filter(|n| !n.is_empty())
             .collect::<Vec<_>>();
-        let len = segments.len() - usize::from(splat.is_some());
-        segments.iter().fold(len as i32, |score, segment| {
+        let len = segments.len() as i32 - i32::from(splat.is_some());
+        segments.iter().fold(len, |score, segment| {
             score + if segment.starts_with(':') { 2 } else { 3 }
         })
     }
@@ -590,6 +596,8 @@ fn create_branches(
     }
 }
 
+#[allow(clippy::cast_possible_wrap)]
+#[allow(clippy::cast_possible_truncation)]
 pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
     Branch {
         routes: routes.to_vec(),

@@ -1,3 +1,4 @@
+#![allow(clippy::inline_always)]
 #![allow(clippy::wildcard_imports)]
 #![allow(clippy::module_name_repetitions)]
 #![forbid(unsafe_code)]

@@ -117,6 +117,7 @@ fn match_primitive() {
     assert_eq!(prop, r#"{"name": "test", "value": -1}"#);
 
     // f64
+    #[allow(clippy::approx_constant)]
     let test = 3.14;
     let prop = (&&Match {
         name: stringify! {test},

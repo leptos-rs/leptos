@@ -108,6 +108,10 @@ where
     Self: Sized,
 {
     /// Attempts to deserialize the map into the given type.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`ParamsError`] if map can not be converted to a specified type.
     fn from_map(map: &ParamsMap) -> Result<Self, ParamsError>;
 }
 
@@ -122,6 +126,9 @@ pub trait IntoParam
 where
     Self: Sized,
 {
+    /// # Errors
+    ///
+    /// Will return [`ParamsError`] if value can not be converted to a specified type.
     fn into_param(value: Option<&str>, name: &str)
         -> Result<Self, ParamsError>;
 }
