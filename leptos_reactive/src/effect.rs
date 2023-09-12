@@ -293,7 +293,7 @@ where
         } else {
             // clear warnings
             _ = f;
-            Effect { id: Default::default(), ty: PhantomData }
+            Effect { id: NodeId::default(), ty: PhantomData }
         }
     }
 }
