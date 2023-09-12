@@ -28,8 +28,3 @@ script = '''
     echo "  ${CLIENT_PROCESS_NAME} is already started"
   fi
 '''
-
-# ALIASES
-
-[tasks.dev]
-alias = "maybe-start-client"
