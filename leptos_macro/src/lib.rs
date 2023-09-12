@@ -450,9 +450,9 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. If you define
-/// your component in one module and import it into another, make sure you import this `___Props`
-/// struct as well.
+/// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. This builder is used
+/// "behind-the-scenes" when attaching props to the component in the [view](crate::view!) macro.
+/// The generated builder struct will inherit the visibility from the annotated component.
 ///
 /// Here are some important details about how Leptos components work within the framework:
 /// 1. **The component function only runs once.** Your component function is not a “render” function
@@ -476,37 +476,6 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// // snake_case: Generated component will be called MySnakeCaseComponent
 /// #[component]
 /// fn my_snake_case_component() -> impl IntoView {}
-/// ```
-///
-/// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
-///   `Button` generates `ButtonProps`, etc.) When you’re importing the component, you also need to **explicitly import
-///   the prop type.**
-///
-/// ```
-/// # use leptos::*;
-///
-/// use component::{MyComponent, MyComponentProps};
-///
-/// mod component {
-///     use leptos::*;
-///
-///     #[component]
-///     pub fn MyComponent() -> impl IntoView {}
-/// }
-/// ```
-/// ```
-/// # use leptos::*;
-///
-/// use snake_case_component::{
-///     MySnakeCaseComponent, MySnakeCaseComponentProps,
-/// };
-///
-/// mod snake_case_component {
-///     use leptos::*;
-///
-///     #[component]
-///     pub fn my_snake_case_component() -> impl IntoView {}
-/// }
 /// ```
 ///
 /// 4. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
