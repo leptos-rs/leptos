@@ -390,7 +390,7 @@ impl Element {
               Self {
                 #[cfg(debug_assertions)]
                 name: el.name(),
-                element: el.clone(),
+                element: el.as_ref().clone(),
                 #[cfg(debug_assertions)]
                 view_marker: None
               }

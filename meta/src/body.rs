@@ -83,6 +83,7 @@ impl std::fmt::Debug for BodyContext {
 ///     }
 /// }
 /// ```
+#[allow(clippy::needless_pass_by_value)]
 #[component(transparent)]
 pub fn Body(
     /// The `class` attribute on the `<body>`.

@@ -96,6 +96,7 @@ impl std::fmt::Debug for HtmlContext {
 ///     }
 /// }
 /// ```
+#[allow(clippy::needless_pass_by_value)]
 #[component(transparent)]
 pub fn Html(
     /// The `lang` attribute on the `<html>`.

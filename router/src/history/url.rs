@@ -15,7 +15,13 @@ pub struct Url {
     pub hash: String,
 }
 
+/// Unescapes the string.
+///
+/// # Panics
+///
+/// Will panic if the string decoding fails.
 #[cfg(not(feature = "ssr"))]
+#[must_use]
 pub fn unescape(s: &str) -> String {
     js_sys::decode_uri(s).unwrap().into()
 }
@@ -27,7 +33,13 @@ pub fn escape(s: &str) -> String {
         .to_string()
 }
 
+/// Escapes the string.
+///
+/// # Panics
+///
+/// Will panic if the string encoding fails.
 #[cfg(not(feature = "ssr"))]
+#[must_use]
 pub fn escape(s: &str) -> String {
     js_sys::encode_uri(s).as_string().unwrap()
 }

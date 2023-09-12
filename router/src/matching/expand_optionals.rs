@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
-#[doc(hidden)]
 #[cfg(not(feature = "ssr"))]
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
+#[doc(hidden)]
+#[must_use]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
     use js_sys::RegExp;
     use once_cell::unsync::Lazy;

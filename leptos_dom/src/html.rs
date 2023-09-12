@@ -1212,7 +1212,7 @@ pub fn custom<El: ElementDescriptor>(el: El) -> HtmlElement<Custom> {
     HtmlElement::new(Custom {
         name: el.name(),
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        element: el.clone(),
+        element: el.as_ref().clone(),
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         id: *el.hydration_id(),
     })
