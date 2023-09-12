@@ -92,6 +92,10 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a [`StatusCode`] of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, [`leptos_router::use_navigate()`] should be used instead
+///
+/// # Panics
+///
+/// Will panic if the path cannot be converted to a header.
 pub fn redirect(path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
@@ -153,6 +157,10 @@ pub async fn generate_request_parts(req: Request) -> RequestParts {
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
+///
+/// ## Errors
+///
+/// Will return `Err` if the string type parameter does not exist.
 pub async fn handle_server_fns(req: Request) -> Result<Response> {
     handle_server_fns_inner(req, || {}).await
 }
@@ -171,6 +179,10 @@ pub async fn handle_server_fns(req: Request) -> Result<Response> {
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
+///
+/// ## Errors
+///
+/// Will return `Err` if the string type parameter does not exist.
 pub async fn handle_server_fns_with_context(
     req: Request,
     additional_context: impl Fn() + Clone + Send + 'static,
@@ -178,6 +190,7 @@ pub async fn handle_server_fns_with_context(
     handle_server_fns_inner(req, additional_context).await
 }
 
+#[allow(clippy::too_many_lines)]
 async fn handle_server_fns_inner(
     req: Request,
     additional_context: impl Fn() + Clone + Send + 'static,
@@ -535,6 +548,9 @@ where
 /// - [`ResponseOptions`]
 /// - [`MetaContext`](leptos_meta::MetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// ## Panics
+///
+/// Will panic if the query string does not exist.
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + Clone + Send + 'static,
@@ -704,6 +720,9 @@ async fn forward_stream(
 /// - [`ResponseOptions`]
 /// - [`MetaContext`](leptos_meta::MetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// ## Panics
+///
+/// Will panic if the query string does not exist.
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -888,6 +907,9 @@ where
 /// - [`ResponseOptions`]
 /// - [`MetaContext`](leptos_meta::MetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// ## Panics
+///
+/// Will panic if the query string does not exist.
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -1000,6 +1022,7 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
+#[allow(clippy::missing_panics_doc)]
 pub async fn generate_route_list_with_exclusions<IV>(
     app_fn: impl FnOnce() -> IV + 'static,
     excluded_routes: Option<Vec<String>>,

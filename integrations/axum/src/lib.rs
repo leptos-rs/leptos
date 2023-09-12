@@ -116,6 +116,10 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a `StatusCode` of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+///
+/// # Panics
+///
+/// Will panic if the path cannot be converted to a header.
 pub fn redirect(path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
