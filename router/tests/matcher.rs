@@ -1,3 +1,5 @@
+#![allow(clippy::similar_names)]
+
 use cfg_if::cfg_if;
 
 // Test cases drawn from Solid Router

@@ -250,7 +250,7 @@ async fn handle_server_fns_inner(
                 // Add this so that we can set headers and status of the response
                 provide_context(ResponseOptions::default());
 
-                let query: &Bytes = &query.unwrap_or(String::new()).into();
+                let query: &Bytes = &query.unwrap_or_default().into();
                 let data = match &server_fn.encoding() {
                     Encoding::Url | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,

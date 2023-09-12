@@ -41,7 +41,7 @@ pub struct RequestParts {
     pub body: Bytes,
 }
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
-/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
+/// Typically contained inside of a [`ResponseOptions`]. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
     pub status: Option<StatusCode>,
@@ -64,10 +64,10 @@ impl ResponseParts {
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
-    /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
+    /// A simpler way to overwrite the contents of [`ResponseOptions`] with a new [`ResponseParts`].
     pub fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write();
-        *writable = parts
+        *writable = parts;
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
@@ -90,8 +90,8 @@ impl ResponseOptions {
 }
 
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a StatusCode of 302 and a LOCATION header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+/// it sets a [`StatusCode`] of 302 and a LOCATION header with the provided value.
+/// If looking to redirect from the client, [`leptos_router::use_navigate()`] should be used instead
 pub fn redirect(path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
@@ -151,26 +151,26 @@ pub async fn generate_request_parts(req: Request) -> RequestParts {
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
 pub async fn handle_server_fns(req: Request) -> Result<Response> {
     handle_server_fns_inner(req, || {}).await
 }
 
 /// A Viz handlers to listens for a request with Leptos server function arguments in the body,
-/// run the server function if found, and return the resulting [Response].
+/// run the server function if found, and return the resulting [`Response`].
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
 /// This version allows you to pass in a closure to capture additional data from the layers above leptos
 /// and store it in context. To use it, you'll need to define your own route, and a handler function
-/// that takes in the data you'd like. See the [render_app_to_stream_with_context] docs for an example
+/// that takes in the data you'd like. See the [`render_app_to_stream_with_context`] docs for an example
 /// of one that should work much like this one.
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
 pub async fn handle_server_fns_with_context(
     req: Request,
     additional_context: impl Fn() + Clone + Send + 'static,
@@ -192,7 +192,7 @@ async fn handle_server_fns_inner(
                 .expect("couldn't spawn runtime")
                 .block_on({
                     async move {
-                        let res = if let Some(server_fn) =
+                        let resp = if let Some(server_fn) =
                             server_fn_by_path(fn_name.as_str())
                         {
                             let runtime = create_runtime();
@@ -212,7 +212,7 @@ async fn handle_server_fns_inner(
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            let res = match server_fn.call((), data).await {
+                            let resp = match server_fn.call((), data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -222,7 +222,7 @@ async fn handle_server_fns_inner(
                                     let accept_header = headers
                                         .get("Accept")
                                         .and_then(|value| value.to_str().ok());
-                                    let mut res = Response::builder();
+                                    let mut resp = Response::builder();
 
                                     // Add headers from ResponseParts if they exist. These should be added as long
                                     // as the server function returns an OK response
@@ -235,7 +235,7 @@ async fn handle_server_fns_inner(
                                         res_options_inner.headers.clone(),
                                     );
 
-                                    if let Some(header_ref) = res.headers_mut()
+                                    if let Some(header_ref) = resp.headers_mut()
                                     {
                                         header_ref.extend(res_headers.drain());
                                     };
@@ -249,7 +249,7 @@ async fn handle_server_fns_inner(
                                         || accept_header
                                             == Some("application/cbor")
                                     {
-                                        res = res.status(StatusCode::OK);
+                                        resp = resp.status(StatusCode::OK);
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                                     else {
@@ -260,30 +260,30 @@ async fn handle_server_fns_inner(
                                             })
                                             .unwrap_or("/");
 
-                                        res = res
+                                        resp = resp
                                             .status(StatusCode::SEE_OTHER)
                                             .header("Location", referer);
                                     }
                                     // Override StatusCode if it was set in a Resource or Element
-                                    res = match status {
-                                        Some(status) => res.status(status),
-                                        None => res,
+                                    resp = match status {
+                                        Some(status) => resp.status(status),
+                                        None => resp,
                                     };
                                     match serialized {
-                                        Payload::Binary(data) => res
+                                        Payload::Binary(data) => resp
                                             .header(
                                                 header::CONTENT_TYPE,
                                                 "application/cbor",
                                             )
                                             .body(Body::from(data)),
-                                        Payload::Url(data) => res
+                                        Payload::Url(data) => resp
                                             .header(
                                                 header::CONTENT_TYPE,
                                                 "application/\
                                                  x-www-form-urlencoded",
                                             )
                                             .body(Body::from(data)),
-                                        Payload::Json(data) => res
+                                        Payload::Json(data) => resp
                                             .header(
                                                 header::CONTENT_TYPE,
                                                 "application/json",
@@ -299,7 +299,7 @@ async fn handle_server_fns_inner(
                                     )),
                             };
                             runtime.dispose();
-                            res
+                            resp
                         } else {
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
@@ -321,21 +321,21 @@ async fn handle_server_fns_inner(
                         }
                         .expect("could not build Response");
 
-                        _ = tx.send(res);
+                        _ = tx.send(resp);
                     }
-                })
+                });
         }
     });
 
     rx.await.map_err(Error::normal)
 }
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], serving an HTML stream of your application.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], serving an HTML stream of your application.
 ///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
+/// The provides a [`MetaContext`] and a [`RouterIntegrationContext`] to app’s context before
+/// rendering it, and includes any meta tags injected using [`leptos_meta`].
 ///
-/// The HTML stream is rendered using [render_to_stream], and includes everything described in
+/// The HTML stream is rendered using [`render_to_stream`], and includes everything described in
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
@@ -378,10 +378,10 @@ async fn handle_server_fns_inner(
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -397,15 +397,15 @@ where
     render_app_to_stream_with_context(options, || {}, app_fn)
 }
 
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], serving an HTML stream of your application.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], serving an HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
+/// The provides a [`MetaContext`] and a [`RouterIntegrationContext`] to app’s context before
+/// rendering it, and includes any meta tags injected using [`leptos_meta`].
 ///
-/// The HTML stream is rendered using [render_to_stream], and includes everything described in
+/// The HTML stream is rendered using [`render_to_stream`], and includes everything described in
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
@@ -448,10 +448,10 @@ where
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -467,8 +467,8 @@ where
     render_app_to_stream_in_order_with_context(options, || {}, app_fn)
 }
 
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], serving an HTML stream of your application.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], serving an HTML stream of your application.
 ///
 /// This version allows us to pass Viz State/Extractor or other infro from Viz or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -486,14 +486,14 @@ where
 ///     handler(req).await
 /// }
 /// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
+/// Otherwise, this function is identical to [`render_app_to_stream`].
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + Clone + Send + 'static,
@@ -515,8 +515,8 @@ where
     )
 }
 
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], serving an HTML stream of your application.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], serving an HTML stream of your application.
 ///
 /// This version allows us to pass Viz State/Extractor or other infro from Viz or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -527,14 +527,14 @@ where
 /// than dynamically inserting them with JavaScript on the client. This means you will have
 /// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
 ///
-/// Otherwise, this function is identical to [render_app_to_stream_with_context].
+/// Otherwise, this function is identical to [`render_app_to_stream_with_context`].
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + Clone + Send + 'static,
@@ -634,7 +634,7 @@ async fn generate_response(
     let mut res = Response::stream(complete_stream);
 
     if let Some(status) = res_options.status {
-        *res.status_mut() = status
+        *res.status_mut() = status;
     }
     let mut res_headers = res_options.headers.clone();
     res.headers_mut().extend(res_headers.drain());
@@ -675,8 +675,8 @@ async fn forward_stream(
     tx.close_channel();
 }
 
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], serving an in-order HTML stream of your application.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
@@ -696,14 +696,14 @@ async fn forward_stream(
 ///     handler(req).await
 /// }
 /// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
+/// Otherwise, this function is identical to [`render_app_to_stream`].
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -794,14 +794,14 @@ fn provide_contexts(
     leptos::nonce::provide_nonce();
 }
 
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], asynchronously rendering an HTML page after all
+/// `async` [`Resource`](leptos::Resource)s have loaded.
 ///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
-/// rendering it, and includes any meta tags injected using [leptos_meta].
+/// The provides a [`MetaContext`] and a [`RouterIntegrationContext`] to app’s context before
+/// rendering it, and includes any meta tags injected using [`leptos_meta`].
 ///
-/// The HTML stream is rendered using [render_to_string_async], and includes everything described in
+/// The HTML stream is rendered using [`render_to_string_async`], and includes everything described in
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
@@ -841,10 +841,10 @@ fn provide_contexts(
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -860,9 +860,9 @@ where
     render_app_async_with_context(options, || {}, app_fn)
 }
 
-/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
-/// to route it using [leptos_router], asynchronously rendering an HTML page after all
-/// `async` [Resource](leptos::Resource)s have loaded.
+/// Returns a Viz [`Handler`](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [`leptos_router`], asynchronously rendering an HTML page after all
+/// `async` [`Resource`](leptos::Resource)s have loaded.
 ///
 /// This version allows us to pass Viz State/Extractor or other infro from Viz or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -880,14 +880,14 @@ where
 ///     handler(req).await.into_response()
 /// }
 /// ```
-/// Otherwise, this function is identical to [render_app_to_stream].
+/// Otherwise, this function is identical to [`render_app_to_stream`].
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`RequestParts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -974,7 +974,7 @@ where
                 let res_options = res_options3.0.read();
 
                 if let Some(status) = res_options.status {
-                    *res.status_mut() = status
+                    *res.status_mut() = status;
                 }
                 let mut res_headers = res_options.headers.clone();
                 res.headers_mut().extend(res_headers.drain());
@@ -1049,12 +1049,12 @@ where
     if routes.is_empty() {
         vec![RouteListing::new(
             "/",
-            Default::default(),
+            SsrMode::default(),
             [leptos_router::Method::Get],
         )]
     } else {
         if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()));
         }
         routes
     }
@@ -1063,6 +1063,7 @@ where
 /// This trait allows one to pass a list of routes and a render function to Viz's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
+    #[must_use]
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -1072,6 +1073,7 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 
+    #[must_use]
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
@@ -1082,6 +1084,7 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 
+    #[must_use]
     fn leptos_routes_with_handler<H, O>(
         self,
         paths: Vec<RouteListing>,
@@ -1091,7 +1094,7 @@ pub trait LeptosRoutes {
         H: Handler<Request, Output = Result<O>> + Clone,
         O: IntoResponse + Send + Sync + 'static;
 }
-/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// The default implementation of [`LeptosRoutes`] which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for Router {
     fn leptos_routes<IV>(

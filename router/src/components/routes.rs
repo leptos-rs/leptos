@@ -341,9 +341,8 @@ fn route_states(
     root_equal: &Rc<Cell<bool>>,
 ) -> Memo<RouterState> {
     // whenever path changes, update matches
-    let matches = create_memo(move |_| {
-        get_route_matches(&base, &current_route.get())
-    });
+    let matches =
+        create_memo(move |_| get_route_matches(&base, &current_route.get()));
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ

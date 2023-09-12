@@ -29,8 +29,9 @@ use regex::Regex;
 use std::{fmt::Display, future::Future, sync::Arc};
 #[cfg(debug_assertions)]
 use tracing::instrument;
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
-/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
+/// Typically contained inside of a [`ResponseOptions`]. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
     pub headers: header::HeaderMap,
@@ -61,10 +62,10 @@ impl ResponseParts {
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
-    /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
+    /// A simpler way to overwrite the contents of [`ResponseOptions`] with a new [`ResponseParts`].
     pub fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write();
-        *writable = parts
+        *writable = parts;
     }
     /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
@@ -95,8 +96,8 @@ impl ResponseOptions {
 }
 
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
+/// it sets a [`StatusCode`] of 302 and a [`LOCATION`](header::LOCATION) header with the provided value.
+/// If looking to redirect from the client, [`leptos_router::use_navigate()`] should be used instead.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn redirect(path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>() {
@@ -820,7 +821,7 @@ async fn build_stream_response(
         .streaming(complete_stream);
 
     // Add headers manipulated in the response
-    for (key, value) in headers.into_iter() {
+    for (key, value) in headers {
         res.headers_mut().append(key, value);
     }
 
@@ -854,7 +855,7 @@ async fn render_app_async_helper(
     let mut res = HttpResponse::Ok().content_type("text/html").body(html);
 
     // Add headers manipulated in the response
-    for (key, value) in headers.into_iter() {
+    for (key, value) in headers {
         res.headers_mut().append(key, value);
     }
 
@@ -879,7 +880,7 @@ where
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
-/// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
+/// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding `excluded_routes`
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list_with_exclusions<IV>(
     app_fn: impl FnOnce() -> IV + 'static,
@@ -920,11 +921,11 @@ where
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![RouteListing::new("/", Default::default(), [Method::Get])]
+        vec![RouteListing::new("/", SsrMode::default(), [Method::Get])]
     } else {
         // Routes to exclude from auto generation
         if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()));
         }
         routes
     }
@@ -938,6 +939,7 @@ pub enum DataResponse<T> {
 /// This trait allows one to pass a list of routes and a render function to Actix's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
+    #[must_use]
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -947,6 +949,7 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 
+    #[must_use]
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
@@ -994,7 +997,7 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for listing in paths.iter() {
+        for listing in &paths {
             let path = listing.path();
             let mode = listing.mode();
 

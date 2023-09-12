@@ -29,7 +29,7 @@ cfg_if! {
                     "/foo/bar/:y/baz/:z",
                     "/foo/:x/bar/:y/baz/:z"
                 ]
-            )
+            );
         }
     }
 }
