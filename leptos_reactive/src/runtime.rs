@@ -117,7 +117,7 @@ impl Runtime {
     pub fn current() -> RuntimeId {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                Default::default()
+                RuntimeId
             } else if #[cfg(feature = "ssr")] {
                 // either use the runtime associated with the current task,
                 // or the current runtime
@@ -608,7 +608,7 @@ pub(crate) fn with_runtime<T>(f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
 pub fn create_runtime() -> RuntimeId {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            Default::default()
+            RuntimeId
         } else {
             let id = RUNTIMES.with(|runtimes| runtimes.borrow_mut().insert(Runtime::new()));
             Runtime::set_runtime(Some(id));

@@ -138,6 +138,7 @@ mod generate {
 
     impl Nonce {
         /// Generates a new nonce from 16 bytes (128 bits) of random data.
+        #[must_use]
         pub fn new() -> Self {
             let mut thread_rng = thread_rng();
             let mut bytes = [0; 16];
@@ -154,6 +155,6 @@ mod generate {
 
     /// Generates a nonce and provides it during server rendering.
     pub fn provide_nonce() {
-        provide_context(Nonce::new())
+        provide_context(Nonce::new());
     }
 }

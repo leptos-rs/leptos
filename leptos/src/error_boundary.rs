@@ -82,7 +82,7 @@ where
             hydration, these should be reorganized so that the <ErrorBoundary/> is a child \
             of the <Suspense/> or <Transition/> instead: \n\
             \nview! {{ \
-            \n  <Suspense fallback=todo!()>\n    <ErrorBoundary fallback=todo!()>\n      {{move || {{ /* etc. */")
+            \n  <Suspense fallback=todo!()>\n    <ErrorBoundary fallback=todo!()>\n      {{move || {{ /* etc. */");
         }
     }
 

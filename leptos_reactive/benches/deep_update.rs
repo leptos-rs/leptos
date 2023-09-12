@@ -1,3 +1,5 @@
+#![allow(clippy::wildcard_imports)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn rs_deep_update(c: &mut Criterion) {
@@ -13,9 +15,9 @@ fn rs_deep_update(c: &mut Criterion) {
             for i in 0..1000usize {
                 let prev = memos.get(i.saturating_sub(1)).copied();
                 if let Some(prev) = prev {
-                    memos.push(signal!(sc, move || prev.get() + 1))
+                    memos.push(signal!(sc, move || prev.get() + 1));
                 } else {
-                    memos.push(signal!(sc, move || signal.get() + 1))
+                    memos.push(signal!(sc, move || signal.get() + 1));
                 }
             }
             signal.set(1);
@@ -24,6 +26,7 @@ fn rs_deep_update(c: &mut Criterion) {
     });
 }
 
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn l021_deep_update(c: &mut Criterion) {
     use l021::*;
 
@@ -44,7 +47,7 @@ fn l021_deep_update(c: &mut Criterion) {
                 signal.set(1);
                 assert_eq!(memos[999].get(), 1001);
             })
-            .dispose()
+            .dispose();
         });
         runtime.dispose();
     });

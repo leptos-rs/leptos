@@ -111,28 +111,25 @@ pub fn Title(
                 let mut el_ref = meta.title.el.borrow_mut();
                 let el = if let Some(el) = &*el_ref {
                     el.clone()
+                } else if let Ok(Some(title)) = document().query_selector("title") {
+                    title.unchecked_into()
                 } else {
-                    match document().query_selector("title") {
-                        Ok(Some(title)) => title.unchecked_into(),
-                        _ => {
-                            let el_ref = meta.title.el.clone();
-                            let el = document().create_element("title").unwrap_throw();
-                            let head = document().head().unwrap_throw();
-                            head.append_child(el.unchecked_ref())
-                                .unwrap_throw();
+                    let el_ref = meta.title.el.clone();
+                    let el = document().create_element("title").unwrap_throw();
+                    let head = document().head().unwrap_throw();
+                    head.append_child(el.unchecked_ref())
+                        .unwrap_throw();
 
-                            on_cleanup({
-                                let el = el.clone();
-                                move || {
-                                    _ = head.remove_child(&el);
-                                    *el_ref.borrow_mut() = None;
-                                }
-                            });
-
-
-                            el.unchecked_into()
+                    on_cleanup({
+                        let el = el.clone();
+                        move || {
+                            _ = head.remove_child(&el);
+                            *el_ref.borrow_mut() = None;
                         }
-                    }
+                    });
+
+
+                    el.unchecked_into()
                 };
                 *el_ref = Some(el.clone().unchecked_into());
 

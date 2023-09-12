@@ -1,3 +1,4 @@
+#![allow(clippy::wildcard_imports)]
 #![forbid(unsafe_code)]
 
 //! Provides functions to easily integrate Leptos with Actix.

@@ -372,6 +372,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     .into()
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     cfg_if::cfg_if! {
         if #[cfg(all(debug_assertions, feature = "nightly"))] {

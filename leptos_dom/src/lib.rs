@@ -894,7 +894,7 @@ where
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
-pub fn mount_to<F, N>(parent: &web_sys::HtmlElement, f: F)
+pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,
@@ -903,8 +903,9 @@ where
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
+#[allow(clippy::needless_pass_by_value)]
 pub fn mount_to_with_stop_hydrating<F, N>(
-    parent: &web_sys::HtmlElement,
+    parent: web_sys::HtmlElement,
     stop_hydrating: bool,
     f: F,
 ) where

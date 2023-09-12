@@ -108,7 +108,7 @@ pub fn Body(
 
             if let Some(attributes) = attributes {
                 let attributes = attributes.get();
-                for (attr_name, attr_value) in attributes.into_iter() {
+                for (attr_name, attr_value) in &attributes {
                     let el = el.clone();
                     let attr_name = attr_name.to_owned();
                     let attr_value = attr_value.to_owned();

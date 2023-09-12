@@ -1,4 +1,6 @@
+#![allow(clippy::wildcard_imports)]
 #![forbid(unsafe_code)]
+
 //! Provides functions to easily integrate Leptos with Axum.
 //!
 //! For more details on how to use the integrations, see the

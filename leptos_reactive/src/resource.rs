@@ -383,6 +383,7 @@ where
 }
 
 #[cfg(feature = "hydrate")]
+#[allow(clippy::needless_pass_by_value)]
 fn load_resource<S, T>(id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Clone + 'static,
@@ -451,13 +452,13 @@ where
             );
 
             // for reactivity
-            r.source.track()
+            r.source.track();
         } else {
             // Server didn't mark the resource as pending, so load it on the
             // client
             r.load(false);
         }
-    })
+    });
 }
 
 impl<S, T> Resource<S, T>

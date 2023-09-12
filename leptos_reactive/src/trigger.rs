@@ -231,7 +231,7 @@ impl FnOnce<()> for Trigger {
 
     #[inline(always)]
     extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.track()
+        self.track();
     }
 }
 
@@ -239,7 +239,7 @@ impl FnOnce<()> for Trigger {
 impl FnMut<()> for Trigger {
     #[inline(always)]
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.track()
+        self.track();
     }
 }
 
@@ -247,6 +247,6 @@ impl FnMut<()> for Trigger {
 impl Fn<()> for Trigger {
     #[inline(always)]
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.track()
+        self.track();
     }
 }

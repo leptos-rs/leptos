@@ -13,7 +13,7 @@ mod hydrate_only {
 
     /// See ["createTreeWalker"](https://developer.mozilla.org/en-US/docs/Web/API/Document/createTreeWalker)
     #[allow(unused)]
-    const FILTER_SHOW_COMMENT: u32 = 0b10000000;
+    const FILTER_SHOW_COMMENT: u32 = 0b1000_0000;
 
     thread_local! {
       pub static HYDRATION_COMMENTS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
@@ -49,7 +49,7 @@ mod hydrate_only {
             }
             map
         } else {
-            Default::default()
+            HashMap::default()
         }
       });
 
@@ -238,7 +238,7 @@ impl HydrationCtx {
         {
             IS_HYDRATING.with(|is_hydrating| {
                 is_hydrating.set(false);
-            })
+            });
         }
     }
 
@@ -261,7 +261,7 @@ impl HydrationCtx {
     pub fn is_hydrating() -> bool {
         #[cfg(feature = "hydrate")]
         {
-            IS_HYDRATING.with(|is_hydrating| is_hydrating.get())
+            IS_HYDRATING.with(std::cell::Cell::get)
         }
         #[cfg(not(feature = "hydrate"))]
         {

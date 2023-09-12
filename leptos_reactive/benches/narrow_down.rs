@@ -1,8 +1,10 @@
+#![allow(clippy::wildcard_imports)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::rc::Rc;
 
 fn rs_narrow_down(c: &mut Criterion) {
-    use reactive_signals::{runtimes::ClientRuntime, signal};
+    use reactive_signals::{runtimes::ClientRuntime, signal, Signal};
 
     c.bench_function("rs_narrow_down", |b| {
         b.iter(|| {
@@ -11,13 +13,14 @@ fn rs_narrow_down(c: &mut Criterion) {
                 Rc::new((0..1000).map(|n| signal!(cx, n)).collect::<Vec<_>>());
             let memo = signal!(cx, {
                 let sigs = Rc::clone(&sigs);
-                move || sigs.iter().map(|r| r.get()).sum::<i32>()
+                move || sigs.iter().map(Signal::get).sum::<i32>()
             });
-            assert_eq!(memo.get(), 499500);
+            assert_eq!(memo.get(), 499_500);
         });
     });
 }
 
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn l021_narrow_down(c: &mut Criterion) {
     use l021::*;
 
@@ -31,9 +34,9 @@ fn l021_narrow_down(c: &mut Criterion) {
                 let memo = create_memo(cx, move |_| {
                     reads.iter().map(|r| r.get()).sum::<i32>()
                 });
-                assert_eq!(memo(), 499500);
+                assert_eq!(memo(), 499_500);
             })
-            .dispose()
+            .dispose();
         });
         runtime.dispose();
     });
@@ -52,7 +55,7 @@ fn sycamore_narrow_down(c: &mut Criterion) {
                     let sigs = Rc::clone(&sigs);
                     move || sigs.iter().map(|r| *r.get()).sum::<i32>()
                 });
-                assert_eq!(*memo.get(), 499500);
+                assert_eq!(*memo.get(), 499_500);
             });
             unsafe { d.dispose() };
         });

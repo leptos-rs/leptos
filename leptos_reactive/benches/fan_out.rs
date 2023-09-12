@@ -1,7 +1,9 @@
+#![allow(clippy::wildcard_imports)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn rs_fan_out(c: &mut Criterion) {
-    use reactive_signals::{runtimes::ClientRuntime, signal};
+    use reactive_signals::{runtimes::ClientRuntime, signal, Signal};
 
     c.bench_function("rs_fan_out", |b| {
         b.iter(|| {
@@ -10,13 +12,14 @@ fn rs_fan_out(c: &mut Criterion) {
             let memos = (0..1000)
                 .map(|_| signal!(cx, move || sig.get()))
                 .collect::<Vec<_>>();
-            assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 0);
+            assert_eq!(memos.iter().map(Signal::get).sum::<i32>(), 0);
             sig.set(1);
-            assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 1000);
+            assert_eq!(memos.iter().map(Signal::get).sum::<i32>(), 1000);
         });
     });
 }
 
+#[allow(clippy::redundant_closure_for_method_calls)]
 fn l021_fan_out(c: &mut Criterion) {
     use l021::*;
 
@@ -32,7 +35,7 @@ fn l021_fan_out(c: &mut Criterion) {
                 sig.set(1);
                 assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 1000);
             })
-            .dispose()
+            .dispose();
         });
         runtime.dispose();
     });
