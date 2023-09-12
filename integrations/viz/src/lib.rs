@@ -992,11 +992,25 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
+) -> Vec<RouteListing>
+where
+    IV: IntoView + 'static,
+{
+    generate_route_list_with_exclusions_and_ssg(app_fn, None)
+        .await
+        .0
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
+pub async fn generate_route_list_with_ssg<IV>(
+    app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(app_fn, None).await
+    generate_route_list_with_exclusions_and_ssg(app_fn, None).await
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1005,12 +1019,26 @@ where
 pub async fn generate_route_list_with_exclusions<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
+) -> Vec<RouteListing>
+where
+    IV: IntoView + 'static,
+{
+    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes)
+        .await
+        .0
+}
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
+pub async fn generate_route_list_with_exclusions_and_ssg<IV>(
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    excluded_routes: Option<Vec<String>>,
 ) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
     let (routes, static_data_map) =
-        leptos_router::generate_route_list_inner(app_fn).await;
+        leptos_router::generate_route_list_inner(app_fn);
     // Viz's Router defines Root routes as "/" not ""
     let mut routes = routes
         .into_iter()
