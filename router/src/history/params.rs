@@ -20,6 +20,7 @@ impl ParamsMap {
     }
 
     /// Creates an empty map with the given capacity.
+    #[must_use]
     #[inline(always)]
     pub fn with_capacity(capacity: usize) -> Self {
         Self(LinearMap::with_capacity(capacity))
@@ -32,6 +33,7 @@ impl ParamsMap {
     }
 
     /// Gets a value from the map.
+    #[must_use]
     #[inline(always)]
     pub fn get(&self, key: &str) -> Option<&String> {
         self.0.get(key)
@@ -44,6 +46,7 @@ impl ParamsMap {
     }
 
     /// Converts the map to a query string.
+    #[must_use]
     pub fn to_query_string(&self) -> String {
         use crate::history::url::escape;
         let mut buf = String::new();
@@ -175,7 +178,7 @@ impl PartialEq for ParamsError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::MissingParam(l0), Self::MissingParam(r0)) => l0 == r0,
-            (Self::Params(_), Self::Params(_)) => false,
+            // (Self::Params(_), Self::Params(_)) => false,
             _ => false,
         }
     }

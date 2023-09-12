@@ -2,6 +2,7 @@ use proc_macro2::TokenStream;
 use std::str::FromStr;
 use syn::parse_quote;
 
+#[allow(clippy::needless_pass_by_value)]
 fn pretty(input: TokenStream) -> String {
     let type_item: syn::Item = parse_quote! {
         fn view(){

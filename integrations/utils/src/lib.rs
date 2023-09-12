@@ -15,8 +15,8 @@ fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
         leptos_config::ReloadWSProtocol::WS => "'ws://'",
         leptos_config::ReloadWSProtocol::WSS => "'wss://'",
     };
-    match std::env::var("LEPTOS_WATCH").is_ok() {
-        true => format!(
+    if std::env::var("LEPTOS_WATCH").is_ok() {
+        format!(
             r#"
                 <script crossorigin=""{nonce_str}>(function () {{
                     {}
@@ -45,8 +45,9 @@ fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
                 </script>
                 "#,
             leptos_hot_reload::HOT_RELOAD_JS
-        ),
-        false => "".to_string(),
+        )
+    } else {
+        String::new()
     }
 }
 

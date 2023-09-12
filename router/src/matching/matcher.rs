@@ -21,11 +21,13 @@ pub struct Matcher {
 
 impl Matcher {
     #[doc(hidden)]
+    #[must_use]
     pub fn new(path: &str) -> Self {
         Self::new_with_partial(path, false)
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub fn new_with_partial(path: &str, partial: bool) -> Self {
         let (pattern, splat) = match path.split_once("/*") {
             Some((p, s)) => (p, Some(s.to_string())),
@@ -34,7 +36,7 @@ impl Matcher {
         let segments = pattern
             .split('/')
             .filter(|n| !n.is_empty())
-            .map(|n| n.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<_>>();
 
         let len = segments.len();
@@ -48,6 +50,7 @@ impl Matcher {
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub fn test(&self, location: &str) -> Option<PathMatch> {
         let loc_segments = location
             .split('/')

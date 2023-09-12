@@ -1,6 +1,6 @@
 use super::params::ParamsMap;
 use crate::{State, Url};
-use leptos::*;
+use leptos::{create_memo, Memo, ReadSignal, SignalWith};
 
 /// A reactive description of the current URL, containing equivalents to the local parts of
 /// the browser's [`Location`](https://developer.mozilla.org/en-US/docs/Web/API/Location).
@@ -69,8 +69,8 @@ pub fn create_location(
     Location {
         pathname,
         search,
-        hash,
         query,
+        hash,
         state,
     }
 }

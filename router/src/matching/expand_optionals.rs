@@ -56,8 +56,9 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
     }
 }
 
-#[doc(hidden)]
 #[cfg(feature = "ssr")]
+#[doc(hidden)]
+#[must_use]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
     use regex::Regex;
 

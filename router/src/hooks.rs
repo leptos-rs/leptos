@@ -7,6 +7,7 @@ use leptos::{
     Oco,
 };
 use std::{rc::Rc, str::FromStr};
+
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
 /// The function creates a bidirectional sync mechanism between the state encapsulated in a signal and a URL query parameter.
@@ -43,6 +44,7 @@ use std::{rc::Rc, str::FromStr};
 ///     }
 /// }
 /// ```
+#[must_use]
 #[track_caller]
 pub fn create_query_signal<T>(
     key: impl Into<Oco<'static, str>>,
@@ -82,7 +84,12 @@ where
     (get, set)
 }
 
-/// Returns the current [RouterContext], containing information about the router's state.
+/// Returns the current [`RouterContext`], containing information about the router's state.
+///
+/// # Panics
+///
+/// Will panic if it is not running in the `<Router/>`.
+#[must_use]
 #[track_caller]
 pub fn use_router() -> RouterContext {
     if let Some(router) = use_context::<RouterContext>() {
@@ -96,13 +103,15 @@ pub fn use_router() -> RouterContext {
     }
 }
 
-/// Returns the current [RouteContext], containing information about the matched route.
+/// Returns the current [`RouteContext`], containing information about the matched route.
+#[must_use]
 #[track_caller]
 pub fn use_route() -> RouteContext {
     use_context::<RouteContext>().unwrap_or_else(|| use_router().base())
 }
 
 /// Returns the data for the current route, which is provided by the `data` prop on `<Route/>`.
+#[must_use]
 #[track_caller]
 pub fn use_route_data<T: Clone + 'static>() -> Option<T> {
     let route = use_context::<RouteContext>()?;
@@ -112,13 +121,15 @@ pub fn use_route_data<T: Clone + 'static>() -> Option<T> {
     downcast
 }
 
-/// Returns the current [Location], which contains reactive variables
+/// Returns the current [`Location`], which contains reactive variables
+#[must_use]
 #[track_caller]
 pub fn use_location() -> Location {
     use_router().inner.location.clone()
 }
 
 /// Returns a raw key-value map of route params.
+#[must_use]
 #[track_caller]
 pub fn use_params_map() -> Memo<ParamsMap> {
     let route = use_route();
@@ -126,6 +137,7 @@ pub fn use_params_map() -> Memo<ParamsMap> {
 }
 
 /// Returns the current route params, parsed into the given type, or an error.
+#[must_use]
 #[track_caller]
 pub fn use_params<T: Params>() -> Memo<Result<T, ParamsError>>
 where
@@ -136,12 +148,14 @@ where
 }
 
 /// Returns a raw key-value map of the URL search query.
+#[must_use]
 #[track_caller]
 pub fn use_query_map() -> Memo<ParamsMap> {
     use_router().inner.location.query
 }
 
 /// Returns the current URL search query, parsed into the given type, or an error.
+#[must_use]
 #[track_caller]
 pub fn use_query<T: Params>() -> Memo<Result<T, ParamsError>>
 where
@@ -152,6 +166,7 @@ where
 }
 
 /// Resolves the given path relative to the current route.
+#[must_use]
 #[track_caller]
 pub fn use_resolved_path(
     path: impl Fn() -> String + 'static,

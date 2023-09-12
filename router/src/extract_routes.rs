@@ -31,11 +31,13 @@ impl RouteListing {
     }
 
     /// The path this route handles.
+    #[must_use]
     pub fn path(&self) -> &str {
         &self.path
     }
 
     /// The rendering mode for this path.
+    #[must_use]
     pub fn mode(&self) -> SsrMode {
         self.mode
     }

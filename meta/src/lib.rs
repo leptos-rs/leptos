@@ -1,4 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::wildcard_imports)]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

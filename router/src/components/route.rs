@@ -251,6 +251,7 @@ impl RouteContext {
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
     /// For the opposite behavior, see [`RouteContext::original_path`].
+    #[must_use]
     #[track_caller]
     pub fn path(&self) -> String {
         #[cfg(debug_assertions)]

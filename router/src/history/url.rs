@@ -21,6 +21,7 @@ pub fn unescape(s: &str) -> String {
 }
 
 #[cfg(feature = "ssr")]
+#[must_use]
 pub fn escape(s: &str) -> String {
     percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC)
         .to_string()
@@ -94,7 +95,7 @@ impl TryFrom<&str> for Url {
                     .map(|(key, value)| (key.to_string(), value.to_string()))
                     .collect::<linear_map::LinearMap<String, String>>(),
             ),
-            hash: Default::default(),
+            hash: String::new(),
         })
     }
 }

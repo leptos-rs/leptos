@@ -12,7 +12,7 @@ pub trait ToHref {
 
 impl ToHref for &str {
     fn to_href(&self) -> Box<dyn Fn() -> String> {
-        let s = self.to_string();
+        let s = (*self).to_string();
         Box::new(move || s.clone())
     }
 }

@@ -29,7 +29,7 @@ impl std::fmt::Debug for RouteDefinition {
             .field("path", &self.path)
             .field("children", &self.children)
             .field("ssr_mode", &self.ssr_mode)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    animation::*,
+    animation::{Animation, AnimationState},
     matching::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
@@ -556,13 +556,10 @@ impl RouteData {
             .split('/')
             .filter(|n| !n.is_empty())
             .collect::<Vec<_>>();
-        #[allow(clippy::bool_to_int_with_if)] // on the splat.is_none()
-        segments.iter().fold(
-            (segments.len() as i32) - if splat.is_none() { 0 } else { 1 },
-            |score, segment| {
-                score + if segment.starts_with(':') { 2 } else { 3 }
-            },
-        )
+        let len = segments.len() - usize::from(splat.is_some());
+        segments.iter().fold(len as i32, |score, segment| {
+            score + if segment.starts_with(':') { 2 } else { 3 }
+        })
     }
 }
 
@@ -615,7 +612,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
         } else {
             path.split("/*")
                 .next()
-                .map(|n| n.to_string())
+                .map(ToString::to_string)
                 .unwrap_or(path)
         };
         acc.push(RouteData {

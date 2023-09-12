@@ -4,6 +4,7 @@ use wasm_bindgen::JsValue;
 pub struct State(pub Option<JsValue>);
 
 impl State {
+    #[must_use]
     pub fn to_js_value(&self) -> JsValue {
         match &self.0 {
             Some(v) => v.clone(),
