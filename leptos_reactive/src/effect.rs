@@ -57,7 +57,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_effect<T>(f: impl Fn(Option<T>) -> T + 'static) -> Effect
+pub fn create_effect<T>(f: impl Fn(Option<T>) -> T + 'static) -> Effect<T>
 where
     T: 'static,
 {
@@ -69,12 +69,124 @@ where
             _ = with_runtime( |runtime| {
                 runtime.update_if_necessary(id);
             });
-            Effect { id }
+            Effect { id, ty: PhantomData }
         } else {
             // clear warnings
             _ = f;
-            Effect::default()
+            Effect { id: Default::default(), ty: PhantomData }
         }
+    }
+}
+
+impl<T> Effect<T>
+where
+    T: 'static,
+{
+    /// Effects run a certain chunk of code whenever the signals they depend on change.
+    /// `create_effect` immediately runs the given function once, tracks its dependence
+    /// on any signal values read within it, and reruns the function whenever the value
+    /// of a dependency changes.
+    ///
+    /// Effects are intended to run *side-effects* of the system, not to synchronize state
+    /// *within* the system. In other words: don't write to signals within effects.
+    /// (If you need to define a signal that depends on the value of other signals, use a
+    /// derived signal or [`create_memo`](crate::create_memo)).
+    ///
+    /// The effect function is called with an argument containing whatever value it returned
+    /// the last time it ran. On the initial run, this is `None`.
+    ///
+    /// By default, effects **do not run on the server**. This means you can call browser-specific
+    /// APIs within the effect function without causing issues. If you need an effect to run on
+    /// the server, use [`create_isomorphic_effect`].
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # use log::*;
+    /// # let runtime = create_runtime();
+    /// let a = RwSignal::new(0);
+    /// let b = RwSignal::new(0);
+    ///
+    /// // ✅ use effects to interact between reactive state and the outside world
+    /// Effect::new(move |_| {
+    ///   // immediately prints "Value: 0" and subscribes to `a`
+    ///   log::debug!("Value: {}", a.get());
+    /// });
+    ///
+    /// a.set(1);
+    /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
+    ///
+    /// // ❌ don't use effects to synchronize state within the reactive system
+    /// Effect::new(move |_| {
+    ///   // this technically works but can cause unnecessary re-renders
+    ///   // and easily lead to problems like infinite loops
+    ///   b.set(a.get() + 1);
+    /// });
+    /// # if !cfg!(feature = "ssr") {
+    /// # assert_eq!(b.get(), 2);
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[track_caller]
+    #[inline(always)]
+    pub fn new(f: impl Fn(Option<T>) -> T + 'static) -> Self {
+        create_effect(f)
+    }
+
+    /// Creates an effect; unlike effects created by [`create_effect`], isomorphic effects will run on
+    /// the server as well as the client.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # use log::*;
+    /// # let runtime = create_runtime();
+    /// let a = RwSignal::new(0);
+    /// let b = RwSignal::new(0);
+    ///
+    /// // ✅ use effects to interact between reactive state and the outside world
+    /// Effect::new_isomorphic(move |_| {
+    ///   // immediately prints "Value: 0" and subscribes to `a`
+    ///   log::debug!("Value: {}", a.get());
+    /// });
+    ///
+    /// a.set(1);
+    /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
+    ///
+    /// // ❌ don't use effects to synchronize state within the reactive system
+    /// Effect::new_isomorphic(move |_| {
+    ///   // this technically works but can cause unnecessary re-renders
+    ///   // and easily lead to problems like infinite loops
+    ///   b.set(a.get() + 1);
+    /// });
+    /// # assert_eq!(b.get(), 2);
+    /// # runtime.dispose();
+    #[track_caller]
+    #[inline(always)]
+    pub fn new_isomorphic(f: impl Fn(Option<T>) -> T + 'static) -> Self {
+        create_isomorphic_effect(f)
+    }
+
+    /// Applies the given closure to the most recent value of the effect.
+    ///
+    /// Because effect functions can return values, each time an effect runs it
+    /// consumes its previous value. This allows an effect to store additional state
+    /// (like a DOM node, a timeout handle, or a type that implements `Drop`) and
+    /// keep it alive across multiple runs.
+    ///
+    /// This method allows access to the effect’s value outside the effect function.
+    /// The next time a signal change causes the effect to run, it will receive the
+    /// mutated value.
+    pub fn with_value_mut<U>(
+        &self,
+        f: impl FnOnce(&mut Option<T>) -> U,
+    ) -> Option<U> {
+        with_runtime(|runtime| {
+            let nodes = runtime.nodes.borrow();
+            let node = nodes.get(self.id)?;
+            let value = node.value.clone()?;
+            let mut value = value.borrow_mut();
+            let value = value.downcast_mut()?;
+            Some(f(value))
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -118,7 +230,7 @@ where
 #[inline(always)]
 pub fn create_isomorphic_effect<T>(
     f: impl Fn(Option<T>) -> T + 'static,
-) -> Effect
+) -> Effect<T>
 where
     T: 'static,
 {
@@ -128,7 +240,10 @@ where
     _ = with_runtime(|runtime| {
         runtime.update_if_necessary(id);
     });
-    Effect { id }
+    Effect {
+        id,
+        ty: PhantomData,
+    }
 }
 
 #[doc(hidden)]
@@ -152,17 +267,18 @@ where
 
 /// A handle to an effect, can be used to explicitly dispose of the effect.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Effect {
+pub struct Effect<T> {
     pub(crate) id: NodeId,
+    ty: PhantomData<T>,
 }
 
-impl From<Effect> for Disposer {
-    fn from(effect: Effect) -> Self {
+impl<T> From<Effect<T>> for Disposer {
+    fn from(effect: Effect<T>) -> Self {
         Disposer(effect.id)
     }
 }
 
-impl SignalDispose for Effect {
+impl<T> SignalDispose for Effect<T> {
     fn dispose(self) {
         drop(Disposer::from(self));
     }

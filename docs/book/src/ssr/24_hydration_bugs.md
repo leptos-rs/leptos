@@ -9,7 +9,7 @@ Put a log somewhere in your root component. (I usually call mine `<App/>`, but a
 ```rust
 #[component]
 pub fn App() -> impl IntoView {
-	leptos::log!("where do I run?");
+	logging::log!("where do I run?");
 	// ... whatever
 }
 ```
@@ -166,7 +166,7 @@ For example, say that I want to store something in the browser’s `localStorage
 pub fn App() -> impl IntoView {
     use gloo_storage::Storage;
 	let storage = gloo_storage::LocalStorage::raw();
-	leptos::log!("{storage:?}");
+	logging::log!("{storage:?}");
 }
 ```
 
@@ -180,7 +180,7 @@ pub fn App() -> impl IntoView {
     use gloo_storage::Storage;
     create_effect(move |_| {
         let storage = gloo_storage::LocalStorage::raw();
-		leptos::log!("{storage:?}");
+		logging::log!("{storage:?}");
     });
 }
 ```

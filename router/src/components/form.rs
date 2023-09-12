@@ -1,5 +1,5 @@
 use crate::{use_navigate, use_resolved_path, NavigateOptions, ToHref, Url};
-use leptos::{html::form, *};
+use leptos::{html::form, logging::*, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -489,7 +489,7 @@ where
     #[cfg(debug_assertions)]
     {
         if I::encoding() != server_fn::Encoding::Url {
-            leptos::warn!(
+            leptos::logging::warn!(
                 "<ActionForm/> only supports the `Url` encoding for server \
                  functions, but {} uses {:?}.",
                 std::any::type_name::<I>(),

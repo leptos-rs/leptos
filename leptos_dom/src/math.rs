@@ -50,18 +50,17 @@ macro_rules! generate_math_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          id: HydrationKey,
+          id: Option<HydrationKey>,
         }
 
         impl Default for [<$tag:camel $($second:camel $($third:camel)?)?>] {
           fn default() -> Self {
             let id = HydrationCtx::id();
 
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let element = if HydrationCtx::is_hydrating() {
-              if let Some(el) = crate::document().get_element_by_id(
-                &format!("_{id}")
-              ) {
+            #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
+            let element = if HydrationCtx::is_hydrating() && id.is_some() {
+              let id = id.unwrap();
+              if let Some(el) = crate::hydration::get_element(&id.to_string()) {
                 #[cfg(debug_assertions)]
                 assert_eq!(
                   el.node_name().to_ascii_uppercase(),
@@ -70,23 +69,6 @@ macro_rules! generate_math_tags {
                   different node kinds. Check out the docs for information \
                   about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
                 );
-
-                el.remove_attribute("id").unwrap();
-
-                el.unchecked_into()
-              } else if let Ok(Some(el)) = crate::document().query_selector(
-                &format!("[leptos-hk=_{id}]")
-              ) {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                  el.node_name().to_ascii_uppercase(),
-                  stringify!([<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]),
-                  "SSR and CSR elements have the same hydration key but \
-                  different node kinds. Check out the docs for information \
-                  about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
-                );
-
-                el.remove_attribute("leptos-hk").unwrap();
 
                 el.unchecked_into()
               } else {
@@ -109,6 +91,14 @@ macro_rules! generate_math_tags {
                     .unchecked_into()
                 )
             };
+
+            #[cfg(all(target_arch = "wasm32", feature = "web", not(feature = "hydrate")))]
+            let element = [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]
+              .with(|el|
+                el.clone_node()
+                  .unwrap()
+                  .unchecked_into()
+              );
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -150,7 +140,7 @@ macro_rules! generate_math_tags {
           }
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          fn hydration_id(&self) -> &HydrationKey {
+          fn hydration_id(&self) -> &Option<HydrationKey> {
             &self.id
           }
 

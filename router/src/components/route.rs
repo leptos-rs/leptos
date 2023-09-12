@@ -324,7 +324,7 @@ impl RouteContext {
         let caller = std::panic::Location::caller();
 
         self.inner.path.try_get_untracked().unwrap_or_else(|| {
-            leptos::debug_warn!(
+            leptos::logging::debug_warn!(
                 "at {caller}, you call `.path()` on a `<Route/>` that has \
                  already been disposed"
             );

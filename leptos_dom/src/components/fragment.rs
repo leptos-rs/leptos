@@ -25,7 +25,7 @@ where
 /// Represents a group of [`views`](View).
 #[derive(Debug, Clone)]
 pub struct Fragment {
-    id: HydrationKey,
+    id: Option<HydrationKey>,
     /// The nodes contained in the fragment.
     pub nodes: Vec<View>,
     #[cfg(debug_assertions)]
@@ -74,7 +74,10 @@ impl Fragment {
 
     /// Creates a new [`Fragment`] with the given hydration ID from a [`Vec<Node>`].
     #[inline(always)]
-    pub const fn new_with_id(id: HydrationKey, nodes: Vec<View>) -> Self {
+    pub const fn new_with_id(
+        id: Option<HydrationKey>,
+        nodes: Vec<View>,
+    ) -> Self {
         Self {
             id,
             nodes,
@@ -91,7 +94,7 @@ impl Fragment {
 
     /// Returns the fragment's hydration ID.
     #[inline(always)]
-    pub fn id(&self) -> &HydrationKey {
+    pub fn id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 

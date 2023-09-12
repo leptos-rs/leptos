@@ -8,7 +8,7 @@ use std::cell::Cell;
 /// macro to create your UI.
 ///
 /// ```
-/// # use leptos::*;
+/// # use leptos::{*, logging::log};
 ///
 /// use leptos::html::Input;
 ///
@@ -43,7 +43,7 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 /// macro to create your UI.
 ///
 /// ```
-/// # use leptos::*;
+/// # use leptos::{*, logging::log};
 ///
 /// use leptos::html::Input;
 ///

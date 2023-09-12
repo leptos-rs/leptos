@@ -101,7 +101,7 @@ impl RouterContext {
                         `leptos_router` import.\n\nIf you are using this on the server without a \
                         Leptos server integration, you must call provide_context::<RouterIntegrationContext>(...) \
                         somewhere above the <Router/>.";
-                    leptos::debug_warn!("{}", msg);
+                    leptos::logging::debug_warn!("{}", msg);
                     panic!("{}", msg);
                 });
             }
@@ -415,7 +415,7 @@ impl RouterContextInner {
                     state: State(state),
                 },
             ) {
-                leptos::error!("{e:#?}");
+                leptos::logging::error!("{e:#?}");
             }
         }
     }

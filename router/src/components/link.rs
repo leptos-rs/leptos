@@ -133,7 +133,8 @@ where
                         if exact {
                             loc == path
                         } else {
-                            loc.starts_with(&path)
+                            std::iter::zip(loc.split('/'), path.split('/'))
+                                .all(|(loc_p, path_p)| loc_p == path_p)
                         }
                     })
                 })

@@ -156,7 +156,7 @@ fn NestedResourceInside() -> impl IntoView {
                    {move || {
                     one_second.get().map(|_| {
                         let two_second = create_resource(|| (), move |_| async move {
-                            leptos::log!("creating two_second resource");
+                            logging::log!("creating two_second resource");
                             second_wait_fn(WAIT_TWO_SECONDS).await
                         });
                         view! {
