@@ -62,7 +62,7 @@ impl StaticRenderContext {
     ///
     /// # Example
     /// ```rust
-    /// use leptos::StaticRenderContext;
+    /// use leptos_router::StaticRenderContext;
     ///
     /// let mut context = StaticRenderContext::new();
     /// context.insert(42);
@@ -76,7 +76,7 @@ impl StaticRenderContext {
     ///
     /// # Example
     /// ```rust
-    /// use leptos::StaticRenderContext;
+    /// use leptos_router::StaticRenderContext;
     ///
     /// let mut context = StaticRenderContext::new();
     /// context.insert(42);
