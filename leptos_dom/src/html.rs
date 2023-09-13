@@ -1301,18 +1301,24 @@ macro_rules! generate_html_tags {
           generate_html_tags! { @void $($void)? }
         }
 
+        impl From<HtmlElement<[<$tag:camel $($trailing_)?>]>> for HtmlElement<AnyElement> {
+            fn from(element: HtmlElement<[<$tag:camel $($trailing_)?>]>) -> Self {
+                element.into_any()
+            }
+        }
+
         #[$meta]
-      #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(
-          level = "trace",
-          name = "HtmlElement",
-          skip_all,
-          fields(
-            tag = %format!("<{}/>", stringify!($tag))
-          )
-        )
-      )]
+        #[cfg_attr(
+            any(debug_assertions, feature = "ssr"),
+            instrument(
+            level = "trace",
+            name = "HtmlElement",
+            skip_all,
+            fields(
+                tag = %format!("<{}/>", stringify!($tag))
+            )
+            )
+        )]
         pub fn $tag() -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
           HtmlElement::new( [<$tag:camel $($trailing_)?>]::default())
         }

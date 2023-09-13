@@ -1,6 +1,6 @@
 //! Exports types for working with MathML elements.
 
-use super::{ElementDescriptor, HtmlElement};
+use super::{AnyElement, ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
 use cfg_if::cfg_if;
 use leptos_reactive::Oco;
@@ -146,6 +146,12 @@ macro_rules! generate_math_tags {
           }
 
           generate_math_tags! { @void $($void)? }
+        }
+
+        impl From<HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]>> for HtmlElement<AnyElement> {
+          fn from(element: HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]>) -> Self {
+            element.into_any()
+          }
         }
 
         #[$meta]
