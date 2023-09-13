@@ -456,8 +456,8 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///    to do relatively expensive work within the component function, as it will only happen once,
 ///    not on every state change.
 ///
-/// * Component names are usually in `PascalCase`. If you use a `snake_case` name, then the generated 
-///    component's name will still be in `PascalCase`. This is how the framework recognizes that 
+/// * Component names are usually in `PascalCase`. If you use a `snake_case` name, then the generated
+///    component's name will still be in `PascalCase`. This is how the framework recognizes that
 ///    a particular tag is a component, not an HTML element.
 ///
 /// ```
