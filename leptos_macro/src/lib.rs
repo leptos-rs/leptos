@@ -472,7 +472,8 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// fn my_snake_case_component() -> impl IntoView {}
 /// ```
 ///
-/// * You can pass generic arguments, but they must be defined in a `where` clause and not inline.
+/// * You can pass generic arguments, and they can either be defined in a `where` clause
+/// or inline in the generic block, but not in an `impl` in function argument position.
 ///
 /// ```compile_error
 /// // ❌ This won't work.
@@ -480,7 +481,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// use leptos::html::Div;
 ///
 /// #[component]
-/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(render_prop: T) -> impl IntoView {
+/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(render_prop: impl Fn() -> HtmlElement<Div>) -> impl IntoView {
 /// }
 /// ```
 ///
@@ -494,6 +495,13 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// where
 ///     T: Fn() -> HtmlElement<Div>,
 /// {
+/// }
+///
+/// // or
+/// #[component]
+/// fn MyComponent2<T: Fn() -> HtmlElement<Div>>(
+///     render_prop: T,
+/// ) -> impl IntoView {
 /// }
 /// ```
 ///
