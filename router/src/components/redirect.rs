@@ -46,7 +46,7 @@ where
         navigate(&path, options.unwrap_or_default());
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         {
-            leptos::debug_warn!(
+            leptos::logging::debug_warn!(
                 "<Redirect/> is trying to redirect without \
                  `ServerRedirectFunction` being provided. (If you’re getting \
                  this on initial server start-up, it’s okay to ignore. It \

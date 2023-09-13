@@ -275,7 +275,9 @@ impl MetaContext {
         }
         tags.push_str(&self.tags.as_string());
 
-        HydrationCtx::continue_from(prev_key);
+        if let Some(prev_key) = prev_key {
+            HydrationCtx::continue_from(prev_key);
+        }
         tags
     }
 }
@@ -309,6 +311,6 @@ pub fn generate_head_metadata_separated() -> (String, String) {
 #[cfg(debug_assertions)]
 pub(crate) fn feature_warning() {
     if !cfg!(any(feature = "csr", feature = "hydrate", feature = "ssr")) {
-        leptos::debug_warn!("WARNING: `leptos_meta` does nothing unless you enable one of its features (`csr`, `hydrate`, or `ssr`). See the docs at https://docs.rs/leptos_meta/latest/leptos_meta/ for more information.");
+        leptos::logging::debug_warn!("WARNING: `leptos_meta` does nothing unless you enable one of its features (`csr`, `hydrate`, or `ssr`). See the docs at https://docs.rs/leptos_meta/latest/leptos_meta/ for more information.");
     }
 }

@@ -1,6 +1,6 @@
 use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{
-    create_effect, create_rw_signal, signal_prelude::*, RwSignal,
+    create_render_effect, create_rw_signal, signal_prelude::*, RwSignal,
 };
 use std::cell::Cell;
 
@@ -8,7 +8,7 @@ use std::cell::Cell;
 /// macro to create your UI.
 ///
 /// ```
-/// # use leptos::*;
+/// # use leptos::{*, logging::log};
 ///
 /// use leptos::html::Input;
 ///
@@ -43,7 +43,7 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 /// macro to create your UI.
 ///
 /// ```
-/// # use leptos::*;
+/// # use leptos::{*, logging::log};
 ///
 /// use leptos::html::Input;
 ///
@@ -134,7 +134,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     {
         let f = Cell::new(Some(f));
 
-        create_effect(move |_| {
+        create_render_effect(move |_| {
             if let Some(node_ref) = self.get() {
                 f.take().unwrap()(node_ref);
             }

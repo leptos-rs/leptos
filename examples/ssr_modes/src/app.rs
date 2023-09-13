@@ -88,9 +88,6 @@ fn Post() -> impl IntoView {
         }
     });
 
-    // this view needs to take the `Scope` from the `<Suspense/>`, not
-    // from the parent component, so we take that as an argument and
-    // pass it in under the `<Suspense/>` so that it is correct
     let post_view = move || {
         post.and_then(|post| {
             view! {

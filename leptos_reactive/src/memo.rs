@@ -169,7 +169,7 @@ impl<T> Memo<T> {
     /// Creates a new memo from the given function.
     ///
     /// This is identical to [`create_memo`].
-    /// /// ```
+    /// ```
     /// # use leptos_reactive::*;
     /// # fn really_expensive_computation(value: i32) -> i32 { value };
     /// # let runtime = create_runtime();

@@ -60,7 +60,7 @@ cfg_if! {
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
-        log!("listening on http://{}", &addr);
+        logging::log!("listening on http://{}", &addr);
         axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .await

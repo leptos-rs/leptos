@@ -92,7 +92,7 @@ pub fn Script(
         for node in frag.nodes {
             match node {
                 View::Text(text) => script.push_str(&text.content),
-                _ => leptos::warn!(
+                _ => leptos::logging::warn!(
                     "Only text nodes are supported as children of <Script/>."
                 ),
             }

@@ -8,10 +8,6 @@ If you don't have `cargo-leptos` installed you can install it with
 
 Then run
 
-`npx tailwindcss -i ./input.css -o ./style/output.css --watch`
-
-and
-
 `cargo leptos watch`
 
 in this directory.

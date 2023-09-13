@@ -33,6 +33,7 @@ pub(crate) fn component_to_tokens(
             !attr.key.to_string().starts_with("bind:")
                 && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
+                && !attr.key.to_string().starts_with("attr:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -70,6 +71,7 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let events = attrs
+        .clone()
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
             let (event_type, handler) = event_from_attribute_node(attr, true);
@@ -79,6 +81,24 @@ pub(crate) fn component_to_tokens(
             }
         })
         .collect::<Vec<_>>();
+
+    let dyn_attrs = attrs
+        .filter(|attr| attr.key.to_string().starts_with("attr:"))
+        .filter_map(|attr| {
+            let name = &attr.key.to_string();
+            let name = name.strip_prefix("attr:");
+            let value = attr.value().map(|v| {
+                quote! { #v }
+            })?;
+            Some(quote! { (#name, #value.into_attribute()) })
+        })
+        .collect::<Vec<_>>();
+
+    let dyn_attrs = if dyn_attrs.is_empty() {
+        quote! {}
+    } else {
+        quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) }
+    };
 
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
@@ -124,7 +144,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        Box::new(move || #children #view_marker)
+                        ::leptos::ToChildren::to_children(move || #children #view_marker)
                     })
                 }
             }
@@ -163,6 +183,7 @@ pub(crate) fn component_to_tokens(
                 #(#slots)*
                 #children
                 .build()
+                #dyn_attrs
         )
     };
 

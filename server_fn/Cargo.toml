@@ -23,6 +23,10 @@ const_format = "0.2"
 inventory = { version = "0.3", optional = true }
 lazy_static = "1"
 
+[dev-dependencies]
+server_fn = { version = "0.2" }
+serde = "1"
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net = "0.2"
 js-sys = "0.3"

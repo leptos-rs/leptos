@@ -88,9 +88,17 @@ fn Counter(
         set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default())
     };
 
-    // just an example of how a cleanup function works
     // this will run when the scope is disposed, i.e., when this row is deleted
-    on_cleanup(|| log::debug!("deleted a row"));
+    // because the signal was created in the parent scope, it won't be disposed
+    // of until the parent scope is. but we no longer need it, so we'll dispose of
+    // it when this row is deleted, instead. if we don't dispose of it here,
+    // this memory will "leak," i.e., the signal will continue to exist until the
+    // parent component is removed. in the case of this component, where it's the
+    // root, that's the lifetime of the program.
+    on_cleanup(move || {
+        log::debug!("deleted a row");
+        value.dispose();
+    });
 
     view! {
         <li>

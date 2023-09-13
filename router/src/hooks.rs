@@ -192,11 +192,11 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) {
             request_animation_frame(move || {
                 #[allow(unused_variables)]
                 if let Err(e) = router.navigate_from_route(&to, &options) {
-                    leptos::debug_warn!("use_navigate error: {e:?}");
+                    leptos::logging::debug_warn!("use_navigate error: {e:?}");
                 }
             });
         } else {
-            leptos::warn!(
+            leptos::logging::warn!(
                 "The navigation function returned by `use_navigate` should \
                  not be called during server rendering."
             );

@@ -83,6 +83,7 @@ mod context;
 mod diagnostics;
 mod effect;
 mod hydration;
+mod macros;
 mod memo;
 mod node;
 pub mod oco;
@@ -128,25 +129,6 @@ pub use stored_value::*;
 pub use suspense::{GlobalSuspenseContext, SuspenseContext};
 pub use trigger::*;
 pub use watch::*;
-
-mod macros {
-    macro_rules! debug_warn {
-        ($($x:tt)*) => {
-            {
-                #[cfg(debug_assertions)]
-                {
-                    ($crate::console_warn(&format_args!($($x)*).to_string()))
-                }
-                #[cfg(not(debug_assertions))]
-                {
-                    ($($x)*)
-                }
-            }
-        }
-    }
-
-    pub(crate) use debug_warn;
-}
 
 pub(crate) fn console_warn(s: &str) {
     cfg_if::cfg_if! {

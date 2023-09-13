@@ -12,7 +12,7 @@ cfg_if! {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
 
-            log!("hydrate mode - hydrating");
+            logging::log!("hydrate mode - hydrating");
 
             leptos::mount_to_body(|| {
                 view! { <App/> }
@@ -29,7 +29,7 @@ cfg_if! {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
 
-            log!("csr mode - mounting to body");
+            logging::log!("csr mode - mounting to body");
 
             mount_to_body(|| {
                 view! { <App /> }

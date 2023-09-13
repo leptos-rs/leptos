@@ -1,36 +1,12 @@
+extend = { path = "../cargo-make/client-process.toml" }
+
+[env]
+CLIENT_PROCESS_NAME = "trunk"
+
 [tasks.build]
 command = "trunk"
 args = ["build"]
 
-[tasks.start-trunk]
+[tasks.start-client]
 command = "trunk"
 args = ["serve", "${@}"]
-
-[tasks.stop-trunk]
-script = '''
-  pkill -ef "trunk"
-'''
-
-[tasks.trunk-status]
-script = '''
-  if [ -z $(pidof trunk) ]; then
-    echo trunk is not running
-  else
-    echo trunk is up
-  fi
-'''
-
-[tasks.maybe-start-trunk]
-script = '''
-  if [ -z $(pidof trunk) ]; then
-    echo Starting trunk...
-    cargo make start-trunk ${@} & 
-  else
-    echo Trunk already started
-  fi
-'''
-
-# ALIASES
-
-[tasks.dev]
-dependencies = ["start-trunk"]

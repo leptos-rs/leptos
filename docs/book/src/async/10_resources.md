@@ -18,7 +18,7 @@ let async_data = create_resource(
     count,
     // every time `count` changes, this will run
     |value| async move {
-        log!("loading data from API");
+        logging::log!("loading data from API");
         load_data(value).await
     },
 );

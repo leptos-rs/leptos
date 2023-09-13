@@ -70,7 +70,12 @@ where
     E: Into<Error>,
 {
     fn into_view(self) -> crate::View {
-        let id = ErrorKey(HydrationCtx::peek().to_string().into());
+        let id = ErrorKey(
+            HydrationCtx::peek()
+                .map(|n| n.to_string())
+                .unwrap_or_default()
+                .into(),
+        );
         let errors = use_context::<RwSignal<Errors>>();
         match self {
             Ok(stuff) => {
