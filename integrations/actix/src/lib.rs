@@ -96,7 +96,7 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix [`redirect()`],
 /// it sets a [`StatusCode`] of 302 and a [`LOCATION`](header::LOCATION) header with the provided value.
 /// If looking to redirect from the client, [`leptos_router::use_navigate()`] should be used instead.
 ///
@@ -115,7 +115,7 @@ pub fn redirect(path: &str) {
     }
 }
 
-/// An Actix [`Route`](actix_web::Route) that listens for a `POST` request with
+/// An Actix [`struct@Route`] that listens for a `POST` request with
 /// Leptos server function arguments in the body, runs the server function if found,
 /// and returns the resulting [`HttpResponse`].
 ///
@@ -150,13 +150,13 @@ pub fn redirect(path: &str) {
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
+/// - [`HttpRequest`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|| {})
 }
 
-/// An Actix [`Route`](actix_web::Route) that listens for `GET` or `POST` requests with
+/// An Actix [`struct@Route`] that listens for `GET` or `POST` requests with
 /// Leptos server function arguments in the URL (`GET`) or body (`POST`),
 /// runs the server function if found, and returns the resulting [`HttpResponse`].
 ///
@@ -168,7 +168,7 @@ pub fn handle_server_fns() -> Route {
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
+/// - [`HttpRequest`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -308,7 +308,7 @@ pub fn handle_server_fns_with_context(
     )
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], serving an HTML stream of your application. The stream
 /// will include fallback content for any `<Suspense/>` nodes, and be immediately interactive,
 /// but requires some client-side JavaScript.
@@ -361,9 +361,9 @@ pub fn handle_server_fns_with_context(
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
@@ -376,7 +376,7 @@ where
     render_app_to_stream_with_context(options, || {}, app_fn, method)
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
@@ -430,9 +430,9 @@ where
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
@@ -445,9 +445,9 @@ where
     render_app_to_stream_in_order_with_context(options, || {}, app_fn, method)
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], asynchronously rendering an HTML page after all
-/// `async` [`Resource`](leptos::Resource)s have loaded.
+/// `async` [`Resource`]s have loaded.
 ///
 /// The provides a [`MetaContext`] and a [`RouterIntegrationContext`] to the app’s context before
 /// rendering it, and includes any meta tags injected using [`leptos_meta`].
@@ -497,9 +497,9 @@ where
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
@@ -512,7 +512,7 @@ where
     render_app_async_with_context(options, || {}, app_fn, method)
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], serving an HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -521,9 +521,9 @@ where
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
@@ -543,7 +543,7 @@ where
     )
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], serving an HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -557,9 +557,9 @@ where
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
@@ -606,7 +606,7 @@ where
     }
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], serving an in-order HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -615,9 +615,9 @@ where
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
@@ -657,9 +657,9 @@ where
     }
 }
 
-/// Returns an Actix [`Route`](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [`struct@Route`] that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], asynchronously serving the page once all `async`
-/// [`Resource`](leptos::Resource)s have loaded.
+/// [`Resource`]s have loaded.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
 /// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
@@ -667,9 +667,9 @@ where
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [`ResponseOptions`]
-/// - [`HttpRequest`](actix_web::HttpRequest)
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`HttpRequest`]
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
@@ -886,7 +886,7 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding `excluded_routes`
-/// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
+/// to this function will stop [`leptos_routes()`](LeptosRoutes::leptos_routes) from generating a route for it, allowing a custom handler. These need to be in Actix path format
 #[allow(clippy::missing_panics_doc)]
 pub fn generate_route_list_with_exclusions<IV>(
     app_fn: impl FnOnce() -> IV + 'static,
@@ -1127,7 +1127,7 @@ impl LeptosRoutes for &mut ServiceConfig {
 
 /// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
-/// [`Handler`](actix_web::Handler): it is an async function that receives arguments that
+/// [`Handler`]: it is an async function that receives arguments that
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
@@ -1163,7 +1163,7 @@ impl LeptosRoutes for &mut ServiceConfig {
 ///
 /// # Panics
 ///
-/// Will panic if the [`HttpRequest`](actix_web::HttpRequest) is not provided from context.
+/// Will panic if the [`HttpRequest`] is not provided from context.
 pub async fn extract<F, E>(
     f: F,
 ) -> Result<<<F as Extractor<E>>::Future as Future>::Output, ServerFnError>

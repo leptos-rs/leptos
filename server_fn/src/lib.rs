@@ -70,7 +70,7 @@
 //! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 //!   inside the function body can’t fail, the processes of serialization/deserialization and the
 //!   network call are fallible.
-//! - **Return types must implement [Serialize](serde::Serialize).**
+//! - **Return types must implement [`Serialize`].**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
 //! - **Arguments must be implement [`serde::Serialize`].** They are serialized as an `application/x-www-form-urlencoded`

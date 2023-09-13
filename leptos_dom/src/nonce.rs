@@ -11,7 +11,7 @@ use std::{fmt::Display, ops::Deref};
 /// scripts used for HTML streaming and resource loading.
 ///
 /// The nonce being used during the current server response can be
-/// accessed using [`use_nonce`](use_nonce).
+/// accessed using [`use_nonce`].
 ///
 /// ```rust,ignore
 /// #[component]

@@ -42,7 +42,7 @@ use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
 
-/// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
+/// A struct to hold the parts of the incoming Request. Since [`Request`] isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
 #[derive(Debug, Clone)]
 pub struct RequestParts {
@@ -53,7 +53,7 @@ pub struct RequestParts {
     pub body: Bytes,
 }
 
-/// Convert [`http::Parts`] to RequestParts(and vice versa). Body and Extensions will
+/// Convert [`Parts`] to RequestParts(and vice versa). Body and Extensions will
 /// be lost in the conversion
 impl From<Parts> for RequestParts {
     fn from(parts: Parts) -> Self {
@@ -116,9 +116,9 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a `StatusCode` of 302 and a LOCATION header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix [`redirect()`],
+/// it sets a [`StatusCode`] of 302 and a [`LOCATION`](header::LOCATION) header with the provided value.
+/// If looking to redirect from the client, [`leptos_router::use_navigate()`] should be used instead
 ///
 /// # Panics
 ///
@@ -156,7 +156,7 @@ pub async fn generate_request_and_parts(
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
-/// run the server function if found, and return the resulting [`Response`](axum::response::Response).
+/// run the server function if found, and return the resulting [`Response`].
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -201,8 +201,7 @@ pub async fn handle_server_fns(
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
-/// run the server function if found, and return the resulting
-/// [`Response`](axum::response::Response).
+/// run the server function if found, and return the resulting [`Response`].
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -411,8 +410,8 @@ pub type PinnedHtmlStream =
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
@@ -438,7 +437,7 @@ where
 /// to route it using [`leptos_router`], serving an HTML stream of your application.
 /// The difference between calling this and [`render_app_to_stream_with_context`] is that this
 /// one respects the `SsrMode` on each Route and thus requires `Vec<RouteListing>` for route checking.
-/// This is useful if you are using `.leptos_routes_with_handler()`
+/// This is useful if you are using [`.leptos_routes_with_handler()`](LeptosRoutes::leptos_routes_with_handler)
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_route<IV>(
     options: LeptosOptions,
@@ -468,7 +467,7 @@ where
 /// The provides a [`MetaContext`] and a [`RouterIntegrationContext`] to app’s context before
 /// rendering it, and includes any meta tags injected using [`leptos_meta`].
 ///
-/// The HTML stream is rendered using [`render_to_stream_in_order`], and includes everything described in
+/// The HTML stream is rendered using [`render_to_stream_in_order`](leptos::ssr::render_to_stream_in_order), and includes everything described in
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
@@ -511,8 +510,8 @@ where
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
@@ -557,8 +556,8 @@ where
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
@@ -590,7 +589,7 @@ where
 /// to pass in a context function with additional info to be made available to the app
 /// The difference between calling this and [`render_app_to_stream_with_context`] is that this
 /// one respects the `SsrMode` on each Route, and thus requires `Vec<RouteListing>` for route checking.
-/// This is useful if you are using `.leptos_routes_with_handler()`.
+/// This is useful if you are using [`.leptos_routes_with_handler()`](LeptosRoutes::leptos_routes_with_handler).
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_route_with_context<IV>(
     options: LeptosOptions,
@@ -672,8 +671,8 @@ where
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
@@ -828,8 +827,8 @@ async fn forward_stream(
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
@@ -917,7 +916,7 @@ fn provide_contexts(
 
 /// Returns an Axum [`Handler`](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], asynchronously rendering an HTML page after all
-/// `async` [`Resource`](leptos::Resource)s have loaded.
+/// `async` [`Resource`]s have loaded.
 ///
 /// The provides a [`MetaContext`] and a [`RouterIntegrationContext`] to app’s context before
 /// rendering it, and includes any meta tags injected using [`leptos_meta`].
@@ -964,8 +963,8 @@ fn provide_contexts(
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
@@ -984,7 +983,7 @@ where
 
 /// Returns an Axum [`Handler`](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], asynchronously rendering an HTML page after all
-/// `async` [`Resource`](leptos::Resource)s have loaded.
+/// `async` [`Resource`]s have loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -1006,8 +1005,8 @@ where
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async_stream_with_context<IV>(
     options: LeptosOptions,
@@ -1104,7 +1103,7 @@ where
 
 /// Returns an Axum [`Handler`](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [`leptos_router`], asynchronously rendering an HTML page after all
-/// `async` [`Resource`](leptos::Resource)s have loaded.
+/// `async` [`Resource`]s have loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
@@ -1126,8 +1125,8 @@ where
 /// This function always provides context values including the following types:
 /// - [`RequestParts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
-/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
+/// - [`MetaContext`]
+/// - [`RouterIntegrationContext`]
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
@@ -1227,7 +1226,7 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths. Adding excluded_routes
-/// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
+/// to this function will stop [`.leptos_routes()`](LeptosRoutes::leptos_routes) from generating a route for it, allowing a custom handler. These need to be in Axum path format
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list_with_exclusions<IV>(
     app_fn: impl FnOnce() -> IV + 'static,
