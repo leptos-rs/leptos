@@ -862,7 +862,6 @@ where
 
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        crate::logging::console_log("mounting");
         mount_to(crate::document().body().expect("body element to exist"), f)
       } else {
         _ = f;
