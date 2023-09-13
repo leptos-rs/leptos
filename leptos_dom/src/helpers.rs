@@ -19,6 +19,10 @@ pub fn set_property(
 }
 
 /// Gets the value of a property set on a DOM element.
+///
+/// # Errors
+///
+/// Will return `Err` if reflection fails to get the value of a key.
 #[doc(hidden)]
 pub fn get_property(
     el: &web_sys::Element,
