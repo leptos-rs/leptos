@@ -10,7 +10,7 @@ use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
     http::header,
-    web::Bytes,
+    web::{Bytes, ServiceConfig},
     *,
 };
 use futures::{Stream, StreamExt};
@@ -969,6 +969,81 @@ where
         InitError = (),
     >,
 {
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<RouteListing>,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        self.leptos_routes_with_context(options, paths, || {}, app_fn)
+    }
+
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<RouteListing>,
+        additional_context: impl Fn() + 'static + Clone + Send,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for listing in paths.iter() {
+            let path = listing.path();
+            let mode = listing.mode();
+
+            for method in listing.methods() {
+                router = router.route(
+                    path,
+                    match mode {
+                        SsrMode::OutOfOrder => {
+                            render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                            )
+                        }
+                        SsrMode::PartiallyBlocked => {
+                            render_app_to_stream_with_context_and_replace_blocks(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                                true,
+                            )
+                        }
+                        SsrMode::InOrder => {
+                            render_app_to_stream_in_order_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                            )
+                        }
+                        SsrMode::Async => render_app_async_with_context(
+                            options.clone(),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                            method,
+                        ),
+                    },
+                );
+            }
+        }
+        router
+    }
+}
+
+/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// to those paths to Leptos's renderer.
+impl LeptosRoutes for &mut ServiceConfig {
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
