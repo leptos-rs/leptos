@@ -35,7 +35,7 @@ jobs:
             !examples/cargo-make
             !examples/gtk
             !examples/Makefile.toml
-            !examples/README.md
+            !examples/*.md
           json: true
           quotepath: false
 
