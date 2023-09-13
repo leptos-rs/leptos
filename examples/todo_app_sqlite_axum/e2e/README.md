@@ -13,21 +13,22 @@ This example demonstrates e2e testing with Rust using executable requirements.
 
 ## Testing Organization
 
-Testing is organized around what a user can do and see/not see.
+Testing is organized around what a user can do and see/not see. Test scenarios are grouped by the **user action** and the **object** of that action. This makes it easier to locate and reason about requirements.
 
 Here is a brief overview of how things fit together.
 
 ```bash
-features                    # Specify test scenarios
+features
+└── {action}_{object}.feature   # Specify test scenarios
 tests
 ├── fixtures
-│   ├── action.rs           # Perform a user action (click, type, etc.)
-│   ├── check.rs            # Assert what a user can see/not see
-│   ├── find.rs             # Query page elements
+│   ├── action.rs               # Perform a user action (click, type, etc.)
+│   ├── check.rs                # Assert what a user can see/not see
+│   ├── find.rs                 # Query page elements
 │   ├── mod.rs
 │   └── world
-│       ├── action_steps.rs # Map Gherkin steps to user actions
-│       ├── check_steps.rs  # Map Gherkin steps to user expectations
+│       ├── action_steps.rs     # Map Gherkin steps to user actions
+│       ├── check_steps.rs      # Map Gherkin steps to user expectations
 │       └── mod.rs
-└── manage_todos.rs         # Test main 
+└── app_suite.rs                # Test main 
 ```
