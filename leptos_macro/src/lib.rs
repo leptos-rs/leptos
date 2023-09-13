@@ -402,11 +402,9 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
 ///
-/// The `#[component]` macro allows you to annotate plain Rust functions as components
-/// and use them within your Leptos [view](crate::view!) as if they were custom HTML elements. The
-/// component function takes a [Scope](https://docs.rs/leptos/latest/leptos/struct.Scope.html)
-/// and any number of other arguments. When you use the component somewhere else,
-/// the names of its arguments are the names of the properties you use in the [view](crate::view!) macro.
+/// The `#[component]` macro allows you to annotate plain Rust functions
+/// and use them within your Leptos [view](crate::view!). The component function can take
+/// any amount of arguments, each argument represents a property you use within the [view](crate::view!) macro.
 ///
 /// Every component function should have the return type `-> impl IntoView`.
 ///
@@ -450,21 +448,16 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. This builder is used
-/// "behind-the-scenes" when attaching props to the component in the [view](crate::view!) macro.
-/// The generated builder struct will inherit the visibility from the annotated component.
-///
 /// Here are some important details about how Leptos components work within the framework:
-/// 1. **The component function only runs once.** Your component function is not a “render” function
+/// * **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
 ///    to do relatively expensive work within the component function, as it will only happen once,
 ///    not on every state change.
 ///
-/// 2. Component names are usually in `PascalCase`. If you use a `snake_case` name,
-///    then the generated component's name will still be in `PascalCase`. This is how the framework
-///    recognizes that a particular tag is a component, not an HTML element. It's important to be aware
-///    of this when using or importing the component.
+/// * Component names are usually in `PascalCase`. If you use a `snake_case` name, then the generated 
+///    component's name will still be in `PascalCase`. This is how the framework recognizes that 
+///    a particular tag is a component, not an HTML element.
 ///
 /// ```
 /// # use leptos::*;
@@ -478,7 +471,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// fn my_snake_case_component() -> impl IntoView {}
 /// ```
 ///
-/// 4. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
+/// * You can pass generic arguments, but they must be defined in a `where` clause and not inline.
 ///
 /// ```compile_error
 /// // ❌ This won't work.
@@ -503,7 +496,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// 5. You can access the children passed into the component with the `children` property, which takes
+/// * You can access the children passed into the component with the `children` property, which takes
 ///    an argument of the type `Children`. This is an alias for `Box<dyn FnOnce(Scope) -> Fragment>`.
 ///    If you need `children` to be a `Fn` or `FnMut`, you can use the `ChildrenFn` or `ChildrenFnMut`
 ///    type aliases.
