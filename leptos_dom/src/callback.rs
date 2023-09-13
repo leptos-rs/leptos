@@ -64,7 +64,7 @@
 
 use crate::{AnyElement, ElementDescriptor, HtmlElement, IntoView, View};
 use leptos_reactive::StoredValue;
-use std::{rc::Rc, sync::Arc};
+use std::{fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
 pub trait Callable<In, Out = ()> {
@@ -100,8 +100,19 @@ pub trait Callable<In, Out = ()> {
 /// # Cloning
 /// See [StoredCallback]
 
-#[derive(Clone)]
 pub struct Callback<In, Out = ()>(Rc<dyn Fn(In) -> Out>);
+
+impl<In> fmt::Debug for Callback<In> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fmt.write_str("Callback")
+    }
+}
+
+impl<In> Clone for Callback<In> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<In, Out> Callback<In, Out> {
     /// creates a new callback from the function or closure
@@ -167,8 +178,19 @@ where
 }
 
 /// a callback type that is `Send` and `Sync` if the input type is
-#[derive(Clone)]
 pub struct SyncCallback<In, Out = ()>(Arc<dyn Fn(In) -> Out>);
+
+impl<In> fmt::Debug for SyncCallback<In> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fmt.write_str("SyncCallback")
+    }
+}
+
+impl<In> Clone for SyncCallback<In> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
     /// creates a new callback from the function or closure
@@ -216,8 +238,19 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
 ///         {render_number}
 ///     </div>
 /// }
-#[derive(Clone)]
 pub struct HtmlCallback<In = ()>(Rc<dyn Fn(In) -> HtmlElement<AnyElement>>);
+
+impl<In> fmt::Debug for HtmlCallback<In> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fmt.write_str("HtmlCallback")
+    }
+}
+
+impl<In> Clone for HtmlCallback<In> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<In> HtmlCallback<In> {
     /// creates a new callback from the function or closure
@@ -286,12 +319,23 @@ impl IntoView for HtmlCallback<()> {
 ///         {render_number}
 ///     </div>
 /// }
-#[derive(Clone)]
 pub struct ViewCallback<In>(Rc<dyn Fn(In) -> View>);
+
+impl<In> fmt::Debug for ViewCallback<In> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fmt.write_str("ViewCallback")
+    }
+}
+
+impl<In> Clone for ViewCallback<In> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<In> ViewCallback<In> {
     /// creates a new callback from the function or closure
-    fn new<F, V>(f: F) -> Self
+    pub fn new<F, V>(f: F) -> Self
     where
         F: Fn(In) -> V + 'static,
         V: IntoView + 'static,
