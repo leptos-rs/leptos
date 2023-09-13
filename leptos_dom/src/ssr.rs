@@ -735,9 +735,7 @@ impl ToMarker for HydrationKey {
     ) -> Oco<'static, str> {
         #[cfg(debug_assertions)]
         {
-            if component_name == "unit" {
-                format!("<!--hk={self}|leptos-unit-->").into()
-            } else if closing {
+            if closing || component_name == "unit" {
                 format!("<!--hk={self}c|leptos-{component_name}-end-->").into()
             } else {
                 format!("<!--hk={self}o|leptos-{component_name}-start-->")
