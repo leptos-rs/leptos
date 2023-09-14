@@ -359,7 +359,7 @@ pub fn purge_dir_of_static_files(path: PathBuf) -> Result<(), std::io::Error> {
         if path.is_dir() {
             purge_dir_of_static_files(path)?;
         } else if path.is_file() {
-            if let Some(name) = path.file_name().map(|i| i.to_str()).flatten() {
+            if let Some(name) = path.file_name().and_then(|i| i.to_str()) {
                 if name.ends_with(".static.html") {
                     std::fs::remove_file(path)?;
                 }
