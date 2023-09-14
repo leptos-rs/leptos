@@ -9,3 +9,5 @@ The `api-boundary` crate contains data structures that are used by the server an
 ## Getting Started
 
 See the [Examples README](../README.md) for setup and run instructions.
+
+You will also need to run `cargo make stop` to end the server process.
