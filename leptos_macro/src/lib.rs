@@ -449,21 +449,16 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. If you define
-/// your component in one module and import it into another, make sure you import this `___Props`
-/// struct as well.
-///
 /// Here are some important details about how Leptos components work within the framework:
-/// 1. **The component function only runs once.** Your component function is not a “render” function
+/// * **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
 ///    to do relatively expensive work within the component function, as it will only happen once,
 ///    not on every state change.
 ///
-/// 2. Component names are usually in `PascalCase`. If you use a `snake_case` name,
-///    then the generated component's name will still be in `PascalCase`. This is how the framework
-///    recognizes that a particular tag is a component, not an HTML element. It's important to be aware
-///    of this when using or importing the component.
+/// * Component names are usually in `PascalCase`. If you use a `snake_case` name, then the generated
+///    component's name will still be in `PascalCase`. This is how the framework recognizes that
+///    a particular tag is a component, not an HTML element.
 ///
 /// ```
 /// # use leptos::*;
@@ -477,38 +472,8 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// fn my_snake_case_component() -> impl IntoView {}
 /// ```
 ///
-/// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
-///   `Button` generates `ButtonProps`, etc.) When you’re importing the component, you also need to **explicitly import
-///   the prop type.**
-///
-/// ```
-/// # use leptos::*;
-///
-/// use component::{MyComponent, MyComponentProps};
-///
-/// mod component {
-///     use leptos::*;
-///
-///     #[component]
-///     pub fn MyComponent() -> impl IntoView {}
-/// }
-/// ```
-/// ```
-/// # use leptos::*;
-///
-/// use snake_case_component::{
-///     MySnakeCaseComponent, MySnakeCaseComponentProps,
-/// };
-///
-/// mod snake_case_component {
-///     use leptos::*;
-///
-///     #[component]
-///     pub fn my_snake_case_component() -> impl IntoView {}
-/// }
-/// ```
-///
-/// 4. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
+/// * You can pass generic arguments, and they can either be defined in a `where` clause
+/// or inline in the generic block, but not in an `impl` in function argument position.
 ///
 /// ```compile_error
 /// // ❌ This won't work.
@@ -516,7 +481,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// use leptos::html::Div;
 ///
 /// #[component]
-/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(render_prop: T) -> impl IntoView {
+/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(render_prop: impl Fn() -> HtmlElement<Div>) -> impl IntoView {
 /// }
 /// ```
 ///
@@ -530,6 +495,13 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// where
 ///     T: Fn() -> HtmlElement<Div>,
 /// {
+/// }
+///
+/// // or
+/// #[component]
+/// fn MyComponent2<T: Fn() -> HtmlElement<Div>>(
+///     render_prop: T,
+/// ) -> impl IntoView {
 /// }
 /// ```
 ///
