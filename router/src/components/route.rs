@@ -168,9 +168,6 @@ pub fn StaticRoute<E, F, P, S>(
     /// The static route mode
     #[prop(optional)]
     mode: StaticMode,
-    /// The HTTP methods that this route can handle (defaults to only `GET`).
-    #[prop(default = &[Method::Get])]
-    methods: &'static [Method],
     /// A data-loading function that will be called when the route is matched. Its results can be
     /// accessed with [`use_route_data`](crate::use_route_data).
     #[prop(optional, into)]
@@ -193,7 +190,7 @@ where
         path.to_string(),
         Rc::new(move || view().into_view()),
         SsrMode::default(),
-        methods,
+        &[Method::Get],
         data,
         Some(mode),
         static_data.map(|s| Rc::new(s) as _),

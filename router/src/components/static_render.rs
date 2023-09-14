@@ -274,8 +274,8 @@ impl ResolvedStaticPath {
         IV: IntoView + 'static,
     {
         let html = self.build(options, app_fn, additional_context).await;
-        let path =
-            Path::new(&options.site_root).join(format!(".{}.html", self.0));
+        let path = Path::new(&options.site_root)
+            .join(format!("{}.static.html", self.0));
         if let Some(path) = path.parent() {
             std::fs::create_dir_all(path)?
         }
@@ -350,6 +350,33 @@ where
     Ok(())
 }
 
+#[doc(hidden)]
+#[cfg(feature = "ssr")]
+pub fn purge_dir_of_static_files(path: PathBuf) -> Result<(), std::io::Error> {
+    for entry in path.read_dir()? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            purge_dir_of_static_files(path)?;
+        } else if path.is_file() {
+            if let Some(name) = path.file_name().map(|i| i.to_str()).flatten() {
+                if name.ends_with(".static.html") {
+                    std::fs::remove_file(path)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Purge all statically generated route files
+#[cfg(feature = "ssr")]
+pub fn purge_all_static_routes<IV>(
+    options: &LeptosOptions,
+) -> Result<(), std::io::Error> {
+    purge_dir_of_static_files(Path::new(&options.site_root).to_path_buf())
+}
+
 pub type StaticData = Rc<StaticDataFn>;
 
 pub type StaticDataFn = dyn Fn(&StaticRenderContext) -> Pin<Box<dyn Future<Output = StaticParamsMap>>>
@@ -394,14 +421,17 @@ pub enum StaticResponse {
 #[inline(always)]
 #[cfg(feature = "ssr")]
 pub fn static_file_path(options: &LeptosOptions, path: &str) -> String {
-    format!("{}{}.html", options.site_root, path)
+    format!("{}{}.static.html", options.site_root, path)
 }
 
 #[doc(hidden)]
 #[inline(always)]
 #[cfg(feature = "ssr")]
 pub fn not_found_path(options: &LeptosOptions) -> String {
-    format!("{}{}.html", options.site_root, options.not_found_path)
+    format!(
+        "{}{}.static.html",
+        options.site_root, options.not_found_path
+    )
 }
 
 #[doc(hidden)]
@@ -438,14 +468,21 @@ pub fn not_found_page(res: Result<String, std::io::Error>) -> StaticResponse {
             status: StaticStatusCode::NotFound,
             content_type: Some("text/html"),
         },
-        Err(e) => {
-            tracing::error!("error reading not found file: {}", e);
-            StaticResponse::ReturnResponse {
-                body: "Internal Server Error".into(),
-                status: StaticStatusCode::InternalServerError,
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => StaticResponse::ReturnResponse {
+                body: "Not Found".into(),
+                status: StaticStatusCode::Ok,
                 content_type: None,
+            },
+            _ => {
+                tracing::error!("error reading not found file: {}", e);
+                StaticResponse::ReturnResponse {
+                    body: "Internal Server Error".into(),
+                    status: StaticStatusCode::InternalServerError,
+                    content_type: None,
+                }
             }
-        }
+        },
     }
 }
 
@@ -477,6 +514,7 @@ where
     let body = ResolvedStaticPath(path.into())
         .build(options, app_fn, additional_context)
         .await;
-    let path = Path::new(&options.site_root).join(format!(".{}.html", path));
+    let path =
+        Path::new(&options.site_root).join(format!("{}.static.html", path));
     StaticResponse::WriteFile { body, path }
 }
