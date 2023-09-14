@@ -38,7 +38,7 @@
 //! #[component]
 //! pub fn RouterExample() -> impl IntoView {
 //!   view! {
-//!     
+//!
 //!     <div id="root">
 //!       // we wrap the whole app in a <Router/> to allow client-side navigation
 //!       // from our nav links below
@@ -103,7 +103,7 @@
 //!   // loads the contact list data once; doesn't reload when nested routes change
 //!   let contacts = create_resource(|| (), |_| contact_list_data());
 //!   view! {
-//!     
+//!
 //!     <div>
 //!       // show the contacts
 //!       <ul>
@@ -120,7 +120,7 @@
 //! fn Contact() -> impl IntoView {
 //!   let params = use_params_map();
 //!   let data = create_resource(
-//!     
+//!
 //!     move || params.with(|p| p.get("id").cloned().unwrap_or_default()),
 //!     move |id| contact_data(id)
 //!   );

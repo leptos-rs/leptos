@@ -1,9 +1,11 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+
 //! Implementation of the `server_fn` macro.
 //!
-//! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
+//! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of
+//! the macro for different frameworks that allow users to pass a custom context from the server to the server function.
 
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use proc_macro_error::abort;

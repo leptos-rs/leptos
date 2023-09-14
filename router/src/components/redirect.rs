@@ -11,7 +11,7 @@ use std::rc::Rc;
 /// an absolute path, prefix it with `/`).
 ///
 /// **Note**: Support for server-side redirects is provided by the server framework
-/// integrations (`leptos_actix`, `leptos_axum`, and `leptos_viz`). If you’re not using one of those
+/// integrations ([`leptos_actix`](https://docs.rs/leptos_actix), [`leptos_axum`](https://docs.rs/leptos_axum), and [`leptos_viz`](https://docs.rs/leptos_viz)). If you’re not using one of those
 /// integrations, you should manually provide a way of redirecting on the server
 /// using [`provide_server_redirect`].
 #[cfg_attr(
