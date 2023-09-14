@@ -41,7 +41,7 @@ workspace = false
 description = "Generate the list of workspace members"
 script = '''
 examples=$(ls | 
-grep -v README.md | 
+grep -v .md | 
 grep -v Makefile.toml | 
 grep -v cargo-make | 
 grep -v gtk | 
