@@ -1,7 +1,6 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
     ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap,
-    StaticRenderContext,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
@@ -180,10 +179,7 @@ where
     E: IntoView,
     F: Fn() -> E + 'static,
     P: std::fmt::Display,
-    S: Fn(
-            &StaticRenderContext,
-        ) -> Pin<Box<dyn Future<Output = StaticParamsMap>>>
-        + 'static,
+    S: Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap>>> + 'static,
 {
     define_route(
         children,

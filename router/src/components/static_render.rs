@@ -5,14 +5,14 @@ use leptos::{provide_context, IntoView, LeptosOptions};
 #[cfg(feature = "ssr")]
 use leptos_meta::MetaContext;
 use linear_map::LinearMap;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
 use std::path::Path;
 use std::{
-    any::{Any, TypeId},
     collections::HashMap,
     fmt::Display,
     future::Future,
-    hash::{BuildHasherDefault, Hash, Hasher},
+    hash::{Hash, Hasher},
     path::PathBuf,
     pin::Pin,
     rc::Rc,
@@ -42,55 +42,7 @@ impl Hasher for TypeIdHasher {
     }
 }
 
-/// A context that can be used to store application data that should be available when resolving static routes.
-/// This is useful for things like database connections to pull dynamic path parameters from.
-///
-/// Note that this context will be reused for every route, so you should not store any
-/// route-specific data in it, nor mutate any data in it.
-#[derive(Debug, Default)]
-pub struct StaticRenderContext(
-    HashMap<TypeId, Box<dyn Any>, BuildHasherDefault<TypeIdHasher>>,
-);
-
-impl StaticRenderContext {
-    #[doc(hidden)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Insert a value into the context.
-    ///
-    /// # Example
-    /// ```rust
-    /// use leptos_router::StaticRenderContext;
-    ///
-    /// let mut context = StaticRenderContext::new();
-    /// context.insert(42);
-    /// ```
-    #[inline]
-    pub fn insert<T: 'static>(&mut self, value: T) {
-        self.0.insert(TypeId::of::<T>(), Box::new(value));
-    }
-
-    /// Get a value from the context.
-    ///
-    /// # Example
-    /// ```rust
-    /// use leptos_router::StaticRenderContext;
-    ///
-    /// let mut context = StaticRenderContext::new();
-    /// context.insert(42);
-    /// assert_eq!(context.get::<i32>(), Some(&42));
-    /// ```
-    #[inline]
-    pub fn get<T: 'static>(&self) -> Option<&T> {
-        self.0
-            .get(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_ref())
-    }
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct StaticParamsMap(pub LinearMap<String, Vec<String>>);
 
 impl StaticParamsMap {
@@ -289,7 +241,6 @@ impl ResolvedStaticPath {
 pub async fn build_static_routes<IV>(
     options: &LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
-    static_context: StaticRenderContext,
     routes: &[RouteListing],
     static_data_map: &StaticDataMap,
 ) -> Result<(), std::io::Error>
@@ -300,7 +251,6 @@ where
         options,
         app_fn,
         || {},
-        static_context,
         routes,
         static_data_map,
     )
@@ -312,7 +262,6 @@ pub async fn build_static_routes_with_additional_context<IV>(
     options: &LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Clone,
     additional_context: impl Fn() + 'static + Clone,
-    static_context: StaticRenderContext,
     routes: &[RouteListing],
     static_data_map: &StaticDataMap,
 ) -> Result<(), std::io::Error>
@@ -322,9 +271,7 @@ where
     let mut static_data: HashMap<&str, StaticParamsMap> = HashMap::new();
     for (key, value) in static_data_map {
         match value {
-            Some(value) => {
-                static_data.insert(key, value.as_ref()(&static_context).await)
-            }
+            Some(value) => static_data.insert(key, value.as_ref()().await),
             None => static_data.insert(key, StaticParamsMap::default()),
         };
     }
@@ -334,20 +281,19 @@ where
         .collect::<Vec<_>>();
     // TODO: maybe make this concurrent in some capacity
     for route in static_routes {
-        if route.static_mode() == Some(StaticMode::Upfront) {
-            let mut path = StaticPath::new(route.leptos_path());
-            for p in path.parents().into_iter().rev() {
-                if let Some(data) = static_data.get(p.path()) {
-                    path.add_params(data);
-                }
-            }
-            if let Some(data) = static_data.get(path.path()) {
+        let mut path = StaticPath::new(route.leptos_path());
+        for p in path.parents().into_iter().rev() {
+            if let Some(data) = static_data.get(p.path()) {
                 path.add_params(data);
             }
-            for path in path.into_paths() {
-                path.write(options, app_fn.clone(), additional_context.clone())
-                    .await?;
-            }
+        }
+        if let Some(data) = static_data.get(path.path()) {
+            path.add_params(data);
+        }
+        for path in path.into_paths() {
+            println!("building static route: {}", path);
+            path.write(options, app_fn.clone(), additional_context.clone())
+                .await?;
         }
     }
     Ok(())
@@ -382,8 +328,8 @@ pub fn purge_all_static_routes<IV>(
 
 pub type StaticData = Rc<StaticDataFn>;
 
-pub type StaticDataFn = dyn Fn(&StaticRenderContext) -> Pin<Box<dyn Future<Output = StaticParamsMap>>>
-    + 'static;
+pub type StaticDataFn =
+    dyn Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap>>> + 'static;
 
 pub type StaticDataMap = HashMap<String, Option<StaticData>>;
 
