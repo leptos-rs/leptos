@@ -1139,10 +1139,19 @@ where
     ) -> Option<U> {
         let global_suspense_cx = use_context::<GlobalSuspenseContext>();
         let suspense_cx = use_context::<SuspenseContext>();
+        let (was_loaded, v) =
+            self.value.try_with(|n| (n.is_some(), f(n))).ok()?;
 
-        let v = self.value.try_with(|n| f(n)).ok();
-
-        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+        if was_loaded {
+            self.handle_result(
+                location,
+                global_suspense_cx,
+                suspense_cx,
+                was_loaded.then_some(v),
+            )
+        } else {
+            Some(v)
+        }
     }
 
     fn handle_result<U>(
