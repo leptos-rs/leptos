@@ -1211,7 +1211,6 @@ where
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
                         if !has_value {
-                            crate::macros::debug_warn!("incrementing at 1214");
                             s.increment(
                                 serializable != ResourceSerialization::Local,
                             );
@@ -1259,10 +1258,8 @@ where
         instrument(level = "trace", skip_all,)
     )]
     fn load(&self, refetching: bool) {
-        crate::macros::debug_warn!("calling load()");
         // doesn't refetch if already refetching
         if refetching && self.scheduled.get() {
-            crate::macros::debug_warn!("already fetching, cancel");
             return;
         }
 
@@ -1296,13 +1293,7 @@ where
             // increment counter everywhere it's read
             let suspense_contexts = self.suspense_contexts.clone();
 
-            crate::macros::debug_warn!(
-                "here suspense_contexts.len() == {}",
-                suspense_contexts.borrow().len()
-            );
             for suspense_context in suspense_contexts.borrow().iter() {
-                crate::macros::debug_warn!("incrementing at 1302");
-
                 suspense_context.increment(
                     self.serializable != ResourceSerialization::Local,
                 );
