@@ -1003,7 +1003,9 @@ where
     /// }
     ///
     /// // create the resource; it will run but not be serialized
-    /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
     /// let result =
     ///     create_local_resource(move || (), |_| setup_complicated_struct());
     /// # }
