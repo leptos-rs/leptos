@@ -146,7 +146,7 @@ where
             for route in branch.routes.iter() {
                 static_data_map.insert(
                     route.pattern.to_string(),
-                    route.key.static_data.clone(),
+                    route.key.static_params.clone(),
                 );
             }
             route.map(|(static_mode, path)| RouteListing {

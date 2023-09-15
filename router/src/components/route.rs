@@ -162,9 +162,9 @@ pub fn StaticRoute<E, F, P, S>(
     /// that returns a type that implements [IntoView] (like `|| view! { <p>"Show this"</p> })`
     /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
-    /// The data required to fill any dynamic segments in the path during static rendering.
+    /// Creates a map of the params that should be built for a particular route.
     #[prop(optional)]
-    static_data: Option<S>,
+    static_params: Option<S>,
     /// The static route mode
     #[prop(optional)]
     mode: StaticMode,
@@ -193,7 +193,7 @@ where
         &[Method::Get],
         data,
         Some(mode),
-        static_data.map(|s| Rc::new(s) as _),
+        static_params.map(|s| Rc::new(s) as _),
     )
 }
 
@@ -210,7 +210,7 @@ pub(crate) fn define_route(
     methods: &'static [Method],
     data: Option<Loader>,
     static_mode: Option<StaticMode>,
-    static_data: Option<StaticData>,
+    static_params: Option<StaticData>,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
@@ -242,7 +242,7 @@ pub(crate) fn define_route(
         methods,
         data,
         static_mode,
-        static_data,
+        static_params,
     }
 }
 

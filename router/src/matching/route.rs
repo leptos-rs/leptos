@@ -24,7 +24,7 @@ pub struct RouteDefinition {
     /// The route's preferred mode of static generation, if any
     pub static_mode: Option<StaticMode>,
     /// The data required to fill any dynamic segments in the path during static rendering.
-    pub static_data: Option<StaticData>,
+    pub static_params: Option<StaticData>,
 }
 
 impl std::fmt::Debug for RouteDefinition {
