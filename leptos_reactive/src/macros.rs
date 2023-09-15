@@ -27,6 +27,9 @@ pub(crate) use debug_warn;
 /// The variables within the 'closure' arguments are captured from the
 /// environment, and can be used within the body with the same name.
 ///
+/// `move` can also be added before the closure arguments to add `move` to all
+/// expanded closures.
+///
 /// # Examples
 /// ```
 /// # use leptos::*;
@@ -35,12 +38,12 @@ pub(crate) use debug_warn;
 /// let (first, _) = create_signal("Bob".to_string());
 /// let (middle, _) = create_signal("J.".to_string());
 /// let (last, _) = create_signal("Smith".to_string());
-/// let name =
-///     with!(|first, middle, last| { format!("{first} {middle} {last}") });
+/// let name = with!(|first, middle, last| format!("{first} {middle} {last}"));
 /// assert_eq!(name, "Bob J. Smith");
 /// # };
 /// # runtime.dispose();
 /// ```
+///
 /// The `with!` macro in the above example expands to:
 /// ```ignore
 /// first.with(|first| {
@@ -49,13 +52,31 @@ pub(crate) use debug_warn;
 ///     })
 /// })
 /// ```
+///
+/// If `move` is added:
+/// ```ignore
+/// with!(move |first, last| format!("{first} {last}"))
+/// ```
+///
+/// Then all closures are also `move`.
+/// ```ignore
+/// first.with(move |first| {
+///     last.with(move |last| format!("{first} {last}"))
+/// })
+/// ```
 #[macro_export]
 macro_rules! with {
     (|$ident:ident $(,)?| $body:expr) => {
         $ident.with(|$ident| $body)
     };
+    (move |$ident:ident $(,)?| $body:expr) => {
+        $ident.with(move |$ident| $body)
+    };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
         $first.with(|$first| with!(|$($rest),+| $body))
+    };
+    (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
+        $first.with(move |$first| with!(move |$($rest),+| $body))
     };
 }
 
@@ -71,6 +92,9 @@ macro_rules! with {
 /// ```
 /// The variables within the 'closure' arguments are captured from the
 /// environment, and can be used within the body with the same name.
+///
+/// `move` can also be added before the closure arguments to add `move` to all
+/// expanded closures.
 ///
 /// # Examples
 /// ```
@@ -95,13 +119,31 @@ macro_rules! with {
 ///     })
 /// })
 /// ```
+///
+/// If `move` is added:
+/// ```ignore
+/// with_value!(move |first, last| format!("{first} {last}"))
+/// ```
+///
+/// Then all closures are also `move`.
+/// ```ignore
+/// first.with_value(move |first| {
+///     last.with_value(move |last| format!("{first} {last}"))
+/// })
+/// ```
 #[macro_export]
 macro_rules! with_value {
     (|$ident:ident $(,)?| $body:expr) => {
         $ident.with_value(|$ident| $body)
     };
+    (move |$ident:ident $(,)?| $body:expr) => {
+        $ident.with_value(move |$ident| $body)
+    };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
         $first.with_value(|$first| with_value!(|$($rest),+| $body))
+    };
+    (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
+        $first.with_value(move |$first| with_value!(move |$($rest),+| $body))
     };
 }
 
@@ -117,6 +159,9 @@ macro_rules! with_value {
 /// ```
 /// The variables within the 'closure' arguments are captured from the
 /// environment, and can be used within the body with the same name.
+///
+/// `move` can also be added before the closure arguments to add `move` to all
+/// expanded closures.
 ///
 /// # Examples
 /// ```
@@ -136,13 +181,31 @@ macro_rules! with_value {
 ///     b.update(|b| *a = *a + *b)
 /// })
 /// ```
+///
+/// If `move` is added:
+/// ```ignore
+/// update!(move |a, b| *a = *a + *b + something_else)
+/// ```
+///
+/// Then all closures are also `move`.
+/// ```ignore
+/// first.update(move |a| {
+///     last.update(move |b| *a = *a + *b + something_else)
+/// })
+/// ```
 #[macro_export]
 macro_rules! update {
     (|$ident:ident $(,)?| $body:expr) => {
         $ident.update(|$ident| $body)
     };
+    (move |$ident:ident $(,)?| $body:expr) => {
+        $ident.update(move |$ident| $body)
+    };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
         $first.update(|$first| update!(|$($rest),+| $body))
+    };
+    (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
+        $first.update(move |$first| update!(move |$($rest),+| $body))
     };
 }
 
@@ -158,6 +221,9 @@ macro_rules! update {
 /// ```
 /// The variables within the 'closure' arguments are captured from the
 /// environment, and can be used within the body with the same name.
+///
+/// `move` can also be added before the closure arguments to add `move` to all
+/// expanded closures.
 ///
 /// # Examples
 /// ```
@@ -177,12 +243,29 @@ macro_rules! update {
 ///     b.update_value(|b| *a = *a + *b)
 /// })
 /// ```
+/// If `move` is added:
+/// ```ignore
+/// update_value!(move |a, b| *a = *a + *b + something_else)
+/// ```
+///
+/// Then all closures are also `move`.
+/// ```ignore
+/// first.update_value(move |a| {
+///     last.update_value(move |b| *a = *a + *b + something_else)
+/// })
+/// ```
 #[macro_export]
 macro_rules! update_value {
     (|$ident:ident $(,)?| $body:expr) => {
         $ident.update_value(|$ident| $body)
     };
+    (move |$ident:ident $(,)?| $body:expr) => {
+        $ident.update_value(move |$ident| $body)
+    };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
         $first.update_value(|$first| update_value!(|$($rest),+| $body))
+    };
+    (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
+        $first.update_value(move |$first| update_value!(move |$($rest),+| $body))
     };
 }
