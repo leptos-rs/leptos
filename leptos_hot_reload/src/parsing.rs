@@ -45,8 +45,12 @@ pub fn value_to_string(value: &syn::Expr) -> Option<String> {
 pub fn is_component_tag_name(name: &NodeName) -> bool {
     match name {
         NodeName::Path(path) => {
-            path.path.segments.len() > 1
-                || path.path.segments[0]
+            !path.path.segments.is_empty()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .unwrap()
                     .ident
                     .to_string()
                     .starts_with(|c: char| c.is_ascii_uppercase())
