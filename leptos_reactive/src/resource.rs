@@ -1152,11 +1152,6 @@ where
         suspense_cx: Option<SuspenseContext>,
         v: Option<U>,
     ) -> Option<U> {
-        crate::macros::debug_warn!(
-            "reading resource: suspense_cx.is_some() = {}",
-            suspense_cx.is_some()
-        );
-
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
