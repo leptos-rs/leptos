@@ -47,4 +47,4 @@
 - [Deployment](./deployment.md)
 - [Appendix: How Does the Reactive System Work?](./appendix_reactive_graph.md)
 - [Appendix: Optimizing WASM Binary Size](./appendix_binary_size.md)
-- [Appendix: Some Small DX Improvements](./appending_dx.md)
+- [Appendix: Some Small DX Improvements](./appendix_dx.md)
