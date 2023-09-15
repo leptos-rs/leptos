@@ -2,7 +2,7 @@
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
     ffi::{CStr, OsStr},
@@ -586,16 +586,16 @@ impl<'a> FromIterator<Oco<'a, str>> for String {
     }
 }
 
-impl<'a, T> Deserialize<'a> for Oco<'a, T>
+impl<'a, T> Deserialize<'a> for Oco<'static, T>
 where
     T: ?Sized + ToOwned + 'a,
-    &'a T: Deserialize<'a>,
+    T::Owned: DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'a>,
     {
-        <&T>::deserialize(deserializer).map(Oco::Borrowed)
+        <T::Owned>::deserialize(deserializer).map(Oco::Owned)
     }
 }
 
@@ -717,6 +717,6 @@ mod tests {
     fn deserialization_works() {
         let s: Oco<str> = serde_json::from_str("\"bar\"")
             .expect("should deserialize from string");
-        assert_eq!(s, Oco::Borrowed("bar"));
+        assert_eq!(s, Oco::from(String::from("bar")));
     }
 }
