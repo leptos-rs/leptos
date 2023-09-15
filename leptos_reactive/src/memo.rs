@@ -1,7 +1,8 @@
 use crate::{
-    create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
-    with_runtime, AnyComputation, Runtime, SignalDispose, SignalGet,
-    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
+    create_isomorphic_effect, diagnostics::AccessDiagnostics, node::NodeId,
+    on_cleanup, with_runtime, AnyComputation, Runtime, SignalDispose,
+    SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    SignalWithUntracked,
 };
 use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 
@@ -500,7 +501,7 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
 
         let this = *self;
 
-        create_effect(move |_| {
+        create_isomorphic_effect(move |_| {
             let _ = tx.unbounded_send(this.get());
         });
 

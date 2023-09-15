@@ -68,7 +68,7 @@ pub fn Outlet() -> impl IntoView {
 
             let (current_view, set_current_view) = create_signal(None);
 
-            create_effect({
+            create_render_effect({
                 move |prev| {
                     let outlet = outlet.get();
                     let is_fallback =

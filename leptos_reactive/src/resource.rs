@@ -3,8 +3,8 @@ use crate::SharedContext;
 #[cfg(debug_assertions)]
 use crate::SpecialNonReactiveZone;
 use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask, runtime::with_runtime, serialization::Serializable,
+    create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::with_runtime, serialization::Serializable,
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
     GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
     SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
@@ -259,7 +259,9 @@ where
 /// }
 ///
 /// // create the resource; it will run but not be serialized
-/// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+/// # // `csr`, `hydrate`, and `ssr` all have issues here
+/// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+/// # if false {
 /// let result =
 ///     create_local_resource(move || (), |_| setup_complicated_struct());
 /// # }
@@ -351,7 +353,7 @@ where
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_effect({
+    create_isomorphic_effect({
         let r = Rc::clone(&r);
         // This is a local resource, so we're always going to handle it on the
         // client
@@ -1001,7 +1003,9 @@ where
     /// }
     ///
     /// // create the resource; it will run but not be serialized
-    /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
     /// let result =
     ///     create_local_resource(move || (), |_| setup_complicated_struct());
     /// # }
