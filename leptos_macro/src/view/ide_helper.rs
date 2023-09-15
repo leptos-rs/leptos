@@ -24,8 +24,7 @@ impl IdeTagHelper {
     /// Save stmts for tag name.
     /// Emit warning if tag is component.
     pub fn save_tag_completion(&mut self, name: &NodeName) {
-        let tag_name = name.to_string();
-        if is_component_tag_name(&tag_name) {
+        if is_component_tag_name(name) {
             proc_macro_error::emit_warning!(
                 name.span(),
                 "BUG: Component tag is used in regular tag completion."
