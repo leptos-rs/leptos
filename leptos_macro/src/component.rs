@@ -911,7 +911,9 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     let required_prop_docs = props
         .iter()
         .filter(|Prop { prop_opts, .. }| {
-            !(prop_opts.optional || prop_opts.optional_no_strip)
+            !(prop_opts.optional
+                || prop_opts.optional_no_strip
+                || prop_opts.default.is_some())
         })
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
@@ -919,7 +921,9 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     let optional_prop_docs = props
         .iter()
         .filter(|Prop { prop_opts, .. }| {
-            prop_opts.optional || prop_opts.optional_no_strip
+            prop_opts.optional
+                || prop_opts.optional_no_strip
+                || prop_opts.default.is_some()
         })
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
