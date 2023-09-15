@@ -18,30 +18,6 @@ use std::{
     rc::Rc,
 };
 
-/// Optimized hasher for `TypeId`
-/// See https://github.com/chris-morgan/anymap/blob/2e9a570491664eea18ad61d98aa1c557d5e23e67/src/lib.rs#L599
-/// and https://github.com/actix/actix-web/blob/97399e8c8ce584d005577604c10bd391e5da7268/actix-http/src/extensions.rs#L8
-#[derive(Debug, Default)]
-#[doc(hidden)]
-struct TypeIdHasher(u64);
-
-impl Hasher for TypeIdHasher {
-    fn write(&mut self, bytes: &[u8]) {
-        unimplemented!(
-            "This TypeIdHasher can only handle u64s, not {:?}",
-            bytes
-        );
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.0 = i;
-    }
-
-    fn finish(&self) -> u64 {
-        self.0
-    }
-}
-
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct StaticParamsMap(pub LinearMap<String, Vec<String>>);
 
@@ -117,8 +93,6 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
         use StaticPathSegment::*;
         let mut paths = vec![ResolvedStaticPath(String::new())];
 
-        let empty = vec!["".to_string()];
-
         for segment in self.segments {
             match segment {
                 Static(s) => {
@@ -130,8 +104,10 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                 Param(name) | Wildcard(name) => {
                     let mut new_paths = vec![];
                     for path in paths {
-                        for val in
-                            self.params.get(name).unwrap_or(&&empty).iter()
+                        let Some(params) = self.params.get(name) else {
+                            panic!("missing param {} for path: {}", name, self.path);
+                        };
+                        for val in params.iter()
                         {
                             new_paths.push(ResolvedStaticPath(format!(
                                 "{}/{}",
