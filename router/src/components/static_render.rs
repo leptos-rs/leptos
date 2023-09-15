@@ -275,7 +275,8 @@ impl ResolvedStaticPath {
     {
         let html = self.build(options, app_fn, additional_context).await;
         let path = Path::new(&options.site_root)
-            .join(format!("{}.static.html", self.0));
+            .join(format!("{}.static.html", self.0.trim_start_matches('/')));
+
         if let Some(path) = path.parent() {
             std::fs::create_dir_all(path)?
         }
@@ -333,18 +334,20 @@ where
         .collect::<Vec<_>>();
     // TODO: maybe make this concurrent in some capacity
     for route in static_routes {
-        let mut path = StaticPath::new(route.leptos_path());
-        for p in path.parents().into_iter().rev() {
-            if let Some(data) = static_data.get(p.path()) {
+        if route.static_mode() == Some(StaticMode::Upfront) {
+            let mut path = StaticPath::new(route.leptos_path());
+            for p in path.parents().into_iter().rev() {
+                if let Some(data) = static_data.get(p.path()) {
+                    path.add_params(data);
+                }
+            }
+            if let Some(data) = static_data.get(path.path()) {
                 path.add_params(data);
             }
-        }
-        if let Some(data) = static_data.get(path.path()) {
-            path.add_params(data);
-        }
-        for path in path.into_paths() {
-            path.write(options, app_fn.clone(), additional_context.clone())
-                .await?;
+            for path in path.into_paths() {
+                path.write(options, app_fn.clone(), additional_context.clone())
+                    .await?;
+            }
         }
     }
     Ok(())
@@ -514,7 +517,7 @@ where
     let body = ResolvedStaticPath(path.into())
         .build(options, app_fn, additional_context)
         .await;
-    let path =
-        Path::new(&options.site_root).join(format!("{}.static.html", path));
+    let path = Path::new(&options.site_root)
+        .join(format!("{}.static.html", path.trim_start_matches('/')));
     StaticResponse::WriteFile { body, path }
 }
