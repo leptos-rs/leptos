@@ -877,7 +877,7 @@ where
 {
     generate_route_list_with_exclusions_and_ssg(app_fn, None).0
 }
-///
+
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
