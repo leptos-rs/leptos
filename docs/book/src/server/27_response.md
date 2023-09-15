@@ -8,12 +8,12 @@ Extractors provide an easy way to access request data inside server functions. L
 
 ```rust
 #[server(TeaAndCookies)]
-pub async fn tea_and_cookies(cx: Scope) -> Result<(), ServerFnError> {
+pub async fn tea_and_cookies() -> Result<(), ServerFnError> {
 	use actix_web::{cookie::Cookie, http::header, http::header::HeaderValue};
 	use leptos_actix::ResponseOptions;
 
 	// pull ResponseOptions from context
-	let response = expect_context::<ResponseOptions>(cx);
+	let response = expect_context::<ResponseOptions>();
 
 	// set the HTTP status code
 	response.set_status(StatusCode::IM_A_TEAPOT);
@@ -35,14 +35,13 @@ Here’s a simplified example from our [`session_auth_axum` example](https://git
 ```rust
 #[server(Login, "/api")]
 pub async fn login(
-    cx: Scope,
     username: String,
     password: String,
     remember: Option<String>,
 ) -> Result<(), ServerFnError> {
 	// pull the DB pool and auth provider from context
-    let pool = pool(cx)?;
-    let auth = auth(cx)?;
+    let pool = pool()?;
+    let auth = auth()?;
 
 	// check whether the user exists
     let user: User = User::get_from_username(username, &pool)
@@ -60,7 +59,7 @@ pub async fn login(
             auth.remember_user(remember.is_some());
 
 			// and redirect to the home page
-            leptos_axum::redirect(cx, "/");
+            leptos_axum::redirect("/");
             Ok(())
         }
 		// if not, return an error

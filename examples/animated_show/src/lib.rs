@@ -2,11 +2,11 @@ use core::time::Duration;
 use leptos::*;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let show = create_rw_signal(cx, false);
+pub fn App() -> impl IntoView {
+    let show = create_rw_signal(false);
 
     // the CSS classes in this example are just written directly inside the `index.html`
-    view! { cx,
+    view! {
         <div
             class="hover-me"
             on:mouseenter=move |_| show.set(true)

@@ -3,7 +3,6 @@ use leptos::*;
 
 #[component]
 fn Component(
-    _cx: Scope,
     #[prop(optional)] optional: bool,
     #[prop(optional_no_strip)] optional_no_strip: Option<String>,
     #[prop(strip_option)] strip_option: Option<u8>,

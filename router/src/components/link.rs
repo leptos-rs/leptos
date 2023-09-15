@@ -24,6 +24,20 @@ impl ToHref for String {
     }
 }
 
+impl ToHref for Cow<'_, str> {
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+        let s = self.to_string();
+        Box::new(move || s.clone())
+    }
+}
+
+impl ToHref for Oco<'_, str> {
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+        let s = self.to_string();
+        Box::new(move || s.clone())
+    }
+}
+
 impl<F> ToHref for F
 where
     F: Fn() -> String + 'static,
@@ -49,7 +63,6 @@ where
 )]
 #[component]
 pub fn A<H>(
-    cx: Scope,
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
     href: H,
@@ -66,7 +79,7 @@ pub fn A<H>(
     /// `[aria-current=page]` selector, you should prefer that, as it enables significant
     /// SSR optimizations.
     #[prop(optional, into)]
-    active_class: Option<Cow<'static, str>>,
+    active_class: Option<Oco<'static, str>>,
     /// An object of any type that will be pushed to router state
     #[prop(optional)]
     state: Option<State>,
@@ -79,7 +92,7 @@ pub fn A<H>(
     class: Option<AttributeValue>,
     /// Sets the `id` attribute on the underlying `<a>` tag, making it easier to target.
     #[prop(optional, into)]
-    id: Option<String>,
+    id: Option<Oco<'static, str>>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -91,43 +104,41 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     fn inner(
-        cx: Scope,
         href: Memo<Option<String>>,
         exact: bool,
         #[allow(unused)] state: Option<State>,
         #[allow(unused)] replace: bool,
         class: Option<AttributeValue>,
-        #[allow(unused)] active_class: Option<Cow<'static, str>>,
-        id: Option<String>,
+        #[allow(unused)] active_class: Option<Oco<'static, str>>,
+        id: Option<Oco<'static, str>>,
         children: Children,
     ) -> View {
         #[cfg(not(any(feature = "hydrate", feature = "csr")))]
         {
             _ = state;
-        }
-
-        #[cfg(not(any(feature = "hydrate", feature = "csr")))]
-        {
             _ = replace;
         }
 
-        let location = use_location(cx);
-        let is_active = create_memo(cx, move |_| match href.get() {
-            None => false,
-
-            Some(to) => {
-                let path = to
-                    .split(['?', '#'])
-                    .next()
-                    .unwrap_or_default()
-                    .to_lowercase();
-                let loc = location.pathname.get().to_lowercase();
-                if exact {
-                    loc == path
-                } else {
-                    loc.starts_with(&path)
-                }
-            }
+        let location = use_location();
+        let is_active = create_memo(move |_| {
+            href.with(|href| {
+                href.as_deref().is_some_and(|to| {
+                    let path = to
+                        .split(['?', '#'])
+                        .next()
+                        .unwrap_or_default()
+                        .to_lowercase();
+                    location.pathname.with(|loc| {
+                        let loc = loc.to_lowercase();
+                        if exact {
+                            loc == path
+                        } else {
+                            std::iter::zip(loc.split('/'), path.split('/'))
+                                .all(|(loc_p, path_p)| loc_p == path_p)
+                        }
+                    })
+                })
+            })
         });
 
         #[cfg(feature = "ssr")]
@@ -135,7 +146,7 @@ where
             // if we have `active_class`, the SSR optimization doesn't play nicely
             // so we use the builder instead
             if let Some(active_class) = active_class {
-                let mut a = leptos::html::a(cx)
+                let mut a = leptos::html::a()
                     .attr("href", move || href.get().unwrap_or_default())
                     .attr("aria-current", move || {
                         if is_active.get() {
@@ -146,28 +157,28 @@ where
                     })
                     .attr(
                         "class",
-                        class.map(|class| class.into_attribute_boxed(cx)),
+                        class.map(|class| class.into_attribute_boxed()),
                     );
 
                 for class_name in active_class.split_ascii_whitespace() {
                     a = a.class(class_name.to_string(), move || is_active.get())
                 }
 
-                a.attr("id", id).child(children(cx)).into_view(cx)
+                a.attr("id", id).child(children()).into_view()
             }
             // but keep the nice SSR optimization in most cases
             else {
-                view! { cx,
+                view! {
                     <a
                         href=move || href.get().unwrap_or_default()
                         aria-current=move || if is_active.get() { Some("page") } else { None }
                         class=class
                         id=id
                     >
-                        {children(cx)}
+                        {children()}
                     </a>
                 }
-                .into_view(cx)
+                .into_view()
             }
         }
 
@@ -175,7 +186,7 @@ where
         // DRY here to avoid WASM binary size bloat
         #[cfg(not(feature = "ssr"))]
         {
-            let a = view! { cx,
+            let a = view! {
                 <a
                     href=move || href.get().unwrap_or_default()
                     prop:state={state.map(|s| s.to_js_value())}
@@ -184,7 +195,7 @@ where
                     class=class
                     id=id
                 >
-                    {children(cx)}
+                    {children()}
                 </a>
             };
             if let Some(active_class) = active_class {
@@ -196,13 +207,12 @@ where
             } else {
                 a
             }
-            .into_view(cx)
+            .into_view()
         }
     }
 
-    let href = use_resolved_path(cx, move || href.to_href()());
+    let href = use_resolved_path(move || href.to_href()());
     inner(
-        cx,
         href,
         exact,
         state,

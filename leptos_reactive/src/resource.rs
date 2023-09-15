@@ -1,13 +1,14 @@
-#![forbid(unsafe_code)]
+#[cfg(feature = "experimental-islands")]
+use crate::SharedContext;
+#[cfg(debug_assertions)]
+use crate::SpecialNonReactiveZone;
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask,
-    runtime::{with_runtime, RuntimeId},
-    serialization::Serializable,
-    spawn::spawn_local,
-    use_context, GlobalSuspenseContext, Memo, ReadSignal, Scope, ScopeProperty,
-    SignalDispose, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
-    SuspenseContext, WriteSignal,
+    queue_microtask, runtime::with_runtime, serialization::Serializable,
+    signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
+    GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
+    SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
+    SignalWith, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -37,7 +38,7 @@ use std::{
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
 ///   // pretend we're fetching cat pics
@@ -45,24 +46,24 @@ use std::{
 /// }
 ///
 /// // a signal that controls how many cat pics we want
-/// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
+/// let (how_many_cats, set_how_many_cats) = create_signal(1);
 ///
 /// // create a resource that will refetch whenever `how_many_cats` changes
 /// # // `csr`, `hydrate`, and `ssr` all have issues here
 /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
 /// # if false {
-/// let cats = create_resource(cx, move || how_many_cats.get(), fetch_cat_picture_urls);
+/// let cats = create_resource(move || how_many_cats.get(), fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats.set(2);
-/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -70,14 +71,12 @@ use std::{
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
     )
 )]
 pub fn create_resource<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
@@ -89,7 +88,7 @@ where
     // can't check this on the server without running the future
     let initial_value = None;
 
-    create_resource_with_initial_value(cx, source, fetcher, initial_value)
+    create_resource_with_initial_value(source, fetcher, initial_value)
 }
 
 /// Creates a [`Resource`](crate::Resource) with the given initial value, which
@@ -106,7 +105,6 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
@@ -114,7 +112,6 @@ where
 )]
 #[track_caller]
 pub fn create_resource_with_initial_value<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
@@ -125,7 +122,6 @@ where
     Fu: Future<Output = T> + 'static,
 {
     create_resource_helper(
-        cx,
         source,
         fetcher,
         initial_value,
@@ -153,7 +149,6 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
@@ -161,7 +156,6 @@ where
 )]
 #[track_caller]
 pub fn create_blocking_resource<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
@@ -171,7 +165,6 @@ where
     Fu: Future<Output = T> + 'static,
 {
     create_resource_helper(
-        cx,
         source,
         fetcher,
         None,
@@ -180,7 +173,6 @@ where
 }
 
 fn create_resource_helper<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
@@ -192,15 +184,15 @@ where
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
-    let (value, set_value) = create_signal(cx, initial_value);
+    let (value, set_value) = create_signal(initial_value);
 
-    let (loading, set_loading) = create_signal(cx, false);
+    let (loading, set_loading) = create_signal(false);
 
     //crate::macros::debug_warn!("creating fetcher");
     let fetcher = Rc::new(move |s| {
         Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
     });
-    let source = create_memo(cx, move |_| source());
+    let source = create_memo(move |_| source());
 
     let r = Rc::new(ResourceState {
         value,
@@ -214,26 +206,26 @@ where
         version: Rc::new(Cell::new(0)),
         suspense_contexts: Default::default(),
         serializable,
+        #[cfg(feature = "experimental-islands")]
+        should_send_to_client: Default::default(),
     });
 
-    let id = with_runtime(cx.runtime, |runtime| {
+    let id = with_runtime(|runtime| {
         let r = Rc::clone(&r) as Rc<dyn SerializableResource>;
-        runtime.create_serializable_resource(r)
+        let id = runtime.create_serializable_resource(r);
+        runtime.push_scope_property(ScopeProperty::Resource(id));
+        id
     })
     .expect("tried to create a Resource in a Runtime that has been disposed.");
 
-    //crate::macros::debug_warn!("creating effect");
-    create_isomorphic_effect(cx, {
+    create_isomorphic_effect({
         let r = Rc::clone(&r);
         move |_| {
-            load_resource(cx, id, r.clone());
+            load_resource(id, r.clone());
         }
     });
 
-    cx.push_scope_property(ScopeProperty::Resource(id));
-
     Resource {
-        runtime: cx.runtime,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -255,7 +247,7 @@ where
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
 /// struct ComplicatedUnserializableStruct {
 ///     // something here that can't be serialized
@@ -269,9 +261,9 @@ where
 /// // create the resource; it will run but not be serialized
 /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
 /// let result =
-///     create_local_resource(cx, move || (), |_| setup_complicated_struct());
+///     create_local_resource(move || (), |_| setup_complicated_struct());
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -279,14 +271,12 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
     )
 )]
 pub fn create_local_resource<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
@@ -296,7 +286,7 @@ where
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
-    create_local_resource_with_initial_value(cx, source, fetcher, initial_value)
+    create_local_resource_with_initial_value(source, fetcher, initial_value)
 }
 
 /// Creates a _local_ [`Resource`](crate::Resource) with the given initial value,
@@ -312,14 +302,12 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
     )
 )]
 pub fn create_local_resource_with_initial_value<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
@@ -330,14 +318,14 @@ where
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
-    let (value, set_value) = create_signal(cx, initial_value);
+    let (value, set_value) = create_signal(initial_value);
 
-    let (loading, set_loading) = create_signal(cx, false);
+    let (loading, set_loading) = create_signal(false);
 
     let fetcher = Rc::new(move |s| {
         Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
     });
-    let source = create_memo(cx, move |_| source());
+    let source = create_memo(move |_| source());
 
     let r = Rc::new(ResourceState {
         value,
@@ -351,25 +339,26 @@ where
         version: Rc::new(Cell::new(0)),
         suspense_contexts: Default::default(),
         serializable: ResourceSerialization::Local,
+        #[cfg(feature = "experimental-islands")]
+        should_send_to_client: Default::default(),
     });
 
-    let id = with_runtime(cx.runtime, |runtime| {
+    let id = with_runtime(|runtime| {
         let r = Rc::clone(&r) as Rc<dyn UnserializableResource>;
-        runtime.create_unserializable_resource(r)
+        let id = runtime.create_unserializable_resource(r);
+        runtime.push_scope_property(ScopeProperty::Resource(id));
+        id
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_effect(cx, {
+    create_effect({
         let r = Rc::clone(&r);
         // This is a local resource, so we're always going to handle it on the
         // client
         move |_| r.load(false)
     });
 
-    cx.push_scope_property(ScopeProperty::Resource(id));
-
     Resource {
-        runtime: cx.runtime,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -379,11 +368,12 @@ where
 }
 
 #[cfg(not(feature = "hydrate"))]
-fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
+fn load_resource<S, T>(id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Clone + 'static,
     T: 'static,
 {
+    _ = id;
     SUPPRESS_RESOURCE_LOAD.with(|s| {
         if !s.get() {
             r.load(false)
@@ -392,14 +382,14 @@ where
 }
 
 #[cfg(feature = "hydrate")]
-fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
+fn load_resource<S, T>(id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-    _ = with_runtime(cx.runtime, |runtime| {
+    _ = with_runtime(|runtime| {
         let mut context = runtime.shared_context.borrow_mut();
         if let Some(data) = context.resolved_resources.remove(&id) {
             // The server already sent us the serialized resource value, so
@@ -407,8 +397,12 @@ where
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
 
-            let res = T::de(&data)
-                .expect_throw("could not deserialize Resource JSON");
+            let res = T::de(&data).unwrap_or_else(|e| {
+                panic!(
+                    "could not deserialize Resource<{}> JSON for {id:?}: {e:?}",
+                    std::any::type_name::<T>()
+                )
+            });
 
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
@@ -426,8 +420,12 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = T::de(&res)
-                        .expect_throw("could not deserialize Resource JSON");
+                    let res = T::de(&res).unwrap_or_else(|e| {
+                        panic!(
+                            "could not deserialize Resource JSON for {id:?}: \
+                             {e:?}"
+                        )
+                    });
                     resolved.set(true);
                     set_value.update(|n| *n = Some(res));
                     set_loading.update(|n| *n = false);
@@ -471,24 +469,18 @@ where
     /// resource.
     ///
     /// If you want to get the value without cloning it, use [`Resource::with`].
-    /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
+    /// (`value.read()` is equivalent to `value.with(T::clone)`.)
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn read(&self, cx: Scope) -> Option<T>
+    #[deprecated = "You can now use .get() on resources."]
+    pub fn read(&self) -> Option<T>
     where
         T: Clone,
     {
-        let location = std::panic::Location::caller();
-        with_runtime(self.runtime, |runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read(cx, location)
-            })
-        })
-        .ok()
-        .flatten()
+        self.get()
     }
 
     /// Applies a function to the current value of the resource, and subscribes
@@ -503,11 +495,11 @@ where
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let location = std::panic::Location::caller();
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(cx, f, location)
+                resource.with(f, location)
             })
         })
         .ok()
@@ -519,16 +511,52 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub fn loading(&self) -> ReadSignal<bool> {
-        with_runtime(self.runtime, |runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.loading
-            })
+    pub fn loading(&self) -> Signal<bool> {
+        #[allow(unused_variables)]
+        let (loading, is_from_server) = with_runtime(|runtime| {
+            let loading = runtime
+                .resource(self.id, |resource: &ResourceState<S, T>| {
+                    resource.loading
+                });
+            #[cfg(feature = "hydrate")]
+            let is_from_server = runtime
+                .shared_context
+                .borrow()
+                .server_resources
+                .contains(&self.id);
+
+            #[cfg(not(feature = "hydrate"))]
+            let is_from_server = false;
+            (loading, is_from_server)
         })
         .expect(
             "tried to call Resource::loading() in a runtime that has already \
              been disposed.",
-        )
+        );
+
+        #[cfg(feature = "hydrate")]
+        {
+            // if the loading signal is read outside Suspense
+            // in hydrate mode, there will be a mismatch on first render
+            // unless we delay a tick
+            let (initial, set_initial) = create_signal(true);
+            queue_microtask(move || set_initial.set(false));
+            Signal::derive(move || {
+                if is_from_server
+                    && initial.get()
+                    && use_context::<SuspenseContext>().is_none()
+                {
+                    true
+                } else {
+                    loading.get()
+                }
+            })
+        }
+
+        #[cfg(not(feature = "hydrate"))]
+        {
+            loading.into()
+        }
     }
 
     /// Re-runs the async function with the current source data.
@@ -537,9 +565,15 @@ where
         instrument(level = "trace", skip_all,)
     )]
     pub fn refetch(&self) {
-        _ = with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.refetch()
+                #[cfg(debug_assertions)]
+                let prev = SpecialNonReactiveZone::enter();
+                resource.refetch();
+                #[cfg(debug_assertions)]
+                {
+                    SpecialNonReactiveZone::exit(prev);
+                }
             })
         });
     }
@@ -551,16 +585,13 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub async fn to_serialization_resolver(
-        &self,
-        cx: Scope,
-    ) -> (ResourceId, String)
+    pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
     where
         T: Serializable,
     {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.to_serialization_resolver(cx, self.id)
+                resource.to_serialization_resolver(self.id)
             })
         })
         .expect(
@@ -571,7 +602,43 @@ where
     }
 }
 
-impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
+impl<S, T, E> Resource<S, Result<T, E>>
+where
+    E: Clone,
+    S: Clone,
+{
+    /// Applies the given function when a resource that returns `Result<T, E>`
+    /// has resolved and loaded an `Ok(_)`, rather than requiring nested `.map()`
+    /// calls over the `Option<Result<_, _>>` returned by the resource.
+    ///
+    /// This is useful when used with features like server functions, in conjunction
+    /// with `<ErrorBoundary/>` and `<Suspense/>`, when these other components are
+    /// left to handle the `None` and `Err(_)` states.
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # if false {
+    /// # // for miniserde support
+    /// # #[cfg(not(any(feature="miniserde", feature="serde-lite")))] {
+    /// let cats = create_resource(
+    ///     || (),
+    ///     |_| async { Ok(vec![0, 1, 2]) as Result<Vec<i32>, ()> },
+    /// );
+    /// create_effect(move |_| {
+    ///     cats.and_then(|data: &Vec<i32>| println!("{}", data.len()));
+    /// });
+    /// # }
+    /// # }
+    /// ```
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+    }
+}
+
+impl<S, T> SignalUpdate for Resource<S, T> {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -605,7 +672,7 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
     )]
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut Option<T>) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 if resource.loading.get_untracked() {
                     resource.version.set(resource.version.get() + 1);
@@ -627,7 +694,128 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
     }
 }
 
-impl<S, T> SignalSet<T> for Resource<S, T> {
+impl<S, T> SignalWith for Resource<S, T>
+where
+    S: Clone,
+    T: Clone,
+{
+    type Value = Option<T>;
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
+    fn with<O>(&self, f: impl FnOnce(&Option<T>) -> O) -> O {
+        let location = std::panic::Location::caller();
+        match with_runtime(|runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.with_maybe(f, location)
+            })
+        })
+        .expect("runtime to be alive")
+        {
+            Some(o) => o,
+            None => panic!(
+                "{}",
+                format_signal_warning(
+                    "Attempted to read a resource after it was disposed.",
+                    #[cfg(any(debug_assertions, feature = "ssr"))]
+                    location,
+                )
+            ),
+        }
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::try_with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
+    fn try_with<O>(&self, f: impl FnOnce(&Option<T>) -> O) -> Option<O> {
+        let location = std::panic::Location::caller();
+        with_runtime(|runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.with_maybe(f, location)
+            })
+        })
+        .ok()
+        .flatten()
+    }
+}
+
+impl<S, T> SignalGet for Resource<S, T>
+where
+    S: Clone,
+    T: Clone,
+{
+    type Value = Option<T>;
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn get(&self) -> Option<T> {
+        self.try_get().flatten()
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::try_get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    #[track_caller]
+    fn try_get(&self) -> Option<Option<T>> {
+        let location = std::panic::Location::caller();
+        with_runtime(|runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.read(location)
+            })
+        })
+        .ok()
+    }
+}
+
+impl<S, T> SignalSet for Resource<S, T> {
+    type Value = T;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -682,7 +870,7 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
 ///   // pretend we're fetching cat pics
@@ -690,24 +878,24 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 /// }
 ///
 /// // a signal that controls how many cat pics we want
-/// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
+/// let (how_many_cats, set_how_many_cats) = create_signal(1);
 ///
 /// // create a resource that will refetch whenever `how_many_cats` changes
 /// # // `csr`, `hydrate`, and `ssr` all have issues here
 /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
 /// # if false {
-/// let cats = create_resource(cx, move || how_many_cats.get(), fetch_cat_picture_urls);
+/// let cats = create_resource(move || how_many_cats.get(), fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats.set(2);
-/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T>
@@ -715,12 +903,144 @@ where
     S: 'static,
     T: 'static,
 {
-    runtime: RuntimeId,
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
+}
+
+impl<S, T> Resource<S, T>
+where
+    S: 'static,
+    T: 'static,
+{
+    /// Creates a [`Resource`](crate::Resource), which is a signal that reflects the
+    /// current state of an asynchronous task, allowing you to integrate `async`
+    /// [`Future`]s into the synchronous reactive system.
+    ///
+    /// Takes a `fetcher` function that generates a [`Future`] when called and a
+    /// `source` signal that provides the argument for the `fetcher`. Whenever the
+    /// value of the `source` changes, a new [`Future`] will be created and run.
+    ///
+    /// When server-side rendering is used, the server will handle running the
+    /// [`Future`] and will stream the result to the client. This process requires the
+    /// output type of the Future to be [`Serializable`]. If your output cannot be
+    /// serialized, or you just want to make sure the [`Future`] runs locally, use
+    /// [`create_local_resource()`].
+    ///
+    /// This is identical with [`create_resource`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// // any old async function; maybe this is calling a REST API or something
+    /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
+    ///   // pretend we're fetching cat pics
+    ///   vec![how_many.to_string()]
+    /// }
+    ///
+    /// // a signal that controls how many cat pics we want
+    /// let (how_many_cats, set_how_many_cats) = create_signal(1);
+    ///
+    /// // create a resource that will refetch whenever `how_many_cats` changes
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
+    /// let cats = Resource::new(move || how_many_cats.get(), fetch_cat_picture_urls);
+    ///
+    /// // when we read the signal, it contains either
+    /// // 1) None (if the Future isn't ready yet) or
+    /// // 2) Some(T) (if the future's already resolved)
+    /// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
+    ///
+    /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
+    /// set_how_many_cats.set(2);
+    /// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new<Fu>(
+        source: impl Fn() -> S + 'static,
+        fetcher: impl Fn(S) -> Fu + 'static,
+    ) -> Resource<S, T>
+    where
+        S: PartialEq + Clone + 'static,
+        T: Serializable + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        create_resource(source, fetcher)
+    }
+
+    /// Creates a _local_ [`Resource`](crate::Resource), which is a signal that
+    /// reflects the current state of an asynchronous task, allowing you to
+    /// integrate `async` [`Future`]s into the synchronous reactive system.
+    ///
+    /// Takes a `fetcher` function that generates a [`Future`] when called and a
+    /// `source` signal that provides the argument for the `fetcher`. Whenever the
+    /// value of the `source` changes, a new [`Future`] will be created and run.
+    ///
+    /// Unlike [`create_resource()`], this [`Future`] is always run on the local system
+    /// and therefore it's result type does not need to be [`Serializable`].
+    ///
+    /// This is identical with [`create_local_resource`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
+    /// struct ComplicatedUnserializableStruct {
+    ///     // something here that can't be serialized
+    /// }
+    /// // any old async function; maybe this is calling a REST API or something
+    /// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
+    ///     // do some work
+    ///     ComplicatedUnserializableStruct {}
+    /// }
+    ///
+    /// // create the resource; it will run but not be serialized
+    /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+    /// let result =
+    ///     create_local_resource(move || (), |_| setup_complicated_struct());
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn local<Fu>(
+        source: impl Fn() -> S + 'static,
+        fetcher: impl Fn(S) -> Fu + 'static,
+    ) -> Resource<S, T>
+    where
+        S: PartialEq + Clone + 'static,
+        T: 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        let initial_value = None;
+        create_local_resource_with_initial_value(source, fetcher, initial_value)
+    }
+}
+
+impl<T> Resource<(), T>
+where
+    T: 'static,
+{
+    /// Creates a resource that will only load once, and will not respond
+    /// to any reactive changes, including changes in any reactive variables
+    /// read in its fetcher.
+    ///
+    /// This identical to `create_resource(|| (), move |_| fetcher())`.
+    #[inline(always)]
+    #[track_caller]
+    pub fn once<Fu>(fetcher: impl Fn() -> Fu + 'static) -> Resource<(), T>
+    where
+        T: Serializable + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        create_resource(|| (), move |_| fetcher())
+    }
 }
 
 // Resources
@@ -764,6 +1084,8 @@ where
     version: Rc<Cell<usize>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
     serializable: ResourceSerialization,
+    #[cfg(feature = "experimental-islands")]
+    should_send_to_client: Rc<Cell<Option<bool>>>,
 }
 
 /// Whether and how the resource can be serialized.
@@ -783,35 +1105,22 @@ where
     S: Clone + 'static,
     T: 'static,
 {
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-    )]
     #[track_caller]
-    pub fn read(
-        &self,
-        cx: Scope,
-        location: &'static Location<'static>,
-    ) -> Option<T>
+    pub fn read(&self, location: &'static Location<'static>) -> Option<T>
     where
         T: Clone,
     {
-        self.with(cx, T::clone, location)
+        self.with(T::clone, location)
     }
 
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-    )]
     #[track_caller]
     pub fn with<U>(
         &self,
-        cx: Scope,
         f: impl FnOnce(&T) -> U,
         location: &'static Location<'static>,
     ) -> Option<U> {
-        let global_suspense_cx = use_context::<GlobalSuspenseContext>(cx);
-        let suspense_cx = use_context::<SuspenseContext>(cx);
+        let global_suspense_cx = use_context::<GlobalSuspenseContext>();
+        let suspense_cx = use_context::<SuspenseContext>();
 
         let v = self
             .value
@@ -819,6 +1128,30 @@ where
             .ok()?
             .flatten();
 
+        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+    }
+
+    #[track_caller]
+    pub fn with_maybe<U>(
+        &self,
+        f: impl FnOnce(&Option<T>) -> U,
+        location: &'static Location<'static>,
+    ) -> Option<U> {
+        let global_suspense_cx = use_context::<GlobalSuspenseContext>();
+        let suspense_cx = use_context::<SuspenseContext>();
+
+        let v = self.value.try_with(|n| f(n)).ok();
+
+        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+    }
+
+    fn handle_result<U>(
+        &self,
+        location: &'static Location<'static>,
+        global_suspense_cx: Option<GlobalSuspenseContext>,
+        suspense_cx: Option<SuspenseContext>,
+        v: Option<U>,
+    ) -> Option<U> {
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
@@ -855,7 +1188,7 @@ where
         // on cleanup of this component, remove this read from parent `<Suspense/>`
         // it will be added back in when this is rendered again
         if let Some(s) = suspense_cx {
-            crate::on_cleanup(cx, {
+            crate::on_cleanup({
                 let suspense_contexts = Rc::clone(&suspense_contexts);
                 move || {
                     if let Ok(ref mut contexts) =
@@ -908,9 +1241,10 @@ where
             }
         };
 
-        create_isomorphic_effect(cx, increment);
+        create_isomorphic_effect(increment);
         v
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -918,6 +1252,7 @@ where
     pub fn refetch(&self) {
         self.load(true);
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -926,6 +1261,15 @@ where
         // doesn't refetch if already refetching
         if refetching && self.scheduled.get() {
             return;
+        }
+
+        // if it's 1) in normal mode and is read, or
+        // 2) is in island mode and read in an island, tell it to ship
+        #[cfg(feature = "experimental-islands")]
+        if self.should_send_to_client.get().is_none()
+            && !SharedContext::no_hydrate()
+        {
+            self.should_send_to_client.set(Some(true));
         }
 
         let version = self.version.get() + 1;
@@ -972,14 +1316,12 @@ where
                         resolved.set(true);
                         set_value.try_update(|n| *n = Some(res));
                         set_loading.try_update(|n| *n = false);
+                    }
 
-                        for suspense_context in
-                            suspense_contexts.borrow().iter()
-                        {
-                            suspense_context.decrement(
-                                serializable != ResourceSerialization::Local,
-                            );
-                        }
+                    for suspense_context in suspense_contexts.borrow().iter() {
+                        suspense_context.decrement(
+                            serializable != ResourceSerialization::Local,
+                        );
                     }
                 }
             })
@@ -991,7 +1333,6 @@ where
     )]
     pub fn resource_to_serialization_resolver(
         &self,
-        cx: Scope,
         id: ResourceId,
     ) -> std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>
     where
@@ -1001,7 +1342,7 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(cx, move |_| {
+        create_isomorphic_effect(move |_| {
             value.with({
                 let mut tx = tx.clone();
                 move |value| {
@@ -1037,9 +1378,10 @@ pub(crate) trait SerializableResource {
 
     fn to_serialization_resolver(
         &self,
-        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
+
+    fn should_send_to_client(&self) -> bool;
 }
 
 impl<S, T> SerializableResource for ResourceState<S, T>
@@ -1050,17 +1392,34 @@ where
     fn as_any(&self) -> &dyn Any {
         self
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
+    #[inline(always)]
     fn to_serialization_resolver(
         &self,
-        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
-        let fut = self.resource_to_serialization_resolver(cx, id);
+        let fut = self.resource_to_serialization_resolver(id);
         Box::pin(fut)
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    #[inline(always)]
+    fn should_send_to_client(&self) -> bool {
+        #[cfg(feature = "experimental-islands")]
+        {
+            self.should_send_to_client.get() == Some(true)
+        }
+        #[cfg(not(feature = "experimental-islands"))]
+        {
+            true
+        }
     }
 }
 
@@ -1090,7 +1449,7 @@ where
 {
     #[track_caller]
     fn dispose(self) {
-        let res = with_runtime(self.runtime, |runtime| {
+        let res = with_runtime(|runtime| {
             let mut resources = runtime.resources.borrow_mut();
             resources.remove(self.id)
         });
@@ -1102,5 +1461,31 @@ where
                 std::panic::Location::caller()
             );
         }
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> FnOnce<()> for Resource<S, T> {
+    type Output = Option<T>;
+
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> FnMut<()> for Resource<S, T> {
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> Fn<()> for Resource<S, T> {
+    #[inline(always)]
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.get()
     }
 }

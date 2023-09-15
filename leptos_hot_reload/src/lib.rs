@@ -71,10 +71,8 @@ impl ViewMacros {
         for view in visitor.views {
             let span = view.span();
             let id = span_to_stable_id(path, span.start().line);
-            let mut tokens = view.tokens.clone().into_iter();
-            tokens.next(); // cx
-            tokens.next(); // ,
-                           // TODO handle class = ...
+            let tokens = view.tokens.clone().into_iter();
+            // TODO handle class = ...
             let rsx =
                 rstml::parse2(tokens.collect::<proc_macro2::TokenStream>())?;
             let template = LNode::parse_view(rsx)?;

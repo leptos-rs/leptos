@@ -24,7 +24,7 @@ if #[cfg(feature = "ssr")] {
         } else{
             let mut errors = Errors::default();
             errors.insert_with_default_key(TodoAppError::NotFound);
-            let handler = leptos_axum::render_app_to_stream(options.to_owned(), move |cx| view!{cx, <ErrorTemplate outside_errors=errors.clone()/>});
+            let handler = leptos_axum::render_app_to_stream(options.to_owned(), move || view!{<ErrorTemplate outside_errors=errors.clone()/>});
             handler(req).await.into_response()
         }
     }

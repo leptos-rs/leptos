@@ -1,0 +1,14 @@
+---
+source: leptos_macro/src/view/tests.rs
+expression: pretty(result)
+---
+fn view() {
+    ::leptos::component_view(
+        &SimpleCounter,
+        ::leptos::component_props_builder(&SimpleCounter)
+            .initial_value(#[allow(unused_braces)] { 0 })
+            .step(#[allow(unused_braces)] { 1 })
+            .build(),
+    )
+}
+

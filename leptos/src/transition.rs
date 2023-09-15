@@ -1,15 +1,15 @@
 use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
-    create_isomorphic_effect, use_context, Scope, SignalGet, SignalSetter,
-    SuspenseContext,
+    create_isomorphic_effect, create_rw_signal, use_context, RwSignal,
+    SignalGet, SignalSet, SignalSetter, SuspenseContext,
 };
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
 };
 
-/// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
+/// If any [`Resource`](leptos_reactive::Resource)s are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`. Unlike [`Suspense`](crate::Suspense), this will not fall
 /// back to the `fallback` state if there are further changes after the initial load.
@@ -24,41 +24,41 @@ use std::{
 /// # use leptos_dom::*;
 /// # use leptos::*;
 /// # if false {
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> {
 ///     Some(vec![])
 /// }
 ///
-/// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
-/// let (pending, set_pending) = create_signal(cx, false);
+/// let (cat_count, set_cat_count) = create_signal::<u32>(1);
+/// let (pending, set_pending) = create_signal(false);
 ///
 /// let cats =
-///     create_resource(cx, move || cat_count.get(), |count| fetch_cats(count));
+///     create_resource(move || cat_count.get(), |count| fetch_cats(count));
 ///
-/// view! { cx,
+/// view! {
 ///   <div>
 ///     <Transition
-///       fallback=move || view! { cx, <p>"Loading..."</p>}
+///       fallback=move || view! {  <p>"Loading..."</p>}
 ///       set_pending=set_pending.into()
 ///     >
 ///       {move || {
-///           cats.read(cx).map(|data| match data {
-///             None => view! { cx,  <pre>"Error"</pre> }.into_view(cx),
+///           cats.read().map(|data| match data {
+///             None => view! { <pre>"Error"</pre> }.into_view(),
 ///             Some(cats) => cats
 ///                 .iter()
 ///                 .map(|src| {
-///                     view! { cx,
+///                     view! {
 ///                       <img src={src}/>
 ///                     }
 ///                 })
-///                 .collect_view(cx),
+///                 .collect_view(),
 ///           })
 ///         }
 ///       }
 ///     </Transition>
 ///   </div>
 /// };
-/// # });
+/// # runtime.dispose();
 /// # }
 /// ```
 #[cfg_attr(
@@ -67,7 +67,6 @@ use std::{
 )]
 #[component(transparent)]
 pub fn Transition<F, E>(
-    cx: Scope,
     /// Will be displayed while resources are pending.
     fallback: F,
     /// A function that will be called when the component transitions into or out of
@@ -76,7 +75,7 @@ pub fn Transition<F, E>(
     #[prop(optional)]
     set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn Fn() -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
@@ -84,39 +83,46 @@ where
 {
     let prev_children = Rc::new(RefCell::new(None::<View>));
 
-    let first_run = Rc::new(std::cell::Cell::new(true));
+    let first_run = create_rw_signal(true);
     let child_runs = Cell::new(0);
+    let held_suspense_context = Rc::new(RefCell::new(None::<SuspenseContext>));
 
     crate::Suspense(
-        cx,
         crate::SuspenseProps::builder()
             .fallback({
                 let prev_child = Rc::clone(&prev_children);
-                let first_run = Rc::clone(&first_run);
                 move || {
-                    let suspense_context = use_context::<SuspenseContext>(cx)
+                    let suspense_context = use_context::<SuspenseContext>()
                         .expect("there to be a SuspenseContext");
 
+                    let was_first_run =
+                        cfg!(feature = "csr") && first_run.get();
                     let is_first_run =
-                        is_first_run(&first_run, &suspense_context);
-                    first_run.set(false);
+                        is_first_run(first_run, &suspense_context);
+                    if was_first_run {
+                        first_run.set(false)
+                    }
 
                     if let Some(prev_children) = &*prev_child.borrow() {
-                        if is_first_run {
-                            fallback().into_view(cx)
+                        if is_first_run || was_first_run {
+                            fallback().into_view()
                         } else {
                             prev_children.clone()
                         }
                     } else {
-                        fallback().into_view(cx)
+                        fallback().into_view()
                     }
                 }
             })
-            .children(Box::new(move |cx| {
-                let frag = children(cx).into_view(cx);
+            .children(Rc::new(move || {
+                let frag = children().into_view();
 
-                let suspense_context = use_context::<SuspenseContext>(cx)
-                    .expect("there to be a SuspenseContext");
+                if let Some(suspense_context) = use_context::<SuspenseContext>()
+                {
+                    *held_suspense_context.borrow_mut() =
+                        Some(suspense_context);
+                }
+                let suspense_context = held_suspense_context.borrow().unwrap();
 
                 if cfg!(feature = "hydrate")
                     || !first_run.get()
@@ -124,12 +130,11 @@ where
                 {
                     *prev_children.borrow_mut() = Some(frag.clone());
                 }
-                if is_first_run(&first_run, &suspense_context) {
+                if is_first_run(first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
                         || cfg!(feature = "csr");
                     if (!has_local_only || child_runs.get() > 0)
-                        && (cfg!(feature = "csr")
-                            || HydrationCtx::is_hydrating())
+                        && !cfg!(feature = "csr")
                     {
                         first_run.set(false);
                     }
@@ -137,7 +142,7 @@ where
                 child_runs.set(child_runs.get() + 1);
 
                 let pending = suspense_context.pending_resources;
-                create_isomorphic_effect(cx, move |_| {
+                create_isomorphic_effect(move |_| {
                     if let Some(set_pending) = set_pending {
                         set_pending.set(pending.get() > 0)
                     }
@@ -149,7 +154,7 @@ where
 }
 
 fn is_first_run(
-    first_run: &Rc<Cell<bool>>,
+    first_run: RwSignal<bool>,
     suspense_context: &SuspenseContext,
 ) -> bool {
     if cfg!(feature = "csr") {

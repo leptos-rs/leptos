@@ -1,11 +1,9 @@
-#![forbid(unsafe_code)]
-
 use crate::{
     diagnostics,
     diagnostics::*,
     node::NodeId,
-    runtime::{with_runtime, RuntimeId},
-    Scope, ScopeProperty, SignalGet, SignalSet, SignalUpdate,
+    runtime::{with_runtime, Runtime},
+    SignalGet, SignalSet, SignalUpdate,
 };
 
 /// Reactive Trigger, notifies reactive code to rerun.
@@ -13,7 +11,6 @@ use crate::{
 /// See [`create_trigger`] for more.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Trigger {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
 
     #[cfg(debug_assertions)]
@@ -22,6 +19,10 @@ pub struct Trigger {
 
 impl Trigger {
     /// Notifies any reactive code where this trigger is tracked to rerun.
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime, or if the
+    /// trigger has been disposed.
     pub fn notify(&self) {
         assert!(self.try_notify(), "Trigger::notify(): runtime not alive")
     }
@@ -30,7 +31,7 @@ impl Trigger {
     ///
     /// Returns `None` if the runtime has been disposed.
     pub fn try_notify(&self) -> bool {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.mark_dirty(self.id);
             runtime.run_effects();
         })
@@ -38,6 +39,10 @@ impl Trigger {
     }
 
     /// Subscribes the running effect to this trigger.
+    ///
+    /// ## Panics
+    /// Panics if there is no current reactive runtime, or if the
+    /// trigger has been disposed.
     pub fn track(&self) {
         assert!(self.try_track(), "Trigger::track(): runtime not alive")
     }
@@ -47,36 +52,31 @@ impl Trigger {
     pub fn try_track(&self) -> bool {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.subscribe(runtime, diagnostics);
         })
         .is_ok()
     }
 }
 
-/// Creates a [`Trigger`], a kind of reactive primitive.
+/// Creates a [`Trigger`](crate::Trigger), a kind of reactive primitive.
 ///
 /// A trigger is a data-less signal with the sole purpose
 /// of notifying other reactive code of a change. This can be useful
 /// for when using external data not stored in signals, for example.
-///
-/// Take a reactive [`Scope`] and returns the [`Trigger`] handle, which
-/// can be called as a function to track the trigger in the current
-/// reactive context.
-///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// use std::{cell::RefCell, fmt::Write, rc::Rc};
 ///
 /// let external_data = Rc::new(RefCell::new(1));
 /// let output = Rc::new(RefCell::new(String::new()));
 ///
-/// let rerun_on_data = create_trigger(cx);
+/// let rerun_on_data = create_trigger();
 ///
 /// let o = output.clone();
 /// let e = external_data.clone();
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///     // can be `rerun_on_data()` on nightly
 ///     rerun_on_data.track();
 ///     write!(o.borrow_mut(), "{}", *e.borrow());
@@ -89,24 +89,17 @@ impl Trigger {
 ///
 /// assert_eq!(*output.borrow(), "12");
 /// # }
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(scope = ?cx.id)
-    )
-)]
+#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all,))]
 #[track_caller]
-pub fn create_trigger(cx: Scope) -> Trigger {
-    let t = cx.runtime.create_trigger();
-    cx.push_scope_property(ScopeProperty::Trigger(t.id));
-    t
+pub fn create_trigger() -> Trigger {
+    Runtime::current().create_trigger()
 }
 
-impl SignalGet<()> for Trigger {
+impl SignalGet for Trigger {
+    type Value = ();
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -143,7 +136,9 @@ impl SignalGet<()> for Trigger {
     }
 }
 
-impl SignalUpdate<()> for Trigger {
+impl SignalUpdate for Trigger {
+    type Value = ();
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -177,7 +172,7 @@ impl SignalUpdate<()> for Trigger {
     fn try_update<O>(&self, f: impl FnOnce(&mut ()) -> O) -> Option<O> {
         // run callback with runtime before dirtying the trigger,
         // consistent with signals.
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             let res = f(&mut ());
 
             runtime.mark_dirty(self.id);
@@ -190,7 +185,9 @@ impl SignalUpdate<()> for Trigger {
     }
 }
 
-impl SignalSet<()> for Trigger {
+impl SignalSet for Trigger {
+    type Value = ();
+
     #[cfg_attr(
         debug_assertions,
         instrument(

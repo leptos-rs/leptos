@@ -17,7 +17,6 @@ miniserde = { version = "0.1", optional = true }
 rkyv = { version = "0.7.39", features = [
   "validation",
   "uuid",
-  "copy",
   "strict",
 ], optional = true }
 bytecheck = { version = "0.7", features = [
@@ -68,11 +67,12 @@ hydrate = [
   "dep:web-sys",
 ]
 ssr = ["dep:tokio"]
-nightly = []
+nightly = ["rkyv?/copy"]
 serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 rkyv = ["dep:rkyv", "dep:bytecheck"]
+experimental-islands = []
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

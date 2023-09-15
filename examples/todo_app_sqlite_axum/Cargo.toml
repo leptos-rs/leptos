@@ -65,7 +65,8 @@ site-addr = "127.0.0.1:3000"
 # The port to use for automatic reload monitoring
 reload-port = 3001
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
-end2end-cmd = "npx playwright test"
+end2end-cmd = "cargo make test-ui"
+end2end-dir = "e2e"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
 # Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head

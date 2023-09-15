@@ -2,45 +2,25 @@ name: Check stable
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+    branches:
+      - main
 
 jobs:
+  get-leptos-changed:
+    uses: ./.github/workflows/get-leptos-changed.yml
+
   test:
-    name: Check examples ${{ matrix.os }} (using rustc ${{ matrix.rust }})
-    runs-on: ${{ matrix.os }}
+    name: Check
+    needs: [get-leptos-changed]
+    if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
     strategy:
       matrix:
-        rust:
-          - stable
-        os:
-          - ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rustfmt
-
-      - name: Add wasm32-unknown-unknown
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Setup cargo-make
-        uses: davidB/rust-cargo-make@v1
-
-      - name: Cargo generate-lockfile
-        run: cargo generate-lockfile
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Run cargo check on all examples
-        run: cargo make --profile=github-actions check-stable
+        directory: [examples/counters_stable, examples/counter_without_macros]
+    uses: ./.github/workflows/run-cargo-make-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "check"
+      toolchain: stable

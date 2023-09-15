@@ -1,4 +1,16 @@
-extend = { path = "../../cargo-make/main.toml" }
+extend = [
+    { path = "../../cargo-make/main.toml" },
+    { path = "../../cargo-make/trunk_server.toml" },
+]
+
+[env]
+SERVER_PROCESS_NAME = "server"
 
 [tasks.check-format]
 env = { LEPTOS_PROJECT_DIRECTORY = "../../../" }
+
+[tasks.start-server]
+cwd = "../server"
+script = '''
+cargo run &
+'''

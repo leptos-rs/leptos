@@ -12,10 +12,7 @@ fn add_item() {
     let _ = document.body().unwrap().append_child(&test_wrapper);
 
     // start by rendering our counter and mounting it to the DOM
-    mount_to(
-        test_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <App/> },
-    );
+    mount_to(test_wrapper.clone().unchecked_into(), || view! { <App/> });
 
     let table = test_wrapper
         .query_selector("table")

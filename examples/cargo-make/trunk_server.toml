@@ -1,18 +1,10 @@
+[env]
+CLIENT_PROCESS_NAME = "trunk"
+
 [tasks.build]
 command = "trunk"
 args = ["build"]
 
-[tasks.start-trunk]
+[tasks.start-client]
 command = "trunk"
 args = ["serve", "${@}"]
-
-[tasks.stop-trunk]
-script = '''
-  pkill -f "cargo-make"
-  pkill -f "trunk"
-'''
-
-# ALIASES
-
-[tasks.dev]
-dependencies = ["start-trunk"]

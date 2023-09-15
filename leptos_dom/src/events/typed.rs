@@ -1,6 +1,7 @@
 //! Types for all DOM events.
 
-use std::{borrow::Cow, marker::PhantomData};
+use leptos_reactive::Oco;
+use std::marker::PhantomData;
 use wasm_bindgen::convert::FromWasmAbi;
 
 /// A trait for converting types into [web_sys events](web_sys).
@@ -16,10 +17,10 @@ pub trait EventDescriptor: Clone {
     const BUBBLES: bool;
 
     /// The name of the event, such as `click` or `mouseover`.
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Oco<'static, str>;
 
     /// The key used for event delegation.
-    fn event_delegation_key(&self) -> Cow<'static, str>;
+    fn event_delegation_key(&self) -> Oco<'static, str>;
 
     /// Return the options for this type. This is only used when you create a [`Custom`] event
     /// handler.
@@ -31,7 +32,7 @@ pub trait EventDescriptor: Clone {
 
 /// Overrides the [`EventDescriptor::BUBBLES`] value to always return
 /// `false`, which forces the event to not be globally delegated.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(non_camel_case_types)]
 pub struct undelegated<Ev: EventDescriptor>(pub Ev);
 
@@ -39,12 +40,12 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
     type EventType = Ev::EventType;
 
     #[inline(always)]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.0.name()
     }
 
     #[inline(always)]
-    fn event_delegation_key(&self) -> Cow<'static, str> {
+    fn event_delegation_key(&self) -> Oco<'static, str> {
         self.0.event_delegation_key()
     }
 
@@ -52,8 +53,9 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
 }
 
 /// A custom event.
+#[derive(Debug)]
 pub struct Custom<E: FromWasmAbi = web_sys::Event> {
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     options: Option<web_sys::AddEventListenerOptions>,
     _event_type: PhantomData<E>,
 }
@@ -71,11 +73,11 @@ impl<E: FromWasmAbi> Clone for Custom<E> {
 impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
     type EventType = E;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.name.clone()
     }
 
-    fn event_delegation_key(&self) -> Cow<'static, str> {
+    fn event_delegation_key(&self) -> Oco<'static, str> {
         format!("$$${}", self.name).into()
     }
 
@@ -91,7 +93,7 @@ impl<E: FromWasmAbi> Custom<E> {
     /// Creates a custom event type that can be used within
     /// [`HtmlElement::on`](crate::HtmlElement::on), for events
     /// which are not covered in the [`ev`](crate::ev) module.
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>) -> Self {
         Self {
             name: name.into(),
             options: None,
@@ -103,19 +105,19 @@ impl<E: FromWasmAbi> Custom<E> {
     ///
     /// ```rust
     /// # use leptos::*;
-    /// # run_scope(create_runtime(), |cx| {
-    /// # let canvas_ref: NodeRef<html::Canvas> = create_node_ref(cx);
-    /// let mut non_passive_wheel = ev::Custom::<ev::WheelEvent>::new("wheel");
+    /// # let runtime = create_runtime();
+    /// # let canvas_ref: NodeRef<html::Canvas> = create_node_ref();
     /// # if false {
+    /// let mut non_passive_wheel = ev::Custom::<ev::WheelEvent>::new("wheel");
     /// let options = non_passive_wheel.options_mut();
     /// options.passive(false);
-    /// # }
-    /// canvas_ref.on_load(cx, move |canvas: HtmlElement<html::Canvas>| {
+    /// canvas_ref.on_load(move |canvas: HtmlElement<html::Canvas>| {
     ///     canvas.on(non_passive_wheel, move |_event| {
     ///         // Handle _event
     ///     });
     /// });
-    /// # });
+    /// # }
+    /// # runtime.dispose();
     /// ```
     ///
     /// [`AddEventListenerOptions`]: web_sys::AddEventListenerOptions
@@ -125,34 +127,255 @@ impl<E: FromWasmAbi> Custom<E> {
     }
 }
 
+/// Type that can respond to DOM events
+pub trait DOMEventResponder: Sized {
+    /// Adds handler to specified event
+    fn add<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self;
+    /// Same as [add](DOMEventResponder::add), but with [`EventHandler`]
+    #[inline]
+    fn add_handler(self, handler: impl EventHandler) -> Self {
+        handler.attach(self)
+    }
+}
+
+impl<T> DOMEventResponder for crate::HtmlElement<T>
+where
+    T: crate::html::ElementDescriptor + 'static,
+{
+    #[inline(always)]
+    fn add<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self {
+        self.on(event, handler)
+    }
+}
+
+impl DOMEventResponder for crate::View {
+    #[inline(always)]
+    fn add<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self {
+        self.on(event, handler)
+    }
+}
+
+/// Type that can be used to handle DOM events
+pub trait EventHandler {
+    /// Attaches event listener to any target that can respond to DOM events
+    fn attach<T: DOMEventResponder>(self, target: T) -> T;
+}
+
+impl<T, const N: usize> EventHandler for [T; N]
+where
+    T: EventHandler,
+{
+    #[inline]
+    fn attach<R: DOMEventResponder>(self, target: R) -> R {
+        let mut target = target;
+        for item in self {
+            target = item.attach(target);
+        }
+        target
+    }
+}
+
+impl<T> EventHandler for Option<T>
+where
+    T: EventHandler,
+{
+    #[inline]
+    fn attach<R: DOMEventResponder>(self, target: R) -> R {
+        match self {
+            Some(event_handler) => event_handler.attach(target),
+            None => target,
+        }
+    }
+}
+
+macro_rules! tc {
+  ($($ty:ident),*) => {
+    impl<$($ty),*> EventHandler for ($($ty,)*)
+    where
+      $($ty: EventHandler),*
+    {
+      #[inline]
+      fn attach<RES: DOMEventResponder>(self, target: RES) -> RES {
+        ::paste::paste! {
+          let (
+          $(
+            [<$ty:lower>],)*
+          ) = self;
+          $(
+            let target = [<$ty:lower>].attach(target);
+          )*
+          target
+        }
+      }
+    }
+  };
+}
+
+tc!(A);
+tc!(A, B);
+tc!(A, B, C);
+tc!(A, B, C, D);
+tc!(A, B, C, D, E);
+tc!(A, B, C, D, E, F);
+tc!(A, B, C, D, E, F, G);
+tc!(A, B, C, D, E, F, G, H);
+tc!(A, B, C, D, E, F, G, H, I);
+tc!(A, B, C, D, E, F, G, H, I, J);
+tc!(A, B, C, D, E, F, G, H, I, J, K);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X);
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
+#[rustfmt::skip]
+tc!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
+
+macro_rules! collection_callback {
+  {$(
+    $collection:ident
+  ),* $(,)?} => {
+    $(
+      impl<T> EventHandler for $collection<T>
+      where
+        T: EventHandler
+      {
+        #[inline]
+        fn attach<R: DOMEventResponder>(self, target: R) -> R {
+          let mut target = target;
+          for item in self {
+            target = item.attach(target);
+          }
+          target
+        }
+      }
+    )*
+  };
+}
+
+use std::collections::{BTreeSet, BinaryHeap, HashSet, LinkedList, VecDeque};
+
+collection_callback! {
+  Vec,
+  BTreeSet,
+  BinaryHeap,
+  HashSet,
+  LinkedList,
+  VecDeque,
+}
+
 macro_rules! generate_event_types {
   {$(
     $( #[$does_not_bubble:ident] )?
-    $event:ident : $web_sys_event:ident
+    $( $event:ident )+ : $web_event:ident
   ),* $(,)?} => {
-
-    $(
-        #[doc = concat!("The `", stringify!($event), "` event, which receives [", stringify!($web_sys_event), "](web_sys::", stringify!($web_sys_event), ") as its argument.")]
-        #[derive(Copy, Clone)]
+    ::paste::paste! {
+      $(
+        #[doc = "The `" [< $($event)+ >] "` event, which receives [" $web_event "](web_sys::" $web_event ") as its argument."]
+        #[derive(Copy, Clone, Debug)]
         #[allow(non_camel_case_types)]
-        pub struct $event;
+        pub struct [<$( $event )+ >];
 
-        impl EventDescriptor for $event {
-          type EventType = web_sys::$web_sys_event;
+        impl EventDescriptor for [< $($event)+ >] {
+          type EventType = web_sys::$web_event;
 
           #[inline(always)]
-          fn name(&self) -> Cow<'static, str> {
-            stringify!($event).into()
+          fn name(&self) -> Oco<'static, str> {
+            stringify!([< $($event)+ >]).into()
           }
 
           #[inline(always)]
-          fn event_delegation_key(&self) -> Cow<'static, str> {
-            concat!("$$$", stringify!($event)).into()
+          fn event_delegation_key(&self) -> Oco<'static, str> {
+            concat!("$$$", stringify!([< $($event)+ >])).into()
           }
 
           const BUBBLES: bool = true $(&& generate_event_types!($does_not_bubble))?;
         }
-    )*
+      )*
+
+      /// An enum holding all basic event types with their respective handlers.
+      ///
+      /// It currently omits [`Custom`] and [`undelegated`] variants.
+      #[non_exhaustive]
+      pub enum GenericEventHandler {
+        $(
+          #[doc = "Variant mapping [`struct@" [< $($event)+ >] "`] to its event handler type."]
+          [< $($event:camel)+ >]([< $($event)+ >], Box<dyn FnMut($web_event) + 'static>),
+        )*
+      }
+
+      impl ::std::fmt::Debug for GenericEventHandler {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+          match self {
+            $(
+              Self::[< $($event:camel)+ >](event, _) => f
+                .debug_tuple(stringify!([< $($event:camel)+ >]))
+                .field(&event)
+                .field(&::std::any::type_name::<Box<dyn FnMut($web_event) + 'static>>())
+                .finish(),
+            )*
+          }
+        }
+      }
+
+      impl EventHandler for GenericEventHandler {
+        fn attach<T: DOMEventResponder>(self, target: T) -> T {
+          match self {
+            $(
+              Self::[< $($event:camel)+ >](event, handler) => target.add(event, handler),
+            )*
+          }
+        }
+      }
+
+      $(
+        impl<F> From<([< $($event)+ >], F)> for GenericEventHandler
+        where
+          F: FnMut($web_event) + 'static
+        {
+          fn from(value: ([< $($event)+ >], F)) -> Self {
+            Self::[< $($event:camel)+ >](value.0, Box::new(value.1))
+          }
+        }
+        // NOTE: this could become legal in future and would save us from useless allocations
+        //impl<F> From<([< $($event)+ >], Box<F>)> for GenericEventHandler
+        //where
+        //  F: FnMut($web_event) + 'static
+        //{
+        //  fn from(value: ([< $($event)+ >], Box<F>)) -> Self {
+        //    Self::[< $($event:camel)+ >](value.0, value.1)
+        //  }
+        //}
+        impl<F> EventHandler for ([< $($event)+ >], F)
+        where
+          F: FnMut($web_event) + 'static
+        {
+          fn attach<L: DOMEventResponder>(self, target: L) -> L {
+            target.add(self.0, self.1)
+          }
+        }
+      )*
+    }
   };
 
   (does_not_bubble) => { false }
@@ -163,36 +386,36 @@ generate_event_types! {
   // WindowEventHandlersEventMap
   // =========================================================
   #[does_not_bubble]
-  afterprint: Event,
+  after print: Event,
   #[does_not_bubble]
-  beforeprint: Event,
+  before print: Event,
   #[does_not_bubble]
-  beforeunload: BeforeUnloadEvent,
+  before unload: BeforeUnloadEvent,
   #[does_not_bubble]
-  gamepadconnected: GamepadEvent,
+  gamepad connected: GamepadEvent,
   #[does_not_bubble]
-  gamepaddisconnected: GamepadEvent,
-  hashchange: HashChangeEvent,
+  gamepad disconnected: GamepadEvent,
+  hash change: HashChangeEvent,
   #[does_not_bubble]
-  languagechange: Event,
+  language change: Event,
   #[does_not_bubble]
   message: MessageEvent,
   #[does_not_bubble]
-  messageerror: MessageEvent,
+  message error: MessageEvent,
   #[does_not_bubble]
   offline: Event,
   #[does_not_bubble]
   online: Event,
   #[does_not_bubble]
-  pagehide: PageTransitionEvent,
+  page hide: PageTransitionEvent,
   #[does_not_bubble]
-  pageshow: PageTransitionEvent,
-  popstate: PopStateEvent,
-  rejectionhandled: PromiseRejectionEvent,
+  page show: PageTransitionEvent,
+  pop state: PopStateEvent,
+  rejection handled: PromiseRejectionEvent,
   #[does_not_bubble]
   storage: StorageEvent,
   #[does_not_bubble]
-  unhandledrejection: PromiseRejectionEvent,
+  unhandled rejection: PromiseRejectionEvent,
   #[does_not_bubble]
   unload: Event,
 
@@ -201,38 +424,38 @@ generate_event_types! {
   // =========================================================
   #[does_not_bubble]
   abort: UiEvent,
-  animationcancel: AnimationEvent,
-  animationend: AnimationEvent,
-  animationiteration: AnimationEvent,
-  animationstart: AnimationEvent,
-  auxclick: MouseEvent,
-  beforeinput: InputEvent,
+  animation cancel: AnimationEvent,
+  animation end: AnimationEvent,
+  animation iteration: AnimationEvent,
+  animation start: AnimationEvent,
+  aux click: MouseEvent,
+  before input: InputEvent,
   #[does_not_bubble]
   blur: FocusEvent,
   #[does_not_bubble]
-  canplay: Event,
+  can play: Event,
   #[does_not_bubble]
-  canplaythrough: Event,
+  can play through: Event,
   change: Event,
   click: MouseEvent,
   #[does_not_bubble]
   close: Event,
-  compositionend: CompositionEvent,
-  compositionstart: CompositionEvent,
-  compositionupdate: CompositionEvent,
-  contextmenu: MouseEvent,
+  composition end: CompositionEvent,
+  composition start: CompositionEvent,
+  composition update: CompositionEvent,
+  context menu: MouseEvent,
   #[does_not_bubble]
-  cuechange: Event,
-  dblclick: MouseEvent,
+  cue change: Event,
+  dbl click: MouseEvent,
   drag: DragEvent,
-  dragend: DragEvent,
-  dragenter: DragEvent,
-  dragleave: DragEvent,
-  dragover: DragEvent,
-  dragstart: DragEvent,
+  drag end: DragEvent,
+  drag enter: DragEvent,
+  drag leave: DragEvent,
+  drag over: DragEvent,
+  drag start: DragEvent,
   drop: DragEvent,
   #[does_not_bubble]
-  durationchange: Event,
+  duration change: Event,
   #[does_not_bubble]
   emptied: Event,
   #[does_not_bubble]
@@ -242,110 +465,110 @@ generate_event_types! {
   #[does_not_bubble]
   focus: FocusEvent,
   #[does_not_bubble]
-  focusin: FocusEvent,
+  focus in: FocusEvent,
   #[does_not_bubble]
-  focusout: FocusEvent,
-  formdata: Event, // web_sys does not include `FormDataEvent`
+  focus out: FocusEvent,
+  form data: Event, // web_sys does not include `FormDataEvent`
   #[does_not_bubble]
-  gotpointercapture: PointerEvent,
+  got pointer capture: PointerEvent,
   input: Event,
   #[does_not_bubble]
   invalid: Event,
-  keydown: KeyboardEvent,
-  keypress: KeyboardEvent,
-  keyup: KeyboardEvent,
+  key down: KeyboardEvent,
+  key press: KeyboardEvent,
+  key up: KeyboardEvent,
   #[does_not_bubble]
   load: Event,
   #[does_not_bubble]
-  loadeddata: Event,
+  loaded data: Event,
   #[does_not_bubble]
-  loadedmetadata: Event,
+  loaded metadata: Event,
   #[does_not_bubble]
-  loadstart: Event,
-  lostpointercapture: PointerEvent,
-  mousedown: MouseEvent,
+  load start: Event,
+  lost pointer capture: PointerEvent,
+  mouse down: MouseEvent,
   #[does_not_bubble]
-  mouseenter: MouseEvent,
+  mouse enter: MouseEvent,
   #[does_not_bubble]
-  mouseleave: MouseEvent,
-  mousemove: MouseEvent,
-  mouseout: MouseEvent,
-  mouseover: MouseEvent,
-  mouseup: MouseEvent,
+  mouse leave: MouseEvent,
+  mouse move: MouseEvent,
+  mouse out: MouseEvent,
+  mouse over: MouseEvent,
+  mouse up: MouseEvent,
   #[does_not_bubble]
   pause: Event,
   #[does_not_bubble]
   play: Event,
   #[does_not_bubble]
   playing: Event,
-  pointercancel: PointerEvent,
-  pointerdown: PointerEvent,
+  pointer cancel: PointerEvent,
+  pointer down: PointerEvent,
   #[does_not_bubble]
-  pointerenter: PointerEvent,
+  pointer enter: PointerEvent,
   #[does_not_bubble]
-  pointerleave: PointerEvent,
-  pointermove: PointerEvent,
-  pointerout: PointerEvent,
-  pointerover: PointerEvent,
-  pointerup: PointerEvent,
+  pointer leave: PointerEvent,
+  pointer move: PointerEvent,
+  pointer out: PointerEvent,
+  pointer over: PointerEvent,
+  pointer up: PointerEvent,
   #[does_not_bubble]
   progress: ProgressEvent,
   #[does_not_bubble]
-  ratechange: Event,
+  rate change: Event,
   reset: Event,
   #[does_not_bubble]
   resize: UiEvent,
   #[does_not_bubble]
   scroll: Event,
   #[does_not_bubble]
-  scrollend: Event,
-  securitypolicyviolation: SecurityPolicyViolationEvent,
+  scroll end: Event,
+  security policy violation: SecurityPolicyViolationEvent,
   #[does_not_bubble]
   seeked: Event,
   #[does_not_bubble]
   seeking: Event,
   select: Event,
   #[does_not_bubble]
-  selectionchange: Event,
-  selectstart: Event,
-  slotchange: Event,
+  selection change: Event,
+  select start: Event,
+  slot change: Event,
   #[does_not_bubble]
   stalled: Event,
   submit: SubmitEvent,
   #[does_not_bubble]
   suspend: Event,
   #[does_not_bubble]
-  timeupdate: Event,
+  time update: Event,
   #[does_not_bubble]
   toggle: Event,
-  touchcancel: TouchEvent,
-  touchend: TouchEvent,
-  touchmove: TouchEvent,
-  touchstart: TouchEvent,
-  transitioncancel: TransitionEvent,
-  transitionend: TransitionEvent,
-  transitionrun: TransitionEvent,
-  transitionstart: TransitionEvent,
+  touch cancel: TouchEvent,
+  touch end: TouchEvent,
+  touch move: TouchEvent,
+  touch start: TouchEvent,
+  transition cancel: TransitionEvent,
+  transition end: TransitionEvent,
+  transition run: TransitionEvent,
+  transition start: TransitionEvent,
   #[does_not_bubble]
-  volumechange: Event,
+  volume change: Event,
   #[does_not_bubble]
   waiting: Event,
-  webkitanimationend: Event,
-  webkitanimationiteration: Event,
-  webkitanimationstart: Event,
-  webkittransitionend: Event,
+  webkit animation end: Event,
+  webkit animation iteration: Event,
+  webkit animation start: Event,
+  webkit transition end: Event,
   wheel: WheelEvent,
 
   // =========================================================
   // WindowEventMap
   // =========================================================
-  DOMContentLoaded: Event,
+  D O M Content Loaded: Event, // Hack for correct casing
   #[does_not_bubble]
-  devicemotion: DeviceMotionEvent,
+  device motion: DeviceMotionEvent,
   #[does_not_bubble]
-  deviceorientation: DeviceOrientationEvent,
+  device orientation: DeviceOrientationEvent,
   #[does_not_bubble]
-  orientationchange: Event,
+  orientation change: Event,
 
   // =========================================================
   // DocumentAndElementEventHandlersEventMap
@@ -357,13 +580,13 @@ generate_event_types! {
   // =========================================================
   // DocumentEventMap
   // =========================================================
-  fullscreenchange: Event,
-  fullscreenerror: Event,
-  pointerlockchange: Event,
-  pointerlockerror: Event,
+  fullscreen change: Event,
+  fullscreen error: Event,
+  pointer lock change: Event,
+  pointer lock error: Event,
   #[does_not_bubble]
-  readystatechange: Event,
-  visibilitychange: Event,
+  ready state change: Event,
+  visibility change: Event,
 }
 
 // Export `web_sys` event types
@@ -371,7 +594,7 @@ pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
     DeviceMotionEvent, DeviceOrientationEvent, DragEvent, ErrorEvent, Event,
     FocusEvent, GamepadEvent, HashChangeEvent, InputEvent, KeyboardEvent,
-    MouseEvent, PageTransitionEvent, PointerEvent, PopStateEvent,
+    MessageEvent, MouseEvent, PageTransitionEvent, PointerEvent, PopStateEvent,
     ProgressEvent, PromiseRejectionEvent, SecurityPolicyViolationEvent,
     StorageEvent, SubmitEvent, TouchEvent, TransitionEvent, UiEvent,
     WheelEvent,

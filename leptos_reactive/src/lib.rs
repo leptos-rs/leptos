@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
@@ -36,38 +37,40 @@
 //! ```
 //! use leptos_reactive::*;
 //!
-//! // creates a new reactive Scope
+//! // creates a new reactive runtime
 //! // this is omitted from most of the examples in the docs
 //! // you usually won't need to call it yourself
-//! create_scope(create_runtime(), |cx| {
-//!     // a signal: returns a (getter, setter) pair
-//!     let (count, set_count) = create_signal(cx, 0);
+//! let runtime = create_runtime();
+//! // a signal: returns a (getter, setter) pair
+//! let (count, set_count) = create_signal(0);
 //!
-//!     // calling the getter gets the value
-//!     // can be `count()` on nightly
-//!     assert_eq!(count.get(), 0);
-//!     // calling the setter sets the value
-//!     // can be `set_count(1)` on nightly
-//!     set_count.set(1);
-//!     // or we can mutate it in place with update()
-//!     set_count.update(|n| *n += 1);
+//! // calling the getter gets the value
+//! // can be `count()` on nightly
+//! assert_eq!(count.get(), 0);
+//! // calling the setter sets the value
+//! // can be `set_count(1)` on nightly
+//! set_count.set(1);
+//! // or we can mutate it in place with update()
+//! set_count.update(|n| *n += 1);
 //!
-//!     // a derived signal: a plain closure that relies on the signal
-//!     // the closure will run whenever we *access* double_count()
-//!     let double_count = move || count.get() * 2;
-//!     assert_eq!(double_count(), 4);
+//! // a derived signal: a plain closure that relies on the signal
+//! // the closure will run whenever we *access* double_count()
+//! let double_count = move || count.get() * 2;
+//! assert_eq!(double_count(), 4);
 //!
-//!     // a memo: subscribes to the signal
-//!     // the closure will run only when count changes
-//!     let memoized_triple_count = create_memo(cx, move |_| count.get() * 3);
-//!     // can be `memoized_triple_count()` on nightly
-//!     assert_eq!(memoized_triple_count.get(), 6);
+//! // a memo: subscribes to the signal
+//! // the closure will run only when count changes
+//! let memoized_triple_count = create_memo(move |_| count.get() * 3);
+//! // can be `memoized_triple_count()` on nightly
+//! assert_eq!(memoized_triple_count.get(), 6);
 //!
-//!     // this effect will run whenever `count` changes
-//!     create_effect(cx, move |_| {
-//!         println!("Count = {}", count.get());
-//!     });
+//! // this effect will run whenever `count` changes
+//! create_effect(move |_| {
+//!     println!("Count = {}", count.get());
 //! });
+//!
+//! // disposes of the reactive runtime
+//! runtime.dispose();
 //! ```
 
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
@@ -80,12 +83,15 @@ mod context;
 mod diagnostics;
 mod effect;
 mod hydration;
+mod macros;
 mod memo;
 mod node;
+pub mod oco;
 mod resource;
 mod runtime;
-mod scope;
 mod selector;
+#[cfg(any(doc, feature = "serde"))]
+mod serde;
 mod serialization;
 mod signal_wrappers_read;
 mod signal_wrappers_write;
@@ -100,12 +106,17 @@ mod watch;
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
-pub use hydration::FragmentData;
+pub use hydration::{FragmentData, SharedContext};
 pub use memo::*;
+pub use node::Disposer;
+pub use oco::*;
 pub use resource::*;
 use runtime::*;
-pub use runtime::{create_runtime, RuntimeId};
-pub use scope::*;
+pub use runtime::{
+    as_child_of_current_owner, batch, create_runtime, current_runtime,
+    on_cleanup, set_current_runtime, untrack, untrack_with_diagnostics,
+    with_current_owner, with_owner, Owner, RuntimeId,
+};
 pub use selector::*;
 pub use serialization::*;
 pub use signal::{prelude as signal_prelude, *};
@@ -118,25 +129,6 @@ pub use stored_value::*;
 pub use suspense::{GlobalSuspenseContext, SuspenseContext};
 pub use trigger::*;
 pub use watch::*;
-
-mod macros {
-    macro_rules! debug_warn {
-        ($($x:tt)*) => {
-            {
-                #[cfg(debug_assertions)]
-                {
-                    ($crate::console_warn(&format_args!($($x)*).to_string()))
-                }
-                #[cfg(not(debug_assertions))]
-                {
-                    ($($x)*)
-                }
-            }
-        }
-    }
-
-    pub(crate) use debug_warn;
-}
 
 pub(crate) fn console_warn(s: &str) {
     cfg_if::cfg_if! {

@@ -1,0 +1,54 @@
+name: Changed Examples Matrix Call
+
+on:
+  workflow_call:
+    inputs:
+      example_changed:
+        description: "Example Changed"
+        required: true
+        type: boolean
+    outputs:
+      matrix:
+        description: "Matrix"
+        value: ${{ jobs.get-example-changed.outputs.matrix }}
+
+jobs:
+  get-example-changed:
+    name: Get Changed Example Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get example project directories that changed
+        id: changed-dirs
+        uses: tj-actions/changed-files@v36
+        with:
+          dir_names: true
+          dir_names_max_depth: "2"
+          files: |
+            examples
+            !examples/cargo-make
+            !examples/gtk
+            !examples/Makefile.toml
+            !examples/*.md
+          json: true
+          quotepath: false
+
+      - name: List example project directories that changed
+        run: echo '${{ steps.changed-dirs.outputs.all_changed_files }}'
+
+      - name: Set Matrix
+        id: set-matrix
+        run: |
+          if [ ${{ inputs.example_changed }} == 'true' ]; then
+            # Create matrix with changed directories
+            echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
+          else
+            # Create matrix with one item to prevent an empty vector error
+            echo "matrix={\"directory\":[\"NO_CHANGE\"]}" >> "$GITHUB_OUTPUT"
+          fi

@@ -3,12 +3,11 @@ use crate::{
     Comment, IntoView, View,
 };
 use cfg_if::cfg_if;
-use leptos_reactive::Scope;
-use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
+use std::{cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
-    use leptos_reactive::{create_effect, ScopeDisposer};
+    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable, Text};
+    use leptos_reactive::create_render_effect;
     use wasm_bindgen::JsCast;
   }
 }
@@ -23,7 +22,7 @@ pub struct DynChildRepr {
     pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for DynChildRepr {
@@ -82,11 +81,11 @@ impl Mountable for DynChildRepr {
 }
 
 impl DynChildRepr {
-    fn new_with_id(id: HydrationKey) -> Self {
+    fn new_with_id(id: Option<HydrationKey>) -> Self {
         let markers = (
-            Comment::new(Cow::Borrowed("</DynChild>"), &id, true),
+            Comment::new("</DynChild>", &id, true),
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Borrowed("<DynChild>"), &id, false),
+            Comment::new("<DynChild>", &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -127,7 +126,7 @@ where
     CF: Fn() -> N + 'static,
     N: IntoView,
 {
-    id: crate::HydrationKey,
+    id: Option<HydrationKey>,
     child_fn: CF,
 }
 
@@ -147,7 +146,7 @@ where
     #[doc(hidden)]
     #[track_caller]
     #[inline(always)]
-    pub const fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
+    pub const fn new_with_id(id: Option<HydrationKey>, child_fn: CF) -> Self {
         Self { id, child_fn }
     }
 }
@@ -162,11 +161,10 @@ where
         instrument(level = "info", name = "<DynChild />", skip_all)
     )]
     #[inline]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         // concrete inner function
         #[inline(never)]
         fn create_dyn_view(
-            cx: Scope,
             component: DynChildRepr,
             child_fn: Box<dyn Fn() -> View>,
         ) -> DynChildRepr {
@@ -183,26 +181,18 @@ where
             let span = tracing::Span::current();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            create_effect(
-                cx,
-                move |prev_run: Option<(
-                    Option<web_sys::Node>,
-                    ScopeDisposer,
-                )>| {
+            create_render_effect(
+                move |prev_run: Option<Option<web_sys::Node>>| {
                     #[cfg(debug_assertions)]
                     let _guard = span.enter();
 
-                    let (new_child, disposer) =
-                        cx.run_child_scope(|cx| child_fn().into_view(cx));
+                    let new_child = child_fn().into_view();
 
                     let mut child_borrow = child.borrow_mut();
 
                     // Is this at least the second time we are loading a child?
-                    if let Some((prev_t, prev_disposer)) = prev_run {
+                    if let Some(prev_t) = prev_run {
                         let child = child_borrow.take().unwrap();
-
-                        // Dispose of the scope
-                        prev_disposer.dispose();
 
                         // We need to know if our child wasn't moved elsewhere.
                         // If it was, `DynChild` no longer "owns" that child, and
@@ -244,7 +234,7 @@ where
                                     let new_child = View::Text(new_t);
                                     **child_borrow = Some(new_child);
 
-                                    (Some(prev_t), disposer)
+                                    Some(prev_t)
                                 } else {
                                     let new_t = new_child.as_text().unwrap();
                                     mount_child(
@@ -254,7 +244,7 @@ where
 
                                     **child_borrow = Some(new_child.clone());
 
-                                    (Some(new_t.node.clone()), disposer)
+                                    Some(new_t.node.clone())
                                 }
                             }
                             // Child is not a text node, so we can remove the previous
@@ -277,7 +267,7 @@ where
 
                                 **child_borrow = Some(new_child);
 
-                                (None, disposer)
+                                None
                             }
                         }
                         // Otherwise, the new child can still be a text node,
@@ -340,39 +330,36 @@ where
 
                             **child_borrow = Some(new_child);
 
-                            (t, disposer)
+                            t
                         };
 
                         ret
                     }
                     // Otherwise, we know for sure this is our first time
                     else {
-                        // We need to remove the text created from SSR
-                        if HydrationCtx::is_hydrating()
+                        // If it's a text node, we want to use the old text node
+                        // as the text node for the DynChild, rather than the new
+                        // text node being created during hydration
+                        let new_child = if HydrationCtx::is_hydrating()
                             && new_child.get_text().is_some()
                         {
                             let t = closing
                                 .previous_non_view_marker_sibling()
                                 .unwrap()
-                                .unchecked_into::<web_sys::Element>();
+                                .unchecked_into::<web_sys::Text>();
 
-                            // See note on ssr.rs when matching on `DynChild`
-                            // for more details on why we need to do this for
-                            // release
-                            if !cfg!(debug_assertions) {
-                                t.previous_sibling()
-                                    .unwrap()
-                                    .unchecked_into::<web_sys::Element>()
-                                    .remove();
-                            }
-
-                            t.remove();
-
-                            mount_child(
-                                MountKind::Before(&closing),
-                                &new_child,
-                            );
-                        }
+                            let new_child = match new_child {
+                                View::Text(text) => text,
+                                _ => unreachable!(),
+                            };
+                            t.set_data(&new_child.content);
+                            View::Text(Text {
+                                node: t.unchecked_into(),
+                                content: new_child.content,
+                            })
+                        } else {
+                            new_child
+                        };
 
                         // If we are not hydrating, we simply mount the child
                         if !HydrationCtx::is_hydrating() {
@@ -388,14 +375,14 @@ where
 
                         **child_borrow = Some(new_child);
 
-                        (t, disposer)
+                        t
                     }
                 },
             );
 
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             {
-                let new_child = child_fn().into_view(cx);
+                let new_child = child_fn().into_view();
 
                 **child.borrow_mut() = Some(new_child);
             }
@@ -408,9 +395,8 @@ where
 
         let component = DynChildRepr::new_with_id(id);
         let component = create_dyn_view(
-            cx,
             component,
-            Box::new(move || child_fn().into_view(cx)),
+            Box::new(move || child_fn().into_view()),
         );
 
         View::CoreComponent(crate::CoreComponent::DynChild(component))

@@ -1,7 +1,7 @@
 //! A variety of DOM utility functions.
 
 use crate::{events::typed as ev, is_server, window};
-use leptos_reactive::{on_cleanup, Scope};
+use leptos_reactive::on_cleanup;
 use std::time::Duration;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
@@ -19,6 +19,7 @@ pub fn set_property(
 }
 
 /// Gets the value of a property set on a DOM element.
+#[doc(hidden)]
 pub fn get_property(
     el: &web_sys::Element,
     prop_name: &str,
@@ -218,10 +219,10 @@ pub fn set_timeout_with_handle(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -245,22 +246,21 @@ pub fn set_timeout_with_handle(
 /// listeners to prevent them from firing constantly as you type.
 ///
 /// ```
-/// use leptos::{leptos_dom::helpers::debounce, *};
+/// use leptos::{leptos_dom::helpers::debounce, logging::log, *};
 ///
 /// #[component]
-/// fn DebouncedButton(cx: Scope) -> impl IntoView {
+/// fn DebouncedButton() -> impl IntoView {
 ///     let delay = std::time::Duration::from_millis(250);
-///     let on_click = debounce(cx, delay, move |_| {
+///     let on_click = debounce(delay, move |_| {
 ///         log!("...so many clicks!");
 ///     });
 ///
-///     view! { cx,
+///     view! {
 ///       <button on:click=on_click>"Click me"</button>
 ///     }
 /// }
 /// ```
 pub fn debounce<T: 'static>(
-    cx: Scope,
     delay: Duration,
     #[cfg(debug_assertions)] mut cb: impl FnMut(T) + 'static,
     #[cfg(not(debug_assertions))] cb: impl FnMut(T) + 'static,
@@ -274,10 +274,10 @@ pub fn debounce<T: 'static>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move |value| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(value);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -285,7 +285,7 @@ pub fn debounce<T: 'static>(
 
     let timer = Rc::new(Cell::new(None::<TimeoutHandle>));
 
-    on_cleanup(cx, {
+    on_cleanup({
         let timer = Rc::clone(&timer);
         move || {
             if let Some(timer) = timer.take() {
@@ -325,7 +325,8 @@ impl IntervalHandle {
     }
 }
 
-/// Repeatedly calls the given function, with a delay of the given duration between calls.
+/// Repeatedly calls the given function, with a delay of the given duration between calls,
+/// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
   any(debug_assertions, feature = "ssr"),
@@ -351,10 +352,10 @@ pub fn set_interval_with_handle(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -377,7 +378,8 @@ pub fn set_interval_with_handle(
     si(Box::new(cb), duration)
 }
 
-/// Adds an event listener to the `Window`, typed as a generic `Event`.
+/// Adds an event listener to the `Window`, typed as a generic `Event`,
+/// returning a cancelable handle.
 #[cfg_attr(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
@@ -386,56 +388,87 @@ pub fn set_interval_with_handle(
 pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
-) {
+) -> WindowListenerHandle {
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
 
     if !is_server() {
         #[inline(never)]
-        fn wel(cb: Box<dyn FnMut(web_sys::Event)>, event_name: &str) {
+        fn wel(
+            cb: Box<dyn FnMut(web_sys::Event)>,
+            event_name: &str,
+        ) -> WindowListenerHandle {
             let cb = Closure::wrap(cb).into_js_value();
             _ = window().add_event_listener_with_callback(
                 event_name,
                 cb.unchecked_ref(),
             );
+            let event_name = event_name.to_string();
+            WindowListenerHandle(Box::new(move || {
+                _ = window().remove_event_listener_with_callback(
+                    &event_name,
+                    cb.unchecked_ref(),
+                );
+            }))
         }
 
-        wel(Box::new(cb), event_name);
+        wel(Box::new(cb), event_name)
+    } else {
+        WindowListenerHandle(Box::new(|| ()))
     }
 }
 
-/// Creates a window event listener from a typed event.
+/// Creates a window event listener from a typed event, returning a
+/// cancelable handle.
 /// ```
-/// use leptos::{leptos_dom::helpers::window_event_listener, *};
+/// use leptos::{leptos_dom::helpers::window_event_listener, logging::log, *};
 ///
 /// #[component]
-/// fn App(cx: Scope) -> impl IntoView {
-///     window_event_listener(ev::keypress, |ev| {
+/// fn App() -> impl IntoView {
+///     let handle = window_event_listener(ev::keypress, |ev| {
 ///         // ev is typed as KeyboardEvent automatically,
 ///         // so .code() can be called
 ///         let code = ev.code();
 ///         log!("code = {code:?}");
-///     })
+///     });
+///     on_cleanup(move || handle.remove());
 /// }
 /// ```
 pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
     event: E,
     cb: impl Fn(E::EventType) + 'static,
-) where
+) -> WindowListenerHandle
+where
     E::EventType: JsCast,
 {
     window_event_listener_untyped(&event.name(), move |e| {
         cb(e.unchecked_into::<E::EventType>())
-    });
+    })
+}
+
+/// A handle that can be called to remove a global event listener.
+pub struct WindowListenerHandle(Box<dyn FnOnce()>);
+
+impl std::fmt::Debug for WindowListenerHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("WindowListenerHandle").finish()
+    }
+}
+
+impl WindowListenerHandle {
+    /// Removes the event listener.
+    pub fn remove(self) {
+        (self.0)()
+    }
 }
 
 #[doc(hidden)]

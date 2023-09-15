@@ -1,7 +1,7 @@
 pub use leptos::*;
 use miniserde::*;
-use web_sys::HtmlInputElement;
 use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Todos(pub Vec<Todo>);
@@ -9,13 +9,13 @@ pub struct Todos(pub Vec<Todo>);
 const STORAGE_KEY: &str = "todos-leptos";
 
 impl Todos {
-    pub fn new(cx: Scope) -> Self {
+    pub fn new() -> Self {
         Self(vec![])
     }
 
-    pub fn new_with_1000(cx: Scope) -> Self {
+    pub fn new_with_1000() -> Self {
         let todos = (0..1000)
-            .map(|id| Todo::new(cx, id, format!("Todo #{id}")))
+            .map(|id| Todo::new(id, format!("Todo #{id}")))
             .collect();
         Self(todos)
     }
@@ -72,13 +72,17 @@ pub struct Todo {
 }
 
 impl Todo {
-    pub fn new(cx: Scope, id: usize, title: String) -> Self {
-        Self::new_with_completed(cx, id, title, false)
+    pub fn new(id: usize, title: String) -> Self {
+        Self::new_with_completed(id, title, false)
     }
 
-    pub fn new_with_completed(cx: Scope, id: usize, title: String, completed: bool) -> Self {
-        let (title, set_title) = create_signal(cx, title);
-        let (completed, set_completed) = create_signal(cx, completed);
+    pub fn new_with_completed(
+        id: usize,
+        title: String,
+        completed: bool,
+    ) -> Self {
+        let (title, set_title) = create_signal(title);
+        let (completed, set_completed) = create_signal(completed);
         Self {
             id,
             title,
@@ -98,7 +102,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
+pub fn TodoMVC(todos: Todos) -> impl IntoView {
     let mut next_id = todos
         .0
         .iter()
@@ -107,10 +111,10 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
         .map(|last| last + 1)
         .unwrap_or(0);
 
-    let (todos, set_todos) = create_signal(cx, todos);
-    provide_context(cx, set_todos);
+    let (todos, set_todos) = create_signal(todos);
+    provide_context(set_todos);
 
-    let (mode, set_mode) = create_signal(cx, Mode::All);
+    let (mode, set_mode) = create_signal(Mode::All);
 
     let add_todo = move |ev: web_sys::KeyboardEvent| {
         let target = event_target::<HtmlInputElement>(&ev);
@@ -120,7 +124,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
             let title = event_target_value(&ev);
             let title = title.trim();
             if !title.is_empty() {
-                let new = Todo::new(cx, next_id, title.to_string());
+                let new = Todo::new(next_id, title.to_string());
                 set_todos.update(|t| t.add(new));
                 next_id += 1;
                 target.set_value("");
@@ -128,7 +132,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
         }
     };
 
-    let filtered_todos = create_memo::<Vec<Todo>>(cx, move |_| {
+    let filtered_todos = create_memo::<Vec<Todo>>(move |_| {
         todos.with(|todos| match mode.get() {
             Mode::All => todos.0.to_vec(),
             Mode::Active => todos
@@ -148,7 +152,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
 
     // effect to serialize to JSON
     // this does reactive reads, so it will automatically serialize on any relevant change
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         if let Ok(Some(storage)) = window().local_storage() {
             let objs = todos
                 .get()
@@ -163,7 +167,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
         }
     });
 
-    view! { cx,
+    view! { 
         <main>
             <section class="todoapp">
                 <header class="header">
@@ -188,8 +192,8 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
                         <For
                             each=filtered_todos
                             key=|todo| todo.id
-                            view=move |cx, todo: Todo| {
-                                view! { cx, <Todo todo=todo.clone()/> }
+                            view=move |todo: Todo| {
+                                view! { <Todo todo=todo.clone()/> }
                             }
                         />
                     </ul>
@@ -236,14 +240,14 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
                 <p>"Part of " <a href="http://todomvc.com">"TodoMVC"</a></p>
             </footer>
         </main>
-    }.into_view(cx)
+    }.into_view()
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
-    let (editing, set_editing) = create_signal(cx, false);
-    let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
-    //let input = NodeRef::new(cx);
+pub fn Todo(todo: Todo) -> impl IntoView {
+    let (editing, set_editing) = create_signal(false);
+    let set_todos = use_context::<WriteSignal<Todos>>().unwrap();
+    //let input = NodeRef::new();
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -255,7 +259,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
         set_editing(false);
     };
 
-    view! { cx,
+    view! { 
         <li class="todo" class:editing=editing class:completed=move || (todo.completed)()>
             <div class="view">
                 <input class="toggle" type="checkbox" prop:checked=move || (todo.completed)()/>
@@ -268,7 +272,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
             {move || {
                 editing()
                     .then(|| {
-                        view! { cx,
+                        view! { 
                             <input
                                 class="edit"
                                 class:hidden=move || !(editing)()
@@ -319,8 +323,8 @@ pub struct TodoSerialized {
 }
 
 impl TodoSerialized {
-    pub fn into_todo(self, cx: Scope) -> Todo {
-        Todo::new_with_completed(cx, self.id, self.title, self.completed)
+    pub fn into_todo(self, ) -> Todo {
+        Todo::new_with_completed(self.id, self.title, self.completed)
     }
 }
 

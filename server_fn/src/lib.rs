@@ -110,18 +110,6 @@ pub trait ServerFunctionRegistry<T> {
     /// An error that can occur when registering a server function.
     type Error: std::error::Error;
 
-    /// Registers a server function at the given URL.
-    #[deprecated = "Explicit server function registration is no longer \
-                    required on most platforms (including Linux, macOS, iOS, \
-                    FreeBSD, Android, and Windows). If you are on another \
-                    platform and need to explicitly register server functions, \
-                    call ServerFn::register_explicit() instead."]
-    fn register(
-        url: &'static str,
-        server_function: SerializedFnTraitObj<T>,
-        encoding: Encoding,
-    ) -> Result<(), Self::Error>;
-
     /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
     /// this will explicitly register server functions.
@@ -423,20 +411,6 @@ where
             as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
     }
 
-    /// Registers the server function, allowing the server to query it by URL.
-    ///
-    /// This function is deprecated, as server functions are now registered automatically.
-    #[cfg(any(feature = "ssr", doc,))]
-    #[deprecated = "Explicit server function registration is no longer \
-                    required on most platforms (including Linux, macOS, iOS, \
-                    FreeBSD, Android, and Windows). If you are on another \
-                    platform and need to explicitly register server functions, \
-                    call ServerFn::register_explicit() instead."]
-    fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
-    {
-        Ok(())
-    }
-
     /// Registers the server function explicitly on platforms that require it,
     /// allowing the server to query it by URL.
     #[cfg(any(feature = "ssr", doc,))]
@@ -581,14 +555,22 @@ where
     let status = resp.status();
     #[cfg(not(target_arch = "wasm32"))]
     let status = status.as_u16();
-    if (500..=599).contains(&status) {
+    if (400..=599).contains(&status) {
         let text = resp.text().await.unwrap_or_default();
-        #[cfg(target_arch = "wasm32")]
-        let status_text = resp.status_text();
-        #[cfg(not(target_arch = "wasm32"))]
-        let status_text = status.to_string();
-        return Err(serde_json::from_str(&text)
-            .unwrap_or(ServerFnError::ServerError(status_text)));
+        return Err(match serde_json::from_str(&text) {
+            Ok(e) => e,
+            Err(_) => {
+                #[cfg(target_arch = "wasm32")]
+                let status_text = resp.status_text();
+                #[cfg(not(target_arch = "wasm32"))]
+                let status_text = status.to_string();
+                ServerFnError::ServerError(if text.is_empty() {
+                    format!("{} {}", status, status_text)
+                } else {
+                    format!("{} {}: {}", status, status_text, text)
+                })
+            }
+        });
     }
 
     // Decoding the body of the request
@@ -608,12 +590,6 @@ where
         #[cfg(not(target_arch = "wasm32"))]
         let binary = binary.as_ref();
 
-        if status == 400 {
-            return Err(ServerFnError::ServerError(
-                "No server function was found at this URL.".to_string(),
-            ));
-        }
-
         ciborium::de::from_reader(binary)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
@@ -621,10 +597,6 @@ where
             .text()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-
-        if status == 400 {
-            return Err(ServerFnError::ServerError(text));
-        }
 
         let mut deserializer = JSONDeserializer::from_str(&text);
         T::deserialize(&mut deserializer)

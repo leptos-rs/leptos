@@ -1,9 +1,15 @@
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
-use leptos_reactive::{provide_context, Scope, SuspenseContext};
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use leptos_reactive::SignalGet;
+use leptos_reactive::{
+    create_memo, provide_context, SignalGetUntracked, SuspenseContext,
+};
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+use leptos_reactive::{with_owner, Owner, SharedContext};
 use std::rc::Rc;
 
-/// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
+/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
 /// it will render the `children`.
 ///
@@ -16,72 +22,93 @@ use std::rc::Rc;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # if false {
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> { Some(vec![]) }
 ///
-/// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
+/// let (cat_count, set_cat_count) = create_signal::<u32>(1);
 ///
-/// let cats = create_resource(cx, move || cat_count.get(), |count| fetch_cats(count));
+/// let cats = create_resource(move || cat_count.get(), |count| fetch_cats(count));
 ///
-/// view! { cx,
+/// view! {
 ///   <div>
-///     <Suspense fallback=move || view! { cx, <p>"Loading (Suspense Fallback)..."</p> }>
+///     <Suspense fallback=move || view! { <p>"Loading (Suspense Fallback)..."</p> }>
 ///       {move || {
-///           cats.read(cx).map(|data| match data {
-///             None => view! { cx,  <pre>"Error"</pre> }.into_view(cx),
+///           cats.read().map(|data| match data {
+///             None => view! {  <pre>"Error"</pre> }.into_view(),
 ///             Some(cats) => cats
 ///                 .iter()
 ///                 .map(|src| {
-///                     view! { cx,
+///                     view! {
 ///                       <img src={src}/>
 ///                     }
 ///                 })
-///                 .collect_view(cx),
+///                 .collect_view(),
 ///           })
 ///         }
 ///       }
 ///     </Suspense>
 ///   </div>
 /// };
-/// # });
+/// # runtime.dispose();
 /// # }
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all)
 )]
-#[component(transparent)]
+#[component]
 pub fn Suspense<F, E, V>(
-    cx: Scope,
-    /// Returns a fallback UI that will be shown while `async` [Resources](leptos_reactive::Resource) are still loading.
+    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
     fallback: F,
-    /// Children will be displayed once all `async` [Resources](leptos_reactive::Resource) have resolved.
-    children: Box<dyn Fn(Scope) -> V>,
+    /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
+    children: Rc<dyn Fn() -> V>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
     V: IntoView + 'static,
 {
-    let orig_children = Rc::new(children);
-    let context = SuspenseContext::new(cx);
+    let orig_children = children;
+    let context = SuspenseContext::new();
+
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+    let owner =
+        Owner::current().expect("<Suspense/> created with no reactive owner");
 
     // provide this SuspenseContext to any resources below it
-    provide_context(cx, context);
+    // run in a memo so the children are children of this parent
+    let children = create_memo({
+        let orig_children = Rc::clone(&orig_children);
+        move |_| {
+            provide_context(context);
+            orig_children().into_view()
+        }
+    });
+
+    // likewise for the fallback
+    let fallback = create_memo({
+        move |_| {
+            provide_context(context);
+            fallback().into_view()
+        }
+    });
 
     let current_id = HydrationCtx::next_component();
 
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    let ready = context.ready();
+
     let child = DynChild::new({
-        let children = Rc::new(orig_children(cx).into_view(cx));
-        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-        let orig_children = Rc::clone(&orig_children);
         move || {
+            // pull lazy memo before checking if context is ready
+            let children_rendered = children.get_untracked();
+
             #[cfg(any(feature = "csr", feature = "hydrate"))]
             {
-                if context.ready() {
-                    (*children).clone()
+                if ready.get() {
+                    children_rendered
                 } else {
-                    fallback().into_view(cx)
+                    fallback.get_untracked()
                 }
             }
             #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -94,59 +121,77 @@ where
                 {
                     // no resources were read under this, so just return the child
                     if context.pending_resources.get() == 0 {
-                        HydrationCtx::continue_from(current_id);
-                        DynChild::new({
-                            let children = Rc::clone(&children);
-                            move || (*children).clone()
+                        with_owner(owner, move || {
+                            //HydrationCtx::continue_from(current_id);
+                            DynChild::new(move || children_rendered.clone())
+                                .into_view()
                         })
-                        .into_view(cx)
                     }
                     // show the fallback, but also prepare to stream HTML
                     else {
                         HydrationCtx::continue_from(current_id);
+                        let runtime = leptos_reactive::current_runtime();
 
-                        cx.register_suspense(
+                        SharedContext::register_suspense(
                             context,
                             &current_id.to_string(),
                             // out-of-order streaming
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
-                                    HydrationCtx::continue_from(current_id);
-                                    DynChild::new({
-                                        let orig_children =
-                                            orig_children(cx).into_view(cx);
-                                        move || orig_children.clone()
+                                    leptos_reactive::set_current_runtime(
+                                        runtime,
+                                    );
+                                    with_owner(owner, {
+                                        move || {
+                                            HydrationCtx::continue_from(
+                                                current_id,
+                                            );
+                                            DynChild::new({
+                                                move || {
+                                                    orig_children().into_view()
+                                                }
+                                            })
+                                            .into_view()
+                                            .render_to_string()
+                                            .to_string()
+                                        }
                                     })
-                                    .into_view(cx)
-                                    .render_to_string(cx)
-                                    .to_string()
                                 }
                             },
                             // in-order streaming
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
-                                    HydrationCtx::continue_from(current_id);
-                                    DynChild::new({
-                                        let orig_children =
-                                            orig_children(cx).into_view(cx);
-                                        move || orig_children.clone()
+                                    leptos_reactive::set_current_runtime(
+                                        runtime,
+                                    );
+                                    with_owner(owner, {
+                                        move || {
+                                            HydrationCtx::continue_from(
+                                                current_id,
+                                            );
+                                            DynChild::new({
+                                                move || {
+                                                    orig_children().into_view()
+                                                }
+                                            })
+                                            .into_view()
+                                            .into_stream_chunks()
+                                        }
                                     })
-                                    .into_view(cx)
-                                    .into_stream_chunks(cx)
                                 }
                             },
                         );
 
                         // return the fallback for now, wrapped in fragment identifier
-                        fallback().into_view(cx)
+                        fallback.get_untracked()
                     }
                 }
             }
         }
     })
-    .into_view(cx);
+    .into_view();
     let core_component = match child {
         leptos_dom::View::CoreComponent(repr) => repr,
         _ => unreachable!(),

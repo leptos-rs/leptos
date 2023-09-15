@@ -1,0 +1,175 @@
+---
+source: leptos_macro/src/view/tests.rs
+expression: result
+---
+TokenStream [
+    Punct {
+        char: ':',
+        spacing: Joint,
+    },
+    Punct {
+        char: ':',
+        spacing: Alone,
+    },
+    Ident {
+        sym: leptos,
+    },
+    Punct {
+        char: ':',
+        spacing: Joint,
+    },
+    Punct {
+        char: ':',
+        spacing: Alone,
+    },
+    Ident {
+        sym: component_view,
+    },
+    Group {
+        delimiter: Parenthesis,
+        stream: TokenStream [
+            Punct {
+                char: '&',
+                spacing: Alone,
+            },
+            Ident {
+                sym: SimpleCounter,
+                span: bytes(11..24),
+            },
+            Punct {
+                char: ',',
+                spacing: Alone,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: leptos,
+            },
+            Punct {
+                char: ':',
+                spacing: Joint,
+            },
+            Punct {
+                char: ':',
+                spacing: Alone,
+            },
+            Ident {
+                sym: component_props_builder,
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Punct {
+                        char: '&',
+                        spacing: Alone,
+                    },
+                    Ident {
+                        sym: SimpleCounter,
+                        span: bytes(11..24),
+                    },
+                ],
+            },
+            Punct {
+                char: '.',
+                spacing: Alone,
+            },
+            Ident {
+                sym: initial_value,
+                span: bytes(37..50),
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Punct {
+                        char: '#',
+                        spacing: Alone,
+                    },
+                    Group {
+                        delimiter: Bracket,
+                        stream: TokenStream [
+                            Ident {
+                                sym: allow,
+                            },
+                            Group {
+                                delimiter: Parenthesis,
+                                stream: TokenStream [
+                                    Ident {
+                                        sym: unused_braces,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    Group {
+                        delimiter: Brace,
+                        stream: TokenStream [
+                            Literal {
+                                lit: 0,
+                                span: bytes(51..52),
+                            },
+                        ],
+                    },
+                ],
+            },
+            Punct {
+                char: '.',
+                spacing: Alone,
+            },
+            Ident {
+                sym: step,
+                span: bytes(65..69),
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [
+                    Punct {
+                        char: '#',
+                        spacing: Alone,
+                    },
+                    Group {
+                        delimiter: Bracket,
+                        stream: TokenStream [
+                            Ident {
+                                sym: allow,
+                            },
+                            Group {
+                                delimiter: Parenthesis,
+                                stream: TokenStream [
+                                    Ident {
+                                        sym: unused_braces,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    Group {
+                        delimiter: Brace,
+                        stream: TokenStream [
+                            Literal {
+                                lit: 1,
+                                span: bytes(70..71),
+                            },
+                        ],
+                    },
+                ],
+            },
+            Punct {
+                char: '.',
+                spacing: Alone,
+            },
+            Ident {
+                sym: build,
+            },
+            Group {
+                delimiter: Parenthesis,
+                stream: TokenStream [],
+            },
+        ],
+    },
+]

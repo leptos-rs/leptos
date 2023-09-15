@@ -9,7 +9,6 @@ use leptos::{leptos_dom::helpers::IntervalHandle, *};
 /// styled independently.
 #[component]
 pub fn RoutingProgress(
-    cx: Scope,
     /// Whether the router is currently loading the new page.
     #[prop(into)]
     is_routing: Signal<bool>,
@@ -29,10 +28,10 @@ pub fn RoutingProgress(
         max_time.as_secs_f32() / (INCREMENT_EVERY_MS / 1000.0);
     let percent_per_increment = 100.0 / expected_increments;
 
-    let (is_showing, set_is_showing) = create_signal(cx, false);
-    let (progress, set_progress) = create_signal(cx, 0.0);
+    let (is_showing, set_is_showing) = create_signal(false);
+    let (progress, set_progress) = create_signal(0.0);
 
-    create_effect(cx, move |prev: Option<Option<IntervalHandle>>| {
+    create_effect(move |prev: Option<Option<IntervalHandle>>| {
         if is_routing.get() && !is_showing.get() {
             set_is_showing.set(true);
             set_interval_with_handle(
@@ -61,8 +60,8 @@ pub fn RoutingProgress(
         }
     });
 
-    view! { cx,
-        <Show when=move || is_showing.get() fallback=|_| ()>
+    view! {
+        <Show when=move || is_showing.get() fallback=|| ()>
             <progress class=class.clone() min="0" max="100" value=move || progress.get()/>
         </Show>
     }

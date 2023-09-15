@@ -19,12 +19,13 @@ There are two important things to remember:
 2. The `value` _attribute_ only sets the initial value of the input, i.e., it
    only updates the input up to the point that you begin typing. The `value`
    _property_ continues updating the input after that. You usually want to set
-   `prop:value` for this reason.
+   `prop:value` for this reason. (The same is true for `checked` and `prop:checked` 
+   on an `<input type="checkbox">`.)
 
 ```rust
-let (name, set_name) = create_signal(cx, "Controlled".to_string());
+let (name, set_name) = create_signal("Controlled".to_string());
 
-view! { cx,
+view! {
     <input type="text"
         on:input=move |ev| {
             // event_target_value is a Leptos helper function
@@ -42,6 +43,33 @@ view! { cx,
 }
 ```
 
+> #### Why do you need `prop:value`?
+> 
+> Web browsers are the most ubiquitous and stable platform for rendering graphical user interfaces in existence. They have also maintained an incredible backwards compatibility over their three decades of existence. Inevitably, this means there are some quirks.
+> 
+> One odd quirk is that there is a distinction between HTML attributes and DOM element properties, i.e., between something called an “attribute” which is parsed from HTML and can be set on a DOM element with `.setAttribute()`, and something called a “property” which is a field of the JavaScript class representation of that parsed HTML element.
+>
+> In the case of an `<input value=...>`, setting the `value` *attribute* is defined as setting the initial value for the input, and setting `value` *property* sets its current value. It maybe easiest to understand this by opening `about:blank` and running the following JavaScript in the browser console, line by line:
+> 
+> ```js
+> // create an input and append it to the DOM
+> const el = document.createElement("input")
+> document.body.appendChild(el)
+> 
+> el.setAttribute("value", "test") // updates the input
+> el.setAttribute("value", "another test") // updates the input again
+> 
+> // now go and type into the input: delete some characters, etc.
+> 
+> el.setAttribute("value", "one more time?") 
+> // nothing should have changed. setting the "initial value" does nothing now
+> 
+> // however...
+> el.value = "But this works"
+> ```
+>
+> Many other frontend frameworks conflate attributes and properties, or create a special case for inputs that sets the value correctly. Maybe Leptos should do this too; but for now, I prefer giving users the maximum amount of control over whether they’re setting an attribute or a property, and doing my best to educate people about the actual underlying browser behavior rather than obscuring it.
+
 ## Uncontrolled Inputs
 
 In an "uncontrolled input," the browser controls the state of the input element.
@@ -53,9 +81,9 @@ In this example, we only notify the framework when the `<form>` fires a `submit`
 event.
 
 ```rust
-let (name, set_name) = create_signal(cx, "Uncontrolled".to_string());
+let (name, set_name) = create_signal("Uncontrolled".to_string());
 
-let input_element: NodeRef<Input> = create_node_ref(cx);
+let input_element: NodeRef<Input> = create_node_ref();
 ```
 
 `NodeRef` is a kind of reactive smart pointer: we can use it to access the
@@ -89,7 +117,7 @@ We can then call `.value()` to get the value out of the input, because `NodeRef`
 gives us access to a correctly-typed HTML element.
 
 ```rust
-view! { cx,
+view! {
     <form on:submit=on_submit>
         <input type="text"
             value=name
@@ -120,8 +148,8 @@ The view should be pretty self-explanatory by now. Note two things:
 use leptos::{ev::SubmitEvent, *};
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn App() -> impl IntoView {
+    view! {
         <h2>"Controlled Component"</h2>
         <ControlledComponent/>
         <h2>"Uncontrolled Component"</h2>
@@ -130,11 +158,11 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn ControlledComponent(cx: Scope) -> impl IntoView {
+fn ControlledComponent() -> impl IntoView {
     // create a signal to hold the value
-    let (name, set_name) = create_signal(cx, "Controlled".to_string());
+    let (name, set_name) = create_signal("Controlled".to_string());
 
-    view! { cx,
+    view! {
         <input type="text"
             // fire an event whenever the input changes
             on:input=move |ev| {
@@ -164,15 +192,15 @@ fn ControlledComponent(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn UncontrolledComponent(cx: Scope) -> impl IntoView {
+fn UncontrolledComponent() -> impl IntoView {
     // import the type for <input>
     use leptos::html::Input;
 
-    let (name, set_name) = create_signal(cx, "Uncontrolled".to_string());
+    let (name, set_name) = create_signal("Uncontrolled".to_string());
 
     // we'll use a NodeRef to store a reference to the input element
     // this will be filled when the element is created
-    let input_element: NodeRef<Input> = create_node_ref(cx);
+    let input_element: NodeRef<Input> = create_node_ref();
 
     // fires when the form `submit` event happens
     // this will store the value of the <input> in our signal
@@ -192,7 +220,7 @@ fn UncontrolledComponent(cx: Scope) -> impl IntoView {
         set_name(value);
     };
 
-    view! { cx,
+    view! {
         <form on:submit=on_submit>
             <input type="text"
                 // here, we use the `value` *attribute* to set only
@@ -214,7 +242,7 @@ fn UncontrolledComponent(cx: Scope) -> impl IntoView {
 // Because we defined it as `fn App`, we can now use it in a
 // template as <App/>
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

@@ -13,16 +13,16 @@ const DEFAULT_API_URL: &str = "/api";
 const API_TOKEN_STORAGE_KEY: &str = "api-token";
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // -- signals -- //
 
-    let authorized_api = create_rw_signal(cx, None::<api::AuthorizedApi>);
-    let user_info = create_rw_signal(cx, None::<UserInfo>);
-    let logged_in = Signal::derive(cx, move || authorized_api.get().is_some());
+    let authorized_api = create_rw_signal(None::<api::AuthorizedApi>);
+    let user_info = create_rw_signal(None::<UserInfo>);
+    let logged_in = Signal::derive(move || authorized_api.get().is_some());
 
     // -- actions -- //
 
-    let fetch_user_info = create_action(cx, move |_| async move {
+    let fetch_user_info = create_action(move |_| async move {
         match authorized_api.get() {
             Some(api) => match api.user_info().await {
                 Ok(info) => {
@@ -38,7 +38,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         }
     });
 
-    let logout = create_action(cx, move |_| async move {
+    let logout = create_action(move |_| async move {
         match authorized_api.get() {
             Some(api) => match api.logout().await {
                 Ok(_) => {
@@ -74,7 +74,7 @@ pub fn App(cx: Scope) -> impl IntoView {
 
     // -- effects -- //
 
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         log::debug!("API authorization state changed");
         match authorized_api.get() {
             Some(api) => {
@@ -94,28 +94,28 @@ pub fn App(cx: Scope) -> impl IntoView {
         }
     });
 
-    view! { cx,
+    view! {
         <Router>
             <NavBar logged_in on_logout/>
             <main>
                 <Routes>
                     <Route
                         path=Page::Home.path()
-                        view=move |cx| {
-                            view! { cx, <Home user_info=user_info.into()/> }
+                        view=move || {
+                            view! { <Home user_info=user_info.into()/> }
                         }
                     />
                     <Route
                         path=Page::Login.path()
-                        view=move |cx| {
-                            view! { cx,
+                        view=move || {
+                            view! {
                                 <Login
                                     api=unauthorized_api
                                     on_success=move |api| {
                                         log::info!("Successfully logged in");
                                         authorized_api.update(|v| *v = Some(api));
-                                        let navigate = use_navigate(cx);
-                                        navigate(Page::Home.path(), Default::default()).expect("Home route");
+                                        let navigate = use_navigate();
+                                        navigate(Page::Home.path(), Default::default());
                                         fetch_user_info.dispatch(());
                                     }
                                 />
@@ -124,8 +124,8 @@ pub fn App(cx: Scope) -> impl IntoView {
                     />
                     <Route
                         path=Page::Register.path()
-                        view=move |cx| {
-                            view! { cx, <Register api=unauthorized_api/> }
+                        view=move || {
+                            view! { <Register api=unauthorized_api/> }
                         }
                     />
                 </Routes>

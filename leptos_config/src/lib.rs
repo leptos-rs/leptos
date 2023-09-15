@@ -56,6 +56,16 @@ pub struct LeptosOptions {
     #[builder(default = default_reload_port())]
     #[serde(default = "default_reload_port")]
     pub reload_port: u32,
+    /// The port the Websocket watcher listens on when on the client, e.g., when behind a reverse proxy.
+    /// Defaults to match reload_port
+    #[builder(default)]
+    #[serde(default)]
+    pub reload_external_port: Option<u32>,
+    /// The protocol the Websocket watcher uses on the client: `ws` in most cases, `wss` when behind a reverse https proxy.
+    /// Defaults to `ws`
+    #[builder(default)]
+    #[serde(default)]
+    pub reload_ws_protocol: ReloadWSProtocol,
 }
 
 impl LeptosOptions {
@@ -79,11 +89,20 @@ impl LeptosOptions {
             output_name,
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
-            env: Env::default(),
+            env: env_from_str(env_w_default("LEPTOS_ENV", "DEV")?.as_str())?,
             site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
                 .parse()?,
             reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?
                 .parse()?,
+            reload_external_port: match env_wo_default(
+                "LEPTOS_RELOAD_EXTERNAL_PORT",
+            )? {
+                Some(val) => Some(val.parse()?),
+                None => None,
+            },
+            reload_ws_protocol: ws_from_str(
+                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
+            )?,
         })
     }
 }
@@ -107,7 +126,13 @@ fn default_site_addr() -> SocketAddr {
 fn default_reload_port() -> u32 {
     3001
 }
-
+fn env_wo_default(key: &str) -> Result<Option<String>, LeptosConfigError> {
+    match std::env::var(key) {
+        Ok(val) => Ok(Some(val)),
+        Err(VarError::NotPresent) => Ok(None),
+        Err(e) => Err(LeptosConfigError::EnvVarError(format!("{key}: {e}"))),
+    }
+}
 fn env_w_default(
     key: &str,
     default: &str,
@@ -134,45 +159,103 @@ impl Default for Env {
     }
 }
 
-fn from_str(input: &str) -> Result<Env, String> {
+fn env_from_str(input: &str) -> Result<Env, LeptosConfigError> {
     let sanitized = input.to_lowercase();
     match sanitized.as_ref() {
         "dev" | "development" => Ok(Env::DEV),
         "prod" | "production" => Ok(Env::PROD),
-        _ => Err(format!(
+        _ => Err(LeptosConfigError::EnvVarError(format!(
             "{input} is not a supported environment. Use either `dev` or \
              `production`.",
-        )),
+        ))),
     }
 }
 
 impl FromStr for Env {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        from_str(input).or_else(|_| Ok(Self::default()))
+        env_from_str(input).or_else(|_| Ok(Self::default()))
     }
 }
 
 impl From<&str> for Env {
     fn from(str: &str) -> Self {
-        from_str(str).unwrap_or_else(|err| panic!("{}", err))
+        env_from_str(str).unwrap_or_else(|err| panic!("{}", err))
     }
 }
 
 impl From<&Result<String, VarError>> for Env {
     fn from(input: &Result<String, VarError>) -> Self {
         match input {
-            Ok(str) => from_str(str).unwrap_or_else(|err| panic!("{}", err)),
+            Ok(str) => {
+                env_from_str(str).unwrap_or_else(|err| panic!("{}", err))
+            }
             Err(_) => Self::default(),
         }
     }
 }
 
 impl TryFrom<String> for Env {
-    type Error = String;
+    type Error = LeptosConfigError;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        from_str(s.as_str())
+        env_from_str(s.as_str())
+    }
+}
+
+/// An enum that can be used to define the websocket protocol Leptos uses for hotreloading
+/// Defaults to `ws`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub enum ReloadWSProtocol {
+    WS,
+    WSS,
+}
+
+impl Default for ReloadWSProtocol {
+    fn default() -> Self {
+        Self::WS
+    }
+}
+
+fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {
+    let sanitized = input.to_lowercase();
+    match sanitized.as_ref() {
+        "ws" | "WS" => Ok(ReloadWSProtocol::WS),
+        "wss" | "WSS" => Ok(ReloadWSProtocol::WSS),
+        _ => Err(LeptosConfigError::EnvVarError(format!(
+            "{input} is not a supported websocket protocol. Use only `ws` or \
+             `wss`.",
+        ))),
+    }
+}
+
+impl FromStr for ReloadWSProtocol {
+    type Err = ();
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        ws_from_str(input).or_else(|_| Ok(Self::default()))
+    }
+}
+
+impl From<&str> for ReloadWSProtocol {
+    fn from(str: &str) -> Self {
+        ws_from_str(str).unwrap_or_else(|err| panic!("{}", err))
+    }
+}
+
+impl From<&Result<String, VarError>> for ReloadWSProtocol {
+    fn from(input: &Result<String, VarError>) -> Self {
+        match input {
+            Ok(str) => ws_from_str(str).unwrap_or_else(|err| panic!("{}", err)),
+            Err(_) => Self::default(),
+        }
+    }
+}
+
+impl TryFrom<String> for ReloadWSProtocol {
+    type Error = LeptosConfigError;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        ws_from_str(s.as_str())
     }
 }
 

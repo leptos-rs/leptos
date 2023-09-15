@@ -40,7 +40,7 @@ pub fn remove_counter(index: u32) {
 
 pub fn view_counters() {
     remove_existing_counters();
-    mount_to_body(|cx| view! { cx,  <Counters/> });
+    mount_to_body(|| view! { <Counters/> });
 }
 
 // Results

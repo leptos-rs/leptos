@@ -1,1 +1,8 @@
-extend = [{ path = "../cargo-make/main.toml" }]
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/cargo-leptos.toml" },
+]
+
+[env]
+
+CLIENT_PROCESS_NAME = "ssr_modes"

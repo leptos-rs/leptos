@@ -82,31 +82,29 @@ impl ResponseParts {
     }
 }
 
-/// Adding this Struct to your Scope inside of a Server Fn or Element will allow you to override details of the Response
-/// like status and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
-/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced.
+/// Allows you to override details of the HTTP response like the status code and add Headers/Cookies.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
-    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    /// A simpler way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`.
     pub fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write();
         *writable = parts
     }
-    /// Set the status of the returned Response
+    /// Set the status of the returned Response.
     pub fn set_status(&self, status: StatusCode) {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
-    /// Insert a header, overwriting any previous value with the same key
+    /// Insert a header, overwriting any previous value with the same key.
     pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
-    /// Append a header, leaving any header with the same key intact
+    /// Append a header, leaving any header with the same key intact.
     pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
@@ -117,8 +115,8 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
-pub fn redirect(cx: leptos::Scope, path: &str) {
-    if let Some(response_options) = use_context::<ResponseOptions>(cx) {
+pub fn redirect(path: &str) {
+    if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
         response_options.insert_header(
             header::LOCATION,
@@ -191,7 +189,7 @@ pub async fn handle_server_fns(
     RawQuery(query): RawQuery,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    handle_server_fns_inner(fn_name, headers, query, |_| {}, req).await
+    handle_server_fns_inner(fn_name, headers, query, || {}, req).await
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
@@ -213,7 +211,7 @@ pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
     RawQuery(query): RawQuery,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
     handle_server_fns_inner(fn_name, headers, query, additional_context, req)
@@ -224,7 +222,7 @@ async fn handle_server_fns_inner(
     fn_name: String,
     headers: HeaderMap,
     query: Option<String>,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    additional_context: impl Fn() + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
@@ -241,25 +239,25 @@ async fn handle_server_fns_inner(
                 server_fn_by_path(fn_name.as_str())
             {
                 let runtime = create_runtime();
-                let (cx, disposer) = raw_scope_and_disposer(runtime);
 
-                additional_context(cx);
+                additional_context();
 
                 let (req, req_parts) = generate_request_and_parts(req).await;
-                provide_context(cx, req_parts.clone());
-                provide_context(cx, ExtractorHelper::from(req));
+
+                provide_context(req_parts.clone());
+                provide_context(ExtractorHelper::from(req));
                 // Add this so that we can set headers and status of the response
-                provide_context(cx, ResponseOptions::default());
+                provide_context(ResponseOptions::default());
 
                 let query: &Bytes = &query.unwrap_or("".to_string()).into();
                 let data = match &server_fn.encoding() {
                     Encoding::Url | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,
                 };
-                let res = match server_fn.call(cx, data).await {
+                let res = match server_fn.call((), data).await {
                     Ok(serialized) => {
                         // If ResponseOptions are set, add the headers and status to the request
-                        let res_options = use_context::<ResponseOptions>(cx);
+                        let res_options = use_context::<ResponseOptions>();
 
                         // if this is Accept: application/json then send a serialized JSON response
                         let accept_header = headers
@@ -327,7 +325,6 @@ async fn handle_server_fns_inner(
                         )),
                 };
                 // clean up the scope
-                disposer.dispose();
                 runtime.dispose();
                 res
             } else {
@@ -374,8 +371,8 @@ pub type PinnedHtmlStream =
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -388,7 +385,7 @@ pub type PinnedHtmlStream =
 ///     // build our application with a route
 ///     let app = Router::new().fallback(leptos_axum::render_app_to_stream(
 ///         leptos_options,
-///         |cx| view! { cx, <MyApp/> },
+///         || view! { <MyApp/> },
 ///     ));
 ///
 ///     // run our app with hyper
@@ -410,7 +407,7 @@ pub type PinnedHtmlStream =
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<
@@ -425,9 +422,35 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_| {}, app_fn)
+    render_app_to_stream_with_context(options, || {}, app_fn)
 }
 
+/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+/// The difference between calling this and `render_app_to_stream_with_context()` is that this
+/// one respects the `SsrMode` on each Route and thus requires `Vec<RouteListing>` for route checking.
+/// This is useful if you are using `.leptos_routes_with_handler()`
+#[tracing::instrument(level = "info", fields(error), skip_all)]
+pub fn render_route<IV>(
+    options: LeptosOptions,
+    paths: Vec<RouteListing>,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView,
+{
+    render_route_with_context(options, paths, || {}, app_fn)
+}
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
@@ -447,8 +470,8 @@ where
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -462,7 +485,7 @@ where
 ///     let app =
 ///         Router::new().fallback(leptos_axum::render_app_to_stream_in_order(
 ///             leptos_options,
-///             |cx| view! { cx, <MyApp/> },
+///             || view! { <MyApp/> },
 ///         ));
 ///
 ///     // run our app with hyper
@@ -484,7 +507,7 @@ where
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<
@@ -499,7 +522,7 @@ pub fn render_app_to_stream_in_order<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_in_order_with_context(options, |_| {}, app_fn)
+    render_app_to_stream_in_order_with_context(options, || {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -511,10 +534,10 @@ where
 /// ```ignore
 /// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
 ///     let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
-///     move |cx| {
-///         provide_context(cx, id.clone());
+///     || {
+///         provide_context(id.clone());
 ///     },
-///     |cx| view! { cx, <TodoApp/> }
+///     || view! { <TodoApp/> }
 /// );
 ///     handler(req).await.into_response()
 /// }
@@ -530,8 +553,8 @@ where
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<
@@ -553,11 +576,79 @@ where
         false,
     )
 }
+/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application. It allows you
+/// to pass in a context function with additional info to be made available to the app
+/// The difference between calling this and `render_app_to_stream_with_context()` is that this
+/// one respects the `SsrMode` on each Route, and thus requires `Vec<RouteListing>` for route checking.
+/// This is useful if you are using `.leptos_routes_with_handler()`.
+#[tracing::instrument(level = "info", fields(error), skip_all)]
+pub fn render_route_with_context<IV>(
+    options: LeptosOptions,
+    paths: Vec<RouteListing>,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView,
+{
+    let ooo = render_app_to_stream_with_context(
+        LeptosOptions::from_ref(&options),
+        additional_context.clone(),
+        app_fn.clone(),
+    );
+    let pb = render_app_to_stream_with_context_and_replace_blocks(
+        LeptosOptions::from_ref(&options),
+        additional_context.clone(),
+        app_fn.clone(),
+        true,
+    );
+    let io = render_app_to_stream_in_order_with_context(
+        LeptosOptions::from_ref(&options),
+        additional_context.clone(),
+        app_fn.clone(),
+    );
+    let asyn = render_app_async_stream_with_context(
+        LeptosOptions::from_ref(&options),
+        additional_context.clone(),
+        app_fn.clone(),
+    );
 
+    move |req| {
+        let uri = req.uri();
+        // 1. Process route to match the values in routeListing
+        let path = uri.path();
+        // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
+        // search for this every time
+        let listing: &RouteListing =
+            paths.iter().find(|r| r.path() == path).expect(
+                "Failed to find the route {path} requested by the user. This \
+                 suggests that the routing rules in the Router that call this \
+                 handler needs to be edited!",
+            );
+        // 3. Match listing mode against known, and choose function
+        match listing.mode() {
+            SsrMode::OutOfOrder => ooo(req),
+            SsrMode::PartiallyBlocked => pb(req),
+            SsrMode::InOrder => io(req),
+            SsrMode::Async => asyn(req),
+        }
+    }
+}
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
-/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// This version allows us to pass Axum State/Extension/Extractor or other info from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure.
 ///
@@ -577,8 +668,8 @@ where
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     replace_blocks: bool,
 ) -> impl Fn(
     Request<Body>,
@@ -615,20 +706,20 @@ where
 
                     let full_path = format!("http://leptos.dev{path}");
                     let (req, req_parts) = generate_request_and_parts(req).await;
-                    move |cx| {
-                        provide_contexts(cx, full_path, req_parts, req.into(), default_res_options);
-                        app_fn(cx).into_view(cx)
+                    move || {
+                        provide_contexts(full_path, req_parts, req.into(), default_res_options);
+                        app_fn().into_view()
                     }
                 };
-                let (bundle, runtime, scope) =
+                let (bundle, runtime) =
                     leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
                         app,
-                        |cx| generate_head_metadata_separated(cx).1.into(),
+                        || generate_head_metadata_separated().1.into(),
                         add_context,
                         replace_blocks
                     );
 
-                    forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
+                    forward_stream(&options, res_options2, bundle, tx).await;
 
                     runtime.dispose();
             }.instrument(current_span));
@@ -647,6 +738,7 @@ async fn generate_response(
 
     // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
     let first_chunk = stream.next().await;
+
     let second_chunk = stream.next().await;
 
     // Extract the resources now that they've been rendered
@@ -673,29 +765,26 @@ async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
     bundle: impl Stream<Item = String> + 'static,
-    runtime: RuntimeId,
-    scope: ScopeId,
     mut tx: Sender<String>,
 ) {
-    let cx = Scope { runtime, id: scope };
     let mut shell = Box::pin(bundle);
     let first_app_chunk = shell.next().await.unwrap_or_default();
 
-    let (head, tail) = html_parts_separated(
-        cx,
-        options,
-        use_context::<MetaContext>(cx).as_ref(),
-    );
+    let (head, tail) =
+        html_parts_separated(options, use_context::<MetaContext>().as_ref());
 
     _ = tx.send(head).await;
+
     _ = tx.send(first_app_chunk).await;
+
     while let Some(fragment) = shell.next().await {
         _ = tx.send(fragment).await;
     }
+
     _ = tx.send(tail.to_string()).await;
 
     // Extract the value of ResponseOptions from here
-    let res_options = use_context::<ResponseOptions>(cx).unwrap();
+    let res_options = use_context::<ResponseOptions>().unwrap();
 
     let new_res_parts = res_options.0.read().clone();
 
@@ -716,10 +805,10 @@ async fn forward_stream(
 /// ```ignore
 /// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
 ///     let handler = leptos_axum::render_app_to_stream_in_order_with_context((*options).clone(),
-///     move |cx| {
-///         provide_context(cx, id.clone());
+///     move || {
+///         provide_context(id.clone());
 ///     },
-///     |cx| view! { cx, <TodoApp/> }
+///     || view! { <TodoApp/> }
 /// );
 ///     handler(req).await.into_response()
 /// }
@@ -735,8 +824,8 @@ async fn forward_stream(
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<
@@ -775,20 +864,20 @@ where
                     let app = {
                         let full_path = full_path.clone();
                         let (req, req_parts) = generate_request_and_parts(req).await;
-                        move |cx| {
-                            provide_contexts(cx, full_path, req_parts, req.into(), default_res_options);
-                            app_fn(cx).into_view(cx)
+                        move || {
+                            provide_contexts(full_path, req_parts, req.into(), default_res_options);
+                            app_fn().into_view()
                         }
                     };
 
-                    let (bundle, runtime, scope) =
+                    let (bundle, runtime) =
                         leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                             app,
-                            |cx| generate_head_metadata_separated(cx).1.into(),
+                            || generate_head_metadata_separated().1.into(),
                             add_context,
                         );
 
-                    forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
+                    forward_stream(&options, res_options2, bundle, tx).await;
 
                     runtime.dispose();
                 }.instrument(current_span));
@@ -801,21 +890,20 @@ where
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn provide_contexts(
-    cx: Scope,
     path: String,
     req_parts: RequestParts,
     extractor: ExtractorHelper,
     default_res_options: ResponseOptions,
 ) {
     let integration = ServerIntegration { path };
-    provide_context(cx, RouterIntegrationContext::new(integration));
-    provide_context(cx, MetaContext::new());
-    provide_context(cx, req_parts);
-    provide_context(cx, extractor);
-    provide_context(cx, default_res_options);
-    provide_server_redirect(cx, move |path| redirect(cx, path));
+    provide_context(RouterIntegrationContext::new(integration));
+    provide_context(MetaContext::new());
+    provide_context(req_parts);
+    provide_context(extractor);
+    provide_context(default_res_options);
+    provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
-    leptos::nonce::provide_nonce(cx);
+    leptos::nonce::provide_nonce();
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -836,8 +924,8 @@ fn provide_contexts(
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -850,7 +938,7 @@ fn provide_contexts(
 ///     // build our application with a route
 ///     let app = Router::new().fallback(leptos_axum::render_app_async(
 ///         leptos_options,
-///         |cx| view! { cx, <MyApp/> },
+///         || view! { <MyApp/> },
 ///     ));
 ///
 ///     // run our app with hyper
@@ -872,7 +960,7 @@ fn provide_contexts(
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<String>> + Send + 'static>>
@@ -882,7 +970,7 @@ pub fn render_app_async<IV>(
 where
     IV: IntoView,
 {
-    render_app_async_with_context(options, |_| {}, app_fn)
+    render_app_async_with_context(options, || {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -895,10 +983,130 @@ where
 /// ```ignore
 /// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
 ///     let handler = leptos_axum::render_app_async_with_context((*options).clone(),
-///     move |cx| {
-///         provide_context(cx, id.clone());
+///     move || {
+///         provide_context(id.clone());
 ///     },
-///     |cx| view! { cx, <TodoApp/> }
+///     || view! { <TodoApp/> }
+/// );
+///     handler(req).await.into_response()
+/// }
+/// ```
+/// Otherwise, this function is identical to [render_app_to_stream].
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
+pub fn render_app_async_stream_with_context<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView,
+{
+    move |req: Request<Body>| {
+        Box::pin({
+            let options = options.clone();
+            let app_fn = app_fn.clone();
+            let add_context = additional_context.clone();
+            let default_res_options = ResponseOptions::default();
+            let res_options2 = default_res_options.clone();
+            let res_options3 = default_res_options.clone();
+
+            async move {
+                // Need to get the path and query string of the Request
+                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
+                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
+                let path = req.uri().path_and_query().unwrap().as_str();
+
+                let full_path = format!("http://leptos.dev{path}");
+
+                let (tx, rx) = futures::channel::oneshot::channel();
+                let local_pool = get_leptos_pool();
+                local_pool.spawn_pinned(move || {
+                    async move {
+                        let app = {
+                            let full_path = full_path.clone();
+                            let (req, req_parts) = generate_request_and_parts(req).await;
+                            move || {
+                                provide_contexts(full_path, req_parts, req.into(), default_res_options);
+                                app_fn().into_view()
+                            }
+                        };
+
+                        let (stream, runtime) =
+                            render_to_stream_in_order_with_prefix_undisposed_with_context(
+                                app,
+                                || "".into(),
+                                add_context,
+                            );
+
+                        // Extract the value of ResponseOptions from here
+                        let res_options =
+                            use_context::<ResponseOptions>().unwrap();
+
+                        let html = build_async_response(stream, &options, runtime).await;
+
+                        let new_res_parts = res_options.0.read().clone();
+
+                        let mut writable = res_options2.0.write();
+                        *writable = new_res_parts;
+
+                        _ = tx.send(html);
+                    }
+                });
+
+                let html = rx.await.expect("to complete HTML rendering");
+
+                let res_options = res_options3.0.read();
+
+                let complete_stream =
+                    futures::stream::iter([Ok(Bytes::from(html))]);
+
+                let mut res = Response::new(StreamBody::new(Box::pin(
+                    complete_stream,
+                )
+                    as PinnedHtmlStream));
+                if let Some(status) = res_options.status {
+                    *res.status_mut() = status
+                }
+                let mut res_headers = res_options.headers.clone();
+                res.headers_mut().extend(res_headers.drain());
+
+                res
+            }
+        })
+    }
+}
+
+/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
+/// to route it using [leptos_router], asynchronously rendering an HTML page after all
+/// `async` [Resource](leptos::Resource)s have loaded.
+///
+/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
+/// the data to leptos in a closure. An example is below
+/// ```ignore
+/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
+///     let handler = leptos_axum::render_app_async_with_context((*options).clone(),
+///     move || {
+///         provide_context(id.clone());
+///     },
+///     || view! { <TodoApp/> }
 /// );
 ///     handler(req).await.into_response()
 /// }
@@ -914,8 +1122,8 @@ where
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<String>> + Send + 'static>>
@@ -949,25 +1157,24 @@ where
                         let app = {
                             let full_path = full_path.clone();
                             let (req, req_parts) = generate_request_and_parts(req).await;
-                            move |cx| {
-                                provide_contexts(cx, full_path, req_parts, req.into(), default_res_options);
-                                app_fn(cx).into_view(cx)
+                            move || {
+                                provide_contexts(full_path, req_parts, req.into(), default_res_options);
+                                app_fn().into_view()
                             }
                         };
 
-                        let (stream, runtime, scope) =
+                        let (stream, runtime) =
                             render_to_stream_in_order_with_prefix_undisposed_with_context(
                                 app,
-                                |_| "".into(),
+                                || "".into(),
                                 add_context,
                             );
 
                         // Extract the value of ResponseOptions from here
-                        let cx = leptos::Scope { runtime, id: scope };
                         let res_options =
-                            use_context::<ResponseOptions>(cx).unwrap();
+                            use_context::<ResponseOptions>().unwrap();
 
-                        let html = build_async_response(stream, &options, runtime, scope).await;
+                        let html = build_async_response(stream, &options, runtime).await;
 
                         let new_res_parts = res_options.0.read().clone();
 
@@ -995,13 +1202,12 @@ where
         })
     }
 }
-
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn generate_route_list<IV>(
-    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    app_fn: impl FnOnce() -> IV + 'static,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
@@ -1015,7 +1221,7 @@ where
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    app_fn: impl FnOnce() -> IV + 'static,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
@@ -1066,7 +1272,7 @@ where
         self,
         options: &S,
         paths: Vec<RouteListing>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1075,8 +1281,8 @@ where
         self,
         options: &S,
         paths: Vec<RouteListing>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1103,12 +1309,12 @@ where
         self,
         options: &S,
         paths: Vec<RouteListing>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
+        self.leptos_routes_with_context(options, paths, || {}, app_fn)
     }
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
@@ -1116,8 +1322,8 @@ where
         self,
         options: &S,
         paths: Vec<RouteListing>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + 'static + Clone + Send,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1266,7 +1472,6 @@ impl ExtractorHelper {
     }
 }
 
-/// Getting ExtractorHelper from a request will return an ExtractorHelper whose state is ().
 impl<B> From<Request<B>> for ExtractorHelper {
     fn from(req: Request<B>) -> Self {
         // TODO provide body for extractors there, too?
@@ -1282,11 +1487,11 @@ impl<B> From<Request<B>> for ExtractorHelper {
 ///
 /// ```rust,ignore
 /// #[server(QueryExtract, "/api")]
-/// pub async fn query_extract(cx: Scope) -> Result<String, ServerFnError> {
+/// pub async fn query_extract() -> Result<String, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::extract;
 ///
-///     extract(cx, |method: Method, res: Query<MyQuery>| async move {
+///     extract(|method: Method, res: Query<MyQuery>| async move {
 ///             format!("{method:?} and {}", res.q)
 ///         },
 ///     )
@@ -1295,21 +1500,17 @@ impl<B> From<Request<B>> for ExtractorHelper {
 /// }
 /// ```
 ///
-/// > Note: For now, the Axum `extract` function only supports extractors for
-/// which the state is `()`, i.e., you can't yet use it to extract `State(_)`.
-/// You can access `State(_)` by using a custom handler that extracts the state
-/// and then provides it via context.
-/// [Click here for an example](https://github.com/leptos-rs/leptos/blob/a5f73b441c079f9138102b3a7d8d4828f045448c/examples/session_auth_axum/src/main.rs#L91-L92).
+/// > This function only supports extractors for
+/// which the state is `()`. If the state is not `()`, use [`extract_with_state`].
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn extract<T, U>(
-    cx: Scope,
     f: impl Extractor<T, U, ()>,
 ) -> Result<U, T::Rejection>
 where
     T: std::fmt::Debug + Send + FromRequestParts<()> + 'static,
     T::Rejection: std::fmt::Debug + Send + 'static,
 {
-    extract_with_state(cx, (), f).await
+    extract_with_state((), f).await
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes
@@ -1319,13 +1520,13 @@ where
 ///
 /// ```rust,ignore
 /// #[server(QueryExtract, "/api")]
-/// pub async fn query_extract(cx: Scope) -> Result<String, ServerFnError> {
+/// pub async fn query_extract() -> Result<String, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::extract;
-///     let state: ServerState = use_context::<crate::ServerState>(cx)
+///     let state: ServerState = use_context::<crate::ServerState>()
 ///          .ok_or(ServerFnError::ServerError("No server state".to_string()))?;
 ///
-///     extract_with_state(cx, state, |method: Method, res: Query<MyQuery>| async move {
+///     extract_with_state(&state, |method: Method, res: Query<MyQuery>| async move {
 ///             format!("{method:?} and {}", res.q)
 ///         },
 ///     )
@@ -1335,7 +1536,6 @@ where
 /// ```
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn extract_with_state<T, U, S>(
-    cx: Scope,
     state: S,
     f: impl Extractor<T, U, S>,
 ) -> Result<U, T::Rejection>
@@ -1344,7 +1544,7 @@ where
     T: std::fmt::Debug + Send + FromRequestParts<S> + 'static,
     T::Rejection: std::fmt::Debug + Send + 'static,
 {
-    use_context::<ExtractorHelper>(cx)
+    use_context::<ExtractorHelper>()
         .expect(
             "should have had ExtractorHelper provided by the leptos_axum \
              integration",
@@ -1367,7 +1567,7 @@ macro_rules! factory_tuple ({ $($param:ident)* } => {
         $($param: FromRequestParts<S> + Send,)*
         Func: FnOnce($($param),*) -> Fut + 'static,
         Fut: Future<Output = U> + 'static,
-        S: Sized + Send + Sync,
+        S: Sized + Send + Sync
     {
         #[inline]
         #[allow(non_snake_case)]

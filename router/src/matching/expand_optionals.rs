@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 #[doc(hidden)]
 #[cfg(not(feature = "ssr"))]
-pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
+pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
     use js_sys::RegExp;
     use once_cell::unsync::Lazy;
     use wasm_bindgen::JsValue;
@@ -58,7 +58,7 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
 
 #[doc(hidden)]
 #[cfg(feature = "ssr")]
-pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
+pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
     use regex::Regex;
 
     lazy_static::lazy_static! {

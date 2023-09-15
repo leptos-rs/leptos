@@ -281,7 +281,7 @@ pub fn server_macro_impl(
         }
 
         impl #struct_name {
-            const URL: &str = if #fn_path.is_empty() {
+            const URL: &'static str = if #fn_path.is_empty() {
                     #server_fn_path::const_format::concatcp!(
                     #fn_name_as_str,
                     #server_fn_path::xxhash_rust::const_xxh64::xxh64(
@@ -292,7 +292,7 @@ pub fn server_macro_impl(
             } else {
                 #fn_path
             };
-            const PREFIX: &str = #prefix;
+            const PREFIX: &'static str = #prefix;
             const ENCODING: #server_fn_path::Encoding = #encoding;
         }
 

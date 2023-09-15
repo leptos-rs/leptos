@@ -13,7 +13,7 @@ config = "0.13.3"
 regex = "1.7.0"
 serde = { version = "1.0.151", features = ["derive"] }
 thiserror = "1.0.38"
-typed-builder = "0.14"
+typed-builder = "0.16"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

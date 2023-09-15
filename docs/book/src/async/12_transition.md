@@ -29,13 +29,13 @@ async fn important_api_call(id: usize) -> String {
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (tab, set_tab) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (tab, set_tab) = create_signal(0);
 
     // this will reload every time `tab` changes
-    let user_data = create_resource(cx, tab, |tab| async move { important_api_call(tab).await });
+    let user_data = create_resource(tab, |tab| async move { important_api_call(tab).await });
 
-    view! { cx,
+    view! {
         <div class="buttons">
             <button
                 on:click=move |_| set_tab(0)
@@ -65,17 +65,17 @@ fn App(cx: Scope) -> impl IntoView {
             // the fallback will show initially
             // on subsequent reloads, the current child will
             // continue showing
-            fallback=move || view! { cx, <p>"Loading..."</p> }
+            fallback=move || view! { <p>"Loading..."</p> }
         >
             <p>
-                {move || user_data.read(cx)}
+                {move || user_data.read()}
             </p>
         </Transition>
     }
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

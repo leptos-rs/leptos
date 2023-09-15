@@ -12,7 +12,6 @@ async-recursion = "1"
 base64 = { version = "0.21", optional = true }
 cfg-if = "1"
 drain_filter_polyfill = "0.1"
-educe = "0.4"
 futures = "0.3"
 getrandom = { version = "0.2", optional = true }
 html-escape = "0.2"
@@ -31,6 +30,7 @@ smallvec = "1"
 tracing = "0.1"
 wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
+serde = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -67,6 +67,7 @@ features = [
   "CustomEvent",
   "DeviceMotionEvent",
   "DeviceOrientationEvent",
+  "DomStringMap",
   "DragEvent",
   "ErrorEvent",
   "Event",
@@ -170,6 +171,7 @@ hydrate = ["leptos_reactive/hydrate", "web"]
 ssr = ["leptos_reactive/ssr"]
 nightly = ["leptos_reactive/nightly"]
 nonce = ["dep:base64", "dep:getrandom", "dep:rand"]
+experimental-islands = ["leptos_reactive/experimental-islands"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

@@ -1,5 +1,5 @@
 use crate::{use_navigate, use_resolved_path, NavigateOptions, ToHref, Url};
-use leptos::{html::form, *};
+use leptos::{html::form, logging::*, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -18,7 +18,6 @@ type OnError = Rc<dyn Fn(&gloo_net::Error)>;
 )]
 #[component]
 pub fn Form<A>(
-    cx: Scope,
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
     /// is the HTTP method to submit the form with (`get` or `post`).
     #[prop(optional)]
@@ -67,7 +66,6 @@ where
     A: ToHref + 'static,
 {
     fn inner(
-        cx: Scope,
         method: Option<&'static str>,
         action: Memo<Option<String>>,
         enctype: Option<String>,
@@ -88,7 +86,7 @@ where
                 if ev.default_prevented() {
                     return;
                 }
-                let navigate = use_navigate(cx);
+                let navigate = use_navigate();
                 let navigate_options = NavigateOptions {
                     scroll: !noscroll,
                     ..Default::default()
@@ -107,7 +105,7 @@ where
                         &form_data,
                     )
                     .unwrap_throw();
-                let action = use_resolved_path(cx, move || action.clone())
+                let action = use_resolved_path(move || action.clone())
                     .get_untracked()
                     .unwrap_or_default();
                 // multipart POST (setting Context-Type breaks the request)
@@ -159,28 +157,20 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
-                                                request_animation_frame(
-                                                    move || {
-                                                        if let Err(e) = navigate(
-                                                            &format!(
-                                                                "{}{}{}",
-                                                                url.pathname,
-                                                                if url
-                                                                    .search
-                                                                    .is_empty()
-                                                                {
-                                                                    ""
-                                                                } else {
-                                                                    "?"
-                                                                },
-                                                                url.search,
-                                                            ),
-                                                            navigate_options,
-                                                        ) {
-                                                            warn!("{}", e);
-                                                        }
-                                                    },
-                                                );
+                                                navigate(
+                                                    &format!(
+                                                        "{}{}{}",
+                                                        url.pathname,
+                                                        if url.search.is_empty()
+                                                        {
+                                                            ""
+                                                        } else {
+                                                            "?"
+                                                        },
+                                                        url.search,
+                                                    ),
+                                                    navigate_options,
+                                                )
                                             }
                                         }
                                         Err(e) => warn!("{}", e),
@@ -240,28 +230,20 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
-                                                request_animation_frame(
-                                                    move || {
-                                                        if let Err(e) = navigate(
-                                                            &format!(
-                                                                "{}{}{}",
-                                                                url.pathname,
-                                                                if url
-                                                                    .search
-                                                                    .is_empty()
-                                                                {
-                                                                    ""
-                                                                } else {
-                                                                    "?"
-                                                                },
-                                                                url.search,
-                                                            ),
-                                                            navigate_options,
-                                                        ) {
-                                                            warn!("{}", e);
-                                                        }
-                                                    },
-                                                );
+                                                navigate(
+                                                    &format!(
+                                                        "{}{}{}",
+                                                        url.pathname,
+                                                        if url.search.is_empty()
+                                                        {
+                                                            ""
+                                                        } else {
+                                                            "?"
+                                                        },
+                                                        url.search,
+                                                    ),
+                                                    navigate_options,
+                                                )
                                             }
                                         }
                                         Err(e) => warn!("{}", e),
@@ -275,25 +257,22 @@ where
                 else {
                     let params =
                         params.to_string().as_string().unwrap_or_default();
-                    if navigate(&format!("{action}?{params}"), navigate_options)
-                        .is_ok()
-                    {
-                        ev.prevent_default();
-                        ev.stop_propagation();
-                    }
+                    navigate(&format!("{action}?{params}"), navigate_options);
+                    ev.prevent_default();
+                    ev.stop_propagation();
                 }
             }
         };
 
         let method = method.unwrap_or("get");
 
-        let mut form = form(cx)
+        let mut form = form()
             .attr("method", method)
             .attr("action", move || action.get())
             .attr("enctype", enctype)
             .on(ev::submit, on_submit)
             .attr("class", class)
-            .child(children(cx));
+            .child(children());
         if let Some(node_ref) = node_ref {
             form = form.node_ref(node_ref)
         };
@@ -308,10 +287,9 @@ where
         form
     }
 
-    let action = use_resolved_path(cx, move || action.to_href()());
-    let class = class.map(|bx| bx.into_attribute_boxed(cx));
+    let action = use_resolved_path(move || action.to_href()());
+    let class = class.map(|bx| bx.into_attribute_boxed());
     inner(
-        cx,
         method,
         action,
         enctype,
@@ -356,7 +334,6 @@ fn current_window_origin() -> String {
 )]
 #[component]
 pub fn ActionForm<I, O>(
-    cx: Scope,
     /// The action from which to build the form. This should include a URL, which can be generated
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
@@ -397,7 +374,7 @@ where
     let input = action.input();
 
     let on_error = Rc::new(move |e: &gloo_net::Error| {
-        cx.batch(move || {
+        batch(move || {
             action.set_pending(false);
             let e = ServerFnError::Request(e.to_string());
             value.try_set(Some(Err(e.clone())));
@@ -411,7 +388,7 @@ where
         let data = I::from_form_data(form_data);
         match data {
             Ok(data) => {
-                cx.batch(move || {
+                batch(move || {
                     input.try_set(Some(data));
                     action.set_pending(true);
                 });
@@ -419,7 +396,7 @@ where
             Err(e) => {
                 error!("{e}");
                 let e = ServerFnError::Serialization(e.to_string());
-                cx.batch(move || {
+                batch(move || {
                     value.try_set(Some(Err(e.clone())));
                     if let Some(error) = error {
                         error
@@ -432,6 +409,13 @@ where
 
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
+
+        // If the response was redirected then a JSON will not be available in the response, instead
+        // it will be an actual page, so we don't want to try to parse it.
+        if resp.redirected() {
+            return;
+        }
+
         spawn_local(async move {
             let body = JsFuture::from(
                 resp.text().expect("couldn't get .text() from Response"),
@@ -494,18 +478,18 @@ where
                     }
                 }
             };
-            cx.batch(move || {
+            batch(move || {
                 input.try_set(None);
                 action.set_pending(false);
             });
         });
     });
-    let class = class.map(|bx| bx.into_attribute_boxed(cx));
+    let class = class.map(|bx| bx.into_attribute_boxed());
 
     #[cfg(debug_assertions)]
     {
         if I::encoding() != server_fn::Encoding::Url {
-            leptos::warn!(
+            leptos::logging::warn!(
                 "<ActionForm/> only supports the `Url` encoding for server \
                  functions, but {} uses {:?}.",
                 std::any::type_name::<I>(),
@@ -528,7 +512,7 @@ where
     props.error = error;
     props.node_ref = node_ref;
     props.attributes = attributes;
-    Form(cx, props)
+    Form(props)
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
@@ -540,7 +524,6 @@ where
 )]
 #[component]
 pub fn MultiActionForm<I, O>(
-    cx: Scope,
     /// The action from which to build the form. This should include a URL, which can be generated
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
@@ -598,13 +581,13 @@ where
         }
     };
 
-    let class = class.map(|bx| bx.into_attribute_boxed(cx));
-    let mut form = form(cx)
+    let class = class.map(|bx| bx.into_attribute_boxed());
+    let mut form = form()
         .attr("method", "POST")
         .attr("action", action)
         .on(ev::submit, on_submit)
         .attr("class", class)
-        .child(children(cx));
+        .child(children());
     if let Some(node_ref) = node_ref {
         form = form.node_ref(node_ref)
     };

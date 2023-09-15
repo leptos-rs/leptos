@@ -4,7 +4,7 @@ version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for the Leptos web framework."
 readme = "../README.md"
 

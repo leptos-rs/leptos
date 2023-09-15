@@ -1,7 +1,8 @@
-use crate::{Scope, ScopeProperty};
+use crate::{with_runtime, Runtime, ScopeProperty};
 
-/// A version of [`create_effect`](crate::create_effect) that listens to any dependency that is accessed inside `deps` and returns
-/// a stop handler.
+/// A version of [`create_effect`](crate::create_effect) that listens to any dependency
+/// that is accessed inside `deps` and returns a stop handler.
+///
 /// The return value of `deps` is passed into `callback` as an argument together with the previous value.
 /// Additionally the last return value of `callback` is provided as a third argument as is done in [`create_effect`](crate::create_effect).
 ///
@@ -10,11 +11,10 @@ use crate::{Scope, ScopeProperty};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log;
-/// # create_scope(create_runtime(), |cx| {
-/// let (num, set_num) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (num, set_num) = create_signal(0);
 ///
 /// let stop = watch(
-///     cx,
 ///     move || num.get(),
 ///     move |num, prev_num, _| {
 ///         log::debug!("Number: {}; Prev: {:?}", num, prev_num);
@@ -27,7 +27,7 @@ use crate::{Scope, ScopeProperty};
 /// stop(); // stop watching
 ///
 /// set_num.set(2); // (nothing happens)
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 ///
 /// The callback itself doesn't track any signal that is accessed within it.
@@ -35,12 +35,11 @@ use crate::{Scope, ScopeProperty};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log;
-/// # create_scope(create_runtime(), |cx| {
-/// let (num, set_num) = create_signal(cx, 0);
-/// let (cb_num, set_cb_num) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (num, set_num) = create_signal(0);
+/// let (cb_num, set_cb_num) = create_signal(0);
 ///
 /// watch(
-///     cx,
 ///     move || num.get(),
 ///     move |num, _, _| {
 ///         log::debug!("Number: {}; Cb: {}", num, cb_num.get());
@@ -53,7 +52,7 @@ use crate::{Scope, ScopeProperty};
 /// set_cb_num.set(1); // (nothing happens)
 ///
 /// set_num.set(2); // > "Number: 2; Cb: 1"
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 ///
 /// ## Immediate
@@ -65,11 +64,10 @@ use crate::{Scope, ScopeProperty};
 /// ```
 /// # use leptos_reactive::*;
 /// # use log;
-/// # create_scope(create_runtime(), |cx| {
-/// let (num, set_num) = create_signal(cx, 0);
+/// # let runtime = create_runtime();
+/// let (num, set_num) = create_signal(0);
 ///
 /// watch(
-///     cx,
 ///     move || num.get(),
 ///     move |num, prev_num, _| {
 ///         log::debug!("Number: {}; Prev: {:?}", num, prev_num);
@@ -78,7 +76,7 @@ use crate::{Scope, ScopeProperty};
 /// ); // > "Number: 0; Prev: None"
 ///
 /// set_num.set(1); // > "Number: 1; Prev: Some(0)"
-/// # }).dispose();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
@@ -86,7 +84,6 @@ use crate::{Scope, ScopeProperty};
         level = "trace",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
@@ -94,7 +91,6 @@ use crate::{Scope, ScopeProperty};
 #[track_caller]
 #[inline(always)]
 pub fn watch<W, T>(
-    cx: Scope,
     deps: impl Fn() -> W + 'static,
     callback: impl Fn(&W, Option<&W>, Option<T>) -> T + Clone + 'static,
     immediate: bool,
@@ -103,12 +99,20 @@ where
     W: Clone + 'static,
     T: 'static,
 {
-    let (e, stop) = cx.runtime.watch(deps, callback, immediate);
+    let runtime = Runtime::current();
+    let (e, stop) = runtime.watch(deps, callback, immediate);
     let prop = ScopeProperty::Effect(e);
-    cx.push_scope_property(prop);
+    let owner = crate::Owner::current();
+    _ = with_runtime(|runtime| {
+        runtime.update_if_necessary(e);
+    });
 
     move || {
         stop();
-        cx.remove_scope_property(prop);
+        if let Some(owner) = owner {
+            _ = with_runtime(|runtime| {
+                runtime.remove_scope_property(owner.0, prop)
+            });
+        }
     }
 }
