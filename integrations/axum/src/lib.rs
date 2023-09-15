@@ -1286,7 +1286,6 @@ where
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes<S>
 where
-    LeptosOptions: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
     fn leptos_routes<IV>(
