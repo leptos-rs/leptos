@@ -3,8 +3,8 @@ use crate::SharedContext;
 #[cfg(debug_assertions)]
 use crate::SpecialNonReactiveZone;
 use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask, runtime::with_runtime, serialization::Serializable,
+    create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::with_runtime, serialization::Serializable,
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
     GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
     SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
@@ -351,7 +351,7 @@ where
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_effect({
+    create_isomorphic_effect({
         let r = Rc::clone(&r);
         // This is a local resource, so we're always going to handle it on the
         // client
@@ -1152,6 +1152,11 @@ where
         suspense_cx: Option<SuspenseContext>,
         v: Option<U>,
     ) -> Option<U> {
+        crate::macros::debug_warn!(
+            "reading resource: suspense_cx.is_some() = {}",
+            suspense_cx.is_some()
+        );
+
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
@@ -1211,6 +1216,7 @@ where
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
                         if !has_value {
+                            crate::macros::debug_warn!("incrementing at 1214");
                             s.increment(
                                 serializable != ResourceSerialization::Local,
                             );
@@ -1258,8 +1264,10 @@ where
         instrument(level = "trace", skip_all,)
     )]
     fn load(&self, refetching: bool) {
+        crate::macros::debug_warn!("calling load()");
         // doesn't refetch if already refetching
         if refetching && self.scheduled.get() {
+            crate::macros::debug_warn!("already fetching, cancel");
             return;
         }
 
@@ -1293,7 +1301,13 @@ where
             // increment counter everywhere it's read
             let suspense_contexts = self.suspense_contexts.clone();
 
+            crate::macros::debug_warn!(
+                "here suspense_contexts.len() == {}",
+                suspense_contexts.borrow().len()
+            );
             for suspense_context in suspense_contexts.borrow().iter() {
+                crate::macros::debug_warn!("incrementing at 1302");
+
                 suspense_context.increment(
                     self.serializable != ResourceSerialization::Local,
                 );

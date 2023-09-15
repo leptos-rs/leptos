@@ -1,5 +1,5 @@
 use crate::{
-    console_warn, create_effect, diagnostics, diagnostics::*,
+    console_warn, create_isomorphic_effect, diagnostics, diagnostics::*,
     macros::debug_warn, node::NodeId, on_cleanup, runtime::with_runtime,
     Runtime,
 };
@@ -702,7 +702,7 @@ impl<T: Clone> SignalStream<T> for ReadSignal<T> {
 
         let this = *self;
 
-        create_effect(move |_| {
+        create_isomorphic_effect(move |_| {
             let _ = tx.unbounded_send(this.get());
         });
 
@@ -1775,7 +1775,7 @@ impl<T: Clone> SignalStream<T> for RwSignal<T> {
 
         let this = *self;
 
-        create_effect(move |_| {
+        create_isomorphic_effect(move |_| {
             let _ = tx.unbounded_send(this.get());
         });
 
