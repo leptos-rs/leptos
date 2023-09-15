@@ -1,6 +1,8 @@
 use cfg_if::cfg_if;
 use leptos::*;
 #[cfg(feature = "ssr")]
+use std::collections::HashMap;
+#[cfg(feature = "ssr")]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<body>`.
@@ -9,7 +11,7 @@ pub struct BodyContext {
     #[cfg(feature = "ssr")]
     class: Rc<RefCell<Option<TextProp>>>,
     #[cfg(feature = "ssr")]
-    attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
+    attributes: Rc<RefCell<HashMap<&'static str, Attribute>>>,
 }
 
 impl BodyContext {
@@ -22,20 +24,23 @@ impl BodyContext {
                 leptos::leptos_dom::ssr::escape_attr(&val.get())
             )
         });
-        let attributes = self.attributes.borrow().as_ref().map(|val| {
-            val.with(|val| {
-                val.into_iter()
-                    .map(|(n, v)| {
+        let attributes = self.attributes.borrow();
+        let attributes = (!attributes.is_empty()).then(|| {
+            attributes
+                .iter()
+                .filter_map(|(n, v)| {
+                    v.as_nameless_value_string().map(|v| {
                         format!(
                             "{}=\"{}\"",
                             n,
-                            leptos::leptos_dom::ssr::escape_attr(&v.get())
+                            leptos::leptos_dom::ssr::escape_attr(&v)
                         )
                     })
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            })
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
         });
+
         let mut val = [class, attributes]
             .into_iter()
             .flatten()
@@ -77,7 +82,7 @@ impl std::fmt::Debug for BodyContext {
 ///
 ///     view! {
 ///       <main>
-///         <Body class=body_class/>
+///         <Body class=body_class attr:class="foo"/>
 ///       </main>
 ///     }
 /// }
@@ -88,11 +93,13 @@ pub fn Body(
     #[prop(optional, into)]
     class: Option<TextProp>,
     /// Arbitrary attributes to add to the `<html>`
-    #[prop(optional, into)]
-    attributes: Option<MaybeSignal<AdditionalAttributes>>,
+    #[prop(attrs)]
+    attributes: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
     cfg_if! {
-        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+        if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
+            use wasm_bindgen::JsCast;
+
             let el = document().body().expect("there to be a <body> element");
 
             if let Some(class) = class {
@@ -105,24 +112,15 @@ pub fn Body(
                 });
             }
 
-            if let Some(attributes) = attributes {
-                let attributes = attributes.get();
-                for (attr_name, attr_value) in attributes.into_iter() {
-                    let el = el.clone();
-                    let attr_name = attr_name.to_owned();
-                    let attr_value = attr_value.to_owned();
-                    create_render_effect(move |_|{
-                        let value = attr_value.get();
-                            _ = el.set_attribute(&attr_name, &value);
-                    });
-                }
+            for (name, value) in attributes {
+                leptos::leptos_dom::attribute_helper(el.unchecked_ref(), name.into(), value);
             }
         } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head();
             *meta.body.class.borrow_mut() = class;
-            *meta.body.attributes.borrow_mut() = attributes;
+            meta.body.attributes.borrow_mut().extend(attributes);
         } else {
-                        _ = class;
+            _ = class;
             _ = attributes;
 
             #[cfg(debug_assertions)]

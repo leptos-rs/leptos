@@ -56,9 +56,10 @@ pub fn Form<A>(
     /// Sets whether the page should be scrolled to the top when the form is submitted.
     #[prop(optional)]
     noscroll: bool,
-    /// Arbitrary attributes to add to the `<form>`
-    #[prop(optional, into)]
-    attributes: Option<MaybeSignal<AdditionalAttributes>>,
+    /// Arbitrary attributes to add to the `<form>`. Attributes can be added with the
+    /// `attr:` syntax in the `view` macro.
+    #[prop(attrs)]
+    attributes: Vec<(&'static str, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -78,7 +79,7 @@ where
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
         noscroll: bool,
-        attributes: Option<MaybeSignal<AdditionalAttributes>>,
+        attributes: Vec<(&'static str, Attribute)>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
         let on_submit = {
@@ -276,13 +277,8 @@ where
         if let Some(node_ref) = node_ref {
             form = form.node_ref(node_ref)
         };
-        if let Some(attributes) = attributes {
-            let attributes = attributes.get();
-            for (attr_name, attr_value) in attributes.into_iter() {
-                let attr_name = attr_name.to_owned();
-                let attr_value = attr_value.to_owned();
-                form = form.attr(attr_name, move || attr_value.get());
-            }
+        for (attr_name, attr_value) in attributes {
+            form = form.attr(attr_name, attr_value);
         }
         form
     }
@@ -352,7 +348,7 @@ pub fn ActionForm<I, O>(
     noscroll: bool,
     /// Arbitrary attributes to add to the `<form>`
     #[prop(optional, into)]
-    attributes: Option<MaybeSignal<AdditionalAttributes>>,
+    attributes: Vec<(&'static str, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -539,7 +535,7 @@ pub fn MultiActionForm<I, O>(
     node_ref: Option<NodeRef<html::Form>>,
     /// Arbitrary attributes to add to the `<form>`
     #[prop(optional, into)]
-    attributes: Option<MaybeSignal<AdditionalAttributes>>,
+    attributes: Vec<(&'static str, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -591,13 +587,8 @@ where
     if let Some(node_ref) = node_ref {
         form = form.node_ref(node_ref)
     };
-    if let Some(attributes) = attributes {
-        let attributes = attributes.get();
-        for (attr_name, attr_value) in attributes.into_iter() {
-            let attr_name = attr_name.to_owned();
-            let attr_value = attr_value.to_owned();
-            form = form.attr(attr_name, move || attr_value.get());
-        }
+    for (attr_name, attr_value) in attributes {
+        form = form.attr(attr_name, attr_value);
     }
     form
 }
