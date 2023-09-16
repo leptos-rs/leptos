@@ -22,7 +22,7 @@ impl Debug for TextProp {
 
 impl From<String> for TextProp {
     fn from(s: String) -> Self {
-        let s: Oco<'_, str> = Oco::Counted(Rc::from(s));
+        let s: Oco<'_, str> = Oco::from_counted(Rc::from(s));
         TextProp(Rc::new(move || s.clone()))
     }
 }

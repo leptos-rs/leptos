@@ -450,7 +450,7 @@ pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
 where
     E::EventType: JsCast,
 {
-    window_event_listener_untyped(&**event.name().borrow(), move |e| {
+    window_event_listener_untyped(&event.name().borrow(), move |e| {
         cb(e.unchecked_into::<E::EventType>())
     })
 }

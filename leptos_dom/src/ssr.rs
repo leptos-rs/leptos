@@ -406,7 +406,7 @@ impl View {
                 };
                 cfg_if! {
                   if #[cfg(debug_assertions)] {
-                    let name = {to_kebab_case(&*node.name.borrow())};
+                    let name = {to_kebab_case(&node.name.borrow())};
                     let content = format!(r#"{}{}{}"#,
                       node.id.to_marker(false, &name),
                       content(),

@@ -740,7 +740,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
         }
 
-        self.classes_inner(&**classes.into().borrow())
+        self.classes_inner(&classes.into().borrow())
     }
 
     /// Sets the class on the element as the class signal changes.
