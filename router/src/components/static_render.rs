@@ -105,10 +105,12 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                     let mut new_paths = vec![];
                     for path in paths {
                         let Some(params) = self.params.get(name) else {
-                            panic!("missing param {} for path: {}", name, self.path);
+                            panic!(
+                                "missing param {} for path: {}",
+                                name, self.path
+                            );
                         };
-                        for val in params.iter()
-                        {
+                        for val in params.iter() {
                             new_paths.push(ResolvedStaticPath(format!(
                                 "{}/{}",
                                 path, val
