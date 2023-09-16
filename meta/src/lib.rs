@@ -137,7 +137,7 @@ impl MetaTagsContext {
                 use leptos::document;
 
                 let element_to_hydrate = document()
-                    .get_element_by_id(&id);
+                    .get_element_by_id(&*id.borrow());
 
                 let el = element_to_hydrate.unwrap_or_else({
                     let builder_el = builder_el.clone();

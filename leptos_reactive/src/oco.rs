@@ -255,6 +255,18 @@ impl Oco<'_, str> {
     pub fn len(&self) -> usize {
         self.borrow().len()
     }
+
+    /// Checks if the string contains the given pattern.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_borrowed("Hello");
+    /// assert!(oco.contains("ell"));
+    /// assert!(!oco.contains("abc"));
+    /// ```
+    pub fn contains(&self, pat: &str) -> bool {
+        self.borrow().contains(pat)
+    }
 }
 
 impl<T> Oco<'_, [T]>

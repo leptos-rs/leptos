@@ -75,7 +75,7 @@ where
         use leptos_dom::View;
         if children.nodes.iter().any(|child| {
             matches!(child, View::Suspense(_, _))
-            || matches!(child, View::Component(repr) if repr.name() == "Transition")
+            || matches!(child, View::Component(repr) if &*repr.name() == "Transition")
         }) {
             leptos_dom::logging::console_warn("You are using a <Suspense/> or \
             <Transition/> as the direct child of an <ErrorBoundary/>. To ensure correct \

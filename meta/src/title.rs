@@ -143,7 +143,7 @@ pub fn Title(
             create_render_effect(move |_| {
                 let text = meta.title.as_string().unwrap_or_default();
 
-                el.set_text_content(Some(&text));
+                el.set_text_content(Some(&*text.borrow()));
             });
         } else {
             if let Some(formatter) = formatter {
