@@ -909,7 +909,7 @@ impl<'a, 'b> Add<Oco<'b, str>> for Oco<'a, str> {
 impl<'a> FromIterator<Oco<'a, str>> for String {
     fn from_iter<T: IntoIterator<Item = Oco<'a, str>>>(iter: T) -> Self {
         iter.into_iter().fold(String::new(), |mut acc, item| {
-            acc.push_str(&*item.inner.borrow());
+            acc.push_str(&item.inner.borrow());
             acc
         })
     }
