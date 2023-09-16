@@ -201,7 +201,7 @@ where
             };
             if let Some(active_class) = active_class {
                 let mut a = a;
-                for class_name in active_class.split_ascii_whitespace() {
+                for class_name in active_class.borrow().split_ascii_whitespace() {
                     a = a.class(class_name.to_string(), move || is_active.get())
                 }
                 a
