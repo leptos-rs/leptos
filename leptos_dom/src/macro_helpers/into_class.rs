@@ -100,7 +100,7 @@ pub fn class_helper(
             });
         }
         Class::Value(value) => {
-            class_expression(&class_list, &*name.class(), value, false)
+            class_expression(&class_list, &*name.borrow(), value, false)
         }
     };
 }
