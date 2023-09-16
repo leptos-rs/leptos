@@ -315,7 +315,7 @@ fn element_to_tokens_ssr(
                 let value = inner_html;
 
                 holes.push(quote! {
-                  &*(#value).into_attribute().as_nameless_value_string().unwrap_or_default().borrow()
+                    &*(#value).into_attribute().as_nameless_value_string().unwrap_or_default().borrow()
                 })
             } else {
                 for child in &node.children {
