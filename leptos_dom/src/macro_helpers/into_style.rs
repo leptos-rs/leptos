@@ -222,7 +222,12 @@ pub fn style_helper(
                     _ => unreachable!(),
                 };
                 if old.as_ref() != Some(&new) {
-                    style_expression(&style_list, &*name.borrow(), new.as_ref(), true)
+                    style_expression(
+                        &style_list,
+                        &*name.borrow(),
+                        new.as_ref(),
+                        true,
+                    )
                 }
                 new
             });
@@ -230,9 +235,12 @@ pub fn style_helper(
         Style::Value(value) => {
             style_expression(&style_list, &*name.borrow(), Some(&value), false)
         }
-        Style::Option(value) => {
-            style_expression(&style_list, &*name.borrow(), value.as_ref(), false)
-        }
+        Style::Option(value) => style_expression(
+            &style_list,
+            &*name.borrow(),
+            value.as_ref(),
+            false,
+        ),
     };
 }
 
@@ -250,7 +258,9 @@ pub(crate) fn style_expression(
         let style_name = wasm_bindgen::intern(style_name);
 
         if let Some(value) = value {
-            if let Err(e) = style_list.set_property(style_name, &*value.borrow()) {
+            if let Err(e) =
+                style_list.set_property(style_name, &*value.borrow())
+            {
                 crate::error!("[HtmlElement::style()] {e:?}");
             }
         } else {

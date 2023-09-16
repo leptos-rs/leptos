@@ -370,7 +370,12 @@ pub fn attribute_helper(
             create_render_effect(move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) {
-                    attribute_expression(&el, &*name.borrow(), new.clone(), true);
+                    attribute_expression(
+                        &el,
+                        &*name.borrow(),
+                        new.clone(),
+                        true,
+                    );
                 }
                 new
             });
