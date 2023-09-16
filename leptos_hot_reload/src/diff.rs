@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 struct OldChildren(IndexMap<LNode, Vec<usize>>);
 
 impl LNode {
+    #[must_use]
     pub fn diff(&self, other: &LNode) -> Vec<Patch> {
         let mut old_children = OldChildren::default();
         self.add_old_children(vec![], &mut old_children);
@@ -196,7 +197,7 @@ impl LNode {
                 if replace {
                     match &new_value {
                         LAttributeValue::Boolean => {
-                            Some((name.to_owned(), "".to_string()))
+                            Some((name.to_owned(), String::new()))
                         }
                         LAttributeValue::Static(s) => {
                             Some((name.to_owned(), s.to_owned()))
@@ -213,13 +214,13 @@ impl LNode {
             });
 
         let removals = old.iter().filter_map(|(name, _)| {
-            if !new.iter().any(|(new_name, _)| new_name == name) {
+            if new.iter().any(|(new_name, _)| new_name == name) {
+                None
+            } else {
                 Some(Patch {
                     path: path.to_owned(),
                     action: PatchAction::RemoveAttribute(name.to_owned()),
                 })
-            } else {
-                None
             }
         });
 
@@ -259,7 +260,6 @@ impl LNode {
                 let new = new.get(a);
 
                 match (old, new) {
-                    (None, None) => {}
                     (None, Some(new)) => patches.push(Patch {
                         path: path.to_owned(),
                         action: PatchAction::InsertChild {
@@ -271,11 +271,10 @@ impl LNode {
                         path: path.to_owned(),
                         action: PatchAction::RemoveChild { at: a },
                     }),
-                    (Some(old), Some(new)) => {
-                        if old != new {
-                            break;
-                        }
+                    (Some(old), Some(new)) if old != new => {
+                        break;
                     }
+                    _ => {}
                 }
 
                 a += 1;
@@ -287,7 +286,6 @@ impl LNode {
                 let new = new.get(b);
 
                 match (old, new) {
-                    (None, None) => {}
                     (None, Some(new)) => patches.push(Patch {
                         path: path.to_owned(),
                         action: PatchAction::InsertChildAfter {
@@ -299,18 +297,16 @@ impl LNode {
                         path: path.to_owned(),
                         action: PatchAction::RemoveChild { at: b },
                     }),
-                    (Some(old), Some(new)) => {
-                        if old != new {
-                            break;
-                        }
+                    (Some(old), Some(new)) if old != new => {
+                        break;
                     }
+                    _ => {}
                 }
 
                 if b == 0 {
                     break;
-                } else {
-                    b -= 1;
                 }
+                b -= 1;
             }
 
             // diffing in middle
