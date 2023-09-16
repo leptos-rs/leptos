@@ -605,7 +605,7 @@ impl View {
                                     Some(
                                         format!(
                                             " {name}=\"{}\"",
-                                            html_escape::encode_double_quoted_attribute(&**value.borrow())
+                                            html_escape::encode_double_quoted_attribute(&*value.borrow())
                                         )
                                         .into(),
                                     )

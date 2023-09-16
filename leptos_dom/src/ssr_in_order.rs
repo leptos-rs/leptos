@@ -316,7 +316,7 @@ impl View {
                                     Some(
                                         format!(
                                             " {name}=\"{}\"",
-                                            html_escape::encode_double_quoted_attribute(&**value.borrow())
+                                            html_escape::encode_double_quoted_attribute(&*value.borrow())
                                         )
                                         .into(),
                                     )
@@ -414,7 +414,7 @@ impl View {
                                                 content
                                             } else {
                                                 html_escape::encode_safe(
-                                                    &**content.borrow(),
+                                                    &*content.borrow(),
                                                 )
                                                 .to_string()
                                                 .into()
@@ -432,14 +432,14 @@ impl View {
                                                         format!(
                                                             "<!>{}",
                                                             html_escape::encode_safe(
-                                                                &**content.borrow()
+                                                                &*content.borrow()
                                                             )
                                                         )
                                                         .into(),
                                                     )
                                                 } else {
                                                     StreamChunk::Sync(html_escape::encode_safe(
-                                                        &**content.borrow()
+                                                        &*content.borrow()
                                                     ).to_string().into())
                                                 },
                                             );

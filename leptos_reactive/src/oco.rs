@@ -28,8 +28,8 @@ pub struct Oco<'a, T: ?Sized + ToOwned + 'a> {
     inner: RefCell<OcoInner<'a, T>>,
 }
 
-/// The inner value of [`Oco`].
-pub enum OcoInner<'a, T: ?Sized + ToOwned + 'a> {
+#[doc(hidden)]
+enum OcoInner<'a, T: ?Sized + ToOwned + 'a> {
     /// A static reference to a value.
     Borrowed(&'a T),
     /// A reference counted pointer to a value.
@@ -96,11 +96,6 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
         }
     }
 
-    /// Returns the inner [`OcoInner`].
-    pub fn into_inner(self) -> OcoInner<'a, T> {
-        self.inner.into_inner()
-    }
-
     /// Converts the value into an owned value.
     pub fn into_owned(self) -> <T as ToOwned>::Owned {
         match self.inner.into_inner() {
@@ -117,8 +112,8 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// let oco = Oco::<str>::from_borrowed("Hello");
     /// assert_eq!(oco.borrow(), "Hello");
     /// ```
-    pub fn borrow(&self) -> Ref<'_, OcoInner<'a, T>> {
-        self.inner.borrow()
+    pub fn borrow(&self) -> Ref<'_, T> {
+        Ref::map(self.inner.borrow(), Deref::deref)
     }
 
     /// Checks if the value is [`OcoInner::Borrowed`].
@@ -131,7 +126,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// assert!(!Oco::<str>::from_owned("Hello".to_string()).is_borrowed());
     /// ```
     pub fn is_borrowed(&self) -> bool {
-        self.borrow().is_borrowed()
+        self.inner.borrow().is_borrowed()
     }
 
     /// Checks if the value is [`OcoInner::Counted`].
@@ -144,7 +139,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// assert!(!Oco::<str>::from_owned("Hello".to_string()).is_counted());
     /// ```
     pub fn is_counted(&self) -> bool {
-        self.borrow().is_counted()
+        self.inner.borrow().is_counted()
     }
 
     /// Checks if the value is [`OcoInner::Owned`].
@@ -157,7 +152,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// assert!(!Oco::<str>::from_counted(Rc::from("Hello")).is_owned());
     /// ```
     pub fn is_owned(&self) -> bool {
-        self.borrow().is_owned()
+        self.inner.borrow().is_owned()
     }
 }
 
@@ -220,24 +215,6 @@ impl OcoInner<'_, str> {
     }
 }
 
-impl OcoInner<'_, CStr> {
-    /// Returns a `&CStr` slice of this [`Oco`].
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::oco::OcoInner;
-    /// use std::ffi::CStr;
-    /// let oco = OcoInner::<CStr>::Borrowed(
-    ///     CStr::from_bytes_with_nul(b"Hello\0").unwrap(),
-    /// );
-    /// let s: &CStr = oco.as_c_str();
-    /// assert_eq!(s, CStr::from_bytes_with_nul(b"Hello\0").unwrap());
-    /// ```
-    #[inline(always)]
-    pub fn as_c_str(&self) -> &CStr {
-        self
-    }
-}
-
 impl OcoInner<'_, OsStr> {
     /// Returns a `&OsStr` slice of this [`Oco`].
     /// # Examples
@@ -250,40 +227,6 @@ impl OcoInner<'_, OsStr> {
     /// ```
     #[inline(always)]
     pub fn as_os_str(&self) -> &OsStr {
-        self
-    }
-}
-
-impl OcoInner<'_, Path> {
-    /// Returns a `&Path` slice of this [`Oco`].
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::oco::OcoInner;
-    /// use std::path::Path;
-    /// let oco = OcoInner::<Path>::Borrowed(Path::new("Hello"));
-    /// let s: &Path = oco.as_path();
-    /// assert_eq!(s, Path::new("Hello"));
-    /// ```
-    #[inline(always)]
-    pub fn as_path(&self) -> &Path {
-        self
-    }
-}
-
-impl<T> OcoInner<'_, [T]>
-where
-    [T]: ToOwned,
-{
-    /// Returns a `&[T]` slice of this [`Oco`].
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::oco::OcoInner;
-    /// let oco = OcoInner::<[i32]>::Borrowed(&[1, 2, 3]);
-    /// let s: &[i32] = oco.as_slice();
-    /// assert_eq!(s, &[1, 2, 3]);
-    /// ```
-    #[inline(always)]
-    pub fn as_slice(&self) -> &[T] {
         self
     }
 }
@@ -950,7 +893,7 @@ where
     where
         S: serde::Serializer,
     {
-        self.borrow().serialize(serializer)
+        (&*self.borrow()).serialize(serializer)
     }
 }
 
