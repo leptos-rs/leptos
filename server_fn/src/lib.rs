@@ -28,7 +28,7 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]`](https://docs.rs/server_fn/latest/server_fn/attr.server.html) macro allows you to annotate a function to
+//! The [`#[server]`][server] macro allows you to annotate a function to
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
@@ -69,12 +69,15 @@
 //! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 //!   inside the function body can’t fail, the processes of serialization/deserialization and the
 //!   network call are fallible.
-//! - **Return types must implement [Serialize](serde::Serialize).**
+//! - **Return types must implement [`serde::Serialize`].**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
-//! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
-//!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
-//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
+//! - **Arguments must be implement [`serde::Serialize`].** They are serialized as an `application/x-www-form-urlencoded`
+//!   form data using [`serde_qs`] or as `application/cbor` using [`cbor`].
+//!
+//! [server]: <https://docs.rs/server_fn/latest/server_fn/attr.server.html>
+//! [`serde_qs`]: <https://docs.rs/serde_qs/latest/serde_qs/>
+//! [`cbor`]: <https://docs.rs/cbor/latest/cbor/>
 
 // used by the macro
 #[doc(hidden)]
@@ -323,7 +326,7 @@ impl quote::ToTokens for Encoding {
 ///
 /// Server functions are created using the `server` macro.
 ///
-/// The set of server functions can be queried on the server for routing purposes by calling [server_fn_by_path].
+/// The set of server functions can be queried on the server for routing purposes by calling [`server_fn_by_path`].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn<T: 'static>
