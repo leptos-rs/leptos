@@ -221,7 +221,9 @@ impl OcoInner<'_, CStr> {
     /// ```
     /// # use leptos_reactive::oco::OcoInner;
     /// use std::ffi::CStr;
-    /// let oco = OcoInner::<CStr>::Borrowed(CStr::from_bytes_with_nul(b"Hello\0").unwrap());
+    /// let oco = OcoInner::<CStr>::Borrowed(
+    ///     CStr::from_bytes_with_nul(b"Hello\0").unwrap(),
+    /// );
     /// let s: &CStr = oco.as_c_str();
     /// assert_eq!(s, CStr::from_bytes_with_nul(b"Hello\0").unwrap());
     /// ```
