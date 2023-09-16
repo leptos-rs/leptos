@@ -1348,76 +1348,72 @@ where
     where
         IV: IntoView + 'static,
     {
-        let mut router = self;
-        for listing in paths.iter() {
+        // Folding is just like a for loop that returns a value for the next loop.
+        // Adding a route to a router returns a router, making folds perfect.
+        paths.iter().fold(self, |acc, listing| {
             let path = listing.path();
-
-            for method in listing.methods() {
-                router = router.route(
-                    path,
-                    match listing.mode() {
-                        SsrMode::OutOfOrder => {
-                            let s = render_app_to_stream_with_context(
-                                LeptosOptions::from_ref(options),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
-                            }
-                        }
-                        SsrMode::PartiallyBlocked => {
-                            let s = render_app_to_stream_with_context_and_replace_blocks(
-                                LeptosOptions::from_ref(options),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                                true
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
-                            }
-                        }
-                        SsrMode::InOrder => {
-                            let s = render_app_to_stream_in_order_with_context(
-                                LeptosOptions::from_ref(options),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
-                            }
-                        }
-                        SsrMode::Async => {
-                            let s = render_app_async_with_context(
-                                LeptosOptions::from_ref(options),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                            );
-                            match method {
-                                leptos_router::Method::Get => get(s),
-                                leptos_router::Method::Post => post(s),
-                                leptos_router::Method::Put => put(s),
-                                leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s),
-                            }
-                        }
-                    },
-                );
-            }
-        }
-        router
+            listing.methods().fold(acc, |inner_router, method| {
+                // match SSR mode to their render functions.
+                match listing.mode() {
+                    SsrMode::OutOfOrder => {
+                        let render = render_app_to_stream_with_context(
+                            LeptosOptions::from_ref(options),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                        );
+                        // and feed the result into the axum method handler.
+                        leptos_method_to_axum_method_with_handler(
+                            inner_router,
+                            path,
+                            method,
+                            render,
+                        )
+                    }
+                    SsrMode::PartiallyBlocked => {
+                        let render =
+                        render_app_to_stream_with_context_and_replace_blocks(
+                            LeptosOptions::from_ref(options),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                            true,
+                        );
+                        leptos_method_to_axum_method_with_handler(
+                            inner_router,
+                            path,
+                            method,
+                            render,
+                        )
+                    }
+                    SsrMode::InOrder => {
+                        let render = render_app_to_stream_in_order_with_context(
+                            LeptosOptions::from_ref(options),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                        );
+                        leptos_method_to_axum_method_with_handler(
+                            inner_router,
+                            path,
+                            method,
+                            render,
+                        )
+                    }
+                    SsrMode::Async => {
+                        let render = render_app_async_with_context(
+                            LeptosOptions::from_ref(options),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                        );
+                        leptos_method_to_axum_method_with_handler(
+                            inner_router,
+                            path,
+                            method,
+                            render,
+                        )
+                    }
+                }
+            })
+        })
+        // The built router is the result of the iterator.
     }
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
@@ -1430,25 +1426,43 @@ where
         H: axum::handler::Handler<T, S, axum::body::Body>,
         T: 'static,
     {
-        let mut router = self;
-        for listing in paths.iter() {
-            for method in listing.methods() {
-                router = router.route(
-                    listing.path(),
-                    match method {
-                        leptos_router::Method::Get => get(handler.clone()),
-                        leptos_router::Method::Post => post(handler.clone()),
-                        leptos_router::Method::Put => put(handler.clone()),
-                        leptos_router::Method::Delete => {
-                            delete(handler.clone())
-                        }
-                        leptos_router::Method::Patch => patch(handler.clone()),
-                    },
-                );
-            }
-        }
-        router
+        paths.iter().fold(self, |acc, listing| {
+            let path = listing.path();
+            listing.methods().fold(acc, |inner_acc, method| {
+                leptos_method_to_axum_method_with_handler(
+                    inner_acc,
+                    path,
+                    method,
+                    handler.clone(),
+                )
+            })
+        })
     }
+}
+
+/// Build up a router with a handler from [leptos_router::Method] to [axum method routers](axum::routing::method_routing).
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+fn leptos_method_to_axum_method_with_handler<T, S, H>(
+    router: axum::Router<S>,
+    path: &str,
+    leptos_method: leptos_router::Method,
+    handler: H,
+) -> axum::Router<S>
+where
+    S: Sync + Send + Clone + 'static,
+    H: axum::handler::Handler<T, S>,
+    T: 'static,
+{
+    router.route(
+        path,
+        match leptos_method {
+            leptos_router::Method::Get => get(handler),
+            leptos_router::Method::Post => post(handler),
+            leptos_router::Method::Put => put(handler),
+            leptos_router::Method::Delete => delete(handler),
+            leptos_router::Method::Patch => patch(handler),
+        },
+    )
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
