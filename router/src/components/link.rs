@@ -160,7 +160,8 @@ where
                         class.map(|class| class.into_attribute_boxed()),
                     );
 
-                for class_name in active_class.split_ascii_whitespace() {
+                for class_name in active_class.borrow().split_ascii_whitespace()
+                {
                     a = a.class(class_name.to_string(), move || is_active.get())
                 }
 
@@ -172,8 +173,8 @@ where
                     <a
                         href=move || href.get().unwrap_or_default()
                         aria-current=move || if is_active.get() { Some("page") } else { None }
-                        class=class
-                        id=id
+                        {class}
+                        id={id}
                     >
                         {children()}
                     </a>

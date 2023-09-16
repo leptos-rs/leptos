@@ -270,7 +270,7 @@ impl MetaContext {
         // Title
         if let Some(title) = self.title.as_string() {
             tags.push_str("<title>");
-            tags.push_str(&title);
+            tags.push_str(&*title.borrow());
             tags.push_str("</title>");
         }
         tags.push_str(&self.tags.as_string());

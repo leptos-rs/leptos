@@ -21,7 +21,7 @@ impl BodyContext {
         let class = self.class.borrow().as_ref().map(|val| {
             format!(
                 "class=\"{}\"",
-                leptos::leptos_dom::ssr::escape_attr(&val.get())
+                leptos::leptos_dom::ssr::escape_attr(&*val.get().borrow())
             )
         });
         let attributes = self.attributes.borrow();
@@ -33,7 +33,7 @@ impl BodyContext {
                         format!(
                             "{}=\"{}\"",
                             n,
-                            leptos::leptos_dom::ssr::escape_attr(&v)
+                            leptos::leptos_dom::ssr::escape_attr(&*v.borrow())
                         )
                     })
                 })

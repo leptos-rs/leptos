@@ -50,7 +50,7 @@ pub fn create_query_signal<T>(
 where
     T: FromStr + ToString + PartialEq,
 {
-    let key = key.into();
+    let key: Oco<'static, str> = key.into();
     let query_map = use_query_map();
     let navigate = use_navigate();
     let location = use_location();
@@ -58,8 +58,9 @@ where
     let get = create_memo({
         let key = key.clone();
         move |_| {
-            query_map
-                .with(|map| map.get(&key).and_then(|value| value.parse().ok()))
+            query_map.with(|map| {
+                map.get(&*key.borrow()).and_then(|value| value.parse().ok())
+            })
         }
     });
 
@@ -70,7 +71,7 @@ where
                 new_query_map.insert(key.to_string(), value.to_string());
             }
             None => {
-                new_query_map.remove(&key);
+                new_query_map.remove(&*key.borrow());
             }
         }
         let qs = new_query_map.to_query_string();

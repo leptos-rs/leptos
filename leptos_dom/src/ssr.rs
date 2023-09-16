@@ -720,7 +720,7 @@ pub(crate) fn render_serializers(
 #[doc(hidden)]
 pub fn escape_attr<T>(value: &T) -> Oco<'_, str>
 where
-    T: AsRef<str>,
+    T: AsRef<str> + ?Sized,
 {
     html_escape::encode_double_quoted_attribute(value).into()
 }

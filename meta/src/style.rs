@@ -63,7 +63,7 @@ pub fn Style(
         let mut style = String::new();
         for node in frag.nodes {
             match node {
-                View::Text(text) => style.push_str(&text.content),
+                View::Text(text) => style.push_str(&*text.content.borrow()),
                 _ => leptos::logging::warn!(
                     "Only text nodes are supported as children of <Style/>."
                 ),

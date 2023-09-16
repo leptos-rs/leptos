@@ -284,7 +284,7 @@ fn element_to_tokens_ssr(
                     template.push_str(" {}");
                     holes.push(quote! {
                         {#end}.into_iter().filter_map(|(name, attr)| {
-                           Some(format!("{}={}", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
+                           Some(format!("{}={}", name, ::leptos::leptos_dom::ssr::escape_attr(&*attr.as_nameless_value_string()?.borrow())))
                         }).collect::<Vec<_>>().join(" ")
                     });
                 };
@@ -315,7 +315,7 @@ fn element_to_tokens_ssr(
                 let value = inner_html;
 
                 holes.push(quote! {
-                  (#value).into_attribute().as_nameless_value_string().unwrap_or_default()
+                  (#value).into_attribute().as_nameless_value_string().map(|a| &*a.borrow()).unwrap_or_default()
                 })
             } else {
                 for child in &node.children {
@@ -459,7 +459,7 @@ fn attribute_to_tokens_ssr<'a>(
                     holes.push(quote! {
                         &{#value}.into_attribute()
                             .as_nameless_value_string()
-                            .map(|a| format!("{}=\"{}\"", #name, leptos::leptos_dom::ssr::escape_attr(&a)))
+                            .map(|a| format!("{}=\"{}\"", #name, leptos::leptos_dom::ssr::escape_attr(&*a.borrow())))
                             .unwrap_or_default()
                     })
                 }
@@ -583,7 +583,7 @@ fn set_class_attribute_ssr(
                 template.push_str(" {}");
                 holes.push(quote! {
                   &(#value).into_attribute().as_nameless_value_string()
-                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
+                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&*a.borrow()).to_string())
                     .unwrap_or_default()
                 });
             }
@@ -694,7 +694,7 @@ fn set_style_attribute_ssr(
                 template.push_str(" {};");
                 holes.push(quote! {
                   &(#value).into_attribute().as_nameless_value_string()
-                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
+                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&*a.borrow()).to_string())
                     .unwrap_or_default()
                 });
             }

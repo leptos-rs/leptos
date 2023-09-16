@@ -25,19 +25,19 @@ impl HtmlContext {
         let lang = self.lang.borrow().as_ref().map(|val| {
             format!(
                 "lang=\"{}\"",
-                leptos::leptos_dom::ssr::escape_attr(&val.get())
+                leptos::leptos_dom::ssr::escape_attr(&*val.get().borrow())
             )
         });
         let dir = self.dir.borrow().as_ref().map(|val| {
             format!(
                 "dir=\"{}\"",
-                leptos::leptos_dom::ssr::escape_attr(&val.get())
+                leptos::leptos_dom::ssr::escape_attr(&*val.get().borrow())
             )
         });
         let class = self.class.borrow().as_ref().map(|val| {
             format!(
                 "class=\"{}\"",
-                leptos::leptos_dom::ssr::escape_attr(&val.get())
+                leptos::leptos_dom::ssr::escape_attr(&*val.get().borrow())
             )
         });
         let attributes = self.attributes.borrow();
@@ -49,7 +49,7 @@ impl HtmlContext {
                         format!(
                             "{}=\"{}\"",
                             n,
-                            leptos::leptos_dom::ssr::escape_attr(&v)
+                            leptos::leptos_dom::ssr::escape_attr(&*v.borrow())
                         )
                     })
                 })
