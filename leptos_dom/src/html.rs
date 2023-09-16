@@ -226,7 +226,7 @@ impl Custom {
             #[cfg(not(feature = "hydrate"))]
             unreachable!()
         } else {
-            crate::document().create_element(&name).unwrap()
+            crate::document().create_element(&*name.borrow()).unwrap()
         };
 
         Self {
@@ -456,7 +456,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 el.set_attribute(wasm_bindgen::intern("id"), id).unwrap()
             }
 
-            id_inner(self.element.as_ref(), &id);
+            id_inner(self.element.as_ref(), &*id.borrow());
 
             self
         }
@@ -784,16 +784,17 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         .collect::<SmallVec<[Oco<'static, str>; 4]>>(
                     );
 
-                    let new_classes = classes
-                        .iter()
-                        .flat_map(|classes| classes.split_whitespace());
+                    let new_classes = classes.iter().flat_map(|classes| {
+                        classes.borrow().split_whitespace()
+                    });
 
                     if let Some(prev_classes) = prev_classes {
                         let new_classes =
                             new_classes.collect::<SmallVec<[_; 4]>>();
-                        let mut old_classes = prev_classes
-                            .iter()
-                            .flat_map(|classes| classes.split_whitespace());
+                        let mut old_classes =
+                            prev_classes.iter().flat_map(|classes| {
+                                classes.borrow().split_whitespace()
+                            });
 
                         // Remove old classes
                         for prev_class in old_classes.clone() {
@@ -997,7 +998,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             } else {
                 add_event_listener_undelegated(
                     self.element.as_ref(),
-                    &event_name,
+                    &*event_name.borrow(),
                     event_handler,
                     event.options(),
                 );
@@ -1122,7 +1123,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-            self.element.as_ref().set_inner_html(&html);
+            self.element.as_ref().set_inner_html(&*html.borrow());
 
             self
         }

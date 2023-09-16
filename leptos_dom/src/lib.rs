@@ -504,7 +504,7 @@ impl Text {
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             node: crate::document()
-                .create_text_node(&content)
+                .create_text_node(&*content.borrow())
                 .unchecked_into::<web_sys::Node>(),
             content,
         }
@@ -747,7 +747,7 @@ impl View {
                 } else {
                   add_event_listener_undelegated(
                     &el.element,
-                    &event.name(),
+                    &*event.name().borrow(),
                     event_handler,
                     &None,
                   );

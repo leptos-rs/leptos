@@ -94,13 +94,13 @@ pub fn class_helper(
             create_render_effect(move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) && (old.is_some() || new) {
-                    class_expression(&class_list, &name, new, true)
+                    class_expression(&class_list, &*name.borrow(), new, true)
                 }
                 new
             });
         }
         Class::Value(value) => {
-            class_expression(&class_list, &name, value, false)
+            class_expression(&class_list, &*name.class(), value, false)
         }
     };
 }

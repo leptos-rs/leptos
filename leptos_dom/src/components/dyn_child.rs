@@ -225,7 +225,7 @@ where
                                     };
                                     prev_t
                                         .unchecked_ref::<web_sys::Text>()
-                                        .set_data(&new_t.content);
+                                        .set_data(&*new_t.content.borrow());
 
                                     // replace new_t's text node with the prev node
                                     // see discussion: https://github.com/leptos-rs/leptos/pull/1472
@@ -352,7 +352,7 @@ where
                                 View::Text(text) => text,
                                 _ => unreachable!(),
                             };
-                            t.set_data(&new_child.content);
+                            t.set_data(&*new_child.content.borrow());
                             View::Text(Text {
                                 node: t.unchecked_into(),
                                 content: new_child.content,

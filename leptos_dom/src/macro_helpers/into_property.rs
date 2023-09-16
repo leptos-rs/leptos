@@ -154,13 +154,13 @@ pub(crate) fn property_helper(
             let el = el.clone();
             create_render_effect(move |_| {
                 let new = f();
-                let prop_name = wasm_bindgen::intern(&name);
+                let prop_name = wasm_bindgen::intern(&*name.borrow());
                 property_expression(&el, prop_name, new.clone());
                 new
             });
         }
         Property::Value(value) => {
-            let prop_name = wasm_bindgen::intern(&name);
+            let prop_name = wasm_bindgen::intern(&*name.borrow());
             property_expression(el, prop_name, value)
         }
     };

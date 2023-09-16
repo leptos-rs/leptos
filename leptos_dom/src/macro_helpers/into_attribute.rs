@@ -370,12 +370,12 @@ pub fn attribute_helper(
             create_render_effect(move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) {
-                    attribute_expression(&el, &name, new.clone(), true);
+                    attribute_expression(&el, &*name.borrow(), new.clone(), true);
                 }
                 new
             });
         }
-        _ => attribute_expression(el, &name, value, false),
+        _ => attribute_expression(el, &*name.borrow(), value, false),
     };
 }
 
@@ -392,7 +392,7 @@ pub(crate) fn attribute_expression(
     if force || !HydrationCtx::is_hydrating() {
         match value {
             Attribute::String(value) => {
-                let value = wasm_bindgen::intern(&value);
+                let value = wasm_bindgen::intern(&*value.borrow());
                 if attr_name == "inner_html" {
                     el.set_inner_html(value);
                 } else {
@@ -402,12 +402,12 @@ pub(crate) fn attribute_expression(
             }
             Attribute::Option(value) => {
                 if attr_name == "inner_html" {
-                    el.set_inner_html(&value.unwrap_or_default());
+                    el.set_inner_html(&*value.unwrap_or_default().borrow());
                 } else {
                     let attr_name = wasm_bindgen::intern(attr_name);
                     match value {
                         Some(value) => {
-                            let value = wasm_bindgen::intern(&value);
+                            let value = wasm_bindgen::intern(&*value.borrow());
                             el.set_attribute(attr_name, value).unwrap_throw();
                         }
                         None => el.remove_attribute(attr_name).unwrap_throw(),

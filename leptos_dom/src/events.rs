@@ -36,7 +36,7 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
     } else {
         add_event_listener_undelegated(
             target,
-            &event_name,
+            &*event_name.borrow(),
             event_handler,
             &None,
         );
@@ -69,7 +69,10 @@ pub fn add_event_listener<E>(
     }
 
     let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
-    let key = intern(&key);
+    let key = {
+        let key = key.borrow();
+        intern(&key)
+    };
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     add_delegated_event_listener(&key, event_name, options);
 }
@@ -185,13 +188,13 @@ pub(crate) fn add_delegated_event_listener(
             let handler = Closure::wrap(handler).into_js_value();
             if let Some(options) = options {
                 _ = crate::window().add_event_listener_with_callback_and_add_event_listener_options(
-                    &event_name,
+                    &*event_name.borrow(),
                     handler.unchecked_ref(),
                     options,
                 );
             } else {
                 _ = crate::window().add_event_listener_with_callback(
-                    &event_name,
+                    &*event_name.borrow(),
                     handler.unchecked_ref(),
                 );
 

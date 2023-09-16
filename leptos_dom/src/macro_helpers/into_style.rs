@@ -205,7 +205,6 @@ pub fn style_helper(
     value: Style,
 ) {
     use leptos_reactive::create_render_effect;
-    use std::ops::Deref;
     use wasm_bindgen::JsCast;
 
     let el = el.unchecked_ref::<web_sys::HtmlElement>();
@@ -223,16 +222,16 @@ pub fn style_helper(
                     _ => unreachable!(),
                 };
                 if old.as_ref() != Some(&new) {
-                    style_expression(&style_list, &name, new.as_deref(), true)
+                    style_expression(&style_list, &*name.borrow(), new.as_ref(), true)
                 }
                 new
             });
         }
         Style::Value(value) => {
-            style_expression(&style_list, &name, Some(value.deref()), false)
+            style_expression(&style_list, &*name.borrow(), Some(&value), false)
         }
         Style::Option(value) => {
-            style_expression(&style_list, &name, value.as_deref(), false)
+            style_expression(&style_list, &*name.borrow(), value.as_ref(), false)
         }
     };
 }
@@ -242,7 +241,7 @@ pub fn style_helper(
 pub(crate) fn style_expression(
     style_list: &web_sys::CssStyleDeclaration,
     style_name: &str,
-    value: Option<&str>,
+    value: Option<&Oco<'_, str>>,
     force: bool,
 ) {
     use crate::HydrationCtx;
@@ -251,7 +250,7 @@ pub(crate) fn style_expression(
         let style_name = wasm_bindgen::intern(style_name);
 
         if let Some(value) = value {
-            if let Err(e) = style_list.set_property(style_name, value) {
+            if let Err(e) = style_list.set_property(style_name, &*value.borrow()) {
                 crate::error!("[HtmlElement::style()] {e:?}");
             }
         } else {
