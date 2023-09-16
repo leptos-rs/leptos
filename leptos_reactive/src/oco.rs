@@ -5,6 +5,7 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
+    cell::{Ref, RefCell},
     ffi::{CStr, OsStr},
     fmt,
     hash::Hash,
@@ -23,7 +24,12 @@ use std::{
 /// variant increments a reference count (`O(1)`). Cloning the [`Oco::Owned`]
 /// variant upgrades it to [`Oco::Counted`], which requires an `O(n)` clone of the
 /// data, but all subsequent clones will be `O(1)`.
-pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
+pub struct Oco<'a, T: ?Sized + ToOwned + 'a> {
+    inner: RefCell<OcoInner<'a, T>>,
+}
+
+/// The inner value of [`Oco`].
+pub enum OcoInner<'a, T: ?Sized + ToOwned + 'a> {
     /// A static reference to a value.
     Borrowed(&'a T),
     /// A reference counted pointer to a value.
@@ -32,90 +38,158 @@ pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     Owned(<T as ToOwned>::Owned),
 }
 
-impl<T: ?Sized + ToOwned> Oco<'_, T> {
-    /// Converts the value into an owned value.
-    pub fn into_owned(self) -> <T as ToOwned>::Owned {
-        match self {
-            Oco::Borrowed(v) => v.to_owned(),
-            Oco::Counted(v) => v.as_ref().to_owned(),
-            Oco::Owned(v) => v,
-        }
-    }
-
-    /// Checks if the value is [`Oco::Borrowed`].
-    /// # Examples
-    /// ```
-    /// # use std::rc::Rc;
-    /// # use leptos_reactive::oco::Oco;
-    /// assert!(Oco::<str>::Borrowed("Hello").is_borrowed());
-    /// assert!(!Oco::<str>::Counted(Rc::from("Hello")).is_borrowed());
-    /// assert!(!Oco::<str>::Owned("Hello".to_string()).is_borrowed());
-    /// ```
+impl<T: ?Sized + ToOwned> OcoInner<'_, T> {
+    /// Checks if the value is [`OcoInner::Borrowed`].
     pub const fn is_borrowed(&self) -> bool {
-        matches!(self, Oco::Borrowed(_))
+        matches!(self, Self::Borrowed(_))
     }
 
-    /// Checks if the value is [`Oco::Counted`].
-    /// # Examples
-    /// ```
-    /// # use std::rc::Rc;
-    /// # use leptos_reactive::oco::Oco;
-    /// assert!(Oco::<str>::Counted(Rc::from("Hello")).is_counted());
-    /// assert!(!Oco::<str>::Borrowed("Hello").is_counted());
-    /// assert!(!Oco::<str>::Owned("Hello".to_string()).is_counted());
-    /// ```
+    /// Checks if the value is [`OcoInner::Counted`].
     pub const fn is_counted(&self) -> bool {
-        matches!(self, Oco::Counted(_))
+        matches!(self, Self::Counted(_))
     }
 
-    /// Checks if the value is [`Oco::Owned`].
-    /// # Examples
-    /// ```
-    /// # use std::rc::Rc;
-    /// # use leptos_reactive::oco::Oco;
-    /// assert!(Oco::<str>::Owned("Hello".to_string()).is_owned());
-    /// assert!(!Oco::<str>::Borrowed("Hello").is_owned());
-    /// assert!(!Oco::<str>::Counted(Rc::from("Hello")).is_owned());
-    /// ```
+    /// Checks if the value is [`OcoInner::Owned`].
     pub const fn is_owned(&self) -> bool {
-        matches!(self, Oco::Owned(_))
+        matches!(self, Self::Owned(_))
     }
 }
 
-impl<T: ?Sized + ToOwned> Deref for Oco<'_, T> {
+impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
+    /// Constructs a new [`Oco`] from a reference.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_borrowed("Hello");
+    /// assert!(oco.is_borrowed());
+    /// ```
+    pub const fn from_borrowed(v: &'a T) -> Self {
+        Self {
+            inner: RefCell::new(OcoInner::Borrowed(v)),
+        }
+    }
+
+    /// Constructs a new [`Oco`] from an owned value.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_owned("Hello".to_string());
+    /// assert!(oco.is_owned());
+    /// ```
+    pub const fn from_owned(v: <T as ToOwned>::Owned) -> Self {
+        Self {
+            inner: RefCell::new(OcoInner::Owned(v)),
+        }
+    }
+
+    /// Constructs a new [`Oco`] from a reference counted pointer.
+    /// # Examples
+    /// ```
+    /// # use std::rc::Rc;
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_counted(Rc::from("Hello"));
+    /// assert!(oco.is_counted());
+    /// ```
+    pub const fn from_counted(v: Rc<T>) -> Self {
+        Self {
+            inner: RefCell::new(OcoInner::Counted(v)),
+        }
+    }
+
+    /// Converts the value into an owned value.
+    pub fn into_owned(self) -> <T as ToOwned>::Owned {
+        match self.inner.into_inner() {
+            OcoInner::Borrowed(v) => v.to_owned(),
+            OcoInner::Counted(v) => v.as_ref().to_owned(),
+            OcoInner::Owned(v) => v,
+        }
+    }
+
+    /// Temporary borrows the value.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_borrowed("Hello");
+    /// assert_eq!(oco.borrow(), "Hello");
+    /// ```
+    pub fn borrow(&self) -> Ref<'_, OcoInner<'a, T>> {
+        self.inner.borrow()
+    }
+
+    /// Checks if the value is [`OcoInner::Borrowed`].
+    /// # Examples
+    /// ```
+    /// # use std::rc::Rc;
+    /// # use leptos_reactive::oco::Oco;
+    /// assert!(Oco::<str>::from_borrowed("Hello").is_borrowed());
+    /// assert!(!Oco::<str>::from_counted(Rc::from("Hello")).is_borrowed());
+    /// assert!(!Oco::<str>::from_owned("Hello".to_string()).is_borrowed());
+    /// ```
+    pub fn is_borrowed(&self) -> bool {
+        self.borrow().is_borrowed()
+    }
+
+    /// Checks if the value is [`OcoInner::Counted`].
+    /// # Examples
+    /// ```
+    /// # use std::rc::Rc;
+    /// # use leptos_reactive::oco::Oco;
+    /// assert!(Oco::<str>::from_counted(Rc::from("Hello")).is_counted());
+    /// assert!(!Oco::<str>::from_borrowed("Hello").is_counted());
+    /// assert!(!Oco::<str>::from_owned("Hello".to_string()).is_counted());
+    /// ```
+    pub fn is_counted(&self) -> bool {
+        self.borrow().is_counted()
+    }
+
+    /// Checks if the value is [`OcoInner::Owned`].
+    /// # Examples
+    /// ```
+    /// # use std::rc::Rc;
+    /// # use leptos_reactive::oco::Oco;
+    /// assert!(Oco::<str>::from_owned("Hello".to_string()).is_owned());
+    /// assert!(!Oco::<str>::from_borrowed("Hello").is_owned());
+    /// assert!(!Oco::<str>::from_counted(Rc::from("Hello")).is_owned());
+    /// ```
+    pub fn is_owned(&self) -> bool {
+        self.borrow().is_owned()
+    }
+}
+
+impl<T: ?Sized + ToOwned> Deref for OcoInner<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
         match self {
-            Oco::Borrowed(v) => v,
-            Oco::Owned(v) => v.borrow(),
-            Oco::Counted(v) => v,
+            Self::Borrowed(v) => v,
+            Self::Owned(v) => v.borrow(),
+            Self::Counted(v) => v,
         }
     }
 }
 
-impl<T: ?Sized + ToOwned> Borrow<T> for Oco<'_, T> {
+impl<T: ?Sized + ToOwned> Borrow<T> for OcoInner<'_, T> {
     #[inline(always)]
     fn borrow(&self) -> &T {
         self.deref()
     }
 }
 
-impl<T: ?Sized + ToOwned> AsRef<T> for Oco<'_, T> {
+impl<T: ?Sized + ToOwned> AsRef<T> for OcoInner<'_, T> {
     #[inline(always)]
     fn as_ref(&self) -> &T {
         self.deref()
     }
 }
 
-impl AsRef<Path> for Oco<'_, str> {
+impl AsRef<Path> for OcoInner<'_, str> {
     #[inline(always)]
     fn as_ref(&self) -> &Path {
         self.as_str().as_ref()
     }
 }
 
-impl AsRef<Path> for Oco<'_, OsStr> {
+impl AsRef<Path> for OcoInner<'_, OsStr> {
     #[inline(always)]
     fn as_ref(&self) -> &Path {
         self.as_os_str().as_ref()
@@ -126,12 +200,12 @@ impl AsRef<Path> for Oco<'_, OsStr> {
 // pub fn as_{slice}(&self) -> &{slice}
 // --------------------------------------
 
-impl Oco<'_, str> {
+impl OcoInner<'_, str> {
     /// Returns a `&str` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
-    /// let oco = Oco::<str>::Borrowed("Hello");
+    /// # use leptos_reactive::oco::OcoInner;
+    /// let oco = OcoInner::<str>::Borrowed("Hello");
     /// let s: &str = oco.as_str();
     /// assert_eq!(s, "Hello");
     /// ```
@@ -141,15 +215,13 @@ impl Oco<'_, str> {
     }
 }
 
-impl Oco<'_, CStr> {
+impl OcoInner<'_, CStr> {
     /// Returns a `&CStr` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use leptos_reactive::oco::OcoInner;
     /// use std::ffi::CStr;
-    ///
-    /// let oco =
-    ///     Oco::<CStr>::Borrowed(CStr::from_bytes_with_nul(b"Hello\0").unwrap());
+    /// let oco = OcoInner::<CStr>::Borrowed(CStr::from_bytes_with_nul(b"Hello\0").unwrap());
     /// let s: &CStr = oco.as_c_str();
     /// assert_eq!(s, CStr::from_bytes_with_nul(b"Hello\0").unwrap());
     /// ```
@@ -159,14 +231,13 @@ impl Oco<'_, CStr> {
     }
 }
 
-impl Oco<'_, OsStr> {
+impl OcoInner<'_, OsStr> {
     /// Returns a `&OsStr` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use leptos_reactive::oco::OcoInner;
     /// use std::ffi::OsStr;
-    ///
-    /// let oco = Oco::<OsStr>::Borrowed(OsStr::new("Hello"));
+    /// let oco = OcoInner::<OsStr>::Borrowed(OsStr::new("Hello"));
     /// let s: &OsStr = oco.as_os_str();
     /// assert_eq!(s, OsStr::new("Hello"));
     /// ```
@@ -176,14 +247,13 @@ impl Oco<'_, OsStr> {
     }
 }
 
-impl Oco<'_, Path> {
+impl OcoInner<'_, Path> {
     /// Returns a `&Path` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use leptos_reactive::oco::OcoInner;
     /// use std::path::Path;
-    ///
-    /// let oco = Oco::<Path>::Borrowed(Path::new("Hello"));
+    /// let oco = OcoInner::<Path>::Borrowed(Path::new("Hello"));
     /// let s: &Path = oco.as_path();
     /// assert_eq!(s, Path::new("Hello"));
     /// ```
@@ -193,17 +263,17 @@ impl Oco<'_, Path> {
     }
 }
 
-impl<T> Oco<'_, [T]>
+impl<T> OcoInner<'_, [T]>
 where
     [T]: ToOwned,
 {
     /// Returns a `&[T]` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
-    /// let oco = Oco::<[u8]>::Borrowed(b"Hello");
-    /// let s: &[u8] = oco.as_slice();
-    /// assert_eq!(s, b"Hello");
+    /// # use leptos_reactive::oco::OcoInner;
+    /// let oco = OcoInner::<[i32]>::Borrowed(&[1, 2, 3]);
+    /// let s: &[i32] = oco.as_slice();
+    /// assert_eq!(s, &[1, 2, 3]);
     /// ```
     #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
@@ -228,10 +298,17 @@ impl Clone for Oco<'_, str> {
     /// assert!(oco2.is_counted());
     /// ```
     fn clone(&self) -> Self {
-        match self {
-            Oco::Borrowed(v) => Oco::Borrowed(v),
-            Oco::Counted(v) => Oco::Counted(v.clone()),
-            Oco::Owned(v) => Oco::Counted(Rc::<str>::from(v.as_str())),
+        let mut inner = self.inner.borrow_mut();
+        match &*inner {
+            OcoInner::Borrowed(v) => Oco::from_borrowed(*v),
+            OcoInner::Counted(v) => Oco::from_counted(v.clone()),
+            OcoInner::Owned(v) => {
+                let counted = Rc::<str>::from(v.as_str());
+                let new_inner = OcoInner::Counted(counted.clone());
+                *inner = new_inner;
+                drop(inner);
+                Oco::from_counted(counted)
+            }
         }
     }
 }
@@ -253,10 +330,17 @@ impl Clone for Oco<'_, CStr> {
     /// assert!(oco2.is_counted());
     /// ```
     fn clone(&self) -> Self {
-        match self {
-            Oco::Borrowed(v) => Oco::Borrowed(v),
-            Oco::Counted(v) => Oco::Counted(v.clone()),
-            Oco::Owned(v) => Oco::Counted(Rc::<CStr>::from(v.as_c_str())),
+        let mut inner = self.inner.borrow_mut();
+        match &*inner {
+            OcoInner::Borrowed(v) => Oco::from_borrowed(*v),
+            OcoInner::Counted(v) => Oco::from_counted(v.clone()),
+            OcoInner::Owned(v) => {
+                let counted = Rc::<CStr>::from(v.as_c_str());
+                let new_inner = OcoInner::Counted(counted.clone());
+                *inner = new_inner;
+                drop(inner);
+                Oco::from_counted(counted)
+            }
         }
     }
 }
@@ -276,10 +360,17 @@ impl Clone for Oco<'_, OsStr> {
     /// assert!(oco2.is_counted());
     /// ```
     fn clone(&self) -> Self {
-        match self {
-            Oco::Borrowed(v) => Oco::Borrowed(v),
-            Oco::Counted(v) => Oco::Counted(v.clone()),
-            Oco::Owned(v) => Oco::Counted(Rc::<OsStr>::from(v.as_os_str())),
+        let mut inner = self.inner.borrow_mut();
+        match &*inner {
+            OcoInner::Borrowed(v) => Oco::from_borrowed(*v),
+            OcoInner::Counted(v) => Oco::from_counted(v.clone()),
+            OcoInner::Owned(v) => {
+                let counted = Rc::<OsStr>::from(v.as_os_str());
+                let new_inner = OcoInner::Counted(counted.clone());
+                *inner = new_inner;
+                drop(inner);
+                Oco::from_counted(counted)
+            }
         }
     }
 }
@@ -299,10 +390,17 @@ impl Clone for Oco<'_, Path> {
     /// assert!(oco2.is_counted());
     /// ```
     fn clone(&self) -> Self {
-        match self {
-            Oco::Borrowed(v) => Oco::Borrowed(v),
-            Oco::Counted(v) => Oco::Counted(v.clone()),
-            Oco::Owned(v) => Oco::Counted(Rc::<Path>::from(v.as_path())),
+        let mut inner = self.inner.borrow_mut();
+        match &*inner {
+            OcoInner::Borrowed(v) => Oco::from_borrowed(*v),
+            OcoInner::Counted(v) => Oco::from_counted(v.clone()),
+            OcoInner::Owned(v) => {
+                let counted = Rc::<Path>::from(v.as_path());
+                let new_inner = OcoInner::Counted(counted.clone());
+                *inner = new_inner;
+                drop(inner);
+                Oco::from_counted(counted)
+            }
         }
     }
 }
@@ -323,10 +421,17 @@ where
     /// assert!(oco2.is_counted());
     /// ```
     fn clone(&self) -> Self {
-        match self {
-            Oco::Borrowed(v) => Oco::Borrowed(v),
-            Oco::Counted(v) => Oco::Counted(v.clone()),
-            Oco::Owned(v) => Oco::Counted(Rc::<[T]>::from(v.as_slice())),
+        let mut inner = self.inner.borrow_mut();
+        match &*inner {
+            OcoInner::Borrowed(v) => Oco::from_borrowed(*v),
+            OcoInner::Counted(v) => Oco::from_counted(v.clone()),
+            OcoInner::Owned(v) => {
+                let counted = Rc::<[T]>::from(v.as_slice());
+                let new_inner = OcoInner::Counted(counted.clone());
+                *inner = new_inner;
+                drop(inner);
+                Oco::from_counted(counted)
+            }
         }
     }
 }
@@ -337,7 +442,19 @@ where
     T::Owned: Default,
 {
     fn default() -> Self {
-        Oco::Owned(T::Owned::default())
+        Oco::from_owned(T::Owned::default())
+    }
+}
+
+impl<'a, 'b, A: ?Sized, B: ?Sized> PartialEq<OcoInner<'b, B>>
+    for OcoInner<'a, A>
+where
+    A: PartialEq<B>,
+    A: ToOwned,
+    B: ToOwned,
+{
+    fn eq(&self, other: &OcoInner<'b, B>) -> bool {
+        **self == **other
     }
 }
 
@@ -348,11 +465,28 @@ where
     B: ToOwned,
 {
     fn eq(&self, other: &Oco<'b, B>) -> bool {
-        **self == **other
+        *self.inner.borrow() == *other.inner.borrow()
     }
 }
 
+impl<T: ?Sized + ToOwned + Eq> Eq for OcoInner<'_, T> {}
+
 impl<T: ?Sized + ToOwned + Eq> Eq for Oco<'_, T> {}
+
+impl<'a, 'b, A: ?Sized, B: ?Sized> PartialOrd<OcoInner<'b, B>>
+    for OcoInner<'a, A>
+where
+    A: PartialOrd<B>,
+    A: ToOwned,
+    B: ToOwned,
+{
+    fn partial_cmp(
+        &self,
+        other: &OcoInner<'b, B>,
+    ) -> Option<std::cmp::Ordering> {
+        (**self).partial_cmp(&**other)
+    }
+}
 
 impl<'a, 'b, A: ?Sized, B: ?Sized> PartialOrd<Oco<'b, B>> for Oco<'a, A>
 where
@@ -361,11 +495,11 @@ where
     B: ToOwned,
 {
     fn partial_cmp(&self, other: &Oco<'b, B>) -> Option<std::cmp::Ordering> {
-        (**self).partial_cmp(&**other)
+        (*self.inner.borrow()).partial_cmp(&*other.inner.borrow())
     }
 }
 
-impl<T: ?Sized + Ord> Ord for Oco<'_, T>
+impl<T: ?Sized + Ord> Ord for OcoInner<'_, T>
 where
     T: ToOwned,
 {
@@ -374,7 +508,16 @@ where
     }
 }
 
-impl<T: ?Sized + Hash> Hash for Oco<'_, T>
+impl<T: ?Sized + Ord> Ord for Oco<'_, T>
+where
+    T: ToOwned,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (*self.inner.borrow()).cmp(&*other.inner.borrow())
+    }
+}
+
+impl<T: ?Sized + Hash> Hash for OcoInner<'_, T>
 where
     T: ToOwned,
 {
@@ -383,7 +526,34 @@ where
     }
 }
 
+impl<T: ?Sized + Hash> Hash for Oco<'_, T>
+where
+    T: ToOwned,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (*self.inner.borrow()).hash(state)
+    }
+}
+
+impl<T: ?Sized + fmt::Debug> fmt::Debug for OcoInner<'_, T>
+where
+    T: ToOwned,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt(f)
+    }
+}
+
 impl<T: ?Sized + fmt::Debug> fmt::Debug for Oco<'_, T>
+where
+    T: ToOwned,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (*self.inner.borrow()).fmt(f)
+    }
+}
+
+impl<T: ?Sized + fmt::Display> fmt::Display for OcoInner<'_, T>
 where
     T: ToOwned,
 {
@@ -397,7 +567,7 @@ where
     T: ToOwned,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (**self).fmt(f)
+        (*self.inner.borrow()).fmt(f)
     }
 }
 
@@ -406,7 +576,7 @@ where
     T: ToOwned,
 {
     fn from(v: &'a T) -> Self {
-        Oco::Borrowed(v)
+        Oco::from_borrowed(v)
     }
 }
 
@@ -416,8 +586,8 @@ where
 {
     fn from(v: Cow<'a, T>) -> Self {
         match v {
-            Cow::Borrowed(v) => Oco::Borrowed(v),
-            Cow::Owned(v) => Oco::Owned(v),
+            Cow::Borrowed(v) => Oco::from_borrowed(v),
+            Cow::Owned(v) => Oco::from_owned(v),
         }
     }
 }
@@ -427,10 +597,10 @@ where
     T: ToOwned,
 {
     fn from(value: Oco<'a, T>) -> Self {
-        match value {
-            Oco::Borrowed(v) => Cow::Borrowed(v),
-            Oco::Owned(v) => Cow::Owned(v),
-            Oco::Counted(v) => Cow::Owned(v.as_ref().to_owned()),
+        match value.inner.into_inner() {
+            OcoInner::Borrowed(v) => Cow::Borrowed(v),
+            OcoInner::Owned(v) => Cow::Owned(v),
+            OcoInner::Counted(v) => Cow::Owned(v.as_ref().to_owned()),
         }
     }
 }
@@ -439,8 +609,9 @@ impl<T: ?Sized> From<Rc<T>> for Oco<'_, T>
 where
     T: ToOwned,
 {
+    #[inline(always)]
     fn from(v: Rc<T>) -> Self {
-        Oco::Counted(v)
+        Oco::from_counted(v)
     }
 }
 
@@ -449,23 +620,20 @@ where
     T: ToOwned,
 {
     fn from(v: Box<T>) -> Self {
-        Oco::Counted(v.into())
+        Oco::from_counted(v.into())
     }
 }
 
 impl From<String> for Oco<'_, str> {
+    #[inline(always)]
     fn from(v: String) -> Self {
-        Oco::Owned(v)
+        Oco::from_owned(v)
     }
 }
 
 impl From<Oco<'_, str>> for String {
     fn from(v: Oco<'_, str>) -> Self {
-        match v {
-            Oco::Borrowed(v) => v.to_owned(),
-            Oco::Counted(v) => v.as_ref().to_owned(),
-            Oco::Owned(v) => v,
-        }
+        v.into_owned()
     }
 }
 
@@ -474,7 +642,7 @@ where
     [T]: ToOwned<Owned = Vec<T>>,
 {
     fn from(v: Vec<T>) -> Self {
-        Oco::Owned(v)
+        Oco::from_owned(v)
     }
 }
 
@@ -483,16 +651,16 @@ where
     [T]: ToOwned,
 {
     fn from(v: &'a [T; N]) -> Self {
-        Oco::Borrowed(v)
+        Oco::from_borrowed(v)
     }
 }
 
 impl<'a> From<Oco<'a, str>> for Oco<'a, [u8]> {
     fn from(v: Oco<'a, str>) -> Self {
-        match v {
-            Oco::Borrowed(v) => Oco::Borrowed(v.as_bytes()),
-            Oco::Owned(v) => Oco::Owned(v.into_bytes()),
-            Oco::Counted(v) => Oco::Counted(v.into()),
+        match v.inner.into_inner() {
+            OcoInner::Borrowed(v) => Oco::from_borrowed(v.as_bytes()),
+            OcoInner::Owned(v) => Oco::from_owned(v.into_bytes()),
+            OcoInner::Counted(v) => Oco::from_counted(v.into()),
         }
     }
 }
@@ -543,21 +711,31 @@ macro_rules! impl_slice_eq {
     };
 }
 
-impl_slice_eq!([], Oco<'_, str>, str);
-impl_slice_eq!(['a, 'b], Oco<'a, str>, &'b str);
-impl_slice_eq!([], Oco<'_, str>, String);
-impl_slice_eq!(['a, 'b], Oco<'a, str>, Cow<'b, str>);
+impl_slice_eq!([], OcoInner<'_, str>, str);
+impl_slice_eq!(['a, 'b], OcoInner<'a, str>, &'b str);
+impl_slice_eq!([], OcoInner<'_, str>, String);
+impl_slice_eq!(['a, 'b], OcoInner<'a, str>, Cow<'b, str>);
 
-impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), Oco<'_, [T]>, [T]);
-impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, &'b [T]);
-impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), Oco<'_, [T]>, Vec<T>);
-impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, Cow<'b, [T]>);
+impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), OcoInner<'_, [T]>, [T]);
+impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), OcoInner<'a, [T]>, &'b [T]);
+impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), OcoInner<'_, [T]>, Vec<T>);
+impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), OcoInner<'a, [T]>, Cow<'b, [T]>);
+
+// impl_slice_eq!([], Oco<'_, str>, str);
+// impl_slice_eq!(['a, 'b], Oco<'a, str>, &'b str);
+// impl_slice_eq!([], Oco<'_, str>, String);
+// impl_slice_eq!(['a, 'b], Oco<'a, str>, Cow<'b, str>);
+
+// impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), Oco<'_, [T]>, [T]);
+// impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, &'b [T]);
+// impl_slice_eq!([T: PartialEq] (where [T]: ToOwned), Oco<'_, [T]>, Vec<T>);
+// impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, Cow<'b, [T]>);
 
 impl<'a, 'b> Add<&'b str> for Oco<'a, str> {
     type Output = Oco<'static, str>;
 
     fn add(self, rhs: &'b str) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs)
+        Oco::from_owned(String::from(self) + rhs)
     }
 }
 
@@ -565,7 +743,7 @@ impl<'a, 'b> Add<Cow<'b, str>> for Oco<'a, str> {
     type Output = Oco<'static, str>;
 
     fn add(self, rhs: Cow<'b, str>) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs.as_ref())
+        Oco::from_owned(String::from(self) + rhs.as_ref())
     }
 }
 
@@ -573,14 +751,14 @@ impl<'a, 'b> Add<Oco<'b, str>> for Oco<'a, str> {
     type Output = Oco<'static, str>;
 
     fn add(self, rhs: Oco<'b, str>) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs.as_ref())
+        Oco::from_owned(String::from(self) + &*rhs.inner.borrow())
     }
 }
 
 impl<'a> FromIterator<Oco<'a, str>> for String {
     fn from_iter<T: IntoIterator<Item = Oco<'a, str>>>(iter: T) -> Self {
         iter.into_iter().fold(String::new(), |mut acc, item| {
-            acc.push_str(item.as_ref());
+            acc.push_str(&*item.inner.borrow());
             acc
         })
     }
@@ -595,7 +773,20 @@ where
     where
         D: serde::Deserializer<'a>,
     {
-        <T::Owned>::deserialize(deserializer).map(Oco::Owned)
+        <T::Owned>::deserialize(deserializer).map(Oco::from_owned)
+    }
+}
+
+impl<'a, T> Serialize for OcoInner<'a, T>
+where
+    T: ?Sized + ToOwned + 'a,
+    for<'b> &'b T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_ref().serialize(serializer)
     }
 }
 
@@ -608,7 +799,7 @@ where
     where
         S: serde::Serializer,
     {
-        self.as_ref().serialize(serializer)
+        self.borrow().serialize(serializer)
     }
 }
 
