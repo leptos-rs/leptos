@@ -246,13 +246,16 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                         let open = format!("<!--suspense-open-{blocked_id}-->");
                         let close =
                             format!("<!--suspense-close-{blocked_id}-->");
+                        let shell_inner = shell.borrow();
                         let (first, rest) =
-                            shell.split_once(&open).unwrap_or_default();
+                            shell_inner.split_once(&open).unwrap_or_default();
                         let (_fallback, rest) =
                             rest.split_once(&close).unwrap_or_default();
 
-                        shell =
-                            format!("{first}{blocked_fragment}{rest}").into();
+                        let new_shell_inner =
+                            format!("{first}{blocked_fragment}{rest}");
+                        drop(shell_inner);
+                        shell = Oco::from_counted(new_shell_inner.into());
                     }
 
                     format!("{prefix}{shell}{resolvers}")
@@ -387,7 +390,9 @@ impl View {
                 if dont_escape_text {
                     node.content
                 } else {
-                    html_escape::encode_safe(&node.content).to_string().into()
+                    html_escape::encode_safe(&*node.content.borrow())
+                        .to_string()
+                        .into()
                 }
             }
             View::Component(node) => {
@@ -401,7 +406,7 @@ impl View {
                 };
                 cfg_if! {
                   if #[cfg(debug_assertions)] {
-                    let name = to_kebab_case(&node.name);
+                    let name = {to_kebab_case(&*node.name.borrow())};
                     let content = format!(r#"{}{}{}"#,
                       node.id.to_marker(false, &name),
                       content(),
@@ -465,9 +470,11 @@ impl View {
                                         let content = if dont_escape_text {
                                             content
                                         } else {
-                                            html_escape::encode_safe(&content)
-                                                .to_string()
-                                                .into()
+                                            html_escape::encode_safe(
+                                                &*content.borrow(),
+                                            )
+                                            .to_string()
+                                            .into()
                                         };
                                         // On debug builds, `DynChild` has two marker nodes,
                                         // so there is no way for the text to be merged with
@@ -598,7 +605,7 @@ impl View {
                                     Some(
                                         format!(
                                             " {name}=\"{}\"",
-                                            html_escape::encode_double_quoted_attribute(&value)
+                                            html_escape::encode_double_quoted_attribute(&**value.borrow())
                                         )
                                         .into(),
                                     )

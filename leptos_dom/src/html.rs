@@ -740,7 +740,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
         }
 
-        self.classes_inner(&classes.into())
+        self.classes_inner(&**classes.into().borrow())
     }
 
     /// Sets the class on the element as the class signal changes.
@@ -849,6 +849,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 .map(Into::into)
                 .flat_map(|classes| {
                     classes
+                        .borrow()
                         .split_whitespace()
                         .map(ToString::to_string)
                         .collect::<SmallVec<[_; 4]>>()

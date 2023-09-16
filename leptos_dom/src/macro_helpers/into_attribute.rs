@@ -47,7 +47,7 @@ impl Attribute {
                 .map(|value| format!("{attr_name}=\"{value}\"").into())
                 .unwrap_or_default(),
             Attribute::Bool(include) => {
-                Oco::Borrowed(if *include { attr_name } else { "" })
+                Oco::from_borrowed(if *include { attr_name } else { "" })
             }
         }
     }
@@ -150,7 +150,7 @@ impl IntoAttribute for Option<Attribute> {
 impl IntoAttribute for String {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Oco::Owned(self))
+        Attribute::String(Oco::from_owned(self))
     }
 
     impl_into_attr_boxed! {}
@@ -159,7 +159,7 @@ impl IntoAttribute for String {
 impl IntoAttribute for &'static str {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Oco::Borrowed(self))
+        Attribute::String(Oco::from_borrowed(self))
     }
 
     impl_into_attr_boxed! {}
@@ -168,7 +168,7 @@ impl IntoAttribute for &'static str {
 impl IntoAttribute for Rc<str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Oco::Counted(self))
+        Attribute::String(Oco::from_counted(self))
     }
 
     impl_into_attr_boxed! {}
@@ -195,7 +195,7 @@ impl IntoAttribute for bool {
 impl IntoAttribute for Option<String> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::Owned))
+        Attribute::Option(self.map(Oco::from_owned))
     }
 
     impl_into_attr_boxed! {}
@@ -204,7 +204,7 @@ impl IntoAttribute for Option<String> {
 impl IntoAttribute for Option<&'static str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::Borrowed))
+        Attribute::Option(self.map(Oco::from_borrowed))
     }
 
     impl_into_attr_boxed! {}
@@ -213,7 +213,7 @@ impl IntoAttribute for Option<&'static str> {
 impl IntoAttribute for Option<Rc<str>> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::Counted))
+        Attribute::Option(self.map(Oco::from_counted))
     }
 
     impl_into_attr_boxed! {}

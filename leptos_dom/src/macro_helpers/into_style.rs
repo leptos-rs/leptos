@@ -49,7 +49,7 @@ pub trait IntoStyle {
 impl IntoStyle for &'static str {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Value(Oco::Borrowed(self))
+        Style::Value(Oco::from_borrowed(self))
     }
 
     fn into_style_boxed(self: Box<Self>) -> Style {
@@ -60,7 +60,7 @@ impl IntoStyle for &'static str {
 impl IntoStyle for String {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Value(Oco::Owned(self))
+        Style::Value(Oco::from_owned(self))
     }
 
     fn into_style_boxed(self: Box<Self>) -> Style {
@@ -71,7 +71,7 @@ impl IntoStyle for String {
 impl IntoStyle for Rc<str> {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Value(Oco::Counted(self))
+        Style::Value(Oco::from_counted(self))
     }
 
     fn into_style_boxed(self: Box<Self>) -> Style {
@@ -104,7 +104,7 @@ impl IntoStyle for Oco<'static, str> {
 impl IntoStyle for Option<&'static str> {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Option(self.map(Oco::Borrowed))
+        Style::Option(self.map(Oco::from_borrowed))
     }
 
     fn into_style_boxed(self: Box<Self>) -> Style {
@@ -115,7 +115,7 @@ impl IntoStyle for Option<&'static str> {
 impl IntoStyle for Option<String> {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Option(self.map(Oco::Owned))
+        Style::Option(self.map(Oco::from_owned))
     }
 
     fn into_style_boxed(self: Box<Self>) -> Style {
@@ -126,7 +126,7 @@ impl IntoStyle for Option<String> {
 impl IntoStyle for Option<Rc<str>> {
     #[inline(always)]
     fn into_style(self) -> Style {
-        Style::Option(self.map(Oco::Counted))
+        Style::Option(self.map(Oco::from_counted))
     }
 
     fn into_style_boxed(self: Box<Self>) -> Style {

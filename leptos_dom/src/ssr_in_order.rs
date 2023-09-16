@@ -162,7 +162,7 @@ async fn handle_blocking_chunks(
     let mut buffer = String::new();
     while let Some(chunk) = queued_chunks.pop_front() {
         match chunk {
-            StreamChunk::Sync(sync) => buffer.push_str(&sync),
+            StreamChunk::Sync(sync) => buffer.push_str(&**sync.borrow()),
             StreamChunk::Async {
                 chunks,
                 should_block,
@@ -203,7 +203,7 @@ async fn handle_chunks(
     let mut buffer = String::new();
     for chunk in chunks {
         match chunk {
-            StreamChunk::Sync(sync) => buffer.push_str(&sync),
+            StreamChunk::Sync(sync) => buffer.push_str(&**sync.borrow()),
             StreamChunk::Async { chunks, .. } => {
                 // add static HTML before the Suspense and stream it down
                 tx.unbounded_send(std::mem::take(&mut buffer))
@@ -255,7 +255,7 @@ impl View {
             }
             View::Component(node) => {
                 #[cfg(debug_assertions)]
-                let name = crate::ssr::to_kebab_case(&node.name);
+                let name = crate::ssr::to_kebab_case(&**node.name.borrow());
 
                 if cfg!(debug_assertions) {
                     chunks.push_back(StreamChunk::Sync(node.id.to_marker(
@@ -316,7 +316,7 @@ impl View {
                                     Some(
                                         format!(
                                             " {name}=\"{}\"",
-                                            html_escape::encode_double_quoted_attribute(&value)
+                                            html_escape::encode_double_quoted_attribute(&**value.borrow())
                                         )
                                         .into(),
                                     )
@@ -414,7 +414,7 @@ impl View {
                                                 content
                                             } else {
                                                 html_escape::encode_safe(
-                                                    &content,
+                                                    &**content.borrow(),
                                                 )
                                                 .to_string()
                                                 .into()
@@ -432,14 +432,14 @@ impl View {
                                                         format!(
                                                             "<!>{}",
                                                             html_escape::encode_safe(
-                                                                &content
+                                                                &**content.borrow()
                                                             )
                                                         )
                                                         .into(),
                                                     )
                                                 } else {
                                                     StreamChunk::Sync(html_escape::encode_safe(
-                                                        &content
+                                                        &**content.borrow()
                                                     ).to_string().into())
                                                 },
                                             );

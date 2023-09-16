@@ -6,11 +6,11 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
     cell::{Ref, RefCell},
-    ffi::{CStr, OsStr},
+    ffi::{CStr, CString, OsStr, OsString},
     fmt,
     hash::Hash,
     ops::{Add, Deref},
-    path::Path,
+    path::{Path, PathBuf},
     rc::Rc,
 };
 
@@ -94,6 +94,11 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
         Self {
             inner: RefCell::new(OcoInner::Counted(v)),
         }
+    }
+
+    /// Returns the inner [`OcoInner`].
+    pub fn into_inner(self) -> OcoInner<'a, T> {
+        self.inner.into_inner()
     }
 
     /// Converts the value into an owned value.
@@ -283,6 +288,61 @@ where
     }
 }
 
+impl Oco<'_, str> {
+    /// Checks if the value is an empty string.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_borrowed("");
+    /// assert!(oco.is_empty());
+    /// let oco = Oco::<str>::from_borrowed("Hello");
+    /// assert!(!oco.is_empty());
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.borrow().is_empty()
+    }
+
+    /// Returns the length of the string in bytes.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<str>::from_borrowed("Hello");
+    /// assert_eq!(oco.len(), 5);
+    /// ```
+    pub fn len(&self) -> usize {
+        self.borrow().len()
+    }
+}
+
+impl<T> Oco<'_, [T]>
+where
+    [T]: ToOwned,
+{
+    /// Checks if the value is an empty slice.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<[i32]>::from_borrowed(&[]);
+    /// assert!(oco.is_empty());
+    /// let oco = Oco::<[i32]>::from_borrowed(&[1, 2, 3]);
+    /// assert!(!oco.is_empty());
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.borrow().is_empty()
+    }
+
+    /// Returns the length of the slice.
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let oco = Oco::<[i32]>::from_borrowed(&[1, 2, 3]);
+    /// assert_eq!(oco.len(), 3);
+    /// ```
+    pub fn len(&self) -> usize {
+        self.borrow().len()
+    }
+}
+
 // ------------------------------------------------------------------------------------------------------
 // Cloning (has to be implemented manually because of the `Rc<T>: From<&<T as ToOwned>::Owned>` bound)
 // ------------------------------------------------------------------------------------------------------
@@ -468,6 +528,95 @@ where
 {
     fn eq(&self, other: &Oco<'b, B>) -> bool {
         *self.inner.borrow() == *other.inner.borrow()
+    }
+}
+
+macro_rules! impl_part_eq {
+    ($owned:ty, $borrowed:ty) => {
+        impl PartialEq<Oco<'_, $borrowed>> for $owned {
+            fn eq(&self, other: &Oco<'_, $borrowed>) -> bool {
+                AsRef::<$borrowed>::as_ref(self)
+                    == AsRef::<$borrowed>::as_ref(&*other.inner.borrow())
+            }
+        }
+
+        impl PartialEq<Oco<'_, $borrowed>> for $borrowed {
+            fn eq(&self, other: &Oco<'_, $borrowed>) -> bool {
+                self == AsRef::<$borrowed>::as_ref(&*other.inner.borrow())
+            }
+        }
+
+        impl PartialEq<Oco<'_, $borrowed>> for &$borrowed {
+            fn eq(&self, other: &Oco<'_, $borrowed>) -> bool {
+                *self == AsRef::<$borrowed>::as_ref(&*other.inner.borrow())
+            }
+        }
+
+        impl PartialEq<$owned> for Oco<'_, $borrowed> {
+            fn eq(&self, other: &$owned) -> bool {
+                AsRef::<$borrowed>::as_ref(&*self.inner.borrow())
+                    == AsRef::<$borrowed>::as_ref(other)
+            }
+        }
+
+        impl PartialEq<$borrowed> for Oco<'_, $borrowed> {
+            fn eq(&self, other: &$borrowed) -> bool {
+                AsRef::<$borrowed>::as_ref(&*self.inner.borrow()) == other
+            }
+        }
+
+        impl PartialEq<&$borrowed> for Oco<'_, $borrowed> {
+            fn eq(&self, other: &&$borrowed) -> bool {
+                AsRef::<$borrowed>::as_ref(&*self.inner.borrow()) == *other
+            }
+        }
+    };
+}
+
+impl_part_eq!(String, str);
+impl_part_eq!(CString, CStr);
+impl_part_eq!(OsString, OsStr);
+impl_part_eq!(PathBuf, Path);
+
+impl<T> PartialEq<Oco<'_, [T]>> for Vec<T>
+where
+    T: PartialEq,
+    [T]: ToOwned,
+{
+    fn eq(&self, other: &Oco<'_, [T]>) -> bool {
+        AsRef::<[T]>::as_ref(self)
+            == AsRef::<[T]>::as_ref(&*other.inner.borrow())
+    }
+}
+
+impl<T> PartialEq<Oco<'_, [T]>> for [T]
+where
+    T: PartialEq,
+    [T]: ToOwned,
+{
+    fn eq(&self, other: &Oco<'_, [T]>) -> bool {
+        self == AsRef::<[T]>::as_ref(&*other.inner.borrow())
+    }
+}
+
+impl<T> PartialEq<Vec<T>> for Oco<'_, [T]>
+where
+    T: PartialEq,
+    [T]: ToOwned,
+{
+    fn eq(&self, other: &Vec<T>) -> bool {
+        AsRef::<[T]>::as_ref(&*self.inner.borrow())
+            == AsRef::<[T]>::as_ref(other)
+    }
+}
+
+impl<T> PartialEq<[T]> for Oco<'_, [T]>
+where
+    T: PartialEq,
+    [T]: ToOwned,
+{
+    fn eq(&self, other: &[T]) -> bool {
+        AsRef::<[T]>::as_ref(&*self.inner.borrow()) == other
     }
 }
 

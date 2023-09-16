@@ -14,9 +14,13 @@ pub use dyn_child::*;
 pub use each::*;
 pub use errors::*;
 pub use fragment::*;
+#[cfg(any(debug_assertions, feature = "ssr"))]
+use leptos_reactive::OcoInner;
 use leptos_reactive::{untrack_with_diagnostics, Oco};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::OnceCell;
+#[cfg(any(debug_assertions, feature = "ssr"))]
+use std::cell::Ref;
 use std::fmt;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::rc::Rc;
@@ -231,8 +235,8 @@ impl ComponentRepr {
 
     #[cfg(any(debug_assertions, feature = "ssr"))]
     /// Returns the name of the component.
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> Ref<'_, OcoInner<'static, str>> {
+        self.name.borrow()
     }
 }
 
