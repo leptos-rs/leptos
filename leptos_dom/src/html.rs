@@ -785,7 +785,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     );
 
                     let new_classes = classes.iter().flat_map(|classes| {
-                        classes.borrow().split_whitespace()
+                        classes
+                            .borrow()
+                            .split_whitespace()
+                            .collect::<SmallVec<[_; 4]>>()
                     });
 
                     if let Some(prev_classes) = prev_classes {
@@ -793,7 +796,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                             new_classes.collect::<SmallVec<[_; 4]>>();
                         let mut old_classes =
                             prev_classes.iter().flat_map(|classes| {
-                                classes.borrow().split_whitespace()
+                                classes
+                                    .borrow()
+                                    .split_whitespace()
+                                    .collect::<SmallVec<[_; 4]>>()
                             });
 
                         // Remove old classes

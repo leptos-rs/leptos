@@ -69,10 +69,7 @@ pub fn add_event_listener<E>(
     }
 
     let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
-    let key = {
-        let key = key.borrow();
-        intern(&key)
-    };
+    let key = intern(&*key.borrow());
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     add_delegated_event_listener(&key, event_name, options);
 }
