@@ -91,7 +91,7 @@ pub fn Script(
         let mut script = String::new();
         for node in frag.nodes {
             match node {
-                View::Text(text) => script.push_str(&*text.content.borrow()),
+                View::Text(text) => script.push_str(&text.content.borrow()),
                 _ => leptos::logging::warn!(
                     "Only text nodes are supported as children of <Script/>."
                 ),
