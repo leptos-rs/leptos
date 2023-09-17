@@ -504,7 +504,7 @@ fn root_route(
 
         let (current_view, set_current_view) = create_signal(None);
 
-        create_effect(move |prev| {
+        create_render_effect(move |prev| {
             let root = root_view.get();
             let is_fallback = !global_suspense.with_inner(|c| c.ready().get());
             if prev.is_none() {

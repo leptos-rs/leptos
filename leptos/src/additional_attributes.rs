@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::TextProp;
 use std::rc::Rc;
 
@@ -5,6 +7,9 @@ use std::rc::Rc;
 /// each of which may or may not be reactive.
 #[derive(Clone)]
 #[repr(transparent)]
+#[deprecated = "Most uses of `AdditionalAttributes` can be replaced with `#[prop(attrs)]` \
+and the `attr:` syntax. If you have a use case that still requires `AdditionalAttributes`, please \
+open a GitHub issue here and share it: https://github.com/leptos-rs/leptos"]
 pub struct AdditionalAttributes(pub(crate) Rc<[(String, TextProp)]>);
 
 impl<I, T, U> From<I> for AdditionalAttributes

@@ -2,6 +2,7 @@
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
 
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
     ffi::{CStr, OsStr},
@@ -585,6 +586,32 @@ impl<'a> FromIterator<Oco<'a, str>> for String {
     }
 }
 
+impl<'a, T> Deserialize<'a> for Oco<'static, T>
+where
+    T: ?Sized + ToOwned + 'a,
+    T::Owned: DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a>,
+    {
+        <T::Owned>::deserialize(deserializer).map(Oco::Owned)
+    }
+}
+
+impl<'a, T> Serialize for Oco<'a, T>
+where
+    T: ?Sized + ToOwned + 'a,
+    for<'b> &'b T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_ref().serialize(serializer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -677,5 +704,19 @@ mod tests {
     fn cloned_counted_str_should_remain_counted_str() {
         let s: Oco<str> = Oco::Counted(Rc::from("hello"));
         assert!(s.clone().is_counted());
+    }
+
+    #[test]
+    fn serialization_works() {
+        let s = serde_json::to_string(&Oco::Borrowed("foo"))
+            .expect("should serialize string");
+        assert_eq!(s, "\"foo\"");
+    }
+
+    #[test]
+    fn deserialization_works() {
+        let s: Oco<str> = serde_json::from_str("\"bar\"")
+            .expect("should deserialize from string");
+        assert_eq!(s, Oco::from(String::from("bar")));
     }
 }

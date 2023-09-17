@@ -14,5 +14,5 @@ tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread", "time"] }
 url = "2.4.0"
 
 [[test]]
-name = "manage_todos"
-harness = false       # Allow Cucumber to print output instead of libtest
+name = "app_suite"
+harness = false    # Allow Cucumber to print output instead of libtest

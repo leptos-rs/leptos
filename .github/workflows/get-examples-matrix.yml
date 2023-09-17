@@ -25,7 +25,7 @@ jobs:
         run: |
           examples=$(ls examples | 
           awk '{print "examples/" $0}' | 
-          grep -v examples/README.md | 
+          grep -v .md | 
           grep -v examples/Makefile.toml | 
           grep -v examples/cargo-make | 
           grep -v examples/gtk | 

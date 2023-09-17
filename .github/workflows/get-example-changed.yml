@@ -28,7 +28,7 @@ jobs:
             !examples/cargo-make
             !examples/gtk
             !examples/Makefile.toml
-            !examples/README.md
+            !examples/*.md
 
       - name: List example files that changed
         run: echo '${{ steps.changed-files.outputs.all_changed_files }}'

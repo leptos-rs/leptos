@@ -4,7 +4,8 @@ use leptos::component;
 use leptos_dom::{helpers::TimeoutHandle, IntoView};
 use leptos_macro::view;
 use leptos_reactive::{
-    create_effect, on_cleanup, signal_prelude::*, store_value, StoredValue,
+    create_render_effect, on_cleanup, signal_prelude::*, store_value,
+    StoredValue,
 };
 
 /// A component that will show its children when the `when` condition is `true`.
@@ -70,7 +71,7 @@ pub fn AnimatedShow(
     });
     let show = create_rw_signal(when.get_untracked());
 
-    create_effect(move |_| {
+    create_render_effect(move |_| {
         if when.get() {
             // clear any possibly active timer
             if let Some(h) = handle.get_value() {

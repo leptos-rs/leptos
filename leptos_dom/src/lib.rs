@@ -137,6 +137,17 @@ where
     }
 }
 
+impl<N> IntoView for std::rc::Rc<dyn Fn() -> N>
+where
+    N: IntoView + 'static,
+{
+    #[inline]
+    fn into_view(self) -> View {
+        // reuse impl for `Fn() -> impl IntoView`
+        IntoView::into_view(move || self())
+    }
+}
+
 #[cfg(not(feature = "nightly"))]
 impl<T> IntoView for ReadSignal<T>
 where
@@ -862,7 +873,6 @@ where
 
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        crate::logging::console_log("mounting");
         mount_to(crate::document().body().expect("body element to exist"), f)
       } else {
         _ = f;
