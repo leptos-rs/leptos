@@ -24,7 +24,7 @@ cfg_if! {
             move || {
                 provide_context(id.clone());
             },
-            || view! { <TodoApp/> },
+            TodoApp,
         );
         handler(req).await
     }
@@ -51,7 +51,7 @@ cfg_if! {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|| view! { <TodoApp/> }).await;
+        let routes = generate_route_list(TodoApp);
 
         // build our application with a route
         let app = Router::new()
@@ -60,7 +60,7 @@ cfg_if! {
             .leptos_routes(
                 leptos_options.clone(),
                 routes,
-                || view! { <TodoApp/> },
+                TodoApp,
             )
             .get("/*", file_and_error_handler)
             .with(State(leptos_options));
