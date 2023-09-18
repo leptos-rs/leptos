@@ -72,7 +72,7 @@ pub fn Transition<F, E>(
     /// A function that will be called when the component transitions into or out of
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
-    #[prop(optional)]
+    #[prop(optional, into)]
     set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
     children: Box<dyn Fn() -> Fragment>,
