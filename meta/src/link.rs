@@ -82,11 +82,11 @@ pub fn Link(
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
-    let id: Oco<'static, str> =
+    let mut id: Oco<'static, str> =
         id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
-        let id = id.clone();
+        let id = id.clone_inplace();
         move || {
             leptos::leptos_dom::html::link()
                 .attr("id", id)
