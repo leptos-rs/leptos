@@ -39,7 +39,7 @@ if #[cfg(feature = "ssr")] {
                 provide_context(auth_session.clone());
                 provide_context(app_state.pool.clone());
             },
-            || view! { <TodoApp/> }
+            TodoApp
         );
         handler(req).await.into_response()
     }
@@ -80,7 +80,7 @@ if #[cfg(feature = "ssr")] {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(App);
+        let routes = generate_route_list(TodoApp);
 
         let app_state = AppState{
             leptos_options,
