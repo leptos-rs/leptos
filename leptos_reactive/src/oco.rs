@@ -558,7 +558,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::marker::PhantomData;
 
     #[test]
     fn debug_fmt_should_display_quotes_for_strings() {
