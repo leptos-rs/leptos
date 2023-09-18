@@ -257,7 +257,7 @@ where
     /// # use leptos_reactive::oco::Oco;
     /// let mut oco1 = Oco::<str>::Owned("Hello".to_string());
     /// let oco2 = oco1.clone_inplace();
-    /// assert_eq!(oco, oco2);
+    /// assert_eq!(oco1, oco2);
     /// assert!(oco1.is_counted());
     /// assert!(oco2.is_counted());
     /// ```
