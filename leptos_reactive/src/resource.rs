@@ -1132,7 +1132,7 @@ where
             .ok()?
             .flatten();
 
-        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+        self.handle_result(location, global_suspense_cx, suspense_cx, v, false)
     }
 
     #[track_caller]
@@ -1152,6 +1152,7 @@ where
                 global_suspense_cx,
                 suspense_cx,
                 was_loaded.then_some(v),
+                true,
             )
         } else {
             Some(v)
@@ -1164,6 +1165,7 @@ where
         global_suspense_cx: Option<GlobalSuspenseContext>,
         suspense_cx: Option<SuspenseContext>,
         v: Option<U>,
+        force_suspend: bool,
     ) -> Option<U> {
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
@@ -1223,7 +1225,7 @@ where
                         // on subsequent reads, increment will be triggered in load()
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
-                        if !has_value {
+                        if !has_value || force_suspend {
                             s.increment(
                                 serializable != ResourceSerialization::Local,
                             );
@@ -1242,7 +1244,7 @@ where
                         if !contexts.contains(s) {
                             contexts.insert(*s);
 
-                            if !has_value {
+                            if !has_value || force_suspend {
                                 s.increment(
                                     serializable
                                         != ResourceSerialization::Local,
