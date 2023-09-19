@@ -372,9 +372,7 @@ impl ToTokens for Model {
             #component
         };
 
-        let binding = if *is_island
-            && cfg!(any(feature = "csr", feature = "hydrate"))
-        {
+        let binding = if *is_island && cfg!(feature = "hydrate") {
             let island_props = if is_island_with_children
                 || is_island_with_other_props
             {
