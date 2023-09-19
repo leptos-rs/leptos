@@ -2,8 +2,10 @@ use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::SignalGet;
+#[allow(unused)]
 use leptos_reactive::{
-    create_memo, provide_context, SignalGetUntracked, SuspenseContext,
+    create_memo, provide_context, run_as_child, SignalGetUntracked,
+    SuspenseContext,
 };
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 use leptos_reactive::{with_owner, Owner, SharedContext};
@@ -75,16 +77,6 @@ where
     let owner =
         Owner::current().expect("<Suspense/> created with no reactive owner");
 
-    // provide this SuspenseContext to any resources below it
-    // run in a memo so the children are children of this parent
-    let children = run_as_child({
-        let orig_children = Rc::clone(&orig_children);
-        move || {
-            provide_context(context);
-            orig_children().into_view()
-        }
-    });
-
     // likewise for the fallback
     let fallback = create_memo({
         move |_| {
@@ -100,13 +92,20 @@ where
 
     let child = DynChild::new({
         move || {
-            // pull lazy memo before checking if context is ready
-            let children_rendered = children.clone();
+            // provide this SuspenseContext to any resources below it
+            // run in a memo so the children are children of this parent
+            let children = run_as_child({
+                let orig_children = Rc::clone(&orig_children);
+                move || {
+                    provide_context(context);
+                    orig_children().into_view()
+                }
+            });
 
             #[cfg(any(feature = "csr", feature = "hydrate"))]
             {
                 if ready.get() {
-                    children_rendered
+                    children
                 } else {
                     fallback.get_untracked()
                 }
@@ -123,8 +122,7 @@ where
                     if context.pending_resources.get() == 0 {
                         with_owner(owner, move || {
                             //HydrationCtx::continue_from(current_id);
-                            DynChild::new(move || children_rendered.clone())
-                                .into_view()
+                            DynChild::new(move || children.clone()).into_view()
                         })
                     }
                     // show the fallback, but also prepare to stream HTML
