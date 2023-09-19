@@ -1146,17 +1146,13 @@ where
         let (was_loaded, v) =
             self.value.try_with(|n| (n.is_some(), f(n))).ok()?;
 
-        if was_loaded {
-            self.handle_result(
-                location,
-                global_suspense_cx,
-                suspense_cx,
-                was_loaded.then_some(v),
-                true,
-            )
-        } else {
-            Some(v)
-        }
+        self.handle_result(
+            location,
+            global_suspense_cx,
+            suspense_cx,
+            Some(v),
+            !was_loaded,
+        )
     }
 
     fn handle_result<U>(
