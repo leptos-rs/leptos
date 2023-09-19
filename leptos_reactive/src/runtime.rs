@@ -600,20 +600,9 @@ impl Runtime {
                     .clone()
                     .and_then(|el| {
                         Reflect::get(&el, &JsValue::from_str(intern("$$owner")))
-                            .map_err(|value| {
-                                web_sys::console::error_2(&el, &value);
-                                value
-                            })
                             .ok()
                     })
-                    .and_then(|value| {
-                        u64::try_from(value)
-                            .map_err(|value| {
-                                web_sys::console::error_1(&value);
-                                value
-                            })
-                            .ok()
-                    })
+                    .and_then(|value| u64::try_from(value).ok())
                     .map(Owner::from_ffi)
                 {
                     Some(owner) => {
