@@ -94,6 +94,27 @@ targets = ["wasm32-unknown-unknown"]
 
 The `nightly` feature enables the function call syntax for accessing and setting signals, as opposed to `.get()` and `.set()`. This leads to a consistent mental model in which accessing a reactive value of any kind (a signal, memo, or derived signal) is always represented as a function call. This is only possible with nightly Rust and the `nightly` feature.
 
+For Nix Package Manager Users:
+```nix
+# Rust User Shell
+let
+  # Unstable Channel | Rolling Release
+  pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+
+  packages = with pkgs; [
+    pkg-config
+    rustc
+    cargo
+    rustfmt
+    rust-analyzer
+    trunk
+  ];
+in
+pkgs.mkShell {
+  buildInputs = packages;
+}
+```
+
 ## `cargo-leptos`
 
 [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our starter templates for [Actix](https://github.com/leptos-rs/start) or [Axum](https://github.com/leptos-rs/start-axum).
