@@ -42,17 +42,15 @@ impl LNode {
     /// # Errors
     ///
     /// Will return `Err` if parsing the view fails.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the last element is None.
     pub fn parse_view(nodes: Vec<Node>) -> Result<LNode> {
         let mut out = Vec::new();
         for node in nodes {
             LNode::parse_node(node, &mut out)?;
         }
         if out.len() == 1 {
-            Ok(out.pop().unwrap())
+            out.pop().ok_or_else(|| {
+                unreachable!("The last element should not be None.")
+            })
         } else {
             Ok(LNode::Fragment(out))
         }
