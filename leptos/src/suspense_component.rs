@@ -77,9 +77,9 @@ where
 
     // provide this SuspenseContext to any resources below it
     // run in a memo so the children are children of this parent
-    let children = create_memo({
+    let children = run_as_child({
         let orig_children = Rc::clone(&orig_children);
-        move |_| {
+        move || {
             provide_context(context);
             orig_children().into_view()
         }
@@ -101,7 +101,7 @@ where
     let child = DynChild::new({
         move || {
             // pull lazy memo before checking if context is ready
-            let children_rendered = children.get_untracked();
+            let children_rendered = children.clone();
 
             #[cfg(any(feature = "csr", feature = "hydrate"))]
             {
