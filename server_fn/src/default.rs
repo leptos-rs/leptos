@@ -23,7 +23,7 @@ inventory::collect!(DefaultServerFnTraitObj);
 
 /// Attempts to find a server function registered at the given path.
 ///
-/// This can be used by a server to handle the requests, as in the following example (using `actix-web`)
+/// This can be used by a server to handle the requests, as in the following example (using [`actix-web`]).
 ///
 /// ```rust, ignore
 /// #[post("{tail:.*}")]
@@ -64,6 +64,8 @@ inventory::collect!(DefaultServerFnTraitObj);
 ///     }
 /// }
 /// ```
+///
+/// [`actix-web`]: <https://docs.rs/actix-web/>
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path(
     path: &str,
