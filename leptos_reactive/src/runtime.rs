@@ -1489,7 +1489,7 @@ pub fn untrack_with_diagnostics<T>(f: impl FnOnce() -> T) -> T {
 
 /// Allows running a future that has access to a given scope.
 #[pin_project]
-pub struct ScopedFuture<Fut: Future + 'static> {
+pub struct ScopedFuture<Fut: Future> {
     owner: Owner,
     #[pin]
     future: Fut,
@@ -1521,3 +1521,5 @@ impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
         }
     }
 }
+
+impl<Fut: Future> ScopedFuture<Fut> {}
