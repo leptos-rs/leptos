@@ -864,8 +864,9 @@ pub fn try_with_owner<T>(owner: Owner, f: impl FnOnce() -> T) -> Option<T> {
         runtime
             .nodes
             .try_borrow()
-            .map(|nodes| {
-                if nodes.contains_key(owner.0) {
+            .map(|nodes| nodes.contains_key(owner.0))
+            .map(|scope_exists| {
+                if scope_exists {
                     let prev_observer = runtime.observer.take();
                     let prev_owner = runtime.owner.take();
 
