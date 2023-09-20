@@ -372,9 +372,7 @@ impl ToTokens for Model {
             #component
         };
 
-        let binding = if *is_island
-            && cfg!(any(feature = "csr", feature = "hydrate"))
-        {
+        let binding = if *is_island && cfg!(feature = "hydrate") {
             let island_props = if is_island_with_children
                 || is_island_with_other_props
             {
@@ -420,6 +418,7 @@ impl ToTokens for Model {
                                 ::leptos::leptos_dom::html::custom(
                                     ::leptos::leptos_dom::html::Custom::new("leptos-children"),
                                 )
+                                .prop("$$owner", ::leptos::Owner::current().map(|n| n.as_ffi()))
                                 .into_view()
                         })])))
                     }
@@ -455,9 +454,12 @@ impl ToTokens for Model {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
                     #deserialize_island_props
-                    ::leptos::leptos_dom::mount_to_with_stop_hydrating(el, false, move || {
-                        #name(#island_props)
-                    })
+                    _ = ::leptos::run_as_child(move || {
+                        ::leptos::SharedContext::register_island(&el);
+                        ::leptos::leptos_dom::mount_to_with_stop_hydrating(el, false, move || {
+                            #name(#island_props)
+                        })
+                    });
                 }
             }
         } else {
