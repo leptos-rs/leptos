@@ -13,8 +13,10 @@ use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
 use futures::stream::FuturesUnordered;
 use indexmap::IndexSet;
+use pin_project::pin_project;
 use rustc_hash::{FxHashMap, FxHasher};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
+use std::task::Poll;
 use std::{
     any::{Any, TypeId},
     cell::{Cell, RefCell},
@@ -851,25 +853,40 @@ where
 ///
 /// ## Panics
 /// Panics if there is no current reactive runtime.
-pub fn with_owner<T>(owner: Owner, f: impl FnOnce() -> T + 'static) -> T
-where
-    T: 'static,
-{
+pub fn with_owner<T>(owner: Owner, f: impl FnOnce() -> T) -> T {
+    try_with_owner(owner, f)
+        .expect("runtime/scope should be alive when with_owner runs")
+}
+
+/// Runs the given code with the given reactive owner.
+pub fn try_with_owner<T>(owner: Owner, f: impl FnOnce() -> T) -> Option<T> {
     with_runtime(|runtime| {
-        let prev_observer = runtime.observer.take();
-        let prev_owner = runtime.owner.take();
+        runtime
+            .nodes
+            .try_borrow()
+            .map(|nodes| {
+                if nodes.contains_key(owner.0) {
+                    let prev_observer = runtime.observer.take();
+                    let prev_owner = runtime.owner.take();
 
-        runtime.owner.set(Some(owner.0));
-        runtime.observer.set(Some(owner.0));
+                    runtime.owner.set(Some(owner.0));
+                    runtime.observer.set(Some(owner.0));
 
-        let v = f();
+                    let v = f();
 
-        runtime.observer.set(prev_observer);
-        runtime.owner.set(prev_owner);
+                    runtime.observer.set(prev_observer);
+                    runtime.owner.set(prev_owner);
 
-        v
+                    Some(v)
+                } else {
+                    None
+                }
+            })
+            .ok()
+            .flatten()
     })
-    .expect("runtime should be alive when with_owner runs")
+    .ok()
+    .flatten()
 }
 
 impl RuntimeId {
@@ -1468,4 +1485,39 @@ pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
 #[inline(always)]
 pub fn untrack_with_diagnostics<T>(f: impl FnOnce() -> T) -> T {
     Runtime::current().untrack(f, true)
+}
+
+/// Allows running a future that has access to a given scope.
+#[pin_project]
+pub struct ScopedFuture<Fut: Future + 'static> {
+    owner: Owner,
+    #[pin]
+    future: Fut,
+}
+
+impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
+    type Output = Option<Fut::Output>;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Self::Output> {
+        // TODO: we need to think about how to make this
+        // not panic for scopes that have been cleaned up...
+        // or perhaps we can force the scope to not be cleaned
+        // up until all futures that have a handle to them are
+        // dropped...
+
+        let this = self.project();
+
+        if let Some(poll) = try_with_owner(*this.owner, || this.future.poll(cx))
+        {
+            match poll {
+                Poll::Ready(res) => Poll::Ready(Some(res)),
+                Poll::Pending => Poll::Pending,
+            }
+        } else {
+            Poll::Ready(None)
+        }
+    }
 }
