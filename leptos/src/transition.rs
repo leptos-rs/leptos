@@ -2,7 +2,7 @@ use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
     create_isomorphic_effect, create_rw_signal, use_context, RwSignal,
-    SignalGet, SignalSet, SignalSetter, SuspenseContext,
+    SignalGet, SignalGetUntracked, SignalSet, SignalSetter, SuspenseContext,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -125,7 +125,7 @@ where
                 let suspense_context = held_suspense_context.borrow().unwrap();
 
                 if cfg!(feature = "hydrate")
-                    || !first_run.get()
+                    || !first_run.get_untracked()
                     || (cfg!(feature = "csr") && first_run.get())
                 {
                     *prev_children.borrow_mut() = Some(frag.clone());
@@ -161,7 +161,7 @@ fn is_first_run(
         false
     } else {
         match (
-            first_run.get(),
+            first_run.get_untracked(),
             cfg!(feature = "hydrate"),
             suspense_context.has_local_only(),
         ) {
