@@ -1522,4 +1522,10 @@ impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
     }
 }
 
-impl<Fut: Future> ScopedFuture<Fut> {}
+impl<Fut: Future> ScopedFuture<Fut> {
+    /// Creates a new future that will have access to the `[Owner]`'s
+    /// scope.
+    pub fn new(owner: Owner, fut: Fut) -> Self {
+        Self { owner, future: fut }
+    }
+}
