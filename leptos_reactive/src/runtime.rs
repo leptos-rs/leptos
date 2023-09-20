@@ -1524,8 +1524,106 @@ impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
 
 impl<Fut: Future> ScopedFuture<Fut> {
     /// Creates a new future that will have access to the `[Owner]`'s
-    /// scope.
+    /// scope context.
     pub fn new(owner: Owner, fut: Fut) -> Self {
         Self { owner, future: fut }
     }
+
+    /// Runs the future in the current [`Owner`]'s scope context.
+    ///
+    /// # Panics
+    /// Panics if there is no current [`Owner`] context available.
+    #[track_caller]
+    pub fn new_current(fut: Fut) -> Self {
+        Self {
+            owner: Owner::current().expect(
+                "`ScopedFuture::new_current()` \
+                to be called within an `Owner` \
+                context",
+            ),
+            future: fut,
+        }
+    }
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+pub fn spawn_local_with_owner(
+    owner: Owner,
+    fut: impl Future<Output = ()> + 'static,
+) {
+    let scoped_future = ScopedFuture::new(owner, fut);
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            // TODO: should we warn here?
+            //     /* warning message */
+        }
+    });
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+///
+/// # Panics
+/// Panics if there is no [`Owner`] context available.
+#[track_caller]
+pub fn spawn_local_with_current_owner(fut: impl Future<Output = ()> + 'static) {
+    let scoped_future = ScopedFuture::new_current(fut);
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            // TODO: should we warn here?
+            //     /* warning message */
+        }
+    });
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+///
+/// Since futures run in the background, it is possible that
+/// the scope has been cleaned up since the future started running.
+/// If this happens, the future will not be completed.
+///
+/// The `on_cancelled` callback can be used to notify you that the
+/// future was cancelled.
+pub fn try_spawn_local_with_owner(
+    owner: Owner,
+    fut: impl Future<Output = ()> + 'static,
+    on_cancelled: impl FnOnce() + 'static,
+) {
+    let scoped_future = ScopedFuture::new(owner, fut);
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            on_cancelled();
+        }
+    });
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+///
+/// Since futures run in the background, it is possible that
+/// the scope has been cleaned up since the future started running.
+/// If this happens, the future will not be completed.
+///
+/// The `on_cancelled` callback can be used to notify you that the
+/// future was cancelled.
+///
+/// # Panics
+/// Panics if there is no [`Owner`] context available.
+#[track_caller]
+pub fn try_spawn_local_with_current_owner(
+    fut: impl Future<Output = ()> + 'static,
+    on_cancelled: impl FnOnce() + 'static,
+) {
+    let scoped_future = ScopedFuture::new_current(fut);
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            on_cancelled();
+        }
+    });
 }
