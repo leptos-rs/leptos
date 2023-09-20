@@ -680,40 +680,6 @@ where
     }
 }
 
-/// Runs the given function as a child of the current Owner, once.
-pub fn run_as_child<T>(f: impl FnOnce() -> T + 'static) -> T {
-    let owner = with_runtime(|runtime| runtime.owner.get())
-        .expect("runtime should be alive when created");
-    let (value, disposer) = with_runtime(|runtime| {
-        let prev_observer = runtime.observer.take();
-        let prev_owner = runtime.owner.take();
-
-        runtime.owner.set(owner);
-        runtime.observer.set(owner);
-
-        let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-            value: None,
-            state: ReactiveNodeState::Clean,
-            node_type: ReactiveNodeType::Trigger,
-        });
-        runtime.push_scope_property(ScopeProperty::Trigger(id));
-        let disposer = Disposer(id);
-
-        runtime.owner.set(Some(id));
-        runtime.observer.set(Some(id));
-
-        let v = f();
-
-        runtime.observer.set(prev_observer);
-        runtime.owner.set(prev_owner);
-
-        (v, disposer)
-    })
-    .expect("runtime should be alive when run");
-    on_cleanup(move || drop(disposer));
-    value
-}
-
 /// Wraps the given function so that, whenever it is called, it is run
 /// in the reactive scope of whatever the reactive owner was when it was
 /// created.
