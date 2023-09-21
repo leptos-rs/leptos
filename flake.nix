@@ -22,6 +22,7 @@
             openssl
             pkg-config
             cacert
+            cargo-make
             (rust-bin.selectLatestNightlyWith( toolchain: toolchain.default.override {
               extensions= [ "rust-src" "rust-analyzer" ];
               targets = [ "wasm32-unknown-unknown" ];
