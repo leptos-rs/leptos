@@ -1354,6 +1354,7 @@ where
         T: 'static;
 }
 
+#[cfg(feature = "default")]
 fn handle_static_response<IV>(
     path: String,
     options: LeptosOptions,
@@ -1451,6 +1452,7 @@ where
     })
 }
 
+#[cfg(feature = "default")]
 fn static_route<IV, S>(
     router: axum::Router<S>,
     path: &str,
@@ -1593,15 +1595,25 @@ where
 
             for method in listing.methods() {
                 router = if let Some(static_mode) = listing.static_mode() {
-                    static_route(
-                        router,
-                        path,
-                        LeptosOptions::from_ref(options),
-                        app_fn.clone(),
-                        additional_context.clone(),
-                        method,
-                        static_mode,
-                    )
+                    #[cfg(feature = "default")]
+                    {
+                        static_route(
+                            router,
+                            path,
+                            LeptosOptions::from_ref(options),
+                            app_fn.clone(),
+                            additional_context.clone(),
+                            method,
+                            static_mode,
+                        )
+                    }
+                    #[cfg(not(feature = "default"))]
+                    {
+                        panic!(
+                            "Static site generation is not currently \
+                             supported on WASM32 server targets."
+                        )
+                    }
                 } else {
                     router.route(
                     path,
