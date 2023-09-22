@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 // `syn` types are `!Send` so we can't store them as we might like.
 // This is only used to diff view macros for hot reloading so it's very minimal
 // and ignores many of the data types.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LNode {
     Fragment(Vec<LNode>),
@@ -38,18 +39,26 @@ pub enum LAttributeValue {
 }
 
 impl LNode {
+    /// # Errors
+    ///
+    /// Will return `Err` if parsing the view fails.
     pub fn parse_view(nodes: Vec<Node>) -> Result<LNode> {
         let mut out = Vec::new();
         for node in nodes {
             LNode::parse_node(node, &mut out)?;
         }
         if out.len() == 1 {
-            Ok(out.pop().unwrap())
+            out.pop().ok_or_else(|| {
+                unreachable!("The last element should not be None.")
+            })
         } else {
             Ok(LNode::Fragment(out))
         }
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if parsing the node fails.
     pub fn parse_node(node: Node, views: &mut Vec<LNode>) -> Result<()> {
         match node {
             Node::Fragment(frag) => {
@@ -61,9 +70,9 @@ impl LNode {
                 views.push(LNode::Text(text.value_string()));
             }
             Node::Block(block) => {
-                let code = block.into_token_stream();
-                let code = code.to_string();
-                views.push(LNode::DynChild(code));
+                views.push(LNode::DynChild(
+                    block.into_token_stream().to_string(),
+                ));
             }
             Node::Element(el) => {
                 if is_component_node(&el) {
@@ -83,7 +92,7 @@ impl LNode {
                                     attr.key.to_string(),
                                     format!("{:#?}", attr.value()),
                                 )),
-                                _ => None,
+                                NodeAttribute::Block(_) => None,
                             })
                             .collect(),
                         children,
@@ -151,8 +160,9 @@ impl LNode {
                         LAttributeValue::Static(value) => {
                             Some(format!("{name}=\"{value}\" "))
                         }
-                        LAttributeValue::Dynamic => None,
-                        LAttributeValue::Noop => None,
+                        LAttributeValue::Dynamic | LAttributeValue::Noop => {
+                            None
+                        }
                     })
                     .collect::<String>();
 

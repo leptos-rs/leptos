@@ -33,10 +33,14 @@ pub struct ViewMacros {
 }
 
 impl ViewMacros {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the path is not UTF-8 path or the contents of the file cannot be parsed.
     pub fn update_from_paths<T: AsRef<Path>>(&self, paths: &[T]) -> Result<()> {
         let mut views = HashMap::new();
 
@@ -59,6 +63,9 @@ impl ViewMacros {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the contents of the file cannot be parsed.
     pub fn parse_file(path: &Utf8PathBuf) -> Result<Vec<MacroInvocation>> {
         let mut file = File::open(path)?;
         let mut content = String::new();
@@ -76,11 +83,14 @@ impl ViewMacros {
             let rsx =
                 rstml::parse2(tokens.collect::<proc_macro2::TokenStream>())?;
             let template = LNode::parse_view(rsx)?;
-            views.push(MacroInvocation { id, template })
+            views.push(MacroInvocation { id, template });
         }
         Ok(views)
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the contents of the file cannot be parsed.
     pub fn patch(&self, path: &Utf8PathBuf) -> Result<Option<Patches>> {
         let new_views = Self::parse_file(path)?;
         let mut lock = self.views.write();
@@ -125,7 +135,7 @@ impl std::fmt::Debug for MacroInvocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MacroInvocation")
             .field("id", &self.id)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -136,7 +146,7 @@ pub struct ViewMacroVisitor<'a> {
 
 impl<'ast> Visit<'ast> for ViewMacroVisitor<'ast> {
     fn visit_macro(&mut self, node: &'ast Macro) {
-        let ident = node.path.get_ident().map(|n| n.to_string());
+        let ident = node.path.get_ident().map(ToString::to_string);
         if ident == Some("view".to_string()) {
             self.views.push(node);
         }
