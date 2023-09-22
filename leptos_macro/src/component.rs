@@ -175,7 +175,7 @@ impl ToTokens for Model {
         let prop_names = prop_names(props);
 
         let builder_name_doc = LitStr::new(
-            &format!("Props for the [`{name}`] component."),
+            &format!(" Props for the [`{name}`] component."),
             name.span(),
         );
 
@@ -476,6 +476,7 @@ impl ToTokens for Model {
             #[doc = #builder_name_doc]
             #[doc = ""]
             #docs
+            #[doc = ""]
             #component_fn_prop_docs
             #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
             //#[builder(doc)]
@@ -506,6 +507,7 @@ impl ToTokens for Model {
             #into_view
 
             #docs
+            #[doc = ""]
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #tracing_instrument_attr
@@ -612,7 +614,8 @@ impl Docs {
 
         // Seperated out of chain to allow rustfmt to work
         let map = |(doc, span): (String, Span)| {
-            doc.lines()
+            doc.split('\n')
+                .map(str::trim_end)
                 .flat_map(|doc| {
                     let trimmed_doc = doc.trim_start();
                     let leading_ws = &doc[..doc.len() - trimmed_doc.len()];
@@ -932,7 +935,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
 
     let required_prop_docs = if !required_prop_docs.is_empty() {
         quote! {
-            #[doc = "# Required Props"]
+            #[doc = " # Required Props"]
             #required_prop_docs
         }
     } else {
@@ -941,7 +944,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
 
     let optional_prop_docs = if !optional_prop_docs.is_empty() {
         quote! {
-            #[doc = "# Optional Props"]
+            #[doc = " # Optional Props"]
             #optional_prop_docs
         }
     } else {
@@ -1043,10 +1046,10 @@ fn prop_to_doc(
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
                 &if !prop_opts.into {
-                    format!("- **{}**: [`{pretty_ty}`]", quote!(#name))
+                    format!(" - **{}**: [`{pretty_ty}`]", quote!(#name))
                 } else {
                     format!(
-                        "- **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
+                        " - **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
                         quote!(#name),
                     )
                 },
