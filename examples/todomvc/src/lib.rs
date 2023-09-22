@@ -240,8 +240,10 @@ pub fn TodoMVC() -> impl IntoView {
                         <For
                             each=filtered_todos
                             key=|todo| todo.id
-                            view=move |todo: Todo| view! { <Todo todo /> }
-                        />
+                            bind:todo
+                        >
+                            <Todo todo/>
+                        </For>
                     </ul>
                 </section>
                 <footer
