@@ -3,13 +3,13 @@ use cfg_if::cfg_if;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        body::{boxed, Body, BoxBody},
+        body::{Body, BoxBody},
         extract::State,
         response::IntoResponse,
         http::{Request, Response, StatusCode, Uri},
     };
     use axum::response::Response as AxumResponse;
-    use tower::ServiceExt;
+    //use tower::ServiceExt;
     use leptos::{LeptosOptions};
     use crate::error_template::error_template;
 
@@ -29,6 +29,8 @@ if #[cfg(feature = "ssr")] {
         let req = Request::builder().uri(uri.clone()).body(Body::empty()).unwrap();
         // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
         // This path is relative to the cargo root
+        _ = req;
+        _ = root;
         todo!()
     }
 

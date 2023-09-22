@@ -68,7 +68,7 @@ cfg_if! {
             let leptos_options = LeptosOptions::builder().output_name("client").site_pkg_dir("pkg").build();
 
 
-            let routes = generate_route_list(|| view! { <App/> }).await;
+            let routes = generate_route_list(App);
 
             ClearServerCount::register_explicit().unwrap();
             AdjustServerCount::register_explicit().unwrap();
