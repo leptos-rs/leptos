@@ -84,7 +84,7 @@ pub fn Stories() -> impl IntoView {
                 <div>
                     <Transition
                         fallback=move || view! {  <p>"Loading..."</p> }
-                        set_pending=set_pending.into()
+                        set_pending
                     >
                         {move || match stories.get() {
                             None => None,
