@@ -4,12 +4,9 @@ extend = [
 ]
 
 [tasks.integration-test]
-dependencies = [
-    "maybe-start-client",
-    "wait-one",
-    "test-playwright",
-    "stop-client",
-]
+description = "Run integration test with automated start and stop of processes"
+env = { SPAWN_CLIENT_PROCESS = "1" }
+dependencies = ["start", "wait-one", "test-playwright", "stop"]
 
 [tasks.wait-one]
 script = '''

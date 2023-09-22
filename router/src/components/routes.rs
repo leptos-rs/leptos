@@ -313,6 +313,8 @@ impl Branches {
                     base,
                     &mut Vec::new(),
                     &mut branches,
+                    true,
+                    base,
                 );
                 current.insert(base.to_string(), branches);
             }
@@ -504,7 +506,7 @@ fn root_route(
 
         let (current_view, set_current_view) = create_signal(None);
 
-        create_effect(move |prev| {
+        create_render_effect(move |prev| {
             let root = root_view.get();
             let is_fallback = !global_suspense.with_inner(|c| c.ready().get());
             if prev.is_none() {
@@ -570,9 +572,16 @@ fn create_branches(
     base: &str,
     stack: &mut Vec<RouteData>,
     branches: &mut Vec<Branch>,
+    static_valid: bool,
+    parents_path: &str,
 ) {
     for def in route_defs {
-        let routes = create_routes(def, base);
+        let routes = create_routes(
+            def,
+            base,
+            static_valid && def.static_mode.is_some(),
+            parents_path,
+        );
         for route in routes {
             stack.push(route.clone());
 
@@ -580,7 +589,14 @@ fn create_branches(
                 let branch = create_branch(stack, branches.len());
                 branches.push(branch);
             } else {
-                create_branches(&def.children, &route.pattern, stack, branches);
+                create_branches(
+                    &def.children,
+                    &route.pattern,
+                    stack,
+                    branches,
+                    static_valid && route.key.static_mode.is_some(),
+                    &format!("{}{}", parents_path, def.path),
+                );
             }
 
             stack.pop();
@@ -603,9 +619,21 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
 )]
-fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
+fn create_routes(
+    route_def: &RouteDefinition,
+    base: &str,
+    static_valid: bool,
+    parents_path: &str,
+) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
+    if is_leaf && route_def.static_mode.is_some() && !static_valid {
+        panic!(
+            "Static rendering is not valid for route '{}{}', all parent \
+             routes must also be statically renderable.",
+            parents_path, route_def.path
+        );
+    }
     let mut acc = Vec::new();
     for original_path in expand_optionals(&route_def.path) {
         let path = join_paths(base, &original_path);

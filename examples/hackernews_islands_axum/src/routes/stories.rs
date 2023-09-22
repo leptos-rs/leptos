@@ -91,7 +91,7 @@ pub fn Stories() -> impl IntoView {
                 <div>
                     <Transition
                         fallback=|| ()
-                        set_pending=set_pending.into()
+                        set_pending
                     >
                         {move || stories.get().map(|story| story.map(|stories| view! {
                                 <ul>

@@ -18,8 +18,8 @@ impl std::fmt::Debug for RouterIntegrationContext {
     }
 }
 
-/// The [Router](crate::Router) relies on a [RouterIntegrationContext], which tells the router
-/// how to find things like the current URL, and how to navigate to a new page. The [History] trait
+/// The [`Router`](crate::Router) relies on a [`RouterIntegrationContext`], which tells the router
+/// how to find things like the current URL, and how to navigate to a new page. The [`History`] trait
 /// can be implemented on any type to provide this information.
 pub trait History {
     /// A signal that updates whenever the current location changes.
@@ -139,7 +139,7 @@ impl History for BrowserIntegration {
     }
 }
 
-/// The wrapper type that the [Router](crate::Router) uses to interact with a [History].
+/// The wrapper type that the [`Router`](crate::Router) uses to interact with a [`History`].
 /// This is automatically provided in the browser. For the server, it should be provided
 /// as a context. Be sure that it can survive conversion to a URL in the browser.
 ///

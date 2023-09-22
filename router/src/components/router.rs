@@ -27,8 +27,8 @@ pub fn Router(
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
-    /// any elements, and should include a [Routes](crate::Routes) component somewhere
-    /// to define and display [Route](crate::Route)s.
+    /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
+    /// to define and display [`Route`](crate::Route)s.
     children: Children,
 ) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
@@ -198,7 +198,7 @@ impl RouterContext {
         self.inner.location.pathname
     }
 
-    /// The [RouteContext] of the base route.
+    /// The [`RouteContext`] of the base route.
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
     }

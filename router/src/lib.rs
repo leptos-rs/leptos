@@ -3,8 +3,8 @@
 //! # Leptos Router
 //!
 //! Leptos Router is a router and state management tool for web applications
-//! written in Rust using the [Leptos](https://github.com/leptos-rs/leptos) web framework.
-//! It is ”isomorphic,” i.e., it can be used for client-side applications/single-page
+//! written in Rust using the [`Leptos`] web framework.
+//! It is ”isomorphic”, i.e., it can be used for client-side applications/single-page
 //! apps (SPAs), server-side rendering/multi-page apps (MPAs), or to synchronize
 //! state between the two.
 //!
@@ -19,7 +19,7 @@
 //!    and are rendered by different components. This means you can navigate between siblings
 //!    in this tree without re-rendering or triggering any change in the parent routes.
 //!
-//! 3. **Progressive enhancement.** The [A] and [Form] components resolve any relative
+//! 3. **Progressive enhancement.** The [`A`] and [`Form`] components resolve any relative
 //!    nested routes, render actual `<a>` and `<form>` elements, and (when possible)
 //!    upgrading them to handle those navigations with client-side routing. If you’re using
 //!    them with server-side rendering (with or without hydration), they just work,
@@ -35,7 +35,7 @@
 //! #[component]
 //! pub fn RouterExample() -> impl IntoView {
 //!   view! {
-//!     
+//!
 //!     <div id="root">
 //!       // we wrap the whole app in a <Router/> to allow client-side navigation
 //!       // from our nav links below
@@ -100,7 +100,7 @@
 //!   // loads the contact list data once; doesn't reload when nested routes change
 //!   let contacts = create_resource(|| (), |_| contact_list_data());
 //!   view! {
-//!     
+//!
 //!     <div>
 //!       // show the contacts
 //!       <ul>
@@ -117,7 +117,7 @@
 //! fn Contact() -> impl IntoView {
 //!   let params = use_params_map();
 //!   let data = create_resource(
-//!     
+//!
 //!     move || params.with(|p| p.get("id").cloned().unwrap_or_default()),
 //!     move |id| contact_data(id)
 //!   );
@@ -182,6 +182,8 @@
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in.
+//!
+//! [`Leptos`]: <https://github.com/leptos-rs/leptos>
 
 #![cfg_attr(feature = "nightly", feature(auto_traits))]
 #![cfg_attr(feature = "nightly", feature(negative_impls))]

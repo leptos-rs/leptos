@@ -1,3 +1,5 @@
+#[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+use crate::Owner;
 use crate::{
     runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
     SuspenseContext,
@@ -20,6 +22,8 @@ pub struct SharedContext {
     pub pending_fragments: HashMap<String, FragmentData>,
     #[cfg(feature = "experimental-islands")]
     pub no_hydrate: bool,
+    #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+    pub islands: HashMap<Owner, web_sys::HtmlElement>,
 }
 
 impl SharedContext {
@@ -165,6 +169,22 @@ impl SharedContext {
         })
         .unwrap_or_default()
     }
+
+    /// Registers the given element as an island with the current reactive owner.
+    #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    pub fn register_island(el: &web_sys::HtmlElement) {
+        if let Some(owner) = Owner::current() {
+            let el = el.clone();
+            _ = with_runtime(|runtime| {
+                let mut shared_context = runtime.shared_context.borrow_mut();
+                shared_context.islands.insert(owner, el);
+            });
+        }
+    }
 }
 
 /// Represents its pending `<Suspense/>` fragment.
@@ -227,6 +247,11 @@ impl Default for SharedContext {
                 pending_fragments: Default::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
+                #[cfg(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                ))]
+                islands: Default::default(),
             }
         }
         #[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
@@ -239,6 +264,11 @@ impl Default for SharedContext {
                 pending_fragments: Default::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
+                #[cfg(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                ))]
+                islands: Default::default(),
             }
         }
     }

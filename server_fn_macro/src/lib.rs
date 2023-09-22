@@ -1,9 +1,10 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
-//! Implementation of the server_fn macro.
+
+//! Implementation of the `server_fn` macro.
 //!
-//! This crate contains the implementation of the server_fn macro. [server_macro_impl] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
+//! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
 
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use proc_macro_error::abort;
@@ -39,7 +40,7 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
     }
 }
 
-/// The implementation of the server_fn macro.
+/// The implementation of the `server_fn` macro.
 /// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
 /// **The Context comes from the server.** Optionally, the first argument of a server function
 /// can be a custom context. This context can be used to inject dependencies like the HTTP request
@@ -65,7 +66,6 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 ///     }
 /// }
 /// ```
-
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
@@ -84,7 +84,7 @@ pub fn server_macro_impl(
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
     let encoding = quote!(#server_fn_path::#encoding);
 
-    let body = syn::parse::<ServerFnBody>(body.into())?;
+    let mut body = syn::parse::<ServerFnBody>(body.into())?;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
@@ -92,7 +92,7 @@ pub fn server_macro_impl(
 
     let fields = body
         .inputs
-        .iter()
+        .iter_mut()
         .filter(|f| {
             if let Some(ctx) = &server_context {
                 !fn_arg_is_cx(f, ctx)
@@ -110,8 +110,33 @@ pub fn server_macro_impl(
                 }
                 FnArg::Typed(t) => t,
             };
-            quote! { pub #typed_arg }
-        });
+            let mut default = false;
+            let mut other_attrs = Vec::new();
+            for attr in typed_arg.attrs.iter() {
+                if !attr.path().is_ident("server") {
+                    other_attrs.push(attr.clone());
+                    continue;
+                }
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("default") && meta.input.is_empty() {
+                        default = true;
+                        Ok(())
+                    } else {
+                        Err(meta.error(
+                            "Unrecognized #[server] attribute, expected \
+                             #[server(default)]",
+                        ))
+                    }
+                })?;
+            }
+            typed_arg.attrs = other_attrs;
+            if default {
+                Ok(quote! { #[serde(default)] pub #typed_arg })
+            } else {
+                Ok(quote! { pub #typed_arg })
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let cx_arg = body.inputs.iter().next().and_then(|f| {
         server_context

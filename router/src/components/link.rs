@@ -3,7 +3,7 @@ use leptos::{leptos_dom::IntoView, *};
 use std::borrow::Cow;
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
-/// a [String], a [&str], or a reactive `Fn() -> String`.
+/// a [`String`], a [`&str`], or a reactive `Fn() -> String`.
 pub trait ToHref {
     /// Converts the (static or reactive) URL into a function that can be called to
     /// return the URL.

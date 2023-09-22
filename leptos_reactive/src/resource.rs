@@ -3,8 +3,8 @@ use crate::SharedContext;
 #[cfg(debug_assertions)]
 use crate::SpecialNonReactiveZone;
 use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask, runtime::with_runtime, serialization::Serializable,
+    create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::with_runtime, serialization::Serializable,
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
     GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
     SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
@@ -143,6 +143,11 @@ where
 ///
 /// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather,
 /// it is blocking in the sense that it blocks the server from sending a response.
+///
+/// When used with the leptos_router and `SsrMode::PartiallyBlocked`, a
+/// blocking resource will ensure `<Suspense/>` blocks depending on the resource
+/// are fully rendered on the server side, without requiring JavaScript or
+/// WebAssembly on the client.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
@@ -259,7 +264,9 @@ where
 /// }
 ///
 /// // create the resource; it will run but not be serialized
-/// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+/// # // `csr`, `hydrate`, and `ssr` all have issues here
+/// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+/// # if false {
 /// let result =
 ///     create_local_resource(move || (), |_| setup_complicated_struct());
 /// # }
@@ -351,7 +358,7 @@ where
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_effect({
+    create_isomorphic_effect({
         let r = Rc::clone(&r);
         // This is a local resource, so we're always going to handle it on the
         // client
@@ -1001,7 +1008,9 @@ where
     /// }
     ///
     /// // create the resource; it will run but not be serialized
-    /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
     /// let result =
     ///     create_local_resource(move || (), |_| setup_complicated_struct());
     /// # }
@@ -1128,7 +1137,7 @@ where
             .ok()?
             .flatten();
 
-        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+        self.handle_result(location, global_suspense_cx, suspense_cx, v, false)
     }
 
     #[track_caller]
@@ -1139,10 +1148,16 @@ where
     ) -> Option<U> {
         let global_suspense_cx = use_context::<GlobalSuspenseContext>();
         let suspense_cx = use_context::<SuspenseContext>();
+        let (was_loaded, v) =
+            self.value.try_with(|n| (n.is_some(), f(n))).ok()?;
 
-        let v = self.value.try_with(|n| f(n)).ok();
-
-        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+        self.handle_result(
+            location,
+            global_suspense_cx,
+            suspense_cx,
+            Some(v),
+            !was_loaded,
+        )
     }
 
     fn handle_result<U>(
@@ -1151,6 +1166,7 @@ where
         global_suspense_cx: Option<GlobalSuspenseContext>,
         suspense_cx: Option<SuspenseContext>,
         v: Option<U>,
+        force_suspend: bool,
     ) -> Option<U> {
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
@@ -1210,7 +1226,7 @@ where
                         // on subsequent reads, increment will be triggered in load()
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
-                        if !has_value {
+                        if !has_value || force_suspend {
                             s.increment(
                                 serializable != ResourceSerialization::Local,
                             );
@@ -1229,7 +1245,7 @@ where
                         if !contexts.contains(s) {
                             contexts.insert(*s);
 
-                            if !has_value {
+                            if !has_value || force_suspend {
                                 s.increment(
                                     serializable
                                         != ResourceSerialization::Local,

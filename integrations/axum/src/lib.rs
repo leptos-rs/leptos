@@ -1207,12 +1207,25 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn generate_route_list<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+    app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(app_fn, None)
+    generate_route_list_with_exclusions_and_ssg(app_fn, None).0
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+pub fn generate_route_list_with_ssg<IV>(
+    app_fn: impl Fn() -> IV + 'static + Clone,
+) -> (Vec<RouteListing>, StaticDataMap)
+where
+    IV: IntoView + 'static,
+{
+    generate_route_list_with_exclusions_and_ssg(app_fn, None)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1221,14 +1234,29 @@ where
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl FnOnce() -> IV + 'static,
+    app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    let routes = leptos_router::generate_route_list_inner(app_fn);
+    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
+}
 
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths. Adding excluded_routes
+/// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+pub fn generate_route_list_with_exclusions_and_ssg<IV>(
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    excluded_routes: Option<Vec<String>>,
+) -> (Vec<RouteListing>, StaticDataMap)
+where
+    IV: IntoView + 'static,
+{
+    let (routes, static_data_map) =
+        leptos_router::generate_route_list_inner(app_fn);
     // Axum's Router defines Root routes as "/" not ""
     let mut routes = routes
         .into_iter()
@@ -1237,8 +1265,10 @@ where
             if path.is_empty() {
                 RouteListing::new(
                     "/".to_string(),
+                    listing.path(),
                     listing.mode(),
                     listing.methods(),
+                    listing.static_mode(),
                 )
             } else {
                 listing
@@ -1246,26 +1276,31 @@ where
         })
         .collect::<Vec<_>>();
 
-    if routes.is_empty() {
-        vec![RouteListing::new(
-            "/",
-            Default::default(),
-            [leptos_router::Method::Get],
-        )]
-    } else {
-        // Routes to exclude from auto generation
-        if let Some(excluded_routes) = excluded_routes {
-            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
-        }
-        routes
-    }
+    (
+        if routes.is_empty() {
+            vec![RouteListing::new(
+                "/",
+                "",
+                Default::default(),
+                [leptos_router::Method::Get],
+                None,
+            )]
+        } else {
+            // Routes to exclude from auto generation
+            if let Some(excluded_routes) = excluded_routes {
+                routes
+                    .retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+            }
+            routes
+        },
+        static_data_map,
+    )
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes<S>
 where
-    LeptosOptions: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
     fn leptos_routes<IV>(
@@ -1295,6 +1330,208 @@ where
     where
         H: axum::handler::Handler<T, S, axum::body::Body>,
         T: 'static;
+}
+
+fn handle_static_response<IV>(
+    path: String,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + Clone + Send + 'static,
+    res: StaticResponse,
+) -> Pin<Box<dyn Future<Output = Response<String>> + 'static>>
+where
+    IV: IntoView + 'static,
+{
+    Box::pin(async move {
+        match res {
+            StaticResponse::ReturnResponse {
+                body,
+                status,
+                content_type,
+            } => {
+                let mut res = Response::new(body);
+                if let Some(v) = content_type {
+                    res.headers_mut().insert(
+                        HeaderName::from_static("content-type"),
+                        HeaderValue::from_static(v),
+                    );
+                }
+                *res.status_mut() = match status {
+                    StaticStatusCode::Ok => StatusCode::OK,
+                    StaticStatusCode::NotFound => StatusCode::NOT_FOUND,
+                    StaticStatusCode::InternalServerError => {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                };
+                res
+            }
+            StaticResponse::RenderDynamic => {
+                let res = render_dynamic(
+                    &path,
+                    &options,
+                    app_fn.clone(),
+                    additional_context.clone(),
+                )
+                .await;
+                handle_static_response(
+                    path,
+                    options,
+                    app_fn,
+                    additional_context,
+                    res,
+                )
+                .await
+            }
+            StaticResponse::RenderNotFound => {
+                let res = not_found_page(
+                    tokio::fs::read_to_string(not_found_path(&options)).await,
+                );
+                handle_static_response(
+                    path,
+                    options,
+                    app_fn,
+                    additional_context,
+                    res,
+                )
+                .await
+            }
+            StaticResponse::WriteFile { body, path } => {
+                if let Some(path) = path.parent() {
+                    if let Err(e) = std::fs::create_dir_all(path) {
+                        tracing::error!(
+                            "encountered error {} writing directories {}",
+                            e,
+                            path.display()
+                        );
+                    }
+                }
+                if let Err(e) = std::fs::write(&path, &body) {
+                    tracing::error!(
+                        "encountered error {} writing file {}",
+                        e,
+                        path.display()
+                    );
+                }
+                handle_static_response(
+                    path.to_str().unwrap().to_string(),
+                    options,
+                    app_fn,
+                    additional_context,
+                    StaticResponse::ReturnResponse {
+                        body,
+                        status: StaticStatusCode::Ok,
+                        content_type: Some("text/html"),
+                    },
+                )
+                .await
+            }
+        }
+    })
+}
+
+fn static_route<IV, S>(
+    router: axum::Router<S>,
+    path: &str,
+    options: LeptosOptions,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + Clone + Send + 'static,
+    method: leptos_router::Method,
+    mode: StaticMode,
+) -> axum::Router<S>
+where
+    IV: IntoView + 'static,
+    S: Clone + Send + Sync + 'static,
+{
+    match mode {
+        StaticMode::Incremental => {
+            let handler = move |req: Request<Body>| {
+                Box::pin({
+                    let path = req.uri().path().to_string();
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
+
+                    async move {
+                        let (tx, rx) = futures::channel::oneshot::channel();
+                        let local_pool = get_leptos_pool();
+                        local_pool.spawn_pinned(move || async move {
+                            let res = incremental_static_route(
+                                tokio::fs::read_to_string(static_file_path(
+                                    &options, &path,
+                                ))
+                                .await,
+                            );
+                            let res = handle_static_response(
+                                path.clone(),
+                                options,
+                                app_fn,
+                                additional_context,
+                                res,
+                            )
+                            .await;
+
+                            let _ = tx.send(res);
+                        });
+                        rx.await.expect("to complete HTML rendering")
+                    }
+                })
+            };
+            router.route(
+                path,
+                match method {
+                    leptos_router::Method::Get => get(handler),
+                    leptos_router::Method::Post => post(handler),
+                    leptos_router::Method::Put => put(handler),
+                    leptos_router::Method::Delete => delete(handler),
+                    leptos_router::Method::Patch => patch(handler),
+                },
+            )
+        }
+        StaticMode::Upfront => {
+            let handler = move |req: Request<Body>| {
+                Box::pin({
+                    let path = req.uri().path().to_string();
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
+
+                    async move {
+                        let (tx, rx) = futures::channel::oneshot::channel();
+                        let local_pool = get_leptos_pool();
+                        local_pool.spawn_pinned(move || async move {
+                            let res = upfront_static_route(
+                                tokio::fs::read_to_string(static_file_path(
+                                    &options, &path,
+                                ))
+                                .await,
+                            );
+                            let res = handle_static_response(
+                                path.clone(),
+                                options,
+                                app_fn,
+                                additional_context,
+                                res,
+                            )
+                            .await;
+
+                            let _ = tx.send(res);
+                        });
+                        rx.await.expect("to complete HTML rendering")
+                    }
+                })
+            };
+            router.route(
+                path,
+                match method {
+                    leptos_router::Method::Get => get(handler),
+                    leptos_router::Method::Post => post(handler),
+                    leptos_router::Method::Put => put(handler),
+                    leptos_router::Method::Delete => delete(handler),
+                    leptos_router::Method::Patch => patch(handler),
+                },
+            )
+        }
+    }
 }
 
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
@@ -1333,7 +1570,18 @@ where
             let path = listing.path();
 
             for method in listing.methods() {
-                router = router.route(
+                router = if let Some(static_mode) = listing.static_mode() {
+                    static_route(
+                        router,
+                        path,
+                        LeptosOptions::from_ref(options),
+                        app_fn.clone(),
+                        additional_context.clone(),
+                        method,
+                        static_mode,
+                    )
+                } else {
+                    router.route(
                     path,
                     match listing.mode() {
                         SsrMode::OutOfOrder => {
@@ -1394,7 +1642,8 @@ where
                             }
                         }
                     },
-                );
+                )
+                };
             }
         }
         router

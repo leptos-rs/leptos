@@ -70,7 +70,7 @@ pub fn Stories() -> impl IntoView {
                 >
                     <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                         aria-label="Next Page"
-                    >
+                    >=
                         "more >"
                     </a>
                 </span>
@@ -79,7 +79,7 @@ pub fn Stories() -> impl IntoView {
                 <div>
                     <Transition
                         fallback=move || view! { <p>"Loading..."</p> }
-                        set_pending=set_pending.into()
+                        set_pending
                     >
                         {move || match stories.get() {
                             None => None,

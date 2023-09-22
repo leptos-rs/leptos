@@ -1,4 +1,4 @@
-use rstml::node::NodeElement;
+use rstml::node::{NodeElement, NodeName};
 
 ///
 /// Converts `syn::Block` to simple expression
@@ -42,10 +42,24 @@ pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     }
 }
 
-pub fn is_component_tag_name(name: &str) -> bool {
-    name.starts_with(|c: char| c.is_ascii_uppercase())
+pub fn is_component_tag_name(name: &NodeName) -> bool {
+    match name {
+        NodeName::Path(path) => {
+            !path.path.segments.is_empty()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .unwrap()
+                    .ident
+                    .to_string()
+                    .starts_with(|c: char| c.is_ascii_uppercase())
+        }
+        NodeName::Block(_) => false,
+        NodeName::Punctuated(_) => false,
+    }
 }
 
 pub fn is_component_node(node: &NodeElement) -> bool {
-    is_component_tag_name(&node.name().to_string())
+    is_component_tag_name(node.name())
 }

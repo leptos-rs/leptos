@@ -175,7 +175,7 @@ impl ToTokens for Model {
         let prop_names = prop_names(props);
 
         let builder_name_doc = LitStr::new(
-            &format!("Props for the [`{name}`] component."),
+            &format!(" Props for the [`{name}`] component."),
             name.span(),
         );
 
@@ -372,9 +372,7 @@ impl ToTokens for Model {
             #component
         };
 
-        let binding = if *is_island
-            && cfg!(any(feature = "csr", feature = "hydrate"))
-        {
+        let binding = if *is_island && cfg!(feature = "hydrate") {
             let island_props = if is_island_with_children
                 || is_island_with_other_props
             {
@@ -420,6 +418,7 @@ impl ToTokens for Model {
                                 ::leptos::leptos_dom::html::custom(
                                     ::leptos::leptos_dom::html::Custom::new("leptos-children"),
                                 )
+                                .prop("$$owner", ::leptos::Owner::current().map(|n| n.as_ffi()))
                                 .into_view()
                         })])))
                     }
@@ -455,9 +454,12 @@ impl ToTokens for Model {
                         ::leptos::leptos_dom::HydrationCtx::continue_from(key);
                     }
                     #deserialize_island_props
-                    ::leptos::leptos_dom::mount_to_with_stop_hydrating(el, false, move || {
-                        #name(#island_props)
-                    })
+                    _ = ::leptos::run_as_child(move || {
+                        ::leptos::SharedContext::register_island(&el);
+                        ::leptos::leptos_dom::mount_to_with_stop_hydrating(el, false, move || {
+                            #name(#island_props)
+                        })
+                    });
                 }
             }
         } else {
@@ -474,6 +476,7 @@ impl ToTokens for Model {
             #[doc = #builder_name_doc]
             #[doc = ""]
             #docs
+            #[doc = ""]
             #component_fn_prop_docs
             #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
             //#[builder(doc)]
@@ -504,6 +507,7 @@ impl ToTokens for Model {
             #into_view
 
             #docs
+            #[doc = ""]
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #tracing_instrument_attr
@@ -610,7 +614,8 @@ impl Docs {
 
         // Seperated out of chain to allow rustfmt to work
         let map = |(doc, span): (String, Span)| {
-            doc.lines()
+            doc.split('\n')
+                .map(str::trim_end)
                 .flat_map(|doc| {
                     let trimmed_doc = doc.trim_start();
                     let leading_ws = &doc[..doc.len() - trimmed_doc.len()];
@@ -930,7 +935,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
 
     let required_prop_docs = if !required_prop_docs.is_empty() {
         quote! {
-            #[doc = "# Required Props"]
+            #[doc = " # Required Props"]
             #required_prop_docs
         }
     } else {
@@ -939,7 +944,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
 
     let optional_prop_docs = if !optional_prop_docs.is_empty() {
         quote! {
-            #[doc = "# Optional Props"]
+            #[doc = " # Optional Props"]
             #optional_prop_docs
         }
     } else {
@@ -1041,10 +1046,10 @@ fn prop_to_doc(
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
                 &if !prop_opts.into {
-                    format!("- **{}**: [`{pretty_ty}`]", quote!(#name))
+                    format!(" - **{}**: [`{pretty_ty}`]", quote!(#name))
                 } else {
                     format!(
-                        "- **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
+                        " - **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
                         quote!(#name),
                     )
                 },

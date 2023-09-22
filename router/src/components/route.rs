@@ -1,12 +1,14 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    ParamsMap, RouterContext, SsrMode,
+    ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
     any::Any,
     borrow::Cow,
     cell::{Cell, RefCell},
+    future::Future,
+    pin::Pin,
     rc::Rc,
 };
 
@@ -49,7 +51,7 @@ pub fn Route<E, F, P>(
     /// wildcard (`user/*any`).
     path: P,
     /// The view that should be shown when this route is matched. This can be any function
-    /// that returns a type that implements [IntoView] (like `|| view! { <p>"Show this"</p> })`
+    /// that returns a type that implements [`IntoView`] (like `|| view! { <p>"Show this"</p> })`
     /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
@@ -78,6 +80,8 @@ where
         ssr,
         methods,
         data,
+        None,
+        None,
     )
 }
 
@@ -136,12 +140,64 @@ where
         ssr,
         methods,
         data,
+        None,
+        None,
     )
 }
+
+/// Describes a portion of the nested layout of the app, specifying the route it should match,
+/// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
 )]
+#[component(transparent)]
+pub fn StaticRoute<E, F, P, S>(
+    /// The path fragment that this route should match. This can be static (`users`),
+    /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
+    /// wildcard (`user/*any`).
+    path: P,
+    /// The view that should be shown when this route is matched. This can be any function
+    /// that returns a type that implements [IntoView] (like `|| view! { <p>"Show this"</p> })`
+    /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
+    view: F,
+    /// Creates a map of the params that should be built for a particular route.
+    #[prop(optional)]
+    static_params: Option<S>,
+    /// The static route mode
+    #[prop(optional)]
+    mode: StaticMode,
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
+    /// `children` may be empty or include nested routes.
+    #[prop(optional)]
+    children: Option<Children>,
+) -> impl IntoView
+where
+    E: IntoView,
+    F: Fn() -> E + 'static,
+    P: std::fmt::Display,
+    S: Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap>>> + 'static,
+{
+    define_route(
+        children,
+        path.to_string(),
+        Rc::new(move || view().into_view()),
+        SsrMode::default(),
+        &[Method::Get],
+        data,
+        Some(mode),
+        static_params.map(|s| Rc::new(s) as _),
+    )
+}
+
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn define_route(
     children: Option<Children>,
     path: String,
@@ -149,6 +205,8 @@ pub(crate) fn define_route(
     ssr_mode: SsrMode,
     methods: &'static [Method],
     data: Option<Loader>,
+    static_mode: Option<StaticMode>,
+    static_params: Option<StaticData>,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
@@ -179,6 +237,8 @@ pub(crate) fn define_route(
         ssr_mode,
         methods,
         data,
+        static_mode,
+        static_params,
     }
 }
 
@@ -250,7 +310,7 @@ impl RouteContext {
     /// including param values in their places.
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
-    /// For the opposite behavior, see [RouteContext::original_path].
+    /// For the opposite behavior, see [`RouteContext::original_path`].
     #[track_caller]
     pub fn path(&self) -> String {
         #[cfg(debug_assertions)]
@@ -273,7 +333,7 @@ impl RouteContext {
     /// with the param name rather than the matched parameter itself.
     ///
     /// e.g., this will return `/article/:id` rather than `/article/0`
-    /// For the opposite behavior, see [RouteContext::path].
+    /// For the opposite behavior, see [`RouteContext::path`].
     pub fn original_path(&self) -> &str {
         &self.inner.original_path
     }

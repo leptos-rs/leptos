@@ -108,7 +108,7 @@ impl<In> fmt::Debug for Callback<In> {
     }
 }
 
-impl<In> Clone for Callback<In> {
+impl<In, Out> Clone for Callback<In, Out> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -186,7 +186,7 @@ impl<In> fmt::Debug for SyncCallback<In> {
     }
 }
 
-impl<In> Clone for SyncCallback<In> {
+impl<In, Out> Clone for SyncCallback<In, Out> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -363,5 +363,50 @@ where
 impl IntoView for ViewCallback<()> {
     fn into_view(self) -> View {
         self.call(()).into_view()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Callback, HtmlCallback, SyncCallback, ViewCallback};
+
+    struct NoClone {}
+
+    #[test]
+    fn clone_callback() {
+        let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
+        let _cloned = callback.clone();
+    }
+
+    #[test]
+    fn clone_sync_callback() {
+        let callback = SyncCallback::new(move |_no_clone: NoClone| NoClone {});
+        let _cloned = callback.clone();
+    }
+
+    #[test]
+    fn clone_html_callback() {
+        #[derive(Debug)]
+        struct TestElem;
+        impl crate::ElementDescriptor for TestElem {
+            fn name(&self) -> leptos_reactive::Oco<'static, str> {
+                leptos_reactive::Oco::Borrowed("test-elem")
+            }
+            fn hydration_id(&self) -> &Option<crate::HydrationKey> {
+                &None
+            }
+        }
+
+        let callback = HtmlCallback::new(move |_no_clone: NoClone| {
+            crate::HtmlElement::new(TestElem {})
+        });
+        let _cloned = callback.clone();
+    }
+
+    #[test]
+    fn clone_view_callback() {
+        let callback =
+            ViewCallback::new(move |_no_clone: NoClone| crate::View::default());
+        let _cloned = callback.clone();
     }
 }

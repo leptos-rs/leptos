@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.5.0-rc1"
+version = "0.5.0-rc2"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -10,6 +10,8 @@ description = "Router for the Leptos web framework."
 
 [dependencies]
 leptos = { workspace = true }
+leptos_integration_utils = { workspace = true, optional = true }
+leptos_meta = { workspace = true, optional = true }
 cached = { version = "0.45.0", optional = true }
 cfg-if = "1"
 common_macros = "0.1"
@@ -59,7 +61,15 @@ features = [
 default = []
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
-ssr = ["leptos/ssr", "dep:cached", "dep:lru", "dep:url", "dep:regex"]
+ssr = [
+  "leptos/ssr",
+  "dep:cached",
+  "dep:lru",
+  "dep:url",
+  "dep:regex",
+  "dep:leptos_integration_utils",
+  "dep:leptos_meta",
+]
 nightly = ["leptos/nightly"]
 
 [package.metadata.cargo-all-features]

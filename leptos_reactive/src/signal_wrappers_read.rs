@@ -1,7 +1,7 @@
 use crate::{
-    create_effect, on_cleanup, runtime::untrack, store_value, Memo, ReadSignal,
-    RwSignal, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
-    SignalWithUntracked, StoredValue,
+    create_isomorphic_effect, on_cleanup, runtime::untrack, store_value, Memo,
+    ReadSignal, RwSignal, SignalGet, SignalGetUntracked, SignalStream,
+    SignalWith, SignalWithUntracked, StoredValue,
 };
 
 /// Helper trait for converting `Fn() -> T` closures into
@@ -332,7 +332,7 @@ impl<T: Clone> SignalStream<T> for Signal<T> {
 
                 on_cleanup(move || close_channel.close_channel());
 
-                create_effect(move |_| {
+                create_isomorphic_effect(move |_| {
                     let _ = s.try_with_value(|t| tx.unbounded_send(t()));
                 });
 

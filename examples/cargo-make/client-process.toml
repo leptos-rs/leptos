@@ -23,7 +23,11 @@ condition = { env_set = ["CLIENT_PROCESS_NAME"] }
 script = '''
   if [ -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
     echo "  Starting ${CLIENT_PROCESS_NAME}"
-    cargo make start-client ${@}
+    if [ -z ${SPAWN_CLIENT_PROCESS} ];then
+      cargo make start-client ${@} &
+    else
+      cargo make start-client ${@}
+    fi
   else
     echo "  ${CLIENT_PROCESS_NAME} is already started"
   fi

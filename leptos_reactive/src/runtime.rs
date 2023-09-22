@@ -104,6 +104,23 @@ impl Owner {
             .flatten()
             .map(Owner)
     }
+
+    /// Returns a unique handle for this owner for FFI purposes.
+    pub fn as_ffi(&self) -> u64 {
+        use slotmap::Key;
+
+        self.0.data().as_ffi()
+    }
+
+    /// Parses a unique handler back into an owner.
+    ///
+    /// Iff `value` is value received from `k.as_ffi()`, returns a key equal to `k`.
+    /// Otherwise the behavior is safe but unspecified.
+    pub fn from_ffi(ffi: u64) -> Self {
+        use slotmap::KeyData;
+
+        Self(NodeId::from(KeyData::from_ffi(ffi)))
+    }
 }
 
 // This core Runtime impl block handles all the work of marking and updating
@@ -518,11 +535,96 @@ impl Runtime {
         });
         match local_value {
             Some(val) => Some(val),
-            None => self
-                .node_owners
-                .borrow()
-                .get(node)
-                .and_then(|parent| self.get_context(*parent, ty)),
+            None => {
+                #[cfg(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                ))]
+                {
+                    self.get_island_context(
+                        self.shared_context
+                            .borrow()
+                            .islands
+                            .get(&Owner(node))
+                            .cloned(),
+                        node,
+                        ty,
+                    )
+                }
+                #[cfg(not(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                )))]
+                {
+                    self.node_owners
+                        .borrow()
+                        .get(node)
+                        .and_then(|parent| self.get_context(*parent, ty))
+                }
+            }
+        }
+    }
+
+    #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+    pub(crate) fn get_island_context<T: Clone + 'static>(
+        &self,
+        el: Option<web_sys::HtmlElement>,
+        node: NodeId,
+        ty: TypeId,
+    ) -> Option<T> {
+        let contexts = self.contexts.borrow();
+
+        let context = contexts.get(node);
+        let local_value = context.and_then(|context| {
+            context
+                .get(&ty)
+                .and_then(|val| val.downcast_ref::<T>())
+                .cloned()
+        });
+
+        match (el, local_value) {
+            (_, Some(val)) => Some(val),
+            // if we're already in the island's scope, island-hop
+            (Some(el), None) => {
+                use js_sys::Reflect;
+                use wasm_bindgen::{intern, JsCast, JsValue};
+                let parent_el = el
+                    .parent_element()
+                    .expect("to have parent")
+                    .unchecked_ref::<web_sys::HtmlElement>()
+                    .closest("leptos-children")
+                    .expect("to find island")
+                    //.flatten()
+                    .and_then(|el| el.dyn_into::<web_sys::HtmlElement>().ok());
+                match parent_el
+                    .clone()
+                    .and_then(|el| {
+                        Reflect::get(&el, &JsValue::from_str(intern("$$owner")))
+                            .ok()
+                    })
+                    .and_then(|value| u64::try_from(value).ok())
+                    .map(Owner::from_ffi)
+                {
+                    Some(owner) => {
+                        self.get_island_context(parent_el, owner.0, ty)
+                    }
+                    None => None,
+                }
+            }
+            // otherwise, check for a parent scope
+            (None, None) => {
+                self.node_owners.borrow().get(node).and_then(|parent| {
+                    self.get_island_context(
+                        self.shared_context
+                            .borrow()
+                            .islands
+                            .get(&Owner(*parent))
+                            .cloned(),
+                        *parent,
+                        ty,
+                    )
+                })
+            }
         }
     }
 
@@ -734,6 +836,40 @@ where
         v
     })
     .expect("runtime should be alive when with_owner runs")
+}
+
+/// Runs the given function as a child of the current Owner, once.
+pub fn run_as_child<T>(f: impl FnOnce() -> T + 'static) -> T {
+    let owner = with_runtime(|runtime| runtime.owner.get())
+        .expect("runtime should be alive when created");
+    let (value, disposer) = with_runtime(|runtime| {
+        let prev_observer = runtime.observer.take();
+        let prev_owner = runtime.owner.take();
+
+        runtime.owner.set(owner);
+        runtime.observer.set(owner);
+
+        let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
+            value: None,
+            state: ReactiveNodeState::Clean,
+            node_type: ReactiveNodeType::Trigger,
+        });
+        runtime.push_scope_property(ScopeProperty::Trigger(id));
+        let disposer = Disposer(id);
+
+        runtime.owner.set(Some(id));
+        runtime.observer.set(Some(id));
+
+        let v = f();
+
+        runtime.observer.set(prev_observer);
+        runtime.owner.set(prev_owner);
+
+        (v, disposer)
+    })
+    .expect("runtime should be alive when run");
+    on_cleanup(move || drop(disposer));
+    value
 }
 
 impl RuntimeId {

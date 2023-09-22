@@ -31,7 +31,7 @@ pub fn RoutingProgress(
     let (is_showing, set_is_showing) = create_signal(false);
     let (progress, set_progress) = create_signal(0.0);
 
-    create_effect(move |prev: Option<Option<IntervalHandle>>| {
+    create_render_effect(move |prev: Option<Option<IntervalHandle>>| {
         if is_routing.get() && !is_showing.get() {
             set_is_showing.set(true);
             set_interval_with_handle(
