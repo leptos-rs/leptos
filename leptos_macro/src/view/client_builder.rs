@@ -127,6 +127,12 @@ pub(crate) fn node_to_tokens(
         Node::Block(node) => Some(quote! { #node }),
         Node::RawText(r) => {
             let text = r.to_string_best();
+            if text == "cx," {
+                proc_macro_error::abort!(
+                    r.span(),
+                    "`cx,` is not used with the `view!` macro in 0.5."
+                )
+            }
             let text = syn::LitStr::new(&text, r.span());
             Some(quote! { #text })
         }
