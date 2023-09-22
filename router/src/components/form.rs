@@ -23,8 +23,8 @@ pub fn Form<A>(
     #[prop(optional)]
     method: Option<&'static str>,
     /// [`action`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action)
-    /// is the URL that processes the form submission. Takes a [String], [&str], or a reactive
-    /// function that returns a [String].
+    /// is the URL that processes the form submission. Takes a [`String`], [`&str`], or a reactive
+    /// function that returns a [`String`].
     action: A,
     /// [`enctype`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-enctype)
     /// is the MIME type of the form submission if `method` is `post`.
@@ -37,13 +37,13 @@ pub fn Form<A>(
     /// A signal that will be set if the form submission ends in an error.
     #[prop(optional)]
     error: Option<RwSignal<Option<Box<dyn Error>>>>,
-    /// A callback will be called with the [FormData](web_sys::FormData) when the form is submitted.
+    /// A callback will be called with the [`FormData`](web_sys::FormData) when the form is submitted.
     #[prop(optional)]
     on_form_data: Option<OnFormData>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
-    /// A callback will be called with the [Response](web_sys::Response) the server sends in response
+    /// A callback will be called with the [`Response`](web_sys::Response) the server sends in response
     /// to a form submission.
     #[prop(optional)]
     on_response: Option<OnResponse>,

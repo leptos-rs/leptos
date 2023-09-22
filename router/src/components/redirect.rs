@@ -11,9 +11,13 @@ use std::rc::Rc;
 /// an absolute path, prefix it with `/`).
 ///
 /// **Note**: Support for server-side redirects is provided by the server framework
-/// integrations (`leptos_actix`, `leptos_axum`, and `leptos_viz`). If you’re not using one of those
+/// integrations ([`leptos_actix`], [`leptos_axum`], and [`leptos_viz`]). If you’re not using one of those
 /// integrations, you should manually provide a way of redirecting on the server
-/// using [provide_server_redirect].
+/// using [`provide_server_redirect`].
+///
+/// [`leptos_actix`]: <https://docs.rs/leptos_actix/>
+/// [`leptos_axum`]: <https://docs.rs/leptos_axum/>
+/// [`leptos_viz`]: <https://docs.rs/leptos_viz/>
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
@@ -57,8 +61,8 @@ where
 }
 
 /// Wrapping type for a function provided as context to allow for
-/// server-side redirects. See [provide_server_redirect]
-/// and [Redirect].
+/// server-side redirects. See [`provide_server_redirect`]
+/// and [`Redirect`].
 #[derive(Clone)]
 pub struct ServerRedirectFunction {
     f: Rc<dyn Fn(&str)>,
