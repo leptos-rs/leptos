@@ -89,7 +89,7 @@ view! {
         // `future` provides the `Future` to be resolved
         future=|| fetch_monkeys(3)
         // the data is bound to whatever variable name you provide
-        bind:data
+        let:data
     >
         // you receive the data by reference and can use it in your view here
         <p>{*data} " little monkeys, jumping on the bed."</p>

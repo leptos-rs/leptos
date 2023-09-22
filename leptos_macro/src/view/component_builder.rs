@@ -30,7 +30,7 @@ pub(crate) fn component_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("bind:")
+            !attr.key.to_string().starts_with("let:")
                 && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
                 && !attr.key.to_string().starts_with("attr:")
@@ -55,7 +55,7 @@ pub(crate) fn component_to_tokens(
         .filter_map(|attr| {
             attr.key
                 .to_string()
-                .strip_prefix("bind:")
+                .strip_prefix("let:")
                 .map(|ident| format_ident!("{ident}", span = attr.key.span()))
         })
         .collect::<Vec<_>>();

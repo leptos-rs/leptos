@@ -11,7 +11,7 @@ use leptos_reactive::{
 /// [`create_resource`] that only loads once (i.e., with a source signal `|| ()`) with
 /// a [`Suspense`] with no `fallback`.
 ///
-/// Adding `bind:{variable name}` to the props makes the data available in the children
+/// Adding `let:{variable name}` to the props makes the data available in the children
 /// that variable name, when resolved.
 /// ```
 /// # use leptos_reactive::*;
@@ -27,7 +27,7 @@ use leptos_reactive::{
 /// view! {
 ///     <Await
 ///         future=|| fetch_monkeys(3)
-///         bind:data
+///         let:data
 ///     >
 ///         <p>{*data} " little monkeys, jumping on the bed."</p>
 ///     </Await>
@@ -49,7 +49,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///
     /// ## Syntax
     /// This can be passed in the `view` children of the `<Await/>` by using the
-    /// `bind:` syntax to specify the name for the data variable.
+    /// `let:` syntax to specify the name for the data variable.
     ///
     /// ```rust
     /// # use leptos::*;
@@ -61,7 +61,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// view! {
     ///     <Await
     ///         future=|| fetch_monkeys(3)
-    ///         bind:data
+    ///         let:data
     ///     >
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
     ///     </Await>
