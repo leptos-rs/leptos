@@ -929,7 +929,7 @@ thread_local! {
 /// This is cached as a thread-local variable, so calling `window()` multiple times
 /// requires only one call out to JavaScript.
 pub fn window() -> web_sys::Window {
-    WINDOW.with(|window| window.clone())
+    WINDOW.with(Clone::clone)
 }
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
@@ -937,7 +937,7 @@ pub fn window() -> web_sys::Window {
 /// This is cached as a thread-local variable, so calling `document()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
-    DOCUMENT.with(|document| document.clone())
+    DOCUMENT.with(Clone::clone)
 }
 
 /// Returns true if running on the server (SSR).
