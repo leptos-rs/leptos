@@ -10,7 +10,7 @@ async fn main() {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(|| view! { <App/> }).await;
+    let routes = generate_route_list(App);
 
     // Explicit server function registration is no longer required
     // on the main branch. On 0.3.0 and earlier, uncomment the lines

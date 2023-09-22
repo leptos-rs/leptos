@@ -988,47 +988,43 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
-pub async fn generate_route_list<IV>(
+pub fn generate_route_list<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, None)
-        .await
-        .0
+    generate_route_list_with_exclusions_and_ssg(app_fn, None).0
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
-pub async fn generate_route_list_with_ssg<IV>(
+pub fn generate_route_list_with_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, None).await
+    generate_route_list_with_exclusions_and_ssg(app_fn, None)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
-pub async fn generate_route_list_with_exclusions<IV>(
+pub fn generate_route_list_with_exclusions<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes)
-        .await
-        .0
+    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
 }
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
-pub async fn generate_route_list_with_exclusions_and_ssg<IV>(
+pub fn generate_route_list_with_exclusions_and_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> (Vec<RouteListing>, StaticDataMap)
