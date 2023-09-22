@@ -60,10 +60,9 @@ fn leptos_todomvc_ssr_with_1000(b: &mut Bencher) {
         use self::leptos::*;
         use ::leptos::*;
 
-        let html = ::leptos::ssr::render_to_string(|cx| {
+        let html = ::leptos::ssr::render_to_string(|| {
             view! {
-                cx,
-                <TodoMVC todos=Todos::new_with_1000(cx)/>
+                <TodoMVC todos=Todos::new_with_1000()/>
             }
         });
         assert!(html.len() > 1);
