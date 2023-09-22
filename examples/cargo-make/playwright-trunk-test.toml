@@ -1,0 +1,14 @@
+extend = [
+    { path = "../cargo-make/playwright.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
+]
+
+[tasks.integration-test]
+description = "Run integration test with automated start and stop of processes"
+env = { SPAWN_CLIENT_PROCESS = "1" }
+dependencies = ["start", "wait-one", "test-playwright", "stop"]
+
+[tasks.wait-one]
+script = '''
+sleep 1
+'''

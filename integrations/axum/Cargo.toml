@@ -28,3 +28,4 @@ cfg-if = "1.0.0"
 nonce = ["leptos/nonce"]
 wasm = []
 default = ["tokio/full", "axum/macros"]
+experimental-islands = ["leptos_integration_utils/experimental-islands"]

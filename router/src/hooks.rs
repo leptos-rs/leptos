@@ -4,8 +4,9 @@ use crate::{
 };
 use leptos::{
     create_memo, request_animation_frame, signal_prelude::*, use_context, Memo,
+    Oco,
 };
-use std::{borrow::Cow, rc::Rc, str::FromStr};
+use std::{rc::Rc, str::FromStr};
 
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
@@ -45,18 +46,18 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 /// ```
 #[track_caller]
 pub fn create_query_signal<T>(
-    key: impl Into<Cow<'static, str>>,
+    key: impl Into<Oco<'static, str>>,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
     T: FromStr + ToString + PartialEq,
 {
-    let key = key.into();
+    let mut key: Oco<'static, str> = key.into();
     let query_map = use_query_map();
     let navigate = use_navigate();
     let location = use_location();
 
     let get = create_memo({
-        let key = key.clone();
+        let key = key.clone_inplace();
         move |_| {
             query_map
                 .with(|map| map.get(&key).and_then(|value| value.parse().ok()))
@@ -82,7 +83,7 @@ where
     (get, set)
 }
 
-/// Returns the current [RouterContext], containing information about the router's state.
+/// Returns the current [`RouterContext`], containing information about the router's state.
 #[track_caller]
 pub fn use_router() -> RouterContext {
     if let Some(router) = use_context::<RouterContext>() {
@@ -96,7 +97,7 @@ pub fn use_router() -> RouterContext {
     }
 }
 
-/// Returns the current [RouteContext], containing information about the matched route.
+/// Returns the current [`RouteContext`], containing information about the matched route.
 #[track_caller]
 pub fn use_route() -> RouteContext {
     use_context::<RouteContext>().unwrap_or_else(|| use_router().base())
@@ -112,7 +113,7 @@ pub fn use_route_data<T: Clone + 'static>() -> Option<T> {
     downcast
 }
 
-/// Returns the current [Location], which contains reactive variables
+/// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
 pub fn use_location() -> Location {
     use_router().inner.location.clone()
@@ -163,7 +164,7 @@ pub fn use_resolved_path(
         if path.starts_with('/') {
             Some(path)
         } else {
-            route.resolve_path_tracked(&path).map(String::from)
+            route.resolve_path_tracked(&path)
         }
     })
 }
@@ -190,12 +191,13 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) {
         let to = to.to_string();
         if cfg!(any(feature = "csr", feature = "hydrate")) {
             request_animation_frame(move || {
+                #[allow(unused_variables)]
                 if let Err(e) = router.navigate_from_route(&to, &options) {
-                    leptos::debug_warn!("use_navigate error: {e:?}");
+                    leptos::logging::debug_warn!("use_navigate error: {e:?}");
                 }
             });
         } else {
-            leptos::warn!(
+            leptos::logging::warn!(
                 "The navigation function returned by `use_navigate` should \
                  not be called during server rendering."
             );

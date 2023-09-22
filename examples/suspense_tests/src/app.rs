@@ -4,14 +4,14 @@ use leptos_router::*;
 const WAIT_ONE_SECOND: u64 = 1;
 const WAIT_TWO_SECONDS: u64 = 2;
 
-#[server(FirstWaitFn "/api")]
+#[server]
 async fn first_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
     tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await;
 
     Ok(())
 }
 
-#[server(SecondWaitFn "/api")]
+#[server]
 async fn second_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
     tokio::time::sleep(tokio::time::Duration::from_secs(seconds)).await;
 
@@ -156,7 +156,7 @@ fn NestedResourceInside() -> impl IntoView {
                    {move || {
                     one_second.get().map(|_| {
                         let two_second = create_resource(|| (), move |_| async move {
-                            leptos::log!("creating two_second resource");
+                            logging::log!("creating two_second resource");
                             second_wait_fn(WAIT_TWO_SECONDS).await
                         });
                         view! {

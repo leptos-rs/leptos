@@ -1,16 +1,20 @@
-name: Verify Changed Examples
+name: Changed Examples Matrix Call
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      example_changed:
+        description: "Example Changed"
+        required: true
+        type: boolean
+    outputs:
+      matrix:
+        description: "Matrix"
+        value: ${{ jobs.get-example-changed.outputs.matrix }}
 
 jobs:
-  setup:
-    name: Get Changes
+  get-example-changed:
+    name: Get Changed Example Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -19,16 +23,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
-      - name: Get all example files that changed
-        id: changed-files
-        uses: tj-actions/changed-files@v36
-        with:
-          files: |
-            examples
-
-      - name: List all example files that changed
-        run: echo '${{ steps.changed-files.outputs.all_changed_files }}'
 
       - name: Get example project directories that changed
         id: changed-dirs
@@ -41,7 +35,7 @@ jobs:
             !examples/cargo-make
             !examples/gtk
             !examples/Makefile.toml
-            !examples/README.md
+            !examples/*.md
           json: true
           quotepath: false
 
@@ -51,21 +45,10 @@ jobs:
       - name: Set Matrix
         id: set-matrix
         run: |
-          if [ ${{ steps.changed-files.outputs.any_changed }} == 'true' ]; then
+          if [ ${{ inputs.example_changed }} == 'true' ]; then
             # Create matrix with changed directories
             echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
           else
             # Create matrix with one item to prevent an empty vector error
-            echo "matrix={\"directory\":[\"INTERNAL\"]}" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"directory\":[\"NO_CHANGE\"]}" >> "$GITHUB_OUTPUT"
           fi
-
-  matrix-job:
-    name: Verify
-    needs: [setup]
-    strategy:
-      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
-      fail-fast: false
-    uses: ./.github/workflows/run-cargo-make-task.yml
-    with:
-      directory: ${{ matrix.directory }}
-      cargo_make_task: "verify-flow"

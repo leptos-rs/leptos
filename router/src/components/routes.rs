@@ -20,6 +20,49 @@ use std::{
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 ///
 /// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
+///
+/// You should not conditionally render `<Routes/>` using another component like `<Show/>` or `<Suspense/>`.
+///
+/// ```rust
+/// # use leptos::*;
+/// # use leptos_router::*;
+/// # if false {
+/// // ❌ don't do this!
+/// view! {
+///   <Show when=|| 1 == 2 fallback=|| view! { <p>"Loading"</p> }>
+///     <Routes>
+///       <Route path="/" view=|| "Home"/>
+///     </Routes>
+///   </Show>
+/// }
+/// # ;}
+/// ```
+///
+/// Instead, you can use nested routing to render your `<Routes/>` once, and conditionally render the router outlet:
+///
+/// ```rust
+/// # use leptos::*;
+/// # use leptos_router::*;
+/// # if false {
+/// // ✅ do this instead!
+/// view! {
+///   <Routes>
+///     // parent route
+///     <Route path="/" view=move || {
+///       view! {
+///         // only show the outlet if data have loaded
+///         <Show when=|| 1 == 2 fallback=|| view! { <p>"Loading"</p> }>
+///           <Outlet/>
+///         </Show>
+///       }
+///     }>
+///       // nested child route
+///       <Route path="/" view=|| "Home"/>
+///     </Route>
+///   </Routes>
+/// }
+/// # ;}
+/// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
@@ -230,6 +273,18 @@ thread_local! {
 impl Branches {
     pub fn initialize(base: &str, children: Fragment) {
         BRANCHES.with(|branches| {
+            #[cfg(debug_assertions)]
+            {
+                if cfg!(any(feature = "csr", feature = "hydrate"))
+                    && !branches.borrow().is_empty()
+                {
+                    leptos::logging::warn!(
+                        "You should only render the <Routes/> component once \
+                         in your app. Please see the docs at https://docs.rs/leptos_router/latest/leptos_router/fn.Routes.html."
+                    );
+                }
+            }
+
             let mut current = branches.borrow_mut();
             if !current.contains_key(base) {
                 let mut branches = Vec::new();
@@ -241,7 +296,7 @@ impl Branches {
                             .as_transparent()
                             .and_then(|t| t.downcast_ref::<RouteDefinition>());
                         if def.is_none() {
-                            warn!(
+                            leptos::logging::warn!(
                                 "[NOTE] The <Routes/> component should \
                                  include *only* <Route/>or <ProtectedRoute/> \
                                  components, or some \
@@ -258,6 +313,8 @@ impl Branches {
                     base,
                     &mut Vec::new(),
                     &mut branches,
+                    true,
+                    base,
                 );
                 current.insert(base.to_string(), branches);
             }
@@ -449,10 +506,9 @@ fn root_route(
 
         let (current_view, set_current_view) = create_signal(None);
 
-        create_effect(move |prev| {
+        create_render_effect(move |prev| {
             let root = root_view.get();
-            let is_fallback =
-                !global_suspense.with_inner(SuspenseContext::ready);
+            let is_fallback = !global_suspense.with_inner(|c| c.ready().get());
             if prev.is_none() {
                 set_current_view.set(root);
             } else if !is_fallback {
@@ -460,7 +516,7 @@ fn root_route(
                     let global_suspense = global_suspense.clone();
                     move || {
                         let is_fallback = untrack(move || {
-                            !global_suspense.with_inner(SuspenseContext::ready)
+                            !global_suspense.with_inner(|c| c.ready().get())
                         });
                         if !is_fallback {
                             set_current_view.set(root);
@@ -516,9 +572,16 @@ fn create_branches(
     base: &str,
     stack: &mut Vec<RouteData>,
     branches: &mut Vec<Branch>,
+    static_valid: bool,
+    parents_path: &str,
 ) {
     for def in route_defs {
-        let routes = create_routes(def, base);
+        let routes = create_routes(
+            def,
+            base,
+            static_valid && def.static_mode.is_some(),
+            parents_path,
+        );
         for route in routes {
             stack.push(route.clone());
 
@@ -526,7 +589,14 @@ fn create_branches(
                 let branch = create_branch(stack, branches.len());
                 branches.push(branch);
             } else {
-                create_branches(&def.children, &route.pattern, stack, branches);
+                create_branches(
+                    &def.children,
+                    &route.pattern,
+                    stack,
+                    branches,
+                    static_valid && route.key.static_mode.is_some(),
+                    &format!("{}{}", parents_path, def.path),
+                );
             }
 
             stack.pop();
@@ -544,13 +614,26 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
         score: routes.last().unwrap().score() * 10000 - (index as i32),
     }
 }
+
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
 )]
-fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
+fn create_routes(
+    route_def: &RouteDefinition,
+    base: &str,
+    static_valid: bool,
+    parents_path: &str,
+) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
+    if is_leaf && route_def.static_mode.is_some() && !static_valid {
+        panic!(
+            "Static rendering is not valid for route '{}{}', all parent \
+             routes must also be statically renderable.",
+            parents_path, route_def.path
+        );
+    }
     let mut acc = Vec::new();
     for original_path in expand_optionals(&route_def.path) {
         let path = join_paths(base, &original_path);
@@ -567,7 +650,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
             id: route_def.id,
             matcher: Matcher::new_with_partial(&pattern, !is_leaf),
             pattern,
-            original_path: original_path.to_string(),
+            original_path: original_path.into_owned(),
         });
     }
     acc

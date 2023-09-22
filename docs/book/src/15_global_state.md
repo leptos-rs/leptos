@@ -367,7 +367,6 @@ fn GlobalStateInput() -> impl IntoView {
     // that we created in the other component
     // neither of them will cause the other to rerun
     let (name, set_name) = create_slice(
-
         // we take a slice *from* `state`
         state,
         // our getter returns a "slice" of the data

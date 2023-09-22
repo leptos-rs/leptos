@@ -4,17 +4,16 @@
 
 use crate::{
     html::{ElementChildren, StringOrView},
-    ssr::render_serializers,
+    ssr::{render_serializers, ToMarker},
     CoreComponent, HydrationCtx, View,
 };
 use async_recursion::async_recursion;
-use cfg_if::cfg_if;
 use futures::{channel::mpsc::UnboundedSender, Stream, StreamExt};
 use itertools::Itertools;
 use leptos_reactive::{
-    create_runtime, suspense::StreamChunk, RuntimeId, SharedContext,
+    create_runtime, suspense::StreamChunk, Oco, RuntimeId, SharedContext,
 };
-use std::{borrow::Cow, collections::VecDeque};
+use std::collections::VecDeque;
 
 /// Renders a view to HTML, waiting to return until all `async` [Resource](leptos_reactive::Resource)s
 /// loaded in `<Suspense/>` elements have finished loading.
@@ -23,10 +22,17 @@ pub async fn render_to_string_async(
     view: impl FnOnce() -> View + 'static,
 ) -> String {
     let mut buf = String::new();
-    let mut stream = Box::pin(render_to_stream_in_order(view));
+    let (stream, runtime) =
+        render_to_stream_in_order_with_prefix_undisposed_with_context(
+            view,
+            || "".into(),
+            || {},
+        );
+    let mut stream = Box::pin(stream);
     while let Some(chunk) = stream.next().await {
         buf.push_str(&chunk);
     }
+    runtime.dispose();
     buf
 }
 
@@ -52,10 +58,10 @@ pub fn render_to_stream_in_order(
 #[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order_with_prefix(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     #[cfg(all(feature = "web", feature = "ssr"))]
-    crate::console_error(
+    crate::logging::console_error(
         "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
          enabled as features, which may cause issues like <Suspense/>` \
          failing to work silently.\n",
@@ -82,7 +88,7 @@ pub fn render_to_stream_in_order_with_prefix(
 #[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce() + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId) {
     HydrationCtx::reset_id();
@@ -248,21 +254,25 @@ impl View {
                 chunks.push_back(StreamChunk::Sync(node.content))
             }
             View::Component(node) => {
-                cfg_if! {
-                  if #[cfg(debug_assertions)] {
-                    let name = crate::ssr::to_kebab_case(&node.name);
-                    chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}|leptos-{name}-start-->"#, HydrationCtx::to_string(&node.id, false)).into()));
-                    for child in node.children {
-                        child.into_stream_chunks_helper(chunks, dont_escape_text);
-                    }
-                    chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}|leptos-{name}-end-->"#, HydrationCtx::to_string(&node.id, true)).into()));
-                  } else {
-                    for child in node.children {
-                        child.into_stream_chunks_helper(chunks, dont_escape_text);
-                    }
-                    chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}-->"#, HydrationCtx::to_string(&node.id, true)).into()))
-                  }
+                #[cfg(debug_assertions)]
+                let name = crate::ssr::to_kebab_case(&node.name);
+
+                if cfg!(debug_assertions) {
+                    chunks.push_back(StreamChunk::Sync(node.id.to_marker(
+                        false,
+                        #[cfg(debug_assertions)]
+                        &name,
+                    )));
                 }
+
+                for child in node.children {
+                    child.into_stream_chunks_helper(chunks, dont_escape_text);
+                }
+                chunks.push_back(StreamChunk::Sync(node.id.to_marker(
+                    true,
+                    #[cfg(debug_assertions)]
+                    &name,
+                )));
             }
             View::Element(el) => {
                 let is_script_or_style =
@@ -280,12 +290,11 @@ impl View {
                             StringOrView::String(string) => {
                                 chunks.push_back(StreamChunk::Sync(string))
                             }
-                            StringOrView::View(view) => {
-                                view().into_stream_chunks_helper(
+                            StringOrView::View(view) => view()
+                                .into_stream_chunks_helper(
                                     chunks,
                                     is_script_or_style,
-                                );
-                            }
+                                ),
                         }
                     }
                 } else {
@@ -297,7 +306,7 @@ impl View {
                         .attrs
                         .into_iter()
                         .filter_map(
-                            |(name, value)| -> Option<Cow<'static, str>> {
+                            |(name, value)| -> Option<Oco<'static, str>> {
                                 if value.is_empty() {
                                     Some(format!(" {name}").into())
                                 } else if name == "inner_html" {
@@ -306,9 +315,9 @@ impl View {
                                 } else {
                                     Some(
                                         format!(
-                    " {name}=\"{}\"",
-                    html_escape::encode_double_quoted_attribute(&value)
-                  )
+                                            " {name}=\"{}\"",
+                                            html_escape::encode_double_quoted_attribute(&value)
+                                        )
                                         .into(),
                                     )
                                 }
@@ -343,7 +352,7 @@ impl View {
                                 }
                             }
                             ElementChildren::InnerHtml(inner_html) => {
-                                chunks.push_back(StreamChunk::Sync(inner_html));
+                                chunks.push_back(StreamChunk::Sync(inner_html))
                             }
                             // handled above
                             ElementChildren::Chunks(_) => unreachable!(),
@@ -369,24 +378,12 @@ impl View {
                         "",
                         false,
                         Box::new(move |chunks: &mut VecDeque<StreamChunk>| {
-                            #[cfg(debug_assertions)]
-                            {
-                                chunks.push_back(StreamChunk::Sync(
-                                    format!(
-                                        "<!--hk={}|leptos-unit-->",
-                                        HydrationCtx::to_string(&u.id, true)
-                                    )
-                                    .into(),
-                                ));
-                            }
-
-                            #[cfg(not(debug_assertions))]
                             chunks.push_back(StreamChunk::Sync(
-                                format!(
-                                    "<!--hk={}-->",
-                                    HydrationCtx::to_string(&u.id, true)
-                                )
-                                .into(),
+                                u.id.to_marker(
+                                    true,
+                                    #[cfg(debug_assertions)]
+                                    "unit",
+                                ),
                             ));
                         })
                             as Box<dyn FnOnce(&mut VecDeque<StreamChunk>)>,
@@ -474,56 +471,31 @@ impl View {
                                         );
 
                                         #[cfg(debug_assertions)]
-                                        {
-                                            if !is_el {
-                                                chunks.push_back(
-                                                    StreamChunk::Sync(
-                                                        format!(
-                        "<!--hk={}|leptos-each-item-start-->",
-                        HydrationCtx::to_string(&id, false)
-                      )
-                                                        .into(),
-                                                    ),
-                                                );
-                                            }
-                                            node.child
-                                                .into_stream_chunks_helper(
-                                                    chunks,
-                                                    dont_escape_text,
-                                                );
+                                        if !is_el {
+                                            chunks.push_back(StreamChunk::Sync(
+                                                id.to_marker(
+                                                    false,
+                                                    "each-item",
+                                                ),
+                                            ))
+                                        };
+                                        node.child.into_stream_chunks_helper(
+                                            chunks,
+                                            dont_escape_text,
+                                        );
 
-                                            if !is_el {
-                                                chunks.push_back(
-                                                    StreamChunk::Sync(
-                                                        format!(
-                        "<!--hk={}|leptos-each-item-end-->",
-                        HydrationCtx::to_string(&id, true)
-                      )
-                                                        .into(),
+                                        if !is_el {
+                                            chunks.push_back(
+                                                StreamChunk::Sync(
+                                                    id.to_marker(
+                                                        true,
+                                                        #[cfg(
+                                                            debug_assertions
+                                                        )]
+                                                        "each-item",
                                                     ),
-                                                );
-                                            }
-                                        }
-                                        #[cfg(not(debug_assertions))]
-                                        {
-                                            node.child
-                                                .into_stream_chunks_helper(
-                                                    chunks,
-                                                    dont_escape_text,
-                                                );
-                                            if !is_el {
-                                                chunks.push_back(
-                                                    StreamChunk::Sync(
-                                                        format!(
-                                                        "<!--hk={}-->",
-                                                        HydrationCtx::to_string(
-                                                            &id, true
-                                                        )
-                                                    )
-                                                        .into(),
-                                                    ),
-                                                );
-                                            }
+                                                ),
+                                            );
                                         }
                                     }
                                 },
@@ -534,17 +506,18 @@ impl View {
                 };
 
                 if wrap {
-                    cfg_if! {
-                      if #[cfg(debug_assertions)] {
-                        chunks.push_back(StreamChunk::Sync(format!("<!--hk={}|leptos-{name}-start-->", HydrationCtx::to_string(&id, false)).into()));
-                        content(chunks);
-                        chunks.push_back(StreamChunk::Sync(format!("<!--hk={}|leptos-{name}-end-->", HydrationCtx::to_string(&id, true)).into()));
-                      } else {
-                        let _ = name;
-                        content(chunks);
-                        chunks.push_back(StreamChunk::Sync(format!("<!--hk={}-->", HydrationCtx::to_string(&id, true)).into()))
-                      }
+                    #[cfg(debug_assertions)]
+                    {
+                        chunks.push_back(StreamChunk::Sync(
+                            id.to_marker(false, name),
+                        ));
                     }
+                    content(chunks);
+                    chunks.push_back(StreamChunk::Sync(id.to_marker(
+                        true,
+                        #[cfg(debug_assertions)]
+                        name,
+                    )));
                 } else {
                     content(chunks);
                 }

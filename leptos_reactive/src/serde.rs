@@ -80,3 +80,12 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for RwSignal<T> {
         T::deserialize(deserializer).map(create_rw_signal)
     }
 }
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for MaybeSignal<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        T::deserialize(deserializer).map(MaybeSignal::Static)
+    }
+}

@@ -1,6 +1,5 @@
 use crate::use_head;
 use leptos::{nonce::use_nonce, *};
-use std::borrow::Cow;
 
 /// Injects an [HTMLScriptElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document
 /// head, accepting any of the valid attributes for that tag.
@@ -25,51 +24,51 @@ use std::borrow::Cow;
 pub fn Script(
     /// An ID for the `<script>` tag.
     #[prop(optional, into)]
-    id: Option<Cow<'static, str>>,
+    id: Option<Oco<'static, str>>,
     /// The [`async`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-async) attribute.
     #[prop(optional, into)]
-    async_: Option<Cow<'static, str>>,
+    async_: Option<Oco<'static, str>>,
     /// The [`crossorigin`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-crossorigin) attribute.
     #[prop(optional, into)]
-    crossorigin: Option<Cow<'static, str>>,
+    crossorigin: Option<Oco<'static, str>>,
     /// The [`defer`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-defer) attribute.
     #[prop(optional, into)]
-    defer: Option<Cow<'static, str>>,
+    defer: Option<Oco<'static, str>>,
     /// The [`fetchpriority `](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-fetchpriority ) attribute.
     #[prop(optional, into)]
-    fetchpriority: Option<Cow<'static, str>>,
+    fetchpriority: Option<Oco<'static, str>>,
     /// The [`integrity`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-integrity) attribute.
     #[prop(optional, into)]
-    integrity: Option<Cow<'static, str>>,
+    integrity: Option<Oco<'static, str>>,
     /// The [`nomodule`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-nomodule) attribute.
     #[prop(optional, into)]
-    nomodule: Option<Cow<'static, str>>,
+    nomodule: Option<Oco<'static, str>>,
     /// The [`nonce`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-nonce) attribute.
     #[prop(optional, into)]
-    nonce: Option<Cow<'static, str>>,
+    nonce: Option<Oco<'static, str>>,
     /// The [`referrerpolicy`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-referrerpolicy) attribute.
     #[prop(optional, into)]
-    referrerpolicy: Option<Cow<'static, str>>,
+    referrerpolicy: Option<Oco<'static, str>>,
     /// The [`src`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-src) attribute.
     #[prop(optional, into)]
-    src: Option<Cow<'static, str>>,
+    src: Option<Oco<'static, str>>,
     /// The [`type`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-type) attribute.
     #[prop(optional, into)]
-    type_: Option<Cow<'static, str>>,
+    type_: Option<Oco<'static, str>>,
     /// The [`blocking`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-blocking) attribute.
     #[prop(optional, into)]
-    blocking: Option<Cow<'static, str>>,
+    blocking: Option<Oco<'static, str>>,
     /// The content of the `<script>` tag.
     #[prop(optional)]
     children: Option<Box<dyn FnOnce() -> Fragment>>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
-    let id: Cow<'static, str> =
+    let mut id: Oco<'static, str> =
         id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
-        let id = id.clone();
+        let id = id.clone_inplace();
         move || {
             leptos::leptos_dom::html::script()
                 .attr("id", id)
@@ -93,7 +92,7 @@ pub fn Script(
         for node in frag.nodes {
             match node {
                 View::Text(text) => script.push_str(&text.content),
-                _ => leptos::warn!(
+                _ => leptos::logging::warn!(
                     "Only text nodes are supported as children of <Script/>."
                 ),
             }

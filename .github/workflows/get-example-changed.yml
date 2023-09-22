@@ -1,0 +1,39 @@
+name: Examples Changed Call
+
+on:
+  workflow_call:
+    outputs:
+      example_changed:
+        description: "Example Changed"
+        value: ${{ jobs.get-example-changed.outputs.example_changed }}
+
+jobs:
+  get-example-changed:
+    name: Get Example Changed
+    runs-on: ubuntu-latest
+    outputs:
+      example_changed: ${{ steps.set-example-changed.outputs.example_changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get example files that changed
+        id: changed-files
+        uses: tj-actions/changed-files@v36
+        with:
+          files: |
+            examples
+            !examples/cargo-make
+            !examples/gtk
+            !examples/Makefile.toml
+            !examples/*.md
+
+      - name: List example files that changed
+        run: echo '${{ steps.changed-files.outputs.all_changed_files }}'
+
+      - name: Set example_changed
+        id: set-example-changed
+        run: |
+          echo "example_changed=${{ steps.changed-files.outputs.any_changed }}" >> "$GITHUB_OUTPUT"

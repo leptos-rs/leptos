@@ -3,11 +3,11 @@ use crate::{
     Comment, IntoView, View,
 };
 use cfg_if::cfg_if;
-use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
+use std::{cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable, Text};
-    use leptos_reactive::create_effect;
+    use leptos_reactive::create_render_effect;
     use wasm_bindgen::JsCast;
   }
 }
@@ -22,7 +22,7 @@ pub struct DynChildRepr {
     pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for DynChildRepr {
@@ -81,11 +81,11 @@ impl Mountable for DynChildRepr {
 }
 
 impl DynChildRepr {
-    fn new_with_id(id: HydrationKey) -> Self {
+    fn new_with_id(id: Option<HydrationKey>) -> Self {
         let markers = (
-            Comment::new(Cow::Borrowed("</DynChild>"), &id, true),
+            Comment::new("</DynChild>", &id, true),
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Borrowed("<DynChild>"), &id, false),
+            Comment::new("<DynChild>", &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -126,7 +126,7 @@ where
     CF: Fn() -> N + 'static,
     N: IntoView,
 {
-    id: crate::HydrationKey,
+    id: Option<HydrationKey>,
     child_fn: CF,
 }
 
@@ -146,7 +146,7 @@ where
     #[doc(hidden)]
     #[track_caller]
     #[inline(always)]
-    pub const fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
+    pub const fn new_with_id(id: Option<HydrationKey>, child_fn: CF) -> Self {
         Self { id, child_fn }
     }
 }
@@ -181,194 +181,204 @@ where
             let span = tracing::Span::current();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            create_effect(move |prev_run: Option<Option<web_sys::Node>>| {
-                #[cfg(debug_assertions)]
-                let _guard = span.enter();
+            create_render_effect(
+                move |prev_run: Option<Option<web_sys::Node>>| {
+                    #[cfg(debug_assertions)]
+                    let _guard = span.enter();
 
-                let new_child = child_fn().into_view();
+                    let new_child = child_fn().into_view();
 
-                let mut child_borrow = child.borrow_mut();
+                    let mut child_borrow = child.borrow_mut();
 
-                // Is this at least the second time we are loading a child?
-                if let Some(prev_t) = prev_run {
-                    let child = child_borrow.take().unwrap();
+                    // Is this at least the second time we are loading a child?
+                    if let Some(prev_t) = prev_run {
+                        let child = child_borrow.take().unwrap();
 
-                    // We need to know if our child wasn't moved elsewhere.
-                    // If it was, `DynChild` no longer "owns" that child, and
-                    // is therefore no longer sound to unmount it from the DOM
-                    // or to reuse it in the case of a text node
+                        // We need to know if our child wasn't moved elsewhere.
+                        // If it was, `DynChild` no longer "owns" that child, and
+                        // is therefore no longer sound to unmount it from the DOM
+                        // or to reuse it in the case of a text node
 
-                    // TODO check does this still detect moves correctly?
-                    let was_child_moved = prev_t.is_none()
-                        && child
-                            .get_closing_node()
-                            .next_non_view_marker_sibling()
-                            .as_ref()
-                            != Some(&closing);
+                        // TODO check does this still detect moves correctly?
+                        let was_child_moved = prev_t.is_none()
+                            && child
+                                .get_closing_node()
+                                .next_non_view_marker_sibling()
+                                .as_ref()
+                                != Some(&closing);
 
-                    // If the previous child was a text node, we would like to
-                    // make use of it again if our current child is also a text
-                    // node
-                    let ret = if let Some(prev_t) = prev_t {
-                        // Here, our child is also a text node
+                        // If the previous child was a text node, we would like to
+                        // make use of it again if our current child is also a text
+                        // node
+                        let ret = if let Some(prev_t) = prev_t {
+                            // Here, our child is also a text node
 
-                        // nb: the match/ownership gymnastics here
-                        // are so that, if we can reuse the text node,
-                        // we can take ownership of new_t so we don't clone
-                        // the contents, which in O(n) on the length of the text
-                        if matches!(new_child, View::Text(_)) {
-                            if !was_child_moved && child != new_child {
-                                let mut new_t = match new_child {
-                                    View::Text(t) => t,
-                                    _ => unreachable!(),
-                                };
-                                prev_t
-                                    .unchecked_ref::<web_sys::Text>()
-                                    .set_data(&new_t.content);
+                            // nb: the match/ownership gymnastics here
+                            // are so that, if we can reuse the text node,
+                            // we can take ownership of new_t so we don't clone
+                            // the contents, which in O(n) on the length of the text
+                            if matches!(new_child, View::Text(_)) {
+                                if !was_child_moved && child != new_child {
+                                    let mut new_t = match new_child {
+                                        View::Text(t) => t,
+                                        _ => unreachable!(),
+                                    };
+                                    prev_t
+                                        .unchecked_ref::<web_sys::Text>()
+                                        .set_data(&new_t.content);
 
-                                // replace new_t's text node with the prev node
-                                // see discussion: https://github.com/leptos-rs/leptos/pull/1472
-                                new_t.node = prev_t.clone();
+                                    // replace new_t's text node with the prev node
+                                    // see discussion: https://github.com/leptos-rs/leptos/pull/1472
+                                    new_t.node = prev_t.clone();
 
-                                let new_child = View::Text(new_t);
-                                **child_borrow = Some(new_child);
+                                    let new_child = View::Text(new_t);
+                                    **child_borrow = Some(new_child);
 
-                                Some(prev_t)
-                            } else {
-                                let new_t = new_child.as_text().unwrap();
+                                    Some(prev_t)
+                                } else {
+                                    let new_t = new_child.as_text().unwrap();
+                                    mount_child(
+                                        MountKind::Before(&closing),
+                                        &new_child,
+                                    );
+
+                                    **child_borrow = Some(new_child.clone());
+
+                                    Some(new_t.node.clone())
+                                }
+                            }
+                            // Child is not a text node, so we can remove the previous
+                            // text node
+                            else {
+                                if !was_child_moved && child != new_child {
+                                    // Remove the text
+                                    closing
+                                        .previous_non_view_marker_sibling()
+                                        .unwrap()
+                                        .unchecked_into::<web_sys::Element>()
+                                        .remove();
+                                }
+
+                                // Mount the new child, and we're done
                                 mount_child(
                                     MountKind::Before(&closing),
                                     &new_child,
                                 );
 
-                                **child_borrow = Some(new_child.clone());
+                                **child_borrow = Some(new_child);
 
-                                Some(new_t.node.clone())
+                                None
                             }
                         }
-                        // Child is not a text node, so we can remove the previous
-                        // text node
+                        // Otherwise, the new child can still be a text node,
+                        // but we know the previous child was not, so no special
+                        // treatment here
                         else {
-                            if !was_child_moved && child != new_child {
-                                // Remove the text
-                                closing
-                                    .previous_non_view_marker_sibling()
-                                    .unwrap()
-                                    .unchecked_into::<web_sys::Element>()
-                                    .remove();
+                            // Technically, I think this check shouldn't be necessary, but
+                            // I can imagine some edge case that the child changes while
+                            // hydration is ongoing
+                            if !HydrationCtx::is_hydrating() {
+                                let same_child = child == new_child;
+                                if !was_child_moved && !same_child {
+                                    // Remove the child
+                                    let start = child.get_opening_node();
+                                    let end = &closing;
+
+                                    match child {
+                                        View::CoreComponent(
+                                            crate::CoreComponent::DynChild(
+                                                child,
+                                            ),
+                                        ) => {
+                                            let start =
+                                                child.get_opening_node();
+                                            let end = child.closing.node;
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
+                                        }
+                                        View::Component(child) => {
+                                            let start =
+                                                child.get_opening_node();
+                                            let end = child.closing.node;
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
+                                        }
+                                        _ => unmount_child(&start, end),
+                                    }
+                                }
+
+                                // Mount the new child
+                                // If it's the same child, don't re-mount
+                                if !same_child {
+                                    mount_child(
+                                        MountKind::Before(&closing),
+                                        &new_child,
+                                    );
+                                }
                             }
 
-                            // Mount the new child, and we're done
+                            // We want to reuse text nodes, so hold onto it if
+                            // our child is one
+                            let t =
+                                new_child.get_text().map(|t| t.node.clone());
+
+                            **child_borrow = Some(new_child);
+
+                            t
+                        };
+
+                        ret
+                    }
+                    // Otherwise, we know for sure this is our first time
+                    else {
+                        // If it's a text node, we want to use the old text node
+                        // as the text node for the DynChild, rather than the new
+                        // text node being created during hydration
+                        let new_child = if HydrationCtx::is_hydrating()
+                            && new_child.get_text().is_some()
+                        {
+                            let t = closing
+                                .previous_non_view_marker_sibling()
+                                .unwrap()
+                                .unchecked_into::<web_sys::Text>();
+
+                            let new_child = match new_child {
+                                View::Text(text) => text,
+                                _ => unreachable!(),
+                            };
+                            t.set_data(&new_child.content);
+                            View::Text(Text {
+                                node: t.unchecked_into(),
+                                content: new_child.content,
+                            })
+                        } else {
+                            new_child
+                        };
+
+                        // If we are not hydrating, we simply mount the child
+                        if !HydrationCtx::is_hydrating() {
                             mount_child(
                                 MountKind::Before(&closing),
                                 &new_child,
                             );
-
-                            **child_borrow = Some(new_child);
-
-                            None
-                        }
-                    }
-                    // Otherwise, the new child can still be a text node,
-                    // but we know the previous child was not, so no special
-                    // treatment here
-                    else {
-                        // Technically, I think this check shouldn't be necessary, but
-                        // I can imagine some edge case that the child changes while
-                        // hydration is ongoing
-                        if !HydrationCtx::is_hydrating() {
-                            let same_child = child == new_child;
-                            if !was_child_moved && !same_child {
-                                // Remove the child
-                                let start = child.get_opening_node();
-                                let end = &closing;
-
-                                match child {
-                                    View::CoreComponent(
-                                        crate::CoreComponent::DynChild(child),
-                                    ) => {
-                                        let start = child.get_opening_node();
-                                        let end = child.closing.node;
-                                        prepare_to_move(
-                                            &child.document_fragment,
-                                            &start,
-                                            &end,
-                                        );
-                                    }
-                                    View::Component(child) => {
-                                        let start = child.get_opening_node();
-                                        let end = child.closing.node;
-                                        prepare_to_move(
-                                            &child.document_fragment,
-                                            &start,
-                                            &end,
-                                        );
-                                    }
-                                    _ => unmount_child(&start, end),
-                                }
-                            }
-
-                            // Mount the new child
-                            // If it's the same child, don't re-mount
-                            if !same_child {
-                                mount_child(
-                                    MountKind::Before(&closing),
-                                    &new_child,
-                                );
-                            }
                         }
 
-                        // We want to reuse text nodes, so hold onto it if
-                        // our child is one
+                        // We want to update text nodes, rather than replace them, so
+                        // make sure to hold onto the text node
                         let t = new_child.get_text().map(|t| t.node.clone());
 
                         **child_borrow = Some(new_child);
 
                         t
-                    };
-
-                    ret
-                }
-                // Otherwise, we know for sure this is our first time
-                else {
-                    // If it's a text node, we want to use the old text node
-                    // as the text node for the DynChild, rather than the new
-                    // text node being created during hydration
-                    let new_child = if HydrationCtx::is_hydrating()
-                        && new_child.get_text().is_some()
-                    {
-                        let t = closing
-                            .previous_non_view_marker_sibling()
-                            .unwrap()
-                            .unchecked_into::<web_sys::Text>();
-
-                        let new_child = match new_child {
-                            View::Text(text) => text,
-                            _ => unreachable!(),
-                        };
-                        t.set_data(&new_child.content);
-                        View::Text(Text {
-                            node: t.unchecked_into(),
-                            content: new_child.content,
-                        })
-                    } else {
-                        new_child
-                    };
-
-                    // If we are not hydrating, we simply mount the child
-                    if !HydrationCtx::is_hydrating() {
-                        mount_child(MountKind::Before(&closing), &new_child);
                     }
-
-                    // We want to update text nodes, rather than replace them, so
-                    // make sure to hold onto the text node
-                    let t = new_child.get_text().map(|t| t.node.clone());
-
-                    **child_borrow = Some(new_child);
-
-                    t
-                }
-            });
+                },
+            );
 
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             {

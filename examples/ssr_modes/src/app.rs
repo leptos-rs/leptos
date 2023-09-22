@@ -88,9 +88,6 @@ fn Post() -> impl IntoView {
         }
     });
 
-    // this view needs to take the `Scope` from the `<Suspense/>`, not
-    // from the parent component, so we take that as an argument and
-    // pass it in under the `<Suspense/>` so that it is correct
     let post_view = move || {
         post.and_then(|post| {
             view! {
@@ -173,7 +170,7 @@ pub struct PostMetadata {
     title: String,
 }
 
-#[server(ListPostMetadata, "/api")]
+#[server]
 pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS
@@ -185,7 +182,7 @@ pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
         .collect())
 }
 
-#[server(GetPost, "/api")]
+#[server]
 pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS.iter().find(|post| post.id == id).cloned())

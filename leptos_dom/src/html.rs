@@ -6,7 +6,7 @@ cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::events::*;
     use crate::macro_helpers::*;
-    use crate::{mount_child, MountKind};
+    use crate::{mount_child, HydrationKey, MountKind};
     use once_cell::unsync::Lazy as LazyCell;
     use std::cell::Cell;
     use wasm_bindgen::JsCast;
@@ -34,6 +34,7 @@ cfg_if! {
         v
     }
 
+    #[allow(unused)]
     fn is_meta_tag() -> bool {
         IS_META.with(|m| m.get())
     }
@@ -63,15 +64,18 @@ cfg_if! {
 use crate::{
     ev::EventDescriptor,
     hydration::HydrationCtx,
-    macro_helpers::{IntoAttribute, IntoClass, IntoProperty, IntoStyle},
+    macro_helpers::{
+        Attribute, IntoAttribute, IntoClass, IntoProperty, IntoStyle,
+    },
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
-use std::{borrow::Cow, fmt};
+use leptos_reactive::Oco;
+use std::fmt;
 
 /// Trait which allows creating an element tag.
 pub trait ElementDescriptor: ElementDescriptorBounds {
     /// The name of the element, i.e., `div`, `p`, `custom-element`.
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Oco<'static, str>;
 
     /// Determines if the tag is void, i.e., `<input>` and `<br>`.
     #[inline(always)]
@@ -82,7 +86,7 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
     /// A unique `id` that should be generated for each new instance of
     /// this element, and be consistent for both SSR and CSR.
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    fn hydration_id(&self) -> &HydrationKey;
+    fn hydration_id(&self) -> &Option<HydrationKey>;
 }
 
 /// Trait for converting any type which impl [`AsRef<web_sys::Element>`]
@@ -126,12 +130,12 @@ where
 /// Represents potentially any element.
 #[derive(Clone, Debug)]
 pub struct AnyElement {
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: Oco<'static, str>,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     pub(crate) element: web_sys::HtmlElement,
     pub(crate) is_void: bool,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl std::ops::Deref for AnyElement {
@@ -159,7 +163,7 @@ impl std::convert::AsRef<web_sys::HtmlElement> for AnyElement {
 }
 
 impl ElementDescriptor for AnyElement {
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.name.clone()
     }
 
@@ -170,7 +174,7 @@ impl ElementDescriptor for AnyElement {
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     #[inline(always)]
-    fn hydration_id(&self) -> &HydrationKey {
+    fn hydration_id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 }
@@ -178,24 +182,25 @@ impl ElementDescriptor for AnyElement {
 /// Represents a custom HTML element, such as `<my-element>`.
 #[derive(Clone, Debug)]
 pub struct Custom {
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     element: web_sys::HtmlElement,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    id: HydrationKey,
+    id: Option<HydrationKey>,
 }
 
 impl Custom {
     /// Creates a new custom element with the given tag name.
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>) -> Self {
         let name = name.into();
         let id = HydrationCtx::id();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        let element = if HydrationCtx::is_hydrating() {
-            if let Some(el) =
-                crate::document().get_element_by_id(&format!("_{id}"))
-            {
+        let element = if HydrationCtx::is_hydrating() && id.is_some() {
+            #[allow(unused)]
+            let id = id.unwrap();
+            #[cfg(feature = "hydrate")]
+            if let Some(el) = crate::hydration::get_element(&id.to_string()) {
                 #[cfg(debug_assertions)]
                 assert_eq!(
                     el.node_name().to_ascii_uppercase(),
@@ -205,34 +210,21 @@ impl Custom {
                      about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
                 );
 
-                el.remove_attribute("id").unwrap();
-
-                el.unchecked_into()
-            } else if let Ok(Some(el)) =
-                crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
-            {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                    el.node_name().to_ascii_uppercase(),
-                    name.to_ascii_uppercase(),
-                    "SSR and CSR elements have the same hydration key but \
-                     different node kinds. Check out the docs for information \
-                     about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
-                );
-
-                el.remove_attribute("leptos-hk").unwrap();
+                //el.remove_attribute(wasm_bindgen::intern("id")).unwrap();
 
                 el.unchecked_into()
             } else {
                 if !is_meta_tag() {
                     crate::warn!(
                         "element with id {id} not found, ignoring it for \
-                         hydration"
+                         hydration",
                     );
                 }
 
                 crate::document().create_element(&name).unwrap()
             }
+            #[cfg(not(feature = "hydrate"))]
+            unreachable!()
         } else {
             crate::document().create_element(&name).unwrap()
         };
@@ -266,13 +258,13 @@ impl std::convert::AsRef<web_sys::HtmlElement> for Custom {
 }
 
 impl ElementDescriptor for Custom {
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Oco<'static, str> {
         self.name.clone()
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     #[inline(always)]
-    fn hydration_id(&self) -> &HydrationKey {
+    fn hydration_id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 }
@@ -291,31 +283,40 @@ cfg_if! {
   // Server needs to build a virtualized DOM tree
   } else {
     /// Represents an HTML element.
-    #[derive(educe::Educe, Clone)]
-    #[educe(Debug)]
+    #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
-      pub(crate) element: El,
-      pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-      #[educe(Debug(ignore))]
-      pub(crate) children: ElementChildren,
-      #[cfg(debug_assertions)]
-      pub(crate) view_marker: Option<String>
+        pub(crate) element: El,
+        pub(crate) attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
+        pub(crate) children: ElementChildren,
+        #[cfg(debug_assertions)]
+        pub(crate) view_marker: Option<String>
     }
 
-    #[derive(Clone, educe::Educe, PartialEq, Eq)]
-    #[educe(Default)]
+    // debug without `children` field
+    impl<El: ElementDescriptor> fmt::Debug for HtmlElement<El> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let mut builder = f.debug_struct("HtmlElement");
+            builder.field("element", &self.element);
+            builder.field("attrs", &self.attrs);
+            #[cfg(debug_assertions)]
+            builder.field("view_marker", &self.view_marker);
+            builder.finish()
+        }
+    }
+
+    #[derive(Clone, Default, PartialEq, Eq)]
     pub(crate) enum ElementChildren {
-        #[educe(Default)]
+        #[default]
         Empty,
         Children(Vec<View>),
-        InnerHtml(Cow<'static, str>),
+        InnerHtml(Oco<'static, str>),
         Chunks(Vec<StringOrView>)
     }
 
     #[doc(hidden)]
     #[derive(Clone)]
     pub enum StringOrView {
-        String(Cow<'static, str>),
+        String(Oco<'static, str>),
         View(std::rc::Rc<dyn Fn() -> View>)
     }
 
@@ -445,7 +446,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Adds an `id` to the element.
     #[track_caller]
     #[inline(always)]
-    pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
+    pub fn id(self, id: impl Into<Oco<'static, str>>) -> Self {
         let id = id.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -575,9 +576,23 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
     pub fn attr(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         attr: impl IntoAttribute,
     ) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .attr() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         let name = name.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -592,8 +607,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         {
-            use crate::macro_helpers::Attribute;
-
             let mut this = self;
 
             let mut attr = attr.into_attribute();
@@ -621,6 +634,18 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
+    /// Adds multiple attributes to the element
+    #[track_caller]
+    pub fn attrs(
+        mut self,
+        attrs: impl std::iter::IntoIterator<Item = (&'static str, Attribute)>,
+    ) -> Self {
+        for (name, value) in attrs {
+            self = self.attr(name, value);
+        }
+        self
+    }
+
     /// Adds a class to an element.
     ///
     /// **Note**: In the builder syntax, this will be overwritten by the `class`
@@ -634,9 +659,23 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn class(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         class: impl IntoClass,
     ) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .class() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         let name = name.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -686,7 +725,21 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Adds a list of classes separated by ASCII whitespace to an element.
     #[track_caller]
     #[inline(always)]
-    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
+    pub fn classes(self, classes: impl Into<Oco<'static, str>>) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .classes() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         self.classes_inner(&classes.into())
     }
 
@@ -698,22 +751,37 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     ) -> Self
     where
         I: IntoIterator<Item = C>,
-        C: Into<Cow<'static, str>>,
+        C: Into<Oco<'static, str>>,
     {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .dyn_classes() on \
+                     an HtmlElement<_> that was created with the `view!` \
+                     macro. The macro applies optimizations during SSR that \
+                     prevent calling this method successfully. You should not \
+                     mix the `view` macro and the builder syntax when using \
+                     SSR.\n\n",
+                );
+            }
+        }
+
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             use smallvec::SmallVec;
 
             let class_list = self.element.as_ref().class_list();
 
-            leptos_reactive::create_effect(
+            leptos_reactive::create_render_effect(
                 move |prev_classes: Option<
-                    SmallVec<[Cow<'static, str>; 4]>,
+                    SmallVec<[Oco<'static, str>; 4]>,
                 >| {
                     let classes = classes_signal()
                         .into_iter()
                         .map(Into::into)
-                        .collect::<SmallVec<[Cow<'static, str>; 4]>>(
+                        .collect::<SmallVec<[Oco<'static, str>; 4]>>(
                     );
 
                     let new_classes = classes
@@ -797,9 +865,23 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn style(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         style: impl IntoStyle,
     ) -> Self {
+        #[cfg(all(debug_assertions, feature = "ssr"))]
+        {
+            if matches!(self.children, ElementChildren::Chunks(_)) {
+                let location = std::panic::Location::caller();
+                crate::warn!(
+                    "\n\nWARNING: At {location}, you call .style() on an \
+                     HtmlElement<_> that was created with the `view!` macro. \
+                     The macro applies optimizations during SSR that prevent \
+                     calling this method successfully. You should not mix the \
+                     `view` macro and the builder syntax when using SSR.\n\n",
+                );
+            }
+        }
+
         let name = name.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -856,7 +938,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn prop(
         self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl Into<Oco<'static, str>>,
         value: impl IntoProperty,
     ) -> Self {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -995,12 +1077,30 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 ElementChildren::Children(ref mut children) => {
                     children.push(child);
                 }
-                _ => {
-                    crate::debug_warn!(
-                        "Don’t call .child() on an HtmlElement if you’ve \
-                         already called .inner_html() or \
-                         HtmlElement::from_chunks()."
-                    );
+                ElementChildren::InnerHtml(_) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        let location = std::panic::Location::caller();
+                        crate::debug_warn!(
+                            "At {location}, you call .child() on an HTML \
+                             element that already had inner_html provided. \
+                             This will have no effect."
+                        );
+                    }
+                }
+                ElementChildren::Chunks(_) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        let location = std::panic::Location::caller();
+                        crate::debug_warn!(
+                            "\n\nWARNING: At {location}, you call .child() on \
+                             an HtmlElement<_> that was created with the \
+                             `view!` macro. The macro applies optimizations \
+                             during SSR that prevent calling this method \
+                             successfully. You should not mix the `view` \
+                             macro and the builder syntax when using SSR.\n\n"
+                        );
+                    }
                 }
             }
 
@@ -1016,7 +1116,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// sanitize the input to avoid a cross-site scripting (XSS)
     /// vulnerability.
     #[inline(always)]
-    pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
+    pub fn inner_html(self, html: impl Into<Oco<'static, str>>) -> Self {
         let html = html.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1060,10 +1160,8 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
 
             let mut element = Element::new(element);
 
-            if attrs.iter_mut().any(|(name, _)| name == "id") {
-                attrs.push(("leptos-hk".into(), format!("_{id}").into()));
-            } else {
-                attrs.push(("id".into(), format!("_{id}").into()));
+            if let Some(id) = id {
+                attrs.push(("data-hk".into(), id.to_string().into()));
             }
 
             element.attrs = attrs;
@@ -1103,7 +1201,7 @@ pub fn custom<El: ElementDescriptor>(el: El) -> HtmlElement<Custom> {
 
 /// Creates a text node.
 #[inline(always)]
-pub fn text(text: impl Into<Cow<'static, str>>) -> Text {
+pub fn text(text: impl Into<Oco<'static, str>>) -> Text {
     Text::new(text.into())
 }
 
@@ -1131,7 +1229,7 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          id: HydrationKey,
+          id: Option<HydrationKey>,
         }
 
         impl Default for [<$tag:camel $($trailing_)?>] {
@@ -1190,31 +1288,37 @@ macro_rules! generate_html_tags {
 
         impl ElementDescriptor for [<$tag:camel $($trailing_)?>] {
           #[inline(always)]
-          fn name(&self) -> Cow<'static, str> {
+          fn name(&self) -> Oco<'static, str> {
             stringify!($tag).into()
           }
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
           #[inline(always)]
-          fn hydration_id(&self) -> &HydrationKey {
+          fn hydration_id(&self) -> &Option<HydrationKey> {
             &self.id
           }
 
           generate_html_tags! { @void $($void)? }
         }
 
+        impl From<HtmlElement<[<$tag:camel $($trailing_)?>]>> for HtmlElement<AnyElement> {
+            fn from(element: HtmlElement<[<$tag:camel $($trailing_)?>]>) -> Self {
+                element.into_any()
+            }
+        }
+
         #[$meta]
-      #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(
-          level = "trace",
-          name = "HtmlElement",
-          skip_all,
-          fields(
-            tag = %format!("<{}/>", stringify!($tag))
-          )
-        )
-      )]
+        #[cfg_attr(
+            any(debug_assertions, feature = "ssr"),
+            instrument(
+            level = "trace",
+            name = "HtmlElement",
+            skip_all,
+            fields(
+                tag = %format!("<{}/>", stringify!($tag))
+            )
+            )
+        )]
         pub fn $tag() -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
           HtmlElement::new( [<$tag:camel $($trailing_)?>]::default())
         }
@@ -1232,8 +1336,8 @@ macro_rules! generate_html_tags {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn create_leptos_element(
-    tag: &str,
-    id: crate::HydrationKey,
+    #[allow(unused)] tag: &str,
+    #[allow(unused)] id: Option<HydrationKey>,
     clone_element: fn() -> web_sys::HtmlElement,
 ) -> web_sys::HtmlElement {
     #[cfg(not(debug_assertions))]
@@ -1241,9 +1345,10 @@ fn create_leptos_element(
         _ = tag;
     }
 
-    if HydrationCtx::is_hydrating() {
-        if let Some(el) = crate::document().get_element_by_id(&format!("_{id}"))
-        {
+    #[cfg(feature = "hydrate")]
+    if HydrationCtx::is_hydrating() && id.is_some() {
+        let id = id.unwrap();
+        if let Some(el) = crate::hydration::get_element(&id.to_string()) {
             #[cfg(debug_assertions)]
             assert_eq!(
                 &el.node_name().to_ascii_uppercase(),
@@ -1252,23 +1357,6 @@ fn create_leptos_element(
                 different node kinds. Check out the docs for information \
                 about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
             );
-
-            el.remove_attribute("id").unwrap();
-
-            el.unchecked_into()
-        } else if let Ok(Some(el)) =
-            crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
-        {
-            #[cfg(debug_assertions)]
-            assert_eq!(
-                el.node_name().to_ascii_uppercase(),
-                tag,
-                "SSR and CSR elements have the same hydration key but \
-                different node kinds. Check out the docs for information \
-                about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
-            );
-
-            el.remove_attribute("leptos-hk").unwrap();
 
             el.unchecked_into()
         } else {
@@ -1281,6 +1369,10 @@ fn create_leptos_element(
             clone_element()
         }
     } else {
+        clone_element()
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
         clone_element()
     }
 }

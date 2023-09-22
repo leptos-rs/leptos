@@ -1,5 +1,5 @@
 // Implementation based on Solid Router
-// see https://github.com/solidjs/solid-router/blob/main/src/utils.ts
+// see <https://github.com/solidjs/solid-router/blob/main/src/utils.ts>
 
 use crate::ParamsMap;
 

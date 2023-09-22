@@ -1,12 +1,13 @@
+#[cfg(debug_assertions)]
+use crate::SpecialNonReactiveZone;
 use crate::{
     hydration::SharedContext,
     node::{
         Disposer, NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType,
     },
-    AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
-    ResourceId, ResourceState, RwSignal, SerializableResource,
-    SpecialNonReactiveZone, StoredValueId, Trigger, UnserializableResource,
-    WriteSignal,
+    AnyComputation, AnyResource, EffectState, Memo, MemoState, ReadSignal,
+    ResourceId, ResourceState, RwSignal, SerializableResource, StoredValueId,
+    Trigger, UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
@@ -102,6 +103,23 @@ impl Owner {
             .ok()
             .flatten()
             .map(Owner)
+    }
+
+    /// Returns a unique handle for this owner for FFI purposes.
+    pub fn as_ffi(&self) -> u64 {
+        use slotmap::Key;
+
+        self.0.data().as_ffi()
+    }
+
+    /// Parses a unique handler back into an owner.
+    ///
+    /// Iff `value` is value received from `k.as_ffi()`, returns a key equal to `k`.
+    /// Otherwise the behavior is safe but unspecified.
+    pub fn from_ffi(ffi: u64) -> Self {
+        use slotmap::KeyData;
+
+        Self(NodeId::from(KeyData::from_ffi(ffi)))
     }
 }
 
@@ -517,11 +535,96 @@ impl Runtime {
         });
         match local_value {
             Some(val) => Some(val),
-            None => self
-                .node_owners
-                .borrow()
-                .get(node)
-                .and_then(|parent| self.get_context(*parent, ty)),
+            None => {
+                #[cfg(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                ))]
+                {
+                    self.get_island_context(
+                        self.shared_context
+                            .borrow()
+                            .islands
+                            .get(&Owner(node))
+                            .cloned(),
+                        node,
+                        ty,
+                    )
+                }
+                #[cfg(not(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                )))]
+                {
+                    self.node_owners
+                        .borrow()
+                        .get(node)
+                        .and_then(|parent| self.get_context(*parent, ty))
+                }
+            }
+        }
+    }
+
+    #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+    pub(crate) fn get_island_context<T: Clone + 'static>(
+        &self,
+        el: Option<web_sys::HtmlElement>,
+        node: NodeId,
+        ty: TypeId,
+    ) -> Option<T> {
+        let contexts = self.contexts.borrow();
+
+        let context = contexts.get(node);
+        let local_value = context.and_then(|context| {
+            context
+                .get(&ty)
+                .and_then(|val| val.downcast_ref::<T>())
+                .cloned()
+        });
+
+        match (el, local_value) {
+            (_, Some(val)) => Some(val),
+            // if we're already in the island's scope, island-hop
+            (Some(el), None) => {
+                use js_sys::Reflect;
+                use wasm_bindgen::{intern, JsCast, JsValue};
+                let parent_el = el
+                    .parent_element()
+                    .expect("to have parent")
+                    .unchecked_ref::<web_sys::HtmlElement>()
+                    .closest("leptos-children")
+                    .expect("to find island")
+                    //.flatten()
+                    .and_then(|el| el.dyn_into::<web_sys::HtmlElement>().ok());
+                match parent_el
+                    .clone()
+                    .and_then(|el| {
+                        Reflect::get(&el, &JsValue::from_str(intern("$$owner")))
+                            .ok()
+                    })
+                    .and_then(|value| u64::try_from(value).ok())
+                    .map(Owner::from_ffi)
+                {
+                    Some(owner) => {
+                        self.get_island_context(parent_el, owner.0, ty)
+                    }
+                    None => None,
+                }
+            }
+            // otherwise, check for a parent scope
+            (None, None) => {
+                self.node_owners.borrow().get(node).and_then(|parent| {
+                    self.get_island_context(
+                        self.shared_context
+                            .borrow()
+                            .islands
+                            .get(&Owner(*parent))
+                            .cloned(),
+                        *parent,
+                        ty,
+                    )
+                })
+            }
         }
     }
 
@@ -735,6 +838,40 @@ where
     .expect("runtime should be alive when with_owner runs")
 }
 
+/// Runs the given function as a child of the current Owner, once.
+pub fn run_as_child<T>(f: impl FnOnce() -> T + 'static) -> T {
+    let owner = with_runtime(|runtime| runtime.owner.get())
+        .expect("runtime should be alive when created");
+    let (value, disposer) = with_runtime(|runtime| {
+        let prev_observer = runtime.observer.take();
+        let prev_owner = runtime.owner.take();
+
+        runtime.owner.set(owner);
+        runtime.observer.set(owner);
+
+        let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
+            value: None,
+            state: ReactiveNodeState::Clean,
+            node_type: ReactiveNodeType::Trigger,
+        });
+        runtime.push_scope_property(ScopeProperty::Trigger(id));
+        let disposer = Disposer(id);
+
+        runtime.owner.set(Some(id));
+        runtime.observer.set(Some(id));
+
+        let v = f();
+
+        runtime.observer.set(prev_observer);
+        runtime.owner.set(prev_owner);
+
+        (v, disposer)
+    })
+    .expect("runtime should be alive when run");
+    on_cleanup(move || drop(disposer));
+    value
+}
+
 impl RuntimeId {
     /// Removes the runtime, disposing of everything created in it.
     ///
@@ -771,14 +908,17 @@ impl RuntimeId {
     pub(crate) fn untrack<T>(
         self,
         f: impl FnOnce() -> T,
-        diagnostics: bool,
+        #[allow(unused)] diagnostics: bool,
     ) -> T {
         with_runtime(|runtime| {
             let untracked_result;
 
-            if !diagnostics {
-                SpecialNonReactiveZone::enter();
-            }
+            #[cfg(debug_assertions)]
+            let prev = if !diagnostics {
+                SpecialNonReactiveZone::enter()
+            } else {
+                false
+            };
 
             let prev_observer =
                 SetObserverOnDrop(self, runtime.observer.take());
@@ -788,8 +928,9 @@ impl RuntimeId {
             runtime.observer.set(prev_observer.1);
             std::mem::forget(prev_observer); // avoid Drop
 
+            #[cfg(debug_assertions)]
             if !diagnostics {
-                SpecialNonReactiveZone::exit();
+                SpecialNonReactiveZone::exit(prev);
             }
 
             untracked_result
@@ -934,7 +1075,7 @@ impl RuntimeId {
     {
         self.create_concrete_effect(
             Rc::new(RefCell::new(None::<T>)),
-            Rc::new(Effect {
+            Rc::new(EffectState {
                 f,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -998,7 +1139,7 @@ impl RuntimeId {
 
         let id = self.create_concrete_effect(
             Rc::new(RefCell::new(None::<()>)),
-            Rc::new(Effect {
+            Rc::new(EffectState {
                 f: effect_fn,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1133,8 +1274,8 @@ impl Runtime {
             .borrow()
             .iter()
             .filter_map(|(resource_id, res)| {
-                if matches!(res, AnyResource::Serializable(_)) {
-                    Some(resource_id)
+                if let AnyResource::Serializable(res) = res {
+                    res.should_send_to_client().then_some(resource_id)
                 } else {
                     None
                 }
@@ -1149,7 +1290,9 @@ impl Runtime {
         let resources = { self.resources.borrow().clone() };
         for (id, resource) in resources.iter() {
             if let AnyResource::Serializable(resource) = resource {
-                f.push(resource.to_serialization_resolver(id));
+                if resource.should_send_to_client() {
+                    f.push(resource.to_serialization_resolver(id));
+                }
             }
         }
         f
@@ -1235,9 +1378,13 @@ impl Drop for SetBatchingOnDrop {
 pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
     #[cfg(debug_assertions)]
     let cleanup_fn = move || {
-        crate::SpecialNonReactiveZone::enter();
+        #[cfg(debug_assertions)]
+        let prev = crate::SpecialNonReactiveZone::enter();
         cleanup_fn();
-        crate::SpecialNonReactiveZone::exit();
+        #[cfg(debug_assertions)]
+        {
+            crate::SpecialNonReactiveZone::exit(prev);
+        }
     };
     push_cleanup(Box::new(cleanup_fn))
 }

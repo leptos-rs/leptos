@@ -28,7 +28,7 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]`](https://docs.rs/server_fn/latest/server_fn/attr.server.html) macro allows you to annotate a function to
+//! The [`#[server]`][server] macro allows you to annotate a function to
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
@@ -69,12 +69,15 @@
 //! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 //!   inside the function body can’t fail, the processes of serialization/deserialization and the
 //!   network call are fallible.
-//! - **Return types must implement [Serialize](serde::Serialize).**
+//! - **Return types must implement [`serde::Serialize`].**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
-//! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
-//!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
-//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
+//! - **Arguments must be implement [`serde::Serialize`].** They are serialized as an `application/x-www-form-urlencoded`
+//!   form data using [`serde_qs`] or as `application/cbor` using [`cbor`].
+//!
+//! [server]: <https://docs.rs/server_fn/latest/server_fn/attr.server.html>
+//! [`serde_qs`]: <https://docs.rs/serde_qs/latest/serde_qs/>
+//! [`cbor`]: <https://docs.rs/cbor/latest/cbor/>
 
 // used by the macro
 #[doc(hidden)]
@@ -202,7 +205,7 @@ pub enum Payload {
 
 /// Attempts to find a server function registered at the given path.
 ///
-/// This can be used by a server to handle the requests, as in the following example (using `actix-web`)
+/// This can be used by a server to handle the requests, as in the following example (using [`actix-web`])
 ///
 /// ```rust, ignore
 /// #[post("{tail:.*}")]
@@ -243,6 +246,8 @@ pub enum Payload {
 ///     }
 /// }
 /// ```
+///
+/// [`actix-web`]: <https://docs.rs/actix-web/>
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
@@ -323,7 +328,7 @@ impl quote::ToTokens for Encoding {
 ///
 /// Server functions are created using the `server` macro.
 ///
-/// The set of server functions can be queried on the server for routing purposes by calling [server_fn_by_path].
+/// The set of server functions can be queried on the server for routing purposes by calling [`server_fn_by_path`].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn<T: 'static>
@@ -555,14 +560,22 @@ where
     let status = resp.status();
     #[cfg(not(target_arch = "wasm32"))]
     let status = status.as_u16();
-    if (500..=599).contains(&status) {
+    if (400..=599).contains(&status) {
         let text = resp.text().await.unwrap_or_default();
-        #[cfg(target_arch = "wasm32")]
-        let status_text = resp.status_text();
-        #[cfg(not(target_arch = "wasm32"))]
-        let status_text = status.to_string();
-        return Err(serde_json::from_str(&text)
-            .unwrap_or(ServerFnError::ServerError(status_text)));
+        return Err(match serde_json::from_str(&text) {
+            Ok(e) => e,
+            Err(_) => {
+                #[cfg(target_arch = "wasm32")]
+                let status_text = resp.status_text();
+                #[cfg(not(target_arch = "wasm32"))]
+                let status_text = status.to_string();
+                ServerFnError::ServerError(if text.is_empty() {
+                    format!("{} {}", status, status_text)
+                } else {
+                    format!("{} {}: {}", status, status_text, text)
+                })
+            }
+        });
     }
 
     // Decoding the body of the request
@@ -582,12 +595,6 @@ where
         #[cfg(not(target_arch = "wasm32"))]
         let binary = binary.as_ref();
 
-        if status == 400 {
-            return Err(ServerFnError::ServerError(
-                "No server function was found at this URL.".to_string(),
-            ));
-        }
-
         ciborium::de::from_reader(binary)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
@@ -595,10 +602,6 @@ where
             .text()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-
-        if status == 400 {
-            return Err(ServerFnError::ServerError(text));
-        }
 
         let mut deserializer = JSONDeserializer::from_str(&text);
         T::deserialize(&mut deserializer)

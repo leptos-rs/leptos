@@ -104,5 +104,5 @@ pub fn create_write_slice<T, O>(
     setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
 ) -> SignalSetter<O> {
     let setter = move |value| signal.update(|x| setter(x, value));
-    setter.mapped_signal_setter()
+    setter.into_signal_setter()
 }

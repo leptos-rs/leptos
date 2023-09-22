@@ -83,9 +83,9 @@ pub(crate) fn fragment_to_tokens_ssr(
     });
     quote! {
         {
-            leptos::Fragment::lazy(|| [
+            leptos::Fragment::lazy(|| ::std::vec![
                 #(#nodes),*
-            ].to_vec())
+            ])
             #view_marker
         }
     }
@@ -265,6 +265,31 @@ fn element_to_tokens_ssr(
                 );
             }
         }
+        for attr in node.attributes() {
+            use syn::{Expr, ExprRange, RangeLimits, Stmt};
+
+            if let NodeAttribute::Block(NodeBlock::ValidBlock(block)) = attr {
+                if let Some(Stmt::Expr(
+                    Expr::Range(ExprRange {
+                        start: None,
+                        limits: RangeLimits::HalfOpen(_),
+                        end: Some(end),
+                        ..
+                    }),
+                    _,
+                )) = block.stmts.first()
+                {
+                    // should basically be the resolved attributes, joined on spaces, placed into
+                    // the template
+                    template.push_str(" {}");
+                    holes.push(quote! {
+                        {#end}.into_iter().filter_map(|(name, attr)| {
+                           Some(format!("{}={}", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
+                        }).collect::<Vec<_>>().join(" ")
+                    });
+                };
+            }
+        }
 
         // insert hydration ID
         let hydration_id = if is_root {
@@ -272,19 +297,10 @@ fn element_to_tokens_ssr(
         } else {
             quote! { ::leptos::leptos_dom::HydrationCtx::id() }
         };
-        match node
-            .attributes()
-            .iter()
-            .find(|node| matches!(node, NodeAttribute::Attribute(attr) if attr.key.to_string() == "id"))
-        {
-            Some(_) => {
-                template.push_str(" leptos-hk=\"_{}\"");
-            }
-            None => {
-                template.push_str(" id=\"_{}\"");
-            }
-        }
-        holes.push(hydration_id);
+        template.push_str("{}");
+        holes.push(quote! {
+            #hydration_id.map(|id| format!(" data-hk=\"{id}\"")).unwrap_or_default()
+        });
 
         set_class_attribute_ssr(node, template, holes, global_class);
         set_style_attribute_ssr(node, template, holes);
@@ -597,7 +613,7 @@ fn set_style_attribute_ssr(
     let static_style_attr = node
         .attributes()
         .iter()
-        .filter_map(|a| match a {
+        .find_map(|a| match a {
             NodeAttribute::Attribute(attr)
                 if attr.key.to_string() == "style" =>
             {
@@ -605,7 +621,6 @@ fn set_style_attribute_ssr(
             }
             _ => None,
         })
-        .next()
         .map(|style| format!("{style};"));
 
     let dyn_style_attr = node

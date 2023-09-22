@@ -32,11 +32,15 @@ fn view() {
             [
                 leptos::leptos_dom::html::StringOrView::String(
                     format!(
-                        "<div id=\"_{}\"><button id=\"_{}\">Clear</button><button id=\"_{}\">-1</button><span id=\"_{}\">Value: ",
-                        ::leptos::leptos_dom::HydrationCtx::peek(),
-                        ::leptos::leptos_dom::HydrationCtx::id(),
-                        ::leptos::leptos_dom::HydrationCtx::id(),
-                        ::leptos::leptos_dom::HydrationCtx::id()
+                        "<div{}><button{}>Clear</button><button{}>-1</button><span{}>Value: ",
+                        ::leptos::leptos_dom::HydrationCtx::peek().map(| id |
+                        format!(" data-hk=\"{id}\"")).unwrap_or_default(),
+                        ::leptos::leptos_dom::HydrationCtx::id().map(| id |
+                        format!(" data-hk=\"{id}\"")).unwrap_or_default(),
+                        ::leptos::leptos_dom::HydrationCtx::id().map(| id |
+                        format!(" data-hk=\"{id}\"")).unwrap_or_default(),
+                        ::leptos::leptos_dom::HydrationCtx::id().map(| id |
+                        format!(" data-hk=\"{id}\"")).unwrap_or_default()
                     )
                         .into(),
                 ),
@@ -49,8 +53,9 @@ fn view() {
                 },
                 leptos::leptos_dom::html::StringOrView::String(
                     format!(
-                        "!</span><button id=\"_{}\">+1</button></div>",
-                        ::leptos::leptos_dom::HydrationCtx::id()
+                        "!</span><button{}>+1</button></div>",
+                        ::leptos::leptos_dom::HydrationCtx::id().map(| id |
+                        format!(" data-hk=\"{id}\"")).unwrap_or_default()
                     )
                         .into(),
                 ),

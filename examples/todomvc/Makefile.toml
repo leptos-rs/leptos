@@ -1,4 +1,7 @@
-extend = { path = "../cargo-make/main.toml" }
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
+]
 
 [tasks.setup-node]
 env = { SETUP_NODE = false }

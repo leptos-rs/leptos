@@ -50,7 +50,6 @@ If you want to really understand the issue here, it may help to look at the expa
 
 ```rust
 Suspense(
-
     ::leptos::component_props_builder(&Suspense)
         .fallback(|| ())
         .children({
@@ -61,7 +60,6 @@ Suspense(
                     leptos::Fragment::lazy(|| {
                         vec![
                             (Show(
-
                                 ::leptos::component_props_builder(&Show)
                                     .when(|| true)
 									// but fallback is moved into Show here
@@ -91,7 +89,7 @@ We can solve this problem by using the [`store_value`](https://docs.rs/leptos/la
 In this case, it’s really simple:
 
 ```rust
-pub fn LoggedIn<F, IV>(F, children: ChildrenFn) -> impl IntoView
+pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
 where
     F: Fn() -> IV + 'static,
     IV: IntoView,

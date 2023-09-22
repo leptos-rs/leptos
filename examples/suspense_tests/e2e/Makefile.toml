@@ -8,4 +8,13 @@ condition = { env_true = ["RUN_AUTOMATICALLY"] }
 
 [tasks.test-ui]
 command = "cargo"
-args = ["test", "--test", "app_suite", "--", "--fail-fast", "${@}"]
+args = [
+    "test",
+    "--test",
+    "app_suite",
+    "--",
+    "--retry",
+    "2",
+    "--fail-fast",
+    "${@}",
+]

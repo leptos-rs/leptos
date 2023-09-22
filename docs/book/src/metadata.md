@@ -30,13 +30,13 @@ There’s a very simple way to determine whether you should use a capital-S `<Sc
 
 There are even a couple elements designed to make semantic HTML and styling easier. [`<Html/>`](https://docs.rs/leptos_meta/latest/leptos_meta/fn.Html.html) lets you set the `lang` and `dir` on your `<html>` tag from your application code. `<Html/>` and [`<Body/>`](https://docs.rs/leptos_meta/latest/leptos_meta/fn.Html.html) both have `class` props that let you set their respective `class` attributes, which is sometimes needed by CSS frameworks for styling.
 
-`<Body/>` and `<Html/>` both also have `attributes` props which can be used to set any number of additional attributes on them via the [`AdditionalAttributes`](https://docs.rs/leptos/latest/leptos/struct.AdditionalAttributes.html) type:
+`<Body/>` and `<Html/>` both also have `attributes` props which can be used to set any number of additional attributes on them via the `attr:` syntax:
 
 ```rust
 <Html
 	lang="he"
 	dir="rtl"
-	attributes=AdditionalAttributes::from(vec![("data-theme", "dark")])
+	attr:data-theme="dark"
 />
 ```
 

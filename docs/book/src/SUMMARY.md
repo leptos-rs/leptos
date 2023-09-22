@@ -12,6 +12,7 @@
   - [Error Handling](./view/07_errors.md)
   - [Parent-Child Communication](./view/08_parent_child.md)
   - [Passing Children to Components](./view/09_component_children.md)
+  - [No Macros: The View Builder Syntax](./view/builder.md)
 - [Reactivity](./reactivity/README.md)
   - [Working with Signals](./reactivity/working_with_signals.md)
   - [Responding to Changes with `create_effect`](./reactivity/14_create_effect.md)
@@ -46,3 +47,4 @@
 - [Deployment](./deployment.md)
 - [Appendix: How Does the Reactive System Work?](./appendix_reactive_graph.md)
 - [Appendix: Optimizing WASM Binary Size](./appendix_binary_size.md)
+- [Appendix: Some Small DX Improvements](./appendix_dx.md)

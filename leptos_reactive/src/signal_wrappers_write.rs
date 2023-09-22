@@ -3,7 +3,12 @@ use crate::{store_value, RwSignal, SignalSet, StoredValue, WriteSignal};
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
 pub trait IntoSignalSetter<T>: Sized {
     /// Consumes `self`, returning [`SignalSetter<T>`].
+    #[deprecated = "Will be removed in `leptos v0.6`. Please use \
+                    `IntoSignalSetter::into_signal_setter()` instead."]
     fn mapped_signal_setter(self) -> SignalSetter<T>;
+
+    /// Consumes `self`, returning [`SignalSetter<T>`].
+    fn into_signal_setter(self) -> SignalSetter<T>;
 }
 
 impl<F, T> IntoSignalSetter<T> for F
@@ -11,6 +16,10 @@ where
     F: Fn(T) + 'static,
 {
     fn mapped_signal_setter(self) -> SignalSetter<T> {
+        self.into_signal_setter()
+    }
+
+    fn into_signal_setter(self) -> SignalSetter<T> {
         SignalSetter::map(self)
     }
 }
@@ -77,7 +86,9 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
 
 impl<T> Copy for SignalSetter<T> {}
 
-impl<T> SignalSet<T> for SignalSetter<T> {
+impl<T> SignalSet for SignalSetter<T> {
+    type Value = T;
+
     fn set(&self, new_value: T) {
         match self.inner {
             SignalSetterTypes::Default => {}

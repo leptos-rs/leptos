@@ -1,6 +1,5 @@
 use crate::use_head;
 use leptos::{nonce::use_nonce, *};
-use std::borrow::Cow;
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head, accepting any of the valid attributes for that tag.
@@ -28,66 +27,66 @@ use std::borrow::Cow;
 pub fn Link(
     /// The [`id`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-id) attribute.
     #[prop(optional, into)]
-    id: Option<Cow<'static, str>>,
+    id: Option<Oco<'static, str>>,
     /// The [`as`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-as) attribute.
     #[prop(optional, into)]
-    as_: Option<Cow<'static, str>>,
+    as_: Option<Oco<'static, str>>,
     /// The [`crossorigin`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-crossorigin) attribute.
     #[prop(optional, into)]
-    crossorigin: Option<Cow<'static, str>>,
+    crossorigin: Option<Oco<'static, str>>,
     /// The [`disabled`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-disabled) attribute.
     #[prop(optional, into)]
     disabled: Option<bool>,
     /// The [`fetchpriority`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-fetchpriority) attribute.
     #[prop(optional, into)]
-    fetchpriority: Option<Cow<'static, str>>,
+    fetchpriority: Option<Oco<'static, str>>,
     /// The [`href`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-href) attribute.
     #[prop(optional, into)]
-    href: Option<Cow<'static, str>>,
+    href: Option<Oco<'static, str>>,
     /// The [`hreflang`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-hreflang) attribute.
     #[prop(optional, into)]
-    hreflang: Option<Cow<'static, str>>,
+    hreflang: Option<Oco<'static, str>>,
     /// The [`imagesizes`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-imagesizes) attribute.
     #[prop(optional, into)]
-    imagesizes: Option<Cow<'static, str>>,
+    imagesizes: Option<Oco<'static, str>>,
     /// The [`imagesrcset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-imagesrcset) attribute.
     #[prop(optional, into)]
-    imagesrcset: Option<Cow<'static, str>>,
+    imagesrcset: Option<Oco<'static, str>>,
     /// The [`integrity`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-integrity) attribute.
     #[prop(optional, into)]
-    integrity: Option<Cow<'static, str>>,
+    integrity: Option<Oco<'static, str>>,
     /// The [`media`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-media) attribute.
     #[prop(optional, into)]
-    media: Option<Cow<'static, str>>,
+    media: Option<Oco<'static, str>>,
     /// The [`prefetch`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-prefetch) attribute.
     #[prop(optional, into)]
-    prefetch: Option<Cow<'static, str>>,
+    prefetch: Option<Oco<'static, str>>,
     /// The [`referrerpolicy`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-referrerpolicy) attribute.
     #[prop(optional, into)]
-    referrerpolicy: Option<Cow<'static, str>>,
+    referrerpolicy: Option<Oco<'static, str>>,
     /// The [`rel`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-rel) attribute.
     #[prop(optional, into)]
-    rel: Option<Cow<'static, str>>,
+    rel: Option<Oco<'static, str>>,
     /// The [`sizes`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-sizes) attribute.
     #[prop(optional, into)]
-    sizes: Option<Cow<'static, str>>,
+    sizes: Option<Oco<'static, str>>,
     /// The [`title`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-title) attribute.
     #[prop(optional, into)]
-    title: Option<Cow<'static, str>>,
+    title: Option<Oco<'static, str>>,
     /// The [`type`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-type) attribute.
     #[prop(optional, into)]
-    type_: Option<Cow<'static, str>>,
+    type_: Option<Oco<'static, str>>,
     /// The [`blocking`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-blocking) attribute.
     #[prop(optional, into)]
-    blocking: Option<Cow<'static, str>>,
+    blocking: Option<Oco<'static, str>>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
-    let id: Cow<'static, str> =
+    let mut id: Oco<'static, str> =
         id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
-        let id = id.clone();
+        let id = id.clone_inplace();
         move || {
             leptos::leptos_dom::html::link()
                 .attr("id", id)

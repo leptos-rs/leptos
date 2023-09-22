@@ -27,8 +27,8 @@ pub fn Router(
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
-    /// any elements, and should include a [Routes](crate::Routes) component somewhere
-    /// to define and display [Route](crate::Route)s.
+    /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
+    /// to define and display [`Route`](crate::Route)s.
     children: Children,
 ) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
@@ -101,7 +101,7 @@ impl RouterContext {
                         `leptos_router` import.\n\nIf you are using this on the server without a \
                         Leptos server integration, you must call provide_context::<RouterIntegrationContext>(...) \
                         somewhere above the <Router/>.";
-                    leptos::debug_warn!("{}", msg);
+                    leptos::logging::debug_warn!("{}", msg);
                     panic!("{}", msg);
                 });
             }
@@ -198,7 +198,7 @@ impl RouterContext {
         self.inner.location.pathname
     }
 
-    /// The [RouteContext] of the base route.
+    /// The [`RouteContext`] of the base route.
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
     }
@@ -415,7 +415,7 @@ impl RouterContextInner {
                     state: State(state),
                 },
             ) {
-                leptos::error!("{e:#?}");
+                leptos::logging::error!("{e:#?}");
             }
         }
     }

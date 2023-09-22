@@ -1,0 +1,40 @@
+name: Get Examples Matrix Call
+
+on:
+  workflow_call:
+    outputs:
+      matrix:
+        description: "Matrix"
+        value: ${{ jobs.create.outputs.matrix }}
+
+jobs:
+  create:
+    name: Create Examples Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install JQ Tool
+        uses: mbround18/install-jq@v1
+
+      - name: Set Matrix
+        id: set-matrix
+        run: |
+          examples=$(ls examples | 
+          awk '{print "examples/" $0}' | 
+          grep -v .md | 
+          grep -v examples/Makefile.toml | 
+          grep -v examples/cargo-make | 
+          grep -v examples/gtk | 
+          jq -R -s -c 'split("\n")[:-1]')
+          echo "Example Directories: $examples"
+          echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"
+
+      - name: Print Location Info
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          pwd
+          ls | sort -u

@@ -16,7 +16,7 @@ Calling a `ReadSignal` as a function is syntax sugar for `.get()`. Calling a `Wr
 ```rust
 let (count, set_count) = create_signal(0);
 set_count(1);
-log!(count());
+logging::log!(count());
 ```
 
 is the same as
@@ -24,7 +24,7 @@ is the same as
 ```rust
 let (count, set_count) = create_signal(0);
 set_count.set(1);
-log!(count.get());
+logging::log!(count.get());
 ```
 
 You might notice that `.get()` and `.set()` can be implemented in terms of `.with()` and `.update()`. In other words, `count.get()` is identical with `count.with(|n| n.clone())`, and `count.set(1)` is implemented by doing `count.update(|n| *n = 1)`.
@@ -63,7 +63,35 @@ if names.with(Vec::is_empty) {
 }
 ```
 
-After all, `.with()` simply takes a function that takes the value by reference. Since `Vec::is_empty` takes `&self`, we can pass it in directly and avoid the unncessary closure.
+After all, `.with()` simply takes a function that takes the value by reference. Since `Vec::is_empty` takes `&self`, we can pass it in directly and avoid the unnecessary closure.
+
+There are some helper macros to make using `.with()` and `.update()` easier to use, especially when using multiple signals.
+
+```rust
+let (first, _) = create_signal("Bob".to_string());
+let (middle, _) = create_signal("J.".to_string());
+let (last, _) = create_signal("Smith".to_string());
+```
+
+If you wanted to concatenate these 3 signals together without unnecessary cloning, you would have to write something like:
+
+```rust
+let name = move || {
+	first.with(|first| {
+		middle.with(|middle| last.with(|last| format!("{first} {middle} {last}")))
+	})
+};
+```
+
+Which is very long and annoying to write.
+
+Instead, you can use the `with!` macro to get references to all the signals at the same time.
+
+```rust
+let name = move || with!(|first, middle, last| format!("{first} {middle} {last}"));
+```
+
+This expands to the same thing as above. Take a look at the `with!` docs for more info, and the corresponding macros `update!`, `with_value!` and `update_value!`.
 
 ## Making signals depend on each other
 

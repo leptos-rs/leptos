@@ -97,7 +97,9 @@ pub fn create_trigger() -> Trigger {
     Runtime::current().create_trigger()
 }
 
-impl SignalGet<()> for Trigger {
+impl SignalGet for Trigger {
+    type Value = ();
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -134,7 +136,9 @@ impl SignalGet<()> for Trigger {
     }
 }
 
-impl SignalUpdate<()> for Trigger {
+impl SignalUpdate for Trigger {
+    type Value = ();
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -181,7 +185,9 @@ impl SignalUpdate<()> for Trigger {
     }
 }
 
-impl SignalSet<()> for Trigger {
+impl SignalSet for Trigger {
+    type Value = ();
+
     #[cfg_attr(
         debug_assertions,
         instrument(

@@ -9,3 +9,5 @@ Cargo.lock
 .idea
 .direnv
 .envrc
+
+.vscode

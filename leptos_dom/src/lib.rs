@@ -9,12 +9,14 @@
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
+pub mod callback;
 mod components;
 mod events;
 pub mod helpers;
 pub mod html;
 mod hydration;
-mod logging;
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging;
 mod macro_helpers;
 pub mod math;
 mod node_ref;
@@ -24,21 +26,22 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
+pub use callback::*;
 use cfg_if::cfg_if;
 pub use components::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
-pub use events::typed as ev;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
+pub use events::{typed as ev, typed::EventHandler};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
+use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
-pub use logging::*;
 pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -131,6 +134,17 @@ where
     #[track_caller]
     fn into_view(self) -> View {
         DynChild::new(self).into_view()
+    }
+}
+
+impl<N> IntoView for std::rc::Rc<dyn Fn() -> N>
+where
+    N: IntoView + 'static,
+{
+    #[inline]
+    fn into_view(self) -> View {
+        // reuse impl for `Fn() -> impl IntoView`
+        IntoView::into_view(move || self())
     }
 }
 
@@ -240,7 +254,7 @@ cfg_if! {
     pub struct Element {
       #[doc(hidden)]
       #[cfg(debug_assertions)]
-      pub name: Cow<'static, str>,
+      pub name: Oco<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
       #[cfg(debug_assertions)]
@@ -261,11 +275,11 @@ cfg_if! {
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
-      name: Cow<'static, str>,
+      name: Oco<'static, str>,
       is_void: bool,
-      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
       children: ElementChildren,
-      id: HydrationKey,
+      id: Option<HydrationKey>,
       #[cfg(debug_assertions)]
       /// Optional marker for the view macro source, in debug mode.
       pub view_marker: Option<String>
@@ -396,22 +410,22 @@ impl Element {
 struct Comment {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node: web_sys::Node,
-    content: Cow<'static, str>,
+    content: Oco<'static, str>,
 }
 
 impl Comment {
     #[inline]
     fn new(
-        content: impl Into<Cow<'static, str>>,
-        id: &HydrationKey,
+        content: impl Into<Oco<'static, str>>,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         Self::new_inner(content.into(), id, closing)
     }
 
     fn new_inner(
-        content: Cow<'static, str>,
-        id: &HydrationKey,
+        content: Oco<'static, str>,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         cfg_if! {
@@ -433,7 +447,8 @@ impl Comment {
                 node.set_text_content(Some(&format!(" {content} ")));
 
                 #[cfg(feature = "hydrate")]
-                if HydrationCtx::is_hydrating() {
+                if HydrationCtx::is_hydrating() && id.is_some() {
+                    let id = id.as_ref().unwrap();
                     let id = HydrationCtx::to_string(id, closing);
 
                     if let Some(marker) = hydration::get_marker(&id) {
@@ -464,14 +479,15 @@ pub struct Text {
     /// to update the node without recreating it, we need to be able
     /// to possibly reuse a previous node.
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    node: web_sys::Node,
+    pub(crate) node: web_sys::Node,
     /// The current contents of the text node.
-    pub content: Cow<'static, str>,
+    pub content: Oco<'static, str>,
 }
 
 impl fmt::Debug for Text {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.content)
+        fmt::Debug::fmt(&self.content, f)
     }
 }
 
@@ -484,7 +500,7 @@ impl IntoView for Text {
 
 impl Text {
     /// Creates a new [`Text`].
-    pub fn new(content: Cow<'static, str>) -> Self {
+    pub fn new(content: Oco<'static, str>) -> Self {
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             node: crate::document()
@@ -849,7 +865,7 @@ where
     N: IntoView,
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
-    crate::console_warn(
+    crate::logging::console_warn(
         "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as \
          features, which may cause issues like <Suspense/>` failing to work \
          silently.",
@@ -868,18 +884,35 @@ where
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
-    F: Fn() -> N + 'static,
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    mount_to_with_stop_hydrating(parent, true, f)
+}
+
+/// Runs the provided closure and mounts the result to the provided element.
+pub fn mount_to_with_stop_hydrating<F, N>(
+    parent: web_sys::HtmlElement,
+    stop_hydrating: bool,
+    f: F,
+) where
+    F: FnOnce() -> N + 'static,
     N: IntoView,
 {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             let node = f().into_view();
-            HydrationCtx::stop_hydrating();
-            parent.append_child(&node.get_mountable_node()).unwrap();
+            if stop_hydrating {
+                HydrationCtx::stop_hydrating();
+            }
+            if cfg!(feature = "csr") {
+                parent.append_child(&node.get_mountable_node()).unwrap();
+            }
             std::mem::forget(node);
       } else {
         _ = parent;
         _ = f;
+        _ = stop_hydrating;
         crate::warn!("`mount_to` should not be called outside the browser.");
       }
     }
@@ -896,7 +929,7 @@ thread_local! {
 /// This is cached as a thread-local variable, so calling `window()` multiple times
 /// requires only one call out to JavaScript.
 pub fn window() -> web_sys::Window {
-    WINDOW.with(|window| window.clone())
+    WINDOW.with(Clone::clone)
 }
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
@@ -904,7 +937,7 @@ pub fn window() -> web_sys::Window {
 /// This is cached as a thread-local variable, so calling `document()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
-    DOCUMENT.with(|document| document.clone())
+    DOCUMENT.with(Clone::clone)
 }
 
 /// Returns true if running on the server (SSR).

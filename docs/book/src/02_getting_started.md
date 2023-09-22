@@ -23,13 +23,15 @@ cargo init leptos-tutorial
 `cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
 
 ```bash
-cargo add leptos --features=csr,nightly
+cargo add leptos@0.5.0-rc2 --features=csr,nightly
 ```
+
+> **Note**: This version of the book reflects the upcoming Leptos 0.5.0 release. The CodeSandbox examples have not yet been updated from 0.4 and earlier versions.
 
 Or you can leave off `nightly` if you're using stable Rust
 
 ```bash
-cargo add leptos --features=csr
+cargo add leptos@0.5.0-rc2 --features=csr
 ```
 
 > Using `nightly` Rust, and the `nightly` feature in Leptos enables the function-call syntax for signal getters and setters that is used in most of this book.
@@ -65,7 +67,7 @@ And add a simple “Hello, world!” to your `main.rs`
 use leptos::*;
 
 fn main() {
-    mount_to_body(|| view! {  <p>"Hello, world!"</p> })
+    mount_to_body(|| view! { <p>"Hello, world!"</p> })
 }
 ```
 

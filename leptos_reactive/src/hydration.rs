@@ -1,20 +1,29 @@
+#[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+use crate::Owner;
 use crate::{
     runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
     SuspenseContext,
 };
-use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
+#[cfg(feature = "experimental-islands")]
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet, VecDeque};
-
+#[doc(hidden)]
 /// Hydration data and other context that is shared between the server
 /// and the client.
 pub struct SharedContext {
+    /// Resources that initially needed to resolve from the server.
+    pub server_resources: HashSet<ResourceId>,
     /// Resources that have not yet resolved.
     pub pending_resources: HashSet<ResourceId>,
     /// Resources that have already resolved.
     pub resolved_resources: HashMap<ResourceId, String>,
     /// Suspended fragments that have not yet resolved.
     pub pending_fragments: HashMap<String, FragmentData>,
+    #[cfg(feature = "experimental-islands")]
+    pub no_hydrate: bool,
+    #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+    pub islands: HashMap<Owner, web_sys::HtmlElement>,
 }
 
 impl SharedContext {
@@ -160,6 +169,22 @@ impl SharedContext {
         })
         .unwrap_or_default()
     }
+
+    /// Registers the given element as an island with the current reactive owner.
+    #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    pub fn register_island(el: &web_sys::HtmlElement) {
+        if let Some(owner) = Owner::current() {
+            let el = el.clone();
+            _ = with_runtime(|runtime| {
+                let mut shared_context = runtime.shared_context.borrow_mut();
+                shared_context.islands.insert(owner, el);
+            });
+        }
+    }
 }
 
 /// Represents its pending `<Suspense/>` fragment.
@@ -192,38 +217,97 @@ impl Eq for SharedContext {}
 #[allow(clippy::derivable_impls)]
 impl Default for SharedContext {
     fn default() -> Self {
-        cfg_if! {
-            if #[cfg(all(feature = "hydrate", target_arch = "wasm32"))] {
-                let pending_resources = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
-                );
-                let pending_resources: HashSet<ResourceId> = pending_resources
-                    .map_err(|_| ())
-                    .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
-                    .unwrap_or_default();
+        #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+        {
+            let pending_resources = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
+            );
+            let pending_resources: HashSet<ResourceId> = pending_resources
+                .map_err(|_| ())
+                .and_then(|pr| {
+                    serde_wasm_bindgen::from_value(pr).map_err(|_| ())
+                })
+                .unwrap();
 
-                let resolved_resources = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
-                )
-                .unwrap_or(wasm_bindgen::JsValue::NULL);
+            let resolved_resources = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
+            )
+            .unwrap(); // unwrap_or(wasm_bindgen::JsValue::NULL);
 
-                let resolved_resources =
-                    serde_wasm_bindgen::from_value(resolved_resources).unwrap_or_default();
+            let resolved_resources =
+                serde_wasm_bindgen::from_value(resolved_resources).unwrap();
 
-                Self {
-                    pending_resources,
-                    resolved_resources,
-                    pending_fragments: Default::default(),
-                }
-            } else {
-                Self {
-                    pending_resources: Default::default(),
-                    resolved_resources: Default::default(),
-                    pending_fragments: Default::default(),
-                }
+            Self {
+                server_resources: pending_resources.clone(),
+                //events: Default::default(),
+                pending_resources,
+                resolved_resources,
+                pending_fragments: Default::default(),
+                #[cfg(feature = "experimental-islands")]
+                no_hydrate: true,
+                #[cfg(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                ))]
+                islands: Default::default(),
             }
         }
+        #[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
+        {
+            Self {
+                server_resources: Default::default(),
+                //events: Default::default(),
+                pending_resources: Default::default(),
+                resolved_resources: Default::default(),
+                pending_fragments: Default::default(),
+                #[cfg(feature = "experimental-islands")]
+                no_hydrate: true,
+                #[cfg(all(
+                    feature = "hydrate",
+                    feature = "experimental-islands"
+                ))]
+                islands: Default::default(),
+            }
+        }
+    }
+}
+
+#[cfg(feature = "experimental-islands")]
+thread_local! {
+  pub static NO_HYDRATE: Cell<bool> = Cell::new(true);
+}
+
+#[cfg(feature = "experimental-islands")]
+impl SharedContext {
+    /// Whether the renderer should currently add hydration IDs.
+    pub fn no_hydrate() -> bool {
+        NO_HYDRATE.with(Cell::get)
+    }
+
+    /// Sets whether the renderer should not add hydration IDs.
+    pub fn set_no_hydrate(hydrate: bool) {
+        NO_HYDRATE.with(|cell| cell.set(hydrate));
+    }
+
+    /// Turns on hydration for the duration of the function call
+    #[inline(always)]
+    pub fn with_hydration<T>(f: impl FnOnce() -> T) -> T {
+        let prev = SharedContext::no_hydrate();
+        SharedContext::set_no_hydrate(false);
+        let v = f();
+        SharedContext::set_no_hydrate(prev);
+        v
+    }
+
+    /// Turns off hydration for the duration of the function call
+    #[inline(always)]
+    pub fn no_hydration<T>(f: impl FnOnce() -> T) -> T {
+        let prev = SharedContext::no_hydrate();
+        SharedContext::set_no_hydrate(true);
+        let v = f();
+        SharedContext::set_no_hydrate(prev);
+        v
     }
 }

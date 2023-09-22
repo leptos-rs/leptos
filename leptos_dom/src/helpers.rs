@@ -19,6 +19,7 @@ pub fn set_property(
 }
 
 /// Gets the value of a property set on a DOM element.
+#[doc(hidden)]
 pub fn get_property(
     el: &web_sys::Element,
     prop_name: &str,
@@ -218,10 +219,10 @@ pub fn set_timeout_with_handle(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -245,7 +246,7 @@ pub fn set_timeout_with_handle(
 /// listeners to prevent them from firing constantly as you type.
 ///
 /// ```
-/// use leptos::{leptos_dom::helpers::debounce, *};
+/// use leptos::{leptos_dom::helpers::debounce, logging::log, *};
 ///
 /// #[component]
 /// fn DebouncedButton() -> impl IntoView {
@@ -273,10 +274,10 @@ pub fn debounce<T: 'static>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move |value| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(value);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -351,10 +352,10 @@ pub fn set_interval_with_handle(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -392,10 +393,10 @@ pub fn window_event_listener_untyped(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         };
       }
     }
@@ -429,7 +430,7 @@ pub fn window_event_listener_untyped(
 /// Creates a window event listener from a typed event, returning a
 /// cancelable handle.
 /// ```
-/// use leptos::{leptos_dom::helpers::window_event_listener, *};
+/// use leptos::{leptos_dom::helpers::window_event_listener, logging::log, *};
 ///
 /// #[component]
 /// fn App() -> impl IntoView {

@@ -7,14 +7,21 @@ extern crate tracing;
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
-    let site_ip = &options.site_addr.ip().to_string();
-    let reload_port = options.reload_port;
+    let reload_port = match options.reload_external_port {
+        Some(val) => val,
+        None => options.reload_port,
+    };
+    let protocol = match options.reload_ws_protocol {
+        leptos_config::ReloadWSProtocol::WS => "'ws://'",
+        leptos_config::ReloadWSProtocol::WSS => "'wss://'",
+    };
     match std::env::var("LEPTOS_WATCH").is_ok() {
         true => format!(
             r#"
                 <script crossorigin=""{nonce_str}>(function () {{
                     {}
-                    let ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+                    let host = window.location.hostname;
+                    let ws = new WebSocket({protocol} + host + ':{reload_port}/live_reload');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
                         if (msg.all) window.location.reload();
@@ -72,6 +79,27 @@ pub fn html_parts_separated(
         .as_ref()
         .map(|meta| meta.dehydrate())
         .unwrap_or_default();
+    let import_callback = if cfg!(feature = "experimental-islands") {
+        /* r#"() => {
+          for (let e of document.querySelectorAll("leptos-island")) {
+            let l = e.dataset.component;
+            console.log("hydrating island");
+            mod["_island_" + l];
+          }
+          mod.hydrate();
+        }"# */
+        r#"() => {       
+            for (let e of document.querySelectorAll("leptos-island")) {
+                let l = e.dataset.component;
+                mod["_island_" + l](e);
+            }
+            mod.hydrate();
+        }
+        "#
+        //r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;mod["_island_"+l](e)};mod.hydrate();}"#
+    } else {
+        "() => mod.hydrate()"
+    };
     let head = format!(
         r#"<!DOCTYPE html>
             <html{html_metadata}>
@@ -81,7 +109,21 @@ pub fn html_parts_separated(
                     {head}
                     <link rel="modulepreload" href="/{pkg_path}/{output_name}.js"{nonce}>
                     <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
-                    <script type="module"{nonce}>import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                    <script type="module"{nonce}>
+                        function idle(c) {{
+                            if ("requestIdleCallback" in window) {{
+                                window.requestIdleCallback(c);
+                            }} else {{
+                                c();
+                            }}
+                        }}
+                        idle(() => {{
+                            import('/{pkg_path}/{output_name}.js')
+                                .then(mod => {{
+                                    mod.default('/{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
+                                }})
+                        }});
+                    </script>
                     {leptos_autoreload}
                     "#
     );

@@ -1,10 +1,14 @@
+#[cfg(feature = "experimental-islands")]
+use crate::SharedContext;
+#[cfg(debug_assertions)]
+use crate::SpecialNonReactiveZone;
 use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask, runtime::with_runtime, serialization::Serializable,
+    create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::with_runtime, serialization::Serializable,
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
-    GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, SignalDispose,
-    SignalGet, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
-    SuspenseContext, WriteSignal,
+    GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
+    SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
+    SignalWith, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -139,6 +143,11 @@ where
 ///
 /// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather,
 /// it is blocking in the sense that it blocks the server from sending a response.
+///
+/// When used with the leptos_router and `SsrMode::PartiallyBlocked`, a
+/// blocking resource will ensure `<Suspense/>` blocks depending on the resource
+/// are fully rendered on the server side, without requiring JavaScript or
+/// WebAssembly on the client.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
@@ -202,6 +211,8 @@ where
         version: Rc::new(Cell::new(0)),
         suspense_contexts: Default::default(),
         serializable,
+        #[cfg(feature = "experimental-islands")]
+        should_send_to_client: Default::default(),
     });
 
     let id = with_runtime(|runtime| {
@@ -253,7 +264,9 @@ where
 /// }
 ///
 /// // create the resource; it will run but not be serialized
-/// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
+/// # // `csr`, `hydrate`, and `ssr` all have issues here
+/// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+/// # if false {
 /// let result =
 ///     create_local_resource(move || (), |_| setup_complicated_struct());
 /// # }
@@ -333,6 +346,8 @@ where
         version: Rc::new(Cell::new(0)),
         suspense_contexts: Default::default(),
         serializable: ResourceSerialization::Local,
+        #[cfg(feature = "experimental-islands")]
+        should_send_to_client: Default::default(),
     });
 
     let id = with_runtime(|runtime| {
@@ -343,7 +358,7 @@ where
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_effect({
+    create_isomorphic_effect({
         let r = Rc::clone(&r);
         // This is a local resource, so we're always going to handle it on the
         // client
@@ -503,16 +518,52 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub fn loading(&self) -> ReadSignal<bool> {
-        with_runtime(|runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.loading
-            })
+    pub fn loading(&self) -> Signal<bool> {
+        #[allow(unused_variables)]
+        let (loading, is_from_server) = with_runtime(|runtime| {
+            let loading = runtime
+                .resource(self.id, |resource: &ResourceState<S, T>| {
+                    resource.loading
+                });
+            #[cfg(feature = "hydrate")]
+            let is_from_server = runtime
+                .shared_context
+                .borrow()
+                .server_resources
+                .contains(&self.id);
+
+            #[cfg(not(feature = "hydrate"))]
+            let is_from_server = false;
+            (loading, is_from_server)
         })
         .expect(
             "tried to call Resource::loading() in a runtime that has already \
              been disposed.",
-        )
+        );
+
+        #[cfg(feature = "hydrate")]
+        {
+            // if the loading signal is read outside Suspense
+            // in hydrate mode, there will be a mismatch on first render
+            // unless we delay a tick
+            let (initial, set_initial) = create_signal(true);
+            queue_microtask(move || set_initial.set(false));
+            Signal::derive(move || {
+                if is_from_server
+                    && initial.get()
+                    && use_context::<SuspenseContext>().is_none()
+                {
+                    true
+                } else {
+                    loading.get()
+                }
+            })
+        }
+
+        #[cfg(not(feature = "hydrate"))]
+        {
+            loading.into()
+        }
     }
 
     /// Re-runs the async function with the current source data.
@@ -523,7 +574,13 @@ where
     pub fn refetch(&self) {
         _ = with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.refetch()
+                #[cfg(debug_assertions)]
+                let prev = SpecialNonReactiveZone::enter();
+                resource.refetch();
+                #[cfg(debug_assertions)]
+                {
+                    SpecialNonReactiveZone::exit(prev);
+                }
             })
         });
     }
@@ -586,7 +643,9 @@ where
     }
 }
 
-impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
+impl<S, T> SignalUpdate for Resource<S, T> {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -642,11 +701,13 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
     }
 }
 
-impl<S, T> SignalWith<Option<T>> for Resource<S, T>
+impl<S, T> SignalWith for Resource<S, T>
 where
     S: Clone,
     T: Clone,
 {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -708,11 +769,13 @@ where
     }
 }
 
-impl<S, T> SignalGet<Option<T>> for Resource<S, T>
+impl<S, T> SignalGet for Resource<S, T>
 where
     S: Clone,
     T: Clone,
 {
+    type Value = Option<T>;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -745,6 +808,7 @@ where
         )
     )]
     #[inline(always)]
+    #[track_caller]
     fn try_get(&self) -> Option<Option<T>> {
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
@@ -756,7 +820,9 @@ where
     }
 }
 
-impl<S, T> SignalSet<T> for Resource<S, T> {
+impl<S, T> SignalSet for Resource<S, T> {
+    type Value = T;
+
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -851,6 +917,141 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+impl<S, T> Resource<S, T>
+where
+    S: 'static,
+    T: 'static,
+{
+    /// Creates a [`Resource`](crate::Resource), which is a signal that reflects the
+    /// current state of an asynchronous task, allowing you to integrate `async`
+    /// [`Future`]s into the synchronous reactive system.
+    ///
+    /// Takes a `fetcher` function that generates a [`Future`] when called and a
+    /// `source` signal that provides the argument for the `fetcher`. Whenever the
+    /// value of the `source` changes, a new [`Future`] will be created and run.
+    ///
+    /// When server-side rendering is used, the server will handle running the
+    /// [`Future`] and will stream the result to the client. This process requires the
+    /// output type of the Future to be [`Serializable`]. If your output cannot be
+    /// serialized, or you just want to make sure the [`Future`] runs locally, use
+    /// [`create_local_resource()`].
+    ///
+    /// This is identical with [`create_resource`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// // any old async function; maybe this is calling a REST API or something
+    /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
+    ///   // pretend we're fetching cat pics
+    ///   vec![how_many.to_string()]
+    /// }
+    ///
+    /// // a signal that controls how many cat pics we want
+    /// let (how_many_cats, set_how_many_cats) = create_signal(1);
+    ///
+    /// // create a resource that will refetch whenever `how_many_cats` changes
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
+    /// let cats = Resource::new(move || how_many_cats.get(), fetch_cat_picture_urls);
+    ///
+    /// // when we read the signal, it contains either
+    /// // 1) None (if the Future isn't ready yet) or
+    /// // 2) Some(T) (if the future's already resolved)
+    /// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
+    ///
+    /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
+    /// set_how_many_cats.set(2);
+    /// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new<Fu>(
+        source: impl Fn() -> S + 'static,
+        fetcher: impl Fn(S) -> Fu + 'static,
+    ) -> Resource<S, T>
+    where
+        S: PartialEq + Clone + 'static,
+        T: Serializable + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        create_resource(source, fetcher)
+    }
+
+    /// Creates a _local_ [`Resource`](crate::Resource), which is a signal that
+    /// reflects the current state of an asynchronous task, allowing you to
+    /// integrate `async` [`Future`]s into the synchronous reactive system.
+    ///
+    /// Takes a `fetcher` function that generates a [`Future`] when called and a
+    /// `source` signal that provides the argument for the `fetcher`. Whenever the
+    /// value of the `source` changes, a new [`Future`] will be created and run.
+    ///
+    /// Unlike [`create_resource()`], this [`Future`] is always run on the local system
+    /// and therefore it's result type does not need to be [`Serializable`].
+    ///
+    /// This is identical with [`create_local_resource`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
+    /// struct ComplicatedUnserializableStruct {
+    ///     // something here that can't be serialized
+    /// }
+    /// // any old async function; maybe this is calling a REST API or something
+    /// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
+    ///     // do some work
+    ///     ComplicatedUnserializableStruct {}
+    /// }
+    ///
+    /// // create the resource; it will run but not be serialized
+    /// # // `csr`, `hydrate`, and `ssr` all have issues here
+    /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+    /// # if false {
+    /// let result =
+    ///     create_local_resource(move || (), |_| setup_complicated_struct());
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn local<Fu>(
+        source: impl Fn() -> S + 'static,
+        fetcher: impl Fn(S) -> Fu + 'static,
+    ) -> Resource<S, T>
+    where
+        S: PartialEq + Clone + 'static,
+        T: 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        let initial_value = None;
+        create_local_resource_with_initial_value(source, fetcher, initial_value)
+    }
+}
+
+impl<T> Resource<(), T>
+where
+    T: 'static,
+{
+    /// Creates a resource that will only load once, and will not respond
+    /// to any reactive changes, including changes in any reactive variables
+    /// read in its fetcher.
+    ///
+    /// This identical to `create_resource(|| (), move |_| fetcher())`.
+    #[inline(always)]
+    #[track_caller]
+    pub fn once<Fu>(fetcher: impl Fn() -> Fu + 'static) -> Resource<(), T>
+    where
+        T: Serializable + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        create_resource(|| (), move |_| fetcher())
+    }
+}
+
 // Resources
 slotmap::new_key_type! {
     /// Unique ID assigned to a [`Resource`](crate::Resource).
@@ -892,6 +1093,8 @@ where
     version: Rc<Cell<usize>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
     serializable: ResourceSerialization,
+    #[cfg(feature = "experimental-islands")]
+    should_send_to_client: Rc<Cell<Option<bool>>>,
 }
 
 /// Whether and how the resource can be serialized.
@@ -934,7 +1137,7 @@ where
             .ok()?
             .flatten();
 
-        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+        self.handle_result(location, global_suspense_cx, suspense_cx, v, false)
     }
 
     #[track_caller]
@@ -945,10 +1148,16 @@ where
     ) -> Option<U> {
         let global_suspense_cx = use_context::<GlobalSuspenseContext>();
         let suspense_cx = use_context::<SuspenseContext>();
+        let (was_loaded, v) =
+            self.value.try_with(|n| (n.is_some(), f(n))).ok()?;
 
-        let v = self.value.try_with(|n| f(n)).ok();
-
-        self.handle_result(location, global_suspense_cx, suspense_cx, v)
+        self.handle_result(
+            location,
+            global_suspense_cx,
+            suspense_cx,
+            Some(v),
+            !was_loaded,
+        )
     }
 
     fn handle_result<U>(
@@ -957,6 +1166,7 @@ where
         global_suspense_cx: Option<GlobalSuspenseContext>,
         suspense_cx: Option<SuspenseContext>,
         v: Option<U>,
+        force_suspend: bool,
     ) -> Option<U> {
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
@@ -1016,7 +1226,7 @@ where
                         // on subsequent reads, increment will be triggered in load()
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
-                        if !has_value {
+                        if !has_value || force_suspend {
                             s.increment(
                                 serializable != ResourceSerialization::Local,
                             );
@@ -1035,7 +1245,7 @@ where
                         if !contexts.contains(s) {
                             contexts.insert(*s);
 
-                            if !has_value {
+                            if !has_value || force_suspend {
                                 s.increment(
                                     serializable
                                         != ResourceSerialization::Local,
@@ -1067,6 +1277,15 @@ where
         // doesn't refetch if already refetching
         if refetching && self.scheduled.get() {
             return;
+        }
+
+        // if it's 1) in normal mode and is read, or
+        // 2) is in island mode and read in an island, tell it to ship
+        #[cfg(feature = "experimental-islands")]
+        if self.should_send_to_client.get().is_none()
+            && !SharedContext::no_hydrate()
+        {
+            self.should_send_to_client.set(Some(true));
         }
 
         let version = self.version.get() + 1;
@@ -1113,14 +1332,12 @@ where
                         resolved.set(true);
                         set_value.try_update(|n| *n = Some(res));
                         set_loading.try_update(|n| *n = false);
+                    }
 
-                        for suspense_context in
-                            suspense_contexts.borrow().iter()
-                        {
-                            suspense_context.decrement(
-                                serializable != ResourceSerialization::Local,
-                            );
-                        }
+                    for suspense_context in suspense_contexts.borrow().iter() {
+                        suspense_context.decrement(
+                            serializable != ResourceSerialization::Local,
+                        );
                     }
                 }
             })
@@ -1179,6 +1396,8 @@ pub(crate) trait SerializableResource {
         &self,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
+
+    fn should_send_to_client(&self) -> bool;
 }
 
 impl<S, T> SerializableResource for ResourceState<S, T>
@@ -1189,16 +1408,34 @@ where
     fn as_any(&self) -> &dyn Any {
         self
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
+    #[inline(always)]
     fn to_serialization_resolver(
         &self,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
         let fut = self.resource_to_serialization_resolver(id);
         Box::pin(fut)
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    #[inline(always)]
+    fn should_send_to_client(&self) -> bool {
+        #[cfg(feature = "experimental-islands")]
+        {
+            self.should_send_to_client.get() == Some(true)
+        }
+        #[cfg(not(feature = "experimental-islands"))]
+        {
+            true
+        }
     }
 }
 
@@ -1240,5 +1477,31 @@ where
                 std::panic::Location::caller()
             );
         }
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> FnOnce<()> for Resource<S, T> {
+    type Output = Option<T>;
+
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> FnMut<()> for Resource<S, T> {
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<S: Clone, T: Clone> Fn<()> for Resource<S, T> {
+    #[inline(always)]
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.get()
     }
 }

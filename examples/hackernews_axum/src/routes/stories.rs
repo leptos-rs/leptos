@@ -36,12 +36,11 @@ pub fn Stories() -> impl IntoView {
     let (pending, set_pending) = create_signal(false);
 
     let hide_more_link = move || {
-        pending()
-            || stories.get().unwrap_or(None).unwrap_or_default().len() < 28
+        stories.get().unwrap_or(None).unwrap_or_default().len() < 28
+            || pending()
     };
 
     view! {
-
         <div class="news-view">
             <div class="news-list-nav">
                 <span>
@@ -65,26 +64,22 @@ pub fn Stories() -> impl IntoView {
                     }}
                 </span>
                 <span>"page " {page}</span>
-                <Transition
-                    fallback=move || view! { <p>"Loading..."</p> }
+                <span class="page-link"
+                    class:disabled=hide_more_link
+                    aria-hidden=hide_more_link
                 >
-                    <span class="page-link"
-                        class:disabled=hide_more_link
-                        aria-hidden=hide_more_link
-                    >
-                        <a href=move || format!("/{}?page={}", story_type(), page() + 1)
-                            aria-label="Next Page"
-                        >
-                            "more >"
-                        </a>
-                    </span>
-                </Transition>
+                    <a href=move || format!("/{}?page={}", story_type(), page() + 1)
+                        aria-label="Next Page"
+                    >=
+                        "more >"
+                    </a>
+                </span>
             </div>
             <main class="news-list">
                 <div>
                     <Transition
                         fallback=move || view! { <p>"Loading..."</p> }
-                        set_pending=set_pending.into()
+                        set_pending
                     >
                         {move || match stories.get() {
                             None => None,

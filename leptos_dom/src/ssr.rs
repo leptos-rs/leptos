@@ -4,13 +4,13 @@
 
 use crate::{
     html::{ElementChildren, StringOrView},
-    CoreComponent, HydrationCtx, IntoView, View,
+    CoreComponent, HydrationCtx, HydrationKey, IntoView, View,
 };
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::*;
-use std::{borrow::Cow, pin::Pin};
+use leptos_reactive::{Oco, *};
+use std::pin::Pin;
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
@@ -30,7 +30,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn render_to_string<F, N>(f: F) -> String
+pub fn render_to_string<F, N>(f: F) -> Oco<'static, str>
 where
     F: FnOnce() -> N + 'static,
     N: IntoView,
@@ -42,7 +42,7 @@ where
 
     runtime.dispose();
 
-    html.into()
+    html
 }
 
 /// Renders a function to a stream of HTML strings.
@@ -87,7 +87,7 @@ pub fn render_to_stream(
 )]
 pub fn render_to_stream_with_prefix(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
     let (stream, runtime) =
         render_to_stream_with_prefix_undisposed(view, prefix);
@@ -116,7 +116,7 @@ pub fn render_to_stream_with_prefix(
 )]
 pub fn render_to_stream_with_prefix_undisposed(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId) {
     render_to_stream_with_prefix_undisposed_with_context(view, prefix, || {})
 }
@@ -142,7 +142,7 @@ pub fn render_to_stream_with_prefix_undisposed(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce() + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId) {
     render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
@@ -179,7 +179,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
     view: impl FnOnce() -> View + 'static,
-    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    prefix: impl FnOnce() -> Oco<'static, str> + 'static,
     additional_context: impl FnOnce() + 'static,
     replace_blocks: bool,
 ) -> (impl Stream<Item = String>, RuntimeId) {
@@ -212,7 +212,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                 .push(async move { (fragment_id, data.out_of_order.await) });
         } else {
             fragments.push(Box::pin(async move {
-                (fragment_id.clone(), data.out_of_order.await)
+                (fragment_id, data.out_of_order.await)
             })
                 as Pin<Box<dyn Future<Output = (String, String)>>>);
         }
@@ -363,9 +363,9 @@ impl View {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    pub fn render_to_string(self) -> Cow<'static, str> {
+    pub fn render_to_string(self) -> Oco<'static, str> {
         #[cfg(all(feature = "web", feature = "ssr"))]
-        crate::console_error(
+        crate::logging::console_error(
             "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
              enabled as features, which may cause issues like <Suspense/>` \
              failing to work silently.\n",
@@ -381,7 +381,7 @@ impl View {
     pub(crate) fn render_to_string_helper(
         self,
         dont_escape_text: bool,
-    ) -> Cow<'static, str> {
+    ) -> Oco<'static, str> {
         match self {
             View::Text(node) => {
                 if dont_escape_text {
@@ -401,11 +401,11 @@ impl View {
                 };
                 cfg_if! {
                   if #[cfg(debug_assertions)] {
-                    let content = format!(r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
-                      HydrationCtx::to_string(&node.id, false),
+                    let name = to_kebab_case(&node.name);
+                    let content = format!(r#"{}{}{}"#,
+                      node.id.to_marker(false, &name),
                       content(),
-                      HydrationCtx::to_string(&node.id, true),
-                      name = to_kebab_case(&node.name)
+                      node.id.to_marker(true, &name),
                     );
                     if let Some(id) = node.view_marker {
                         format!("<!--leptos-view|{id}|open-->{content}<!--leptos-view|{id}|close-->").into()
@@ -414,9 +414,9 @@ impl View {
                     }
                   } else {
                     format!(
-                      r#"{}<!--hk={}-->"#,
+                      r#"{}{}"#,
                       content(),
-                      HydrationCtx::to_string(&node.id, true)
+                      node.id.to_marker(true)
                     ).into()
                   }
                 }
@@ -434,23 +434,13 @@ impl View {
                         "",
                         false,
                         Box::new(move || {
-                            #[cfg(debug_assertions)]
-                            {
-                                format!(
-                                    "<!--hk={}|leptos-unit-->",
-                                    HydrationCtx::to_string(&u.id, true)
-                                )
-                                .into()
-                            }
-
-                            #[cfg(not(debug_assertions))]
-                            format!(
-                                "<!--hk={}-->",
-                                HydrationCtx::to_string(&u.id, true)
+                            u.id.to_marker(
+                                true,
+                                #[cfg(debug_assertions)]
+                                "unit",
                             )
-                            .into()
                         })
-                            as Box<dyn FnOnce() -> Cow<'static, str>>,
+                            as Box<dyn FnOnce() -> Oco<'static, str>>,
                     ),
                     CoreComponent::DynChild(node) => {
                         let child = node.child.take();
@@ -500,7 +490,7 @@ impl View {
                                     "".into()
                                 }
                             })
-                                as Box<dyn FnOnce() -> Cow<'static, str>>,
+                                as Box<dyn FnOnce() -> Oco<'static, str>>,
                         )
                     }
                     CoreComponent::Each(node) => {
@@ -515,7 +505,10 @@ impl View {
                                     .flatten()
                                     .map(|node| {
                                         let id = node.id;
-                                        let is_el = matches!(node.child, View::Element(_));
+                                        let is_el = matches!(
+                                            node.child,
+                                            View::Element(_)
+                                        );
 
                                         let content = || {
                                             node.child.render_to_string_helper(
@@ -523,61 +516,50 @@ impl View {
                                             )
                                         };
 
-                                        #[cfg(debug_assertions)]
-                                        {
-                                            if is_el {
-                                               content()
-                                            } else {
-                                                format!(
-                                                    "<!--hk={}|leptos-each-item-start-->{}<!\
-                                                    --hk={}|leptos-each-item-end-->",
-                                                    HydrationCtx::to_string(&id, false),
-                                                    content(),
-                                                    HydrationCtx::to_string(&id, true),
-                                                ).into()
-                                            }
-                                        }
-
-                                        #[cfg(not(debug_assertions))]
-                                        {
-                                            if is_el {
-                                                content()
-                                             } else {
-                                                format!(
-                                                    "{}<!--hk={}-->",
-                                                    content(),
-                                                    HydrationCtx::to_string(&id, true)
-                                                ).into()
-                                             }
+                                        if is_el {
+                                            content()
+                                        } else {
+                                            format!(
+                                                "{}{}{}",
+                                                id.to_marker(
+                                                    false,
+                                                    #[cfg(debug_assertions)]
+                                                    "each-item",
+                                                ),
+                                                content(),
+                                                id.to_marker(
+                                                    true,
+                                                    #[cfg(debug_assertions)]
+                                                    "each-item",
+                                                )
+                                            )
+                                            .into()
                                         }
                                     })
                                     .join("")
                                     .into()
                             })
-                                as Box<dyn FnOnce() -> Cow<'static, str>>,
+                                as Box<dyn FnOnce() -> Oco<'static, str>>,
                         )
                     }
                 };
 
                 if wrap {
-                    cfg_if! {
-                      if #[cfg(debug_assertions)] {
-                        format!(
-                          r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
-                          HydrationCtx::to_string(&id, false),
-                          content(),
-                          HydrationCtx::to_string(&id, true),
-                        ).into()
-                      } else {
-                        let _ = name;
-
-                        format!(
-                          r#"{}<!--hk={}-->"#,
-                          content(),
-                          HydrationCtx::to_string(&id, true)
-                        ).into()
-                      }
-                    }
+                    format!(
+                        r#"{}{}{}"#,
+                        id.to_marker(
+                            false,
+                            #[cfg(debug_assertions)]
+                            name,
+                        ),
+                        content(),
+                        id.to_marker(
+                            true,
+                            #[cfg(debug_assertions)]
+                            name,
+                        ),
+                    )
+                    .into()
                 } else {
                     content()
                 }
@@ -598,15 +580,15 @@ impl View {
                         .join("")
                         .into()
                 } else {
-                    let tag_name = el.name;
+                    let tag_name: Oco<'_, str> = el.name;
 
-                    let mut inner_html = None;
+                    let mut inner_html: Option<Oco<'_, str>> = None;
 
                     let attrs = el
                         .attrs
                         .into_iter()
                         .filter_map(
-                            |(name, value)| -> Option<Cow<'static, str>> {
+                            |(name, value)| -> Option<Oco<'static, str>> {
                                 if value.is_empty() {
                                     Some(format!(" {name}").into())
                                 } else if name == "inner_html" {
@@ -615,9 +597,9 @@ impl View {
                                 } else {
                                     Some(
                                         format!(
-                    " {name}=\"{}\"",
-                    html_escape::encode_double_quoted_attribute(&value)
-                  )
+                                            " {name}=\"{}\"",
+                                            html_escape::encode_double_quoted_attribute(&value)
+                                        )
                                         .into(),
                                     )
                                 }
@@ -729,9 +711,62 @@ pub(crate) fn render_serializers(
 }
 
 #[doc(hidden)]
-pub fn escape_attr<T>(value: &T) -> Cow<'_, str>
+pub fn escape_attr<T>(value: &T) -> Oco<'_, str>
 where
     T: AsRef<str>,
 {
-    html_escape::encode_double_quoted_attribute(value)
+    html_escape::encode_double_quoted_attribute(value).into()
+}
+
+pub(crate) trait ToMarker {
+    fn to_marker(
+        &self,
+        closing: bool,
+        #[cfg(debug_assertions)] component_name: &str,
+    ) -> Oco<'static, str>;
+}
+
+impl ToMarker for HydrationKey {
+    #[inline(always)]
+    fn to_marker(
+        &self,
+        closing: bool,
+        #[cfg(debug_assertions)] component_name: &str,
+    ) -> Oco<'static, str> {
+        #[cfg(debug_assertions)]
+        {
+            if closing || component_name == "unit" {
+                format!("<!--hk={self}c|leptos-{component_name}-end-->").into()
+            } else {
+                format!("<!--hk={self}o|leptos-{component_name}-start-->")
+                    .into()
+            }
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            if closing {
+                format!("<!--hk={self}-->").into()
+            } else {
+                "".into()
+            }
+        }
+    }
+}
+
+impl ToMarker for Option<HydrationKey> {
+    #[inline(always)]
+    fn to_marker(
+        &self,
+        closing: bool,
+        #[cfg(debug_assertions)] component_name: &str,
+    ) -> Oco<'static, str> {
+        self.map(|key| {
+            key.to_marker(
+                closing,
+                #[cfg(debug_assertions)]
+                component_name,
+            )
+        })
+        .unwrap_or("".into())
+    }
 }

@@ -1,8 +1,8 @@
 use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
-    create_isomorphic_effect, use_context, SignalGet, SignalSetter,
-    SuspenseContext,
+    create_isomorphic_effect, create_rw_signal, use_context, RwSignal,
+    SignalGet, SignalGetUntracked, SignalSet, SignalSetter, SuspenseContext,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -39,7 +39,7 @@ use std::{
 ///   <div>
 ///     <Transition
 ///       fallback=move || view! {  <p>"Loading..."</p>}
-///       set_pending=set_pending.into()
+///       set_pending
 ///     >
 ///       {move || {
 ///           cats.read().map(|data| match data {
@@ -72,7 +72,7 @@ pub fn Transition<F, E>(
     /// A function that will be called when the component transitions into or out of
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
-    #[prop(optional)]
+    #[prop(optional, into)]
     set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
     children: Box<dyn Fn() -> Fragment>,
@@ -83,7 +83,7 @@ where
 {
     let prev_children = Rc::new(RefCell::new(None::<View>));
 
-    let first_run = Rc::new(std::cell::Cell::new(true));
+    let first_run = create_rw_signal(true);
     let child_runs = Cell::new(0);
     let held_suspense_context = Rc::new(RefCell::new(None::<SuspenseContext>));
 
@@ -91,17 +91,20 @@ where
         crate::SuspenseProps::builder()
             .fallback({
                 let prev_child = Rc::clone(&prev_children);
-                let first_run = Rc::clone(&first_run);
                 move || {
                     let suspense_context = use_context::<SuspenseContext>()
                         .expect("there to be a SuspenseContext");
 
+                    let was_first_run =
+                        cfg!(feature = "csr") && first_run.get();
                     let is_first_run =
-                        is_first_run(&first_run, &suspense_context);
-                    first_run.set(false);
+                        is_first_run(first_run, &suspense_context);
+                    if was_first_run {
+                        first_run.set(false)
+                    }
 
                     if let Some(prev_children) = &*prev_child.borrow() {
-                        if is_first_run {
+                        if is_first_run || was_first_run {
                             fallback().into_view()
                         } else {
                             prev_children.clone()
@@ -111,7 +114,7 @@ where
                     }
                 }
             })
-            .children(Box::new(move || {
+            .children(Rc::new(move || {
                 let frag = children().into_view();
 
                 if let Some(suspense_context) = use_context::<SuspenseContext>()
@@ -122,17 +125,16 @@ where
                 let suspense_context = held_suspense_context.borrow().unwrap();
 
                 if cfg!(feature = "hydrate")
-                    || !first_run.get()
+                    || !first_run.get_untracked()
                     || (cfg!(feature = "csr") && first_run.get())
                 {
                     *prev_children.borrow_mut() = Some(frag.clone());
                 }
-                if is_first_run(&first_run, &suspense_context) {
+                if is_first_run(first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
                         || cfg!(feature = "csr");
                     if (!has_local_only || child_runs.get() > 0)
-                        && (cfg!(feature = "csr")
-                            || HydrationCtx::is_hydrating())
+                        && !cfg!(feature = "csr")
                     {
                         first_run.set(false);
                     }
@@ -152,14 +154,14 @@ where
 }
 
 fn is_first_run(
-    first_run: &Rc<Cell<bool>>,
+    first_run: RwSignal<bool>,
     suspense_context: &SuspenseContext,
 ) -> bool {
     if cfg!(feature = "csr") {
         false
     } else {
         match (
-            first_run.get(),
+            first_run.get_untracked(),
             cfg!(feature = "hydrate"),
             suspense_context.has_local_only(),
         ) {

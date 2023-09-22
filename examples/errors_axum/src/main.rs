@@ -12,7 +12,7 @@ cfg_if! { if #[cfg(feature = "ssr")] {
         Router,
     };
     use errors_axum::*;
-    use leptos::*;
+    use leptos::{logging::log, *};
     use leptos_axum::{generate_route_list, LeptosRoutes};
 }}
 

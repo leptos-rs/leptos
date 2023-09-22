@@ -1,3 +1,8 @@
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
+
 /// Represents the different possible values a single class on an element could have,
 /// allowing you to do fine-grained updates to single items
 /// in [`Element.classList`](https://developer.mozilla.org/en-US/docs/Web/API/Element/classList).
@@ -16,12 +21,19 @@ pub enum Class {
 pub trait IntoClass {
     /// Converts the object into a [`Class`].
     fn into_class(self) -> Class;
+
+    /// Helper function for dealing with `Box<dyn IntoClass>`.
+    fn into_class_boxed(self: Box<Self>) -> Class;
 }
 
 impl IntoClass for bool {
     #[inline(always)]
     fn into_class(self) -> Class {
         Class::Value(self)
+    }
+
+    fn into_class_boxed(self: Box<Self>) -> Class {
+        (*self).into_class()
     }
 }
 
@@ -33,6 +45,10 @@ where
     fn into_class(self) -> Class {
         let modified_fn = Box::new(self);
         Class::Fn(modified_fn)
+    }
+
+    fn into_class_boxed(self: Box<Self>) -> Class {
+        (*self).into_class()
     }
 }
 
@@ -60,14 +76,14 @@ impl Class {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
+use leptos_reactive::Oco;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
 #[inline(never)]
 pub fn class_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     value: Class,
 ) {
     use leptos_reactive::create_render_effect;
@@ -113,3 +129,44 @@ pub(crate) fn class_expression(
         }
     }
 }
+
+macro_rules! class_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl IntoClass for $signal_type {
+            #[inline(always)]
+            fn into_class(self) -> Class {
+                let modified_fn = Box::new(move || self.get());
+                Class::Fn(modified_fn)
+            }
+
+            fn into_class_boxed(self: Box<Self>) -> Class {
+                (*self).into_class()
+            }
+        }
+    };
+}
+
+macro_rules! class_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl IntoClass for $signal_type {
+            #[inline(always)]
+            fn into_class(self) -> Class {
+                let modified_fn = Box::new(move || self.get().unwrap_or(false));
+                Class::Fn(modified_fn)
+            }
+
+            fn into_class_boxed(self: Box<Self>) -> Class {
+                (*self).into_class()
+            }
+        }
+    };
+}
+
+class_signal_type!(ReadSignal<bool>);
+class_signal_type!(RwSignal<bool>);
+class_signal_type!(Memo<bool>);
+class_signal_type!(Signal<bool>);
+class_signal_type!(MaybeSignal<bool>);
+class_signal_type_optional!(MaybeProp<bool>);

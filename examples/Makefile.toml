@@ -41,7 +41,7 @@ workspace = false
 description = "Generate the list of workspace members"
 script = '''
 examples=$(ls | 
-grep -v README.md | 
+grep -v .md | 
 grep -v Makefile.toml | 
 grep -v cargo-make | 
 grep -v gtk | 
@@ -49,10 +49,12 @@ jq -R -s -c 'split("\n")[:-1]')
 echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
 '''
 
-[tasks.test-runner-report]
+[tasks.test-report]
 workspace = false
-description = "report ci test runners for each example - OPTION: [all]"
+description = "report web testing technology used by examples - OPTION: [all]"
 script = '''
+set -emu
+
 BOLD="\e[1m"
 GREEN="\e[0;32m"
 ITALIC="\e[3m"
@@ -60,11 +62,10 @@ YELLOW="\e[0;33m"
 RESET="\e[0m"
 
 echo
-echo "${YELLOW}Test Runner Report${RESET}"
-echo "${ITALIC}Pass the option \"all\" to show all the examples${RESET}"
+echo "${YELLOW}Web Test Technology${RESET}"
 echo
 
-makefile_paths=$(find . -name Makefile.toml -not -path '*/target/*' |
+makefile_paths=$(find . -name Makefile.toml -not -path '*/target/*' -not -path '*/node_modules/*' |
   sed 's%./%%' |
   sed 's%/Makefile.toml%%' |
   grep -v Makefile.toml |
@@ -75,38 +76,78 @@ start_path=$(pwd)
 for path in $makefile_paths; do
   cd $path
 
-  test_runner=
+  crate_symbols=
 
-  test_count=$(grep -rl -E "#\[(test|rstest)\]" | wc -l)
-  if [ $test_count -gt 0 ]; then
-    test_runner="-C"
-  fi
+  pw_count=$(find . -name playwright.config.ts | wc -l)
+
+  while read -r line; do
+      case $line in
+      *"cucumber"*)
+          crate_symbols=$crate_symbols"C"
+          ;;
+      *"fantoccini"*)
+          crate_symbols=$crate_symbols"D"
+          ;;
+      esac
+  done <"./Cargo.toml"
 
   while read -r line; do
     case $line in
-      *"wasm-test.toml"*)
-          test_runner=$test_runner"-W"
+      *"cargo-make/wasm-test.toml"*)
+          crate_symbols=$crate_symbols"W"
         ;;
-      *"playwright-test.toml"*)
-          test_runner=$test_runner"-P"
+      *"cargo-make/playwright-test.toml"*)
+          crate_symbols=$crate_symbols"P"
+          crate_symbols=$crate_symbols"N"
         ;;
-      *"cargo-leptos-test.toml"*)
-          test_runner=$test_runner"-L"
+      *"cargo-make/playwright-trunk-test.toml"*)
+          crate_symbols=$crate_symbols"P"
+          crate_symbols=$crate_symbols"T"
+        ;;
+      *"cargo-make/trunk_server.toml"*)
+          crate_symbols=$crate_symbols"T"
+        ;;
+      *"cargo-make/cargo-leptos-webdriver-test.toml"*)
+          crate_symbols=$crate_symbols"L"
+        ;;
+      *"cargo-make/cargo-leptos-test.toml"*)
+          crate_symbols=$crate_symbols"L"
+          if [ $pw_count -gt 0 ]; then
+            crate_symbols=$crate_symbols"P"
+          fi
         ;;
     esac
   done <"./Makefile.toml"
 
-  if [ ! -z "$1" ]; then
+  # Sort list of tools
+  sorted_crate_symbols=$(echo ${crate_symbols} | grep -o . | sort | tr -d "\n") 
+
+  formatted_crate_symbols=" ➤ ${BOLD}${YELLOW}${sorted_crate_symbols}${RESET}"
+  crate_line=$path
+  if [ ! -z ${1+x} ]; then
     # Show all examples
-    echo "$path ${BOLD}${test_runner}${RESET}"
-  elif [ ! -z $test_runner ]; then
+    if [ ! -z $crate_symbols ]; then
+      crate_line=$crate_line$formatted_crate_symbols
+    fi
+    echo $crate_line
+  elif [ ! -z $crate_symbols ]; then
     # Filter out examples that do not run tests in `ci`
-    echo "$path ${BOLD}${test_runner}${RESET}"
+    crate_line=$crate_line$formatted_crate_symbols
+    echo $crate_line
   fi
 
   cd ${start_path}
 done
+
+c="${BOLD}${YELLOW}C${RESET} = Cucumber"
+d="${BOLD}${YELLOW}D${RESET} = WebDriver"
+l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
+n="${BOLD}${YELLOW}N${RESET} = Node"
+p="${BOLD}${YELLOW}P${RESET} = Playwright"
+t="${BOLD}${YELLOW}T${RESET} = Trunk"
+w="${BOLD}${YELLOW}W${RESET} = WASM"
+
 echo
-echo "${ITALIC}Runners: C = Cargo Test, L = Cargo Leptos Test, P = Playwright Test, W = WASM Test${RESET}"
+echo "${ITALIC}Keys:${RESET} $c, $d, $l, $n, $p, $t, $w"
 echo
 '''
