@@ -34,6 +34,7 @@ jobs:
             examples
             !examples/cargo-make
             !examples/gtk
+            !examples/hackernews_js_fetch
             !examples/Makefile.toml
             !examples/*.md
           json: true
