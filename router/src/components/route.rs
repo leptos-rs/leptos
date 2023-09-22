@@ -49,7 +49,7 @@ pub fn Route<E, F, P>(
     /// wildcard (`user/*any`).
     path: P,
     /// The view that should be shown when this route is matched. This can be any function
-    /// that returns a type that implements [IntoView] (like `|| view! { <p>"Show this"</p> })`
+    /// that returns a type that implements [`IntoView`] (like `|| view! { <p>"Show this"</p> })`
     /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
@@ -250,7 +250,7 @@ impl RouteContext {
     /// including param values in their places.
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
-    /// For the opposite behavior, see [RouteContext::original_path].
+    /// For the opposite behavior, see [`RouteContext::original_path`].
     #[track_caller]
     pub fn path(&self) -> String {
         #[cfg(debug_assertions)]
@@ -273,7 +273,7 @@ impl RouteContext {
     /// with the param name rather than the matched parameter itself.
     ///
     /// e.g., this will return `/article/:id` rather than `/article/0`
-    /// For the opposite behavior, see [RouteContext::path].
+    /// For the opposite behavior, see [`RouteContext::path`].
     pub fn original_path(&self) -> &str {
         &self.inner.original_path
     }

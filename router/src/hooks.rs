@@ -7,6 +7,7 @@ use leptos::{
     Oco,
 };
 use std::{rc::Rc, str::FromStr};
+
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
 /// The function creates a bidirectional sync mechanism between the state encapsulated in a signal and a URL query parameter.
@@ -82,7 +83,7 @@ where
     (get, set)
 }
 
-/// Returns the current [RouterContext], containing information about the router's state.
+/// Returns the current [`RouterContext`], containing information about the router's state.
 #[track_caller]
 pub fn use_router() -> RouterContext {
     if let Some(router) = use_context::<RouterContext>() {
@@ -96,7 +97,7 @@ pub fn use_router() -> RouterContext {
     }
 }
 
-/// Returns the current [RouteContext], containing information about the matched route.
+/// Returns the current [`RouteContext`], containing information about the matched route.
 #[track_caller]
 pub fn use_route() -> RouteContext {
     use_context::<RouteContext>().unwrap_or_else(|| use_router().base())
@@ -112,7 +113,7 @@ pub fn use_route_data<T: Clone + 'static>() -> Option<T> {
     downcast
 }
 
-/// Returns the current [Location], which contains reactive variables
+/// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
 pub fn use_location() -> Location {
     use_router().inner.location.clone()

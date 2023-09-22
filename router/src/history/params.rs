@@ -4,9 +4,12 @@ use std::{str::FromStr, sync::Arc};
 use thiserror::Error;
 
 /// A key-value map of the current named route params and their values.
-// For now, implemented with a `LinearMap`, as `n` is small enough
-// that O(n) iteration over a vectorized map is (*probably*) more space-
-// and time-efficient than hashing and using an actual `HashMap`
+///
+/// For now, implemented with a [`LinearMap`], as `n` is small enough
+/// that O(n) iteration over a vectorized map is (*probably*) more space-
+/// and time-efficient than hashing and using an actual `HashMap`
+///
+/// [`LinearMap`]: linear_map::LinearMap
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 #[repr(transparent)]
 pub struct ParamsMap(pub LinearMap<String, String>);
@@ -69,7 +72,7 @@ impl Default for ParamsMap {
     }
 }
 
-/// A declarative way of creating a [ParamsMap].
+/// A declarative way of creating a [`ParamsMap`].
 ///
 /// ```
 /// # use leptos_router::params_map;
@@ -98,7 +101,7 @@ macro_rules! params_map {
 
 /// A simple method of deserializing key-value data (like route params or URL search)
 /// into a concrete data type. `Self` should typically be a struct in which
-/// each field's type implements [FromStr].
+/// each field's type implements [`FromStr`].
 pub trait Params
 where
     Self: Sized,
@@ -159,7 +162,7 @@ cfg_if::cfg_if! {
     }
 }
 
-/// Errors that can occur while parsing params using [Params](crate::Params).
+/// Errors that can occur while parsing params using [`Params`].
 #[derive(Error, Debug, Clone)]
 pub enum ParamsError {
     /// A field was missing from the route params.
