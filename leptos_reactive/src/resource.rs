@@ -143,6 +143,11 @@ where
 ///
 /// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather,
 /// it is blocking in the sense that it blocks the server from sending a response.
+///
+/// When used with the leptos_router and `SsrMode::PartiallyBlocked`, a
+/// blocking resource will ensure `<Suspense/>` blocks depending on the resource
+/// are fully rendered on the server side, without requiring JavaScript or
+/// WebAssembly on the client.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
