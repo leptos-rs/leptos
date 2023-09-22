@@ -203,6 +203,10 @@ macro_rules! spawn_task {
             } else if #[cfg(feature = "default")] {
                 let pool_handle = get_leptos_pool();
                 pool_handle.spawn_pinned(move || { $block });
+            } else {
+                // either the `wasm` feature or `default` feature should be enabled
+                // this is here mostly to suppress unused import warnings etc.
+                spawn_local($block);
             }
         }
     };
@@ -1609,6 +1613,7 @@ where
                     }
                     #[cfg(not(feature = "default"))]
                     {
+                        _ = static_mode;
                         panic!(
                             "Static site generation is not currently \
                              supported on WASM32 server targets."
