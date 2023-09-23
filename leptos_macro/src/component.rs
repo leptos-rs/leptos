@@ -732,6 +732,34 @@ impl Docs {
     }
 }
 
+#[derive(Clone, Debug)]
+struct DefaultExpr(Option<syn::Expr>);
+
+impl DefaultExpr {
+    fn is_some(&self) -> bool {
+        self.0.is_some()
+    }
+}
+
+impl attribute_derive::ConvertParsed for DefaultExpr {
+    type Type = syn::Expr;
+    fn convert(value: Self::Type) -> syn::Result<Self> {
+        Ok(Self(Some(value)))
+    }
+
+    fn default_by_default() -> bool {
+        true
+    }
+
+    fn default() -> Self {
+        Self(None)
+    }
+
+    fn as_flag() -> Option<Self::Type> {
+        Some(parse_quote!(Default::default()))
+    }
+}
+
 #[derive(Clone, Debug, AttributeDerive)]
 #[attribute(ident = prop)]
 struct PropOpt {
@@ -742,14 +770,14 @@ struct PropOpt {
     #[attribute(conflicts = [optional, optional_no_strip])]
     strip_option: bool,
     #[attribute(example = "5 * 10")]
-    default: Option<syn::Expr>,
+    default: DefaultExpr,
     into: bool,
     attrs: bool,
 }
 
 struct TypedBuilderOpts {
     default: bool,
-    default_with_value: Option<syn::Expr>,
+    default_with_value: DefaultExpr,
     strip_option: bool,
     into: bool,
 }
@@ -767,7 +795,7 @@ impl TypedBuilderOpts {
 
 impl TypedBuilderOpts {
     fn to_serde_tokens(&self) -> TokenStream {
-        let default = if let Some(v) = &self.default_with_value {
+        let default = if let Some(v) = &self.default_with_value.0 {
             let v = v.to_token_stream().to_string();
             quote! { default=#v, }
         } else if self.default {
@@ -786,7 +814,7 @@ impl TypedBuilderOpts {
 
 impl ToTokens for TypedBuilderOpts {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let default = if let Some(v) = &self.default_with_value {
+        let default = if let Some(v) = &self.default_with_value.0 {
             let v = v.to_token_stream().to_string();
             quote! { default_code=#v, }
         } else if self.default {
