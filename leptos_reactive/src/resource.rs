@@ -248,7 +248,9 @@ where
 /// value of the `source` changes, a new [`Future`] will be created and run.
 ///
 /// Unlike [`create_resource()`], this [`Future`] is always run on the local system
-/// and therefore it's result type does not need to be [`Serializable`].
+/// and therefore its result type does not need to be [`Serializable`].
+///
+/// Local resources do not load on the server, only in the client’s browser.
 ///
 /// ```
 /// # use leptos_reactive::*;
@@ -303,6 +305,8 @@ where
 /// Unlike [`create_resource_with_initial_value()`], this [`Future`] will always run
 /// on the local system and therefore its output type does not need to be
 /// [`Serializable`].
+///
+/// Local resources do not load on the server, only in the client’s browser.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
@@ -358,10 +362,10 @@ where
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_isomorphic_effect({
+    // This is a local resource, so we're always going to handle it on the
+    // client
+    create_render_effect({
         let r = Rc::clone(&r);
-        // This is a local resource, so we're always going to handle it on the
-        // client
         move |_| r.load(false)
     });
 
