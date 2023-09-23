@@ -3,8 +3,8 @@ use crate::SharedContext;
 #[cfg(debug_assertions)]
 use crate::SpecialNonReactiveZone;
 use crate::{
-    create_isomorphic_effect, create_memo, create_signal, queue_microtask,
-    runtime::with_runtime, serialization::Serializable,
+    create_isomorphic_effect, create_memo, create_render_effect, create_signal,
+    queue_microtask, runtime::with_runtime, serialization::Serializable,
     signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
     GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
     SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
