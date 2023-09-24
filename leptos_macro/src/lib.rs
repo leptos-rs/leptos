@@ -597,10 +597,17 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    parse_macro_input!(s as component::Model)
-        .is_transparent(is_transparent)
-        .into_token_stream()
-        .into()
+    let parse_result = syn::parse::<component::Model>(s.clone());
+
+    match parse_result {
+        Ok(model) => model
+            .is_transparent(is_transparent)
+            .into_token_stream()
+            .into(),
+        // Returning the original input stream in the case of a parsing
+        // error helps IDEs and rust-analyzer with auto-completion.
+        Err(_) => s,
+    }
 }
 
 /// Defines a component as an interactive island when you are using the

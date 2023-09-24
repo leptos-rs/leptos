@@ -11,11 +11,12 @@ pub fn server_impl(
     args: proc_macro::TokenStream,
     s: TokenStream,
 ) -> TokenStream {
-    let function: syn::ItemFn =
-        match syn::parse(s).map_err(|e| e.to_compile_error()) {
-            Ok(f) => f,
-            Err(e) => return e.into(),
-        };
+    let function: syn::ItemFn = match syn::parse(s.clone()) {
+        Ok(f) => f,
+        // Returning the original input stream in the case of a parsing
+        // error helps IDEs and rust-analyzer with auto-completion.
+        Err(_) => return s,
+    };
     let ItemFn {
         attrs,
         vis,
