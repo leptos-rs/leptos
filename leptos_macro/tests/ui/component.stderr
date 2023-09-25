@@ -50,32 +50,32 @@ error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `de
 10 | fn unknown_prop_option(#[prop(hello)] test: bool) -> impl IntoView {
    |                               ^^^^^
 
-error: cannot find attribute `prop` in this scope
-  --> tests/ui/component.rs:49:7
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:16:5
    |
-49 |     #[prop(default= |)] default: bool,
-   |       ^^^^
+16 |     ,
+   |     ^
 
-error: cannot find attribute `prop` in this scope
-  --> tests/ui/component.rs:41:7
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:24:5
    |
-41 |     #[prop(default)] default: bool,
-   |       ^^^^
+24 |     ,
+   |     ^
 
-error: cannot find attribute `prop` in this scope
-  --> tests/ui/component.rs:33:7
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:32:5
    |
-33 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
-   |       ^^^^
+32 |     ,
+   |     ^
 
-error: cannot find attribute `prop` in this scope
-  --> tests/ui/component.rs:25:7
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:40:5
    |
-25 |     #[prop(optional, strip_option)] conflicting: bool,
-   |       ^^^^
+40 |     ,
+   |     ^
 
-error: cannot find attribute `prop` in this scope
-  --> tests/ui/component.rs:17:7
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:48:5
    |
-17 |     #[prop(optional, optional_no_strip)] conflicting: bool,
-   |       ^^^^
+48 |     ,
+   |     ^
