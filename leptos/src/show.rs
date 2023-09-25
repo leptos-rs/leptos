@@ -35,9 +35,7 @@ use leptos_reactive::{create_memo, signal_prelude::*};
 )]
 #[component]
 pub fn Show<F, W, IV>(
-    /// The scope the component is running in
-
-    /// The components Show wraps
+    /// The children will be shown whenever the condition in the `when` closure returns `true`.
     children: ChildrenFn,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
