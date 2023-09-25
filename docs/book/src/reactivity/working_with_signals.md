@@ -108,8 +108,8 @@ let memoized_double_count = create_memo(move |_| count() * 2);
 ```
 
 > For guidance on whether to use a derived signal or a memo, see the docs for [`create_memo`](https://docs.rs/leptos/latest/leptos/fn.create_memo.html)
->
-> **2) C is a function of A and some other thing B.** Create signals for A and B and a derived signal or memo for C.
+
+**2) C is a function of A and some other thing B.** Create signals for A and B and a derived signal or memo for C.
 
 ```rust
 let (first_name, set_first_name) = create_signal("Bridget".to_string());
