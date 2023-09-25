@@ -9,6 +9,9 @@ l0410 = { package = "leptos", version = "0.4.10", features = [
 	"ssr",
 ] }
 leptos = { path = "../leptos", features = ["ssr", "nightly"] }
+leptos_reactive = { path = "../leptos_reactive", features = ["ssr", "nightly"] }
+tachydom = { git = "https://github.com/gbj/tachys", features = ["nightly"] }
+tachy_maccy = { git = "https://github.com/gbj/tachys", features = ["nightly"] }
 sycamore = { version = "0.8", features = ["ssr"] }
 yew = { version = "0.20", features = ["ssr"] }
 tokio-test = "0.4"
