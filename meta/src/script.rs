@@ -1,8 +1,9 @@
 use crate::use_head;
 use leptos::{nonce::use_nonce, *};
 
-/// Injects an [HTMLScriptElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document
+/// Injects an [`HTMLScriptElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document
 /// head, accepting any of the valid attributes for that tag.
+///
 /// ```
 /// use leptos::*;
 /// use leptos_meta::*;

@@ -1,7 +1,7 @@
 use crate::{use_head, TextProp};
 use leptos::{component, IntoView};
 
-/// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
+/// Injects an [`HTMLMetaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
 ///
 /// ```

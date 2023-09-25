@@ -1,8 +1,9 @@
 use crate::use_head;
 use leptos::{nonce::use_nonce, *};
 
-/// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
+/// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head, accepting any of the valid attributes for that tag.
+///
 /// ```
 /// use leptos::*;
 /// use leptos_meta::*;

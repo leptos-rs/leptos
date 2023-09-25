@@ -1,7 +1,7 @@
 use crate::Link;
 use leptos::*;
 
-/// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
+/// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head that loads a stylesheet from the URL given by the `href` property.
 ///
 /// ```
