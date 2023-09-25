@@ -158,6 +158,7 @@ pub async fn generate_request_and_parts(
 /// use std::net::SocketAddr;
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
@@ -190,6 +191,25 @@ pub async fn handle_server_fns(
     req: Request<Body>,
 ) -> impl IntoResponse {
     handle_server_fns_inner(fn_name, headers, query, || {}, req).await
+}
+
+/// Leptos pool causes wasm to panic and leptos_reactive::spawn::spawn_local causes native
+/// to panic so we define a macro to conditionally compile the correct code.
+macro_rules! spawn_task {
+    ($block:expr) => {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "wasm")] {
+                spawn_local($block);
+            } else if #[cfg(feature = "default")] {
+                let pool_handle = get_leptos_pool();
+                pool_handle.spawn_pinned(move || { $block });
+            } else {
+                // either the `wasm` feature or `default` feature should be enabled
+                // this is here mostly to suppress unused import warnings etc.
+                spawn_local($block);
+            }
+        }
+    };
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
@@ -232,12 +252,10 @@ async fn handle_server_fns_inner(
         .unwrap_or(fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
-    let pool_handle = get_leptos_pool();
-    pool_handle.spawn_pinned(move || {
-        async move {
-            let res = if let Some(server_fn) =
-                server_fn_by_path(fn_name.as_str())
-            {
+
+    spawn_task!(async move {
+        let res =
+            if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                 let runtime = create_runtime();
 
                 additional_context();
@@ -344,8 +362,7 @@ async fn handle_server_fns_inner(
             }
             .expect("could not build Response");
 
-            _ = tx.send(res);
-        }
+        _ = tx.send(res);
     });
 
     rx.await.unwrap()
@@ -376,6 +393,7 @@ pub type PinnedHtmlStream =
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
@@ -475,6 +493,7 @@ where
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
@@ -693,11 +712,10 @@ where
             let default_res_options = ResponseOptions::default();
             let res_options2 = default_res_options.clone();
             let res_options3 = default_res_options.clone();
-            let local_pool = get_leptos_pool();
             let (tx, rx) = futures::channel::mpsc::channel(8);
 
             let current_span = tracing::Span::current();
-            local_pool.spawn_pinned(move || async move {
+            spawn_task!(async move {
                 let app = {
                     // Need to get the path and query string of the Request
                     // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
@@ -858,9 +876,8 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
-                let local_pool = get_leptos_pool();
                 let current_span = tracing::Span::current();
-                local_pool.spawn_pinned(|| async move {
+                spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
                         let (req, req_parts) = generate_request_and_parts(req).await;
@@ -929,6 +946,7 @@ fn provide_contexts(
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
+/// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
@@ -1151,38 +1169,42 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
-                let local_pool = get_leptos_pool();
-                local_pool.spawn_pinned(move || {
-                    async move {
-                        let app = {
-                            let full_path = full_path.clone();
-                            let (req, req_parts) = generate_request_and_parts(req).await;
-                            move || {
-                                provide_contexts(full_path, req_parts, req.into(), default_res_options);
-                                app_fn().into_view()
-                            }
-                        };
 
-                        let (stream, runtime) =
+                spawn_task!(async move {
+                    let app = {
+                        let full_path = full_path.clone();
+                        let (req, req_parts) =
+                            generate_request_and_parts(req).await;
+                        move || {
+                            provide_contexts(
+                                full_path,
+                                req_parts,
+                                req.into(),
+                                default_res_options,
+                            );
+                            app_fn().into_view()
+                        }
+                    };
+
+                    let (stream, runtime) =
                             render_to_stream_in_order_with_prefix_undisposed_with_context(
                                 app,
                                 || "".into(),
                                 add_context,
                             );
 
-                        // Extract the value of ResponseOptions from here
-                        let res_options =
-                            use_context::<ResponseOptions>().unwrap();
+                    // Extract the value of ResponseOptions from here
+                    let res_options = use_context::<ResponseOptions>().unwrap();
 
-                        let html = build_async_response(stream, &options, runtime).await;
+                    let html =
+                        build_async_response(stream, &options, runtime).await;
 
-                        let new_res_parts = res_options.0.read().clone();
+                    let new_res_parts = res_options.0.read().clone();
 
-                        let mut writable = res_options2.0.write();
-                        *writable = new_res_parts;
+                    let mut writable = res_options2.0.write();
+                    *writable = new_res_parts;
 
-                        _ = tx.send(html);
-                    }
+                    _ = tx.send(html);
                 });
 
                 let html = rx.await.expect("to complete HTML rendering");
@@ -1332,6 +1354,7 @@ where
         T: 'static;
 }
 
+#[cfg(feature = "default")]
 fn handle_static_response<IV>(
     path: String,
     options: LeptosOptions,
@@ -1429,6 +1452,7 @@ where
     })
 }
 
+#[cfg(feature = "default")]
 fn static_route<IV, S>(
     router: axum::Router<S>,
     path: &str,
@@ -1571,15 +1595,26 @@ where
 
             for method in listing.methods() {
                 router = if let Some(static_mode) = listing.static_mode() {
-                    static_route(
-                        router,
-                        path,
-                        LeptosOptions::from_ref(options),
-                        app_fn.clone(),
-                        additional_context.clone(),
-                        method,
-                        static_mode,
-                    )
+                    #[cfg(feature = "default")]
+                    {
+                        static_route(
+                            router,
+                            path,
+                            LeptosOptions::from_ref(options),
+                            app_fn.clone(),
+                            additional_context.clone(),
+                            method,
+                            static_mode,
+                        )
+                    }
+                    #[cfg(not(feature = "default"))]
+                    {
+                        _ = static_mode;
+                        panic!(
+                            "Static site generation is not currently \
+                             supported on WASM32 server targets."
+                        )
+                    }
                 } else {
                     router.route(
                     path,

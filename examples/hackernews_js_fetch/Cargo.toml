@@ -1,0 +1,98 @@
+[package]
+name = "hackernews-js-fetch"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[dependencies]
+console_log = "1.0.0"
+console_error_panic_hook = "0.1.7"
+cfg-if = "1.0.0"
+leptos = { path = "../../leptos", features = ["nightly"] }
+leptos_axum = { path = "../../integrations/axum", default-features = false, optional = true }
+leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos_router = { path = "../../router", features = ["nightly"] }
+log = "0.4.17"
+simple_logger = "4.0.0"
+serde = { version = "1.0.148", features = ["derive"] }
+tracing = "0.1"
+gloo-net = { version = "0.4.0", features = ["http"] }
+reqwest = { version = "0.11.13", features = ["json"] }
+axum = { version = "0.6", default-features = false, optional = true }
+tower = { version = "0.4.13", optional = true }
+http = { version = "0.2.8", optional = true }
+web-sys = { version = "0.3", features = ["AbortController", "AbortSignal", "Request", "Response"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = { version = "0.4.37", features = ["futures-core-03-stream"], optional = true }
+axum-js-fetch = { version = "0.2.1", optional = true }
+lazy_static = "1.4.0"
+
+[features]
+default = ["csr"]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+ssr = [
+  "dep:tower",
+  "dep:http",
+  "dep:axum",
+  "dep:wasm-bindgen-futures",
+  "dep:axum-js-fetch",
+  "leptos/ssr",
+  "leptos_axum/wasm",
+  "leptos_meta/ssr",
+  "leptos_router/ssr",
+]
+
+[package.metadata.cargo-all-features]
+denylist = ["axum", "tower", "http", "leptos_axum"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
+output-name = "hackernews_axum"
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site-root = "target/site"
+# The site-root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg
+site-pkg-dir = "pkg"
+# [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
+style-file = "./style.css"
+# [Optional] Files in the asset-dir will be copied to the site-root directory
+assets-dir = "public"
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+site-addr = "127.0.0.1:3000"
+# The port to use for automatic reload monitoring
+reload-port = 3001
+# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
+end2end-cmd = "npx playwright test"
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults"
+# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+watch = false
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"
+# The features to use when compiling the bin target
+#
+# Optional. Can be over-ridden with the command line parameter --bin-features
+bin-features = ["ssr"]
+
+# If the --no-default-features flag should be used when compiling the bin target
+#
+# Optional. Defaults to false.
+bin-default-features = false
+
+# The features to use when compiling the lib target
+#
+# Optional. Can be over-ridden with the command line parameter --lib-features
+lib-features = ["hydrate"]
+
+# If the --no-default-features flag should be used when compiling the lib target
+#
+# Optional. Defaults to false.
+lib-default-features = false
