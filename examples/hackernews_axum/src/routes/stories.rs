@@ -90,7 +90,7 @@ pub fn Stories() -> impl IntoView {
                                         <For
                                             each=move || stories.clone()
                                             key=|story| story.id
-                                            bind:story
+                                            let:story
                                         >
                                             <Story story/>
                                         </For>

@@ -240,7 +240,7 @@ pub fn TodoMVC() -> impl IntoView {
                         <For
                             each=filtered_todos
                             key=|todo| todo.id
-                            bind:todo
+                            let:todo
                         >
                             <Todo todo/>
                         </For>

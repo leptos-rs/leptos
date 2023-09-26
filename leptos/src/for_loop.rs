@@ -61,11 +61,11 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     /// A key function that will be applied to each item.
     key: KF,
     /// A function that takes the item, and returns the view that will be displayed for each item.
-    /// 
+    ///
     /// ## Syntax
     /// This can be passed directly in the `view` children of the `<For/>` by using the
-    /// `bind:` syntax to specify the name for the data variable passed in the argument.
-    /// 
+    /// `let:` syntax to specify the name for the data variable passed in the argument.
+    ///
     /// ```rust
     /// # use leptos::*;
     /// # if false {
@@ -75,7 +75,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     ///         each=data
     ///         key=|n| *n
     ///         // stores the item in each row in a variable named `data`
-    ///         bind:data
+    ///         let:data
     ///     >
     ///         <p>{data}</p>
     ///     </For>
