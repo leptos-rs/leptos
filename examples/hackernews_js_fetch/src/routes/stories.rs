@@ -95,12 +95,10 @@ pub fn Stories() -> impl IntoView {
                                         <For
                                             each=move || stories.clone()
                                             key=|story| story.id
-                                            view=move |story: api::Story| {
-                                                view! {
-                                                    <Story story/>
-                                                }
-                                            }
-                                        />
+                                            let:story
+                                        >
+                                            <Story story/>
+                                        </For>
                                     </ul>
                                 }.into_any())
                             }

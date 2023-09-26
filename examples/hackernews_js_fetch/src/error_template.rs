@@ -15,7 +15,7 @@ pub fn error_template(errors: Option<RwSignal<Errors>>) -> View {
           // a unique key for each item as a reference
           key=|(key, _)| key.clone()
           // renders each item to a view
-          view= move |(_, error)| {
+          children= move |(_, error)| {
           let error_string = error.to_string();
             view! {
 
