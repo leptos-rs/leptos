@@ -192,7 +192,7 @@ pub fn TodoMVC(todos: Todos) -> impl IntoView {
                         <For
                             each=filtered_todos
                             key=|todo| todo.id
-                            view=move |todo: Todo| {
+                            children=move |todo: Todo| {
                                 view! { <Todo todo=todo.clone()/> }
                             }
                         />

@@ -58,8 +58,10 @@ pub fn Story() -> impl IntoView {
                                     <For
                                         each=move || story.comments.clone().unwrap_or_default()
                                         key=|comment| comment.id
-                                        view=move |comment| view! {  <Comment comment /> }
-                                    />
+                                        let:comment 
+                                    >
+                                        <Comment comment/>
+                                    </For>
                                 </ul>
                             </div>
                         </div>
@@ -103,8 +105,10 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                                 <For
                                     each=move || comments.clone()
                                     key=|comment| comment.id
-                                    view=move |comment: api::Comment| view! { <Comment comment /> }
-                                />
+                                    let:comment
+                                >
+                                    <Comment comment />
+                                </For>
                             </ul>
                         }
                     })}

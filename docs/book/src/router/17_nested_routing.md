@@ -143,8 +143,8 @@ pub fn ContactList() -> impl IntoView {
       // the contact list
       <For each=contacts
         key=|contact| contact.id
-        view=|contact| todo!()
-      >
+        children=|contact| todo!()
+      />
       // the nested child, if any
       // don’t forget this!
       <Outlet/>

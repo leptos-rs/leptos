@@ -168,7 +168,7 @@ pub fn App() -> impl IntoView {
                     <For
                         each={data}
                         key={|row| row.id}
-                        view=move |row: RowData| {
+                        children=move |row: RowData| {
                             let row_id = row.id;
                             let (label, _) = row.label;
                             on_cleanup({
