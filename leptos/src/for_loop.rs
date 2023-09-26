@@ -72,7 +72,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     /// let (data, set_data) = create_signal(vec![0, 1, 2]);
     /// view! {
     ///     <For
-    ///         each=data
+    ///         each=move || data.get()
     ///         key=|n| *n
     ///         // stores the item in each row in a variable named `data`
     ///         let:data
@@ -81,7 +81,6 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     ///     </For>
     /// }
     /// # ;
-    /// # runtime.dispose();
     /// # }
     /// ```
     /// is the same as
@@ -91,13 +90,12 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     /// let (data, set_data) = create_signal(vec![0, 1, 2]);
     /// view! {
     ///     <For
-    ///         each=data
+    ///         each=move || data.get()
     ///         key=|n| *n
     ///         children=|data| view! { <p>{data}</p> }
     ///     />
     /// }
     /// # ;
-    /// # runtime.dispose();
     /// # }
     /// ```
     children: EF,
