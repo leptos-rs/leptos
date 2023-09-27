@@ -2,8 +2,6 @@
 #![deny(missing_docs)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
-#![cfg_attr(feature = "nightly", feature(negative_impls))]
-#![cfg_attr(feature = "nightly", feature(auto_traits))]
 #![cfg_attr(feature = "nightly", feature(type_name_of_val))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
