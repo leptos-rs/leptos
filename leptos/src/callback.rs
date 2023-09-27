@@ -1,9 +1,10 @@
-//! Callbacks define a standard way to store functions and closures,
-//! in particular for component properties.
+//! Callbacks define a standard way to store functions and closures. They are useful
+//! for component properties, because they can be used to define optional callback functions,
+//! which generic props don’t support.
 //!
-//! # How to use them
-//! You can always create a callback from a closure, but the prefered way is to use `prop(into)`
-//! when you define your component:
+//! # Usage
+//! Callbacks can be created manually from any function (including closures), but the easiest way
+//! to create them is to use `#[prop(into)]]` when defining a component.
 //! ```
 //! # use leptos::*;
 //! #[component]
@@ -19,26 +20,17 @@
 //! // now you can use it from a closure directly:
 //! fn test() -> impl IntoView {
 //!     view! {
-//!         <MyComponent render_number = |x: i32| x.to_string()/>
+//!         <MyComponent render_number=|x: i32| x.to_string()/>
 //!     }
 //! }
 //! ```
 //!
 //! *Notes*:
-//! - in this example, you should use a generic type that implements `Fn(i32) -> String`.
-//!   Callbacks are more usefull when you want optional generic props.
-//! - All callbacks implement the `Callable` trait. You have to write `my_callback.call(input)`
-//! - On nightly, you have to use `render_number(42)`, because callback implements Fn.
-//!
-//!
-//! # Types
-//! This modules defines:
-//! - [Callback], the most basic callback type
-//! - [SyncCallback] for scenarios when you need `Send` and `Sync`
-//!
-//! # Copying vs cloning
-//! All callbacks type defined in this module are [Clone] but not [Copy].
-//! To solve this issue, use [StoredValue]; see [StoredCallback] for more
+//! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
+//!   Callbacks are most useful when you want optional generic props.
+//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`.
+//! - The callback types implement [`Clone`] but not [`Copy`]. If you want a callback that implements [`Copy`],
+//!   you can use [`store_value`][leptos_reactive::store_value].
 //! ```
 //! # use leptos::*;
 //! fn test() -> impl IntoView {
@@ -111,7 +103,7 @@ impl<In, Out> Clone for Callback<In, Out> {
 }
 
 impl<In, Out> Callback<In, Out> {
-    /// creates a new callback from the function or closure
+    /// Creates a new callback from the given function.
     pub fn new<F>(f: F) -> Callback<In, Out>
     where
         F: Fn(In) -> Out + 'static,
@@ -186,7 +178,8 @@ where
 }
 
 /// A callback type that implements `Copy`.
-/// `StoredCallback<In,Out>` is an alias for `StoredValue<Callback<In, Out>>`.
+///
+/// `StoredCallback<In, Out>` is an alias for `StoredValue<Callback<In, Out>>`.
 ///
 /// # Example
 /// ```
@@ -206,12 +199,8 @@ where
 /// }
 /// ```
 ///
-/// Note that in this example, you can replace `Callback` by `SyncCallback`,
-/// and it will work in the same way.
-///
-///
-/// Note that a prop should never be a [StoredCallback]:
-/// you have to call [store_value][leptos_reactive::store_value] inside your component code.
+/// Avoid using [`StoredCallback`] as the type for a prop, as its value will be stored in
+/// the scope of the parent. Instead, call [`store_value`][leptos_reactive::store_value] inside your component code.
 pub type StoredCallback<In, Out> = StoredValue<Callback<In, Out>>;
 
 #[cfg(not(feature = "nightly"))]
@@ -224,7 +213,7 @@ where
     }
 }
 
-/// a callback type that is `Send` and `Sync` if the input type is
+/// A callback type that is `Send` and `Sync` if its input type is `Send` and `Sync`.
 pub struct SyncCallback<In, Out = ()>(Arc<dyn Fn(In) -> Out>);
 
 impl<In> fmt::Debug for SyncCallback<In> {
@@ -246,7 +235,7 @@ impl<In, Out> Clone for SyncCallback<In, Out> {
 }
 
 impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
-    /// creates a new callback from the function or closure
+    /// Creates a new callback from the given function.
     pub fn new<F>(fun: F) -> Self
     where
         F: Fn(In) -> Out + 'static,
