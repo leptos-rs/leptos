@@ -74,7 +74,7 @@ pub trait Callable<In, Out = ()> {
 /// # Example
 /// ```
 /// # use leptos::*;
-/// # use leptos::leptos_dom::{Callable, Callback};
+/// # use leptos::{Callable, Callback};
 /// #[component]
 /// fn MyComponent(
 ///     #[prop(into)] render_number: Callback<i32, String>,
@@ -159,7 +159,7 @@ where
 /// # Example
 /// ```
 /// # use leptos::*;
-/// # use leptos::leptos_dom::{Callback, StoredCallback, Callable};
+/// # use leptos::{Callback, StoredCallback, Callable};
 /// fn test() -> impl IntoView {
 ///     let callback: Callback<i32, String> =
 ///         Callback::new(|x: i32| x.to_string());
@@ -249,10 +249,14 @@ mod tests {
     #[test]
     fn callback_from_html() {
         use crate::html::{AnyElement, HtmlElement};
-        use leptos_dom::IntoView;
-        use leptos_macro::view;
+        use leptos::*;
 
         let _callback: Callback<String, HtmlElement<AnyElement>> =
-            (|x: String| view! {<h1>{x}</h1>}).into();
+            (|x: String| {
+                view! {
+                    <h1>{x}</h1>
+                }
+            })
+            .into();
     }
 }
