@@ -205,13 +205,13 @@ pub use serde;
 pub use serde_json;
 pub use show::*;
 pub use suspense_component::*;
+mod callback;
 mod suspense_component;
 mod text_prop;
 mod transition;
-mod callback;
 
-pub use text_prop::TextProp;
 pub use callback::*;
+pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;

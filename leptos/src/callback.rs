@@ -68,8 +68,6 @@ pub trait Callable<In, Out = ()> {
     fn call(&self, input: In) -> Out;
 }
 
-
-
 /// The most basic leptos callback type.
 /// For how to use callbacks, see [here][crate::callback]
 ///
@@ -132,30 +130,28 @@ impl<In, Out> Callable<In, Out> for Callback<In, Out> {
 impl<F, In, T, Out> From<F> for Callback<In, Out>
 where
     F: Fn(In) -> T + 'static,
-    T: Into<Out> + 'static
+    T: Into<Out> + 'static,
 {
     fn from(f: F) -> Callback<In, Out> {
         Callback::new(move |x| f(x).into())
     }
 }
-
 
 // will allow to implement `Fn` for Callback in the future if needed.
 #[cfg(feature = "nightly")]
 auto trait NotRawCallback {}
 #[cfg(feature = "nightly")]
-impl<A,B> !NotRawCallback for Callback<A,B> { }
+impl<A, B> !NotRawCallback for Callback<A, B> {}
 #[cfg(feature = "nightly")]
 impl<F, In, T, Out> From<F> for Callback<In, Out>
 where
     F: Fn(In) -> T + NotRawCallback + 'static,
-    T: Into<Out> + 'static
+    T: Into<Out> + 'static,
 {
     fn from(f: F) -> Callback<In, Out> {
         Callback::new(move |x| f(x).into())
     }
 }
-
 
 /// A callback type that implements `Copy`.
 /// `StoredCallback<In,Out>` is an alias for `StoredValue<Callback<In, Out>>`.
@@ -211,7 +207,6 @@ impl<In, Out> Callable<In, Out> for SyncCallback<In, Out> {
     }
 }
 
-
 impl<In, Out> Clone for SyncCallback<In, Out> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
@@ -227,8 +222,6 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
         Self(Arc::new(fun))
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -250,16 +243,16 @@ mod tests {
 
     #[test]
     fn callback_from() {
-        let _callback : Callback<(), String> = (|()| "test").into();
+        let _callback: Callback<(), String> = (|()| "test").into();
     }
 
     #[test]
     fn callback_from_html() {
-        use leptos_macro::view;
+        use crate::html::{AnyElement, HtmlElement};
         use leptos_dom::IntoView;
-        use crate::html::{HtmlElement, AnyElement};
+        use leptos_macro::view;
 
-        let _callback : Callback<String, HtmlElement<AnyElement>> 
-            = (|x: String| view!{<h1>{x}</h1>}).into();
+        let _callback: Callback<String, HtmlElement<AnyElement>> =
+            (|x: String| view! {<h1>{x}</h1>}).into();
     }
 }
