@@ -653,7 +653,7 @@ where
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
         let listing: &RouteListing =
-            paths.iter().find(|r| r.path() == path).unwrap_or_else(|_| {
+            paths.iter().find(|r| r.path() == path).unwrap_or_else(|| {
                 panic!(
                     "Failed to find the route {path} requested by the user. \
                      This suggests that the routing rules in the Router that \
