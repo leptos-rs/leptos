@@ -87,7 +87,7 @@ impl<In> fmt::Debug for Callback<In> {
 
 impl<In, Out> Clone for Callback<In, Out> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
@@ -176,7 +176,7 @@ impl<In, Out> Callable<In, Out> for SyncCallback<In, Out> {
 
 impl<In, Out> Clone for SyncCallback<In, Out> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
