@@ -16,7 +16,6 @@ use indexmap::IndexSet;
 use pin_project::pin_project;
 use rustc_hash::{FxHashMap, FxHasher};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
-use std::task::Poll;
 use std::{
     any::{Any, TypeId},
     cell::{Cell, RefCell},
@@ -25,6 +24,7 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
+    task::Poll,
 };
 
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -1536,9 +1536,8 @@ impl<Fut: Future> ScopedFuture<Fut> {
     pub fn new_current(fut: Fut) -> Self {
         Self {
             owner: Owner::current().expect(
-                "`ScopedFuture::new_current()` \
-                to be called within an `Owner` \
-                context",
+                "`ScopedFuture::new_current()` to be called within an `Owner` \
+                 context",
             ),
             future: fut,
         }
