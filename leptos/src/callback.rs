@@ -194,7 +194,6 @@ impl<In, Out> Fn<(In,)> for Callback<In, Out> {
 /// the scope of the parent. Instead, call [`store_value`][leptos_reactive::store_value] inside your component code.
 pub type StoredCallback<In, Out> = StoredValue<Callback<In, Out>>;
 
-#[cfg(not(feature = "nightly"))]
 impl<F, In, Out> Callable<In, Out> for StoredValue<F>
 where
     F: Callable<In, Out>,
