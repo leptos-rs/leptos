@@ -41,7 +41,7 @@
 //! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
 //! Otherwise, use it exactly the same way as `Callback`
 
-use crate::{StoredValue, store_value};
+use crate::{store_value, StoredValue};
 use std::{fmt, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
@@ -75,7 +75,9 @@ pub trait Callable<In: 'static, Out: 'static = ()> {
 /// }
 /// ```
 
-pub struct Callback<In: 'static, Out: 'static = ()>(StoredValue<Box<dyn Fn(In) -> Out>>);
+pub struct Callback<In: 'static, Out: 'static = ()>(
+    StoredValue<Box<dyn Fn(In) -> Out>>,
+);
 
 impl<In> fmt::Debug for Callback<In> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -154,10 +156,11 @@ impl<In, Out> Fn<(In,)> for Callback<In, Out> {
     }
 }
 
-
 /// A callback type that is `Send` and `Sync` if its input type is `Send` and `Sync`.
 /// You can use exactly the way you use `Callback`
-pub struct SyncCallback<In: 'static, Out: 'static = ()>(StoredValue<Arc<dyn Fn(In) -> Out>>);
+pub struct SyncCallback<In: 'static, Out: 'static = ()>(
+    StoredValue<Arc<dyn Fn(In) -> Out>>,
+);
 
 impl<In> fmt::Debug for SyncCallback<In> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -261,8 +264,10 @@ mod tests {
 
     #[test]
     fn callback_from_html() {
-        use leptos::html::{AnyElement, HtmlElement};
-        use leptos::*;
+        use leptos::{
+            html::{AnyElement, HtmlElement},
+            *,
+        };
 
         let _callback: Callback<String, HtmlElement<AnyElement>> =
             (|x: String| {
@@ -280,8 +285,10 @@ mod tests {
 
     #[test]
     fn sync_callback_from_html() {
-        use leptos::html::{AnyElement, HtmlElement};
-        use leptos::*;
+        use leptos::{
+            html::{AnyElement, HtmlElement},
+            *,
+        };
 
         let _callback: SyncCallback<String, HtmlElement<AnyElement>> =
             (|x: String| {
