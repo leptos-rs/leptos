@@ -3,6 +3,8 @@
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 #![cfg_attr(feature = "nightly", feature(type_name_of_val))]
+#![cfg_attr(feature = "nightly", feature(auto_traits))]
+#![cfg_attr(feature = "nightly", feature(negative_impls))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
@@ -78,6 +80,7 @@ extern crate tracing;
 
 #[macro_use]
 mod signal;
+mod callback;
 mod context;
 #[macro_use]
 mod diagnostics;
@@ -103,6 +106,7 @@ pub mod suspense;
 mod trigger;
 mod watch;
 
+pub use callback::*;
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;

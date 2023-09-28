@@ -1,9 +1,5 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-#![cfg_attr(feature = "nightly", feature(fn_traits))]
-#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
-#![cfg_attr(feature = "nightly", feature(negative_impls))]
-#![cfg_attr(feature = "nightly", feature(auto_traits))]
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -205,12 +201,10 @@ pub use serde;
 pub use serde_json;
 pub use show::*;
 pub use suspense_component::*;
-mod callback;
 mod suspense_component;
 mod text_prop;
 mod transition;
 
-pub use callback::*;
 pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]

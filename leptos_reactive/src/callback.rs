@@ -13,6 +13,8 @@
 //! ) -> impl IntoView {
 //!     view! {
 //!         <div>
+//!             {render_number.call(1)}
+//!             // callbacks can be called multiple times
 //!             {render_number.call(42)}
 //!         </div>
 //!     }
@@ -27,40 +29,28 @@
 //!
 //! *Notes*:
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
-//!   Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`.
-//! - The callback types implement [`Clone`] but not [`Copy`]. If you want a callback that implements [`Copy`],
-//!   you can use [`store_value`][leptos_reactive::store_value].
-//! ```
-//! # use leptos::*;
-//! fn test() -> impl IntoView {
-//!     let callback: Callback<i32, String> =
-//!         Callback::new(|x: i32| x.to_string());
-//!     let stored_callback = store_value(callback);
+//! - Callbacks are most useful when you want optional generic props.
+//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`. On nightly, you can even do `my_callback(input)`
+//! - The callback types implement [`Copy`], so you can use them exactly like signals.
 //!
-//!     view! {
-//!         <div>
-//!             // `stored_callback` can be moved multiple times
-//!             {move || stored_callback.call(1)}
-//!             {move || stored_callback.call(42)}
-//!         </div>
-//!     }
-//! }
-//! ```
+//! # Types
+//! This modules implements 2 callback types:
+//! - [`Callback`]
+//! - [`SyncCallback`]
 //!
-//! Note that for each callback type `T`, `StoredValue<T>` implements `Call`, so you can call them
-//! without even thinking about it.
+//! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
+//! Otherwise, use it exactly the same way as `Callback`
 
-use leptos_reactive::StoredValue;
-use std::{fmt, rc::Rc, sync::Arc};
+use crate::{StoredValue, store_value};
+use std::{fmt, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
-pub trait Callable<In, Out = ()> {
+pub trait Callable<In: 'static, Out: 'static = ()> {
     /// calls the callback with the specified argument.
     fn call(&self, input: In) -> Out;
 }
 
-/// The most basic leptos callback type.
+/// The default leptos callback type.
 /// For how to use callbacks, see [here][crate::callback]
 ///
 /// # Example
@@ -84,11 +74,8 @@ pub trait Callable<In, Out = ()> {
 ///     }
 /// }
 /// ```
-///
-/// # Cloning
-/// See [StoredCallback]
 
-pub struct Callback<In, Out = ()>(Rc<dyn Fn(In) -> Out>);
+pub struct Callback<In: 'static, Out: 'static = ()>(StoredValue<Box<dyn Fn(In) -> Out>>);
 
 impl<In> fmt::Debug for Callback<In> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -108,13 +95,13 @@ impl<In, Out> Callback<In, Out> {
     where
         F: Fn(In) -> Out + 'static,
     {
-        Self(Rc::new(f))
+        Self(store_value(Box::new(f)))
     }
 }
 
-impl<In, Out> Callable<In, Out> for Callback<In, Out> {
+impl<In: 'static, Out: 'static> Callable<In, Out> for Callback<In, Out> {
     fn call(&self, input: In) -> Out {
-        (self.0)(input)
+        self.0.with_value(|f| f(input))
     }
 }
 
@@ -129,7 +116,6 @@ where
     }
 }
 
-// will allow to implement `Fn` for Callback in the future if needed.
 #[cfg(feature = "nightly")]
 auto trait NotRawCallback {}
 #[cfg(feature = "nightly")]
@@ -168,43 +154,10 @@ impl<In, Out> Fn<(In,)> for Callback<In, Out> {
     }
 }
 
-/// A callback type that implements `Copy`.
-///
-/// `StoredCallback<In, Out>` is an alias for `StoredValue<Callback<In, Out>>`.
-///
-/// # Example
-/// ```
-/// # use leptos::*;
-/// # use leptos::{Callback, StoredCallback, Callable};
-/// fn test() -> impl IntoView {
-///     let callback: Callback<i32, String> =
-///         Callback::new(|x: i32| x.to_string());
-///     let stored_callback: StoredCallback<i32, String> =
-///         store_value(callback);
-///     view! {
-///         <div>
-///             {move || stored_callback.call(1)}
-///             {move || stored_callback.call(42)}
-///         </div>
-///     }
-/// }
-/// ```
-///
-/// Avoid using [`StoredCallback`] as the type for a prop, as its value will be stored in
-/// the scope of the parent. Instead, call [`store_value`][leptos_reactive::store_value] inside your component code.
-pub type StoredCallback<In, Out> = StoredValue<Callback<In, Out>>;
-
-impl<F, In, Out> Callable<In, Out> for StoredValue<F>
-where
-    F: Callable<In, Out>,
-{
-    fn call(&self, input: In) -> Out {
-        self.with_value(|cb| cb.call(input))
-    }
-}
 
 /// A callback type that is `Send` and `Sync` if its input type is `Send` and `Sync`.
-pub struct SyncCallback<In, Out = ()>(Arc<dyn Fn(In) -> Out>);
+/// You can use exactly the way you use `Callback`
+pub struct SyncCallback<In: 'static, Out: 'static = ()>(StoredValue<Arc<dyn Fn(In) -> Out>>);
 
 impl<In> fmt::Debug for SyncCallback<In> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -214,7 +167,7 @@ impl<In> fmt::Debug for SyncCallback<In> {
 
 impl<In, Out> Callable<In, Out> for SyncCallback<In, Out> {
     fn call(&self, input: In) -> Out {
-        (self.0)(input)
+        self.0.with_value(|f| f(input))
     }
 }
 
@@ -230,7 +183,56 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
     where
         F: Fn(In) -> Out + 'static,
     {
-        Self(Arc::new(fun))
+        Self(store_value(Arc::new(fun)))
+    }
+}
+
+#[cfg(not(feature = "nightly"))]
+impl<F, In, T, Out> From<F> for SyncCallback<In, Out>
+where
+    F: Fn(In) -> T + 'static,
+    T: Into<Out> + 'static,
+{
+    fn from(f: F) -> SyncCallback<In, Out> {
+        SyncCallback::new(move |x| f(x).into())
+    }
+}
+
+#[cfg(feature = "nightly")]
+auto trait NotRawSyncCallback {}
+#[cfg(feature = "nightly")]
+impl<A, B> !NotRawSyncCallback for SyncCallback<A, B> {}
+#[cfg(feature = "nightly")]
+impl<F, In, T, Out> From<F> for SyncCallback<In, Out>
+where
+    F: Fn(In) -> T + NotRawSyncCallback + 'static,
+    T: Into<Out> + 'static,
+{
+    fn from(f: F) -> SyncCallback<In, Out> {
+        SyncCallback::new(move |x| f(x).into())
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<In, Out> FnOnce<(In,)> for SyncCallback<In, Out> {
+    type Output = Out;
+
+    extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
+        Callable::call(&self, args.0)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<In, Out> FnMut<(In,)> for SyncCallback<In, Out> {
+    extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
+        Callable::call(&*self, args.0)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<In, Out> Fn<(In,)> for SyncCallback<In, Out> {
+    extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
+        Callable::call(self, args.0)
     }
 }
 
@@ -259,10 +261,29 @@ mod tests {
 
     #[test]
     fn callback_from_html() {
-        use crate::html::{AnyElement, HtmlElement};
+        use leptos::html::{AnyElement, HtmlElement};
         use leptos::*;
 
         let _callback: Callback<String, HtmlElement<AnyElement>> =
+            (|x: String| {
+                view! {
+                    <h1>{x}</h1>
+                }
+            })
+            .into();
+    }
+
+    #[test]
+    fn sync_callback_from() {
+        let _callback: SyncCallback<(), String> = (|()| "test").into();
+    }
+
+    #[test]
+    fn sync_callback_from_html() {
+        use leptos::html::{AnyElement, HtmlElement};
+        use leptos::*;
+
+        let _callback: SyncCallback<String, HtmlElement<AnyElement>> =
             (|x: String| {
                 view! {
                     <h1>{x}</h1>
