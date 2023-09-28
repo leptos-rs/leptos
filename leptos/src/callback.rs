@@ -146,34 +146,25 @@ where
 }
 
 #[cfg(feature = "nightly")]
-impl<In, Out> FnOnce<In> for Callback<In, Out>
-where
-    In: std::marker::Tuple,
-{
+impl<In, Out> FnOnce<(In,)> for Callback<In, Out> {
     type Output = Out;
 
-    extern "rust-call" fn call_once(self, args: In) -> Self::Output {
-        Callable::call(&self, args)
+    extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
+        Callable::call(&self, args.0)
     }
 }
 
 #[cfg(feature = "nightly")]
-impl<In, Out> FnMut<In> for Callback<In, Out>
-where
-    In: std::marker::Tuple,
-{
-    extern "rust-call" fn call_mut(&mut self, args: In) -> Self::Output {
-        Callable::call(&*self, args)
+impl<In, Out> FnMut<(In,)> for Callback<In, Out> {
+    extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
+        Callable::call(&*self, args.0)
     }
 }
 
 #[cfg(feature = "nightly")]
-impl<In, Out> Fn<In> for Callback<In, Out>
-where
-    In: std::marker::Tuple,
-{
-    extern "rust-call" fn call(&self, args: In) -> Self::Output {
-        Callable::call(self, args)
+impl<In, Out> Fn<(In,)> for Callback<In, Out> {
+    extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
+        Callable::call(self, args.0)
     }
 }
 
