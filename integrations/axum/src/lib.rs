@@ -7,7 +7,7 @@
 
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    extract::{FromRef, FromRequestParts, Path, RawQuery},
+    extract::{FromRef, FromRequestParts, Path, RawQuery, MatchedPath},
     http::{
         header::{HeaderName, HeaderValue},
         HeaderMap, Request, StatusCode,
@@ -644,16 +644,15 @@ where
     );
 
     move |req| {
-        let uri = req.uri();
         // 1. Process route to match the values in routeListing
-        let path = uri.path();
+        let path = req.extensions().get::<MatchedPath>().expect("Failed to get Axum router rule").as_str();
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
         let listing: &RouteListing =
             paths.iter().find(|r| r.path() == path).expect(
-                "Failed to find the route {path} requested by the user. This \
+                &format!("Failed to find the route {} requested by the user. This \
                  suggests that the routing rules in the Router that call this \
-                 handler needs to be edited!",
+                 handler needs to be edited!", path)
             );
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
