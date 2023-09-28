@@ -653,12 +653,13 @@ where
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
         let listing: &RouteListing =
-            paths.iter().find(|r| r.path() == path).expect(&format!(
-                "Failed to find the route {} requested by the user. This \
-                 suggests that the routing rules in the Router that call this \
-                 handler needs to be edited!",
-                path
-            ));
+            paths.iter().find(|r| r.path() == path).unwrap_or_else(|_| {
+                panic!(
+                    "Failed to find the route {path} requested by the user. \
+                     This suggests that the routing rules in the Router that \
+                     call this handler needs to be edited!"
+                )
+            });
         // 3. Match listing mode against known, and choose function
         match listing.mode() {
             SsrMode::OutOfOrder => ooo(req),
