@@ -12,10 +12,10 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.6", features = ["syn-full"] }
+attribute-derive = { version = "0.8", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
-itertools = "0.10"
+itertools = "0.11"
 prettyplease = "0.2.4"
 proc-macro-error = { version = "1", default-features = false }
 proc-macro2 = "1"
