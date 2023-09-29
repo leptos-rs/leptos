@@ -241,29 +241,39 @@ impl<In, Out> Fn<(In,)> for SyncCallback<In, Out> {
 
 #[cfg(test)]
 mod tests {
-    use crate::callback::{Callback, SyncCallback};
+    use crate::{
+        callback::{Callback, SyncCallback},
+        create_runtime,
+    };
 
     struct NoClone {}
 
     #[test]
     fn clone_callback() {
+        let rt = create_runtime();
         let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback.clone();
+        rt.dispose();
     }
 
     #[test]
     fn clone_sync_callback() {
+        let rt = create_runtime();
         let callback = SyncCallback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback.clone();
+        rt.dispose();
     }
 
     #[test]
     fn callback_from() {
+        let rt = create_runtime();
         let _callback: Callback<(), String> = (|()| "test").into();
+        rt.dispose();
     }
 
     #[test]
     fn callback_from_html() {
+        let rt = create_runtime();
         use leptos::{
             html::{AnyElement, HtmlElement},
             *,
@@ -276,11 +286,14 @@ mod tests {
                 }
             })
             .into();
+        rt.dispose();
     }
 
     #[test]
     fn sync_callback_from() {
+        let rt = create_runtime();
         let _callback: SyncCallback<(), String> = (|()| "test").into();
+        rt.dispose();
     }
 
     #[test]
@@ -290,6 +303,8 @@ mod tests {
             *,
         };
 
+        let rt = create_runtime();
+
         let _callback: SyncCallback<String, HtmlElement<AnyElement>> =
             (|x: String| {
                 view! {
@@ -297,5 +312,7 @@ mod tests {
                 }
             })
             .into();
+
+        rt.dispose();
     }
 }
