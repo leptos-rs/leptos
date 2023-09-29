@@ -773,16 +773,20 @@ async fn generate_response(
     if let Some(status) = res_options.status {
         *res.status_mut() = status
     }
-    // Set the Content Type headers on all responses. This makes Firefox show the page source
-    // without complaining
+
     let headers = res.headers_mut();
-    headers.insert(
-        http::header::CONTENT_TYPE,
-        HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
-    );
+
     let mut res_headers = res_options.headers.clone();
     headers.extend(res_headers.drain());
 
+    if !headers.contains_key(http::header::CONTENT_TYPE){
+        // Set the Content Type headers on all responses. This makes Firefox show the page source
+        // without complaining
+        headers.insert(
+            http::header::CONTENT_TYPE,
+            HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
+        );
+    }
     res
 }
 #[tracing::instrument(level = "info", fields(error), skip_all)]
