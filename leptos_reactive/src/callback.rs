@@ -3,7 +3,7 @@
 //! which generic props don’t support.
 //!
 //! # Usage
-//! Callbacks can be created manually from any function (including closures), but the easiest way
+//! Callbacks can be created manually from any function or closure, but the easiest way
 //! to create them is to use `#[prop(into)]]` when defining a component.
 //! ```
 //! # use leptos::*;
@@ -19,7 +19,7 @@
 //!         </div>
 //!     }
 //! }
-//! // now you can use it from a closure directly:
+//! // you can pass a closure directly as `render_number`
 //! fn test() -> impl IntoView {
 //!     view! {
 //!         <MyComponent render_number=|x: i32| x.to_string()/>
@@ -31,7 +31,7 @@
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
 //! - Callbacks are most useful when you want optional generic props.
 //! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`. On nightly, you can even do `my_callback(input)`
-//! - The callback types implement [`Copy`], so you can use them exactly like signals.
+//! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
@@ -39,7 +39,6 @@
 //! - [`SyncCallback`]
 //!
 //! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
-//! Otherwise, use it exactly the same way as `Callback`
 
 use crate::{store_value, StoredValue};
 use std::{fmt, sync::Arc};
@@ -50,8 +49,7 @@ pub trait Callable<In: 'static, Out: 'static = ()> {
     fn call(&self, input: In) -> Out;
 }
 
-/// The default leptos callback type.
-/// For how to use callbacks, see [here][crate::callback]
+/// Callbacks define a standard way to store functions and closures.
 ///
 /// # Example
 /// ```
@@ -157,7 +155,7 @@ impl<In, Out> Fn<(In,)> for Callback<In, Out> {
 }
 
 /// A callback type that is `Send` and `Sync` if its input type is `Send` and `Sync`.
-/// You can use exactly the way you use `Callback`
+/// Otherwise, you can use exactly the way you use [`Callback`].
 pub struct SyncCallback<In: 'static, Out: 'static = ()>(
     StoredValue<Arc<dyn Fn(In) -> Out>>,
 );
