@@ -1533,9 +1533,6 @@ impl<Fut: Future> ScopedFuture<Fut> {
     }
 
     /// Runs the future in the current [`Owner`]'s scope context.
-    ///
-    /// # Panics
-    /// Panics if there is no current [`Owner`] context available.
     #[track_caller]
     pub fn new_current(fut: Fut) -> Result<Self, ScopedFutureError> {
         Owner::current()
@@ -1546,16 +1543,21 @@ impl<Fut: Future> ScopedFuture<Fut> {
 
 /// Runs a future that has access to the provided [`Owner`]'s
 /// scope context.
+#[track_caller]
 pub fn spawn_local_with_owner(
     owner: Owner,
     fut: impl Future<Output = ()> + 'static,
 ) {
     let scoped_future = ScopedFuture::new(owner, fut);
+    #[cfg(debug_assertions)]
+    let loc = std::panic::Location::caller();
 
     crate::spawn_local(async move {
         if scoped_future.await.is_none() {
-            // TODO: should we warn here?
-            //     /* warning message */
+            crate::macros::debug_warn!(
+                "`spawn_local_with_owner` called at {loc} returned `None`, \
+                 i.e., its Owner was disposed before the `Future` resolved."
+            );
         }
     });
 }
@@ -1570,11 +1572,15 @@ pub fn spawn_local_with_current_owner(
     fut: impl Future<Output = ()> + 'static,
 ) -> Result<(), ScopedFutureError> {
     let scoped_future = ScopedFuture::new_current(fut)?;
+    #[cfg(debug_assertions)]
+    let loc = std::panic::Location::caller();
 
     crate::spawn_local(async move {
         if scoped_future.await.is_none() {
-            // TODO: should we warn here?
-            //     /* warning message */
+            crate::macros::debug_warn!(
+                "`spawn_local_with_owner` called at {loc} returned `None`, \
+                 i.e., its Owner was disposed before the `Future` resolved."
+            );
         }
     });
 
