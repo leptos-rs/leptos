@@ -779,7 +779,7 @@ async fn generate_response(
     let mut res_headers = res_options.headers.clone();
     headers.extend(res_headers.drain());
 
-    if !headers.contains_key(http::header::CONTENT_TYPE){
+    if !headers.contains_key(http::header::CONTENT_TYPE) {
         // Set the Content Type headers on all responses. This makes Firefox show the page source
         // without complaining
         headers.insert(
