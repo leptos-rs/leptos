@@ -80,6 +80,7 @@ extern crate tracing;
 
 #[macro_use]
 mod signal;
+mod callback;
 mod context;
 #[macro_use]
 mod diagnostics;
@@ -105,6 +106,7 @@ pub mod suspense;
 mod trigger;
 mod watch;
 
+pub use callback::*;
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
