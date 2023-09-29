@@ -840,11 +840,13 @@ pub fn try_with_owner<T>(
     f: impl FnOnce() -> T,
 ) -> Result<T, ReactiveSystemError> {
     with_runtime(|runtime| {
-        let nodes = runtime
-            .nodes
-            .try_borrow()
-            .map_err(ReactiveSystemError::Borrow)?;
-        let scope_exists = nodes.contains_key(owner.0);
+        let scope_exists = {
+            let nodes = runtime
+                .nodes
+                .try_borrow()
+                .map_err(ReactiveSystemError::Borrow)?;
+            nodes.contains_key(owner.0)
+        };
         if scope_exists {
             let prev_observer = runtime.observer.take();
             let prev_owner = runtime.owner.take();
