@@ -48,8 +48,9 @@ name = "rust"
 config = { procMacro = {ignored = {leptos_macro = ["component"]}}}
 ```
 
-> Note:  
-> The Jetbrains `intellij-rust` plugin (RustRover as well) currently does not support dynamic config for macro exclusion.
-> However, the project currently maintains a hardcoded list of excluded macros.
-> As soon as [this open PR](https://github.com/intellij-rust/intellij-rust/pull/10873) is merged, the `component` and
-> `server` macro will be excluded automatically without additional configuration needed.
+```admonish info
+The Jetbrains `intellij-rust` plugin (RustRover as well) currently does not support dynamic config for macro exclusion.
+However, the project currently maintains a hardcoded list of excluded macros.
+As soon as [this open PR](https://github.com/intellij-rust/intellij-rust/pull/10873) is merged, the `component` and
+`server` macro will be excluded automatically without additional configuration needed.
+```
