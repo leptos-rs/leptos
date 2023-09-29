@@ -776,7 +776,9 @@ async fn generate_response(
     // Set the Content Type headers on all responses. This makes Firefox show the page source
     // without complaining
     let headers = res.headers_mut();
-    headers.insert(http::header::CONTENT_TYPE,HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
+    headers.insert(
+        http::header::CONTENT_TYPE,
+        HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
     );
     let mut res_headers = res_options.headers.clone();
     headers.extend(res_headers.drain());
