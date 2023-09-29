@@ -98,9 +98,6 @@ pub struct Owner(pub(crate) NodeId);
 
 impl Owner {
     /// Returns the current reactive owner.
-    ///
-    /// ## Panics
-    /// Panics if there is no current reactive runtime.
     pub fn current() -> Option<Owner> {
         with_runtime(|runtime| runtime.owner.get())
             .ok()
