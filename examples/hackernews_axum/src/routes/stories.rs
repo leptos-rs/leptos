@@ -70,7 +70,7 @@ pub fn Stories() -> impl IntoView {
                 >
                     <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                         aria-label="Next Page"
-                    >=
+                    >
                         "more >"
                     </a>
                 </span>

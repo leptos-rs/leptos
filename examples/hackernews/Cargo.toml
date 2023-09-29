@@ -16,10 +16,7 @@ actix-web = { version = "4", optional = true, features = ["macros"] }
 console_log = "1"
 console_error_panic_hook = "0.1"
 cfg-if = "1"
-leptos = { path = "../../leptos", features = [
-	"nightly",
-	"experimental-islands",
-] }
+leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router", features = ["nightly"] }
