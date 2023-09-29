@@ -10,9 +10,10 @@ use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned,
     AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
-    ItemFn, LitStr, Meta, Pat, PatIdent, Path, PathArguments, ReturnType, Stmt,
-    Type, TypePath, Visibility,
+    ItemFn, LitStr, Meta, Pat, PatIdent, Path, PathArguments, ReturnType,
+    Signature, Stmt, Type, TypePath, Visibility,
 };
+
 pub struct Model {
     is_transparent: bool,
     is_island: bool,
@@ -537,6 +538,67 @@ impl Model {
         self.is_island = true;
 
         self
+    }
+}
+
+/// A model that is more lenient in case of a syntax error in the function body,
+/// but does not actually implement the behavior of the real model. This is
+/// used to improve IDEs and rust-analyzer's auto-completion behavior in case
+/// of a syntax error.
+pub struct DummyModel {
+    attrs: Vec<Attribute>,
+    vis: Visibility,
+    sig: Signature,
+    body: TokenStream,
+}
+
+impl Parse for DummyModel {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
+        let vis: Visibility = input.parse()?;
+        let sig: Signature = input.parse()?;
+
+        // The body is left untouched, so it will not cause an error
+        // even if the syntax is invalid.
+        let body: TokenStream = input.parse()?;
+
+        Ok(Self {
+            attrs,
+            vis,
+            sig,
+            body,
+        })
+    }
+}
+
+impl ToTokens for DummyModel {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            attrs,
+            vis,
+            sig,
+            body,
+        } = self;
+
+        // Strip attributes like documentation comments and #[prop]
+        // from the signature, so as to not confuse the user with incorrect
+        // error messages.
+        let sig = {
+            let mut sig = sig.clone();
+            sig.inputs.iter_mut().for_each(|arg| {
+                if let FnArg::Typed(ty) = arg {
+                    ty.attrs.clear();
+                }
+            });
+            sig
+        };
+
+        let output = quote! {
+            #(#attrs)*
+            #vis #sig #body
+        };
+
+        tokens.append_all(output)
     }
 }
 
