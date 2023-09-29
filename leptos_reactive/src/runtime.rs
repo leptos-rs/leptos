@@ -26,6 +26,7 @@ use std::{
     rc::Rc,
     task::Poll,
 };
+use thiserror::Error;
 
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
@@ -1494,6 +1495,15 @@ pub struct ScopedFuture<Fut: Future> {
     future: Fut,
 }
 
+/// Errors that can occur when trying to spawn a [`ScopedFuture`].
+#[derive(Error, Debug, Clone)]
+pub enum ScopedFutureError {
+    #[error(
+        "Tried to spawn a scoped Future without a current reactive Owner."
+    )]
+    NoCurrentOwner,
+}
+
 impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
     type Output = Option<Fut::Output>;
 
@@ -1501,12 +1511,6 @@ impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Self::Output> {
-        // TODO: we need to think about how to make this
-        // not panic for scopes that have been cleaned up...
-        // or perhaps we can force the scope to not be cleaned
-        // up until all futures that have a handle to them are
-        // dropped...
-
         let this = self.project();
 
         if let Some(poll) = try_with_owner(*this.owner, || this.future.poll(cx))
@@ -1533,14 +1537,10 @@ impl<Fut: Future> ScopedFuture<Fut> {
     /// # Panics
     /// Panics if there is no current [`Owner`] context available.
     #[track_caller]
-    pub fn new_current(fut: Fut) -> Self {
-        Self {
-            owner: Owner::current().expect(
-                "`ScopedFuture::new_current()` to be called within an `Owner` \
-                 context",
-            ),
-            future: fut,
-        }
+    pub fn new_current(fut: Fut) -> Result<Self, ScopedFutureError> {
+        Owner::current()
+            .map(|owner| Self { owner, future: fut })
+            .ok_or(ScopedFutureError::NoCurrentOwner)
     }
 }
 
@@ -1566,8 +1566,10 @@ pub fn spawn_local_with_owner(
 /// # Panics
 /// Panics if there is no [`Owner`] context available.
 #[track_caller]
-pub fn spawn_local_with_current_owner(fut: impl Future<Output = ()> + 'static) {
-    let scoped_future = ScopedFuture::new_current(fut);
+pub fn spawn_local_with_current_owner(
+    fut: impl Future<Output = ()> + 'static,
+) -> Result<(), ScopedFutureError> {
+    let scoped_future = ScopedFuture::new_current(fut)?;
 
     crate::spawn_local(async move {
         if scoped_future.await.is_none() {
@@ -1575,6 +1577,8 @@ pub fn spawn_local_with_current_owner(fut: impl Future<Output = ()> + 'static) {
             //     /* warning message */
         }
     });
+
+    Ok(())
 }
 
 /// Runs a future that has access to the provided [`Owner`]'s
@@ -1616,12 +1620,14 @@ pub fn try_spawn_local_with_owner(
 pub fn try_spawn_local_with_current_owner(
     fut: impl Future<Output = ()> + 'static,
     on_cancelled: impl FnOnce() + 'static,
-) {
-    let scoped_future = ScopedFuture::new_current(fut);
+) -> Result<(), ScopedFutureError> {
+    let scoped_future = ScopedFuture::new_current(fut)?;
 
     crate::spawn_local(async move {
         if scoped_future.await.is_none() {
             on_cancelled();
         }
     });
+
+    Ok(())
 }
