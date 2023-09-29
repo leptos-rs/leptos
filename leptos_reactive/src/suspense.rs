@@ -118,33 +118,29 @@ impl SuspenseContext {
         let setter = self.set_pending_resources;
         let serializable_resources = self.pending_serializable_resources;
         let has_local_only = self.has_local_only;
-        queue_microtask(move || {
-            setter.update(|n| *n += 1);
-            if serializable {
-                serializable_resources.update(|n| *n += 1);
-                has_local_only.set_value(false);
-            }
-        });
+        setter.update(|n| *n += 1);
+        if serializable {
+            serializable_resources.update(|n| *n += 1);
+            has_local_only.set_value(false);
+        }
     }
 
     /// Notifies the suspense context that a resource has resolved.
     pub fn decrement(&self, serializable: bool) {
         let setter = self.set_pending_resources;
         let serializable_resources = self.pending_serializable_resources;
-        queue_microtask(move || {
-            setter.update(|n| {
-                if *n > 0 {
-                    *n -= 1
-                }
-            });
-            if serializable {
-                serializable_resources.update(|n| {
-                    if *n > 0 {
-                        *n -= 1;
-                    }
-                });
+        setter.update(|n| {
+            if *n > 0 {
+                *n -= 1
             }
         });
+        if serializable {
+            serializable_resources.update(|n| {
+                if *n > 0 {
+                    *n -= 1;
+                }
+            });
+        }
     }
 
     /// Resets the counter of pending resources.
