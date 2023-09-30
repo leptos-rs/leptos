@@ -29,13 +29,12 @@ pub fn Portal(
     children: ChildrenFn,
 ) -> impl IntoView {
     cfg_if! { if #[cfg(any(feature = "hydrate", feature = "csr"))] {
-        use leptos_dom::document;
-        use leptos_reactive::{create_effect, on_cleanup};
-
-        log!("hier");
+        use leptos_dom::{document, Mountable};
+        use leptos_reactive::on_cleanup;
+        use wasm_bindgen::JsCast;
 
         let mount = mount
-            .unwrap_or_else(|| document().body().expect("body to exist"));
+            .unwrap_or_else(|| document().body().expect("body to exist").unchecked_into());
 
         create_render_effect(move |_| {
             let tag = if is_svg { "g" } else { "div" };
@@ -47,19 +46,24 @@ pub fn Portal(
             let render_root = if use_shadow {
                 container
                     .attach_shadow(&web_sys::ShadowRootInit::new(
-                        ShadowRootMode::Open,
+                        web_sys::ShadowRootMode::Open,
                     ))
-                    .ok_or(container)
+                    .map(|root| root.unchecked_into())
+                    .unwrap_or(container.clone())
             } else {
-                container
+                container.clone()
             };
 
-            let _ = render_root.append_child(children().into_view().get_mountable_node());
+            let _ = render_root.append_child(&children().into_view().get_mountable_node());
 
-            mount.append_child(&container);
+            let _ = mount.append_child(&container);
 
-            on_cleanup(move || {
-                mount.remove_child(&container);
+            on_cleanup({
+                let mount = mount.clone();
+
+                move || {
+                    let _ = mount.remove_child(&container);
+                }
             })
         });
     } else {
