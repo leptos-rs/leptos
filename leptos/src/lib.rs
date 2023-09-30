@@ -231,8 +231,12 @@ pub use wasm_bindgen; // used in islands
 ))]
 pub use web_sys; // used in islands
 mod children;
+
 pub use children::*;
 extern crate self as leptos;
+
+mod portal;
+pub use portal::*;
 
 /// A type for taking anything that implements [`IntoAttribute`].
 ///
