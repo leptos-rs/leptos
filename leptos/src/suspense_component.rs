@@ -89,7 +89,7 @@ where
     let fallback = create_memo({
         move |_| {
             provide_context(context);
-            fallback.run().into_view()
+            fallback.run()
         }
     });
 
