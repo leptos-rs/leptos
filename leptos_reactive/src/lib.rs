@@ -80,7 +80,7 @@ extern crate tracing;
 
 #[macro_use]
 mod signal;
-mod callback;
+pub mod callback;
 mod context;
 #[macro_use]
 mod diagnostics;
