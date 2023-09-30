@@ -229,9 +229,9 @@ fn DynamicList(
                     // can only grow, because moving items around inside the list
                     // means their indices will change and they will all rerender
                     key=|counter| counter.0
-                    // the view function receives each item from your `each` iterator
+                    // `children` receives each item from your `each` iterator
                     // and returns a view
-                    view=move |(id, (count, set_count))| {
+                    children=move |(id, (count, set_count))| {
                         view! {
                             <li>
                                 <button
