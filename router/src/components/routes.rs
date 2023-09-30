@@ -179,7 +179,7 @@ pub fn AnimatedRoutes(
     };
     let is_back = use_is_back_navigation();
     let (animation_state, set_animation_state) =
-        create_signal(AnimationState::Finally);
+        create_signal(AnimationState::Start);
     let next_route = router.pathname();
 
     let is_complete = Rc::new(Cell::new(true));
@@ -190,6 +190,7 @@ pub fn AnimatedRoutes(
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
+            logging::log!("{animation_state:?} {next_route:?}");
             let prev_matches = prev
                 .map(|(_, r)| r)
                 .cloned()

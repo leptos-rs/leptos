@@ -27,6 +27,7 @@ impl Animation {
             outro,
             intro,
             intro_back,
+            finally,
             ..
         } = self;
         match current {
@@ -35,8 +36,10 @@ impl Animation {
                     AnimationState::Start
                 } else if intro.is_some() {
                     AnimationState::Intro
-                } else {
+                } else if finally.is_some() {
                     AnimationState::Finally
+                } else {
+                    AnimationState::Start
                 };
                 (next, true)
             }
@@ -47,21 +50,37 @@ impl Animation {
                     AnimationState::IntroBack
                 } else if intro.is_some() {
                     AnimationState::Intro
-                } else {
+                } else if finally.is_some() {
                     AnimationState::Finally
+                } else {
+                    AnimationState::Start
                 };
                 (next, true)
             }
             AnimationState::Start => {
                 let next = if intro.is_some() {
                     AnimationState::Intro
-                } else {
+                } else if finally.is_some() {
                     AnimationState::Finally
+                } else {
+                    AnimationState::Start
                 };
                 (next, false)
             }
-            AnimationState::Intro => (AnimationState::Finally, false),
-            AnimationState::IntroBack => (AnimationState::Finally, false),
+            AnimationState::Intro => {
+                if finally.is_some() {
+                    (AnimationState::Finally, false)
+                } else {
+                    (AnimationState::Start, false)
+                }
+            }
+            AnimationState::IntroBack => {
+                if finally.is_some() {
+                    (AnimationState::Finally, false)
+                } else {
+                    (AnimationState::Start, false)
+                }
+            }
             AnimationState::Finally => {
                 if outro.is_some() {
                     if is_back {
@@ -77,8 +96,10 @@ impl Animation {
                     } else {
                         (AnimationState::Intro, false)
                     }
-                } else {
+                } else if finally.is_some() {
                     (AnimationState::Finally, true)
+                } else {
+                    (AnimationState::Start, true)
                 }
             }
         }
