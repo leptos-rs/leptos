@@ -1,4 +1,6 @@
+use std::time::Duration;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -6,12 +8,32 @@ use leptos::*;
 use portal::App;
 use web_sys::HtmlButtonElement;
 
-#[wasm_bindgen_test]
-fn inc() {
-    mount_to_body(|| view! { <App/> });
+async fn next_tick() {
+    JsFuture::from(js_sys::Promise::new(
+        &mut |resolve: js_sys::Function, _| {
+            set_timeout(
+                move || {
+                    let _ = resolve.call0(window().unchecked_ref());
+                },
+                Duration::ZERO,
+            )
+        },
+    ))
+    .await
+    .unwrap();
+}
 
+#[wasm_bindgen_test]
+fn portal() {
     let document = leptos::document();
-    let div = document.query_selector("div").unwrap().unwrap();
+    let body = document.body().unwrap();
+
+    let div = document.create_element("div").unwrap();
+    div.set_id("app");
+    body.append_child(&div);
+
+    mount_to(div.clone().unchecked_into(), || view! { <App/> });
+
     let show_button = document
         .get_element_by_id("btn-show")
         .unwrap()
@@ -19,27 +41,13 @@ fn inc() {
 
     show_button.click();
 
+    // next_tick().await;
+
     // check HTML
     assert_eq!(
         div.inner_html(),
-        "<button>Add Counter</button><button>Add 1000 \
-         Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
-         <DynChild> -->0<!-- </DynChild> --></span> from <span><!-- \
-         <DynChild> -->3<!-- </DynChild> --></span> counters.</p><ul><!-- \
-         <Each> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->0<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->0<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->0<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- </Each> --></ul>"
-    );
+            "<!-- <App> --><div><button id=\"btn-show\">\n                Show Overlay\n            </button><!-- <Show> --><!-- <DynChild> --><!-- <> --><div>Show</div><!-- <Portal> --><!-- </Portal> --><!-- </> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> --><div><!-- <> --><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">\n                            Close Overlay\n                        </button><button id=\"btn-toggle\">\n                            Toggle inner\n                        </button><!-- <Show> --><!-- <DynChild> -->Hidden<!-- </DynChild> --><!-- </Show> --></div><!-- </> --></div>"
+        );
 
     let toggle_button = document
         .get_element_by_id("btn-toggle")
@@ -50,24 +58,8 @@ fn inc() {
 
     assert_eq!(
         div.inner_html(),
-        "<button>Add Counter</button><button>Add 1000 \
-         Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
-         <DynChild> -->6<!-- </DynChild> --></span> from <span><!-- \
-         <DynChild> -->3<!-- </DynChild> --></span> counters.</p><ul><!-- \
-         <Each> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->1<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->2<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->3<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- </Each> --></ul>"
-    );
+            "<!-- <App> --><div><button id=\"btn-show\">\n                Show Overlay\n            </button><!-- <Show> --><!-- <DynChild> --><!-- <> --><div>Show</div><!-- <Portal> --><!-- </Portal> --><!-- </> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> --><div><!-- <> --><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">\n                            Close Overlay\n                        </button><button id=\"btn-toggle\">\n                            Toggle inner\n                        </button><!-- <Show> --><!-- <DynChild> --><!-- <> -->\n                            Visible\n                        <!-- </> --><!-- </DynChild> --><!-- </Show> --></div><!-- </> --></div>"
+        );
 
     let hide_button = document
         .get_element_by_id("btn-hide")
@@ -78,18 +70,8 @@ fn inc() {
 
     assert_eq!(
         div.inner_html(),
-        "<button>Add Counter</button><button>Add 1000 \
-         Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
-         <DynChild> -->5<!-- </DynChild> --></span> from <span><!-- \
-         <DynChild> -->2<!-- </DynChild> --></span> counters.</p><ul><!-- \
-         <Each> --><!-- <EachItem> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->2<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
-         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
-         -->3<!-- </DynChild> \
-         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
-         --><!-- </EachItem> --><!-- </Each> --></ul>"
+        "<!-- <App> --><div><button id=\"btn-show\">\n                Show \
+         Overlay\n            </button><!-- <Show> --><!-- <DynChild> --><!-- \
+         <() /> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> -->"
     );
 }

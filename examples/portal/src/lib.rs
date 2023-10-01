@@ -13,7 +13,7 @@ pub fn App() -> impl IntoView {
 
             <Show when=show_overlay fallback=|| ()>
                 <div>Show</div>
-                <Portal>
+                <Portal mount=document().get_element_by_id("app").unwrap()>
                     <div style="position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;">
                         <p>This is in the body element</p>
                         <button id="btn-hide" on:click=move |_| set_show_overlay(false)>
