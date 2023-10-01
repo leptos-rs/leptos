@@ -4,7 +4,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 use leptos::*;
 use portal::App;
-use web_sys::HtmlElement;
+use web_sys::HtmlButtonElement;
 
 #[wasm_bindgen_test]
 fn inc() {
@@ -12,7 +12,10 @@ fn inc() {
 
     let document = leptos::document();
     let div = document.query_selector("div").unwrap().unwrap();
-    let show_button = document.get_element_by_id("btn-show").unwrap();
+    let show_button = document
+        .get_element_by_id("btn-show")
+        .unwrap()
+        .unchecked_into::<HtmlButtonElement>();
 
     show_button.click();
 
@@ -38,7 +41,11 @@ fn inc() {
          --><!-- </EachItem> --><!-- </Each> --></ul>"
     );
 
-    let toggle_button = document.get_element_by_id("btn-toggle").unwrap();
+    let toggle_button = document
+        .get_element_by_id("btn-toggle")
+        .unwrap()
+        .unchecked_into::<HtmlButtonElement>();
+
     toggle_button.click();
 
     assert_eq!(
@@ -62,7 +69,11 @@ fn inc() {
          --><!-- </EachItem> --><!-- </Each> --></ul>"
     );
 
-    let hide_button = document.get_element_by_id("btn-hide").unwrap();
+    let hide_button = document
+        .get_element_by_id("btn-hide")
+        .unwrap()
+        .unchecked_into::<HtmlButtonElement>();
+
     hide_button.click();
 
     assert_eq!(
