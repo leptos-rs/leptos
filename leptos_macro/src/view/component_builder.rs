@@ -89,9 +89,9 @@ pub(crate) fn component_to_tokens(
             attr.key.to_string().strip_prefix("use:").map(|ident| {
                 let handler = format_ident!("{ident}", span = attr.key.span());
                 let param = if let Some(value) = attr.value() {
-                    quote! { Some(#value) }
+                    quote! { &#value }
                 } else {
-                    quote! { None }
+                    quote! { &() }
                 };
                 quote! { .directive(#handler, #param) }
             })
