@@ -34,6 +34,7 @@ pub(crate) fn component_to_tokens(
                 && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
                 && !attr.key.to_string().starts_with("attr:")
+                && !attr.key.to_string().starts_with("use:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -81,6 +82,24 @@ pub(crate) fn component_to_tokens(
             }
         })
         .collect::<Vec<_>>();
+
+    let directives = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key.to_string().strip_prefix("use:").map(|ident| {
+                let handler = format_ident!("{ident}", span = attr.key.span());
+                let param = if let Some(value) = attr.value() {
+                    quote! { Some(#value) }
+                } else {
+                    quote! { None }
+                };
+                quote! { .directive(#handler, #param) }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let events_and_directives =
+        events.into_iter().chain(directives).collect::<Vec<_>>();
 
     let dyn_attrs = attrs
         .filter(|attr| attr.key.to_string().starts_with("attr:"))
@@ -192,12 +211,12 @@ pub(crate) fn component_to_tokens(
     /* #[cfg(debug_assertions)]
     IdeTagHelper::add_component_completion(&mut component, node); */
 
-    if events.is_empty() {
+    if events_and_directives.is_empty() {
         component
     } else {
         quote! {
             #component.into_view()
-            #(#events)*
+            #(#events_and_directives)*
         }
     }
 }

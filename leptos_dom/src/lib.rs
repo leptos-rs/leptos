@@ -46,9 +46,9 @@ pub use node_ref::*;
 use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::{borrow::Cow, fmt, rc::Rc};
 pub use transparent::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -774,6 +774,67 @@ impl View {
         }
 
         self
+    }
+
+    /// Adds a directive which is a function that is run on mounted. A directive can be a function
+    /// with one or two parameters. The first is the element the directive is added to and the optional
+    /// second is the paramter that is provided in the attribute.
+    pub fn directive<T, P>(
+        self,
+        handler: impl DirectiveHandler<T, P>,
+        param: &P,
+    ) -> Self {
+        cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+            match &self {
+                Self::Element(el) => {
+                    let _ = el.element.on_mount(move |el| handler.call(el, param));
+                }
+                Self::Component(c) => {
+                    let handler = Rc::new(handler);
+
+                    for child in c.children.iter().cloned() {
+                        let _ = child.directive(Rc::clone(&handler), param);
+                    }
+                }
+                _ => {}
+            }
+        }}
+
+        self
+    }
+}
+
+/// Trait for a directive handler function. This is used so it's possible to use functions with one or two
+/// parameters as directive handlers. See [`View::directive`].
+pub trait DirectiveHandler<T, P> {
+    /// Calls the handler function
+    fn call(self, el: HtmlElement<AnyElement>, param: &P);
+}
+
+impl<F> DirectiveHandler<(HtmlElement<AnyElement>,), ()> for F
+where
+    F: FnOnce(HtmlElement<AnyElement>),
+{
+    fn call(self, el: HtmlElement<AnyElement>, _: &()) {
+        self(el)
+    }
+}
+
+impl<F, P> DirectiveHandler<(HtmlElement<AnyElement>, P), P> for F
+where
+    F: FnOnce(HtmlElement<AnyElement>, &P),
+{
+    fn call(self, el: HtmlElement<AnyElement>, param: &P) {
+        self(el, param);
+    }
+}
+
+impl<T, P, D> DirectiveHandler<T, P> for Rc<D>
+where
+    D: DirectiveHandler<T, P>,
+{
+    fn call(self, el: HtmlElement<AnyElement>, param: &P) {
+        self.call(el, param)
     }
 }
 
