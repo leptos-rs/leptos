@@ -1,27 +1,10 @@
-use std::time::Duration;
 use wasm_bindgen::JsCast;
-use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 use leptos::*;
 use portal::App;
 use web_sys::HtmlButtonElement;
-
-async fn next_tick() {
-    JsFuture::from(js_sys::Promise::new(
-        &mut |resolve: js_sys::Function, _| {
-            set_timeout(
-                move || {
-                    let _ = resolve.call0(window().unchecked_ref());
-                },
-                Duration::ZERO,
-            )
-        },
-    ))
-    .await
-    .unwrap();
-}
 
 #[wasm_bindgen_test]
 fn portal() {
