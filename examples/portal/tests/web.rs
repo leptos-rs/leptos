@@ -13,7 +13,7 @@ fn portal() {
 
     let div = document.create_element("div").unwrap();
     div.set_id("app");
-    body.append_child(&div);
+    let _ = body.append_child(&div);
 
     mount_to(div.clone().unchecked_into(), || view! { <App/> });
 
