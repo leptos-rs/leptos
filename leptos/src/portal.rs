@@ -1,8 +1,7 @@
 use crate::ChildrenFn;
 use cfg_if::cfg_if;
-use leptos_dom::{log, IntoView};
+use leptos_dom::IntoView;
 use leptos_macro::component;
-use leptos_reactive::create_render_effect;
 
 /// Renders components somewhere else in the DOM.
 ///
@@ -28,9 +27,9 @@ pub fn Portal(
     /// The children to teleport into the `mount` element
     children: ChildrenFn,
 ) -> impl IntoView {
-    cfg_if! { if #[cfg(any(feature = "hydrate", feature = "csr"))] {
+    cfg_if! { if #[cfg(all(target_arch = "wasm32", any(feature = "hydrate", feature = "csr")))] {
         use leptos_dom::{document, Mountable};
-        use leptos_reactive::on_cleanup;
+        use leptos_reactive::{create_render_effect, on_cleanup};
         use wasm_bindgen::JsCast;
 
         let mount = mount

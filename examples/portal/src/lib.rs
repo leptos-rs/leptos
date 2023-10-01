@@ -7,7 +7,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         <div>
-            <button on:click=move |_| set_show_overlay(true)>
+            <button id="btn-show" on:click=move |_| set_show_overlay(true)>
                 Show Overlay
             </button>
 
@@ -16,10 +16,10 @@ pub fn App() -> impl IntoView {
                 <Portal>
                     <div style="position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;">
                         <p>This is in the body element</p>
-                        <button on:click=move |_| set_show_overlay(false)>
+                        <button id="btn-hide" on:click=move |_| set_show_overlay(false)>
                             Close Overlay
                         </button>
-                        <button on:click=move |_| set_show_inside_overlay(!show_inside_overlay())>
+                        <button id="btn-toggle" on:click=move |_| set_show_inside_overlay(!show_inside_overlay())>
                             Toggle inner
                         </button>
 
