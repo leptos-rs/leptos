@@ -149,9 +149,15 @@ pub fn Html(
             }
         } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head();
-            *meta.html.lang.borrow_mut() = lang;
-            *meta.html.dir.borrow_mut() = dir;
-            *meta.html.class.borrow_mut() = class;
+            if let Some(lang) = lang {
+                *meta.html.lang.borrow_mut() = lang;
+            }
+            if let Some(dir) = dir {
+                *meta.html.dir.borrow_mut() = dir;
+            }
+            if let Some(class) = class {
+                *meta.html.class.borrow_mut() = class;
+            }
             meta.html.attributes.borrow_mut().extend(attributes);
         } else {
                         _ = lang;
