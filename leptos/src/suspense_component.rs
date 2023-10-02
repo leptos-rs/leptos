@@ -1,3 +1,4 @@
+use leptos::ViewFn;
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -57,15 +58,14 @@ use std::rc::Rc;
     tracing::instrument(level = "info", skip_all)
 )]
 #[component]
-pub fn Suspense<F, E, V>(
-    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
-    fallback: F,
+pub fn Suspense<V>(
+    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: ViewFn,
     /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
     children: Rc<dyn Fn() -> V>,
 ) -> impl IntoView
 where
-    F: Fn() -> E + 'static,
-    E: IntoView,
     V: IntoView + 'static,
 {
     let orig_children = children;
@@ -89,7 +89,7 @@ where
     let fallback = create_memo({
         move |_| {
             provide_context(context);
-            fallback().into_view()
+            fallback.run()
         }
     });
 
