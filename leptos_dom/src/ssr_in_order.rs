@@ -125,7 +125,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         .map(|nonce| format!(" nonce=\"{nonce}\""))
         .unwrap_or_default();
 
-    let local_only = SharedContext::local_only_fragments();
+    let local_only = SharedContext::fragments_with_local_resources();
     let local_only = serde_json::to_string(&local_only).unwrap();
 
     let stream = futures::stream::once({

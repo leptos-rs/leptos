@@ -21,7 +21,7 @@ pub struct SharedContext {
     /// Suspended fragments that have not yet resolved.
     pub pending_fragments: HashMap<String, FragmentData>,
     /// Suspense fragments that contain only local resources.
-    pub local_only_fragments: HashSet<String>,
+    pub fragments_with_local_resources: HashSet<String>,
     #[cfg(feature = "experimental-islands")]
     pub no_hydrate: bool,
     #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
@@ -193,10 +193,12 @@ impl SharedContext {
         any(debug_assertions, features = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub fn is_local_only_fragment(fragment: &str) -> bool {
+    pub fn fragment_has_local_resources(fragment: &str) -> bool {
         with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
-            shared_context.local_only_fragments.remove(fragment)
+            shared_context
+                .fragments_with_local_resources
+                .remove(fragment)
         })
         .unwrap_or_default()
     }
@@ -205,10 +207,10 @@ impl SharedContext {
         any(debug_assertions, features = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub fn local_only_fragments() -> HashSet<String> {
+    pub fn fragments_with_local_resources() -> HashSet<String> {
         with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
-            std::mem::take(&mut shared_context.local_only_fragments)
+            std::mem::take(&mut shared_context.fragments_with_local_resources)
         })
         .unwrap_or_default()
     }
@@ -217,10 +219,10 @@ impl SharedContext {
         any(debug_assertions, features = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub fn register_local_only(key: String) {
+    pub fn register_local_fragment(key: String) {
         with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
-            shared_context.local_only_fragments.insert(key);
+            shared_context.fragments_with_local_resources.insert(key);
         })
         .unwrap_or_default()
     }
@@ -270,16 +272,17 @@ impl Default for SharedContext {
                     serde_wasm_bindgen::from_value(pr).map_err(|_| ())
                 })
                 .unwrap();
-            let local_only_fragments = js_sys::Reflect::get(
+            let fragments_with_local_resources = js_sys::Reflect::get(
                 &web_sys::window().unwrap(),
                 &wasm_bindgen::JsValue::from_str("__LEPTOS_LOCAL_ONLY"),
             );
-            let local_only_fragments: HashSet<String> = local_only_fragments
-                .map_err(|_| ())
-                .and_then(|pr| {
-                    serde_wasm_bindgen::from_value(pr).map_err(|_| ())
-                })
-                .unwrap_or_default();
+            let fragments_with_local_resources: HashSet<String> =
+                fragments_with_local_resources
+                    .map_err(|_| ())
+                    .and_then(|pr| {
+                        serde_wasm_bindgen::from_value(pr).map_err(|_| ())
+                    })
+                    .unwrap_or_default();
 
             let resolved_resources = js_sys::Reflect::get(
                 &web_sys::window().unwrap(),
@@ -295,7 +298,7 @@ impl Default for SharedContext {
                 //events: Default::default(),
                 pending_resources,
                 resolved_resources,
-                local_only_fragments,
+                fragments_with_local_resources,
                 pending_fragments: Default::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
@@ -314,7 +317,7 @@ impl Default for SharedContext {
                 pending_resources: Default::default(),
                 resolved_resources: Default::default(),
                 pending_fragments: Default::default(),
-                local_only_fragments: Default::default(),
+                fragments_with_local_resources: Default::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
                 #[cfg(all(

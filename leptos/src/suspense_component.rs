@@ -94,7 +94,9 @@ where
         let orig_children = Rc::clone(&orig_children);
         move |_| {
             provide_context(context);
-            if SharedContext::is_local_only_fragment(&current_id.to_string()) {
+            if SharedContext::fragment_has_local_resources(
+                &current_id.to_string(),
+            ) {
                 HydrationCtx::with_hydration_off({
                     let orig_children = Rc::clone(&orig_children);
                     move || orig_children().into_view()
@@ -144,8 +146,8 @@ where
                             DynChild::new(move || children_rendered.clone())
                                 .into_view()
                         })
-                    } else if context.has_local_only() {
-                        SharedContext::register_local_only(
+                    } else if context.has_any_local() {
+                        SharedContext::register_local_fragment(
                             current_id.to_string(),
                         );
                         fallback.get_untracked()
