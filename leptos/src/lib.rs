@@ -230,8 +230,12 @@ pub use wasm_bindgen; // used in islands
     feature = "template_macro"
 ))]
 pub use web_sys; // used in islands
+
 mod children;
+mod view_fn;
 pub use children::*;
+pub use view_fn::*;
+
 extern crate self as leptos;
 
 /// A type for taking anything that implements [`IntoAttribute`].
