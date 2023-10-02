@@ -428,25 +428,6 @@ impl<T> From<Memo<T>> for Signal<T> {
     }
 }
 
-impl<T: Clone> From<T> for Signal<T> {
-    #[track_caller]
-    fn from(value: T) -> Self {
-        Self {
-            inner: SignalTypes::DerivedSignal(store_value(Box::new(
-                move || value.clone(),
-            ))),
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: std::panic::Location::caller(),
-        }
-    }
-}
-
-impl From<&str> for Signal<String> {
-    fn from(value: &str) -> Self {
-        Self::from(value.to_string())
-    }
-}
-
 enum SignalTypes<T>
 where
     T: 'static,
@@ -851,6 +832,36 @@ impl<T> From<Signal<T>> for MaybeSignal<T> {
 impl From<&str> for MaybeSignal<String> {
     fn from(value: &str) -> Self {
         Self::Static(value.to_string())
+    }
+}
+
+#[cfg(feature = "nightly")]
+mod from_fn_for_signals {
+    use super::{MaybeSignal, Memo, ReadSignal, RwSignal, Signal};
+    auto trait NotSignalMarker {}
+
+    impl<T> !NotSignalMarker for Signal<T> {}
+    impl<T> !NotSignalMarker for ReadSignal<T> {}
+    impl<T> !NotSignalMarker for Memo<T> {}
+    impl<T> !NotSignalMarker for RwSignal<T> {}
+    impl<T> !NotSignalMarker for MaybeSignal<T> {}
+
+    impl<F, T> From<F> for Signal<T>
+    where
+        F: Fn() -> T + NotSignalMarker + 'static,
+    {
+        fn from(value: F) -> Self {
+            Signal::derive(value)
+        }
+    }
+}
+#[cfg(not(feature = "nightly"))]
+impl<F, T> From<F> for Signal<T>
+where
+    F: Fn() -> T + 'static,
+{
+    fn from(value: F) -> Self {
+        Signal::derive(value)
     }
 }
 

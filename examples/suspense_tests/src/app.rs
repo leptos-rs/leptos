@@ -20,7 +20,7 @@ async fn second_wait_fn(seconds: u64) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn App() -> impl IntoView {
-    let style = r#"
+    let style = r"
         nav {
             display: flex;
             width: 100%;
@@ -30,7 +30,7 @@ pub fn App() -> impl IntoView {
         [aria-current] {
             font-weight: bold;
         }
-    "#;
+    ";
     view! {
 
         <style>{style}</style>

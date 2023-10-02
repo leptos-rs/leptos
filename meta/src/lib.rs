@@ -288,7 +288,7 @@ impl MetaContext {
 #[cfg(feature = "ssr")]
 pub fn generate_head_metadata() -> String {
     let (head, body) = generate_head_metadata_separated();
-    format!("{head}</head><{body}>")
+    format!("{head}</head>{body}")
 }
 
 /// Extracts the metadata that should be inserted at the beginning of the `<head>` tag

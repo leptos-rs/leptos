@@ -8,7 +8,7 @@ repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
 
 [dependencies]
-axum = { version = "0.6", default-features = false }
+axum = { version = "0.6", default-features = false, features=["matched-path"] }
 futures = "0.3"
 http = "0.2.8"
 hyper = "0.14.23"

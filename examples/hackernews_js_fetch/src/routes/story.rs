@@ -58,7 +58,7 @@ pub fn Story() -> impl IntoView {
                                     <For
                                         each=move || story.comments.clone().unwrap_or_default()
                                         key=|comment| comment.id
-                                        let:comment 
+                                        let:comment
                                     >
                                         <Comment comment/>
                                     </For>

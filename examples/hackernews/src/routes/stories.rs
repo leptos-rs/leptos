@@ -41,13 +41,11 @@ pub fn Stories() -> impl IntoView {
     };
 
     view! {
-
         <div class="news-view">
             <div class="news-list-nav">
                 <span>
                     {move || if page() > 1 {
                         view! {
-
                             <a class="page-link"
                                 href=move || format!("/{}?page={}", story_type(), page() - 1)
                                 attr:aria_label="Previous Page"
@@ -57,7 +55,6 @@ pub fn Stories() -> impl IntoView {
                         }.into_any()
                     } else {
                         view! {
-
                             <span class="page-link disabled" aria-hidden="true">
                                 "< prev"
                             </span>
@@ -79,12 +76,12 @@ pub fn Stories() -> impl IntoView {
             <main class="news-list">
                 <div>
                     <Transition
-                        fallback=move || view! {  <p>"Loading..."</p> }
+                        fallback=move || view! { <p>"Loading..."</p> }
                         set_pending
                     >
                         {move || match stories.get() {
                             None => None,
-                            Some(None) => Some(view! {  <p>"Error loading stories."</p> }.into_any()),
+                            Some(None) => Some(view! { <p>"Error loading stories."</p> }.into_any()),
                             Some(Some(stories)) => {
                                 Some(view! {
                                     <ul>
@@ -123,7 +120,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! {  <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
+                    view! { <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             <br />
@@ -132,7 +129,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     view! {
                         <span>
                             {"by "}
-                            {story.user.map(|user| view ! { <A href=format!("/users/{user}")>{user.clone()}</A>})}
+                            {story.user.map(|user| view ! {  <A href=format!("/users/{user}")>{user.clone()}</A>})}
                             {format!(" {} | ", story.time_ago)}
                             <A href=format!("/stories/{}", story.id)>
                                 {if story.comments_count.unwrap_or_default() > 0 {
@@ -145,7 +142,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! {  <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
+                    view! { <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             {(story.story_type != "link").then(|| view! {
