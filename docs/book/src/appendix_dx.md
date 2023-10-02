@@ -47,3 +47,14 @@ Helix, in `.helix/languages.toml`:
 name = "rust"
 config = { procMacro = {ignored = {leptos_macro = ["component"]}}}
 ```
+
+```admonish info
+The Jetbrains `intellij-rust` plugin (RustRover as well) currently does not support dynamic config for macro exclusion.
+However, the project currently maintains a hardcoded list of excluded macros.
+As soon as [this open PR](https://github.com/intellij-rust/intellij-rust/pull/10873) is merged, the `component` and
+`server` macro will be excluded automatically without additional configuration needed.  
+
+Update (2023/10/02):  
+The `intellij-rust` plugin got deprecated in favor of RustRover at the same time the PR was opened, but an official
+support request was made to integrate the contents of this PR.
+```
