@@ -92,7 +92,6 @@ where
     #[cfg(feature = "hydrate")]
     let children = create_memo({
         let orig_children = Rc::clone(&orig_children);
-        let current_id = current_id.clone();
         move |_| {
             provide_context(context);
             if SharedContext::is_local_only_fragment(&current_id.to_string()) {
