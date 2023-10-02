@@ -16,8 +16,15 @@ pub struct SuspenseContext {
     pub pending_resources: ReadSignal<usize>,
     set_pending_resources: WriteSignal<usize>,
     pub(crate) pending_serializable_resources: RwSignal<usize>,
-    pub(crate) has_local_only: StoredValue<bool>,
+    pub(crate) local_status: StoredValue<Option<LocalStatus>>,
     pub(crate) should_block: StoredValue<bool>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum LocalStatus {
+    LocalOnly,
+    Mixed,
+    SerializableOnly,
 }
 
 /// A single, global suspense context that will be checked when resources
@@ -54,7 +61,15 @@ impl SuspenseContext {
     /// Whether the suspense contains local resources at this moment,
     /// and therefore can't be serialized
     pub fn has_local_only(&self) -> bool {
-        self.has_local_only.get_value()
+        matches!(self.local_status.get_value(), Some(LocalStatus::LocalOnly))
+    }
+
+    /// Whether the suspense contains any local resources at this moment.
+    pub fn has_any_local(&self) -> bool {
+        matches!(
+            self.local_status.get_value(),
+            Some(LocalStatus::LocalOnly) | Some(LocalStatus::Mixed)
+        )
     }
 
     /// Whether any blocking resources are read under this suspense context,
@@ -102,13 +117,13 @@ impl SuspenseContext {
     pub fn new() -> Self {
         let (pending_resources, set_pending_resources) = create_signal(0);
         let pending_serializable_resources = create_rw_signal(0);
-        let has_local_only = store_value(true);
+        let local_status = store_value(None);
         let should_block = store_value(false);
         Self {
             pending_resources,
             set_pending_resources,
             pending_serializable_resources,
-            has_local_only,
+            local_status,
             should_block,
         }
     }
@@ -117,11 +132,29 @@ impl SuspenseContext {
     pub fn increment(&self, serializable: bool) {
         let setter = self.set_pending_resources;
         let serializable_resources = self.pending_serializable_resources;
-        let has_local_only = self.has_local_only;
+        let local_status = self.local_status;
         setter.update(|n| *n += 1);
         if serializable {
             serializable_resources.update(|n| *n += 1);
-            has_local_only.set_value(false);
+            local_status.update_value(|status| {
+                *status = Some(match status {
+                    None => LocalStatus::SerializableOnly,
+                    Some(LocalStatus::LocalOnly) => LocalStatus::LocalOnly,
+                    Some(LocalStatus::Mixed) => LocalStatus::Mixed,
+                    Some(LocalStatus::SerializableOnly) => {
+                        LocalStatus::SerializableOnly
+                    }
+                });
+            });
+        } else {
+            local_status.update_value(|status| {
+                *status = Some(match status {
+                    None => LocalStatus::LocalOnly,
+                    Some(LocalStatus::LocalOnly) => LocalStatus::LocalOnly,
+                    Some(LocalStatus::Mixed) => LocalStatus::Mixed,
+                    Some(LocalStatus::SerializableOnly) => LocalStatus::Mixed,
+                });
+            });
         }
     }
 

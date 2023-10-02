@@ -250,6 +250,19 @@ impl HydrationCtx {
         value
     }
 
+    #[doc(hidden)]
+    #[cfg(feature = "hydrate")]
+    pub fn with_hydration_off<T>(f: impl FnOnce() -> T) -> T {
+        let prev = IS_HYDRATING.with(|is_hydrating| {
+            let prev = is_hydrating.get();
+            is_hydrating.set(false);
+            prev
+        });
+        let value = f();
+        IS_HYDRATING.with(|is_hydrating| is_hydrating.set(prev));
+        value
+    }
+
     /// Whether the UI is currently in the process of hydrating from the server-sent HTML.
     #[inline(always)]
     pub fn is_hydrating() -> bool {
