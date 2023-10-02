@@ -178,7 +178,7 @@ pub mod error {
 }
 #[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
 pub use leptos_macro::template;
-#[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
+#[cfg(not(all(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
 pub use leptos_macro::{component, island, server, slot, view, Params};
 pub use leptos_reactive::*;
