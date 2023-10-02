@@ -149,13 +149,13 @@ pub fn Html(
             }
         } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head();
-            if let Some(lang) = lang {
+            if lang.is_some() {
                 *meta.html.lang.borrow_mut() = lang;
             }
-            if let Some(dir) = dir {
+            if dir.is_some() {
                 *meta.html.dir.borrow_mut() = dir;
             }
-            if let Some(class) = class {
+            if class.is_some() {
                 *meta.html.class.borrow_mut() = class;
             }
             meta.html.attributes.borrow_mut().extend(attributes);
