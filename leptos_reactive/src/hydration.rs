@@ -20,6 +20,8 @@ pub struct SharedContext {
     pub resolved_resources: HashMap<ResourceId, String>,
     /// Suspended fragments that have not yet resolved.
     pub pending_fragments: HashMap<String, FragmentData>,
+    /// Suspense fragments that contain only local resources.
+    pub local_only_fragments: HashSet<String>,
     #[cfg(feature = "experimental-islands")]
     pub no_hydrate: bool,
     #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
@@ -108,6 +110,7 @@ impl SharedContext {
                     is_ready: Some(Box::pin(async move {
                         rx3.next().await;
                     })),
+                    local_only: context.has_local_only(),
                 },
             );
         })
@@ -185,6 +188,42 @@ impl SharedContext {
             });
         }
     }
+
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    pub fn is_local_only_fragment(fragment: &str) -> bool {
+        with_runtime(|runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            shared_context.local_only_fragments.remove(fragment)
+        })
+        .unwrap_or_default()
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    pub fn local_only_fragments() -> HashSet<String> {
+        with_runtime(|runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            std::mem::take(&mut shared_context.local_only_fragments)
+        })
+        .unwrap_or_default()
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    pub fn register_local_only(key: String) {
+        with_runtime(|runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            shared_context.local_only_fragments.insert(key);
+        })
+        .unwrap_or_default()
+    }
 }
 
 /// Represents its pending `<Suspense/>` fragment.
@@ -197,6 +236,8 @@ pub struct FragmentData {
     pub should_block: bool,
     /// Future that will resolve when the fragment is ready.
     pub is_ready: Option<PinnedFuture<()>>,
+    /// Whether the fragment contains only local resources.
+    pub local_only: bool,
 }
 
 impl std::fmt::Debug for SharedContext {
@@ -229,6 +270,16 @@ impl Default for SharedContext {
                     serde_wasm_bindgen::from_value(pr).map_err(|_| ())
                 })
                 .unwrap();
+            let local_only_fragments = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_LOCAL_ONLY"),
+            );
+            let local_only_fragments: HashSet<String> = local_only_fragments
+                .map_err(|_| ())
+                .and_then(|pr| {
+                    serde_wasm_bindgen::from_value(pr).map_err(|_| ())
+                })
+                .unwrap_or_default();
 
             let resolved_resources = js_sys::Reflect::get(
                 &web_sys::window().unwrap(),
@@ -244,6 +295,7 @@ impl Default for SharedContext {
                 //events: Default::default(),
                 pending_resources,
                 resolved_resources,
+                local_only_fragments,
                 pending_fragments: Default::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
@@ -262,6 +314,7 @@ impl Default for SharedContext {
                 pending_resources: Default::default(),
                 resolved_resources: Default::default(),
                 pending_fragments: Default::default(),
+                local_only_fragments: Default::default(),
                 #[cfg(feature = "experimental-islands")]
                 no_hydrate: true,
                 #[cfg(all(

@@ -1,5 +1,7 @@
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
+#[cfg(feature = "hydrate")]
+use leptos_reactive::SharedContext;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::SignalGet;
 use leptos_reactive::{
@@ -75,13 +77,32 @@ where
     let owner =
         Owner::current().expect("<Suspense/> created with no reactive owner");
 
+    let current_id = HydrationCtx::next_component();
+
     // provide this SuspenseContext to any resources below it
     // run in a memo so the children are children of this parent
+    #[cfg(not(feature = "hydrate"))]
     let children = create_memo({
         let orig_children = Rc::clone(&orig_children);
         move |_| {
             provide_context(context);
             orig_children().into_view()
+        }
+    });
+    #[cfg(feature = "hydrate")]
+    let children = create_memo({
+        let orig_children = Rc::clone(&orig_children);
+        let current_id = current_id.clone();
+        move |_| {
+            provide_context(context);
+            if SharedContext::is_local_only_fragment(&current_id.to_string()) {
+                HydrationCtx::with_hydration_off({
+                    let orig_children = Rc::clone(&orig_children);
+                    move || orig_children().into_view()
+                })
+            } else {
+                orig_children().into_view()
+            }
         }
     });
 
@@ -92,8 +113,6 @@ where
             fallback().into_view()
         }
     });
-
-    let current_id = HydrationCtx::next_component();
 
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     let ready = context.ready();
@@ -126,6 +145,11 @@ where
                             DynChild::new(move || children_rendered.clone())
                                 .into_view()
                         })
+                    } else if context.has_local_only() {
+                        SharedContext::register_local_only(
+                            current_id.to_string(),
+                        );
+                        fallback.get_untracked()
                     }
                     // show the fallback, but also prepare to stream HTML
                     else {

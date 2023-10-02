@@ -203,6 +203,9 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
         .map(|nonce| format!(" nonce=\"{nonce}\""))
         .unwrap_or_default();
 
+    let local_only = SharedContext::local_only_fragments();
+    let local_only = serde_json::to_string(&local_only).unwrap();
+
     let mut blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
 
@@ -226,7 +229,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                 let resolvers = format!(
                     "<script{nonce_str}>__LEPTOS_PENDING_RESOURCES = \
                      {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
-                     Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
+                     Map();__LEPTOS_RESOURCE_RESOLVERS = new \
+                     Map();__LEPTOS_LOCAL_ONLY = {local_only};</script>"
                 );
 
                 if replace_blocks {
