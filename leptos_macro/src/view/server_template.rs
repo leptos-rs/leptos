@@ -284,7 +284,10 @@ fn element_to_tokens_ssr(
                     template.push_str(" {}");
                     holes.push(quote! {
                         {#end}.into_iter().filter_map(|(name, attr)| {
-                           Some(format!("{}=\"{}\"", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
+                            Some(match attr {
+                                ::leptos::Attribute::Option(None) => <::leptos::Oco as ::core::convert::From>::from(name),
+                                attr => ::leptos::Oco::Owned(format!("{}=\"{}\"", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
+                            })
                         }).collect::<Vec<_>>().join(" ")
                     });
                 };
