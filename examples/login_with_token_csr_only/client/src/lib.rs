@@ -70,7 +70,7 @@ pub fn App() -> impl IntoView {
         fetch_user_info.dispatch(());
     }
 
-    log::debug!("User is logged in: {}", logged_in.get());
+    log::debug!("User is logged in: {}", logged_in.get_untracked());
 
     // -- effects -- //
 
