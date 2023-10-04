@@ -36,7 +36,7 @@ jobs:
             server_fn_macro
 
       - name: List source files that changed
-        run: echo '${{ steps.changed-source.outputs.all_changed_files }}'
+        run: echo '${{ steps.changed-source.outputs.all_changed_files }}' >> "$GITHUB_OUTPUT"
 
       - name: Set leptos_changed
         id: set-source-changed

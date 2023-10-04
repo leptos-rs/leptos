@@ -31,7 +31,7 @@ jobs:
             !examples/*.md
 
       - name: List example files that changed
-        run: echo '${{ steps.changed-files.outputs.all_changed_files }}'
+        run: echo '${{ steps.changed-files.outputs.all_changed_files }}' >> "$GITHUB_OUTPUT"
 
       - name: Set example_changed
         id: set-example-changed

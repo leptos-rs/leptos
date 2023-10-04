@@ -41,7 +41,7 @@ jobs:
           quotepath: false
 
       - name: List example project directories that changed
-        run: echo '${{ steps.changed-dirs.outputs.all_changed_files }}'
+        run: echo '${{ steps.changed-dirs.outputs.all_changed_files }}' >> "$GITHUB_OUTPUT"
 
       - name: Set Matrix
         id: set-matrix
