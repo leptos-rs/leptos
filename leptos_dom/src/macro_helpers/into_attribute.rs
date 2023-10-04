@@ -74,6 +74,52 @@ impl Attribute {
             }
         }
     }
+
+    #[doc(hidden)]
+    pub fn format_attrs<'a, T: AsRef<[(&'a str, Self)]> + 'a>(
+        attrs: T,
+    ) -> String {
+        // this monstrosity is a signature move by @baptistemontan
+        fn format_inner<'a>(
+            s: &mut String,
+            mut iter: impl Iterator<Item = (&'a str, Option<Oco<'a, str>>)>,
+        ) -> core::fmt::Result {
+            use crate::ssr::escape_attr;
+            use core::fmt::Write;
+            let Some((first_attr_name, first_attr)) = iter.next() else {
+                return Ok(());
+            };
+            s.push_str(first_attr_name);
+            if let Some(attr) = first_attr {
+                write!(s, "=\"{}\"", &escape_attr(&attr))?;
+            }
+            for (attr_name, attr) in iter {
+                match attr {
+                    None => write!(s, " {}", attr_name)?,
+                    Some(attr) => {
+                        write!(s, " {}=\"{}\"", attr_name, &escape_attr(&attr))?
+                    }
+                }
+            }
+            Ok(())
+        }
+        let iter =
+            attrs
+                .as_ref()
+                .iter()
+                .filter_map(|(attr_name, attr)| match attr {
+                    Attribute::Bool(true) => Some((*attr_name, None)),
+                    attr => {
+                        let as_nameless_value_string =
+                            attr.as_nameless_value_string()?;
+                        Some((*attr_name, Some(as_nameless_value_string)))
+                    }
+                });
+        let mut s = String::new();
+        format_inner(&mut s, iter)
+            .expect("Unexpected error while writing to a String.");
+        s
+    }
 }
 
 impl PartialEq for Attribute {
