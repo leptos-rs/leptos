@@ -50,7 +50,7 @@ use stylers::style;
 #[component]
 pub fn App() -> impl IntoView {
     let styler_class = style! { "App",
-        #two{
+        ##two{
             color: blue;
         }
         div.one{
