@@ -1,7 +1,7 @@
 use crate::{
     create_isomorphic_effect, on_cleanup, runtime::untrack, store_value, Memo,
-    ReadSignal, RwSignal, SignalGet, SignalGetUntracked, SignalStream,
-    SignalWith, SignalWithUntracked, StoredValue,
+    ReadSignal, RwSignal, SignalDispose, SignalGet, SignalGetUntracked,
+    SignalStream, SignalWith, SignalWithUntracked, StoredValue,
 };
 
 /// Helper trait for converting `Fn() -> T` closures into
@@ -316,6 +316,16 @@ impl<T: Clone> SignalGet for Signal<T> {
             SignalTypes::ReadSignal(r) => r.try_get(),
             SignalTypes::Memo(m) => m.try_get(),
             SignalTypes::DerivedSignal(s) => s.try_with_value(|t| t()),
+        }
+    }
+}
+
+impl<T> SignalDispose for Signal<T> {
+    fn dispose(self) {
+        match self.inner {
+            SignalTypes::ReadSignal(s) => s.dispose(),
+            SignalTypes::Memo(m) => m.dispose(),
+            SignalTypes::DerivedSignal(s) => s.dispose(),
         }
     }
 }
