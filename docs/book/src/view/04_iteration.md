@@ -87,7 +87,7 @@ keyed dynamic list. It takes three props:
 
 - `each`: a function (such as a signal) that returns the items `T` to be iterated over
 - `key`: a key function that takes `&T` and returns a stable, unique key or ID
-- `view`: renders each `T` into a view
+- `children`: renders each `T` into a view
 
 `key` is, well, the key. You can add, remove, and move items within the list. As
 long as each item’s key is stable over time, the framework does not need to rerender
