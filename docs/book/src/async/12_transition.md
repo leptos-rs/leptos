@@ -6,9 +6,9 @@ You’ll notice in the `<Suspense/>` example that if you keep reloading the data
 
 This example shows how you can create a simple tabbed contact list with `<Transition/>`. When you select a new tab, it continues showing the current contact until the new data loads. This can be a much better user experience than constantly falling back to a loading message.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/12-transition-sn38sd?selection=%5B%7B%22endColumn%22%3A15%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A15%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/12-transition-0-5-2jg5lz?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/12-transition-sn38sd?selection=%5B%7B%22endColumn%22%3A15%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A15%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/12-transition-0-5-2jg5lz?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -75,9 +75,8 @@ fn App() -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>
