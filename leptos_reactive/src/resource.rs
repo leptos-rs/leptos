@@ -1462,6 +1462,11 @@ pub fn suppress_resource_load(suppress: bool) {
     SUPPRESS_RESOURCE_LOAD.with(|w| w.set(suppress));
 }
 
+#[doc(hidden)]
+pub fn is_suppressing_resource_load() -> bool {
+    SUPPRESS_RESOURCE_LOAD.with(|w| w.get())
+}
+
 impl<S, T> SignalDispose for Resource<S, T>
 where
     S: 'static,
