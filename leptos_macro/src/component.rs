@@ -511,6 +511,7 @@ impl ToTokens for Model {
             #[doc = ""]
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
+            #[allow(clippy::needless_lifetimes)]
             #tracing_instrument_attr
             #vis fn #name #impl_generics (
                 #props_arg
