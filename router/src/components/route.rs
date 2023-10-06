@@ -10,6 +10,7 @@ use std::{
     future::Future,
     pin::Pin,
     rc::Rc,
+    sync::Arc,
 };
 
 thread_local! {
@@ -179,7 +180,10 @@ where
     E: IntoView,
     F: Fn() -> E + 'static,
     P: std::fmt::Display,
-    S: Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap>>> + 'static,
+    S: Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap> + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
 {
     define_route(
         children,
@@ -189,7 +193,7 @@ where
         &[Method::Get],
         data,
         Some(mode),
-        static_params.map(|s| Rc::new(s) as _),
+        static_params.map(|s| Arc::new(s) as _),
     )
 }
 
