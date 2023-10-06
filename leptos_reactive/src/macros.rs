@@ -17,8 +17,9 @@ pub(crate) use debug_warn;
 
 /// Provides a simpler way to use [`SignalWith::with`](crate::SignalWith::with).
 ///
-/// To use with [stored values](crate::StoredValue), see the [`with_value`](crate::with_value)
-/// macro instead.
+/// This macro also supports [stored values](crate::StoredValue). If you would
+/// like to distinguish between the two, you can also use [`with_value`](crate::with_value)
+/// for stored values only.
 ///
 /// The general syntax looks like:
 /// ```ignore
@@ -32,15 +33,13 @@ pub(crate) use debug_warn;
 ///
 /// # Examples
 /// ```
-/// # use leptos::*;
+/// # use leptos_reactive::*;
 /// # let runtime = create_runtime();
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (first, _) = create_signal("Bob".to_string());
 /// let (middle, _) = create_signal("J.".to_string());
 /// let (last, _) = create_signal("Smith".to_string());
 /// let name = with!(|first, middle, last| format!("{first} {middle} {last}"));
 /// assert_eq!(name, "Bob J. Smith");
-/// # };
 /// # runtime.dispose();
 /// ```
 ///
@@ -67,16 +66,22 @@ pub(crate) use debug_warn;
 #[macro_export]
 macro_rules! with {
     (|$ident:ident $(,)?| $body:expr) => {
-        $ident.with(|$ident| $body)
+        $crate::macros::__private::Withable::call_with(&$ident, |$ident| $body)
     };
     (move |$ident:ident $(,)?| $body:expr) => {
-        $ident.with(move |$ident| $body)
+        $crate::macros::__private::Withable::call_with(&$ident, move |$ident| $body)
     };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
-        $first.with(|$first| with!(|$($rest),+| $body))
+        $crate::macros::__private::Withable::call_with(
+            &$first,
+            |$first| with!(|$($rest),+| $body)
+        )
     };
     (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
-        $first.with(move |$first| with!(move |$($rest),+| $body))
+        $crate::macros::__private::Withable::call_with(
+            &$first,
+            move |$first| with!(|$($rest),+| $body)
+        )
     };
 }
 
@@ -85,6 +90,10 @@ macro_rules! with {
 ///
 /// To use with [signals](crate::SignalWith::with), see the [`with!`] macro
 /// instead.
+///
+/// Note that the [`with!`] macro also works with
+/// [`StoredValue`](crate::StoredValue). Use this macro if you would like to
+/// distinguish between signals and stored values.
 ///
 /// The general syntax looks like:
 /// ```ignore
@@ -98,9 +107,8 @@ macro_rules! with {
 ///
 /// # Examples
 /// ```
-/// # use leptos::*;
+/// # use leptos_reactive::*;
 /// # let runtime = create_runtime();
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let first = store_value("Bob".to_string());
 /// let middle = store_value("J.".to_string());
 /// let last = store_value("Smith".to_string());
@@ -108,7 +116,6 @@ macro_rules! with {
 ///     format!("{first} {middle} {last}")
 /// });
 /// assert_eq!(name, "Bob J. Smith");
-/// # };
 /// # runtime.dispose();
 /// ```
 /// The `with_value!` macro in the above example expands to:
@@ -150,8 +157,9 @@ macro_rules! with_value {
 /// Provides a simpler way to use
 /// [`SignalUpdate::update`](crate::SignalUpdate::update).
 ///
-/// To use with [stored values](crate::StoredValue), see the [`update_value`](crate::update_value)
-/// macro instead.
+/// This macro also supports [stored values](crate::StoredValue). If you would
+/// like to distinguish between the two, you can also use [`update_value`](crate::update_value)
+/// for stored values only.
 ///
 /// The general syntax looks like:
 /// ```ignore
@@ -165,14 +173,12 @@ macro_rules! with_value {
 ///
 /// # Examples
 /// ```
-/// # use leptos::*;
+/// # use leptos_reactive::*;
 /// # let runtime = create_runtime();
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let a = create_rw_signal(1);
 /// let b = create_rw_signal(2);
 /// update!(|a, b| *a = *a + *b);
 /// assert_eq!(a.get(), 3);
-/// # };
 /// # runtime.dispose();
 /// ```
 /// The `update!` macro in the above example expands to:
@@ -196,16 +202,22 @@ macro_rules! with_value {
 #[macro_export]
 macro_rules! update {
     (|$ident:ident $(,)?| $body:expr) => {
-        $ident.update(|$ident| $body)
+        $crate::macros::__private::Updatable::call_update(&$ident, |$ident| $body)
     };
     (move |$ident:ident $(,)?| $body:expr) => {
-        $ident.update(move |$ident| $body)
+        $crate::macros::__private::Updatable::call_update(&$ident, move |$ident| $body)
     };
     (|$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
-        $first.update(|$first| update!(|$($rest),+| $body))
+        $crate::macros::__private::Updatable::call_update(
+            &$first,
+            |$first| update!(|$($rest),+| $body)
+        )
     };
     (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
-        $first.update(move |$first| update!(move |$($rest),+| $body))
+        $crate::macros::__private::Updatable::call_update(
+            &$first,
+            move |$first| update!(|$($rest),+| $body)
+        )
     };
 }
 
@@ -214,6 +226,10 @@ macro_rules! update {
 ///
 /// To use with [signals](crate::SignalUpdate::update), see the [`update`]
 /// macro instead.
+///
+/// Note that the [`update!`] macro also works with
+/// [`StoredValue`](crate::StoredValue). Use this macro if you would like to
+/// distinguish between signals and stored values.
 ///
 /// The general syntax looks like:
 /// ```ignore
@@ -227,14 +243,12 @@ macro_rules! update {
 ///
 /// # Examples
 /// ```
-/// # use leptos::*;
+/// # use leptos_reactive::*;
 /// # let runtime = create_runtime();
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let a = store_value(1);
 /// let b = store_value(2);
 /// update_value!(|a, b| *a = *a + *b);
 /// assert_eq!(a.get_value(), 3);
-/// # };
 /// # runtime.dispose();
 /// ```
 /// The `update_value!` macro in the above example expands to:
@@ -268,4 +282,63 @@ macro_rules! update_value {
     (move |$first:ident, $($rest:ident),+ $(,)? | $body:expr) => {
         $first.update_value(move |$first| update_value!(move |$($rest),+| $body))
     };
+}
+
+/// This is a private module intended to only be used by macros. Do not access
+/// this directly!
+#[doc(hidden)]
+pub mod __private {
+    use crate::{SignalUpdate, SignalWith, StoredValue};
+
+    pub trait Withable {
+        type Value;
+
+        // don't use `&self` or r-a will suggest importing this trait
+        // and using it as a method
+        #[track_caller]
+        fn call_with<O>(item: &Self, f: impl FnOnce(&Self::Value) -> O) -> O;
+    }
+
+    impl<T> Withable for StoredValue<T> {
+        type Value = T;
+
+        #[inline(always)]
+        fn call_with<O>(item: &Self, f: impl FnOnce(&Self::Value) -> O) -> O {
+            item.with_value(f)
+        }
+    }
+
+    impl<S: SignalWith> Withable for S {
+        type Value = S::Value;
+
+        #[inline(always)]
+        fn call_with<O>(item: &Self, f: impl FnOnce(&Self::Value) -> O) -> O {
+            item.with(f)
+        }
+    }
+
+    pub trait Updatable {
+        type Value;
+
+        #[track_caller]
+        fn call_update(item: &Self, f: impl FnOnce(&mut Self::Value));
+    }
+
+    impl<T> Updatable for StoredValue<T> {
+        type Value = T;
+
+        #[inline(always)]
+        fn call_update(item: &Self, f: impl FnOnce(&mut Self::Value)) {
+            item.update_value(f)
+        }
+    }
+
+    impl<S: SignalUpdate> Updatable for S {
+        type Value = S::Value;
+
+        #[inline(always)]
+        fn call_update(item: &Self, f: impl FnOnce(&mut Self::Value)) {
+            item.update(f)
+        }
+    }
 }
