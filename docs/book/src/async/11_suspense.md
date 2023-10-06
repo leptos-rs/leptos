@@ -8,7 +8,7 @@ let once = create_resource(count, |count| async move { load_a(count).await });
 
 view! {
     <h1>"My Data"</h1>
-    {move || match once.read() {
+    {move || match once.get() {
         None => view! { <p>"Loading..."</p> }.into_view(),
         Some(data) => view! { <ShowData data/> }.into_view()
     }}
@@ -25,7 +25,7 @@ let b = create_resource(count2, |count| async move { load_b(count).await });
 
 view! {
     <h1>"My Data"</h1>
-    {move || match (a.read(), b.read()) {
+    {move || match (a.get(), b.get()) {
         (Some(a), Some(b)) => view! {
             <ShowA a/>
             <ShowA b/>
@@ -53,12 +53,12 @@ view! {
         <h2>"My Data"</h2>
         <h3>"A"</h3>
         {move || {
-            a.read()
+            a.get()
                 .map(|a| view! { <ShowA a/> })
         }}
         <h3>"B"</h3>
         {move || {
-            b.read()
+            b.get()
                 .map(|b| view! { <ShowB b/> })
         }}
     </Suspense>
@@ -97,9 +97,9 @@ view! {
 }
 ```
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/11-suspense-907niv?file=%2Fsrc%2Fmain.rs)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/11-suspense-0-5-qzpgqs?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/11-suspense-907niv?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/11-suspense-0-5-qzpgqs?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -141,16 +141,15 @@ fn App() -> impl IntoView {
             // and then whenever any resources has been resolved
             <p>
                 "Your shouting name is "
-                {move || async_data.read()}
+                {move || async_data.get()}
             </p>
         </Suspense>
     }
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

@@ -122,9 +122,9 @@ view! {
 }
 ```
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/9-component-children-0-5-m4jwhp?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/9-component-children-0-5-m4jwhp?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -178,7 +178,6 @@ pub fn App() -> impl IntoView {
 /// Displays a `render_prop` and some children within markup.
 #[component]
 pub fn TakesChildren<F, IV>(
-
     /// Takes a function (type F) that returns anything that can be
     /// converted into a View (type IV)
     render_prop: F,
@@ -203,7 +202,7 @@ where
 
 /// Wraps each child in an `<li>` and embeds them in a `<ul>`.
 #[component]
-pub fn WrapsChildren(Children) -> impl IntoView {
+pub fn WrapsChildren(children: Children) -> impl IntoView {
     // children() returns a `Fragment`, which has a
     // `nodes` field that contains a Vec<View>
     // this means we can iterate over the children
@@ -222,9 +221,8 @@ pub fn WrapsChildren(Children) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>
