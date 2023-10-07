@@ -62,15 +62,16 @@ cfg_if! {
 }
 
 use crate::{
+    create_node_ref,
     ev::EventDescriptor,
     hydration::HydrationCtx,
     macro_helpers::{
         Attribute, IntoAttribute, IntoClass, IntoProperty, IntoStyle,
     },
-    Element, Fragment, IntoView, NodeRef, Text, View,
+    Directive, Element, Fragment, IntoView, NodeRef, Text, View,
 };
-use leptos_reactive::Oco;
-use std::fmt;
+use leptos_reactive::{create_effect, Oco};
+use std::{fmt, rc::Rc};
 
 /// Trait which allows creating an element tag.
 pub trait ElementDescriptor: ElementDescriptorBounds {
@@ -499,7 +500,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             use once_cell::unsync::OnceCell;
             use std::{
                 cell::RefCell,
-                rc::Rc,
                 task::{Poll, Waker},
             };
 
@@ -1134,6 +1134,28 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             this
         }
+    }
+}
+
+impl<El: ElementDescriptor + Clone + 'static> HtmlElement<El> {
+    /// Bind the directive to the element.
+    #[inline(always)]
+    pub fn directive<T, P: 'static>(
+        self,
+        handler: impl Directive<T, P> + 'static,
+        param: Rc<P>,
+    ) -> Self {
+        let node_ref = create_node_ref::<El>();
+
+        let handler = Rc::new(handler);
+
+        let _ = create_effect(move |_| {
+            if let Some(el) = node_ref.get() {
+                Rc::clone(&handler).call(el.into_any(), param.as_ref());
+            }
+        });
+
+        self.node_ref(node_ref)
     }
 }
 

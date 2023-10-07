@@ -10,6 +10,7 @@
 pub extern crate tracing;
 
 mod components;
+mod directive;
 mod events;
 pub mod helpers;
 pub mod html;
@@ -25,8 +26,10 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
+
 use cfg_if::cfg_if;
 pub use components::*;
+pub use directive::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -135,7 +138,7 @@ where
     }
 }
 
-impl<N> IntoView for std::rc::Rc<dyn Fn() -> N>
+impl<N> IntoView for Rc<dyn Fn() -> N>
 where
     N: IntoView + 'static,
 {
@@ -776,65 +779,35 @@ impl View {
         self
     }
 
-    /// Adds a directive which is a function that is run on mounted. A directive can be a function
-    /// with one or two parameters. The first is the element the directive is added to and the optional
-    /// second is the paramter that is provided in the attribute.
-    pub fn directive<T, P>(
+    /// Adds a directive analogous to [`HtmlElement::directive`].
+    ///
+    /// This method will attach directive to **all** child
+    /// [`HtmlElement`] children.
+    pub fn directive<T, P: 'static>(
         self,
-        handler: impl DirectiveHandler<T, P>,
-        param: &P,
+        handler: impl Directive<T, P> + 'static,
+        param: Rc<P>,
     ) -> Self {
         cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             match &self {
                 Self::Element(el) => {
-                    let _ = el.element.on_mount(move |el| handler.call(el, param));
+                    let _ = el.clone().into_html_element().directive(handler, param);
                 }
                 Self::Component(c) => {
                     let handler = Rc::new(handler);
 
                     for child in c.children.iter().cloned() {
-                        let _ = child.directive(Rc::clone(&handler), param);
+                        let _ = child.directive(Rc::clone(&handler), Rc::clone(&param));
                     }
                 }
                 _ => {}
             }
+        } else {
+            let _ = handler;
+            let _ = param;
         }}
 
         self
-    }
-}
-
-/// Trait for a directive handler function. This is used so it's possible to use functions with one or two
-/// parameters as directive handlers. See [`View::directive`].
-pub trait DirectiveHandler<T, P> {
-    /// Calls the handler function
-    fn call(self, el: HtmlElement<AnyElement>, param: &P);
-}
-
-impl<F> DirectiveHandler<(HtmlElement<AnyElement>,), ()> for F
-where
-    F: FnOnce(HtmlElement<AnyElement>),
-{
-    fn call(self, el: HtmlElement<AnyElement>, _: &()) {
-        self(el)
-    }
-}
-
-impl<F, P> DirectiveHandler<(HtmlElement<AnyElement>, P), P> for F
-where
-    F: FnOnce(HtmlElement<AnyElement>, &P),
-{
-    fn call(self, el: HtmlElement<AnyElement>, param: &P) {
-        self(el, param);
-    }
-}
-
-impl<T, P, D> DirectiveHandler<T, P> for Rc<D>
-where
-    D: DirectiveHandler<T, P>,
-{
-    fn call(self, el: HtmlElement<AnyElement>, param: &P) {
-        self.call(el, param)
     }
 }
 

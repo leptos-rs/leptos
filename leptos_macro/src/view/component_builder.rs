@@ -4,6 +4,7 @@ use super::{
     client_builder::{fragment_to_tokens, TagType},
     event_from_attribute_node,
 };
+use crate::view::directive_call_from_attribute_node;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use rstml::node::{NodeAttribute, NodeElement};
@@ -86,15 +87,10 @@ pub(crate) fn component_to_tokens(
     let directives = attrs
         .clone()
         .filter_map(|attr| {
-            attr.key.to_string().strip_prefix("use:").map(|ident| {
-                let handler = format_ident!("{ident}", span = attr.key.span());
-                let param = if let Some(value) = attr.value() {
-                    quote! { &#value }
-                } else {
-                    quote! { &() }
-                };
-                quote! { .directive(#handler, #param) }
-            })
+            attr.key
+                .to_string()
+                .strip_prefix("use:")
+                .map(|ident| directive_call_from_attribute_node(attr, ident))
         })
         .collect::<Vec<_>>();
 
