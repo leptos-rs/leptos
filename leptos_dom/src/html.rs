@@ -554,7 +554,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Checks to see if this element is mounted to the DOM as a child
     /// of `body`.
     ///
-    /// This method will always return [`None`] on non-wasm CSR targets.
+    /// This method will always return `false` on non-wasm CSR targets.
     #[inline(always)]
     pub fn is_mounted(&self) -> bool {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
