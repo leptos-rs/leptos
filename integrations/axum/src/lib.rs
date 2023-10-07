@@ -35,7 +35,7 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
+use std::{fmt::Debug, io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
@@ -1859,6 +1859,41 @@ macro_rules! extract_with_state {
             .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
             ?
     };
+}
+
+/// Docs todo
+pub async fn extract2<T>() -> Result<T, ServerFnError>
+where
+    T: Sized + FromRequestParts<()>,
+    T::Rejection: Debug,
+{
+    T::extract2().await
+}
+
+/// Docs todo
+pub trait Extract2: Sized {
+    /// Docs todo
+    fn extract2() -> Pin<Box<dyn Future<Output = Result<Self, ServerFnError>>>>;
+}
+
+impl<T> Extract2 for T
+where
+    T: Sized + FromRequestParts<()>,
+    T::Rejection: Debug,
+{
+    fn extract2() -> Pin<Box<dyn Future<Output = Result<Self, ServerFnError>>>>
+    {
+        let ctx = use_context::<ExtractorHelper>().expect(
+            "should have had ExtractorHelper provided by the leptos_axum \
+             integration",
+        );
+        Box::pin(async move {
+            let mut parts = ctx.parts.lock().await;
+            T::from_request_parts(&mut parts, &())
+                .await
+                .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+        })
+    }
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes
