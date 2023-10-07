@@ -1826,74 +1826,38 @@ where
     extract_with_state((), f).await
 }
 
-/// A macro that makes it easier to use extractors in server functions. The macro
-/// takes a type or types, and extracts them from the request, returning from the
-/// server function with an `Err(_)` if there is an error during extraction.
+/// A helper to make it easier to use Axum extractors in server functions, with a
+/// simpler API than [`extract`].
+///
+/// It is generic over some type `T` that implements [`FromRequestParts`] and can
+/// therefore be used in an extractor. The compiler can often infer this type.
+///
+/// Any error that occurs during extraction is converted to a [`ServerFnError`].
+///
 /// ```rust,ignore
-/// let method = extract!(Method);
-/// let query = extract!(Query<MyQuery>);
-/// let (method, Query(query)) = extract!(Method, Query<MyQuery>);
+/// // MyQuery is some type that implements `Deserialize + Serialize`
+/// #[server]
+/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
+///     use axum::{extract::Query, http::Method};
+///     use leptos_axum::*;
+///     let Query(query) = extractor().await?;
+///
+///     Ok(query)
+/// }
 /// ```
-#[macro_export]
-macro_rules! extract {
-    ($($x:ty),+) => {
-        $crate::extract(|fields: ($($x),+)| async move { fields })
-            .await
-            .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
-        ?
-    };
-}
-
-/// A macro that makes it easier to use extractors with state in server functions. The macro
-/// takes a type or types, and extracts them from the request, returning from the
-/// server function with an `Err(_)` if there is an error during extraction.
-/// ```rust,ignore
-/// let my_state = use_context::<MyState>().unwrap();
-/// let data = extract_with_state!(my_state, MyCustomExtractor);
-/// ```
-#[macro_export]
-macro_rules! extract_with_state {
-    ($state:expr, $($x:ty),+) => {
-        $crate::extract_with_state($state, |fields: ($($x),+)| async move { fields })
-            .await
-            .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
-            ?
-    };
-}
-
-/// Docs todo
-pub async fn extract2<T>() -> Result<T, ServerFnError>
+pub async fn extractor<T>() -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<()>,
     T::Rejection: Debug,
 {
-    T::extract2().await
-}
-
-/// Docs todo
-pub trait Extract2: Sized {
-    /// Docs todo
-    fn extract2() -> Pin<Box<dyn Future<Output = Result<Self, ServerFnError>>>>;
-}
-
-impl<T> Extract2 for T
-where
-    T: Sized + FromRequestParts<()>,
-    T::Rejection: Debug,
-{
-    fn extract2() -> Pin<Box<dyn Future<Output = Result<Self, ServerFnError>>>>
-    {
-        let ctx = use_context::<ExtractorHelper>().expect(
-            "should have had ExtractorHelper provided by the leptos_axum \
-             integration",
-        );
-        Box::pin(async move {
-            let mut parts = ctx.parts.lock().await;
-            T::from_request_parts(&mut parts, &())
-                .await
-                .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
-        })
-    }
+    let ctx = use_context::<ExtractorHelper>().expect(
+        "should have had ExtractorHelper provided by the leptos_axum \
+         integration",
+    );
+    let mut parts = ctx.parts.lock().await;
+    T::from_request_parts(&mut parts, &())
+        .await
+        .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes
