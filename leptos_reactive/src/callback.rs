@@ -85,9 +85,11 @@ impl<In> fmt::Debug for Callback<In> {
 
 impl<In, Out> Clone for Callback<In, Out> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
+
+impl<In, Out> Copy for Callback<In, Out> {}
 
 impl<In, Out> Callback<In, Out> {
     /// Creates a new callback from the given function.

@@ -80,13 +80,17 @@ extern crate tracing;
 
 #[macro_use]
 mod signal;
-mod callback;
+pub mod callback;
 mod context;
 #[macro_use]
 mod diagnostics;
 mod effect;
 mod hydration;
-mod macros;
+// contains "private" implementation details right now.
+// could make this unhidden in the future if needed.
+// macro_export makes it public from the crate root anyways
+#[doc(hidden)]
+pub mod macros;
 mod memo;
 mod node;
 pub mod oco;

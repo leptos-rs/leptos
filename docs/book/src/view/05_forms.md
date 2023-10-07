@@ -19,7 +19,7 @@ There are two important things to remember:
 2. The `value` _attribute_ only sets the initial value of the input, i.e., it
    only updates the input up to the point that you begin typing. The `value`
    _property_ continues updating the input after that. You usually want to set
-   `prop:value` for this reason. (The same is true for `checked` and `prop:checked` 
+   `prop:value` for this reason. (The same is true for `checked` and `prop:checked`
    on an `<input type="checkbox">`.)
 
 ```rust
@@ -44,28 +44,28 @@ view! {
 ```
 
 > #### Why do you need `prop:value`?
-> 
+>
 > Web browsers are the most ubiquitous and stable platform for rendering graphical user interfaces in existence. They have also maintained an incredible backwards compatibility over their three decades of existence. Inevitably, this means there are some quirks.
-> 
+>
 > One odd quirk is that there is a distinction between HTML attributes and DOM element properties, i.e., between something called an “attribute” which is parsed from HTML and can be set on a DOM element with `.setAttribute()`, and something called a “property” which is a field of the JavaScript class representation of that parsed HTML element.
 >
-> In the case of an `<input value=...>`, setting the `value` *attribute* is defined as setting the initial value for the input, and setting `value` *property* sets its current value. It maybe easiest to understand this by opening `about:blank` and running the following JavaScript in the browser console, line by line:
-> 
+> In the case of an `<input value=...>`, setting the `value` _attribute_ is defined as setting the initial value for the input, and setting `value` _property_ sets its current value. It maybe easiest to understand this by opening `about:blank` and running the following JavaScript in the browser console, line by line:
+>
 > ```js
 > // create an input and append it to the DOM
-> const el = document.createElement("input")
-> document.body.appendChild(el)
-> 
-> el.setAttribute("value", "test") // updates the input
-> el.setAttribute("value", "another test") // updates the input again
-> 
+> const el = document.createElement("input");
+> document.body.appendChild(el);
+>
+> el.setAttribute("value", "test"); // updates the input
+> el.setAttribute("value", "another test"); // updates the input again
+>
 > // now go and type into the input: delete some characters, etc.
-> 
-> el.setAttribute("value", "one more time?") 
+>
+> el.setAttribute("value", "one more time?");
 > // nothing should have changed. setting the "initial value" does nothing now
-> 
+>
 > // however...
-> el.value = "But this works"
+> el.value = "But this works";
 > ```
 >
 > Many other frontend frameworks conflate attributes and properties, or create a special case for inputs that sets the value correctly. Maybe Leptos should do this too; but for now, I prefer giving users the maximum amount of control over whether they’re setting an attribute or a property, and doing my best to educate people about the actual underlying browser behavior rather than obscuring it.
@@ -137,9 +137,9 @@ The view should be pretty self-explanatory by now. Note two things:
 2. We use `node_ref` to fill the `NodeRef`. (Older examples sometimes use `_ref`.
    They are the same thing, but `node_ref` has better rust-analyzer support.)
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/5-form-inputs-ih9m62?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A12%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A12%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/5-forms-0-5-rf2t7c?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/5-form-inputs-ih9m62?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A12%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A12%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/5-forms-0-5-rf2t7c?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -242,9 +242,8 @@ fn UncontrolledComponent() -> impl IntoView {
 // Because we defined it as `fn App`, we can now use it in a
 // template as <App/>
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

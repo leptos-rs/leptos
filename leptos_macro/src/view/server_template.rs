@@ -284,7 +284,7 @@ fn element_to_tokens_ssr(
                     template.push_str(" {}");
                     holes.push(quote! {
                         {#end}.into_iter().filter_map(|(name, attr)| {
-                           Some(format!("{}={}", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
+                           Some(format!("{}=\"{}\"", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
                         }).collect::<Vec<_>>().join(" ")
                     });
                 };

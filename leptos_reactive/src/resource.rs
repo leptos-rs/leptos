@@ -5,10 +5,11 @@ use crate::SpecialNonReactiveZone;
 use crate::{
     create_isomorphic_effect, create_memo, create_render_effect, create_signal,
     queue_microtask, runtime::with_runtime, serialization::Serializable,
-    signal_prelude::format_signal_warning, spawn::spawn_local, use_context,
-    GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty, Signal,
-    SignalDispose, SignalGet, SignalGetUntracked, SignalSet, SignalUpdate,
-    SignalWith, SuspenseContext, WriteSignal,
+    signal_prelude::format_signal_warning, spawn::spawn_local,
+    suspense::LocalStatus, use_context, GlobalSuspenseContext, Memo,
+    ReadSignal, ScopeProperty, Signal, SignalDispose, SignalGet,
+    SignalGetUntracked, SignalSet, SignalUpdate, SignalWith, SuspenseContext,
+    WriteSignal,
 };
 use std::{
     any::Any,
@@ -1178,7 +1179,16 @@ where
         let serializable = self.serializable;
         if let Some(suspense_cx) = &suspense_cx {
             if serializable != ResourceSerialization::Local {
-                suspense_cx.has_local_only.set_value(false);
+                suspense_cx.local_status.update_value(|status| {
+                    *status = Some(match status {
+                        None => LocalStatus::SerializableOnly,
+                        Some(LocalStatus::LocalOnly) => LocalStatus::LocalOnly,
+                        Some(LocalStatus::Mixed) => LocalStatus::Mixed,
+                        Some(LocalStatus::SerializableOnly) => {
+                            LocalStatus::SerializableOnly
+                        }
+                    });
+                });
             }
         } else {
             #[cfg(not(all(feature = "hydrate", debug_assertions)))]
@@ -1460,6 +1470,11 @@ thread_local! {
 #[doc(hidden)]
 pub fn suppress_resource_load(suppress: bool) {
     SUPPRESS_RESOURCE_LOAD.with(|w| w.set(suppress));
+}
+
+#[doc(hidden)]
+pub fn is_suppressing_resource_load() -> bool {
+    SUPPRESS_RESOURCE_LOAD.with(|w| w.get())
 }
 
 impl<S, T> SignalDispose for Resource<S, T>

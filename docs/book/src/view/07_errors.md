@@ -110,9 +110,9 @@ Not a number! Errors:
 If you fix the error, the error message will disappear and the content you’re wrapping in
 an `<ErrorBoundary/>` will appear again.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/7-error-handling-and-error-boundaries-sroncx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/7-errors-0-5-5mptv9?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/7-error-handling-and-error-boundaries-sroncx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/7-errors-0-5-5mptv9?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -167,9 +167,8 @@ fn App() -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

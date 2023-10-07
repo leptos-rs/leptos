@@ -86,7 +86,7 @@ keyed dynamic list. It takes three props:
 
 - `each`: a function (such as a signal) that returns the items `T` to be iterated over
 - `key`: a key function that takes `&T` and returns a stable, unique key or ID
-- `view`: renders each `T` into a view
+- `children`: renders each `T` into a view
 
 `key` is, well, the key. You can add, remove, and move items within the list. As
 long as each item’s key is stable over time, the framework does not need to rerender
@@ -103,9 +103,9 @@ it is generated, and using that as an ID for the key function.
 
 Check out the `<DynamicList/>` component below for an example.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/4-iteration-0-5-pwdn2y?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/4-iteration-0-5-pwdn2y?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -136,7 +136,6 @@ fn App() -> impl IntoView {
 /// to add or remove any.
 #[component]
 fn StaticList(
-
     /// How many counters to include in this list.
     length: usize,
 ) -> impl IntoView {
@@ -172,7 +171,6 @@ fn StaticList(
 /// remove counters.
 #[component]
 fn DynamicList(
-
     /// The number of counters to begin with.
     initial_length: usize,
 ) -> impl IntoView {
@@ -229,9 +227,9 @@ fn DynamicList(
                     // can only grow, because moving items around inside the list
                     // means their indices will change and they will all rerender
                     key=|counter| counter.0
-                    // the view function receives each item from your `each` iterator
+                    // `children` receives each item from your `each` iterator
                     // and returns a view
-                    view=move |(id, (count, set_count))| {
+                    children=move |(id, (count, set_count))| {
                         view! {
                             <li>
                                 <button
@@ -258,9 +256,8 @@ fn DynamicList(
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

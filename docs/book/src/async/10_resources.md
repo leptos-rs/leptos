@@ -30,7 +30,7 @@ To create a resource that simply runs once, you can pass a non-reactive, empty s
 let once = create_resource(|| (), |_| async move { load_data().await });
 ```
 
-To access the value you can use `.read()` or `.with(|data| /* */)`. These work just like `.get()` and `.with()` on a signal—`read` clones the value and returns it, `with` applies a closure to it—but for any `Resource<_, T>`, they always return `Option<T>`, not `T`: because it’s always possible that your resource is still loading.
+To access the value you can use `.get()` or `.with(|data| /* */)`. These work just like `.get()` and `.with()` on a signal—`get` clones the value and returns it, `with` applies a closure to it—but for any `Resource<_, T>`, they always return `Option<T>`, not `T`: because it’s always possible that your resource is still loading.
 
 So, you can show the current state of a resource in your view:
 
@@ -38,7 +38,7 @@ So, you can show the current state of a resource in your view:
 let once = create_resource(|| (), |_| async move { load_data().await });
 view! {
     <h1>"My Data"</h1>
-    {move || match once.read() {
+    {move || match once.get() {
         None => view! { <p>"Loading..."</p> }.into_view(),
         Some(data) => view! { <ShowData data/> }.into_view()
     }}
@@ -47,9 +47,9 @@ view! {
 
 Resources also provide a `refetch()` method that allows you to manually reload the data (for example, in response to a button click) and a `loading()` method that returns a `ReadSignal<bool>` indicating whether the resource is currently loading or not.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/10-async-resources-4z0qt3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/10-resources-0-5-9jq86q?file=%2Fsrc%2Fmain.rs%3A1%2C2)
 
-<iframe src="https://codesandbox.io/p/sandbox/10-async-resources-4z0qt3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/10-resources-0-5-9jq86q?file=%2Fsrc%2Fmain.rs%3A1%2C2" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -74,7 +74,6 @@ fn App() -> impl IntoView {
 
     // create_resource takes two arguments after its scope
     let async_data = create_resource(
-
         // the first is the "source signal"
         count,
         // the second is the loader
@@ -89,12 +88,12 @@ fn App() -> impl IntoView {
     // that doesn't depend on anything: we just load it once
     let stable = create_resource(|| (), |_| async move { load_data(1).await });
 
-    // we can access the resource values with .read()
+    // we can access the resource values with .get()
     // this will reactively return None before the Future has resolved
     // and update to Some(T) when it has resolved
     let async_result = move || {
         async_data
-            .read()
+            .get()
             .map(|value| format!("Server returned {value:?}"))
             // This loading state will only show before the first load
             .unwrap_or_else(|| "Loading...".into())
@@ -114,7 +113,7 @@ fn App() -> impl IntoView {
             "Click me"
         </button>
         <p>
-            <code>"stable"</code>": " {move || stable.read()}
+            <code>"stable"</code>": " {move || stable.get()}
         </p>
         <p>
             <code>"count"</code>": " {count}
@@ -129,9 +128,8 @@ fn App() -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

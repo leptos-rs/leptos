@@ -125,6 +125,9 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         .map(|nonce| format!(" nonce=\"{nonce}\""))
         .unwrap_or_default();
 
+    let local_only = SharedContext::fragments_with_local_resources();
+    let local_only = serde_json::to_string(&local_only).unwrap();
+
     let stream = futures::stream::once({
         let nonce_str = nonce_str.clone();
         async move {
@@ -136,6 +139,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             __LEPTOS_PENDING_RESOURCES = {pending_resources};
             __LEPTOS_RESOLVED_RESOURCES = new Map();
             __LEPTOS_RESOURCE_RESOLVERS = new Map();
+            __LEPTOS_LOCAL_ONLY = {local_only};
         </script>
       "#
             )

@@ -164,7 +164,7 @@ mod slot;
 /// # runtime.dispose();
 /// ```
 ///
-/// Class names can include dashes, and since leptos v0.5.0 can include a dash-separated segment of only numbers.
+/// Class names can include dashes, and since v0.5.0 can include a dash-separated segment of only numbers.
 /// ```rust
 /// # use leptos::*;
 /// # let runtime = create_runtime();

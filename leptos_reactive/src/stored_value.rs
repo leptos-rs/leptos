@@ -203,6 +203,13 @@ impl<T> StoredValue<T> {
         .flatten()
     }
 
+    /// Disposes of the stored value
+    pub fn dispose(self) {
+        _ = with_runtime(|runtime| {
+            runtime.stored_values.borrow_mut().remove(self.id);
+        });
+    }
+
     /// Sets the stored value.
     ///
     /// # Examples

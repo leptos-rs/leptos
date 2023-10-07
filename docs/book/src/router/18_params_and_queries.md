@@ -82,9 +82,9 @@ This can get a little messy: deriving a signal that wraps an `Option<_>` or `Res
 
 > This is the same example from the previous section. The router is such an integrated system that it makes sense to provide a single example highlighting multiple features, even if we haven’t explained them all yet.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/16-router-fy4tjv?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/16-router-0-5-4xp4zz?file=%2Fsrc%2Fmain.rs%3A102%2C2)
 
-<iframe src="https://codesandbox.io/p/sandbox/16-router-fy4tjv?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/16-router-0-5-4xp4zz?file=%2Fsrc%2Fmain.rs%3A102%2C2" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -117,7 +117,7 @@ fn App() -> impl IntoView {
                     <Route
                         path="/contacts"
                         view=ContactList
-                    >
+                      >
                         // if no id specified, fall back
                         <Route path=":id" view=ContactInfo>
                             <Route path="" view=|| view! {
@@ -194,9 +194,8 @@ fn ContactInfo() -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

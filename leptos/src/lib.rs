@@ -178,7 +178,7 @@ pub mod error {
 }
 #[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
 pub use leptos_macro::template;
-#[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
+#[cfg(not(all(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
 pub use leptos_macro::{component, island, server, slot, view, Params};
 pub use leptos_reactive::*;
@@ -230,13 +230,15 @@ pub use wasm_bindgen; // used in islands
     feature = "template_macro"
 ))]
 pub use web_sys; // used in islands
+
 mod children;
-
-pub use children::*;
-extern crate self as leptos;
-
 mod portal;
+mod view_fn;
+pub use children::*;
 pub use portal::*;
+pub use view_fn::*;
+
+extern crate self as leptos;
 
 /// A type for taking anything that implements [`IntoAttribute`].
 ///
