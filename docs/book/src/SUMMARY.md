@@ -45,6 +45,7 @@
 - [Progressive Enhancement and Graceful Degradation](./progressive_enhancement/README.md)
   - [`<ActionForm/>`s](./progressive_enhancement/action_form.md)
 - [Deployment](./deployment.md)
+- [Guide: Islands](./islands.md)
 - [Appendix: How Does the Reactive System Work?](./appendix_reactive_graph.md)
 - [Appendix: Optimizing WASM Binary Size](./appendix_binary_size.md)
 - [Appendix: Some Small DX Improvements](./appendix_dx.md)
