@@ -783,10 +783,10 @@ impl View {
     ///
     /// This method will attach directive to **all** child
     /// [`HtmlElement`] children.
-    pub fn directive<T, P: 'static>(
+    pub fn directive<T: ?Sized, P: Clone + 'static>(
         self,
         handler: impl Directive<T, P> + 'static,
-        param: Rc<P>,
+        param: P,
     ) -> Self {
         cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             match &self {
@@ -797,7 +797,7 @@ impl View {
                     let handler = Rc::new(handler);
 
                     for child in c.children.iter().cloned() {
-                        let _ = child.directive(Rc::clone(&handler), Rc::clone(&param));
+                        let _ = child.directive(Rc::clone(&handler), param.clone());
                     }
                 }
                 _ => {}

@@ -1140,10 +1140,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 impl<El: ElementDescriptor + Clone + 'static> HtmlElement<El> {
     /// Bind the directive to the element.
     #[inline(always)]
-    pub fn directive<T, P: 'static>(
+    pub fn directive<T: ?Sized, P: Clone + 'static>(
         self,
         handler: impl Directive<T, P> + 'static,
-        param: Rc<P>,
+        param: P,
     ) -> Self {
         let node_ref = create_node_ref::<El>();
 
@@ -1151,7 +1151,7 @@ impl<El: ElementDescriptor + Clone + 'static> HtmlElement<El> {
 
         let _ = create_effect(move |_| {
             if let Some(el) = node_ref.get() {
-                Rc::clone(&handler).call(el.into_any(), param.as_ref());
+                Rc::clone(&handler).call(el.into_any(), param.clone());
             }
         });
 

@@ -47,35 +47,34 @@ use std::rc::Rc;
 /// A directive can be a function with one or two parameters.
 /// The first is the element the directive is added to and the optional
 /// second is the parameter that is provided in the attribute.
-pub trait Directive<T, P> {
+pub trait Directive<T: ?Sized, P> {
     /// Calls the handler function
-    fn call(self, el: HtmlElement<AnyElement>, param: &P);
+    fn call(&self, el: HtmlElement<AnyElement>, param: P);
 }
 
 impl<F> Directive<(HtmlElement<AnyElement>,), ()> for F
 where
-    F: FnOnce(HtmlElement<AnyElement>),
+    F: Fn(HtmlElement<AnyElement>),
 {
-    fn call(self, el: HtmlElement<AnyElement>, _: &()) {
+    fn call(&self, el: HtmlElement<AnyElement>, _: ()) {
         self(el)
     }
 }
 
 impl<F, P> Directive<(HtmlElement<AnyElement>, P), P> for F
 where
-    F: FnOnce(HtmlElement<AnyElement>, &P),
+    F: Fn(HtmlElement<AnyElement>, P),
 {
-    fn call(self, el: HtmlElement<AnyElement>, param: &P) {
+    fn call(&self, el: HtmlElement<AnyElement>, param: P) {
         self(el, param);
     }
 }
 
-impl<T, P, D> Directive<T, P> for Rc<D>
+impl<T: ?Sized, P, D> Directive<T, P> for Rc<D>
 where
     D: Directive<T, P>,
 {
-    #[allow(unconditional_recursion)]
-    fn call(self, el: HtmlElement<AnyElement>, param: &P) {
-        self.call(el, param)
+    fn call(&self, el: HtmlElement<AnyElement>, param: P) {
+        (&**self).call(el, param)
     }
 }
