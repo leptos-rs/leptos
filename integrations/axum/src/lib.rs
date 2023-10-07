@@ -35,7 +35,7 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
+use std::{fmt::Debug, io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
@@ -1824,6 +1824,40 @@ where
     T::Rejection: std::fmt::Debug + Send + 'static,
 {
     extract_with_state((), f).await
+}
+
+/// A helper to make it easier to use Axum extractors in server functions, with a
+/// simpler API than [`extract`].
+///
+/// It is generic over some type `T` that implements [`FromRequestParts`] and can
+/// therefore be used in an extractor. The compiler can often infer this type.
+///
+/// Any error that occurs during extraction is converted to a [`ServerFnError`].
+///
+/// ```rust,ignore
+/// // MyQuery is some type that implements `Deserialize + Serialize`
+/// #[server]
+/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
+///     use axum::{extract::Query, http::Method};
+///     use leptos_axum::*;
+///     let Query(query) = extractor().await?;
+///
+///     Ok(query)
+/// }
+/// ```
+pub async fn extractor<T>() -> Result<T, ServerFnError>
+where
+    T: Sized + FromRequestParts<()>,
+    T::Rejection: Debug,
+{
+    let ctx = use_context::<ExtractorHelper>().expect(
+        "should have had ExtractorHelper provided by the leptos_axum \
+         integration",
+    );
+    let mut parts = ctx.parts.lock().await;
+    T::from_request_parts(&mut parts, &())
+        .await
+        .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes

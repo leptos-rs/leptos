@@ -27,7 +27,12 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
-use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+};
 #[cfg(debug_assertions)]
 use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -1410,6 +1415,58 @@ where
     Ok(f.call(input).await)
 }
 
+/// A helper to make it easier to use Axum extractors in server functions, with a
+/// simpler API than [`extract`].
+///
+/// It is generic over some type `T` that implements [`FromRequestParts`] and can
+/// therefore be used in an extractor. The compiler can often infer this type.
+///
+/// Any error that occurs during extraction is converted to a [`ServerFnError`].
+///
+/// ```rust,ignore
+/// // MyQuery is some type that implements `Deserialize + Serialize`
+/// #[server]
+/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
+///     use actix_web::web::Query;
+///     use leptos_actix::*;
+///     let Query(data) = extractor().await?;
+///     Ok(data)
+/// }
+/// ```
+pub async fn extractor<T>() -> Result<T, ServerFnError>
+where
+    T: actix_web::FromRequest,
+    <T as FromRequest>::Error: Debug,
+{
+    let req = use_context::<actix_web::HttpRequest>()
+        .expect("HttpRequest should have been provided via context");
+
+    if let Some(body) = use_context::<Bytes>() {
+        let (_, mut payload) = actix_http::h1::Payload::create(false);
+        payload.unread_data(body);
+        T::from_request(&req, &mut dev::Payload::from(payload))
+    } else {
+        T::extract(&req)
+    }
+    .await
+    .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+}
+
+/// A macro that makes it easier to use extractors in server functions. The macro
+/// takes a type or types, and extracts them from the request, returning from the
+/// server function with an `Err(_)` if there is an error during extraction.
+/// ```rust,ignore
+/// let info = extract!(ConnectionInfo);
+/// let Query(data) = extract!(Query<Search>);
+/// let (info, Query(data)) = extract!(ConnectionInfo, Query<Search>);
+/// ```
+#[macro_export]
+macro_rules! extract {
+    ($($x:ty),+) => {
+        $crate::extract(|fields: ($($x),+)| async move { fields }).await?
+    };
+}
+
 // Drawn from the Actix Handler implementation
 // https://github.com/actix/actix-web/blob/19c9d858f25e8262e14546f430d713addb397e96/actix-web/src/handler.rs#L124
 pub trait Extractor<T> {
@@ -1417,6 +1474,7 @@ pub trait Extractor<T> {
 
     fn call(self, args: T) -> Self::Future;
 }
+
 macro_rules! factory_tuple ({ $($param:ident)* } => {
     impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
     where
