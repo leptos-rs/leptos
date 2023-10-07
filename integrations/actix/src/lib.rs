@@ -1410,6 +1410,21 @@ where
     Ok(f.call(input).await)
 }
 
+/// A macro that makes it easier to use extractors in server functions. The macro
+/// takes a type or types, and extracts them from the request, returning from the
+/// server function with an `Err(_)` if there is an error during extraction.
+/// ```rust,ignore
+/// let info = extract!(ConnectionInfo);
+/// let Query(data) = extract!(Query<Search>);
+/// let (info, Query(data)) = extract!(ConnectionInfo, Query<Search>);
+/// ```
+#[macro_export]
+macro_rules! extract {
+    ($($x:ty),+) => {
+        $crate::extract(|fields: ($($x),+)| async move { fields }).await?
+    };
+}
+
 // Drawn from the Actix Handler implementation
 // https://github.com/actix/actix-web/blob/19c9d858f25e8262e14546f430d713addb397e96/actix-web/src/handler.rs#L124
 pub trait Extractor<T> {

@@ -1826,6 +1826,41 @@ where
     extract_with_state((), f).await
 }
 
+/// A macro that makes it easier to use extractors in server functions. The macro
+/// takes a type or types, and extracts them from the request, returning from the
+/// server function with an `Err(_)` if there is an error during extraction.
+/// ```rust,ignore
+/// let method = extract!(Method);
+/// let query = extract!(Query<MyQuery>);
+/// let (method, Query(query)) = extract!(Method, Query<MyQuery>);
+/// ```
+#[macro_export]
+macro_rules! extract {
+    ($($x:ty),+) => {
+        $crate::extract(|fields: ($($x),+)| async move { fields })
+            .await
+            .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+        ?
+    };
+}
+
+/// A macro that makes it easier to use extractors with state in server functions. The macro
+/// takes a type or types, and extracts them from the request, returning from the
+/// server function with an `Err(_)` if there is an error during extraction.
+/// ```rust,ignore
+/// let my_state = use_context::<MyState>().unwrap();
+/// let data = extract_with_state!(my_state, MyCustomExtractor);
+/// ```
+#[macro_export]
+macro_rules! extract_with_state {
+    ($state:expr, $($x:ty),+) => {
+        $crate::extract_with_state($state, |fields: ($($x),+)| async move { fields })
+            .await
+            .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+            ?
+    };
+}
+
 /// A helper to make it easier to use Axum extractors in server functions. This takes
 /// a handler function and state as its arguments. The handler rules similar to Axum
 /// [handlers](https://docs.rs/axum/latest/axum/extract/index.html#intro): it is an async function
