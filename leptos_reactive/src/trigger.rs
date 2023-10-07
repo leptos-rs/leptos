@@ -29,7 +29,7 @@ impl Trigger {
 
     /// Attempts to notify any reactive code where this trigger is tracked to rerun.
     ///
-    /// Returns `None` if the runtime has been disposed.
+    /// Returns `false` if there is no current reactive runtime.
     pub fn try_notify(&self) -> bool {
         with_runtime(|runtime| {
             runtime.mark_dirty(self.id);
@@ -48,7 +48,7 @@ impl Trigger {
     }
 
     /// Attempts to subscribe the running effect to this trigger, returning
-    /// `None` if the runtime has been disposed.
+    /// `false` if there is no current reactive runtime.
     pub fn try_track(&self) -> bool {
         let diagnostics = diagnostics!(self);
 
