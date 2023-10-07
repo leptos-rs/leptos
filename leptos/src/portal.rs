@@ -71,6 +71,4 @@ pub fn Portal(
         let _ = is_svg;
         let _ = children;
     }}
-
-    ""
 }
