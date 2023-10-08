@@ -23,7 +23,7 @@ pub fn lens_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
             pub fn #field_ident(
                 signal: ::leptos::RwSignal<Self>,
             ) -> (::leptos::Signal<#field_ty>, ::leptos::SignalSetter<#field_ty>) {
-                ::leptos::create_slice(signal, |st: Self| st.#field_ident, |st: Self, n: #field_ty| st.#field_ident = n)
+                ::leptos::create_slice(signal, |st: &Self| st.#field_ident, |st: &mut Self, n: #field_ty| st.#field_ident = n)
             }
 
         }
