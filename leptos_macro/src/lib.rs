@@ -960,17 +960,51 @@ pub fn params_derive(
     }
 }
 
+pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
+    match attr.value() {
+        Some(value) => value,
+        None => abort!(attr.key, "attribute should have value"),
+    }
+}
+
+/// Generates a function for each field of the deriving struct that calls
+/// [create_slice](https://docs.rs/leptos/latest/leptos/fn.create_slice.html) with a default getter and setter.
+///
+/// ```rust
+/// # use leptos::{create_runtime, create_rw_signal};
+/// # use leptos_macro::Lens;
+/// # let runtime = create_runtime();
+///
+/// // some global state with independent fields
+/// #[derive(Lens, Default)]
+/// pub struct GlobalState {
+///     count: i32,
+///     name: String,
+/// }
+///
+/// let state = create_rw_signal(GlobalState::default());
+/// let (count, set_count) = GlobalState::count(state);
+/// ```
+///
+/// for tuple structs
+///
+/// ```rust
+/// # use leptos::{create_runtime, create_rw_signal};
+/// # use leptos_macro::Lens;
+/// # let runtime = create_runtime();
+///
+/// // global state in the form of a tuple struct
+/// #[derive(Lens, Default)]
+/// pub struct GlobalState(i32, String);
+///
+/// let state = create_rw_signal(GlobalState::default());
+/// let (number, set_number) = GlobalState::_0(state);
+/// let (str, set_str) = GlobalState::_1(state);
+/// ```
 #[proc_macro_derive(Lens)]
 pub fn lens_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match syn::parse(input) {
         Ok(ast) => lens::lens_impl(&ast),
         Err(err) => err.to_compile_error().into(),
-    }
-}
-
-pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
-    match attr.value() {
-        Some(value) => value,
-        None => abort!(attr.key, "attribute should have value"),
     }
 }
