@@ -188,7 +188,7 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-pub fn Layout(d: WriteSignal<bool>) -> impl IntoView {
+pub fn Layout(set_toggled: WriteSignal<bool>) -> impl IntoView {
     view! {
         <header>
             <h1>"My Page"</h1>
@@ -200,7 +200,7 @@ pub fn Layout(d: WriteSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn Content(d: WriteSignal<bool>) -> impl IntoView {
+pub fn Content(set_toggled: WriteSignal<bool>) -> impl IntoView {
     view! {
         <div class="content">
             <ButtonD set_toggled/>
@@ -209,7 +209,7 @@ pub fn Content(d: WriteSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn ButtonD<F>(d: WriteSignal<bool>) -> impl IntoView {
+pub fn ButtonD<F>(set_toggled: WriteSignal<bool>) -> impl IntoView {
     todo!()
 }
 ```
