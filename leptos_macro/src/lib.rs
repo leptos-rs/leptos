@@ -33,6 +33,7 @@ mod params;
 mod view;
 use view::{client_template::render_template, render_view};
 mod component;
+mod lens;
 mod server;
 mod slot;
 
@@ -954,7 +955,15 @@ pub fn params_derive(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     match syn::parse(input) {
-        Ok(ast) => params::impl_params(&ast),
+        Ok(ast) => params::params_impl(&ast),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+#[proc_macro_derive(Lens)]
+pub fn lens_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    match syn::parse(input) {
+        Ok(ast) => lens::lens_impl(&ast),
         Err(err) => err.to_compile_error().into(),
     }
 }

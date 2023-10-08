@@ -1,7 +1,7 @@
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 
-pub fn impl_params(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
+pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
     let name = &ast.ident;
 
     let fields = if let syn::Data::Struct(syn::DataStruct {
