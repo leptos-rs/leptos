@@ -1,0 +1,15 @@
+error: proc-macro derive panicked
+ --> tests/lens/structures.rs:3:10
+  |
+3 | #[derive(Lens)]
+  |          ^^^^
+  |
+  = help: message: Lens cannot be derived by enums or unions
+
+error: proc-macro derive panicked
+  --> tests/lens/structures.rs:10:10
+   |
+10 | #[derive(Lens)]
+   |          ^^^^
+   |
+   = help: message: Lens cannot be derived by enums or unions
