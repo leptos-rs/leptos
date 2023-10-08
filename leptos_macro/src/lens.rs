@@ -18,11 +18,11 @@ pub fn lens_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 
         quote! {
 
-        pub fn #field_ident(
-            signal: ::leptos::RwSignal<Self>,
-        ) -> (::leptos::Signal<i32>, ::leptos::SignalSetter<i32>) {
-            ::leptos::create_slice(signal, |st| st.count, |st, n| st.count = n)
-        }
+            pub fn #field_ident(
+                signal: ::leptos::RwSignal<Self>,
+            ) -> (::leptos::Signal<i32>, ::leptos::SignalSetter<i32>) {
+                ::leptos::create_slice(signal, |st| st.count, |st, n| st.count = n)
+            }
 
         }
     });
