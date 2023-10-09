@@ -96,7 +96,7 @@ a component that takes its children and turns them into an unordered list.
 
 ```rust
 #[component]
-pub fn WrapsChildren(Children) -> impl IntoView {
+pub fn WrapsChildren(children: Children) -> impl IntoView {
     // Fragment has `nodes` field that contains a Vec<View>
     let children = children()
         .nodes
