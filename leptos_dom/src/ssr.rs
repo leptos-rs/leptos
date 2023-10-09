@@ -735,10 +735,16 @@ impl ToMarker for HydrationKey {
     fn to_marker(
         &self,
         closing: bool,
-        #[cfg(debug_assertions)] component_name: &str,
+        #[cfg(debug_assertions)] mut component_name: &str,
     ) -> Oco<'static, str> {
         #[cfg(debug_assertions)]
         {
+            if component_name.is_empty() {
+                // NOTE:
+                // If the name is left empty, this will lead to invalid comments,
+                // so a placeholder is used here.
+                component_name = "<>";
+            }
             if closing || component_name == "unit" {
                 format!("<!--hk={self}c|leptos-{component_name}-end-->").into()
             } else {
