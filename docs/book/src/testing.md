@@ -86,7 +86,6 @@ fn clear() {
 
     clear.click();
 
-```rust
 assert_eq!(
     div.outer_html(),
     // here we spawn a mini reactive system to render the test case
