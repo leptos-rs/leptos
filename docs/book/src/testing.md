@@ -107,6 +107,7 @@ assert_eq!(
         .outer_html()
     })
 );
+}
 ````
 
 ### [`wasm-bindgen-test` with `counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable/tests/web)
