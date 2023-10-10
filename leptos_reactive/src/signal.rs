@@ -1211,6 +1211,12 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+impl<T: Default> Default for RwSignal<T> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
 impl<T> Clone for RwSignal<T> {
     fn clone(&self) -> Self {
         *self
