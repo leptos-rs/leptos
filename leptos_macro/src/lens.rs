@@ -54,9 +54,9 @@ pub fn lens_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
             .enumerate()
             .map(|(field_index, field)| {
                 if let Some(field_name) = &field.ident {
-                    named_field_method(&field, field_name)
+                    named_field_method(field, field_name)
                 } else {
-                    unnamed_field_method(&field, field_index)
+                    unnamed_field_method(field, field_index)
                 }
             });
 
