@@ -41,6 +41,9 @@ pub fn Style(
     /// The content of the `<style>` tag.
     #[prop(optional)]
     children: Option<Box<dyn FnOnce() -> Fragment>>,
+    /// Custom attributes.
+    #[prop(attrs, optional)]
+    attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
@@ -50,7 +53,11 @@ pub fn Style(
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
         let id = id.clone_inplace();
         move || {
-            leptos::leptos_dom::html::style()
+            attrs
+                .into_iter()
+                .fold(leptos::leptos_dom::html::style(), |el, (name, value)| {
+                    el.attr(name, value)
+                })
                 .attr("id", id)
                 .attr("media", media)
                 .attr("nonce", nonce)

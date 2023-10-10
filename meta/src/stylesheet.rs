@@ -27,14 +27,17 @@ pub fn Stylesheet(
     /// An ID for the stylesheet.
     #[prop(optional, into)]
     id: Option<String>,
+    /// Custom attributes.
+    #[prop(attrs, optional)]
+    attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
     if let Some(id) = id {
         view! {
-            <Link id rel="stylesheet" href/>
+            <Link id rel="stylesheet" href attrs/>
         }
     } else {
         view! {
-            <Link rel="stylesheet" href/>
+            <Link rel="stylesheet" href attrs/>
         }
     }
 }

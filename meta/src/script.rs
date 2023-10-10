@@ -62,6 +62,9 @@ pub fn Script(
     /// The content of the `<script>` tag.
     #[prop(optional)]
     children: Option<Box<dyn FnOnce() -> Fragment>>,
+    /// Custom attributes.
+    #[prop(attrs, optional)]
+    attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
@@ -71,7 +74,12 @@ pub fn Script(
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
         let id = id.clone_inplace();
         move || {
-            leptos::leptos_dom::html::script()
+            attrs
+                .into_iter()
+                .fold(
+                    leptos::leptos_dom::html::script(),
+                    |el, (name, value)| el.attr(name, value),
+                )
                 .attr("id", id)
                 .attr("async", async_)
                 .attr("crossorigin", crossorigin)
