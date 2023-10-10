@@ -45,7 +45,7 @@ cargo add leptos --features=csr
 >
 > or only for this project
 >
-> > ```bash
+> ```bash
 > rustup toolchain install nightly
 > cd <into your project>
 > rustup override set nightly
