@@ -232,10 +232,10 @@ macro_rules! spawn_task {
                 let pool_handle = get_leptos_pool();
                 pool_handle.spawn_pinned(move || { $block });
             } else {
-                _ = $block;
-                panic!("It appears you have set `default-features = false` on `leptos_axum`, \
+                eprintln!("\n\nIt appears you have set `default-features = false` on `leptos_axum`, \
                 but are not using the `wasm` feature. Either remove `default-features = false` or, \
-                if you are running in a JS-hosted WASM server environment, add the `wasm` feature.");
+                if you are running in a JS-hosted WASM server environment, add the `wasm` feature.\n\n");
+                spawn_local($block);
             }
         }
     };
