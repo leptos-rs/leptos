@@ -17,8 +17,7 @@ where
     let abort_controller = web_sys::AbortController::new().ok();
     let abort_signal = abort_controller.as_ref().map(|a| a.signal());
 
-    // abort in-flight requests if the Scope is disposed
-    // i.e., if we've navigated away from this page
+    // abort in-flight requests if, e.g., we've navigated away from this page
     leptos::on_cleanup(move || {
         if let Some(abort_controller) = abort_controller {
             abort_controller.abort()
