@@ -202,7 +202,9 @@ impl<T> SignalWithUntracked for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.try_with_untracked(f),
             SignalTypes::Memo(m) => m.try_with_untracked(f),
-            SignalTypes::DerivedSignal(s) => s.try_with_value(|t| f(&t())),
+            SignalTypes::DerivedSignal(s) => {
+                untrack(move || s.try_with_value(|t| f(&t())))
+            }
         }
     }
 }
