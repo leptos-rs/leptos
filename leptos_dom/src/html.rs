@@ -128,6 +128,9 @@ where
 }
 
 /// Represents potentially any element.
+#[must_use = "You are creating AnyElement but not using it. An unused view can \
+              cause your view to be rendered as () unexpectedly, and it can \
+              also cause issues with client-side hydration."]
 #[derive(Clone, Debug)]
 pub struct AnyElement {
     pub(crate) name: Oco<'static, str>,
@@ -272,6 +275,9 @@ impl ElementDescriptor for Custom {
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
+    #[must_use = "You are creating an HtmlElement<_> but not using it. An unused view can \
+    cause your view to be rendered as () unexpectedly, and it can \
+    also cause issues with client-side hydration."]
     #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
       #[cfg(debug_assertions)]
@@ -283,6 +289,9 @@ cfg_if! {
   // Server needs to build a virtualized DOM tree
   } else {
     /// Represents an HTML element.
+    #[must_use = "You are creating an HtmlElement<_> but not using it. An unused view can \
+    cause your view to be rendered as () unexpectedly, and it can \
+    also cause issues with client-side hydration."]
     #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
         pub(crate) element: El,
