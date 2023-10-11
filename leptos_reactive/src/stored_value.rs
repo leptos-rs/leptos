@@ -29,6 +29,12 @@ where
     ty: PhantomData<T>,
 }
 
+impl<T: Default> Default for StoredValue<T> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
 impl<T> Clone for StoredValue<T> {
     fn clone(&self) -> Self {
         *self
