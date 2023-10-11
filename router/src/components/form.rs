@@ -167,6 +167,9 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
+                                                #[allow(
+                                                    clippy::unnecessary_unwrap
+                                                )]
                                                 let navigate =
                                                     navigate.unwrap();
                                                 navigate(
@@ -243,6 +246,9 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
+                                                #[allow(
+                                                    clippy::unnecessary_unwrap
+                                                )]
                                                 let navigate =
                                                     navigate.unwrap();
                                                 navigate(
