@@ -1,6 +1,34 @@
 #![forbid(unsafe_code)]
 //! Provides functions to easily integrate Leptos with Axum.
 //!
+//! ## JS Fetch Integration
+//! The `leptos_axum` integration supports running in JavaScript-hosted WebAssembly
+//! runtimes, e.g., running inside Deno, Cloudflare Workers, or other JS environments.
+//! To run in this environment, you need to disable the default feature set and enable
+//! the `wasm` feature on `leptos_axum` in your `Cargo.toml`.
+//! ```toml
+//! leptos_axum = { version = "0.5.1", default-features = false, features = ["wasm"] }
+//! ```
+//!
+//! ## Features
+//! - `default`: supports running in a typical native Tokio/Axum environment
+//! - `wasm`: with `default-features = false`, supports running in a JS Fetch-based
+//!   environment
+//! - `nonce`: activates Leptos features that automatically provide a CSP [`Nonce`](leptos::nonce::Nonce) via context
+//! - `experimental-islands`: activates Leptos [islands mode](https://leptos-rs.github.io/leptos/islands.html)
+//!
+//! ### Important Note
+//! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively
+//! disables features necessary to support the normal native/Tokio runtime environment we create. This can
+//! generate errors like the following, which don’t point to an obvious culprit:
+//! ```
+//! `spawn_local` called from outside of a `task::LocalSet`
+//! ```
+//! If you are not using the `wasm` feature, do not set `default-features = false` on this package.
+//!
+//!
+//! ## More information
+//!
 //! For more details on how to use the integrations, see the
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
@@ -204,9 +232,10 @@ macro_rules! spawn_task {
                 let pool_handle = get_leptos_pool();
                 pool_handle.spawn_pinned(move || { $block });
             } else {
-                // either the `wasm` feature or `default` feature should be enabled
-                // this is here mostly to suppress unused import warnings etc.
-                spawn_local($block);
+                _ = $block;
+                panic!("It appears you have set `default-features = false` on `leptos_axum`, \
+                but are not using the `wasm` feature. Either remove `default-features = false` or, \
+                if you are running in a JS-hosted WASM server environment, add the `wasm` feature.");
             }
         }
     };
