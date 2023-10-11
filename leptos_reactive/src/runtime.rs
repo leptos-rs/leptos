@@ -193,11 +193,14 @@ impl Runtime {
     pub(crate) fn cleanup_node(&self, node_id: NodeId) {
         // first, run our cleanups, if any
         let c = { self.on_cleanups.borrow_mut().remove(node_id) };
+        // untrack around all cleanups
+        let prev_observer = self.observer.take();
         if let Some(cleanups) = c {
             for cleanup in cleanups {
                 cleanup();
             }
         }
+        self.observer.set(prev_observer);
 
         // dispose of any of our properties
         let properties = { self.node_properties.borrow_mut().remove(node_id) };
