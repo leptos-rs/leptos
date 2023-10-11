@@ -27,15 +27,20 @@ reqwest = { version = "0.11.13", features = ["json"] }
 axum = { version = "0.6", default-features = false, optional = true }
 tower = { version = "0.4.13", optional = true }
 http = { version = "0.2.8", optional = true }
-web-sys = { version = "0.3", features = ["AbortController", "AbortSignal", "Request", "Response"] }
+web-sys = { version = "0.3", features = [
+  "AbortController",
+  "AbortSignal",
+  "Request",
+  "Response",
+] }
 wasm-bindgen = "0.2"
-wasm-bindgen-futures = { version = "0.4.37", features = ["futures-core-03-stream"], optional = true }
+wasm-bindgen-futures = { version = "0.4.37", features = [
+  "futures-core-03-stream",
+], optional = true }
 axum-js-fetch = { version = "0.2.1", optional = true }
 lazy_static = "1.4.0"
 
 [features]
-default = ["csr"]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
   "dep:tower",
@@ -51,7 +56,7 @@ ssr = [
 
 [package.metadata.cargo-all-features]
 denylist = ["axum", "tower", "http", "leptos_axum"]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
