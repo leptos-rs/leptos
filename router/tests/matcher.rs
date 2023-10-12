@@ -92,5 +92,20 @@ cfg_if! {
                 })
             );
         }
+
+        #[test]
+        fn matcher_should_include_multiple_slashes_in_a_splat_route() {
+            let matcher = Matcher::new("/*any");
+            let matched = matcher.test("////");
+            assert_eq!(
+                matched,
+                Some(PathMatch {
+                    path: "".into(),
+                    params: params_map!(
+                        "any" => "///"
+                    )
+                })
+            );
+        }
     }
 }
