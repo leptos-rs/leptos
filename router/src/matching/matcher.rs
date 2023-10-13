@@ -59,12 +59,9 @@ impl Matcher {
 
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
-        // 2) location has add'l segments, there's no splat, and partial matches not allowed, or
-        // 3) there is a splat, and additional trailing slashes
+        // 2) location has add'l segments, there's no splat, and partial matches not allowed
         if loc_len < self.len
             || (len_diff > 0 && self.splat.is_none() && !self.partial)
-            || (self.splat.is_none()
-                && location.split('/').count() > (2 * (loc_segments.len() + 1)))
         {
             None
         }
@@ -73,13 +70,9 @@ impl Matcher {
             let mut path = String::new();
             let mut params = ParamsMap::new();
 
-            let segments = self.segments.iter();
-            for (segment, loc_segment) in segments.zip(loc_segments) {
-                // if it's a splat, move on
-                if segment.starts_with('*') {
-                    break;
-                }
-
+            for (segment, loc_segment) in
+                self.segments.iter().zip(loc_segments.iter())
+            {
                 if let Some(param_name) = segment.strip_prefix(':') {
                     params.insert(param_name.into(), (*loc_segment).into());
                 } else if segment != loc_segment {
@@ -87,21 +80,27 @@ impl Matcher {
                     return None;
                 }
 
-                if !segment.is_empty() {
-                    path.push('/');
-                }
+                path.push('/');
                 path.push_str(loc_segment);
             }
 
             if let Some(splat) = &self.splat {
                 if !splat.is_empty() {
-                    let mut value = String::new();
-                    for loc_segment in
-                        location.split('/').skip(self.segments.len() + 2)
-                    {
-                        value.push('/');
-                        value.push_str(loc_segment);
-                    }
+                    let mut value = if len_diff > 0 {
+                        loc_segments[self.len..].join("/")
+                    } else {
+                        "".into()
+                    };
+
+                    // add trailing slashes to splat
+                    let trailing_slashes = location
+                        .chars()
+                        .rev()
+                        .take_while(|n| *n == '/')
+                        .skip(1)
+                        .collect::<String>();
+                    value.push_str(&trailing_slashes);
+
                     params.insert(splat.into(), value);
                 }
             }

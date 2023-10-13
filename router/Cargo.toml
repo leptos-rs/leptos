@@ -31,6 +31,7 @@ wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = { version = "0.4" }
 lru = { version = "0.11", optional = true }
 serde_json = "1.0.96"
+itertools = "0.11.0"
 
 [dependencies.web-sys]
 version = "0.3"

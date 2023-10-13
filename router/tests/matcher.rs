@@ -79,6 +79,22 @@ cfg_if! {
         }
 
         #[test]
+        fn create_matcher_should_include_remaining_unmatched_location_as_param_when_ending_in_asterisk_and_name_2(
+        ) {
+            let matcher = Matcher::new("/foo/*something");
+            let matched = matcher.test("/foo/baz/qux");
+            assert_eq!(
+                matched,
+                Some(PathMatch {
+                    path: "/foo".into(),
+                    params: params_map!(
+                        "something" => "baz/qux"
+                    )
+                })
+            );
+        }
+
+        #[test]
         fn create_matcher_should_include_empty_param_when_perfect_match_ends_in_asterisk_and_name() {
             let matcher = Matcher::new("/foo/bar/*something");
             let matched = matcher.test("/foo/bar");
@@ -101,6 +117,21 @@ cfg_if! {
                 matched,
                 Some(PathMatch {
                     path: "".into(),
+                    params: params_map!(
+                        "any" => "///"
+                    )
+                })
+            );
+        }
+
+        #[test]
+        fn matcher_should_include_multiple_slashes_in_a_splat_route_after_others() {
+            let matcher = Matcher::new("/foo/bar/*any");
+            let matched = matcher.test("/foo/bar////");
+            assert_eq!(
+                matched,
+                Some(PathMatch {
+                    path: "/foo/bar".into(),
                     params: params_map!(
                         "any" => "///"
                     )
