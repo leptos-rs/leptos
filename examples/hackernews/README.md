@@ -5,3 +5,5 @@ This example creates a basic clone of the Hacker News site. It showcases Leptos'
 ## Getting Started
 
 See the [Examples README](../README.md) for setup and run instructions.
+
+For a real-world example see [lemmy-ui-leptos](https://github.com/LemmyNet/lemmy-ui-leptos), which was based on this HN example.
