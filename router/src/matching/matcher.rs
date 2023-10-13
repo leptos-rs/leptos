@@ -62,6 +62,8 @@ impl Matcher {
         // 2) location has add'l segments, there's no splat, and partial matches not allowed
         if loc_len < self.len
             || (len_diff > 0 && self.splat.is_none() && !self.partial)
+            || (self.splat.is_none()
+                && location.split('/').count() > (2 * (loc_segments.len() + 1)))
         {
             None
         }
