@@ -62,6 +62,8 @@ impl Matcher {
         // 2) location has add'l segments, there's no splat, and partial matches not allowed
         if loc_len < self.len
             || (len_diff > 0 && self.splat.is_none() && !self.partial)
+            || (self.splat.is_none()
+                && location.split('/').count() > (2 * (loc_segments.len() + 1)))
         {
             None
         }
@@ -86,11 +88,21 @@ impl Matcher {
 
             if let Some(splat) = &self.splat {
                 if !splat.is_empty() {
-                    let value = if len_diff > 0 {
+                    let mut value = if len_diff > 0 {
                         loc_segments[self.len..].join("/")
                     } else {
                         "".into()
                     };
+
+                    // add trailing slashes to splat
+                    let trailing_slashes = location
+                        .chars()
+                        .rev()
+                        .take_while(|n| *n == '/')
+                        .skip(1)
+                        .collect::<String>();
+                    value.push_str(&trailing_slashes);
+
                     params.insert(splat.into(), value);
                 }
             }
