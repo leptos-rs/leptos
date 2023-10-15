@@ -9,7 +9,6 @@ use std::cell::Cell;
 ///
 /// ```
 /// # use leptos::{*, logging::log};
-///
 /// use leptos::html::Input;
 ///
 /// #[component]
@@ -44,7 +43,6 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 ///
 /// ```
 /// # use leptos::{*, logging::log};
-///
 /// use leptos::html::Input;
 ///
 /// #[component]
