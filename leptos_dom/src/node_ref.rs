@@ -60,12 +60,11 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 ///     };
 ///
 ///     view! {
-///       cx,
 ///       <div>
-///       // `node_ref` loads the input
-///       <input _ref=input_ref type="text"/>
-///       // the button consumes it
-///       <button on:click=on_click>"Click me"</button>
+///           // `node_ref` loads the input
+///           <input _ref=input_ref type="text"/>
+///           // the button consumes it
+///           <button on:click=on_click>"Click me"</button>
 ///       </div>
 ///     }
 /// }
@@ -76,6 +75,44 @@ pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
 }
 
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
+    /// Creates a shared reference to a DOM node created while using the `view`
+    /// macro to create your UI.
+    ///
+    /// This is identical to [`create_node_ref`].
+    ///
+    /// ```
+    /// # use leptos::{*, logging::log};
+    ///
+    /// use leptos::html::Input;
+    ///
+    /// #[component]
+    /// pub fn MyComponent() -> impl IntoView {
+    ///     let input_ref = NodeRef::<Input>::new();
+    ///
+    ///     let on_click = move |_| {
+    ///         let node =
+    ///             input_ref.get().expect("input_ref should be loaded by now");
+    ///         // `node` is strongly typed
+    ///         // it is dereferenced to an `HtmlInputElement` automatically
+    ///         log!("value is {:?}", node.value())
+    ///     };
+    ///
+    ///     view! {
+    ///       <div>
+    ///           // `node_ref` loads the input
+    ///           <input _ref=input_ref type="text"/>
+    ///           // the button consumes it
+    ///           <button on:click=on_click>"Click me"</button>
+    ///       </div>
+    ///     }
+    /// }
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new() -> Self {
+        create_node_ref()
+    }
+
     /// Gets the element that is currently stored in the reference.
     ///
     /// This tracks reactively, so that node references can be used in effects.
@@ -176,3 +213,4 @@ cfg_if::cfg_if! {
         }
     }
 }
+
