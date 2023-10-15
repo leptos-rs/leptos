@@ -185,6 +185,12 @@ impl<T: ElementDescriptor> Clone for NodeRef<T> {
 
 impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}
 
+impl<T: ElementDescriptor + 'static> Default for NodeRef<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "nightly")] {
         impl<T: Clone + ElementDescriptor + 'static> FnOnce<()> for NodeRef<T> {
