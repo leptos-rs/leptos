@@ -36,8 +36,17 @@ impl TryFrom<&str> for Url {
     type Error = String;
 
     fn try_from(url: &str) -> Result<Self, Self::Error> {
-        let url =
-            web_sys::Url::new(&format!("http://leptos{url}")).map_js_error()?;
+        let url = web_sys::Url::new_with_base(
+            &if url.starts_with("//") {
+                let origin =
+                    leptos::window().location().origin().unwrap_or_default();
+                format!("{origin}{url}")
+            } else {
+                url.to_string()
+            },
+            "http://leptos",
+        )
+        .map_js_error()?;
         Ok(Self {
             origin: url.origin(),
             pathname: url.pathname(),
