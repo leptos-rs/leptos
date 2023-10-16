@@ -57,13 +57,14 @@ impl Matcher {
         let loc_len = loc_segments.len();
         let len_diff: i32 = loc_len as i32 - self.len as i32;
 
+        let trailing_iter = location.chars().rev().take_while(|n| *n == '/');
+
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
         // 2) location has add'l segments, there's no splat, and partial matches not allowed
         if loc_len < self.len
             || (len_diff > 0 && self.splat.is_none() && !self.partial)
-            || (self.splat.is_none()
-                && location.split('/').count() > (2 * (loc_segments.len() + 1)))
+            || (self.splat.is_none() && trailing_iter.clone().count() > 1)
         {
             None
         }
@@ -95,12 +96,8 @@ impl Matcher {
                     };
 
                     // add trailing slashes to splat
-                    let trailing_slashes = location
-                        .chars()
-                        .rev()
-                        .take_while(|n| *n == '/')
-                        .skip(1)
-                        .collect::<String>();
+                    let trailing_slashes =
+                        trailing_iter.skip(1).collect::<String>();
                     value.push_str(&trailing_slashes);
 
                     params.insert(splat.into(), value);
