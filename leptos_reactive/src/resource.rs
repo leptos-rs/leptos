@@ -709,7 +709,6 @@ impl<S, T> SignalUpdate for Resource<S, T> {
 impl<S, T> SignalWith for Resource<S, T>
 where
     S: Clone,
-    T: Clone,
 {
     type Value = Option<T>;
 
