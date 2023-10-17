@@ -66,6 +66,9 @@ pub fn A<H>(
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
     href: H,
+    /// Where to display the linked URL, as the name for a browsing context (a tab, window, or <iframe>)
+    #[prop(optional, into)]
+    target: Option<Oco<'static, str>>,
     /// If `true`, the link is marked active when the location matches exactly;
     /// if false, link is marked active if the current route starts with it.
     #[prop(optional)]
@@ -105,6 +108,7 @@ where
     )]
     fn inner(
         href: Memo<Option<String>>,
+        target: Option<Oco<'static, str>>,
         exact: bool,
         #[allow(unused)] state: Option<State>,
         #[allow(unused)] replace: bool,
@@ -148,6 +152,7 @@ where
             if let Some(active_class) = active_class {
                 let mut a = leptos::html::a()
                     .attr("href", move || href.get().unwrap_or_default())
+                    .attr("target", target)
                     .attr("aria-current", move || {
                         if is_active.get() {
                             Some("page")
@@ -171,6 +176,7 @@ where
                 view! {
                     <a
                         href=move || href.get().unwrap_or_default()
+                        target=target
                         aria-current=move || if is_active.get() { Some("page") } else { None }
                         class=class
                         id=id
@@ -189,6 +195,7 @@ where
             let a = view! {
                 <a
                     href=move || href.get().unwrap_or_default()
+                    target=target
                     prop:state={state.map(|s| s.to_js_value())}
                     prop:replace={replace}
                     aria-current=move || if is_active.get() { Some("page") } else { None }
@@ -214,6 +221,7 @@ where
     let href = use_resolved_path(move || href.to_href()());
     inner(
         href,
+        target,
         exact,
         state,
         replace,
