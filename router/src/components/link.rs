@@ -66,7 +66,8 @@ pub fn A<H>(
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
     href: H,
-    /// Where to display the linked URL, as the name for a browsing context (a tab, window, or <iframe>)
+    /// Where to display the linked URL, as the name for a browsing context (a tab, window, 
+    /// or `<iframe>`).
     #[prop(optional, into)]
     target: Option<Oco<'static, str>>,
     /// If `true`, the link is marked active when the location matches exactly;
