@@ -45,7 +45,7 @@ use std::any::{Any, TypeId};
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "debug", skip_all,)
 )]
 #[track_caller]
 pub fn provide_context<T>(value: T)
@@ -119,7 +119,7 @@ where
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "debug", skip_all,)
 )]
 pub fn use_context<T>() -> Option<T>
 where
