@@ -75,8 +75,9 @@ where
             }
         }
         let qs = new_query_map.to_query_string();
-        let path = location.pathname.get();
-        let new_url = format!("{path}{qs}");
+        let path = location.pathname.get_untracked();
+        let hash = location.hash.get_untracked();
+        let new_url = format!("{path}{qs}{hash}");
         navigate(&new_url, NavigateOptions::default());
     });
 
