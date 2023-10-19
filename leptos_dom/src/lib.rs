@@ -758,7 +758,7 @@ impl View {
                 let event_handler = Rc::new(RefCell::new(event_handler));
 
                 c.children.iter().cloned().for_each(|c| {
-                  let event_handler = event_handler.clone();
+                  let event_handler = Rc::clone(&event_handler);
 
                   _ = c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
                 });
@@ -783,18 +783,46 @@ impl View {
     ///
     /// This method will attach directive to **all** child
     /// [`HtmlElement`] children.
-    pub fn directive<T: ?Sized, P: Clone + 'static>(
+    #[inline(always)]
+    pub fn directive<T, P>(
         self,
         handler: impl Directive<T, P> + 'static,
         param: P,
-    ) -> Self {
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if::cfg_if! {
+          if #[cfg(debug_assertions)] {
+            trace!("calling directive()");
+            let span = ::tracing::Span::current();
+            let handler = move |e, p| {
+              let _guard = span.enter();
+              handler.run(e, p);
+            };
+          }
+        }
+
+        self.directive_impl(Box::new(handler), param)
+    }
+
+    fn directive_impl<T, P>(
+        self,
+        handler: Box<dyn Directive<T, P>>,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
         cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             match &self {
                 Self::Element(el) => {
                     let _ = el.clone().into_html_element().directive(handler, param);
                 }
                 Self::Component(c) => {
-                    let handler = Rc::new(handler);
+                    let handler = Rc::from(handler);
 
                     for child in c.children.iter().cloned() {
                         let _ = child.directive(Rc::clone(&handler), param.clone());

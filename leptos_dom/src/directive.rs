@@ -49,14 +49,14 @@ use std::rc::Rc;
 /// second is the parameter that is provided in the attribute.
 pub trait Directive<T: ?Sized, P> {
     /// Calls the handler function
-    fn call(&self, el: HtmlElement<AnyElement>, param: P);
+    fn run(&self, el: HtmlElement<AnyElement>, param: P);
 }
 
 impl<F> Directive<(HtmlElement<AnyElement>,), ()> for F
 where
     F: Fn(HtmlElement<AnyElement>),
 {
-    fn call(&self, el: HtmlElement<AnyElement>, _: ()) {
+    fn run(&self, el: HtmlElement<AnyElement>, _: ()) {
         self(el)
     }
 }
@@ -65,16 +65,19 @@ impl<F, P> Directive<(HtmlElement<AnyElement>, P), P> for F
 where
     F: Fn(HtmlElement<AnyElement>, P),
 {
-    fn call(&self, el: HtmlElement<AnyElement>, param: P) {
+    fn run(&self, el: HtmlElement<AnyElement>, param: P) {
         self(el, param);
     }
 }
 
-impl<T: ?Sized, P, D> Directive<T, P> for Rc<D>
-where
-    D: Directive<T, P>,
-{
-    fn call(&self, el: HtmlElement<AnyElement>, param: P) {
-        (&**self).call(el, param)
+impl<T: ?Sized, P> Directive<T, P> for Rc<dyn Directive<T, P>> {
+    fn run(&self, el: HtmlElement<AnyElement>, param: P) {
+        (&**self).run(el, param)
+    }
+}
+
+impl<T: ?Sized, P> Directive<T, P> for Box<dyn Directive<T, P>> {
+    fn run(&self, el: HtmlElement<AnyElement>, param: P) {
+        (&**self).run(el, param);
     }
 }

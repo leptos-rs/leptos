@@ -1151,7 +1151,7 @@ impl<El: ElementDescriptor + Clone + 'static> HtmlElement<El> {
 
         let _ = create_effect(move |_| {
             if let Some(el) = node_ref.get() {
-                Rc::clone(&handler).call(el.into_any(), param.clone());
+                Rc::clone(&handler).run(el.into_any(), param.clone());
             }
         });
 
