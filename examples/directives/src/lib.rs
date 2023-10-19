@@ -1,16 +1,16 @@
-use leptos::{
-    ev::{click, mouseenter, mouseleave},
-    html::AnyElement,
-    logging::log,
-    *,
-};
+use leptos::{ev::click, html::AnyElement, *};
 
-pub fn hoverable(el: HtmlElement<AnyElement>) {
-    el.on(mouseenter, |_| {
-        log!("hovered");
-    })
-    .on(mouseleave, |_| {
-        log!("unhovered");
+pub fn highlight(el: HtmlElement<AnyElement>) {
+    let mut highlighted = false;
+
+    el.clone().on(click, move |_| {
+        highlighted = !highlighted;
+
+        if highlighted {
+            el.clone().style("background-color", "yellow");
+        } else {
+            el.clone().style("background-color", "transparent");
+        }
     });
 }
 
@@ -35,8 +35,8 @@ pub fn copy_to_clipboard(el: HtmlElement<AnyElement>, content: &str) {
 pub fn SomeComponent() -> impl IntoView {
     view! {
         <p>Some paragraphs</p>
-        <p>that can be hovered</p>
-        <p>Check the dev tools console</p>
+        <p>that can be clicked</p>
+        <p>in order to highlight them</p>
     }
 }
 
@@ -46,6 +46,6 @@ pub fn App() -> impl IntoView {
 
     view! {
         <a href="#" use:copy_to_clipboard=data>"Copy \"" {data} "\" to clipboard"</a>
-        <SomeComponent use:hoverable />
+        <SomeComponent use:highlight />
     }
 }
