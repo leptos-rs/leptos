@@ -3,13 +3,13 @@ use leptos::{ev::click, html::AnyElement, *};
 pub fn highlight(el: HtmlElement<AnyElement>) {
     let mut highlighted = false;
 
-    el.clone().on(click, move |_| {
+    let _ = el.clone().on(click, move |_| {
         highlighted = !highlighted;
 
         if highlighted {
-            el.clone().style("background-color", "yellow");
+            let _ = el.clone().style("background-color", "yellow");
         } else {
-            el.clone().style("background-color", "transparent");
+            let _ = el.clone().style("background-color", "transparent");
         }
     });
 }
@@ -17,7 +17,7 @@ pub fn highlight(el: HtmlElement<AnyElement>) {
 pub fn copy_to_clipboard(el: HtmlElement<AnyElement>, content: &str) {
     let content = content.to_string();
 
-    el.clone().on(click, move |evt| {
+    let _ = el.clone().on(click, move |evt| {
         evt.prevent_default();
         evt.stop_propagation();
 
@@ -27,7 +27,7 @@ pub fn copy_to_clipboard(el: HtmlElement<AnyElement>, content: &str) {
             .expect("navigator.clipboard to be available")
             .write_text(&content);
 
-        el.clone().inner_html(format!("Copied \"{}\"", &content));
+        let _ = el.clone().inner_html(format!("Copied \"{}\"", &content));
     });
 }
 
