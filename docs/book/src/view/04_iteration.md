@@ -5,7 +5,7 @@ iterating over a list of items is a common task in web applications. Reconciling
 the differences between changing sets of items can also be one of the trickiest
 tasks for a framework to handle well.
 
-Leptos supports to two different patterns for iterating over items:
+Leptos supports two different patterns for iterating over items:
 
 1. For static views: `Vec<_>`
 2. For dynamic lists: `<For/>`
