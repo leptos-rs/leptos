@@ -21,9 +21,9 @@
 //! Prior to 0.5, using `default-features = false` on `leptos_axum` simply did nothing. Now, it actively
 //! disables features necessary to support the normal native/Tokio runtime environment we create. This can
 //! generate errors like the following, which don’t point to an obvious culprit:
-//! ```
+//! `
 //! `spawn_local` called from outside of a `task::LocalSet`
-//! ```
+//! `
 //! If you are not using the `wasm` feature, do not set `default-features = false` on this package.
 //!
 //!
