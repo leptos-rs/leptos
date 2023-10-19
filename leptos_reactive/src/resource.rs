@@ -685,7 +685,7 @@ impl<S, T> SignalUpdate for Resource<S, T> {
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut Option<T>) -> O) -> Option<O> {
         with_runtime(|runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+            runtime.try_resource(self.id, |resource: &ResourceState<S, T>| {
                 if resource.loading.get_untracked() {
                     resource.version.set(resource.version.get() + 1);
                     for suspense_context in
@@ -702,6 +702,7 @@ impl<S, T> SignalUpdate for Resource<S, T> {
             })
         })
         .ok()
+        .flatten()
         .flatten()
     }
 }
@@ -860,8 +861,9 @@ impl<S, T> SignalSet for Resource<S, T> {
     )]
     #[inline(always)]
     fn try_set(&self, new_value: T) -> Option<T> {
-        self.update(|n| *n = Some(new_value));
-        None
+        let mut new_value = Some(new_value);
+        self.try_update(|n| *n = new_value.take());
+        new_value
     }
 }
 
