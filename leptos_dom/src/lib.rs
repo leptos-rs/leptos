@@ -10,6 +10,7 @@
 pub extern crate tracing;
 
 mod components;
+mod directive;
 mod events;
 pub mod helpers;
 pub mod html;
@@ -25,8 +26,10 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
+
 use cfg_if::cfg_if;
 pub use components::*;
+pub use directive::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -46,9 +49,9 @@ pub use node_ref::*;
 use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::{borrow::Cow, fmt, rc::Rc};
 pub use transparent::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -135,7 +138,7 @@ where
     }
 }
 
-impl<N> IntoView for std::rc::Rc<dyn Fn() -> N>
+impl<N> IntoView for Rc<dyn Fn() -> N>
 where
     N: IntoView + 'static,
 {
@@ -709,8 +712,7 @@ impl View {
 
     /// Adds an event listener, analogous to [`HtmlElement::on`].
     ///
-    /// This method will attach an event listener to **all** child
-    /// [`HtmlElement`] children.
+    /// This method will attach an event listener to **all** children
     #[inline(always)]
     pub fn on<E: ev::EventDescriptor + 'static>(
         self,
@@ -755,7 +757,7 @@ impl View {
                 let event_handler = Rc::new(RefCell::new(event_handler));
 
                 c.children.iter().cloned().for_each(|c| {
-                  let event_handler = event_handler.clone();
+                  let event_handler = Rc::clone(&event_handler);
 
                   _ = c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
                 });
@@ -772,6 +774,65 @@ impl View {
             _ = event_handler;
           }
         }
+
+        self
+    }
+
+    /// Adds a directive analogous to [`HtmlElement::directive`].
+    ///
+    /// This method will attach directive to **all** child
+    /// [`HtmlElement`] children.
+    #[inline(always)]
+    pub fn directive<T, P>(
+        self,
+        handler: impl Directive<T, P> + 'static,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if::cfg_if! {
+          if #[cfg(debug_assertions)] {
+            trace!("calling directive()");
+            let span = ::tracing::Span::current();
+            let handler = move |e, p| {
+              let _guard = span.enter();
+              handler.run(e, p);
+            };
+          }
+        }
+
+        self.directive_impl(Box::new(handler), param)
+    }
+
+    fn directive_impl<T, P>(
+        self,
+        handler: Box<dyn Directive<T, P>>,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+            match &self {
+                Self::Element(el) => {
+                    let _ = el.clone().into_html_element().directive(handler, param);
+                }
+                Self::Component(c) => {
+                    let handler = Rc::from(handler);
+
+                    for child in c.children.iter().cloned() {
+                        let _ = child.directive(Rc::clone(&handler), param.clone());
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            let _ = handler;
+            let _ = param;
+        }}
 
         self
     }

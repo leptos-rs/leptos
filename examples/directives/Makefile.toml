@@ -1,0 +1,5 @@
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/wasm-test.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
+]
