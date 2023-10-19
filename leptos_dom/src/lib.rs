@@ -712,8 +712,7 @@ impl View {
 
     /// Adds an event listener, analogous to [`HtmlElement::on`].
     ///
-    /// This method will attach an event listener to **all** child
-    /// [`HtmlElement`] children.
+    /// This method will attach an event listener to **all** children
     #[inline(always)]
     pub fn on<E: ev::EventDescriptor + 'static>(
         self,
