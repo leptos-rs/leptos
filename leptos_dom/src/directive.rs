@@ -72,12 +72,12 @@ where
 
 impl<T: ?Sized, P> Directive<T, P> for Rc<dyn Directive<T, P>> {
     fn run(&self, el: HtmlElement<AnyElement>, param: P) {
-        (&**self).run(el, param)
+        (**self).run(el, param)
     }
 }
 
 impl<T: ?Sized, P> Directive<T, P> for Box<dyn Directive<T, P>> {
     fn run(&self, el: HtmlElement<AnyElement>, param: P) {
-        (&**self).run(el, param);
+        (**self).run(el, param);
     }
 }
