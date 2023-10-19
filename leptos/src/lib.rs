@@ -232,8 +232,10 @@ pub use wasm_bindgen; // used in islands
 pub use web_sys; // used in islands
 
 mod children;
+mod portal;
 mod view_fn;
 pub use children::*;
+pub use portal::*;
 pub use view_fn::*;
 
 extern crate self as leptos;

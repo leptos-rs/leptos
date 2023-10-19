@@ -75,12 +75,18 @@ where
             }
         }
         let qs = new_query_map.to_query_string();
-        let path = location.pathname.get();
-        let new_url = format!("{path}{qs}");
+        let path = location.pathname.get_untracked();
+        let hash = location.hash.get_untracked();
+        let new_url = format!("{path}{qs}{hash}");
         navigate(&new_url, NavigateOptions::default());
     });
 
     (get, set)
+}
+
+#[track_caller]
+pub(crate) fn has_router() -> bool {
+    use_context::<RouterContext>().is_some()
 }
 
 /// Returns the current [`RouterContext`], containing information about the router's state.

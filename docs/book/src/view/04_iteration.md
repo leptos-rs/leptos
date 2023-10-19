@@ -51,7 +51,8 @@ The fact that the _list_ is static doesn’t mean the interface needs to be stat
 You can render dynamic items as part of a static list.
 
 ```rust
-// create a list of N signals
+// create a list of 5 signals
+let length = 5;
 let counters = (1..=length).map(|idx| create_signal(idx));
 
 // each item manages a reactive view

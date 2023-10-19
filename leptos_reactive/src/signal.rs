@@ -531,10 +531,9 @@ impl<T> SignalWithUntracked for ReadSignal<T> {
     #[track_caller]
     #[inline(always)]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        let diagnostics = diagnostics!(self);
-
-        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
-        {
+        match with_runtime(|runtime| {
+            self.id.try_with_no_subscription(runtime, f)
+        }) {
             Ok(Ok(o)) => Some(o),
             _ => None,
         }
@@ -1211,6 +1210,12 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+impl<T: Default> Default for RwSignal<T> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
 impl<T> Clone for RwSignal<T> {
     fn clone(&self) -> Self {
         *self
@@ -1368,10 +1373,9 @@ impl<T> SignalWithUntracked for RwSignal<T> {
     #[track_caller]
     #[inline(always)]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        let diagnostics = diagnostics!(self);
-
-        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
-        {
+        match with_runtime(|runtime| {
+            self.id.try_with_no_subscription(runtime, f)
+        }) {
             Ok(Ok(o)) => Some(o),
             _ => None,
         }

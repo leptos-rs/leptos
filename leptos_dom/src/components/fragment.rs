@@ -23,6 +23,9 @@ where
 }
 
 /// Represents a group of [`views`](View).
+#[must_use = "You are creating a Fragment but not using it. An unused view can \
+              cause your view to be rendered as () unexpectedly, and it can \
+              also cause issues with client-side hydration."]
 #[derive(Debug, Clone)]
 pub struct Fragment {
     id: Option<HydrationKey>,

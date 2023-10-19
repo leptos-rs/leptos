@@ -69,7 +69,7 @@ use std::{
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "debug",
         skip_all,
         fields(
             ty = %std::any::type_name::<T>(),
@@ -103,7 +103,7 @@ where
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "debug",
         skip_all,
         fields(
             ty = %std::any::type_name::<T>(),
@@ -152,7 +152,7 @@ where
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "debug",
         skip_all,
         fields(
             ty = %std::any::type_name::<T>(),
@@ -278,7 +278,7 @@ where
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "debug",
         skip_all,
         fields(
             ty = %std::any::type_name::<T>(),
@@ -311,7 +311,7 @@ where
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "debug",
         skip_all,
         fields(
             ty = %std::any::type_name::<T>(),
@@ -484,7 +484,7 @@ where
     /// (`value.read()` is equivalent to `value.with(T::clone)`.)
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "debug", skip_all,)
     )]
     #[track_caller]
     #[deprecated = "You can now use .get() on resources."]
@@ -504,7 +504,7 @@ where
     /// [`Resource::read`].
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "debug", skip_all,)
     )]
     #[track_caller]
     pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
@@ -709,7 +709,6 @@ impl<S, T> SignalUpdate for Resource<S, T> {
 impl<S, T> SignalWith for Resource<S, T>
 where
     S: Clone,
-    T: Clone,
 {
     type Value = Option<T>;
 
