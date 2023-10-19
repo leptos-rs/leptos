@@ -4,7 +4,7 @@ use proc_macro2::Literal;
 use quote::{ToTokens, __private::TokenStream as TokenStream2};
 use syn::{
     parse::{Parse, ParseStream},
-    Ident, ItemFn, Token,
+    Ident, ItemFn, LitStr, Token,
 };
 
 pub fn server_impl(
@@ -48,6 +48,10 @@ pub fn server_impl(
     if args.prefix.is_none() {
         args.prefix = Some(Literal::string("/api"));
     }
+    // default to "Url" if no encoding given
+    if args.encoding.is_none() {
+        args.encoding = Some(Literal::string("Url"));
+    }
 
     match server_fn_macro::server_macro_impl(
         quote::quote!(#args),
@@ -63,11 +67,8 @@ pub fn server_impl(
 
 struct ServerFnArgs {
     struct_name: Option<Ident>,
-    _comma: Option<Token![,]>,
     prefix: Option<Literal>,
-    _comma2: Option<Token![,]>,
     encoding: Option<Literal>,
-    _comma3: Option<Token![,]>,
     fn_path: Option<Literal>,
 }
 
@@ -89,21 +90,110 @@ impl ToTokens for ServerFnArgs {
 
 impl Parse for ServerFnArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let struct_name = input.parse()?;
-        let _comma = input.parse()?;
-        let prefix = input.parse()?;
-        let _comma2 = input.parse()?;
-        let encoding = input.parse()?;
-        let _comma3 = input.parse()?;
-        let fn_path = input.parse()?;
+        let mut struct_name: Option<Ident> = None;
+        let mut prefix: Option<Literal> = None;
+        let mut encoding: Option<Literal> = None;
+        let mut fn_path: Option<Literal> = None;
+
+        let mut use_key_and_value = false;
+        let mut arg_pos = 0;
+
+        while !input.is_empty() {
+            arg_pos += 1;
+            let lookahead = input.lookahead1();
+            if lookahead.peek(Ident) {
+                let key_or_value: Ident = input.parse()?;
+
+                let lookahead = input.lookahead1();
+                if lookahead.peek(Token![=]) {
+                    input.parse::<Token![=]>()?;
+                    let key = key_or_value;
+                    use_key_and_value = true;
+                    if key == "name" {
+                        if struct_name.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: name",
+                            ));
+                        }
+                        struct_name = Some(input.parse()?);
+                    } else if key == "prefix" {
+                        if prefix.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: prefix",
+                            ));
+                        }
+                        prefix = Some(input.parse()?);
+                    } else if key == "encoding" {
+                        if encoding.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: encoding",
+                            ));
+                        }
+                        encoding = Some(input.parse()?);
+                    } else if key == "endpoint" {
+                        if fn_path.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: endpoint",
+                            ));
+                        }
+                        fn_path = Some(input.parse()?);
+                    } else {
+                        return Err(lookahead.error());
+                    }
+                } else {
+                    let value = key_or_value;
+                    if use_key_and_value {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "positional argument follows keyword argument",
+                        ));
+                    }
+                    if arg_pos == 1 {
+                        struct_name = Some(value)
+                    } else {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "expected string literal",
+                        ));
+                    }
+                }
+            } else if lookahead.peek(LitStr) {
+                let value: Literal = input.parse()?;
+                if use_key_and_value {
+                    return Err(syn::Error::new(
+                        value.span(),
+                        "positional argument follows keyword argument",
+                    ));
+                }
+                match arg_pos {
+                    1 => return Err(lookahead.error()),
+                    2 => prefix = Some(value),
+                    3 => encoding = Some(value),
+                    4 => fn_path = Some(value),
+                    _ => {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "unexpected extra argument",
+                        ))
+                    }
+                }
+            } else {
+                return Err(lookahead.error());
+            }
+
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+        }
 
         Ok(Self {
             struct_name,
-            _comma,
             prefix,
-            _comma2,
             encoding,
-            _comma3,
             fn_path,
         })
     }
