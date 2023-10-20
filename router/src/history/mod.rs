@@ -118,24 +118,28 @@ impl History for BrowserIntegration {
                 .unwrap_throw();
         }
         // scroll to el
-        if let Ok(hash) = leptos_dom::helpers::location().hash() {
-            if !hash.is_empty() {
-                let hash = js_sys::decode_uri(&hash[1..])
-                    .ok()
-                    .and_then(|decoded| decoded.as_string())
-                    .unwrap_or(hash);
-                let el = leptos_dom::document().get_element_by_id(&hash);
-                if let Some(el) = el {
-                    el.scroll_into_view();
-                    return;
-                }
+        scroll_to_el(loc.scroll);
+    }
+}
+
+pub(crate) fn scroll_to_el(loc_scroll: bool) {
+    if let Ok(hash) = leptos_dom::helpers::location().hash() {
+        if !hash.is_empty() {
+            let hash = js_sys::decode_uri(&hash[1..])
+                .ok()
+                .and_then(|decoded| decoded.as_string())
+                .unwrap_or(hash);
+            let el = leptos_dom::document().get_element_by_id(&hash);
+            if let Some(el) = el {
+                el.scroll_into_view();
+                return;
             }
         }
+    }
 
-        // scroll to top
-        if loc.scroll {
-            leptos_dom::window().scroll_to_with_x_and_y(0.0, 0.0);
-        }
+    // scroll to top
+    if loc_scroll {
+        leptos_dom::window().scroll_to_with_x_and_y(0.0, 0.0);
     }
 }
 
