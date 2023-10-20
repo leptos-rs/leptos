@@ -7,6 +7,7 @@
   - [Dynamic Attributes](./view/02_dynamic_attributes.md)
   - [Components and Props](./view/03_components.md)
   - [Iteration](./view/04_iteration.md)
+  - [Iterating over More Complex Data](./view/04b_iteration.md)
   - [Forms and Inputs](./view/05_forms.md)
   - [Control Flow](./view/06_control_flow.md)
   - [Error Handling](./view/07_errors.md)
