@@ -1146,6 +1146,17 @@ impl IntoView for &'static str {
     }
 }
 
+impl IntoView for Oco<'static, str> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    #[inline(always)]
+    fn into_view(self) -> View {
+        View::Text(Text::new(self.into()))
+    }
+}
+
 impl<V> IntoView for Vec<V>
 where
     V: IntoView,
