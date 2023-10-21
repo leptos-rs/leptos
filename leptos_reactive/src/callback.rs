@@ -30,7 +30,7 @@
 //! *Notes*:
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
 //! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`. On nightly, you can even do `my_callback(input)`
+//! - All callbacks can be invoked with `my_callback.call(input)`. On nightly, you can even do `my_callback(input)`
 //! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
@@ -43,18 +43,12 @@
 use crate::{store_value, StoredValue};
 use std::{fmt, sync::Arc};
 
-/// A wrapper trait for calling callbacks.
-pub trait Callable<In: 'static, Out: 'static = ()> {
-    /// calls the callback with the specified argument.
-    fn call(&self, input: In) -> Out;
-}
-
 /// Callbacks define a standard way to store functions and closures.
 ///
 /// # Example
 /// ```
 /// # use leptos::*;
-/// # use leptos::{Callable, Callback};
+/// # use leptos::Callback;
 /// #[component]
 /// fn MyComponent(
 ///     #[prop(into)] render_number: Callback<i32, String>,
@@ -89,7 +83,7 @@ impl<In, Out> Clone for Callback<In, Out> {
     }
 }
 
-impl<In, Out> Copy for Callback<In, Out> {}
+impl<In: 'static, Out: 'static> Copy for Callback<In, Out> {}
 
 impl<In, Out> Callback<In, Out> {
     /// Creates a new callback from the given function.
@@ -99,10 +93,8 @@ impl<In, Out> Callback<In, Out> {
     {
         Self(store_value(Box::new(f)))
     }
-}
-
-impl<In: 'static, Out: 'static> Callable<In, Out> for Callback<In, Out> {
-    fn call(&self, input: In) -> Out {
+    /// calls the callback with the given input
+    pub fn call(&self, input: In) -> Out {
         self.0.with_value(|f| f(input))
     }
 }
@@ -138,21 +130,21 @@ impl<In, Out> FnOnce<(In,)> for Callback<In, Out> {
     type Output = Out;
 
     extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
-        Callable::call(&self, args.0)
+        Self::call(&self, args.0)
     }
 }
 
 #[cfg(feature = "nightly")]
 impl<In, Out> FnMut<(In,)> for Callback<In, Out> {
     extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
-        Callable::call(&*self, args.0)
+        Self::call(&*self, args.0)
     }
 }
 
 #[cfg(feature = "nightly")]
 impl<In, Out> Fn<(In,)> for Callback<In, Out> {
     extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
-        Callable::call(self, args.0)
+        Self::call(self, args.0)
     }
 }
 
@@ -165,12 +157,6 @@ pub struct SyncCallback<In: 'static, Out: 'static = ()>(
 impl<In> fmt::Debug for SyncCallback<In> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         fmt.write_str("SyncCallback")
-    }
-}
-
-impl<In, Out> Callable<In, Out> for SyncCallback<In, Out> {
-    fn call(&self, input: In) -> Out {
-        self.0.with_value(|f| f(input))
     }
 }
 
@@ -187,6 +173,10 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
         F: Fn(In) -> Out + 'static,
     {
         Self(store_value(Arc::new(fun)))
+    }
+    /// calls the callback with the given input
+    pub fn call(&self, input: In) -> Out {
+        self.0.with_value(|f| f(input))
     }
 }
 
@@ -221,21 +211,21 @@ impl<In, Out> FnOnce<(In,)> for SyncCallback<In, Out> {
     type Output = Out;
 
     extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
-        Callable::call(&self, args.0)
+        Self::call(&self, args.0)
     }
 }
 
 #[cfg(feature = "nightly")]
 impl<In, Out> FnMut<(In,)> for SyncCallback<In, Out> {
     extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
-        Callable::call(&*self, args.0)
+        Self::call(&*self, args.0)
     }
 }
 
 #[cfg(feature = "nightly")]
 impl<In, Out> Fn<(In,)> for SyncCallback<In, Out> {
     extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
-        Callable::call(self, args.0)
+        Self::call(self, args.0)
     }
 }
 
