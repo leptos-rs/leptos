@@ -61,7 +61,7 @@ pub fn Form<A>(
     noscroll: bool,
     /// Sets whether the page should replace the current location in the history when the form is submitted.
     #[prop(optional)]
-    noreplace: bool,
+    replace: bool,
     /// Arbitrary attributes to add to the `<form>`. Attributes can be added with the
     /// `attr:` syntax in the `view` macro.
     #[prop(attrs)]
@@ -86,7 +86,7 @@ where
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
         noscroll: bool,
-        noreplace: bool,
+        replace: bool,
         attributes: Vec<(&'static str, Attribute)>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
@@ -98,7 +98,7 @@ where
                 let navigate = has_router.then(use_navigate);
                 let navigate_options = NavigateOptions {
                     scroll: !noscroll,
-                    replace: !noreplace,
+                    replace,
                     ..Default::default()
                 };
 
@@ -338,7 +338,7 @@ where
         children,
         node_ref,
         noscroll,
-        noreplace,
+        replace,
         attributes,
     )
 }
