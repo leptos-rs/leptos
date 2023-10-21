@@ -59,6 +59,9 @@ pub fn Form<A>(
     /// Sets whether the page should be scrolled to the top when the form is submitted.
     #[prop(optional)]
     noscroll: bool,
+    /// Sets whether the page should replace the current location in the history when the form is submitted.
+    #[prop(optional)]
+    noreplace: bool,
     /// Arbitrary attributes to add to the `<form>`. Attributes can be added with the
     /// `attr:` syntax in the `view` macro.
     #[prop(attrs)]
@@ -83,6 +86,7 @@ where
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
         noscroll: bool,
+        noreplace: bool,
         attributes: Vec<(&'static str, Attribute)>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
@@ -94,6 +98,7 @@ where
                 let navigate = has_router.then(use_navigate);
                 let navigate_options = NavigateOptions {
                     scroll: !noscroll,
+                    replace: !noreplace,
                     ..Default::default()
                 };
 
@@ -333,6 +338,7 @@ where
         children,
         node_ref,
         noscroll,
+        noreplace,
         attributes,
     )
 }
