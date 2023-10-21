@@ -1153,7 +1153,7 @@ impl IntoView for Oco<'static, str> {
     )]
     #[inline(always)]
     fn into_view(self) -> View {
-        View::Text(Text::new(self.into()))
+        View::Text(Text::new(self))
     }
 }
 
