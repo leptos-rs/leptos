@@ -166,6 +166,8 @@ impl<In, Out> Clone for SyncCallback<In, Out> {
     }
 }
 
+impl<In: 'static, Out: 'static> Copy for SyncCallback<In, Out> {}
+
 impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
     /// Creates a new callback from the given function.
     pub fn new<F>(fun: F) -> Self
