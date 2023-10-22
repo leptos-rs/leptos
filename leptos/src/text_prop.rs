@@ -1,4 +1,4 @@
-use leptos_dom::{Attribute, IntoAttribute};
+use leptos_dom::{Attribute, IntoAttribute, IntoView, View};
 use leptos_reactive::Oco;
 use std::{fmt::Debug, rc::Rc};
 
@@ -50,11 +50,17 @@ impl From<Oco<'static, str>> for TextProp {
 
 impl IntoAttribute for TextProp {
     fn into_attribute(self) -> Attribute {
-        Attribute::String(self.get())
+        self.get().into_attribute()
     }
 
     fn into_attribute_boxed(self: Box<Self>) -> Attribute {
         self.into_attribute()
+    }
+}
+
+impl IntoView for TextProp {
+    fn into_view(self) -> View {
+        self.get().into_view()
     }
 }
 
