@@ -36,12 +36,11 @@ pub fn Stories() -> impl IntoView {
     let (pending, set_pending) = create_signal(false);
 
     let hide_more_link = move || {
-        pending()
-            || stories.get().unwrap_or(None).unwrap_or_default().len() < 28
+        stories.get().unwrap_or(None).unwrap_or_default().len() < 28
+            || pending()
     };
 
     view! {
-
         <div class="news-view">
             <div class="news-list-nav">
                 <span>
@@ -65,30 +64,26 @@ pub fn Stories() -> impl IntoView {
                     }}
                 </span>
                 <span>"page " {page}</span>
-                <Transition
-                    fallback=move || view! {  <p>"Loading..."</p> }
+                <span class="page-link"
+                    class:disabled=hide_more_link
+                    aria-hidden=hide_more_link
                 >
-                    <span class="page-link"
-                        class:disabled=move || hide_more_link()
-                        aria-hidden=move || hide_more_link()
+                    <a href=move || format!("/{}?page={}", story_type(), page() + 1)
+                        aria-label="Next Page"
                     >
-                        <a href=move || format!("/{}?page={}", story_type(), page() + 1)
-                            aria-label="Next Page"
-                        >
-                            "more >"
-                        </a>
-                    </span>
-                </Transition>
+                        "more >"
+                    </a>
+                </span>
             </div>
             <main class="news-list">
                 <div>
                     <Transition
-                        fallback=move || view! {  <p>"Loading..."</p> }
+                        fallback=move || view! { <p>"Loading..."</p> }
                         set_pending
                     >
                         {move || match stories.get() {
                             None => None,
-                            Some(None) => Some(view! {  <p>"Error loading stories."</p> }.into_any()),
+                            Some(None) => Some(view! { <p>"Error loading stories."</p> }.into_any()),
                             Some(Some(stories)) => {
                                 Some(view! {
                                     <ul>
@@ -127,7 +122,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! {  <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
+                    view! { <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             <br />
@@ -136,7 +131,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     view! {
                         <span>
                             {"by "}
-                            {story.user.map(|user| view ! { <A href=format!("/users/{user}")>{user.clone()}</A>})}
+                            {story.user.map(|user| view ! {  <A href=format!("/users/{user}")>{user.clone()}</A>})}
                             {format!(" {} | ", story.time_ago)}
                             <A href=format!("/stories/{}", story.id)>
                                 {if story.comments_count.unwrap_or_default() > 0 {
@@ -149,7 +144,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! {  <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
+                    view! { <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             {(story.story_type != "link").then(|| view! {

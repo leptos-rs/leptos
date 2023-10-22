@@ -62,15 +62,16 @@ cfg_if! {
 }
 
 use crate::{
+    create_node_ref,
     ev::EventDescriptor,
     hydration::HydrationCtx,
     macro_helpers::{
         Attribute, IntoAttribute, IntoClass, IntoProperty, IntoStyle,
     },
-    Element, Fragment, IntoView, NodeRef, Text, View,
+    Directive, Element, Fragment, IntoView, NodeRef, Text, View,
 };
-use leptos_reactive::Oco;
-use std::fmt;
+use leptos_reactive::{create_effect, Oco};
+use std::{fmt, rc::Rc};
 
 /// Trait which allows creating an element tag.
 pub trait ElementDescriptor: ElementDescriptorBounds {
@@ -128,6 +129,9 @@ where
 }
 
 /// Represents potentially any element.
+#[must_use = "You are creating AnyElement but not using it. An unused view can \
+              cause your view to be rendered as () unexpectedly, and it can \
+              also cause issues with client-side hydration."]
 #[derive(Clone, Debug)]
 pub struct AnyElement {
     pub(crate) name: Oco<'static, str>,
@@ -272,6 +276,9 @@ impl ElementDescriptor for Custom {
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
+    #[must_use = "You are creating an HtmlElement<_> but not using it. An unused view can \
+    cause your view to be rendered as () unexpectedly, and it can \
+    also cause issues with client-side hydration."]
     #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
       #[cfg(debug_assertions)]
@@ -283,6 +290,9 @@ cfg_if! {
   // Server needs to build a virtualized DOM tree
   } else {
     /// Represents an HTML element.
+    #[must_use = "You are creating an HtmlElement<_> but not using it. An unused view can \
+    cause your view to be rendered as () unexpectedly, and it can \
+    also cause issues with client-side hydration."]
     #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
         pub(crate) element: El,
@@ -499,7 +509,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             use once_cell::unsync::OnceCell;
             use std::{
                 cell::RefCell,
-                rc::Rc,
                 task::{Poll, Waker},
             };
 
@@ -1134,6 +1143,28 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             this
         }
+    }
+}
+
+impl<El: ElementDescriptor + Clone + 'static> HtmlElement<El> {
+    /// Bind the directive to the element.
+    #[inline(always)]
+    pub fn directive<T: ?Sized, P: Clone + 'static>(
+        self,
+        handler: impl Directive<T, P> + 'static,
+        param: P,
+    ) -> Self {
+        let node_ref = create_node_ref::<El>();
+
+        let handler = Rc::new(handler);
+
+        let _ = create_effect(move |_| {
+            if let Some(el) = node_ref.get() {
+                Rc::clone(&handler).run(el.into_any(), param.clone());
+            }
+        });
+
+        self.node_ref(node_ref)
     }
 }
 

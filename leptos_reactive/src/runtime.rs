@@ -193,11 +193,14 @@ impl Runtime {
     pub(crate) fn cleanup_node(&self, node_id: NodeId) {
         // first, run our cleanups, if any
         let c = { self.on_cleanups.borrow_mut().remove(node_id) };
+        // untrack around all cleanups
+        let prev_observer = self.observer.take();
         if let Some(cleanups) = c {
             for cleanup in cleanups {
                 cleanup();
             }
         }
+        self.observer.set(prev_observer);
 
         // dispose of any of our properties
         let properties = { self.node_properties.borrow_mut().remove(node_id) };
@@ -1246,6 +1249,7 @@ impl Runtime {
             .borrow_mut()
             .insert(AnyResource::Serializable(state))
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -1260,9 +1264,31 @@ impl Runtime {
         S: 'static,
         T: 'static,
     {
+        self.try_resource(id, f).unwrap_or_else(|| {
+            panic!(
+                "couldn't locate {id:?} at {:?}",
+                std::panic::Location::caller()
+            );
+        })
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    #[track_caller]
+    pub(crate) fn try_resource<S, T, U>(
+        &self,
+        id: ResourceId,
+        f: impl FnOnce(&ResourceState<S, T>) -> U,
+    ) -> Option<U>
+    where
+        S: 'static,
+        T: 'static,
+    {
         let resources = { self.resources.borrow().clone() };
         let res = resources.get(id);
-        if let Some(res) = res {
+        res.map(|res| {
             let res_state = match res {
                 AnyResource::Unserializable(res) => res.as_any(),
                 AnyResource::Serializable(res) => res.as_any(),
@@ -1278,12 +1304,7 @@ impl Runtime {
                     std::any::type_name::<T>(),
                 );
             }
-        } else {
-            panic!(
-                "couldn't locate {id:?} at {:?}",
-                std::panic::Location::caller()
-            );
-        }
+        })
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.

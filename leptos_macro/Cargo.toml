@@ -34,6 +34,7 @@ typed-builder = "0.16"
 trybuild = "1"
 leptos = { path = "../leptos" }
 insta = "1.29"
+serde = "1"
 
 [features]
 csr = []

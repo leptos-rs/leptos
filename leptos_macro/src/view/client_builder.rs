@@ -6,7 +6,7 @@ use super::{
     is_self_closing, is_svg_element, parse_event_name,
     slot_helper::{get_slot, slot_to_tokens},
 };
-use crate::attribute_value;
+use crate::{attribute_value, view::directive_call_from_attribute_node};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
@@ -383,6 +383,8 @@ pub(crate) fn attribute_to_tokens(
         quote! {
             .#node_ref(#value)
         }
+    } else if let Some(name) = name.strip_prefix("use:") {
+        directive_call_from_attribute_node(node, name)
     } else if let Some(name) = name.strip_prefix("on:") {
         let handler = attribute_value(node);
 

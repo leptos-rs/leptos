@@ -842,12 +842,12 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// are enabled), it will instead make a network request to the server.
 ///
 /// You can specify one, two, three, or four arguments to the server function. All of these arguments are optional.
-/// 1. A type name that will be used to identify and register the server function
+/// 1. **`name`**: A type name that will be used to identify and register the server function
 ///   (e.g., `MyServerFn`). Defaults to a PascalCased version of the function name.
-/// 2. A URL prefix at which the function will be mounted when it’s registered
+/// 2. **`prefix`**: A URL prefix at which the function will be mounted when it’s registered
 ///   (e.g., `"/api"`). Defaults to `"/api"`.
-/// 3. The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
-/// 4. A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
+/// 3. **`encoding`**: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
+/// 4. **`endpoint`**: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
 ///
 /// ```rust,ignore
 /// // will generate a server function at `/api-prefix/hello`
@@ -858,6 +858,10 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// // `/api/hello2349232342342` (hash based on location in source)
 /// #[server]
 /// pub async fn hello_world() /* ... */
+///
+/// // The server function accepts keyword parameters
+/// #[server(endpoint = "my_endpoint")]
+/// pub async fn hello_leptos() /* ... */
 /// ```
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable

@@ -20,7 +20,7 @@ pub struct RouteDefinition {
     /// The HTTP request methods this route is able to handle.
     pub methods: &'static [Method],
     /// A data loader function that will be called when this route is matched.
-    pub(crate) data: Option<Loader>,
+    pub data: Option<Loader>,
     /// The route's preferred mode of static generation, if any
     pub static_mode: Option<StaticMode>,
     /// The data required to fill any dynamic segments in the path during static rendering.

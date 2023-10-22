@@ -1,6 +1,6 @@
 use crate::{
-    create_location, matching::resolve_path, Branch, History, Location,
-    LocationChange, RouteContext, RouterIntegrationContext, State,
+    create_location, matching::resolve_path, scroll_to_el, Branch, History,
+    Location, LocationChange, RouteContext, RouterIntegrationContext, State,
 };
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
@@ -302,6 +302,8 @@ impl RouterContextInner {
                                 });
                             }
                         });
+                    } else {
+                        scroll_to_el(false);
                     }
 
                     Ok(())

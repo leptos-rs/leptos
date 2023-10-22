@@ -86,7 +86,6 @@ fn clear() {
 
     clear.click();
 
-```rust
 assert_eq!(
     div.outer_html(),
     // here we spawn a mini reactive system to render the test case
@@ -108,6 +107,7 @@ assert_eq!(
         .outer_html()
     })
 );
+}
 ````
 
 ### [`wasm-bindgen-test` with `counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable/tests/web)

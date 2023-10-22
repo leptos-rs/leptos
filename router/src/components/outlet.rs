@@ -15,6 +15,7 @@ use web_sys::AnimationEvent;
 )]
 #[component]
 pub fn Outlet() -> impl IntoView {
+    _ = HydrationCtx::next_component();
     let id = HydrationCtx::id();
     let route = use_route();
     let route_states = expect_context::<Memo<crate::RouterState>>();
