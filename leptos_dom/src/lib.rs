@@ -38,11 +38,11 @@ pub use events::{typed as ev, typed::EventHandler};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
+use leptos_reactive::{Oco, TextProp};
 pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -226,6 +226,12 @@ where
     )]
     fn into_view(self) -> View {
         DynChild::new(move || self.get()).into_view()
+    }
+}
+
+impl IntoView for TextProp {
+    fn into_view(self) -> View {
+        self.get().into_view()
     }
 }
 

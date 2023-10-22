@@ -202,10 +202,8 @@ pub use serde_json;
 pub use show::*;
 pub use suspense_component::*;
 mod suspense_component;
-mod text_prop;
 mod transition;
 
-pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
