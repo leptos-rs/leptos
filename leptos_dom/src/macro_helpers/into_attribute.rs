@@ -269,6 +269,14 @@ impl IntoAttribute for TextProp {
     impl_into_attr_boxed! {}
 }
 
+impl IntoAttribute for MaybeProp<TextProp> {
+    fn into_attribute(self) -> Attribute {
+        self.get().map(|s| s.get()).into_attribute()
+    }
+
+    impl_into_attr_boxed! {}
+}
+
 /* impl IntoAttribute for Box<dyn IntoAttribute> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
