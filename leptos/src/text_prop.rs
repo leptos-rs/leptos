@@ -1,3 +1,4 @@
+use leptos_dom::{Attribute, IntoAttribute};
 use leptos_reactive::Oco;
 use std::{fmt::Debug, rc::Rc};
 
@@ -44,6 +45,16 @@ impl From<Rc<str>> for TextProp {
 impl From<Oco<'static, str>> for TextProp {
     fn from(s: Oco<'static, str>) -> Self {
         TextProp(Rc::new(move || s.clone()))
+    }
+}
+
+impl IntoAttribute for TextProp {
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(self.get())
+    }
+
+    fn into_attribute_boxed(self: Box<Self>) -> Attribute {
+        self.into_attribute()
     }
 }
 
