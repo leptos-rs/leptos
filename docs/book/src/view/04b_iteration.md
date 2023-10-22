@@ -238,9 +238,9 @@ will be updated to this:
     each=move || data().into_iter().enumerate()
     key=|(_, state)| state.key.clone()
     children=move |(index, _)| {
-		let value = create_memo(move |_| {
-			data.with(|data| data[index].value)
-		});
+        let value = create_memo(move |_| {
+            data.with(|data| data.get(index).map(|d| d.value).unwrap_or(0))
+        });
         view! {
             <p>{value}</p>
         }
@@ -267,6 +267,12 @@ wrap the data in signals.
 ## Cons
 
 It’s a bit more complex to set up this memo-per-row inside the `<For/>` loop rather than
-using nested signals. Note also that while memos memoize their reactive changes, the same
+using nested signals. For example, you’ll notice that we have to guard against the possibility
+that the `data[index]` would panic by using `data.get(index)`, because this memo may be 
+triggered to re-run once just after the row is removed. (This is because the memo for each row
+and the whole `<For/>` both depend on the same `data` signal, and the order of execution for
+multiple reactive values that depend on the same signal isn’t guaranteed.)
+
+Note also that while memos memoize their reactive changes, the same
 calculation does need to re-run to check the value every time, so nested reactive signals
 will still be more efficient for pinpoint updates here.
