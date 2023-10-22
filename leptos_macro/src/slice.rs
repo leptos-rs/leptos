@@ -11,23 +11,34 @@ use syn::{
     Token, Type,
 };
 
-struct PokeMacroInput {
+struct SliceMacroInput {
     pub root: Ident,
     pub path: Punctuated<Type, Dot>,
 }
 
-impl Parse for PokeMacroInput {
+impl Parse for SliceMacroInput {
     fn parse(input: ParseStream) -> Result<Self, syn::Error> {
         let root = syn::Ident::parse(input)?;
         let _dot = <Token![.]>::parse(input)?;
         let path = input.parse_terminated(Type::parse, Token![.])?;
 
-        Ok(PokeMacroInput { root, path })
+        if path.is_empty() {
+            return Err(syn::Error::new(input.span(), "Expected identifier"));
+        }
+
+        if path.trailing_punct() {
+            return Err(syn::Error::new(
+                input.span(),
+                "Unexpected trailing `.`",
+            ));
+        }
+
+        Ok(SliceMacroInput { root, path })
     }
 }
 
-impl From<PokeMacroInput> for TokenStream {
-    fn from(val: PokeMacroInput) -> Self {
+impl From<SliceMacroInput> for TokenStream {
+    fn from(val: SliceMacroInput) -> Self {
         let root = val.root;
         let path = val.path;
 
@@ -42,7 +53,7 @@ impl From<PokeMacroInput> for TokenStream {
     }
 }
 
-pub fn poke_impl(tokens: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(tokens as PokeMacroInput);
+pub fn slice_impl(tokens: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(tokens as SliceMacroInput);
     input.into()
 }

@@ -33,9 +33,8 @@ mod params;
 mod view;
 use view::{client_template::render_template, render_view};
 mod component;
-mod lens;
-mod poke;
 mod server;
+mod slice;
 mod slot;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -972,55 +971,13 @@ pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
     }
 }
 
-/// Generates a function for each field of the deriving struct that calls
-/// [create_slice](https://docs.rs/leptos/latest/leptos/fn.create_slice.html) with a default getter and setter.
-///
-/// ```rust
-/// # use leptos::{create_runtime, create_rw_signal};
-/// # use leptos_macro::Lens;
-/// # let runtime = create_runtime();
-///
-/// // some global state with independent fields
-/// #[derive(Lens, Default)]
-/// pub struct GlobalState {
-///     count: i32,
-///     name: String,
-/// }
-///
-/// let state = create_rw_signal(GlobalState::default());
-/// let (count, set_count) = GlobalState::count(state);
-/// ```
-///
-/// for tuple structs
-///
-/// ```rust
-/// # use leptos::{create_runtime, create_rw_signal};
-/// # use leptos_macro::Lens;
-/// # let runtime = create_runtime();
-///
-/// // global state in the form of a tuple struct
-/// #[derive(Lens, Default)]
-/// pub struct GlobalState(i32, String);
-///
-/// let state = create_rw_signal(GlobalState::default());
-/// let (number, set_number) = GlobalState::_0(state);
-/// let (str, set_str) = GlobalState::_1(state);
-/// ```
-#[proc_macro_derive(Lens)]
-pub fn lens_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match syn::parse(input) {
-        Ok(ast) => lens::lens_impl(&ast),
-        Err(err) => err.to_compile_error().into(),
-    }
-}
-
 /// Generates a `lens` into struct with a default getter and setter
 ///
 /// Can be used to access deeply nested fields within a global state object
 ///
 /// ```rust
 /// # use leptos::{create_runtime, create_rw_signal};
-/// # use leptos_macro::poke;
+/// # use leptos_macro::slice;
 /// # let runtime = create_runtime();
 ///
 /// #[derive(Default)]
@@ -1037,12 +994,12 @@ pub fn lens_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// let outer_signal = create_rw_signal(Outer::default());
 ///
-/// let (count, set_count) = poke!(outer_signal.count);
+/// let (count, set_count) = slice!(outer_signal.count);
 ///
-/// let (inner_count, set_inner_count) = poke!(outer_signal.inner.inner_count);
-/// let (inner_name, set_inner_name) = poke!(outer_signal.inner.inner_name);
+/// let (inner_count, set_inner_count) = slice!(outer_signal.inner.inner_count);
+/// let (inner_name, set_inner_name) = slice!(outer_signal.inner.inner_name);
 /// ```
 #[proc_macro]
-pub fn poke(input: TokenStream) -> TokenStream {
-    poke::poke_impl(input)
+pub fn slice(input: TokenStream) -> TokenStream {
+    slice::slice_impl(input)
 }
