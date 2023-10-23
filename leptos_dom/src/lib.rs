@@ -149,6 +149,12 @@ where
     }
 }
 
+impl IntoView for Oco<'static, str> {
+    fn into_view(self) -> View {
+        View::Text(Text::new(self))
+    }
+}
+
 #[cfg(not(feature = "nightly"))]
 impl<T> IntoView for ReadSignal<T>
 where
