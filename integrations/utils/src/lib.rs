@@ -125,7 +125,7 @@ pub fn html_parts_separated(
                         }});
                     </script>
                     {leptos_autoreload}
-                    "#
+                </head>"#
     );
     let tail = "</body></html>";
     (head, tail)
@@ -155,5 +155,5 @@ pub async fn build_async_response(
 
     runtime.dispose();
 
-    format!("{head}</head><body{body_meta}>{buf}{tail}")
+    format!("{head}<body{body_meta}>{buf}{tail}")
 }
