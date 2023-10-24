@@ -1146,6 +1146,17 @@ impl IntoView for &'static str {
     }
 }
 
+impl IntoView for Cow<'static, str> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    #[inline(always)]
+    fn into_view(self) -> View {
+        View::Text(Text::new(self.into()))
+    }
+}
+
 impl IntoView for Oco<'static, str> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -1204,7 +1215,6 @@ viewable_primitive![
     f64,
     char,
     bool,
-    Cow<'_, str>,
     std::net::IpAddr,
     std::net::SocketAddr,
     std::net::SocketAddrV4,
@@ -1236,3 +1246,4 @@ cfg_if! {
     }
   }
 }
+
