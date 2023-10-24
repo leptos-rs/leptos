@@ -107,31 +107,41 @@ impl<In: 'static, Out: 'static> Callable<In, Out> for Callback<In, Out> {
     }
 }
 
-#[cfg(not(feature = "nightly"))]
-impl<F, In, T, Out> From<F> for Callback<In, Out>
-where
-    F: Fn(In) -> T + 'static,
-    T: Into<Out> + 'static,
-{
-    fn from(f: F) -> Callback<In, Out> {
-        Callback::new(move |x| f(x).into())
-    }
+macro_rules! impl_from_fn {
+    ($ty:ident) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<F, In, T, Out> From<F> for $ty<In, Out>
+        where
+            F: Fn(In) -> T + 'static,
+            T: Into<Out> + 'static,
+        {
+            fn from(f: F) -> Self {
+                Self::new(move |x| f(x).into())
+            }
+        }
+
+        paste::paste! {
+            #[cfg(feature = "nightly")]
+            auto trait [<NotRaw $ty>] {}
+
+            #[cfg(feature = "nightly")]
+            impl<A, B> ![<NotRaw $ty>] for $ty<A, B> {}
+
+            #[cfg(feature = "nightly")]
+            impl<F, In, T, Out> From<F> for $ty<In, Out>
+            where
+                F: Fn(In) -> T + [<NotRaw $ty>] + 'static,
+                T: Into<Out> + 'static,
+            {
+                fn from(f: F) -> Self {
+                    Self::new(move |x| f(x).into())
+                }
+            }
+        }
+    };
 }
 
-#[cfg(feature = "nightly")]
-auto trait NotRawCallback {}
-#[cfg(feature = "nightly")]
-impl<A, B> !NotRawCallback for Callback<A, B> {}
-#[cfg(feature = "nightly")]
-impl<F, In, T, Out> From<F> for Callback<In, Out>
-where
-    F: Fn(In) -> T + NotRawCallback + 'static,
-    T: Into<Out> + 'static,
-{
-    fn from(f: F) -> Callback<In, Out> {
-        Callback::new(move |x| f(x).into())
-    }
-}
+impl_from_fn!(Callback);
 
 #[cfg(feature = "nightly")]
 impl<In, Out> FnOnce<(In,)> for Callback<In, Out> {
@@ -190,31 +200,7 @@ impl<In: 'static, Out: 'static> SyncCallback<In, Out> {
     }
 }
 
-#[cfg(not(feature = "nightly"))]
-impl<F, In, T, Out> From<F> for SyncCallback<In, Out>
-where
-    F: Fn(In) -> T + 'static,
-    T: Into<Out> + 'static,
-{
-    fn from(f: F) -> SyncCallback<In, Out> {
-        SyncCallback::new(move |x| f(x).into())
-    }
-}
-
-#[cfg(feature = "nightly")]
-auto trait NotRawSyncCallback {}
-#[cfg(feature = "nightly")]
-impl<A, B> !NotRawSyncCallback for SyncCallback<A, B> {}
-#[cfg(feature = "nightly")]
-impl<F, In, T, Out> From<F> for SyncCallback<In, Out>
-where
-    F: Fn(In) -> T + NotRawSyncCallback + 'static,
-    T: Into<Out> + 'static,
-{
-    fn from(f: F) -> SyncCallback<In, Out> {
-        SyncCallback::new(move |x| f(x).into())
-    }
-}
+impl_from_fn!(SyncCallback);
 
 #[cfg(feature = "nightly")]
 impl<In, Out> FnOnce<(In,)> for SyncCallback<In, Out> {
