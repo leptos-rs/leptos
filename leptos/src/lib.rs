@@ -34,7 +34,7 @@
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`fetch`](https://github.com/leptos-rs/leptos/tree/main/examples/fetch) introduces
-//!   [Resource](leptos_reactive::Resource)s, which allow you to integrate arbitrary `async` code like an
+//!   [Resource]s, which allow you to integrate arbitrary `async` code like an
 //!   HTTP request within your reactive code.
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
@@ -114,7 +114,7 @@
 //!     let increment = move |_| set_value.update(|value| *value += 1);
 //!
 //!     view! {
-//!         
+//!
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
