@@ -4,7 +4,6 @@ mod ssr_imports {
     pub use hackernews_islands::fallback::file_and_error_handler;
     pub use leptos::*;
     pub use leptos_axum::{generate_route_list, LeptosRoutes};
-    pub use tower_http::{compression::CompressionLayer, services::ServeFile};
 }
 
 #[cfg(feature = "ssr")]

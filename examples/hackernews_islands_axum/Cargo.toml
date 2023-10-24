@@ -39,7 +39,6 @@ tokio = { version = "1.22.0", features = ["full"], optional = true }
 http = { version = "0.2.8", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 wasm-bindgen = "0.2"
-wee_alloc = "0.4.5"
 lazy_static = "1.4.0"
 
 [features]
