@@ -58,12 +58,29 @@ use std::{
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.get(), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats.set(2);
-/// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.get(), Some(vec!["2".to_string()]));
 /// # }
+/// # runtime.dispose();
+/// ```
+///
+/// We can provide single, multiple or even a non-reactive signal as `source`
+///
+/// ```rust
+/// # use leptos::*;
+/// # let runtime = create_runtime();
+/// # runtime.dispose():
+/// // Single signal. `Resource` will run once initially and then every time `how_many_cats` changes
+/// let async_data = create_resource(move || how_many_cats.get() , |_| async move { todo!() });
+
+/// // Non-reactive signal. `Resource` runs only once
+/// let async_data = create_resource(|| (), |_| async move { todo!() });
+
+/// // Multiple signals. `Resource` will run once initially and then every time `how_many_cats` or `how_many_dogs` changes
+/// let async_data = create_resource(move || (how_many_cats.get(), how_many_dogs.get()), |_| async move { todo!() });
 /// # runtime.dispose();
 /// ```
 #[cfg_attr(
@@ -902,12 +919,29 @@ impl<S, T> SignalSet for Resource<S, T> {
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.get(), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats.set(2);
-/// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.get(), Some(vec!["2".to_string()]));
 /// # }
+/// # runtime.dispose();
+/// ```
+///
+/// We can provide single, multiple or even a non-reactive signal as `source`
+///
+/// ```rust
+/// # use leptos::*;
+/// # let runtime = create_runtime();
+/// # runtime.dispose():
+/// // Single signal. `Resource` will run once initially and then every time `how_many_cats` changes
+/// let async_data = create_resource(move || how_many_cats.get() , |_| async move { todo!() });
+
+/// // Non-reactive signal. `Resource` runs only once
+/// let async_data = create_resource(|| (), |_| async move { todo!() });
+
+/// // Multiple signals. `Resource` will run once initially and then every time `how_many_cats` or `how_many_dogs` changes
+/// let async_data = create_resource(move || (how_many_cats.get(), how_many_dogs.get()), |_| async move { todo!() });
 /// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
