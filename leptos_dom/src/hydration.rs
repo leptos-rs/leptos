@@ -73,6 +73,8 @@ pub(crate) use hydrate_only::*;
 /// A stable identifier within the server-rendering or hydration process.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
+    /// ID of the current outlet
+    pub outlet: usize,
     /// ID of the current fragment.
     pub fragment: usize,
     /// ID of the current error boundary.
@@ -83,7 +85,11 @@ pub struct HydrationKey {
 
 impl Display for HydrationKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}-{}", self.fragment, self.error, self.id)
+        write!(
+            f,
+            "{}-{}-{}-{}",
+            self.outlet, self.fragment, self.error, self.id
+        )
     }
 }
 
@@ -91,14 +97,17 @@ impl std::str::FromStr for HydrationKey {
     type Err = (); // TODO better error
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut pieces = s.splitn(3, '-');
+        let mut pieces = s.splitn(4, '-');
         let first = pieces.next().ok_or(())?;
         let second = pieces.next().ok_or(())?;
         let third = pieces.next().ok_or(())?;
-        let fragment = usize::from_str(first).map_err(|_| ())?;
-        let error = usize::from_str(second).map_err(|_| ())?;
-        let id = usize::from_str(third).map_err(|_| ())?;
+        let fourth = pieces.next().ok_or(())?;
+        let outlet = usize::from_str(first).map_err(|_| ())?;
+        let fragment = usize::from_str(second).map_err(|_| ())?;
+        let error = usize::from_str(third).map_err(|_| ())?;
+        let id = usize::from_str(fourth).map_err(|_| ())?;
         Ok(HydrationKey {
+            outlet,
             fragment,
             error,
             id,
@@ -113,8 +122,9 @@ mod tests {
         use crate::HydrationKey;
         use std::str::FromStr;
         assert_eq!(
-            HydrationKey::from_str("1-2-3"),
+            HydrationKey::from_str("0-1-2-3"),
             Ok(HydrationKey {
+                outlet: 0,
                 fragment: 1,
                 error: 2,
                 id: 3
@@ -123,7 +133,7 @@ mod tests {
     }
 }
 
-thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { fragment: 0, error: 0, id: 0 }));
+thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { outlet: 0, fragment: 0, error: 0, id: 0 }));
 
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
@@ -187,6 +197,16 @@ impl HydrationCtx {
         })
     }
 
+    /// Resets the hydration `id` for the next outlet, and returns it
+    pub fn next_outlet() -> HydrationKey {
+        ID.with(|id| {
+            let mut id = id.borrow_mut();
+            id.outlet = id.outlet.wrapping_add(1);
+            id.id = 0;
+            *id
+        })
+    }
+
     /// Resets the hydration `id` for the next component, and returns it
     pub fn next_error() -> HydrationKey {
         ID.with(|id| {
@@ -202,6 +222,7 @@ impl HydrationCtx {
     pub fn reset_id() {
         ID.with(|id| {
             *id.borrow_mut() = HydrationKey {
+                outlet: 0,
                 fragment: 0,
                 error: 0,
                 id: 0,
@@ -220,6 +241,7 @@ impl HydrationCtx {
     pub fn continue_after(id: HydrationKey) {
         ID.with(|i| {
             *i.borrow_mut() = HydrationKey {
+                outlet: id.outlet,
                 fragment: id.fragment,
                 error: id.error,
                 id: id.id + 1,
