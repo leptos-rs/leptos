@@ -1,10 +1,9 @@
-use std::{rc::Rc, fmt::Debug};
-
 use crate::{
     create_isomorphic_effect, on_cleanup, runtime::untrack, store_value, Memo,
-    ReadSignal, RwSignal, SignalDispose, SignalGet, SignalGetUntracked,
-    SignalStream, SignalWith, SignalWithUntracked, StoredValue, Oco,
+    Oco, ReadSignal, RwSignal, SignalDispose, SignalGet, SignalGetUntracked,
+    SignalStream, SignalWith, SignalWithUntracked, StoredValue,
 };
+use std::{fmt::Debug, rc::Rc};
 
 /// Helper trait for converting `Fn() -> T` closures into
 /// [`Signal<T>`].
@@ -1348,7 +1347,7 @@ impl From<Oco<'static, str>> for TextProp {
 
 impl<T> From<T> for MaybeProp<TextProp>
 where
-    T: Into<Oco<'static, str>>
+    T: Into<Oco<'static, str>>,
 {
     fn from(s: T) -> Self {
         Self(Some(MaybeSignal::from(Some(s.into().into()))))

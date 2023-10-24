@@ -1,8 +1,8 @@
+use leptos_reactive::{MaybeProp, Oco, TextProp};
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
-    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
-use leptos_reactive::{Oco, TextProp};
 use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -264,14 +264,6 @@ impl IntoAttribute for Option<Box<dyn IntoAttribute>> {
 impl IntoAttribute for TextProp {
     fn into_attribute(self) -> Attribute {
         self.get().into_attribute()
-    }
-
-    impl_into_attr_boxed! {}
-}
-
-impl IntoAttribute for MaybeProp<TextProp> {
-    fn into_attribute(self) -> Attribute {
-        self.get().map(|s| s.get()).into_attribute()
     }
 
     impl_into_attr_boxed! {}
