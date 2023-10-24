@@ -313,7 +313,7 @@ impl RouterContextInner {
     }
 
     pub(crate) fn navigate_end(self: Rc<Self>, mut next: LocationChange) {
-        let first = self.referrers.borrow().get(0).cloned();
+        let first = self.referrers.borrow().first().cloned();
         if let Some(first) = first {
             if next.value != first.value || next.state != first.state {
                 next.replace = first.replace;
