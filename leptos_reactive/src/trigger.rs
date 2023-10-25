@@ -24,7 +24,7 @@ impl Trigger {
     /// of notifying other reactive code of a change. This can be useful
     /// for when using external data not stored in signals, for example.
     ///
-    /// This is identical to [`create_rw_signal`].
+    /// This is identical to [`create_trigger`].
     ///
     /// ```
     /// # use leptos_reactive::*;
@@ -295,3 +295,4 @@ impl Fn<()> for Trigger {
         self.track()
     }
 }
+
