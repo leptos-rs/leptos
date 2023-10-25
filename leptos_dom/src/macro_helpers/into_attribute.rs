@@ -261,6 +261,17 @@ impl IntoAttribute for Option<Box<dyn IntoAttribute>> {
     impl_into_attr_boxed! {}
 }
 
+impl IntoAttribute for std::fmt::Arguments<'_> {
+    fn into_attribute(self) -> Attribute {
+        match self.as_str() {
+            Some(s) => s.into_attribute(),
+            None => self.to_string().into_attribute(),
+        }
+    }
+
+    impl_into_attr_boxed! {}
+}
+
 /* impl IntoAttribute for Box<dyn IntoAttribute> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
