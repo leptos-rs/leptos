@@ -28,7 +28,9 @@ serde-wasm-bindgen = "0.5"
 serde_json = "1"
 base64 = "0.21"
 thiserror = "1"
-tokio = { version = "1", features = ["rt"], optional = true, default-features = false }
+tokio = { version = "1", features = [
+  "rt",
+], optional = true, default-features = false }
 tracing = "0.1"
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
