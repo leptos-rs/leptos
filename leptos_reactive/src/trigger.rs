@@ -295,4 +295,3 @@ impl Fn<()> for Trigger {
         self.track()
     }
 }
-
