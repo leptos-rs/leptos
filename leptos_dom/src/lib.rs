@@ -1179,6 +1179,19 @@ where
     }
 }
 
+impl IntoView for std::fmt::Arguments<'_> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    fn into_view(self) -> View {
+        match self.as_str() {
+            Some(s) => s.into_view(),
+            None => self.to_string().into_view(),
+        }
+    }
+}
+
 macro_rules! viewable_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
@@ -1232,7 +1245,6 @@ viewable_primitive![
     std::num::NonZeroIsize,
     std::num::NonZeroUsize,
     std::panic::Location<'_>,
-    std::fmt::Arguments<'_>,
 ];
 
 cfg_if! {

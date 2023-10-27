@@ -34,6 +34,7 @@ mod view;
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
+mod slice;
 mod slot;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -958,7 +959,7 @@ pub fn params_derive(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     match syn::parse(input) {
-        Ok(ast) => params::impl_params(&ast),
+        Ok(ast) => params::params_impl(&ast),
         Err(err) => err.to_compile_error().into(),
     }
 }
@@ -968,4 +969,37 @@ pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
         Some(value) => value,
         None => abort!(attr.key, "attribute should have value"),
     }
+}
+
+/// Generates a `lens` into struct with a default getter and setter
+///
+/// Can be used to access deeply nested fields within a global state object
+///
+/// ```rust
+/// # use leptos::{create_runtime, create_rw_signal};
+/// # use leptos_macro::slice;
+/// # let runtime = create_runtime();
+///
+/// #[derive(Default)]
+/// pub struct Outer {
+///     count: i32,
+///     inner: Inner,
+/// }
+///
+/// #[derive(Default)]
+/// pub struct Inner {
+///     inner_count: i32,
+///     inner_name: String,
+/// }
+///
+/// let outer_signal = create_rw_signal(Outer::default());
+///
+/// let (count, set_count) = slice!(outer_signal.count);
+///
+/// let (inner_count, set_inner_count) = slice!(outer_signal.inner.inner_count);
+/// let (inner_name, set_inner_name) = slice!(outer_signal.inner.inner_name);
+/// ```
+#[proc_macro]
+pub fn slice(input: TokenStream) -> TokenStream {
+    slice::slice_impl(input)
 }

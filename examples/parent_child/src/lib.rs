@@ -74,13 +74,11 @@ pub fn ButtonA(
 
 /// Button B receives a closure
 #[component]
-pub fn ButtonB<F>(
+pub fn ButtonB(
     /// Callback that will be invoked when the button is clicked.
-    on_click: F,
-) -> impl IntoView
-where
-    F: Fn(MouseEvent) + 'static,
-{
+    #[prop(into)]
+    on_click: Callback<MouseEvent>,
+) -> impl IntoView {
     view! {
 
         <button
@@ -89,18 +87,6 @@ where
             "Toggle Right"
         </button>
     }
-
-    // just a note: in an ordinary function ButtonB could take on_click: impl Fn(MouseEvent) + 'static
-    // and save you from typing out the generic
-    // the component macro actually expands to define a
-    //
-    // struct ButtonBProps<F> where F: Fn(MouseEvent) + 'static {
-    //   on_click: F
-    // }
-    //
-    // this is what allows us to have named props in our component invocation,
-    // instead of an ordered list of function arguments
-    // if Rust ever had named function arguments we could drop this requirement
 }
 
 /// Button C is a dummy: it renders a button but doesn't handle

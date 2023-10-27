@@ -48,10 +48,6 @@ pub fn main() {
 }
 ```
 
-### Important Note
-
-This example, and the entire `main` branch, now reflect the upcoming `0.5.1` release. You can use `0.5.1` with the `0.5.1-beta` release on crates.io or by a git dependency on the `main` branch of this repo. [Click here for the 0.4.9 `README`](https://crates.io/crates/leptos).
-
 ## About the Framework
 
 Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces.

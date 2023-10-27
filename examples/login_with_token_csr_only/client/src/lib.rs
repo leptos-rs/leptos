@@ -57,7 +57,7 @@ pub fn App() -> impl IntoView {
 
     // -- callbacks -- //
 
-    let on_logout = move || {
+    let on_logout = move |_| {
         logout.dispatch(());
     };
 

@@ -72,9 +72,7 @@ pub fn App() -> impl IntoView {
 
 
 #[component]
-pub fn ButtonB<F>(on_click: F) -> impl IntoView
-where
-    F: Fn(MouseEvent) + 'static,
+pub fn ButtonB(#[prop(into)] on_click: Callback<MouseEvent>) -> impl IntoView
 {
     view! {
         <button on:click=on_click>
@@ -90,9 +88,49 @@ of keeping local state local, preventing the problem of spaghetti mutation. But 
 the logic to mutate that signal needs to exist up in `<App/>`, not down in `<ButtonB/>`. These
 are real trade-offs, not a simple right-or-wrong choice.
 
+> Note the way we use the `Callback<In, Out>` type. This is basically a
+> wrapper around a closure `Fn(In) -> Out` that is also `Copy` and makes it
+> easy to pass around.
+> 
+> We also used the `#[prop(into)]` attribute so we can pass a normal closure into
+> `on_click`. Please see the [chapter "`into` Props"](./03_components.md#into-props) for more details.
+
+### 2.1 Use Closure instead of `Callback`
+
+You can use a Rust closure `Fn(MouseEvent)` directly instead of `Callback`:
+
+```rust
+#[component]
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
+        <p>"Toggled? " {toggled}</p>
+        <ButtonB on_click=move |_| set_toggled.update(|value| *value = !*value)/>
+    }
+}
+
+
+#[component]
+pub fn ButtonB<F>(on_click: F) -> impl IntoView
+where
+    F: Fn(MouseEvent) + 'static,
+pub fn ButtonB(#[prop(into)] on_click: Callback<MouseEvent>) -> impl IntoView
+{
+    view! {
+        <button on:click=on_click>
+            "Toggle"
+        </button>
+    }
+}
+```
+
+The code is very similar in this case. On more advanced use-cases using a
+closure might require some cloning compared to using a `Callback`.
+
 > Note the way we declare the generic type `F` here for the callback. If you’re
 > confused, look back at the [generic props](./03_components.html#generic-props) section
 > of the chapter on components.
+
 
 ## 3. Use an Event Listener
 
