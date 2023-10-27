@@ -18,6 +18,47 @@ pub struct Trigger {
 }
 
 impl Trigger {
+    /// Creates a [`Trigger`](crate::Trigger), a kind of reactive primitive.
+    ///
+    /// A trigger is a data-less signal with the sole purpose
+    /// of notifying other reactive code of a change. This can be useful
+    /// for when using external data not stored in signals, for example.
+    ///
+    /// This is identical to [`create_trigger`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// use std::{cell::RefCell, fmt::Write, rc::Rc};
+    ///
+    /// let external_data = Rc::new(RefCell::new(1));
+    /// let output = Rc::new(RefCell::new(String::new()));
+    ///
+    /// let rerun_on_data = Trigger::new();
+    ///
+    /// let o = output.clone();
+    /// let e = external_data.clone();
+    /// create_effect(move |_| {
+    ///     // can be `rerun_on_data()` on nightly
+    ///     rerun_on_data.track();
+    ///     write!(o.borrow_mut(), "{}", *e.borrow());
+    ///     *e.borrow_mut() += 1;
+    /// });
+    /// # if !cfg!(feature = "ssr") {
+    /// assert_eq!(*output.borrow(), "1");
+    ///
+    /// rerun_on_data.notify(); // reruns the above effect
+    ///
+    /// assert_eq!(*output.borrow(), "12");
+    /// # }
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new() -> Self {
+        create_trigger()
+    }
+
     /// Notifies any reactive code where this trigger is tracked to rerun.
     ///
     /// ## Panics
@@ -95,6 +136,12 @@ impl Trigger {
 #[track_caller]
 pub fn create_trigger() -> Trigger {
     Runtime::current().create_trigger()
+}
+
+impl Default for Trigger {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SignalGet for Trigger {
