@@ -268,7 +268,7 @@ impl IntoAttribute for TextProp {
 
     impl_into_attr_boxed! {}
 }
-      
+
 impl IntoAttribute for std::fmt::Arguments<'_> {
     fn into_attribute(self) -> Attribute {
         match self.as_str() {
