@@ -751,7 +751,7 @@ pub struct RuntimeId;
 /// ## Panics
 /// Panics if there is no current reactive runtime.
 pub fn as_child_of_current_owner<T, U>(
-    f: impl Fn(T) -> U + 'static,
+    f: impl Fn(T) -> U,
 ) -> impl Fn(T) -> (U, Disposer)
 where
     T: 'static,
