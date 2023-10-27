@@ -1099,38 +1099,41 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::oneshot::channel();
-                let local_pool = get_leptos_pool();
-                local_pool.spawn_pinned(move || {
-                    async move {
-                        let app = {
-                            let full_path = full_path.clone();
-                            let (req, req_parts) = generate_request_and_parts(req).await;
-                            move || {
-                                provide_contexts(full_path, req_parts, req.into(), default_res_options);
-                                app_fn().into_view()
-                            }
-                        };
-
-                        let (stream, runtime) =
-                            render_to_stream_in_order_with_prefix_undisposed_with_context(
-                                app,
-                                || "".into(),
-                                add_context,
+                spawn_task!(async move {
+                    let app = {
+                        let full_path = full_path.clone();
+                        let (req, req_parts) =
+                            generate_request_and_parts(req).await;
+                        move || {
+                            provide_contexts(
+                                full_path,
+                                req_parts,
+                                req.into(),
+                                default_res_options,
                             );
+                            app_fn().into_view()
+                        }
+                    };
 
-                        // Extract the value of ResponseOptions from here
-                        let res_options =
-                            use_context::<ResponseOptions>().unwrap();
+                    let (stream, runtime) =
+                        render_to_stream_in_order_with_prefix_undisposed_with_context(
+                            app,
+                            || "".into(),
+                            add_context,
+                        );
 
-                        let html = build_async_response(stream, &options, runtime).await;
+                    // Extract the value of ResponseOptions from here
+                    let res_options = use_context::<ResponseOptions>().unwrap();
 
-                        let new_res_parts = res_options.0.read().clone();
+                    let html =
+                        build_async_response(stream, &options, runtime).await;
 
-                        let mut writable = res_options2.0.write();
-                        *writable = new_res_parts;
+                    let new_res_parts = res_options.0.read().clone();
 
-                        _ = tx.send(html);
-                    }
+                    let mut writable = res_options2.0.write();
+                    *writable = new_res_parts;
+
+                    _ = tx.send(html);
                 });
 
                 let html = rx.await.expect("to complete HTML rendering");
@@ -1321,6 +1324,29 @@ where
     IV: IntoView + 'static,
 {
     generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
+}
+
+/// TODO docs
+pub async fn build_static_routes<IV>(
+    options: &LeptosOptions,
+    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+    routes: &[RouteListing],
+    static_data_map: StaticDataMap,
+) where
+    IV: IntoView + 'static,
+{
+    let options = options.clone();
+    let routes = routes.to_owned();
+    spawn_task!(async move {
+        leptos_router::build_static_routes(
+            &options,
+            app_fn,
+            &routes,
+            &static_data_map,
+        )
+        .await
+        .expect("could not build static routes")
+    });
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1535,8 +1561,7 @@ where
 
                     async move {
                         let (tx, rx) = futures::channel::oneshot::channel();
-                        let local_pool = get_leptos_pool();
-                        local_pool.spawn_pinned(move || async move {
+                        spawn_task!(async move {
                             let res = incremental_static_route(
                                 tokio::fs::read_to_string(static_file_path(
                                     &options, &path,
@@ -1579,8 +1604,7 @@ where
 
                     async move {
                         let (tx, rx) = futures::channel::oneshot::channel();
-                        let local_pool = get_leptos_pool();
-                        local_pool.spawn_pinned(move || async move {
+                        spawn_task!(async move {
                             let res = upfront_static_route(
                                 tokio::fs::read_to_string(static_file_path(
                                     &options, &path,
