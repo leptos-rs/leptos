@@ -98,7 +98,7 @@ pub fn A<H>(
     id: Option<Oco<'static, str>>,
     /// Arbitrary attributes to add to the `<a>`. Attributes can be added with the
     /// `attr:` syntax in the `view` macro.
-    #[prop(optional)]
+    #[prop(attrs)]
     attributes: Vec<(&'static str, Attribute)>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
@@ -150,12 +150,14 @@ where
             })
         });
 
-        let mut a = {
-            #[cfg(feature = "ssr")]
-            {
-                // if we have `active_class`, the SSR optimization doesn't play nicely
-                // so we use the builder instead
-                if let Some(active_class) = active_class {
+        #[cfg(feature = "ssr")]
+        {
+            // if we have `active_class` or arbitrary attributes,
+            // the SSR optimization doesn't play nicely
+            // so we use the builder instead
+            let needs_builder =
+                active_class.is_some() || !attributes.is_empty();
+            if needs_builder {
                     let mut a = leptos::html::a()
                         .attr("href", move || href.get().unwrap_or_default())
                         .attr("target", target)
@@ -171,13 +173,22 @@ where
                             class.map(|class| class.into_attribute_boxed()),
                         );
 
-                    for class_name in active_class.split_ascii_whitespace() {
-                        a = a.class(class_name.to_string(), move || {
-                            is_active.get()
-                        })
+                    if let Some(active_class) = active_class {
+                        for class_name in active_class.split_ascii_whitespace()
+                        {
+                            a = a.class(class_name.to_string(), move || {
+                                is_active.get()
+                            })
+                        }
                     }
 
-                    a.attr("id", id).child(children())
+                    a = a.attr("id", id).child(children());
+
+                    for (attr_name, attr_value) in attributes {
+                        a = a.attr(attr_name, attr_value);
+                    }
+
+                    a
                 }
                 // but keep the nice SSR optimization in most cases
                 else {
@@ -193,44 +204,39 @@ where
                         </a>
                     }
                 }
-            }
-
-            // the non-SSR version doesn't need the SSR optimizations
-            // DRY here to avoid WASM binary size bloat
-            #[cfg(not(feature = "ssr"))]
-            {
-                let a = view! {
-                    <a
-                        href=move || href.get().unwrap_or_default()
-                        target=target
-                        prop:state=state.map(|s| s.to_js_value())
-                        prop:replace=replace
-                        aria-current=move || if is_active.get() { Some("a") } else { None }
-                        class=class
-                        id=id
-                    >
-                        {children()}
-                    </a>
-                };
-                if let Some(active_class) = active_class {
-                    let mut a = a;
-                    for class_name in active_class.split_ascii_whitespace() {
-                        a = a.class(class_name.to_string(), move || {
-                            is_active.get()
-                        })
-                    }
-                    a
-                } else {
-                    a
-                }
-            }
-        };
-
-        for (attr_name, attr_value) in attributes {
-            a = a.attr(attr_name, attr_value);
+                .into_view()
         }
 
-        a.into_view()
+        // the non-SSR version doesn't need the SSR optimizations
+        // DRY here to avoid WASM binary size bloat
+        #[cfg(not(feature = "ssr"))]
+        {
+            let mut a = view! {
+                <a
+                    href=move || href.get().unwrap_or_default()
+                    target=target
+                    prop:state=state.map(|s| s.to_js_value())
+                    prop:replace=replace
+                    aria-current=move || if is_active.get() { Some("a") } else { None }
+                    class=class
+                    id=id
+                >
+                    {children()}
+                </a>
+            };
+
+            if let Some(active_class) = active_class {
+                for class_name in active_class.split_ascii_whitespace() {
+                    a = a.class(class_name.to_string(), move || is_active.get())
+                }
+            }
+
+            for (attr_name, attr_value) in attributes {
+                a = a.attr(attr_name, attr_value);
+            }
+
+            a.into_view()
+        }
     }
 
     let href = use_resolved_path(move || href.to_href()());
