@@ -163,8 +163,7 @@ pub fn StaticRoute<E, F, P, S>(
     /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
     /// Creates a map of the params that should be built for a particular route.
-    #[prop(optional)]
-    static_params: Option<S>,
+    static_params: S,
     /// The static route mode
     #[prop(optional)]
     mode: StaticMode,
@@ -193,7 +192,7 @@ where
         &[Method::Get],
         data,
         Some(mode),
-        static_params.map(|s| Arc::new(s) as _),
+        Some(Arc::new(static_params)),
     )
 }
 
