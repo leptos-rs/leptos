@@ -1303,6 +1303,7 @@ pub async fn build_static_routes<IV>(
             &static_data_map,
         )
         .await
+        .expect("could not build static routes")
     });
 }
 
