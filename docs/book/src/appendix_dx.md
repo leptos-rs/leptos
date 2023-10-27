@@ -13,8 +13,8 @@ VSCode `settings.json`:
 ```json
 "rust-analyzer.procMacro.ignored": {
 	"leptos_macro": [
-		"server",
-		"component"
+		"component",
+		"server"
 	],
 }
 ```
@@ -30,8 +30,8 @@ require('lspconfig').rust_analyzer.setup {
       procMacro = {
         ignored = {
             leptos_macro = {
-                "server",
                 "component",
+                "server",
             },
         },
       },
@@ -45,7 +45,9 @@ Helix, in `.helix/languages.toml`:
 ```toml
 [[language]]
 name = "rust"
-config = { procMacro = {ignored = {leptos_macro = ["component"]}}}
+
+[language-server.rust-analyzer]
+config = { procMacro = { ignored = { leptos_macro = ["component", "server"] } } }
 ```
 
 ```admonish info
