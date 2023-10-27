@@ -1,8 +1,8 @@
-use leptos_reactive::{MaybeProp, Oco, TextProp};
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
-    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
+use leptos_reactive::{Oco, TextProp};
 use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
