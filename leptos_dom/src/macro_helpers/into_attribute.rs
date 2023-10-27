@@ -165,10 +165,10 @@ impl IntoAttribute for &'static str {
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Rc<str> {
+impl IntoAttribute for Cow<'static, str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Oco::Counted(self))
+        Attribute::String(self.into())
     }
 
     impl_into_attr_boxed! {}
@@ -178,6 +178,15 @@ impl IntoAttribute for Oco<'static, str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
         Attribute::String(self)
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Rc<str> {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(Oco::Counted(self))
     }
 
     impl_into_attr_boxed! {}
