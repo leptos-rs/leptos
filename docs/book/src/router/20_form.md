@@ -62,9 +62,9 @@ view! {
 
 You’ll notice that this version drops the `Submit` button. Instead, we add an `oninput` attribute to the input. Note that this is _not_ `on:input`, which would listen for the `input` event and run some Rust code. Without the colon, `oninput` is the plain HTML attribute. So the string is actually a JavaScript string. `this.form` gives us the form the input is attached to. `requestSubmit()` fires the `submit` event on the `<form>`, which is caught by `<Form/>` just as if we had clicked a `Submit` button. Now the form will “navigate” on every keystroke or input to keep the URL (and therefore the search) perfectly in sync with the user’s input as they type.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/16-router-forked-hrrt3h?file=%2Fsrc%2Fmain.rs)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/20-form-0-5-9g7v9p?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/16-router-forked-hrrt3h?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/20-form-0-5-9g7v9p?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -172,9 +172,8 @@ pub fn FormExample() -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

@@ -1,8 +1,9 @@
 use crate::{
     create_isomorphic_effect, on_cleanup, runtime::untrack, store_value, Memo,
-    ReadSignal, RwSignal, SignalGet, SignalGetUntracked, SignalStream,
-    SignalWith, SignalWithUntracked, StoredValue,
+    Oco, ReadSignal, RwSignal, SignalDispose, SignalGet, SignalGetUntracked,
+    SignalStream, SignalWith, SignalWithUntracked, StoredValue,
 };
+use std::{fmt::Debug, rc::Rc};
 
 /// Helper trait for converting `Fn() -> T` closures into
 /// [`Signal<T>`].
@@ -202,7 +203,9 @@ impl<T> SignalWithUntracked for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.try_with_untracked(f),
             SignalTypes::Memo(m) => m.try_with_untracked(f),
-            SignalTypes::DerivedSignal(s) => s.try_with_value(|t| f(&t())),
+            SignalTypes::DerivedSignal(s) => {
+                untrack(move || s.try_with_value(|t| f(&t())))
+            }
         }
     }
 }
@@ -320,6 +323,16 @@ impl<T: Clone> SignalGet for Signal<T> {
     }
 }
 
+impl<T> SignalDispose for Signal<T> {
+    fn dispose(self) {
+        match self.inner {
+            SignalTypes::ReadSignal(s) => s.dispose(),
+            SignalTypes::Memo(m) => m.dispose(),
+            SignalTypes::DerivedSignal(s) => s.dispose(),
+        }
+    }
+}
+
 impl<T: Clone> SignalStream<T> for Signal<T> {
     fn to_stream(&self) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         match self.inner {
@@ -425,25 +438,6 @@ impl<T> From<Memo<T>> for Signal<T> {
             #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
-    }
-}
-
-impl<T: Clone> From<T> for Signal<T> {
-    #[track_caller]
-    fn from(value: T) -> Self {
-        Self {
-            inner: SignalTypes::DerivedSignal(store_value(Box::new(
-                move || value.clone(),
-            ))),
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: std::panic::Location::caller(),
-        }
-    }
-}
-
-impl From<&str> for Signal<String> {
-    fn from(value: &str) -> Self {
-        Self::from(value.to_string())
     }
 }
 
@@ -851,6 +845,36 @@ impl<T> From<Signal<T>> for MaybeSignal<T> {
 impl From<&str> for MaybeSignal<String> {
     fn from(value: &str) -> Self {
         Self::Static(value.to_string())
+    }
+}
+
+#[cfg(feature = "nightly")]
+mod from_fn_for_signals {
+    use super::{MaybeSignal, Memo, ReadSignal, RwSignal, Signal};
+    auto trait NotSignalMarker {}
+
+    impl<T> !NotSignalMarker for Signal<T> {}
+    impl<T> !NotSignalMarker for ReadSignal<T> {}
+    impl<T> !NotSignalMarker for Memo<T> {}
+    impl<T> !NotSignalMarker for RwSignal<T> {}
+    impl<T> !NotSignalMarker for MaybeSignal<T> {}
+
+    impl<F, T> From<F> for Signal<T>
+    where
+        F: Fn() -> T + NotSignalMarker + 'static,
+    {
+        fn from(value: F) -> Self {
+            Signal::derive(value)
+        }
+    }
+}
+#[cfg(not(feature = "nightly"))]
+impl<F, T> From<F> for Signal<T>
+where
+    F: Fn() -> T + 'static,
+{
+    fn from(value: F) -> Self {
+        Signal::derive(value)
     }
 }
 
@@ -1272,5 +1296,71 @@ impl<T: Clone> Fn<()> for MaybeProp<T> {
     #[inline(always)]
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
+    }
+}
+
+/// Describes a value that is either a static or a reactive string, i.e.,
+/// a [`String`], a [`&str`], or a reactive `Fn() -> String`.
+#[derive(Clone)]
+pub struct TextProp(Rc<dyn Fn() -> Oco<'static, str>>);
+
+impl TextProp {
+    /// Accesses the current value of the property.
+    #[inline(always)]
+    pub fn get(&self) -> Oco<'static, str> {
+        (self.0)()
+    }
+}
+
+impl Debug for TextProp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("TextProp").finish()
+    }
+}
+
+impl From<String> for TextProp {
+    fn from(s: String) -> Self {
+        let s: Oco<'_, str> = Oco::Counted(Rc::from(s));
+        TextProp(Rc::new(move || s.clone()))
+    }
+}
+
+impl From<&'static str> for TextProp {
+    fn from(s: &'static str) -> Self {
+        let s: Oco<'_, str> = s.into();
+        TextProp(Rc::new(move || s.clone()))
+    }
+}
+
+impl From<Rc<str>> for TextProp {
+    fn from(s: Rc<str>) -> Self {
+        let s: Oco<'_, str> = s.into();
+        TextProp(Rc::new(move || s.clone()))
+    }
+}
+
+impl From<Oco<'static, str>> for TextProp {
+    fn from(s: Oco<'static, str>) -> Self {
+        TextProp(Rc::new(move || s.clone()))
+    }
+}
+
+impl<T> From<T> for MaybeProp<TextProp>
+where
+    T: Into<Oco<'static, str>>,
+{
+    fn from(s: T) -> Self {
+        Self(Some(MaybeSignal::from(Some(s.into().into()))))
+    }
+}
+
+impl<F, S> From<F> for TextProp
+where
+    F: Fn() -> S + 'static,
+    S: Into<Oco<'static, str>>,
+{
+    #[inline(always)]
+    fn from(s: F) -> Self {
+        TextProp(Rc::new(move || s().into()))
     }
 }

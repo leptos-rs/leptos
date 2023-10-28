@@ -29,6 +29,12 @@ where
     ty: PhantomData<T>,
 }
 
+impl<T: Default> Default for StoredValue<T> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
 impl<T> Clone for StoredValue<T> {
     fn clone(&self) -> Self {
         *self
@@ -201,6 +207,13 @@ impl<T> StoredValue<T> {
         })
         .ok()
         .flatten()
+    }
+
+    /// Disposes of the stored value
+    pub fn dispose(self) {
+        _ = with_runtime(|runtime| {
+            runtime.stored_values.borrow_mut().remove(self.id);
+        });
     }
 
     /// Sets the stored value.

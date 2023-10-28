@@ -1,5 +1,8 @@
+use leptos::ViewFn;
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
+#[cfg(feature = "hydrate")]
+use leptos_reactive::SharedContext;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::SignalGet;
 use leptos_reactive::{
@@ -57,15 +60,14 @@ use std::rc::Rc;
     tracing::instrument(level = "info", skip_all)
 )]
 #[component]
-pub fn Suspense<F, E, V>(
-    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
-    fallback: F,
+pub fn Suspense<V>(
+    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: ViewFn,
     /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
     children: Rc<dyn Fn() -> V>,
 ) -> impl IntoView
 where
-    F: Fn() -> E + 'static,
-    E: IntoView,
     V: IntoView + 'static,
 {
     let orig_children = children;
@@ -75,8 +77,11 @@ where
     let owner =
         Owner::current().expect("<Suspense/> created with no reactive owner");
 
+    let current_id = HydrationCtx::next_component();
+
     // provide this SuspenseContext to any resources below it
     // run in a memo so the children are children of this parent
+    #[cfg(not(feature = "hydrate"))]
     let children = create_memo({
         let orig_children = Rc::clone(&orig_children);
         move |_| {
@@ -84,16 +89,31 @@ where
             orig_children().into_view()
         }
     });
+    #[cfg(feature = "hydrate")]
+    let children = create_memo({
+        let orig_children = Rc::clone(&orig_children);
+        move |_| {
+            provide_context(context);
+            if SharedContext::fragment_has_local_resources(
+                &current_id.to_string(),
+            ) {
+                HydrationCtx::with_hydration_off({
+                    let orig_children = Rc::clone(&orig_children);
+                    move || orig_children().into_view()
+                })
+            } else {
+                orig_children().into_view()
+            }
+        }
+    });
 
     // likewise for the fallback
     let fallback = create_memo({
         move |_| {
             provide_context(context);
-            fallback().into_view()
+            fallback.run()
         }
     });
-
-    let current_id = HydrationCtx::next_component();
 
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     let ready = context.ready();
@@ -126,6 +146,11 @@ where
                             DynChild::new(move || children_rendered.clone())
                                 .into_view()
                         })
+                    } else if context.has_any_local() {
+                        SharedContext::register_local_fragment(
+                            current_id.to_string(),
+                        );
+                        fallback.get_untracked()
                     }
                     // show the fallback, but also prepare to stream HTML
                     else {

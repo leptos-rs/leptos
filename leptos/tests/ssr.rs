@@ -21,11 +21,11 @@ fn simple_ssr_test() {
         );
     } else {
         assert!(rendered.into_view().render_to_string().contains(
-            "<div data-hk=\"0-0-1\"><button \
-             data-hk=\"0-0-2\">-1</button><span data-hk=\"0-0-3\">Value: \
-             <!--hk=0-0-4o|leptos-dyn-child-start-->0<!\
-             --hk=0-0-4c|leptos-dyn-child-end-->!</span><button \
-             data-hk=\"0-0-5\">+1</button></div>"
+            "<div data-hk=\"0-0-0-1\"><button \
+             data-hk=\"0-0-0-2\">-1</button><span data-hk=\"0-0-0-3\">Value: \
+             <!--hk=0-0-0-4o|leptos-dyn-child-start-->0<!\
+             --hk=0-0-0-4c|leptos-dyn-child-end-->!</span><button \
+             data-hk=\"0-0-0-5\">+1</button></div>"
         ));
     }
 
@@ -68,11 +68,11 @@ fn ssr_test_with_components() {
         );
     } else {
         assert!(rendered.into_view().render_to_string().contains(
-            "<div data-hk=\"0-0-3\"><button \
-             data-hk=\"0-0-4\">-1</button><span data-hk=\"0-0-5\">Value: \
-             <!--hk=0-0-6o|leptos-dyn-child-start-->1<!\
-             --hk=0-0-6c|leptos-dyn-child-end-->!</span><button \
-             data-hk=\"0-0-7\">+1</button></div>"
+            "<div data-hk=\"0-0-0-3\"><button \
+             data-hk=\"0-0-0-4\">-1</button><span data-hk=\"0-0-0-5\">Value: \
+             <!--hk=0-0-0-6o|leptos-dyn-child-start-->1<!\
+             --hk=0-0-0-6c|leptos-dyn-child-end-->!</span><button \
+             data-hk=\"0-0-0-7\">+1</button></div>"
         ));
     }
     runtime.dispose();
@@ -114,11 +114,11 @@ fn ssr_test_with_snake_case_components() {
         );
     } else {
         assert!(rendered.into_view().render_to_string().contains(
-            "<div data-hk=\"0-0-3\"><button \
-             data-hk=\"0-0-4\">-1</button><span data-hk=\"0-0-5\">Value: \
-             <!--hk=0-0-6o|leptos-dyn-child-start-->1<!\
-             --hk=0-0-6c|leptos-dyn-child-end-->!</span><button \
-             data-hk=\"0-0-7\">+1</button></div>"
+            "<div data-hk=\"0-0-0-3\"><button \
+             data-hk=\"0-0-0-4\">-1</button><span data-hk=\"0-0-0-5\">Value: \
+             <!--hk=0-0-0-6o|leptos-dyn-child-start-->1<!\
+             --hk=0-0-0-6c|leptos-dyn-child-end-->!</span><button \
+             data-hk=\"0-0-0-7\">+1</button></div>"
         ));
     }
 
@@ -144,7 +144,7 @@ fn test_classes() {
         );
     } else {
         assert!(rendered.into_view().render_to_string().contains(
-            "<div data-hk=\"0-0-1\" class=\"my big  red car\"></div>"
+            "<div data-hk=\"0-0-0-1\" class=\"my big  red car\"></div>"
         ));
     }
     runtime.dispose();
@@ -173,8 +173,8 @@ fn ssr_with_styles() {
         );
     } else {
         assert!(rendered.into_view().render_to_string().contains(
-            "<div data-hk=\"0-0-1\" class=\" myclass\"><button \
-             data-hk=\"0-0-2\" class=\"btn myclass\">-1</button></div>"
+            "<div data-hk=\"0-0-0-1\" class=\" myclass\"><button \
+             data-hk=\"0-0-0-2\" class=\"btn myclass\">-1</button></div>"
         ));
     }
     runtime.dispose();
@@ -201,7 +201,7 @@ fn ssr_option() {
         assert!(rendered
             .into_view()
             .render_to_string()
-            .contains("<option data-hk=\"0-0-1\"></option>"));
+            .contains("<option data-hk=\"0-0-0-1\"></option>"));
     }
 
     runtime.dispose();

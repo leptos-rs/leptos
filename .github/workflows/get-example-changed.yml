@@ -15,13 +15,13 @@ jobs:
       example_changed: ${{ steps.set-example-changed.outputs.example_changed }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Get example files that changed
         id: changed-files
-        uses: tj-actions/changed-files@v36
+        uses: tj-actions/changed-files@v39
         with:
           files: |
             examples

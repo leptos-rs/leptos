@@ -3,6 +3,8 @@
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 #![cfg_attr(feature = "nightly", feature(type_name_of_val))]
+#![cfg_attr(feature = "nightly", feature(auto_traits))]
+#![cfg_attr(feature = "nightly", feature(negative_impls))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
@@ -18,19 +20,19 @@
 //! Here are the most commonly-used functions and types you'll need to build a reactive system:
 //!
 //! ### Signals
-//! 1. *Signals:* [`create_signal`](crate::create_signal), which returns a ([`ReadSignal`](crate::ReadSignal),
-//!    [`WriteSignal`](crate::WriteSignal)) tuple, or [`create_rw_signal`](crate::create_rw_signal), which returns
-//!    a signal [`RwSignal`](crate::RwSignal) without this read-write segregation.
+//! 1. *Signals:* [`create_signal`], which returns a ([`ReadSignal`],
+//!    [`WriteSignal`] tuple, or [`create_rw_signal`], which returns
+//!    a signal [`RwSignal`] without this read-write segregation.
 //! 2. *Derived Signals:* any function that relies on another signal.
-//! 3. *Memos:* [`create_memo`], which returns a [`Memo`](crate::Memo).
+//! 3. *Memos:* [`create_memo`], which returns a [`Memo`].
 //! 4. *Resources:* [`create_resource`], which converts an `async` [`Future`](std::future::Future) into a
-//!    synchronous [`Resource`](crate::Resource) signal.
+//!    synchronous [`Resource`] signal.
 //! 5. *Triggers:* [`create_trigger`], creates a purely reactive [`Trigger`] primitive without any associated state.
 //!
 //! ### Effects
-//! 1. Use [`create_effect`](crate::create_effect) when you need to synchronize the reactive system
+//! 1. Use [`create_effect`] when you need to synchronize the reactive system
 //!    with something outside it (for example: logging to the console, writing to a file or local storage)
-//! 2. The Leptos DOM renderer wraps any [`Fn`] in your template with [`create_effect`](crate::create_effect), so
+//! 2. The Leptos DOM renderer wraps any [`Fn`] in your template with [`create_effect`], so
 //!    components you write do *not* need explicit effects to synchronize with the DOM.
 //!
 //! ### Example
@@ -78,12 +80,17 @@ extern crate tracing;
 
 #[macro_use]
 mod signal;
+pub mod callback;
 mod context;
 #[macro_use]
 mod diagnostics;
 mod effect;
 mod hydration;
-mod macros;
+// contains "private" implementation details right now.
+// could make this unhidden in the future if needed.
+// macro_export makes it public from the crate root anyways
+#[doc(hidden)]
+pub mod macros;
 mod memo;
 mod node;
 pub mod oco;
@@ -103,6 +110,7 @@ pub mod suspense;
 mod trigger;
 mod watch;
 
+pub use callback::*;
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
@@ -114,8 +122,11 @@ pub use resource::*;
 use runtime::*;
 pub use runtime::{
     as_child_of_current_owner, batch, create_runtime, current_runtime,
-    on_cleanup, run_as_child, set_current_runtime, untrack,
-    untrack_with_diagnostics, with_current_owner, with_owner, Owner, RuntimeId,
+    on_cleanup, run_as_child, set_current_runtime,
+    spawn_local_with_current_owner, spawn_local_with_owner,
+    try_spawn_local_with_current_owner, try_spawn_local_with_owner,
+    try_with_owner, untrack, untrack_with_diagnostics, with_current_owner,
+    with_owner, Owner, RuntimeId, ScopedFuture,
 };
 pub use selector::*;
 pub use serialization::*;

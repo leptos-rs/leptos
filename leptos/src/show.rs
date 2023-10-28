@@ -1,4 +1,4 @@
-use leptos::{component, ChildrenFn};
+use leptos::{component, ChildrenFn, ViewFn};
 use leptos_dom::IntoView;
 use leptos_reactive::{create_memo, signal_prelude::*};
 
@@ -6,10 +6,7 @@ use leptos_reactive::{create_memo, signal_prelude::*};
 /// and show the fallback when it is `false`, without rerendering every time
 /// the condition changes.
 ///
-/// *Note*: Because of the nature of generic arguments, it’s not really possible
-/// to make the `fallback` optional. If you want an empty fallback state—in other
-/// words, if you want to show the children if `when` is true and noting otherwise—use
-/// `fallback=|_| ()` (i.e., a fallback function that returns the unit type `()`).
+/// The fallback prop is optional and defaults to rendering nothing.
 ///
 /// ```rust
 /// # use leptos_reactive::*;
@@ -34,25 +31,22 @@ use leptos_reactive::{create_memo, signal_prelude::*};
     tracing::instrument(level = "info", skip_all)
 )]
 #[component]
-pub fn Show<F, W, IV>(
-    /// The scope the component is running in
-
-    /// The components Show wraps
+pub fn Show<W>(
+    /// The children will be shown whenever the condition in the `when` closure returns `true`.
     children: ChildrenFn,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
-    /// A closure that returns what gets rendered if the when statement is false
-    fallback: F,
+    /// A closure that returns what gets rendered if the when statement is false. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: ViewFn,
 ) -> impl IntoView
 where
     W: Fn() -> bool + 'static,
-    F: Fn() -> IV + 'static,
-    IV: IntoView,
 {
     let memoized_when = create_memo(move |_| when());
 
     move || match memoized_when.get() {
         true => children().into_view(),
-        false => fallback().into_view(),
+        false => fallback.run(),
     }
 }

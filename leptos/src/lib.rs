@@ -34,7 +34,7 @@
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`fetch`](https://github.com/leptos-rs/leptos/tree/main/examples/fetch) introduces
-//!   [Resource](leptos_reactive::Resource)s, which allow you to integrate arbitrary `async` code like an
+//!   [Resource]s, which allow you to integrate arbitrary `async` code like an
 //!   HTTP request within your reactive code.
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
@@ -114,7 +114,7 @@
 //!     let increment = move |_| set_value.update(|value| *value += 1);
 //!
 //!     view! {
-//!         
+//!
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
@@ -178,7 +178,7 @@ pub mod error {
 }
 #[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
 pub use leptos_macro::template;
-#[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
+#[cfg(not(all(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
 pub use leptos_macro::{component, island, server, slot, view, Params};
 pub use leptos_reactive::*;
@@ -202,10 +202,8 @@ pub use serde_json;
 pub use show::*;
 pub use suspense_component::*;
 mod suspense_component;
-mod text_prop;
 mod transition;
 
-pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
@@ -230,8 +228,14 @@ pub use wasm_bindgen; // used in islands
     feature = "template_macro"
 ))]
 pub use web_sys; // used in islands
+
 mod children;
+mod portal;
+mod view_fn;
 pub use children::*;
+pub use portal::*;
+pub use view_fn::*;
+
 extern crate self as leptos;
 
 /// A type for taking anything that implements [`IntoAttribute`].

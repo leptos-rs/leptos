@@ -1,7 +1,7 @@
 use crate::{use_head, TextProp};
-use leptos::{component, IntoView};
+use leptos::{component, Attribute, IntoView};
 
-/// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
+/// Injects an [`HTMLMetaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
 ///
 /// ```
@@ -38,13 +38,20 @@ pub fn Meta(
     /// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
     #[prop(optional, into)]
     content: Option<TextProp>,
+    /// Custom attributes.
+    #[prop(attrs, optional)]
+    attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();
     let id = format!("leptos-link-{}", next_id.0);
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag(move || {
-        leptos::leptos_dom::html::meta()
+        attrs
+            .into_iter()
+            .fold(leptos::leptos_dom::html::meta(), |el, (name, value)| {
+                el.attr(name, value)
+            })
             .attr("charset", move || charset.as_ref().map(|v| v.get()))
             .attr("name", move || name.as_ref().map(|v| v.get()))
             .attr("property", move || property.as_ref().map(|v| v.get()))

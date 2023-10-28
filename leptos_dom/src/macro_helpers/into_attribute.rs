@@ -1,8 +1,8 @@
-use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
+use leptos_reactive::{Oco, TextProp};
 use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -165,10 +165,10 @@ impl IntoAttribute for &'static str {
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Rc<str> {
+impl IntoAttribute for Cow<'static, str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::String(Oco::Counted(self))
+        Attribute::String(self.into())
     }
 
     impl_into_attr_boxed! {}
@@ -178,6 +178,15 @@ impl IntoAttribute for Oco<'static, str> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
         Attribute::String(self)
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Rc<str> {
+    #[inline(always)]
+    fn into_attribute(self) -> Attribute {
+        Attribute::String(Oco::Counted(self))
     }
 
     impl_into_attr_boxed! {}
@@ -255,6 +264,25 @@ impl IntoAttribute for Option<Box<dyn IntoAttribute>> {
         match self {
             Some(bx) => bx.into_attribute_boxed(),
             None => Attribute::Option(None),
+        }
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for TextProp {
+    fn into_attribute(self) -> Attribute {
+        self.get().into_attribute()
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for std::fmt::Arguments<'_> {
+    fn into_attribute(self) -> Attribute {
+        match self.as_str() {
+            Some(s) => s.into_attribute(),
+            None => self.to_string().into_attribute(),
         }
     }
 

@@ -15,7 +15,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install JQ Tool
         uses: mbround18/install-jq@v1
@@ -23,12 +23,12 @@ jobs:
       - name: Set Matrix
         id: set-matrix
         run: |
-          examples=$(ls examples | 
-          awk '{print "examples/" $0}' | 
-          grep -v .md | 
-          grep -v examples/Makefile.toml | 
-          grep -v examples/cargo-make | 
-          grep -v examples/gtk | 
+          examples=$(ls examples |
+          awk '{print "examples/" $0}' |
+          grep -v .md |
+          grep -v examples/Makefile.toml |
+          grep -v examples/cargo-make |
+          grep -v examples/gtk |
           jq -R -s -c 'split("\n")[:-1]')
           echo "Example Directories: $examples"
           echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"

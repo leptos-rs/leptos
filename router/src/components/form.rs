@@ -1,4 +1,7 @@
-use crate::{use_navigate, use_resolved_path, NavigateOptions, ToHref, Url};
+use crate::{
+    hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
+    ToHref, Url,
+};
 use leptos::{html::form, logging::*, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
@@ -56,6 +59,9 @@ pub fn Form<A>(
     /// Sets whether the page should be scrolled to the top when the form is submitted.
     #[prop(optional)]
     noscroll: bool,
+    /// Sets whether the page should replace the current location in the history when the form is submitted.
+    #[prop(optional)]
+    replace: bool,
     /// Arbitrary attributes to add to the `<form>`. Attributes can be added with the
     /// `attr:` syntax in the `view` macro.
     #[prop(attrs)]
@@ -67,6 +73,7 @@ where
     A: ToHref + 'static,
 {
     fn inner(
+        has_router: bool,
         method: Option<&'static str>,
         action: Memo<Option<String>>,
         enctype: Option<String>,
@@ -79,6 +86,7 @@ where
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
         noscroll: bool,
+        replace: bool,
         attributes: Vec<(&'static str, Attribute)>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
@@ -87,9 +95,10 @@ where
                 if ev.default_prevented() {
                     return;
                 }
-                let navigate = use_navigate();
+                let navigate = has_router.then(use_navigate);
                 let navigate_options = NavigateOptions {
                     scroll: !noscroll,
+                    replace,
                     ..Default::default()
                 };
 
@@ -106,9 +115,13 @@ where
                         &form_data,
                     )
                     .unwrap_throw();
-                let action = use_resolved_path(move || action.clone())
-                    .get_untracked()
-                    .unwrap_or_default();
+                let action = if has_router {
+                    use_resolved_path(move || action.clone())
+                        .get_untracked()
+                        .unwrap_or_default()
+                } else {
+                    action
+                };
                 // multipart POST (setting Context-Type breaks the request)
                 if method == "post" && enctype == "multipart/form-data" {
                     ev.prevent_default();
@@ -151,6 +164,7 @@ where
                                         Ok(url) => {
                                             if url.origin
                                                 != current_window_origin()
+                                                || navigate.is_none()
                                             {
                                                 _ = window()
                                                     .location()
@@ -158,6 +172,11 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
+                                                #[allow(
+                                                    clippy::unnecessary_unwrap
+                                                )]
+                                                let navigate =
+                                                    navigate.unwrap();
                                                 navigate(
                                                     &format!(
                                                         "{}{}{}",
@@ -224,6 +243,7 @@ where
                                         Ok(url) => {
                                             if url.origin
                                                 != current_window_origin()
+                                                || navigate.is_none()
                                             {
                                                 _ = window()
                                                     .location()
@@ -231,6 +251,11 @@ where
                                                         resp_url.as_str(),
                                                     );
                                             } else {
+                                                #[allow(
+                                                    clippy::unnecessary_unwrap
+                                                )]
+                                                let navigate =
+                                                    navigate.unwrap();
                                                 navigate(
                                                     &format!(
                                                         "{}{}{}",
@@ -258,7 +283,16 @@ where
                 else {
                     let params =
                         params.to_string().as_string().unwrap_or_default();
-                    navigate(&format!("{action}?{params}"), navigate_options);
+                    if let Some(navigate) = navigate {
+                        navigate(
+                            &format!("{action}?{params}"),
+                            navigate_options,
+                        );
+                    } else {
+                        _ = window()
+                            .location()
+                            .set_href(&format!("{action}?{params}"));
+                    }
                     ev.prevent_default();
                     ev.stop_propagation();
                 }
@@ -283,9 +317,15 @@ where
         form
     }
 
-    let action = use_resolved_path(move || action.to_href()());
+    let has_router = has_router();
+    let action = if has_router {
+        use_resolved_path(move || action.to_href()())
+    } else {
+        create_memo(move |_| Some(action.to_href()()))
+    };
     let class = class.map(|bx| bx.into_attribute_boxed());
     inner(
+        has_router,
         method,
         action,
         enctype,
@@ -298,6 +338,7 @@ where
         children,
         node_ref,
         noscroll,
+        replace,
         attributes,
     )
 }

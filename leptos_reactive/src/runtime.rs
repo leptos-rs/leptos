@@ -13,6 +13,7 @@ use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
 use futures::stream::FuturesUnordered;
 use indexmap::IndexSet;
+use pin_project::pin_project;
 use rustc_hash::{FxHashMap, FxHasher};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
@@ -23,7 +24,9 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
+    task::Poll,
 };
+use thiserror::Error;
 
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
@@ -95,9 +98,6 @@ pub struct Owner(pub(crate) NodeId);
 
 impl Owner {
     /// Returns the current reactive owner.
-    ///
-    /// ## Panics
-    /// Panics if there is no current reactive runtime.
     pub fn current() -> Option<Owner> {
         with_runtime(|runtime| runtime.owner.get())
             .ok()
@@ -193,11 +193,14 @@ impl Runtime {
     pub(crate) fn cleanup_node(&self, node_id: NodeId) {
         // first, run our cleanups, if any
         let c = { self.on_cleanups.borrow_mut().remove(node_id) };
+        // untrack around all cleanups
+        let prev_observer = self.observer.take();
         if let Some(cleanups) = c {
             for cleanup in cleanups {
                 cleanup();
             }
         }
+        self.observer.set(prev_observer);
 
         // dispose of any of our properties
         let properties = { self.node_properties.borrow_mut().remove(node_id) };
@@ -684,7 +687,9 @@ impl Debug for Runtime {
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)] // it monomorphizes anyway
-pub(crate) fn with_runtime<T>(f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
+pub(crate) fn with_runtime<T>(
+    f: impl FnOnce(&Runtime) -> T,
+) -> Result<T, ReactiveSystemError> {
     // in the browser, everything should exist under one runtime
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -692,8 +697,9 @@ pub(crate) fn with_runtime<T>(f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
         } else {
             RUNTIMES.with(|runtimes| {
                 let runtimes = runtimes.borrow();
-                match runtimes.get(Runtime::current()) {
-                    None => Err(()),
+                let rt = Runtime::current();
+                match runtimes.get(rt) {
+                    None => Err(ReactiveSystemError::RuntimeDisposed(rt)),
                     Some(runtime) => Ok(f(runtime))
                 }
             })
@@ -745,7 +751,7 @@ pub struct RuntimeId;
 /// ## Panics
 /// Panics if there is no current reactive runtime.
 pub fn as_child_of_current_owner<T, U>(
-    f: impl Fn(T) -> U + 'static,
+    f: impl Fn(T) -> U,
 ) -> impl Fn(T) -> (U, Disposer)
 where
     T: 'static,
@@ -817,25 +823,50 @@ where
 ///
 /// ## Panics
 /// Panics if there is no current reactive runtime.
-pub fn with_owner<T>(owner: Owner, f: impl FnOnce() -> T + 'static) -> T
-where
-    T: 'static,
-{
+pub fn with_owner<T>(owner: Owner, f: impl FnOnce() -> T) -> T {
+    try_with_owner(owner, f).unwrap()
+}
+
+#[derive(Error, Debug)]
+pub enum ReactiveSystemError {
+    #[error("Runtime {0:?} has been disposed.")]
+    RuntimeDisposed(RuntimeId),
+    #[error("Owner {0:?} has been disposed.")]
+    OwnerDisposed(Owner),
+    #[error("Error borrowing runtime.nodes {0:?}")]
+    Borrow(std::cell::BorrowError),
+}
+
+/// Runs the given code with the given reactive owner.
+pub fn try_with_owner<T>(
+    owner: Owner,
+    f: impl FnOnce() -> T,
+) -> Result<T, ReactiveSystemError> {
     with_runtime(|runtime| {
-        let prev_observer = runtime.observer.take();
-        let prev_owner = runtime.owner.take();
+        let scope_exists = {
+            let nodes = runtime
+                .nodes
+                .try_borrow()
+                .map_err(ReactiveSystemError::Borrow)?;
+            nodes.contains_key(owner.0)
+        };
+        if scope_exists {
+            let prev_observer = runtime.observer.take();
+            let prev_owner = runtime.owner.take();
 
-        runtime.owner.set(Some(owner.0));
-        runtime.observer.set(Some(owner.0));
+            runtime.owner.set(Some(owner.0));
+            runtime.observer.set(Some(owner.0));
 
-        let v = f();
+            let v = f();
 
-        runtime.observer.set(prev_observer);
-        runtime.owner.set(prev_owner);
+            runtime.observer.set(prev_observer);
+            runtime.owner.set(prev_owner);
 
-        v
-    })
-    .expect("runtime should be alive when with_owner runs")
+            Ok(v)
+        } else {
+            Err(ReactiveSystemError::OwnerDisposed(owner))
+        }
+    })?
 }
 
 /// Runs the given function as a child of the current Owner, once.
@@ -1218,6 +1249,7 @@ impl Runtime {
             .borrow_mut()
             .insert(AnyResource::Serializable(state))
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -1232,9 +1264,31 @@ impl Runtime {
         S: 'static,
         T: 'static,
     {
+        self.try_resource(id, f).unwrap_or_else(|| {
+            panic!(
+                "couldn't locate {id:?} at {:?}",
+                std::panic::Location::caller()
+            );
+        })
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    #[track_caller]
+    pub(crate) fn try_resource<S, T, U>(
+        &self,
+        id: ResourceId,
+        f: impl FnOnce(&ResourceState<S, T>) -> U,
+    ) -> Option<U>
+    where
+        S: 'static,
+        T: 'static,
+    {
         let resources = { self.resources.borrow().clone() };
         let res = resources.get(id);
-        if let Some(res) = res {
+        res.map(|res| {
             let res_state = match res {
                 AnyResource::Unserializable(res) => res.as_any(),
                 AnyResource::Serializable(res) => res.as_any(),
@@ -1250,12 +1304,7 @@ impl Runtime {
                     std::any::type_name::<T>(),
                 );
             }
-        } else {
-            panic!(
-                "couldn't locate {id:?} at {:?}",
-                std::panic::Location::caller()
-            );
-        }
+        })
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
@@ -1468,4 +1517,154 @@ pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
 #[inline(always)]
 pub fn untrack_with_diagnostics<T>(f: impl FnOnce() -> T) -> T {
     Runtime::current().untrack(f, true)
+}
+
+/// Allows running a future that has access to a given scope.
+#[pin_project]
+pub struct ScopedFuture<Fut: Future> {
+    owner: Owner,
+    #[pin]
+    future: Fut,
+}
+
+/// Errors that can occur when trying to spawn a [`ScopedFuture`].
+#[derive(Error, Debug, Clone)]
+pub enum ScopedFutureError {
+    #[error(
+        "Tried to spawn a scoped Future without a current reactive Owner."
+    )]
+    NoCurrentOwner,
+}
+
+impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
+    type Output = Option<Fut::Output>;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Self::Output> {
+        let this = self.project();
+
+        if let Ok(poll) = try_with_owner(*this.owner, || this.future.poll(cx)) {
+            match poll {
+                Poll::Ready(res) => Poll::Ready(Some(res)),
+                Poll::Pending => Poll::Pending,
+            }
+        } else {
+            Poll::Ready(None)
+        }
+    }
+}
+
+impl<Fut: Future> ScopedFuture<Fut> {
+    /// Creates a new future that will have access to the `[Owner]`'s
+    /// scope context.
+    pub fn new(owner: Owner, fut: Fut) -> Self {
+        Self { owner, future: fut }
+    }
+
+    /// Runs the future in the current [`Owner`]'s scope context.
+    #[track_caller]
+    pub fn new_current(fut: Fut) -> Result<Self, ScopedFutureError> {
+        Owner::current()
+            .map(|owner| Self { owner, future: fut })
+            .ok_or(ScopedFutureError::NoCurrentOwner)
+    }
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+#[track_caller]
+pub fn spawn_local_with_owner(
+    owner: Owner,
+    fut: impl Future<Output = ()> + 'static,
+) {
+    let scoped_future = ScopedFuture::new(owner, fut);
+    #[cfg(debug_assertions)]
+    let loc = std::panic::Location::caller();
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            crate::macros::debug_warn!(
+                "`spawn_local_with_owner` called at {loc} returned `None`, \
+                 i.e., its Owner was disposed before the `Future` resolved."
+            );
+        }
+    });
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+///
+/// # Panics
+/// Panics if there is no [`Owner`] context available.
+#[track_caller]
+pub fn spawn_local_with_current_owner(
+    fut: impl Future<Output = ()> + 'static,
+) -> Result<(), ScopedFutureError> {
+    let scoped_future = ScopedFuture::new_current(fut)?;
+    #[cfg(debug_assertions)]
+    let loc = std::panic::Location::caller();
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            crate::macros::debug_warn!(
+                "`spawn_local_with_owner` called at {loc} returned `None`, \
+                 i.e., its Owner was disposed before the `Future` resolved."
+            );
+        }
+    });
+
+    Ok(())
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+///
+/// Since futures run in the background, it is possible that
+/// the scope has been cleaned up since the future started running.
+/// If this happens, the future will not be completed.
+///
+/// The `on_cancelled` callback can be used to notify you that the
+/// future was cancelled.
+pub fn try_spawn_local_with_owner(
+    owner: Owner,
+    fut: impl Future<Output = ()> + 'static,
+    on_cancelled: impl FnOnce() + 'static,
+) {
+    let scoped_future = ScopedFuture::new(owner, fut);
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            on_cancelled();
+        }
+    });
+}
+
+/// Runs a future that has access to the provided [`Owner`]'s
+/// scope context.
+///
+/// Since futures run in the background, it is possible that
+/// the scope has been cleaned up since the future started running.
+/// If this happens, the future will not be completed.
+///
+/// The `on_cancelled` callback can be used to notify you that the
+/// future was cancelled.
+///
+/// # Panics
+/// Panics if there is no [`Owner`] context available.
+#[track_caller]
+pub fn try_spawn_local_with_current_owner(
+    fut: impl Future<Output = ()> + 'static,
+    on_cancelled: impl FnOnce() + 'static,
+) -> Result<(), ScopedFutureError> {
+    let scoped_future = ScopedFuture::new_current(fut)?;
+
+    crate::spawn_local(async move {
+        if scoped_future.await.is_none() {
+            on_cancelled();
+        }
+    });
+
+    Ok(())
 }

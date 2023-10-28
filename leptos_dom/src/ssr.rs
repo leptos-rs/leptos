@@ -203,6 +203,9 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
         .map(|nonce| format!(" nonce=\"{nonce}\""))
         .unwrap_or_default();
 
+    let local_only = SharedContext::fragments_with_local_resources();
+    let local_only = serde_json::to_string(&local_only).unwrap();
+
     let mut blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
 
@@ -226,7 +229,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                 let resolvers = format!(
                     "<script{nonce_str}>__LEPTOS_PENDING_RESOURCES = \
                      {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
-                     Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
+                     Map();__LEPTOS_RESOURCE_RESOLVERS = new \
+                     Map();__LEPTOS_LOCAL_ONLY = {local_only};</script>"
                 );
 
                 if replace_blocks {
@@ -731,10 +735,16 @@ impl ToMarker for HydrationKey {
     fn to_marker(
         &self,
         closing: bool,
-        #[cfg(debug_assertions)] component_name: &str,
+        #[cfg(debug_assertions)] mut component_name: &str,
     ) -> Oco<'static, str> {
         #[cfg(debug_assertions)]
         {
+            if component_name.is_empty() {
+                // NOTE:
+                // If the name is left empty, this will lead to invalid comments,
+                // so a placeholder is used here.
+                component_name = "<>";
+            }
             if closing || component_name == "unit" {
                 format!("<!--hk={self}c|leptos-{component_name}-end-->").into()
             } else {

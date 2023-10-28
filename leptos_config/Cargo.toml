@@ -9,7 +9,7 @@ description = "Configuration for the Leptos web framework."
 readme = "../README.md"
 
 [dependencies]
-config = "0.13.3"
+config = { version = "0.13.3", default-features = false, features = ["toml"] }
 regex = "1.7.0"
 serde = { version = "1.0.151", features = ["derive"] }
 thiserror = "1.0.38"

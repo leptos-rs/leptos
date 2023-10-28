@@ -15,11 +15,11 @@ jobs:
       leptos_changed: ${{ steps.set-source-changed.outputs.leptos_changed }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get source files that changed
         id: changed-source
-        uses: tj-actions/changed-files@v36
+        uses: tj-actions/changed-files@v39
         with:
           files: |
             integrations

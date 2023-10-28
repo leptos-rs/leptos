@@ -135,9 +135,9 @@ stop(); // stop watching
 set_num.set(2); // (nothing happens)
 ```
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/serene-thompson-40974n?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/14-effect-0-5-d6hkch?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/serene-thompson-40974n?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/14-effect-0-5-d6hkch?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -293,10 +293,8 @@ fn EffectVsDerivedSignal() -> impl IntoView {
     }
 }
 
-/*#[component]
+#[component]
 pub fn Show<F, W, IV>(
-    /// The scope the component is running in
-
     /// The components Show wraps
     children: Box<dyn Fn() -> Fragment>,
     /// A closure that returns a bool that determines whether this thing runs
@@ -315,17 +313,16 @@ where
         true => children().into_view(),
         false => fallback().into_view(),
     }
-}*/
+}
 
-fn log(std::fmt::Display) {
+fn log(msg: impl std::fmt::Display) {
     let log = use_context::<RwSignal<Vec<String>>>().unwrap();
     log.update(|log| log.push(msg.to_string()));
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

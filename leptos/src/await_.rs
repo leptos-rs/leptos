@@ -2,7 +2,8 @@ use crate::Suspense;
 use leptos_dom::IntoView;
 use leptos_macro::{component, view};
 use leptos_reactive::{
-    create_blocking_resource, create_resource, store_value, Serializable,
+    create_blocking_resource, create_local_resource, create_resource,
+    store_value, Serializable,
 };
 
 #[component]
@@ -11,7 +12,7 @@ use leptos_reactive::{
 /// [`create_resource`] that only loads once (i.e., with a source signal `|| ()`) with
 /// a [`Suspense`] with no `fallback`.
 ///
-/// Adding `bind:{variable name}` to the props makes the data available in the children
+/// Adding `let:{variable name}` to the props makes the data available in the children
 /// that variable name, when resolved.
 /// ```
 /// # use leptos_reactive::*;
@@ -27,7 +28,7 @@ use leptos_reactive::{
 /// view! {
 ///     <Await
 ///         future=|| fetch_monkeys(3)
-///         bind:data
+///         let:data
 ///     >
 ///         <p>{*data} " little monkeys, jumping on the bed."</p>
 ///     </Await>
@@ -44,12 +45,17 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// the HTML stream from returning anything before `future` has resolved.
     #[prop(optional)]
     blocking: bool,
+    /// If `true`, the component will use [`create_local_resource`], this will
+    /// always run on the local system and therefore its result type does not
+    /// need to be `Serializable`.
+    #[prop(optional)]
+    local: bool,
     /// A function that takes a reference to the resolved data from the `future`
     /// renders a view.
     ///
     /// ## Syntax
     /// This can be passed in the `view` children of the `<Await/>` by using the
-    /// `bind:` syntax to specify the name for the data variable.
+    /// `let:` syntax to specify the name for the data variable.
     ///
     /// ```rust
     /// # use leptos::*;
@@ -61,7 +67,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// view! {
     ///     <Await
     ///         future=|| fetch_monkeys(3)
-    ///         bind:data
+    ///         let:data
     ///     >
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
     ///     </Await>
@@ -101,6 +107,8 @@ where
 {
     let res = if blocking {
         create_blocking_resource(|| (), move |_| future())
+    } else if local {
+        create_local_resource(|| (), move |_| future())
     } else {
         create_resource(|| (), move |_| future())
     };

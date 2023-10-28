@@ -9,8 +9,8 @@
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
-pub mod callback;
 mod components;
+mod directive;
 mod events;
 pub mod helpers;
 pub mod html;
@@ -26,9 +26,10 @@ pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
-pub use callback::*;
+
 use cfg_if::cfg_if;
 pub use components::*;
+pub use directive::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -37,20 +38,20 @@ pub use events::{typed as ev, typed::EventHandler};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-use leptos_reactive::Oco;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
+use leptos_reactive::{Oco, TextProp};
 pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::{borrow::Cow, fmt, rc::Rc};
 pub use transparent::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -137,7 +138,7 @@ where
     }
 }
 
-impl<N> IntoView for std::rc::Rc<dyn Fn() -> N>
+impl<N> IntoView for Rc<dyn Fn() -> N>
 where
     N: IntoView + 'static,
 {
@@ -225,6 +226,12 @@ where
     )]
     fn into_view(self) -> View {
         DynChild::new(move || self.get()).into_view()
+    }
+}
+
+impl IntoView for TextProp {
+    fn into_view(self) -> View {
+        self.get().into_view()
     }
 }
 
@@ -711,8 +718,7 @@ impl View {
 
     /// Adds an event listener, analogous to [`HtmlElement::on`].
     ///
-    /// This method will attach an event listener to **all** child
-    /// [`HtmlElement`] children.
+    /// This method will attach an event listener to **all** children
     #[inline(always)]
     pub fn on<E: ev::EventDescriptor + 'static>(
         self,
@@ -757,7 +763,7 @@ impl View {
                 let event_handler = Rc::new(RefCell::new(event_handler));
 
                 c.children.iter().cloned().for_each(|c| {
-                  let event_handler = event_handler.clone();
+                  let event_handler = Rc::clone(&event_handler);
 
                   _ = c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
                 });
@@ -774,6 +780,65 @@ impl View {
             _ = event_handler;
           }
         }
+
+        self
+    }
+
+    /// Adds a directive analogous to [`HtmlElement::directive`].
+    ///
+    /// This method will attach directive to **all** child
+    /// [`HtmlElement`] children.
+    #[inline(always)]
+    pub fn directive<T, P>(
+        self,
+        handler: impl Directive<T, P> + 'static,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if::cfg_if! {
+          if #[cfg(debug_assertions)] {
+            trace!("calling directive()");
+            let span = ::tracing::Span::current();
+            let handler = move |e, p| {
+              let _guard = span.enter();
+              handler.run(e, p);
+            };
+          }
+        }
+
+        self.directive_impl(Box::new(handler), param)
+    }
+
+    fn directive_impl<T, P>(
+        self,
+        handler: Box<dyn Directive<T, P>>,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+            match &self {
+                Self::Element(el) => {
+                    let _ = el.clone().into_html_element().directive(handler, param);
+                }
+                Self::Component(c) => {
+                    let handler = Rc::from(handler);
+
+                    for child in c.children.iter().cloned() {
+                        let _ = child.directive(Rc::clone(&handler), param.clone());
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            let _ = handler;
+            let _ = param;
+        }}
 
         self
     }
@@ -1087,6 +1152,17 @@ impl IntoView for &'static str {
     }
 }
 
+impl IntoView for Oco<'static, str> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    #[inline(always)]
+    fn into_view(self) -> View {
+        View::Text(Text::new(self))
+    }
+}
+
 impl<V> IntoView for Vec<V>
 where
     V: IntoView,
@@ -1100,6 +1176,19 @@ where
             .map(|v| v.into_view())
             .collect::<Fragment>()
             .into_view()
+    }
+}
+
+impl IntoView for std::fmt::Arguments<'_> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    fn into_view(self) -> View {
+        match self.as_str() {
+            Some(s) => s.into_view(),
+            None => self.to_string().into_view(),
+        }
     }
 }
 
@@ -1156,7 +1245,6 @@ viewable_primitive![
     std::num::NonZeroIsize,
     std::num::NonZeroUsize,
     std::panic::Location<'_>,
-    std::fmt::Arguments<'_>,
 ];
 
 cfg_if! {

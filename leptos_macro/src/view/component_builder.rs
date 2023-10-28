@@ -4,6 +4,7 @@ use super::{
     client_builder::{fragment_to_tokens, TagType},
     event_from_attribute_node,
 };
+use crate::view::directive_call_from_attribute_node;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use rstml::node::{NodeAttribute, NodeElement};
@@ -30,10 +31,11 @@ pub(crate) fn component_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("bind:")
+            !attr.key.to_string().starts_with("let:")
                 && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
                 && !attr.key.to_string().starts_with("attr:")
+                && !attr.key.to_string().starts_with("use:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -55,7 +57,7 @@ pub(crate) fn component_to_tokens(
         .filter_map(|attr| {
             attr.key
                 .to_string()
-                .strip_prefix("bind:")
+                .strip_prefix("let:")
                 .map(|ident| format_ident!("{ident}", span = attr.key.span()))
         })
         .collect::<Vec<_>>();
@@ -81,6 +83,19 @@ pub(crate) fn component_to_tokens(
             }
         })
         .collect::<Vec<_>>();
+
+    let directives = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("use:")
+                .map(|ident| directive_call_from_attribute_node(attr, ident))
+        })
+        .collect::<Vec<_>>();
+
+    let events_and_directives =
+        events.into_iter().chain(directives).collect::<Vec<_>>();
 
     let dyn_attrs = attrs
         .filter(|attr| attr.key.to_string().starts_with("attr:"))
@@ -192,12 +207,12 @@ pub(crate) fn component_to_tokens(
     /* #[cfg(debug_assertions)]
     IdeTagHelper::add_component_completion(&mut component, node); */
 
-    if events.is_empty() {
+    if events_and_directives.is_empty() {
         component
     } else {
         quote! {
             #component.into_view()
-            #(#events)*
+            #(#events_and_directives)*
         }
     }
 }

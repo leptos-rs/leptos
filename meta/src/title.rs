@@ -48,7 +48,7 @@ where
     }
 }
 
-/// A component to set the document’s title by creating an [HTMLTitleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTitleElement).
+/// A component to set the document’s title by creating an [`HTMLTitleElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTitleElement).
 ///
 /// The `title` and `formatter` can be set independently of one another. For example, you can create a root-level
 /// `<Title formatter=.../>` that will wrap each of the text values of `<Title/>` components created lower in the tree.

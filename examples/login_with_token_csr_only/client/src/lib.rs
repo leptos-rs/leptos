@@ -57,7 +57,7 @@ pub fn App() -> impl IntoView {
 
     // -- callbacks -- //
 
-    let on_logout = move || {
+    let on_logout = move |_| {
         logout.dispatch(());
     };
 
@@ -70,7 +70,7 @@ pub fn App() -> impl IntoView {
         fetch_user_info.dispatch(());
     }
 
-    log::debug!("User is logged in: {}", logged_in.get());
+    log::debug!("User is logged in: {}", logged_in.get_untracked());
 
     // -- effects -- //
 

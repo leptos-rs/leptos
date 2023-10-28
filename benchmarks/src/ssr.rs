@@ -37,6 +37,43 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 }
 
 #[bench]
+fn tachys_ssr_bench(b: &mut Bencher) {
+	use leptos::{create_runtime, create_signal, SignalGet, SignalUpdate};
+	use tachy_maccy::view;
+	use tachydom::view::Render;
+	let rt = create_runtime();
+    b.iter(|| {
+		fn counter(initial: i32) -> impl Render {
+			let (value, set_value) = create_signal(initial);
+			view! {
+				<div>
+					<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+					<span>"Value: " {move || value().to_string()} "!"</span>
+					<button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+				</div>
+			}
+		}
+
+		let mut buf = String::with_capacity(1024);
+		let rendered = view! { 
+			<main>
+				<h1>"Welcome to our benchmark page."</h1>
+				<p>"Here's some introductory text."</p>
+				{counter(1)}
+				{counter(2)}
+				{counter(3)}
+			</main>
+		};
+		rendered.to_html(&mut buf, &Default::default());
+		assert_eq!(
+			buf,
+			"<main><h1>Welcome to our benchmark page.</h1><p>Here's some introductory text.</p><div><button>-1</button><span>Value: <!>1<!>!</span><button>+1</button></div><div><button>-1</button><span>Value: <!>2<!>!</span><button>+1</button></div><div><button>-1</button><span>Value: <!>3<!>!</span><button>+1</button></div></main>"
+		);
+	});
+	rt.dispose();
+}
+
+#[bench]
 fn tera_ssr_bench(b: &mut Bencher) {
     use serde::{Deserialize, Serialize};
     use tera::*;

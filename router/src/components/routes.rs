@@ -196,8 +196,8 @@ pub fn AnimatedRoutes(
                 .map(|location| get_route_matches(&base, location));
             let matches = get_route_matches(&base, next_route.clone());
             let same_route = prev_matches
-                .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
-                == matches.get(0).as_ref().map(|r| r.route.key.clone());
+                .and_then(|p| p.first().as_ref().map(|r| r.route.key.clone()))
+                == matches.first().as_ref().map(|r| r.route.key.clone());
             if same_route {
                 (animation_state, next_route)
             } else {
@@ -437,7 +437,7 @@ fn route_states(
                         root: prev.root.clone(),
                     }
                 } else {
-                    let root = next.borrow().get(0).cloned();
+                    let root = next.borrow().first().cloned();
                     RouterState {
                         matches: next_matches.to_vec(),
                         routes: Rc::new(RefCell::new(next.borrow().to_vec())),
@@ -445,7 +445,7 @@ fn route_states(
                     }
                 }
             } else {
-                let root = next.borrow().get(0).cloned();
+                let root = next.borrow().first().cloned();
                 RouterState {
                     matches: next_matches.to_vec(),
                     routes: Rc::new(RefCell::new(next.borrow().to_vec())),
@@ -480,7 +480,7 @@ fn root_route(
                     Some(outlet)
                 } else {
                     let root = state.routes.borrow();
-                    let root = root.get(0);
+                    let root = root.first();
 
                     if prev.is_none() || !root_equal.get() {
                         root.as_ref().map(|route| {

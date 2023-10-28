@@ -72,9 +72,7 @@ pub fn App() -> impl IntoView {
 
 
 #[component]
-pub fn ButtonB<F>(on_click: F) -> impl IntoView
-where
-    F: Fn(MouseEvent) + 'static,
+pub fn ButtonB(#[prop(into)] on_click: Callback<MouseEvent>) -> impl IntoView
 {
     view! {
         <button on:click=on_click>
@@ -90,9 +88,49 @@ of keeping local state local, preventing the problem of spaghetti mutation. But 
 the logic to mutate that signal needs to exist up in `<App/>`, not down in `<ButtonB/>`. These
 are real trade-offs, not a simple right-or-wrong choice.
 
+> Note the way we use the `Callback<In, Out>` type. This is basically a
+> wrapper around a closure `Fn(In) -> Out` that is also `Copy` and makes it
+> easy to pass around.
+> 
+> We also used the `#[prop(into)]` attribute so we can pass a normal closure into
+> `on_click`. Please see the [chapter "`into` Props"](./03_components.md#into-props) for more details.
+
+### 2.1 Use Closure instead of `Callback`
+
+You can use a Rust closure `Fn(MouseEvent)` directly instead of `Callback`:
+
+```rust
+#[component]
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
+        <p>"Toggled? " {toggled}</p>
+        <ButtonB on_click=move |_| set_toggled.update(|value| *value = !*value)/>
+    }
+}
+
+
+#[component]
+pub fn ButtonB<F>(on_click: F) -> impl IntoView
+where
+    F: Fn(MouseEvent) + 'static,
+pub fn ButtonB(#[prop(into)] on_click: Callback<MouseEvent>) -> impl IntoView
+{
+    view! {
+        <button on:click=on_click>
+            "Toggle"
+        </button>
+    }
+}
+```
+
+The code is very similar in this case. On more advanced use-cases using a
+closure might require some cloning compared to using a `Callback`.
+
 > Note the way we declare the generic type `F` here for the callback. If you’re
 > confused, look back at the [generic props](./03_components.html#generic-props) section
 > of the chapter on components.
+
 
 ## 3. Use an Event Listener
 
@@ -188,7 +226,7 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-pub fn Layout(d: WriteSignal<bool>) -> impl IntoView {
+pub fn Layout(set_toggled: WriteSignal<bool>) -> impl IntoView {
     view! {
         <header>
             <h1>"My Page"</h1>
@@ -200,7 +238,7 @@ pub fn Layout(d: WriteSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn Content(d: WriteSignal<bool>) -> impl IntoView {
+pub fn Content(set_toggled: WriteSignal<bool>) -> impl IntoView {
     view! {
         <div class="content">
             <ButtonD set_toggled/>
@@ -209,7 +247,7 @@ pub fn Content(d: WriteSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn ButtonD<F>(d: WriteSignal<bool>) -> impl IntoView {
+pub fn ButtonD<F>(set_toggled: WriteSignal<bool>) -> impl IntoView {
     todo!()
 }
 ```
@@ -282,9 +320,9 @@ in `<ButtonD/>` and a single text node in `<App/>`. It’s as if the components
 themselves don’t exist at all. And, well... at runtime, they don’t. It’s just
 signals and effects, all the way down.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/8-parent-child-communication-84we8m?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/8-parent-child-0-5-7rz7qd?file=%2Fsrc%2Fmain.rs%3A1%2C2)
 
-<iframe src="https://codesandbox.io/p/sandbox/8-parent-child-communication-84we8m?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/8-parent-child-0-5-7rz7qd?file=%2Fsrc%2Fmain.rs%3A1%2C2" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
 <details>
 <summary>CodeSandbox Source</summary>
@@ -318,7 +356,6 @@ pub fn App() -> impl IntoView {
     provide_context(SmallcapsContext(set_smallcaps));
 
     view! {
-
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
@@ -350,12 +387,10 @@ pub fn App() -> impl IntoView {
 /// Button A receives a signal setter and updates the signal itself
 #[component]
 pub fn ButtonA(
-
     /// Signal that will be toggled when the button is clicked.
     setter: WriteSignal<bool>,
 ) -> impl IntoView {
     view! {
-
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -367,7 +402,6 @@ pub fn ButtonA(
 /// Button B receives a closure
 #[component]
 pub fn ButtonB<F>(
-
     /// Callback that will be invoked when the button is clicked.
     on_click: F,
 ) -> impl IntoView
@@ -375,7 +409,6 @@ where
     F: Fn(MouseEvent) + 'static,
 {
     view! {
-
         <button
             on:click=on_click
         >
@@ -401,7 +434,6 @@ where
 #[component]
 pub fn ButtonC() -> impl IntoView {
     view! {
-
         <button>
             "Toggle Italics"
         </button>
@@ -415,7 +447,6 @@ pub fn ButtonD() -> impl IntoView {
     let setter = use_context::<SmallcapsContext>().unwrap().0;
 
     view! {
-
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -425,9 +456,8 @@ pub fn ButtonD() -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
+    leptos::mount_to_body(App)
 }
-
 ```
 
 </details>

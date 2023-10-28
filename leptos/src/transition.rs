@@ -1,3 +1,4 @@
+use leptos::ViewFn;
 use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
@@ -66,9 +67,10 @@ use std::{
     tracing::instrument(level = "info", skip_all)
 )]
 #[component(transparent)]
-pub fn Transition<F, E>(
-    /// Will be displayed while resources are pending.
-    fallback: F,
+pub fn Transition(
+    /// Will be displayed while resources are pending. By default this is the empty view.
+    #[prop(optional, into)]
+    fallback: ViewFn,
     /// A function that will be called when the component transitions into or out of
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
@@ -76,11 +78,7 @@ pub fn Transition<F, E>(
     set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
     children: Box<dyn Fn() -> Fragment>,
-) -> impl IntoView
-where
-    F: Fn() -> E + 'static,
-    E: IntoView,
-{
+) -> impl IntoView {
     let prev_children = Rc::new(RefCell::new(None::<View>));
 
     let first_run = create_rw_signal(true);
@@ -105,12 +103,12 @@ where
 
                     if let Some(prev_children) = &*prev_child.borrow() {
                         if is_first_run || was_first_run {
-                            fallback().into_view()
+                            fallback.run()
                         } else {
                             prev_children.clone()
                         }
                     } else {
-                        fallback().into_view()
+                        fallback.run()
                     }
                 }
             })

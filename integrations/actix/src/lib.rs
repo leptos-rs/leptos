@@ -27,7 +27,12 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
-use std::{fmt::Display, future::Future, pin::Pin, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+};
 #[cfg(debug_assertions)]
 use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -110,7 +115,7 @@ pub fn redirect(path: &str) {
     }
 }
 
-/// An Actix [Route](actix_web::Route) that listens for a `POST` request with
+/// An Actix [struct@Route](actix_web::Route) that listens for a `POST` request with
 /// Leptos server function arguments in the body, runs the server function if found,
 /// and returns the resulting [HttpResponse].
 ///
@@ -151,7 +156,7 @@ pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|| {})
 }
 
-/// An Actix [Route](actix_web::Route) that listens for `GET` or `POST` requests with
+/// An Actix [struct@Route](actix_web::Route) that listens for `GET` or `POST` requests with
 /// Leptos server function arguments in the URL (`GET`) or body (`POST`),
 /// runs the server function if found, and returns the resulting [HttpResponse].
 ///
@@ -287,7 +292,7 @@ pub fn handle_server_fns_with_context(
                 } else {
                     HttpResponse::BadRequest().body(format!(
                         "Could not find a server function at the route {:?}. \
-                         \n\nIt's likely that either 
+                         \n\nIt's likely that either
                          1. The API prefix you specify in the `#[server]` \
                          macro doesn't match the prefix at which your server \
                          function handler is mounted, or \n2. You are on a \
@@ -303,7 +308,7 @@ pub fn handle_server_fns_with_context(
     )
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application. The stream
 /// will include fallback content for any `<Suspense/>` nodes, and be immediately interactive,
 /// but requires some client-side JavaScript.
@@ -371,7 +376,7 @@ where
     render_app_to_stream_with_context(options, || {}, app_fn, method)
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
@@ -440,7 +445,7 @@ where
     render_app_to_stream_in_order_with_context(options, || {}, app_fn, method)
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
 /// `async` [Resource](leptos::Resource)s have loaded.
 ///
@@ -507,7 +512,7 @@ where
     render_app_async_with_context(options, || {}, app_fn, method)
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route] that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -538,7 +543,7 @@ where
     )
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -601,7 +606,7 @@ where
     }
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -652,7 +657,7 @@ where
     }
 }
 
-/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], asynchronously serving the page once all `async`
 /// [Resource](leptos::Resource)s have loaded.
 ///
@@ -1356,7 +1361,7 @@ impl LeptosRoutes for &mut ServiceConfig {
 
 /// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler](actix_web::Handler): it is an async function that receives arguments that
+/// [Handler]: it is an async function that receives arguments that
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
@@ -1410,6 +1415,58 @@ where
     Ok(f.call(input).await)
 }
 
+/// A helper to make it easier to use Axum extractors in server functions, with a
+/// simpler API than [`extract()`].
+///
+/// It is generic over some type `T` that implements [`FromRequest`] and can
+/// therefore be used in an extractor. The compiler can often infer this type.
+///
+/// Any error that occurs during extraction is converted to a [`ServerFnError`].
+///
+/// ```rust,ignore
+/// // MyQuery is some type that implements `Deserialize + Serialize`
+/// #[server]
+/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
+///     use actix_web::web::Query;
+///     use leptos_actix::*;
+///     let Query(data) = extractor().await?;
+///     Ok(data)
+/// }
+/// ```
+pub async fn extractor<T>() -> Result<T, ServerFnError>
+where
+    T: actix_web::FromRequest,
+    <T as FromRequest>::Error: Debug,
+{
+    let req = use_context::<actix_web::HttpRequest>()
+        .expect("HttpRequest should have been provided via context");
+
+    if let Some(body) = use_context::<Bytes>() {
+        let (_, mut payload) = actix_http::h1::Payload::create(false);
+        payload.unread_data(body);
+        T::from_request(&req, &mut dev::Payload::from(payload))
+    } else {
+        T::extract(&req)
+    }
+    .await
+    .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+}
+
+/// A macro that makes it easier to use extractors in server functions. The macro
+/// takes a type or types, and extracts them from the request, returning from the
+/// server function with an `Err(_)` if there is an error during extraction.
+/// ```rust,ignore
+/// let info = extract!(ConnectionInfo);
+/// let Query(data) = extract!(Query<Search>);
+/// let (info, Query(data)) = extract!(ConnectionInfo, Query<Search>);
+/// ```
+#[macro_export]
+macro_rules! extract {
+    ($($x:ty),+) => {
+        $crate::extract(|fields: ($($x),+)| async move { fields }).await?
+    };
+}
+
 // Drawn from the Actix Handler implementation
 // https://github.com/actix/actix-web/blob/19c9d858f25e8262e14546f430d713addb397e96/actix-web/src/handler.rs#L124
 pub trait Extractor<T> {
@@ -1417,6 +1474,7 @@ pub trait Extractor<T> {
 
     fn call(self, args: T) -> Self::Future;
 }
+
 macro_rules! factory_tuple ({ $($param:ident)* } => {
     impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
     where

@@ -1,7 +1,7 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    create_rw_signal, signal_prelude::*, spawn_local, store_value, untrack,
-    ReadSignal, RwSignal, StoredValue,
+    create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
+    spawn_local, store_value, untrack, ReadSignal, RwSignal, StoredValue,
 };
 use std::{future::Future, pin::Pin, rc::Rc};
 
@@ -210,33 +210,35 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
-        let fut = (self.action_fn)(&input);
+        if !is_suppressing_resource_load() {
+            let fut = (self.action_fn)(&input);
 
-        let submission = Submission {
-            input: create_rw_signal(Some(input)),
-            value: create_rw_signal(None),
-            pending: create_rw_signal(true),
-            canceled: create_rw_signal(false),
-        };
+            let submission = Submission {
+                input: create_rw_signal(Some(input)),
+                value: create_rw_signal(None),
+                pending: create_rw_signal(true),
+                canceled: create_rw_signal(false),
+            };
 
-        self.submissions.update(|subs| subs.push(submission));
+            self.submissions.update(|subs| subs.push(submission));
 
-        let canceled = submission.canceled;
-        let input = submission.input;
-        let pending = submission.pending;
-        let value = submission.value;
-        let version = self.version;
+            let canceled = submission.canceled;
+            let input = submission.input;
+            let pending = submission.pending;
+            let value = submission.value;
+            let version = self.version;
 
-        spawn_local(async move {
-            let new_value = fut.await;
-            let canceled = untrack(move || canceled.get());
-            if !canceled {
-                value.set(Some(new_value));
-            }
-            input.set(None);
-            pending.set(false);
-            version.update(|n| *n += 1);
-        })
+            spawn_local(async move {
+                let new_value = fut.await;
+                let canceled = untrack(move || canceled.get());
+                if !canceled {
+                    value.set(Some(new_value));
+                }
+                input.set(None);
+                pending.set(false);
+                version.update(|n| *n += 1);
+            })
+        }
     }
 
     /// The set of all submissions to this multi-action.

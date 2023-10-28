@@ -1,6 +1,6 @@
 use crate::{
-    create_location, matching::resolve_path, Branch, History, Location,
-    LocationChange, RouteContext, RouterIntegrationContext, State,
+    create_location, matching::resolve_path, scroll_to_el, Branch, History,
+    Location, LocationChange, RouteContext, RouterIntegrationContext, State,
 };
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
@@ -302,6 +302,8 @@ impl RouterContextInner {
                                 });
                             }
                         });
+                    } else {
+                        scroll_to_el(false);
                     }
 
                     Ok(())
@@ -311,7 +313,7 @@ impl RouterContextInner {
     }
 
     pub(crate) fn navigate_end(self: Rc<Self>, mut next: LocationChange) {
-        let first = self.referrers.borrow().get(0).cloned();
+        let first = self.referrers.borrow().first().cloned();
         if let Some(first) = first {
             if next.value != first.value || next.state != first.state {
                 next.replace = first.replace;

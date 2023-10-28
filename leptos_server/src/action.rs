@@ -1,7 +1,7 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    batch, create_rw_signal, signal_prelude::*, spawn_local, store_value,
-    ReadSignal, RwSignal, StoredValue,
+    batch, create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
+    spawn_local, store_value, ReadSignal, RwSignal, StoredValue,
 };
 use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
@@ -228,28 +228,30 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
-        let fut = (self.action_fn)(&input);
-        self.input.set(Some(input));
-        let input = self.input;
-        let version = self.version;
-        let pending = self.pending;
-        let pending_dispatches = Rc::clone(&self.pending_dispatches);
-        let value = self.value;
-        pending.set(true);
-        pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
-        spawn_local(async move {
-            let new_value = fut.await;
-            batch(move || {
-                value.set(Some(new_value));
-                input.set(None);
-                version.update(|n| *n += 1);
-                pending_dispatches
-                    .set(pending_dispatches.get().saturating_sub(1));
-                if pending_dispatches.get() == 0 {
-                    pending.set(false);
-                }
-            });
-        })
+        if !is_suppressing_resource_load() {
+            let fut = (self.action_fn)(&input);
+            self.input.set(Some(input));
+            let input = self.input;
+            let version = self.version;
+            let pending = self.pending;
+            let pending_dispatches = Rc::clone(&self.pending_dispatches);
+            let value = self.value;
+            pending.set(true);
+            pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
+            spawn_local(async move {
+                let new_value = fut.await;
+                batch(move || {
+                    value.set(Some(new_value));
+                    input.set(None);
+                    version.update(|n| *n += 1);
+                    pending_dispatches
+                        .set(pending_dispatches.get().saturating_sub(1));
+                    if pending_dispatches.get() == 0 {
+                        pending.set(false);
+                    }
+                });
+            })
+        }
     }
 }
 

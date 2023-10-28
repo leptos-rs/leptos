@@ -34,6 +34,7 @@ mod view;
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
+mod slice;
 mod slot;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -164,7 +165,7 @@ mod slot;
 /// # runtime.dispose();
 /// ```
 ///
-/// Class names can include dashes, and since leptos v0.5.0 can include a dash-separated segment of only numbers.
+/// Class names can include dashes, and since v0.5.0 can include a dash-separated segment of only numbers.
 /// ```rust
 /// # use leptos::*;
 /// # let runtime = create_runtime();
@@ -597,10 +598,21 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    parse_macro_input!(s as component::Model)
-        .is_transparent(is_transparent)
-        .into_token_stream()
-        .into()
+    let parse_result = syn::parse::<component::Model>(s.clone());
+
+    if let Ok(model) = parse_result {
+        model
+            .is_transparent(is_transparent)
+            .into_token_stream()
+            .into()
+    } else {
+        // When the input syntax is invalid, e.g. while typing, we let
+        // the dummy model output tokens similar to the input, which improves
+        // IDEs and rust-analyzer's auto-complete capabilities.
+        parse_macro_input!(s as component::DummyModel)
+            .into_token_stream()
+            .into()
+    }
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -829,12 +841,12 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// are enabled), it will instead make a network request to the server.
 ///
 /// You can specify one, two, three, or four arguments to the server function. All of these arguments are optional.
-/// 1. A type name that will be used to identify and register the server function
+/// 1. **`name`**: A type name that will be used to identify and register the server function
 ///   (e.g., `MyServerFn`). Defaults to a PascalCased version of the function name.
-/// 2. A URL prefix at which the function will be mounted when it’s registered
+/// 2. **`prefix`**: A URL prefix at which the function will be mounted when it’s registered
 ///   (e.g., `"/api"`). Defaults to `"/api"`.
-/// 3. The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
-/// 4. A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
+/// 3. **`encoding`**: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
+/// 4. **`endpoint`**: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
 ///
 /// ```rust,ignore
 /// // will generate a server function at `/api-prefix/hello`
@@ -845,6 +857,10 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// // `/api/hello2349232342342` (hash based on location in source)
 /// #[server]
 /// pub async fn hello_world() /* ... */
+///
+/// // The server function accepts keyword parameters
+/// #[server(endpoint = "my_endpoint")]
+/// pub async fn hello_leptos() /* ... */
 /// ```
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
@@ -943,7 +959,7 @@ pub fn params_derive(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     match syn::parse(input) {
-        Ok(ast) => params::impl_params(&ast),
+        Ok(ast) => params::params_impl(&ast),
         Err(err) => err.to_compile_error().into(),
     }
 }
@@ -953,4 +969,37 @@ pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
         Some(value) => value,
         None => abort!(attr.key, "attribute should have value"),
     }
+}
+
+/// Generates a `lens` into struct with a default getter and setter
+///
+/// Can be used to access deeply nested fields within a global state object
+///
+/// ```rust
+/// # use leptos::{create_runtime, create_rw_signal};
+/// # use leptos_macro::slice;
+/// # let runtime = create_runtime();
+///
+/// #[derive(Default)]
+/// pub struct Outer {
+///     count: i32,
+///     inner: Inner,
+/// }
+///
+/// #[derive(Default)]
+/// pub struct Inner {
+///     inner_count: i32,
+///     inner_name: String,
+/// }
+///
+/// let outer_signal = create_rw_signal(Outer::default());
+///
+/// let (count, set_count) = slice!(outer_signal.count);
+///
+/// let (inner_count, set_inner_count) = slice!(outer_signal.inner.inner_count);
+/// let (inner_name, set_inner_name) = slice!(outer_signal.inner.inner_name);
+/// ```
+#[proc_macro]
+pub fn slice(input: TokenStream) -> TokenStream {
+    slice::slice_impl(input)
 }

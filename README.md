@@ -10,6 +10,8 @@
 
 [Website](https://leptos.dev) | [Book](https://leptos-rs.github.io/leptos/) | [Docs.rs](https://docs.rs/leptos/latest/leptos/) | [Playground](https://codesandbox.io/p/sandbox/leptos-rtfggt?file=%2Fsrc%2Fmain.rs%3A1%2C1) | [Discord](https://discord.gg/YdRAhS7eQB)
 
+You can find a list of useful libraries and example projects at [`awesome-leptos`](https://github.com/leptos-rs/awesome-leptos).
+
 # Leptos
 
 ```rust
@@ -45,10 +47,6 @@ pub fn main() {
     })
 }
 ```
-
-### Important Note
-
-This example, and the entire `main` branch, now reflect the upcoming `0.5.0` release. You can use `0.5.0` with the `0.5.0-beta` release on crates.io or by a git dependency on the `main` branch of this repo. [Click here for the 0.4.9 `README`](https://crates.io/crates/leptos).
 
 ## About the Framework
 

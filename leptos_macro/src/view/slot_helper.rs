@@ -48,7 +48,7 @@ pub(crate) fn slot_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("bind:")
+            !attr.key.to_string().starts_with("let:")
                 && !attr.key.to_string().starts_with("clone:")
         })
         .map(|attr| {
@@ -71,7 +71,7 @@ pub(crate) fn slot_to_tokens(
         .filter_map(|attr| {
             attr.key
                 .to_string()
-                .strip_prefix("bind:")
+                .strip_prefix("let:")
                 .map(|ident| format_ident!("{ident}", span = attr.key.span()))
         })
         .collect::<Vec<_>>();

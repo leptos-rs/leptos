@@ -15,7 +15,7 @@ use std::{
     hash::{Hash, Hasher},
     path::PathBuf,
     pin::Pin,
-    rc::Rc,
+    sync::Arc,
 };
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -304,10 +304,12 @@ pub fn purge_all_static_routes<IV>(
     purge_dir_of_static_files(Path::new(&options.site_root).to_path_buf())
 }
 
-pub type StaticData = Rc<StaticDataFn>;
+pub type StaticData = Arc<StaticDataFn>;
 
-pub type StaticDataFn =
-    dyn Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap>>> + 'static;
+pub type StaticDataFn = dyn Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap> + Send + Sync>>
+    + Send
+    + Sync
+    + 'static;
 
 pub type StaticDataMap = HashMap<String, Option<StaticData>>;
 
