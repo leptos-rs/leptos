@@ -29,7 +29,7 @@ pub fn App() -> impl IntoView {
 
 #[server]
 async fn do_something(should_error: Option<String>) -> Result<String, ServerFnError> {
-    if should_error.is_some() {
+    if should_error.is_none() {
         Ok(String::from("Successful submit"))
     } else {
         Err(ServerFnError::ServerError(String::from(
@@ -45,6 +45,9 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"Test the action form!"</h1>
+        <ErrorBoundary fallback=move |error| format!("{:#?}", error().into_iter().next().unwrap().1.into_inner().to_string())>
+            {do_something_action.value()}
+        </ErrorBoundary>
         <ActionForm action=do_something_action class="form">
             <label>Should error: <input type="checkbox" name="should_error"/></label>
             <button type="submit">Submit</button>
