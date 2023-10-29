@@ -17,6 +17,7 @@ leptos_meta = { version = "0.5", features = ["nightly"] }
 leptos_actix = { version = "0.5", optional = true }
 leptos_router = { version = "0.5", features = ["nightly"] }
 wasm-bindgen = "=0.2.87"
+serde = { version = "1", features = ["derive"] }
 
 [features]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
@@ -48,11 +49,6 @@ site-root = "target/site"
 site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
 style-file = "style/main.scss"
-# Assets source dir. All files found here will be copied and synchronized to site-root.
-# The assets-dir cannot have a sub directory with the same name/path as site-pkg-dir.
-#
-# Optional. Env: LEPTOS_ASSETS_DIR.
-assets-dir = "assets"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
 site-addr = "127.0.0.1:3000"
 # The port to use for automatic reload monitoring

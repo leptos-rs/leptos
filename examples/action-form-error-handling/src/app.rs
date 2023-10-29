@@ -27,16 +27,28 @@ pub fn App() -> impl IntoView {
     }
 }
 
+#[server]
+async fn do_something(should_error: Option<String>) -> Result<String, ServerFnError> {
+    if should_error.is_some() {
+        Ok(String::from("Successful submit"))
+    } else {
+        Err(ServerFnError::ServerError(String::from(
+            "You got an error!",
+        )))
+    }
+}
+
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    // Creates a reactive value to update the button
-    let (count, set_count) = create_signal(0);
-    let on_click = move |_| set_count.update(|count| *count += 1);
+    let do_something_action = create_server_action::<DoSomething>();
 
     view! {
-        <h1>"Welcome to Leptos!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+        <h1>"Test the action form!"</h1>
+        <ActionForm action=do_something_action class="form">
+            <label>Should error: <input type="checkbox" name="should_error"/></label>
+            <button type="submit">Submit</button>
+        </ActionForm>
     }
 }
 
