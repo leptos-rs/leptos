@@ -177,8 +177,7 @@
 //! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
 //! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
-//!   of calling signals as functions. Enable this feature to support `stable` Rust.
+//! - `nightly`: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in.
