@@ -182,6 +182,78 @@ pub use leptos_macro::template;
 pub use leptos_macro::view as template;
 pub use leptos_macro::{component, island, server, slot, view, Params};
 pub use leptos_reactive::*;
+
+/// internal leptos trait for anything that can be invoked.
+/// That means each type that implements `Fn() -> T`
+/// And all types that implement `SignalGet` on stable.
+///
+/// The reason this trait is necessary and `pub(crate)` for leptos
+/// is to allow native leptos components to accept any signal or function as argument,
+/// but disallow upstream crates to implement it for `String`.
+/// See leptos/src/text_prop.rs where it is relevant
+pub(crate) trait Invocable {
+    type Value;
+    fn invoke(&self) -> Self::Value;
+}
+
+#[cfg(not(feature = "nightly"))]
+impl<F, T> Invocable for F
+where
+    F: Fn() -> T,
+{
+    type Value = T;
+    fn invoke(&self) -> Self::Value {
+        (self)()
+    }
+}
+
+#[cfg(not(feature = "nightly"))]
+mod invocable {
+    use super::*;
+    impl<T: Clone> Invocable for Signal<T> {
+        type Value = T;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+    impl<T: Clone> Invocable for RwSignal<T> {
+        type Value = T;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+    impl<T: Clone> Invocable for ReadSignal<T> {
+        type Value = T;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+    impl<T: Clone> Invocable for MaybeProp<T> {
+        type Value = Option<T>;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+    impl<S: Clone, T: Clone> Invocable for Resource<S, T> {
+        type Value = Option<T>;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+    impl<T: Clone> Invocable for MaybeSignal<T> {
+        type Value = T;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+    impl<T: Clone> Invocable for Memo<T> {
+        type Value = T;
+        fn invoke(&self) -> Self::Value {
+            self.get()
+        }
+    }
+}
+
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
     create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
