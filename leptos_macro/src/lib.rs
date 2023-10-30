@@ -954,7 +954,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 
 /// Derives a trait that parses a map of string keys and values into a typed
 /// data structure, e.g., for route params.
-#[proc_macro_derive(Params, attributes(params))]
+#[proc_macro_derive(Params)]
 pub fn params_derive(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
