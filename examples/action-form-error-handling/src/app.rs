@@ -17,7 +17,7 @@ pub fn App() -> impl IntoView {
 
         // content for this welcome page
         <Router>
-            <main>
+            <main id="app">
                 <Routes>
                     <Route path="" view=HomePage/>
                     <Route path="/*any" view=NotFound/>
@@ -45,7 +45,7 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"Test the action form!"</h1>
-        <ErrorBoundary fallback=move |error| format!("{:#?}", error().into_iter().next().unwrap().1.into_inner().to_string())>
+        <ErrorBoundary fallback=move |error| format!("{:#?}", error.get().into_iter().next().unwrap().1.into_inner().to_string())>
             {do_something_action.value()}
         </ErrorBoundary>
         <ActionForm action=do_something_action class="form">
