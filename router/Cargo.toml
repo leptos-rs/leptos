@@ -14,7 +14,6 @@ leptos_integration_utils = { workspace = true, optional = true }
 leptos_meta = { workspace = true, optional = true }
 cached = { version = "0.45.0", optional = true }
 cfg-if = "1"
-common_macros = "0.1"
 gloo-net = { version = "0.2", features = ["http"] }
 lazy_static = "1"
 linear-map = { version = "1", features = ["serde_impl"] }
