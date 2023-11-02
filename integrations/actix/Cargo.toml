@@ -16,10 +16,12 @@ leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 serde_json = "1"
+serde_qs = "0.12"
 parking_lot = "0.12.1"
 regex = "1.7.0"
 tracing = "0.1.37"
 tokio = { version = "1", features = ["rt", "fs"] }
+url = "2.4"
 
 [features]
 nonce = ["leptos/nonce"]

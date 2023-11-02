@@ -170,7 +170,6 @@ impl RouterContext {
             location,
             base,
             history: Box::new(history),
-
             reference,
             set_reference,
             referrers,

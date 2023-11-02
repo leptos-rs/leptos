@@ -6,11 +6,10 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::header::{HeaderName, HeaderValue};
+use actix_http::{header::{self, HeaderName, HeaderValue}, h1};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
-    http::header,
     web::{Bytes, ServiceConfig},
     *,
 };
@@ -22,7 +21,7 @@ use leptos::{
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_integration_utils::{build_async_response, html_parts_separated, ServerFnErrorQuery, ServerFnErrorInfo};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -33,6 +32,7 @@ use std::{
     pin::Pin,
     sync::Arc,
 };
+use url::Url;
 #[cfg(debug_assertions)]
 use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -182,7 +182,7 @@ pub fn handle_server_fns_with_context(
                 let path = params.into_inner();
                 let accept_header = req
                     .headers()
-                    .get("Accept")
+                    .get(header::ACCEPT)
                     .and_then(|value| value.to_str().ok());
 
                 if let Some(server_fn) = server_fn_by_path(path.as_str()) {
@@ -202,12 +202,12 @@ pub fn handle_server_fns_with_context(
                     // like MultipartForm
                     if req
                         .headers()
-                        .get("Content-Type")
+                        .get(header::CONTENT_TYPE)
                         .and_then(|value| value.to_str().ok())
                         .map(|value| {
                             value.starts_with("multipart/form-data; boundary=")
                         })
-                        == Some(true)
+                        .unwrap_or(false)
                     {
                         provide_context(body.clone());
                     }
@@ -229,7 +229,7 @@ pub fn handle_server_fns_with_context(
                             let res_parts = res_options.0.write();
 
                             // if accept_header isn't set to one of these, it's a form submit
-                            // redirect back to the referrer if not redirect has been set
+                            // redirect back to the referer if not redirect has been set
                             if accept_header != Some("application/json")
                                 && accept_header
                                     != Some("application/x-www-form-urlencoded")
@@ -237,15 +237,15 @@ pub fn handle_server_fns_with_context(
                             {
                                 // Location will already be set if redirect() has been used
                                 let has_location_set =
-                                    res_parts.headers.get("Location").is_some();
+                                    res_parts.headers.get(header::LOCATION).is_some();
                                 if !has_location_set {
                                     let referer = req
                                         .headers()
-                                        .get("Referer")
+                                        .get(header::REFERER)
                                         .and_then(|value| value.to_str().ok())
                                         .unwrap_or("/");
                                     res = HttpResponse::SeeOther();
-                                    res.insert_header(("Location", referer))
+                                    res.insert_header((header::LOCATION, referer))
                                         .content_type("application/json");
                                 }
                             };
@@ -281,10 +281,37 @@ pub fn handle_server_fns_with_context(
                                 }
                             }
                         }
-                        Err(e) => HttpResponse::InternalServerError().body(
-                            serde_json::to_string(&e)
-                                .unwrap_or_else(|_| e.to_string()),
-                        ),
+                        Err(e) => {
+                            let url = req
+                                .headers()
+                                .get(header::REFERER)
+                                .and_then(|value|
+                                          value
+                                          .to_str()
+                                          .ok()
+                                          .map(Url::parse)
+                                          .map(Result::ok)
+                                )
+                                .flatten();
+
+                            if let Some(mut url) = url {
+                                url.query_pairs_mut()
+                                   .append_key_only(serde_qs::to_string(&ServerFnErrorQuery {
+                                    server_fn_error: ServerFnErrorInfo {
+                                        url: req.uri().to_string(),
+                                        error: e
+                                    }
+                                }).expect("Could not serialize server fn error").as_str());
+                                HttpResponse::SeeOther()
+                                    .insert_header((header::LOCATION, url.to_string()))
+                                    .finish()
+                            } else {
+                                HttpResponse::InternalServerError().body(
+                                    serde_json::to_string(&e)
+                                        .unwrap_or_else(|_| e.to_string()),
+                                )
+                            }
+                        }
                     };
                     // clean up the scope
                     runtime.dispose();
@@ -1214,7 +1241,7 @@ where
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
-        self,
+        mut self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
@@ -1223,14 +1250,13 @@ where
     where
         IV: IntoView + 'static,
     {
-        let mut router = self;
         for listing in paths.iter() {
             let path = listing.path();
             let mode = listing.mode();
 
             for method in listing.methods() {
-                router = if let Some(static_mode) = listing.static_mode() {
-                    router.route(
+                self = if let Some(static_mode) = listing.static_mode() {
+                    self.route(
                         path,
                         static_route(
                             options.clone(),
@@ -1241,7 +1267,7 @@ where
                         ),
                     )
                 } else {
-                    router.route(
+                    self.route(
                     path,
                     match mode {
                         SsrMode::OutOfOrder => {
@@ -1280,7 +1306,8 @@ where
                 };
             }
         }
-        router
+
+        self
     }
 }
 
@@ -1302,7 +1329,7 @@ impl LeptosRoutes for &mut ServiceConfig {
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
-        self,
+        mut self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
@@ -1311,13 +1338,12 @@ impl LeptosRoutes for &mut ServiceConfig {
     where
         IV: IntoView + 'static,
     {
-        let mut router = self;
         for listing in paths.iter() {
             let path = listing.path();
             let mode = listing.mode();
 
             for method in listing.methods() {
-                router = router.route(
+                self = self.route(
                     path,
                     match mode {
                         SsrMode::OutOfOrder => {
@@ -1355,7 +1381,8 @@ impl LeptosRoutes for &mut ServiceConfig {
                 );
             }
         }
-        router
+
+        self
     }
 }
 
@@ -1403,7 +1430,7 @@ where
         .expect("HttpRequest should have been provided via context");
 
     let input = if let Some(body) = use_context::<Bytes>() {
-        let (_, mut payload) = actix_http::h1::Payload::create(false);
+        let (_, mut payload) = h1::Payload::create(false);
         payload.unread_data(body);
         E::from_request(&req, &mut dev::Payload::from(payload))
     } else {
@@ -1442,7 +1469,7 @@ where
         .expect("HttpRequest should have been provided via context");
 
     if let Some(body) = use_context::<Bytes>() {
-        let (_, mut payload) = actix_http::h1::Payload::create(false);
+        let (_, mut payload) = h1::Payload::create(false);
         payload.unread_data(body);
         T::from_request(&req, &mut dev::Payload::from(payload))
     } else {

@@ -378,36 +378,23 @@ where
                 .map_err(|e| ServerFnError::Deserialization(e.to_string())),
         };
         Box::pin(async move {
-            let value: Self = match value {
-                Ok(v) => v,
-                Err(e) => return Err(e),
-            };
+            let value: Self = value?;
 
             // call the function
-            let result = match value.call_fn(cx).await {
-                Ok(r) => r,
-                Err(e) => return Err(e),
-            };
+            let result = value.call_fn(cx).await?;
 
             // serialize the output
             let result = match Self::encoding() {
                 Encoding::Url | Encoding::GetJSON => {
-                    match serde_json::to_string(&result).map_err(|e| {
-                        ServerFnError::Serialization(e.to_string())
-                    }) {
-                        Ok(r) => Payload::Url(r),
-                        Err(e) => return Err(e),
-                    }
+                    let url = serde_json::to_string(&result)
+                        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+                    Payload::Url(url)
                 }
                 Encoding::Cbor | Encoding::GetCBOR => {
                     let mut buffer: Vec<u8> = Vec::new();
-                    match ciborium::ser::into_writer(&result, &mut buffer)
-                        .map_err(|e| {
-                            ServerFnError::Serialization(e.to_string())
-                        }) {
-                        Ok(_) => Payload::Binary(buffer),
-                        Err(e) => return Err(e),
-                    }
+                    ciborium::ser::into_writer(&result, &mut buffer)
+                        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+                    Payload::Binary(buffer)
                 }
             };
 
