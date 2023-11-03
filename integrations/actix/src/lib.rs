@@ -165,6 +165,12 @@ pub fn handle_server_fns() -> Route {
 /// This version allows you to pass in a closure that adds additional route data to the
 /// context, allowing you to pass in info about the route or user from Actix, or other info.
 ///
+/// **NOTE**: If your server functions expect a context, make sure to provide it both in
+/// [`handle_server_fns_with_context`] **and** in [`leptos_routes_with_context`] (or whatever
+/// rendering method you are using). During SSR, server functions are called by the rendering
+/// method, while subsequent calls from the client are handled by the server function handler.
+/// The same context needs to be provided to both handlers.
+///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
 /// - [ResponseOptions]
