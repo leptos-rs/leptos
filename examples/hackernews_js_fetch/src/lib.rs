@@ -45,7 +45,7 @@ cfg_if! {
         Router,
         routing::post
     };
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::LeptosRoutes;
     use leptos::*;
     use log::{info, Level};
 
@@ -59,11 +59,10 @@ cfg_if! {
             console_error_panic_hook::set_once();
 
             let leptos_options = LeptosOptions::builder().output_name("client").site_pkg_dir("pkg").build();
-            let routes = generate_route_list(App);
 
             // build our application with a route
             let app: axum::Router<(), axum::body::Body> = Router::new()
-            .leptos_routes(&leptos_options, routes, || view! { <App/> } )
+            .leptos_routes(&leptos_options, App)
             .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
             .with_state(leptos_options);
 

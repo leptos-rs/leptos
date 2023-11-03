@@ -1285,18 +1285,6 @@ where
         })
     }
 }
-/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
-/// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
-/// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-pub fn generate_route_list<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
-) -> Vec<RouteListing>
-where
-    IV: IntoView + 'static,
-{
-    generate_route_list_with_exclusions_and_ssg(app_fn, None).0
-}
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
@@ -1412,7 +1400,6 @@ where
     fn leptos_routes<IV>(
         self,
         options: &S,
-        paths: Vec<RouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1421,7 +1408,6 @@ where
     fn leptos_routes_with_context<IV>(
         self,
         options: &S,
-        paths: Vec<RouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1651,20 +1637,18 @@ where
     fn leptos_routes<IV>(
         self,
         options: &S,
-        paths: Vec<RouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(options, paths, || {}, app_fn)
+        self.leptos_routes_with_context(options, || {}, app_fn)
     }
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
         options: &S,
-        paths: Vec<RouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1672,6 +1656,7 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
+        let paths = generate_route_list_with_ssg(app_fn.clone()).0;
         for listing in paths.iter() {
             let path = listing.path();
 

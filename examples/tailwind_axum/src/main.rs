@@ -3,7 +3,7 @@
 async fn main() {
     use axum::{routing::post, Router};
     use leptos::*;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::LeptosRoutes;
     use leptos_tailwind::{app::*, fallback::file_and_error_handler};
     use log::info;
 
@@ -18,13 +18,11 @@ async fn main() {
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
-    // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(App);
 
     // build our application with a route
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .leptos_routes(&leptos_options, routes, || view! { <App/> })
+        .leptos_routes(&leptos_options, App)
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 

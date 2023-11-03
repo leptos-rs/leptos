@@ -5,10 +5,10 @@ use leptos::*;
 cfg_if! {
     // server-only stuff
     if #[cfg(feature = "ssr")] {
-        use actix_files::{Files};
+        use actix_files::Files;
         use actix_web::*;
-        use hackernews::{App};
-        use leptos_actix::{LeptosRoutes, generate_route_list};
+        use hackernews::App;
+        use leptos_actix::LeptosRoutes;
 
         #[get("/style.css")]
         async fn css() -> impl Responder {
@@ -25,8 +25,6 @@ cfg_if! {
             let conf = get_configuration(None).await.unwrap();
 
             let addr = conf.leptos_options.site_addr;
-            // Generate the list of routes in your Leptos App
-            let routes = generate_route_list(App);
 
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
@@ -36,7 +34,7 @@ cfg_if! {
                     .service(css)
                     .service(favicon)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .leptos_routes(leptos_options.to_owned(), routes.to_owned(), App)
+                    .leptos_routes(leptos_options.to_owned(), App)
                     .service(Files::new("/", site_root))
                 //.wrap(middleware::Compress::default())
             })

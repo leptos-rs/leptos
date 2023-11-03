@@ -6,7 +6,7 @@ cfg_if! {
     use leptos::*;
     use crate::fallback::file_and_error_handler;
     use crate::todo::*;
-    use leptos_viz::{generate_route_list, LeptosRoutes};
+    use leptos_viz::LeptosRoutes;
     use todo_app_sqlite_viz::*;
     use viz::{
         types::{State, StateError},
@@ -51,7 +51,6 @@ cfg_if! {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(TodoApp);
 
         // build our application with a route
         let app = Router::new()
@@ -59,7 +58,6 @@ cfg_if! {
             .get("/special/:id", custom_handler)
             .leptos_routes(
                 leptos_options.clone(),
-                routes,
                 TodoApp,
             )
             .get("/*", file_and_error_handler)

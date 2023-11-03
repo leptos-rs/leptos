@@ -14,7 +14,7 @@ cfg_if! {
     use crate::todo::*;
     use todo_app_sqlite_axum::*;
     use crate::fallback::file_and_error_handler;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::LeptosRoutes;
 
     //Define a handler to test extractor with state
     async fn custom_handler(Path(id): Path<String>, State(options): State<LeptosOptions>, req: Request<AxumBody>) -> Response{
@@ -48,13 +48,12 @@ cfg_if! {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(TodoApp);
 
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(&leptos_options, routes, || view! { <TodoApp/> } )
+        .leptos_routes(&leptos_options, TodoApp)
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 

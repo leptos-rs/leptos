@@ -15,7 +15,7 @@ if #[cfg(feature = "ssr")] {
     use session_auth_axum::auth::*;
     use session_auth_axum::state::AppState;
     use session_auth_axum::fallback::file_and_error_handler;
-    use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
+    use leptos_axum::{generate_route_list_with_ssg, LeptosRoutes, handle_server_fns_with_context};
     use leptos::{logging::log, provide_context, get_configuration};
     use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
     use axum_session::{SessionConfig, SessionLayer, SessionStore};
@@ -80,7 +80,7 @@ if #[cfg(feature = "ssr")] {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(TodoApp);
+        let routes = generate_route_list_with_sgg(TodoApp).0;
 
         let app_state = AppState{
             leptos_options,
@@ -90,13 +90,13 @@ if #[cfg(feature = "ssr")] {
 
         // build our application with a route
         let app = Router::new()
-        .route("/api/*fn_name", get(server_fn_handler).post(server_fn_handler))
-        .leptos_routes_with_handler(routes, get(leptos_routes_handler) )
-        .fallback(file_and_error_handler)
-        .layer(AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(Some(pool.clone()))
-        .with_config(auth_config))
-        .layer(SessionLayer::new(session_store))
-        .with_state(app_state);
+            .route("/api/*fn_name", get(server_fn_handler).post(server_fn_handler))
+            .leptos_routes_with_handler(routes, get(leptos_routes_handler) )
+            .fallback(file_and_error_handler)
+            .layer(AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(Some(pool.clone()))
+            .with_config(auth_config))
+            .layer(SessionLayer::new(session_store))
+            .with_state(app_state);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

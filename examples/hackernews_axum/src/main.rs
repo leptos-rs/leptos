@@ -8,7 +8,7 @@ if #[cfg(feature = "ssr")] {
         Router,
         routing::get,
     };
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::LeptosRoutes;
     use hackernews_axum::fallback::file_and_error_handler;
 
     #[tokio::main]
@@ -18,14 +18,13 @@ if #[cfg(feature = "ssr")] {
         let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(App);
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
         // build our application with a route
         let app = Router::new()
         .route("/favicon.ico", get(file_and_error_handler))
-        .leptos_routes(&leptos_options, routes, || view! {  <App/> } )
+        .leptos_routes(&leptos_options, App)
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 
