@@ -140,7 +140,7 @@ where
 
                 {
                     // no resources were read under this, so just return the child
-                    if context.pending_resources.get() == 0 {
+                    if context.none_pending() {
                         with_owner(owner, move || {
                             //HydrationCtx::continue_from(current_id);
                             DynChild::new(move || children_rendered.clone())

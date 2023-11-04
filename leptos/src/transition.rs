@@ -139,10 +139,9 @@ pub fn Transition(
                 }
                 child_runs.set(child_runs.get() + 1);
 
-                let pending = suspense_context.pending_resources;
                 create_isomorphic_effect(move |_| {
                     if let Some(set_pending) = set_pending {
-                        set_pending.set(pending.get() > 0)
+                        set_pending.set(!suspense_context.none_pending())
                     }
                 });
                 frag
