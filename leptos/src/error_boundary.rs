@@ -2,7 +2,8 @@ use crate::Children;
 use leptos_dom::{Errors, HydrationCtx, IntoView};
 use leptos_macro::{component, view};
 use leptos_reactive::{
-    create_rw_signal, provide_context, signal_prelude::*, RwSignal,
+    create_rw_signal, provide_context, run_as_child, signal_prelude::*,
+    untrack, RwSignal,
 };
 
 /// When you render a `Result<_, _>` in your view, in the `Err` case it will
@@ -59,21 +60,22 @@ where
     F: Fn(RwSignal<Errors>) -> IV + 'static,
     IV: IntoView,
 {
-    let before_children = HydrationCtx::next_error();
+    run_as_child(move || {
+        let before_children = HydrationCtx::next_error();
 
-    let errors: RwSignal<Errors> = create_rw_signal(Errors::default());
+        let errors: RwSignal<Errors> = create_rw_signal(Errors::default());
 
-    provide_context(errors);
+        provide_context(errors);
 
-    // Run children so that they render and execute resources
-    _ = HydrationCtx::next_error();
-    let children = children();
-    HydrationCtx::continue_from(before_children);
+        // Run children so that they render and execute resources
+        _ = HydrationCtx::next_error();
+        let children = children();
+        HydrationCtx::continue_from(before_children);
 
-    #[cfg(all(debug_assertions, feature = "hydrate"))]
-    {
-        use leptos_dom::View;
-        if children.nodes.iter().any(|child| {
+        #[cfg(all(debug_assertions, feature = "hydrate"))]
+        {
+            use leptos_dom::View;
+            if children.nodes.iter().any(|child| {
             matches!(child, View::Suspense(_, _))
             || matches!(child, View::Component(repr) if repr.name() == "Transition")
         }) {
@@ -84,20 +86,21 @@ where
             \nview! {{ \
             \n  <Suspense fallback=todo!()>\n    <ErrorBoundary fallback=todo!()>\n      {{move || {{ /* etc. */")
         }
-    }
+        }
 
-    let children = children.into_view();
-    let errors_empty = create_memo(move |_| errors.with(Errors::is_empty));
+        let children = children.into_view();
+        let errors_empty = create_memo(move |_| errors.with(Errors::is_empty));
 
-    move || {
-        if errors_empty.get() {
-            children.clone().into_view()
-        } else {
-            view! {
+        move || {
+            if errors_empty.get() {
+                children.clone().into_view()
+            } else {
+                view! {
                 {fallback(errors)}
                 <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
             }
             .into_view()
+            }
         }
-    }
+    })
 }
