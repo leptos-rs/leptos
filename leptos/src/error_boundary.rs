@@ -3,7 +3,7 @@ use leptos_dom::{Errors, HydrationCtx, IntoView};
 use leptos_macro::{component, view};
 use leptos_reactive::{
     create_rw_signal, provide_context, run_as_child, signal_prelude::*,
-    untrack, RwSignal,
+    RwSignal,
 };
 
 /// When you render a `Result<_, _>` in your view, in the `Err` case it will
