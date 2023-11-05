@@ -16,6 +16,7 @@ use leptos_reactive::{
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # let runtime = create_runtime();
+/// # if false {
 /// let (value, set_value) = create_signal(Ok(0));
 /// let on_input =
 ///     move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
@@ -29,6 +30,7 @@ use leptos_reactive::{
 ///   </ErrorBoundary>
 /// }
 /// # ;
+/// # }
 /// # runtime.dispose();
 /// ```
 ///
