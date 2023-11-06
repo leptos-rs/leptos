@@ -96,6 +96,66 @@ where
         self.0.with_value(|a| a.dispatch(input))
     }
 
+    /// Create an [Action].
+    ///
+    /// [Action] is a type of [Signal] which represent imperative calls to
+    /// an asynchronous function. Where a [Resource] is driven as a function
+    /// of a [Signal], [Action]s are [Action::dispatch]ed by events or handlers.
+    ///
+    /// ```rust
+    /// # use leptos::*;
+    /// # let runtime = create_runtime();
+    ///
+    /// let act = Action::new(|n: &u8| {
+    ///     let n = n.to_owned();
+    ///     async move { n * 2 }
+    /// });
+    /// act.dispatch(3);
+    /// assert_eq!(act.value().get(), Some(6));
+    ///
+    /// // Remember that async functions already return a future if they are
+    /// // not `await`ed. You can save keystrokes by leaving out the `async move`
+    ///
+    /// let act2 = Action::new(|n: &String| yell(n.to_owned()));
+    /// act2.dispatch(String::from("im in a doctest"));
+    /// assert_eq!(act2.value().get(), Some("IM IN A DOCTEST".to_string()));
+    ///
+    /// async fn yell(n: String) -> String {
+    ///     n.to_uppercase()
+    /// }
+    ///
+    /// # runtime.dispose();
+    /// ```
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn new<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        let version = create_rw_signal(0);
+        let input = create_rw_signal(None);
+        let value = create_rw_signal(None);
+        let pending = create_rw_signal(false);
+        let pending_dispatches = Rc::new(Cell::new(0));
+        let action_fn = Rc::new(move |input: &I| {
+            let fut = action_fn(input);
+            Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
+        });
+
+        Action(store_value(ActionState {
+            version,
+            url: None,
+            input,
+            value,
+            pending,
+            pending_dispatches,
+            action_fn,
+        }))
+    }
+
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -103,6 +163,64 @@ where
     )]
     pub fn pending(&self) -> ReadSignal<bool> {
         self.0.with_value(|a| a.pending.read_only())
+    }
+
+    /// Create an [Action] to imperatively call a [server_fn::server] function.
+    ///
+    /// The struct representing your server function's arguments should be
+    /// provided to the [Action]. Unless specified as an argument to the server
+    /// macro, the generated struct is your function's name converted to CamelCase.
+    ///
+    /// ```rust ignore
+    //  # // Not in a localset, so this would always panic.
+    /// # use leptos::*;
+    /// # let rt = create_runtime();
+    ///
+    /// // The type argument can be on the right of the equal sign.
+    /// let act = Action::<Add, _>::server();
+    /// let args = Add { lhs: 5, rhs: 7 };
+    /// act.dispatch(args);
+    /// assert_eq!(act.value().get(), Some(Ok(12)));
+    ///
+    /// // Or on the left of the equal sign.
+    /// let act: Action<Sub, _> = Action::server();
+    /// let args = Sub { lhs: 20, rhs: 5 };
+    /// act.dispatch(args);
+    /// assert_eq!(act.value().get(), Some(Ok(15)));
+    ///
+    /// let not_dispatched = Action::<Add, _>::server();
+    /// assert_eq!(not_dispatched.value().get(), None);
+    ///
+    /// #[server]
+    /// async fn add(lhs: u8, rhs: u8) -> Result<u8, ServerFnError> {
+    ///     Ok(lhs + rhs)
+    /// }
+    ///
+    /// #[server]
+    /// async fn sub(lhs: u8, rhs: u8) -> Result<u8, ServerFnError> {
+    ///     Ok(lhs - rhs)
+    /// }
+    ///
+    /// # rt.dispose();
+    /// ```
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn server() -> Action<I, Result<I::Output, ServerFnError>>
+    where
+        I: ServerFn<Output = O> + Clone,
+    {
+        // The server is able to call the function directly
+        #[cfg(feature = "ssr")]
+        let action_function = |args: &I| I::call_fn(args.clone(), ());
+
+        // When not on the server send a fetch to request the fn call.
+        #[cfg(not(feature = "ssr"))]
+        let action_function = |args: &I| I::call_fn_client(args.clone(), ());
+
+        // create the action
+        Action::new(action_function).using_server_fn::<I>()
     }
 
     /// Updates whether the action is currently pending. If the action has been dispatched
@@ -339,25 +457,7 @@ where
     F: Fn(&I) -> Fu + 'static,
     Fu: Future<Output = O> + 'static,
 {
-    let version = create_rw_signal(0);
-    let input = create_rw_signal(None);
-    let value = create_rw_signal(None);
-    let pending = create_rw_signal(false);
-    let pending_dispatches = Rc::new(Cell::new(0));
-    let action_fn = Rc::new(move |input: &I| {
-        let fut = action_fn(input);
-        Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
-    });
-
-    Action(store_value(ActionState {
-        version,
-        url: None,
-        input,
-        value,
-        pending,
-        pending_dispatches,
-        action_fn,
-    }))
+    Action::new(action_fn)
 }
 
 /// Creates an [Action] that can be used to call a server function.
@@ -382,9 +482,5 @@ pub fn create_server_action<S>() -> Action<S, Result<S::Output, ServerFnError>>
 where
     S: Clone + ServerFn,
 {
-    #[cfg(feature = "ssr")]
-    let c = move |args: &S| S::call_fn(args.clone(), ());
-    #[cfg(not(feature = "ssr"))]
-    let c = move |args: &S| S::call_fn_client(args.clone(), ());
-    create_action(c).using_server_fn::<S>()
+    Action::<S, _>::server()
 }
