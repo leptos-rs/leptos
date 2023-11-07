@@ -1,7 +1,7 @@
 use leptos::ViewFn;
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
-#[cfg(feature = "hydrate")]
+#[allow(unused)]
 use leptos_reactive::SharedContext;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::SignalGet;
@@ -9,7 +9,7 @@ use leptos_reactive::{
     create_memo, provide_context, SignalGetUntracked, SuspenseContext,
 };
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-use leptos_reactive::{with_owner, Owner, SharedContext};
+use leptos_reactive::{with_owner, Owner};
 use std::rc::Rc;
 
 /// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
@@ -70,6 +70,11 @@ pub fn Suspense<V>(
 where
     V: IntoView + 'static,
 {
+    #[cfg(all(
+        feature = "experimental-islands",
+        not(any(feature = "csr", feature = "hydrate"))
+    ))]
+    let no_hydrate = SharedContext::no_hydrate();
     let orig_children = children;
     let context = SuspenseContext::new();
 
@@ -167,6 +172,14 @@ where
                                     leptos_reactive::set_current_runtime(
                                         runtime,
                                     );
+
+                                    #[cfg(feature = "experimental-islands")]
+                                    {
+                                        SharedContext::set_no_hydrate(
+                                            no_hydrate,
+                                        );
+                                    }
+
                                     with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
@@ -191,6 +204,14 @@ where
                                     leptos_reactive::set_current_runtime(
                                         runtime,
                                     );
+
+                                    #[cfg(feature = "experimental-islands")]
+                                    {
+                                        SharedContext::set_no_hydrate(
+                                            no_hydrate,
+                                        );
+                                    }
+
                                     with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
