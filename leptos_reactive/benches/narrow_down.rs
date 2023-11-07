@@ -65,16 +65,12 @@ fn leptos_narrow_down(c: &mut Criterion) {
 
     c.bench_function("leptos_narrow_down", |b| {
         b.iter(|| {
-            create_scope(runtime, |cx| {
-                let sigs =
-                    (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
-                let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
-                let memo = create_memo(cx, move |_| {
-                    reads.iter().map(|r| r.get()).sum::<i32>()
-                });
-                assert_eq!(memo(), 499500);
-            })
-            .dispose()
+            let sigs = (0..1000).map(|n| create_signal(n)).collect::<Vec<_>>();
+            let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
+            let memo = create_memo(move |_| {
+                reads.iter().map(|r| r.get()).sum::<i32>()
+            });
+            assert_eq!(memo.get(), 499500);
         });
     });
     runtime.dispose();

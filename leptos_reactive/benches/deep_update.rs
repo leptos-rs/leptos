@@ -80,21 +80,18 @@ fn leptos_deep_update(c: &mut Criterion) {
 
     c.bench_function("leptos_deep_update", |b| {
         b.iter(|| {
-            create_scope(runtime, |cx| {
-                let signal = create_rw_signal(cx, 0);
-                let mut memos = Vec::<Memo<usize>>::new();
-                for i in 0..1000usize {
-                    let prev = memos.get(i.saturating_sub(1)).copied();
-                    if let Some(prev) = prev {
-                        memos.push(create_memo(cx, move |_| prev.get() + 1));
-                    } else {
-                        memos.push(create_memo(cx, move |_| signal.get() + 1));
-                    }
+            let signal = create_rw_signal(0);
+            let mut memos = Vec::<Memo<usize>>::new();
+            for i in 0..1000usize {
+                let prev = memos.get(i.saturating_sub(1)).copied();
+                if let Some(prev) = prev {
+                    memos.push(create_memo(move |_| prev.get() + 1));
+                } else {
+                    memos.push(create_memo(move |_| signal.get() + 1));
                 }
-                signal.set(1);
-                assert_eq!(memos[999].get(), 1001);
-            })
-            .dispose()
+            }
+            signal.set(1);
+            assert_eq!(memos[999].get(), 1001);
         });
     });
     runtime.dispose();
