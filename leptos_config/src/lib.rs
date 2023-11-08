@@ -70,6 +70,9 @@ pub struct LeptosOptions {
     #[builder(default = default_not_found_path())]
     #[serde(default = "default_not_found_path")]
     pub not_found_path: String,
+    /// When enabled, it will use the js and wasm file timestamp to force browser to refresh the cache.
+    #[serde(default)]
+    pub use_cache_busting: bool,
 }
 
 impl LeptosOptions {

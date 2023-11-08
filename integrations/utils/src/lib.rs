@@ -2,6 +2,7 @@ use futures::{Stream, StreamExt};
 use leptos::{nonce::use_nonce, use_context, RuntimeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
+use std::path::PathBuf;
 
 extern crate tracing;
 
@@ -48,6 +49,15 @@ fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
         ),
         false => "".to_string(),
     }
+}
+
+fn get_timestamp_query(path: PathBuf) -> String {
+    path.metadata()
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|e| format!("?{}", e.as_millis()))
+        .unwrap_or_default()
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
@@ -100,6 +110,35 @@ pub fn html_parts_separated(
     } else {
         "() => mod.hydrate()"
     };
+
+    let js_output_url = {
+        let ts = if options.use_cache_busting {
+            get_timestamp_query(
+                PathBuf::from(&options.site_root)
+                    .join(pkg_path)
+                    .join(output_name)
+                    .with_extension("js"),
+            )
+        } else {
+            String::new()
+        };
+        format!("/{pkg_path}/{output_name}.js{ts}")
+    };
+
+    let wasm_output_url = {
+        let ts = if options.use_cache_busting {
+            get_timestamp_query(
+                PathBuf::from(&options.site_root)
+                    .join(pkg_path)
+                    .join(&wasm_output_name)
+                    .with_extension("wasm"),
+            )
+        } else {
+            String::new()
+        };
+        format!("/{pkg_path}/{wasm_output_name}.wasm{ts}")
+    };
+
     let head = format!(
         r#"<!DOCTYPE html>
             <html{html_metadata}>
@@ -107,8 +146,8 @@ pub fn html_parts_separated(
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     {head}
-                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js"{nonce}>
-                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
+                    <link rel="modulepreload" href="{js_output_url}"{nonce}>
+                    <link rel="preload" href="{wasm_output_url}" as="fetch" type="application/wasm" crossorigin=""{nonce}>
                     <script type="module"{nonce}>
                         function idle(c) {{
                             if ("requestIdleCallback" in window) {{
@@ -118,9 +157,9 @@ pub fn html_parts_separated(
                             }}
                         }}
                         idle(() => {{
-                            import('/{pkg_path}/{output_name}.js')
+                            import('{js_output_url}')
                                 .then(mod => {{
-                                    mod.default('/{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
+                                    mod.default('{wasm_output_url}').then({import_callback});
                                 }})
                         }});
                     </script>
