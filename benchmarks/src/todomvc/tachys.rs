@@ -1,7 +1,14 @@
 pub use leptos_reactive::*;
 use miniserde::*;
 use tachy_maccy::view;
-use tachydom::view::Render;
+use tachydom::{
+    html::{
+        attribute::global::{ClassAttribute, GlobalAttributes, OnAttribute},
+        element::ElementChild,
+    },
+    renderer::dom::Dom,
+    view::{keyed::keyed, Render, RenderHtml},
+};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
@@ -103,7 +110,7 @@ impl Todo {
 const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
-pub fn TodoMVC(todos: Todos) -> impl Render {
+pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
     let mut next_id = todos
         .0
         .iter()
@@ -178,7 +185,7 @@ pub fn TodoMVC(todos: Todos) -> impl Render {
                     <input
                         class="new-todo"
                         placeholder="What needs to be done?"
-                        autofocus=""
+                        autofocus
                     />
                 </header>
                 <section class="main" class:hidden=move || todos.with(|t| t.is_empty())>
@@ -191,7 +198,9 @@ pub fn TodoMVC(todos: Todos) -> impl Render {
                     />
                     <label r#for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
-                        {filtered_todos.get().into_iter().map(Todo).collect::<Vec<_>>()}
+                        {move || {
+                            keyed(filtered_todos.get(), |todo| todo.id, Todo)
+                        }}
                     </ul>
                 </section>
                 <footer class="footer" class:hidden=move || todos.with(|t| t.is_empty())>
@@ -239,7 +248,7 @@ pub fn TodoMVC(todos: Todos) -> impl Render {
     }
 }
 
-pub fn Todo(todo: Todo) -> impl Render {
+pub fn Todo(todo: Todo) -> impl Render<Dom> + RenderHtml<Dom> {
     let (editing, set_editing) = create_signal(false);
     let set_todos = use_context::<WriteSignal<Todos>>().unwrap();
     //let input = NodeRef::new();
