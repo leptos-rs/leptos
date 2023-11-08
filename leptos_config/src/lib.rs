@@ -111,6 +111,12 @@ impl LeptosOptions {
                 env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
             )?,
             not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?,
+            use_cache_busting: env_w_default(
+                "LEPTOS_USE_CACHE_BUSTING",
+                "false",
+            )?
+            .parse()
+            .unwrap_or_default(),
         })
     }
 }
