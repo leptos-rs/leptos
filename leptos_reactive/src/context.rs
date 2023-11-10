@@ -56,6 +56,8 @@ use std::any::{Any, TypeId};
 /// contexts provided by their parents, including for their siblings, if they “shadow” context
 /// by providing another context of the same kind.
 /// ```rust
+/// use leptos::*;
+///
 /// #[component]
 /// fn Parent() -> impl IntoView {
 ///     provide_context("parent_context");
@@ -86,6 +88,7 @@ use std::any::{Any, TypeId};
 /// to simply make the body of `<Child/>` a function, which means it will be wrapped in a
 /// new reactive node when rendered:
 /// ```rust
+/// # use leptos::*;
 /// #[component]
 /// fn Child() -> impl IntoView {
 ///     let context = expect_context::<&'static str>();
