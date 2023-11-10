@@ -9,8 +9,8 @@ use std::any::{Any, TypeId};
 /// arguments to a function or properties of a component.
 ///
 /// Context works similarly to variable scope: a context that is provided higher in
-/// the component tree can be used lower down, but a context that is provided lower
-/// in the tree cannot be used higher up.
+/// the reactive graph can be used lower down, but a context that is provided lower
+/// down cannot be used higher up.
 ///
 /// ```
 /// use leptos::*;
@@ -41,6 +41,92 @@ use std::any::{Any, TypeId};
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the reactive graph and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>().unwrap().0;
+/// }
+/// ```
+///
+/// ## Warning: Shadowing Context Correctly
+///
+/// The reactive graph exists alongside the component tree. Generally
+/// speaking, context provided by a parent component can be accessed by its children
+/// and other descendants, and not vice versa. But components do not exist at
+/// runtime: a parent and children that are all rendered unconditionally exist in the same
+/// reactive scope.
+///
+/// This can have unexpected effects on context: namely, children can sometimes override
+/// contexts provided by their parents, including for their siblings, if they “shadow” context
+/// by providing another context of the same kind.
+/// ```rust
+/// #[component]
+/// fn Parent() -> impl IntoView {
+///     provide_context("parent_context");
+///     view! {
+///         <Child /> // this is receiving "parent_context" as expected
+///         <Child /> // but this is receiving "child_context" instead of "parent_context"!
+///     }
+/// }
+///
+/// #[component]
+/// fn Child() -> impl IntoView {
+///     // first, we receive context from parent (just before the override)
+///     let context = expect_context::<&'static str>();
+///     // then we provide context under the same type
+///     provide_context("child_context");
+///     view! {
+///         <div>{format!("child (context: {context})")}</div>
+///     }
+/// }
+/// ```
+/// In this case, neither of the children is rendered dynamically, so there is no wrapping
+/// effect created around either. All three components here have the same reactive owner, so
+/// providing a new context of the same type in the first `<Child/>` overrides the context
+/// that was provided in `<Parent/>`, meaning that the second `<Child/>` receives the context
+/// from its sibling instead.
+///
+/// This can be solved by introducing some additional reactivity. In this case, it’s simplest
+/// to simply make the body of `<Child/>` a function, which means it will be wrapped in a
+/// new reactive node when rendered:
+/// ```rust
+/// #[component]
+/// fn Child() -> impl IntoView {
+///     let context = expect_context::<&'static str>();
+///     // creates a new reactive node, which means the context will
+///     // only be provided to its children, not modified in the parent
+///     move || {
+///         provide_context("child_context");
+///         view! {
+///             <div>{format!("child (context: {context})")}</div>
+///         }
+///     }
+/// }
+/// ```
+///
+/// This is equivalent to the difference between two different forms of variable shadowing
+/// in ordinary Rust:
+/// ```rust
+/// // shadowing in a flat hierarchy overrides value for siblings
+/// // <Parent/>: declares variable
+/// let context = "parent_context";
+/// // First <Child/>: consumes variable, then shadows
+/// println!("{context:?}");
+/// let context = "child_context";
+/// // Second <Child/>: consumes variable, then shadows
+/// println!("{context:?}");
+/// let context = "child_context";
+///
+/// // but shadowing in nested scopes works as expected
+/// // <Parent/>
+/// let context = "parent_context";
+///
+/// // First <Child/>
+/// {
+///     println!("{context:?}");
+///     let context = "child_context";
+/// }
+///
+/// // Second <Child/>
+/// {
+///     println!("{context:?}");
+///     let context = "child_context";
 /// }
 /// ```
 #[cfg_attr(
@@ -82,7 +168,7 @@ where
 /// arguments to a function or properties of a component.
 ///
 /// Context works similarly to variable scope: a context that is provided higher in
-/// the component tree can be used lower down, but a context that is provided lower
+/// the reactive graph can be used lower down, but a context that is provided lower
 /// in the tree cannot be used higher up.
 ///
 /// ```
@@ -154,7 +240,7 @@ where
 /// arguments to a function or properties of a component.
 ///
 /// Context works similarly to variable scope: a context that is provided higher in
-/// the component tree can be used lower down, but a context that is provided lower
+/// the reactive graph can be used lower down, but a context that is provided lower
 /// in the tree cannot be used higher up.
 ///
 /// ```
