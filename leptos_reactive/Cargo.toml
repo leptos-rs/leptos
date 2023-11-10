@@ -117,15 +117,3 @@ skip_feature_sets = [
     "rkyv",
   ],
 ]
-
-[[bench]]
-name = "deep_update"
-harness = false
-
-[[bench]]
-name = "fan_out"
-harness = false
-
-[[bench]]
-name = "narrow_down"
-harness = false
