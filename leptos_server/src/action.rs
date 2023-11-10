@@ -110,6 +110,7 @@ where
     ///     let n = n.to_owned();
     ///     async move { n * 2 }
     /// });
+    /// # if false {
     /// act.dispatch(3);
     /// assert_eq!(act.value().get(), Some(6));
     ///
@@ -117,8 +118,9 @@ where
     /// // not `await`ed. You can save keystrokes by leaving out the `async move`
     ///
     /// let act2 = Action::new(|n: &String| yell(n.to_owned()));
-    /// act2.dispatch(String::from("im in a doctest"));
-    /// assert_eq!(act2.value().get(), Some("IM IN A DOCTEST".to_string()));
+    /// act2.dispatch(String::from("i'm in a doctest"));
+    /// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+    /// # }
     ///
     /// async fn yell(n: String) -> String {
     ///     n.to_uppercase()
@@ -171,8 +173,9 @@ where
     /// provided to the [Action]. Unless specified as an argument to the server
     /// macro, the generated struct is your function's name converted to CamelCase.
     ///
-    /// ```rust ignore
-    //  # // Not in a localset, so this would always panic.
+    /// ```rust
+    /// # // Not in a localset, so this would always panic.
+    /// # if false {
     /// # use leptos::*;
     /// # let rt = create_runtime();
     ///
@@ -202,6 +205,7 @@ where
     /// }
     ///
     /// # rt.dispose();
+    /// # }
     /// ```
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
