@@ -1,59 +1,55 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    token::Dot,
-    Token, Type,
+    Token,
 };
 
 struct SliceMacroInput {
-    pub root: Ident,
-    pub path: Punctuated<Type, Dot>,
+    root: syn::Ident,
+    path: Punctuated<syn::Ident, Token![.]>,
 }
 
 impl Parse for SliceMacroInput {
-    fn parse(input: ParseStream) -> Result<Self, syn::Error> {
-        let root = syn::Ident::parse(input)?;
-        let _dot = <Token![.]>::parse(input)?;
-        let path = input.parse_terminated(Type::parse, Token![.])?;
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let root: syn::Ident = input.parse()?;
+        input.parse::<Token![.]>()?;
+        // do not accept trailing punctuation
+        let path: Punctuated<syn::Ident, Token![.]> =
+            Punctuated::parse_separated_nonempty(input)?;
 
         if path.is_empty() {
-            return Err(syn::Error::new(input.span(), "Expected identifier"));
+            return Err(input.error("expected identifier"));
         }
 
-        if path.trailing_punct() {
-            return Err(syn::Error::new(
-                input.span(),
-                "Unexpected trailing `.`",
-            ));
+        if !input.is_empty() {
+            return Err(input.error("unexpected token"));
         }
 
-        Ok(SliceMacroInput { root, path })
+        Ok(Self { root, path })
     }
 }
 
-impl From<SliceMacroInput> for TokenStream {
-    fn from(val: SliceMacroInput) -> Self {
-        let root = val.root;
-        let path = val.path;
+impl ToTokens for SliceMacroInput {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let root = &self.root;
+        let path = &self.path;
 
-        quote! {
+        tokens.extend(quote! {
             ::leptos::create_slice(
                 #root,
                 |st: &_| st.#path.clone(),
                 |st: &mut _, n| st.#path = n
             )
-        }
-        .into()
+        })
     }
 }
 
 pub fn slice_impl(tokens: TokenStream) -> TokenStream {
     let input = parse_macro_input!(tokens as SliceMacroInput);
-    input.into()
+    input.into_token_stream().into()
 }
