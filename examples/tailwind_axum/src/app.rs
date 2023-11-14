@@ -6,9 +6,11 @@ use leptos_router::*;
 pub fn App() -> impl IntoView {
     provide_meta_context();
 
+    let site_pkg_dir = option_env!("LEPTOS_SITE_PKG_DIR").unwrap_or("pkg");
+
     view! {
 
-        <Stylesheet id="leptos" href="/pkg/tailwind.css"/>
+        <Stylesheet id="leptos" href=format!("{}/tailwind.css", site_pkg_dir)/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Router>
             <Routes>
