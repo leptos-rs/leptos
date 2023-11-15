@@ -450,7 +450,13 @@ pub(crate) fn attribute_expression(
                     el.remove_attribute(attr_name).unwrap_throw();
                 }
             }
-            _ => panic!("Remove nested Fn in Attribute"),
+            Attribute::Fn(f) => {
+                let mut v = f();
+                while let Attribute::Fn(f) = v {
+                    v = f();
+                }
+                attribute_expression(el, attr_name, v, force);
+            }
         }
     }
 }
