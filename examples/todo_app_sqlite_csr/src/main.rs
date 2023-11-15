@@ -11,7 +11,7 @@ mod ssr_imports {
     pub use leptos::*;
     pub use leptos_axum::{generate_route_list, LeptosRoutes};
     pub use todo_app_sqlite_csr::{
-        fallback::file_and_error_handler, todo::*, *,
+        fallback::file_or_index_handler, todo::*, *,
     };
 }
 
@@ -31,8 +31,7 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .route("/", get(html))
-        .fallback(file_and_error_handler)
+        .fallback(file_or_index_handler)
         .with_state(leptos_options);
 
     // run our app with hyper
@@ -42,17 +41,6 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
-}
-
-#[cfg(feature = "ssr")]
-async fn html(
-    axum::extract::State(options): axum::extract::State<leptos::LeptosOptions>,
-) -> axum::response::Html<String> {
-    use leptos_integration_utils::html_parts_separated;
-
-    let (head, tail) = html_parts_separated(&options, None);
-
-    axum::response::Html(format!("{head}</head><body>{tail}"))
 }
 
 #[cfg(not(feature = "ssr"))]

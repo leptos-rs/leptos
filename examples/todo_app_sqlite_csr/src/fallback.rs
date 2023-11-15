@@ -1,18 +1,17 @@
-use crate::{error_template::ErrorTemplate, errors::TodoAppError};
 use axum::{
     body::{boxed, Body, BoxBody},
     extract::State,
     http::{Request, Response, StatusCode, Uri},
-    response::{IntoResponse, Response as AxumResponse},
+    response::{Html, IntoResponse, Response as AxumResponse},
 };
-use leptos::{view, Errors, LeptosOptions};
+use leptos::LeptosOptions;
+use leptos_integration_utils::html_parts_separated;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
-pub async fn file_and_error_handler(
+pub async fn file_or_index_handler(
     uri: Uri,
     State(options): State<LeptosOptions>,
-    req: Request<Body>,
 ) -> AxumResponse {
     let root = options.site_root.clone();
     let res = get_static_file(uri.clone(), &root).await.unwrap();
@@ -20,13 +19,9 @@ pub async fn file_and_error_handler(
     if res.status() == StatusCode::OK {
         res.into_response()
     } else {
-        let mut errors = Errors::default();
-        errors.insert_with_default_key(TodoAppError::NotFound);
-        let handler = leptos_axum::render_app_to_stream(
-            options.to_owned(),
-            move || view! {<ErrorTemplate outside_errors=errors.clone()/>},
-        );
-        handler(req).await.into_response()
+        let (head, tail) = html_parts_separated(&options, None);
+
+        Html(format!("{head}</head><body>{tail}")).into_response()
     }
 }
 
