@@ -34,7 +34,7 @@ pub fn FormExample() -> impl IntoView {
 
 	view! {
 		<Form method="GET" action="">
-			<input type="search" name="search" value=search/>
+			<input type="search" name="q" value=search/>
 			<input type="submit"/>
 		</Form>
 		<Transition fallback=move || ()>
@@ -53,7 +53,7 @@ We can actually take it a step further and do something kind of clever:
 ```rust
 view! {
 	<Form method="GET" action="">
-		<input type="search" name="search" value=search
+		<input type="search" name="q" value=search
 			oninput="this.form.requestSubmit()"
 		/>
 	</Form>
