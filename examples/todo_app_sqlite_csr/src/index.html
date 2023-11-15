@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/favicon.ico" rel="shortcut icon" type="image/ico" />
+    <link id="leptos" href="/pkg/todo_app_sqlite_csr.css" rel="stylesheet" />
+    <link rel="modulepreload" href="/pkg/todo_app_sqlite_csr.js" />
+    <link
+      rel="preload"
+      href="/pkg/todo_app_sqlite_csr.wasm"
+      as="fetch"
+      type="application/wasm"
+      crossorigin=""
+    />
+	<title>Leptos App</title>
+    <script type="module">
+      function idle(c) {
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(c);
+        } else {
+          c();
+        }
+      }
+      idle(() => {
+        import("/pkg/todo_app_sqlite_csr.js").then((mod) => {
+          mod
+            .default("/pkg/todo_app_sqlite_csr.wasm")
+            .then(() => mod.hydrate());
+        });
+      });
+    </script>
+  </head>
+  <body></body>
+</html>
