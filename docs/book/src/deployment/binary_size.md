@@ -1,4 +1,4 @@
-# Appendix: Optimizing WASM Binary Size
+# Optimizing WASM Binary Size
 
 One of the primary downsides of deploying a Rust/WebAssembly frontend app is that splitting a WASM file into smaller chunks to be dynamically loaded is significantly more difficult than splitting a JavaScript bundle. There have been experiments like [`wasm-split`](https://emscripten.org/docs/optimizing/Module-Splitting.html) in the Emscripten ecosystem but at present there’s no way to split and dynamically load a Rust/`wasm-bindgen` binary. This means that the whole WASM binary needs to be loaded before your app becomes interactive. Because the WASM format is designed for streaming compilation, WASM files are much faster to compile per kilobyte than JavaScript files. (For a deeper look, you can [read this great article from the Mozilla team](https://hacks.mozilla.org/2018/01/making-webassembly-even-faster-firefoxs-new-streaming-and-tiering-compiler/) on streaming WASM compilation.)
 
