@@ -384,7 +384,7 @@ async fn handle_server_fns_inner(
                 Response::builder().status(StatusCode::BAD_REQUEST).body(
                     Full::from(format!(
                         "Could not find a server function at the route \
-                         {fn_name}. \n\nIt's likely that either 
+                         {fn_name}. \n\nIt's likely that either
                          1. The API prefix you specify in the `#[server]` \
                          macro doesn't match the prefix at which your server \
                          function handler is mounted, or \n2. You are on a \
@@ -1835,8 +1835,8 @@ impl ExtractorHelper {
     where
         S: Sized,
         F: Extractor<T, U, S>,
-        T: std::fmt::Debug + Send + FromRequestParts<S> + 'static,
-        T::Rejection: std::fmt::Debug + Send + 'static,
+        T: core::fmt::Debug + Send + FromRequestParts<S> + 'static,
+        T::Rejection: core::fmt::Debug + Send + 'static,
     {
         let mut parts = self.parts.lock().await;
         let data = T::from_request_parts(&mut parts, &s).await?;
@@ -1879,8 +1879,8 @@ pub async fn extract<T, U>(
     f: impl Extractor<T, U, ()>,
 ) -> Result<U, T::Rejection>
 where
-    T: std::fmt::Debug + Send + FromRequestParts<()> + 'static,
-    T::Rejection: std::fmt::Debug + Send + 'static,
+    T: core::fmt::Debug + Send + FromRequestParts<()> + 'static,
+    T::Rejection: core::fmt::Debug + Send + 'static,
 {
     extract_with_state((), f).await
 }
@@ -1947,8 +1947,8 @@ pub async fn extract_with_state<T, U, S>(
 ) -> Result<U, T::Rejection>
 where
     S: Sized,
-    T: std::fmt::Debug + Send + FromRequestParts<S> + 'static,
-    T::Rejection: std::fmt::Debug + Send + 'static,
+    T: core::fmt::Debug + Send + FromRequestParts<S> + 'static,
+    T::Rejection: core::fmt::Debug + Send + 'static,
 {
     use_context::<ExtractorHelper>()
         .expect(

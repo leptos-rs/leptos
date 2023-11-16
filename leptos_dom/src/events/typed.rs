@@ -324,8 +324,8 @@ macro_rules! generate_event_types {
         )*
       }
 
-      impl ::std::fmt::Debug for GenericEventHandler {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+      impl ::core::fmt::Debug for GenericEventHandler {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
           match self {
             $(
               Self::[< $($event:camel)+ >](event, _) => f

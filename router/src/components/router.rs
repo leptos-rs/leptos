@@ -66,8 +66,8 @@ pub(crate) struct RouterContextInner {
     pub(crate) path_stack: StoredValue<Vec<String>>,
 }
 
-impl std::fmt::Debug for RouterContextInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RouterContextInner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RouterContextInner")
             .field("location", &self.location)
             .field("base", &self.base)

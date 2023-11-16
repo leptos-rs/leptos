@@ -78,7 +78,7 @@ impl Default for ParamsMap {
 /// # use leptos_router::params_map;
 /// let map = params_map! {
 ///     "crate" => "leptos",
-///     42 => true, // where key & val: std::fmt::Display
+///     42 => true, // where key & val: core::fmt::Display
 /// };
 /// assert_eq!(map.get("crate"), Some(&"leptos".to_string()));
 /// assert_eq!(map.get("42"), Some(&true.to_string()))

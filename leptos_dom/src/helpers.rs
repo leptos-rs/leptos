@@ -458,8 +458,8 @@ where
 /// A handle that can be called to remove a global event listener.
 pub struct WindowListenerHandle(Box<dyn FnOnce()>);
 
-impl std::fmt::Debug for WindowListenerHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for WindowListenerHandle {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("WindowListenerHandle").finish()
     }
 }

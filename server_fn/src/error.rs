@@ -72,7 +72,7 @@ pub enum ServerFnError {
     MissingArg(String),
 }
 
-impl std::fmt::Display for ServerFnError {
+impl core::fmt::Display for ServerFnError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
