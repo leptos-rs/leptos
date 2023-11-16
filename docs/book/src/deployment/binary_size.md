@@ -59,13 +59,13 @@ And you'll need to add `panic = "abort"` to `[profile.release]` in `Cargo.toml`.
 
 ## Things to Avoid
 
-There are certain crates that tend to inflate binary sizes. For example, the `regex` crate with its default features adds about 500kb to a WASM binary (largely because it has to pull in Unicode table data!) In a size-conscious setting, you might consider avoiding regexes in general, or even dropping down and calling browser APIs to use the built-in regex engine instead. (This is what `leptos_router` does on the few occasions it needs a regular expression.)
+There are certain crates that tend to inflate binary sizes. For example, the `regex` crate with its default features adds about 500kb to a WASM binary (largely because it has to pull in Unicode table data!). In a size-conscious setting, you might consider avoiding regexes in general, or even dropping down and calling browser APIs to use the built-in regex engine instead. (This is what `leptos_router` does on the few occasions it needs a regular expression.)
 
 In general, Rust’s commitment to runtime performance is sometimes at odds with a commitment to a small binary. For example, Rust monomorphizes generic functions, meaning it creates a distinct copy of the function for each generic type it’s called with. This is significantly faster than dynamic dispatch, but increases binary size. Leptos tries to balance runtime performance with binary size considerations pretty carefully; but you might find that writing code that uses many generics tends to increase binary size. For example, if you have a generic component with a lot of code in its body and call it with four different types, remember that the compiler could include four copies of that same code. Refactoring to use a concrete inner function or helper can often maintain performance and ergonomics while reducing binary size.
 
 ## A Final Thought
 
-Remember that in a server-rendered app, JS bundle size/WASM binary size affects only _one_ thing: time to interactivity on the first load. This is very important to a good user experience—nobody wants to click a button three times and have it do nothing because the interactive code is still loading—but it is not the only important measure.
+Remember that in a server-rendered app, JS bundle size/WASM binary size affects only _one_ thing: time to interactivity on the first load. This is very important to a good user experience: nobody wants to click a button three times and have it do nothing because the interactive code is still loading — but it's not the only important measure.
 
 It’s especially worth remembering that streaming in a single WASM binary means all subsequent navigations are nearly instantaneous, depending only on any additional data loading. Precisely because your WASM binary is _not_ bundle split, navigating to a new route does not require loading additional JS/WASM, as it does in nearly every JavaScript framework. Is this copium? Maybe. Or maybe it’s just an honest trade-off between the two approaches!
 
