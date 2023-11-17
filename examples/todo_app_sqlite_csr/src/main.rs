@@ -1,4 +1,5 @@
 #[cfg(feature = "ssr")]
+#[allow(unused)]
 mod ssr_imports {
     pub use axum::{
         body::Body as AxumBody,
@@ -15,6 +16,7 @@ mod ssr_imports {
     };
 }
 
+#[cfg(feature = "ssr")]
 #[cfg_attr(feature = "ssr", tokio::main)]
 async fn main() {
     use ssr_imports::*;
