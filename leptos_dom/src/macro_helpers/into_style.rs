@@ -27,8 +27,8 @@ impl PartialEq for Style {
     }
 }
 
-impl std::fmt::Debug for Style {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Style {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Value(arg0) => f.debug_tuple("Value").field(arg0).finish(),
             Self::Fn(_) => f.debug_tuple("Fn").finish(),

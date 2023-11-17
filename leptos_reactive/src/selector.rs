@@ -111,11 +111,11 @@ where
     f: Rc<dyn Fn(&T, &T) -> bool>,
 }
 
-impl<T> std::fmt::Debug for Selector<T>
+impl<T> core::fmt::Debug for Selector<T>
 where
     T: PartialEq + Eq + Clone + Hash + 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Selector").finish()
     }
 }

@@ -291,8 +291,8 @@ pub enum StreamChunk {
     },
 }
 
-impl std::fmt::Debug for StreamChunk {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for StreamChunk {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             StreamChunk::Sync(data) => write!(f, "StreamChunk::Sync({data:?})"),
             StreamChunk::Async { .. } => write!(f, "StreamChunk::Async(_)"),

@@ -27,8 +27,8 @@ pub struct RouteDefinition {
     pub static_params: Option<StaticData>,
 }
 
-impl std::fmt::Debug for RouteDefinition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RouteDefinition {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RouteDefinition")
             .field("path", &self.path)
             .field("children", &self.children)

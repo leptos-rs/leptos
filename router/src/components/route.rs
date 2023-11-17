@@ -72,7 +72,7 @@ pub fn Route<E, F, P>(
 where
     E: IntoView,
     F: Fn() -> E + 'static,
-    P: std::fmt::Display,
+    P: core::fmt::Display,
 {
     define_route(
         children,
@@ -122,7 +122,7 @@ pub fn ProtectedRoute<P, E, F, C>(
 where
     E: IntoView,
     F: Fn() -> E + 'static,
-    P: std::fmt::Display + 'static,
+    P: core::fmt::Display + 'static,
     C: Fn() -> bool + 'static,
 {
     use crate::Redirect;
@@ -178,7 +178,7 @@ pub fn StaticRoute<E, F, P, S>(
 where
     E: IntoView,
     F: Fn() -> E + 'static,
-    P: std::fmt::Display,
+    P: core::fmt::Display,
     S: Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap> + Send + Sync>>
         + Send
         + Sync
@@ -407,8 +407,8 @@ impl PartialEq for RouteContextInner {
     }
 }
 
-impl std::fmt::Debug for RouteContextInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RouteContextInner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RouteContextInner")
             .field("path", &self.path)
             .field("ParamsMap", &self.params)

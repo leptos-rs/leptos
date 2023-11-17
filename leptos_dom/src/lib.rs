@@ -1179,7 +1179,7 @@ where
     }
 }
 
-impl IntoView for std::fmt::Arguments<'_> {
+impl IntoView for core::fmt::Arguments<'_> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "#text", skip_all)
