@@ -1364,3 +1364,9 @@ where
         TextProp(Rc::new(move || s().into()))
     }
 }
+
+impl Default for TextProp {
+    fn default() -> Self {
+        Self(Rc::new(|| Oco::Borrowed("")))
+    }
+}
