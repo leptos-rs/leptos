@@ -213,7 +213,7 @@ pub use suspense_component::*;
 mod suspense_component;
 mod transition;
 
-#[cfg(any(debug_assertions, feature = "ssr", docs))]
+#[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
