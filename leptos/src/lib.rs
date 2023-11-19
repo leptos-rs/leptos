@@ -75,28 +75,6 @@
 //! - **Routing**: the [`leptos_router`](https://docs.rs/leptos_router/latest/leptos_router/) crate
 //! - **Server Functions**: the [`server`](crate::leptos_server) macro, [`create_action`], and [`create_server_action`]
 //!
-//! # Feature Flags
-//! - `nightly`: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
-//! - `csr` Client-side rendering: Generate DOM nodes in the browser
-//! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `serde` (*Default*) In SSR/hydrate mode, uses [`serde`](https://docs.rs/serde/latest/serde/) to serialize resources and send them
-//!   from the server to the client.
-//! - `serde-lite` In SSR/hydrate mode, uses [`serde-lite`](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
-//!   from the server to the client.
-//! - `rkyv` In SSR/hydrate mode, uses [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
-//!   from the server to the client.
-//! - `miniserde` In SSR/hydrate mode, uses [`miniserde`](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
-//!   from the server to the client.
-//! - `tracing` Adds additional support for [`tracing`](https://docs.rs/tracing/latest/tracing/) to components.
-//! - `default-tls` Use default native TLS support. (Only applies when using server functions with a non-WASM client like a desktop app.)
-//! - `rustls` Use `rustls`. (Only applies when using server functions with a non-WASM client like a desktop app.)
-//! - `template_macro` Enables the [`template!`](leptos_macro::template) macro, which offers faster DOM node creation for some use cases in `csr`.
-//!
-//! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
-//! which mode your app is operating in. You should only enable one of these per build target,
-//! i.e., you should not have both `hydrate` and `ssr` enabled for your server binary, only `ssr`.
-//!
 //! # A Simple Counter
 //!
 //! ```rust
@@ -140,6 +118,37 @@
 //! }
 //! # }
 //! ```
+//!
+//! # All Features
+//!
+//! | Feature                   | Description                                                   | Default |
+//! |:----------------------    |:------------------------------------------------------------  |:--------|
+//! | nightly                   | **Syntax**: conveniences like `name()` vs. `name.get()`       | No      |
+//! | csr[^1]                   | **Rendering**: Client-side. DOM nodes in browser.             | No      |
+//! | ssr[^1]                   | **Rendering**: Server-side. HTML typically on server.         | No      |
+//! | experimental-islands[^1]  | **Rendering**: Render components on server by default.        | No      |
+//! | hydrate[^1]               | **Rendering-ish**: Add interactivity to an SSR app.           | No      |
+//! | serde                     | **(De)Serialization**: use [serde] for [Resource]s.           | Yes     |
+//! | serde-lite                | **(De)Serialization**: use [serde-lite] for [Resource]s.      | No      |
+//! | rkyv                      | **(De)Serialization**: use [rkyv] for [Resource]s.            | No      |
+//! | miniserde                 | **(De)Serialization**: use [miniserde] for [Resource]s.       | No      |
+//! | tracing                   | **Logs & Telemetry**, [tracing] support for [component]s.     | No      |
+//! | default-tls[^2]           | **Networking**: Use default native TLS support.               | No      |
+//! | rustls[^2]                | **Networking**: Use [rustls].                                 | No      |
+//! | template_macro            | **Templating**: Enables the legacy [template] macro.          | No      |
+//!
+//! [^1]: At least one **rendering** feature must be enabled. An Isomorphic crate may have
+//! multiple rendering features listed in `Cargo.toml`. When compiling, ensure **one** rendering
+//! feature is active at any given build step.
+//!
+//! [^2]: Only applies when using server functions with a non-WASM client like a desktop app
+//!
+//! [tracing]: https://docs.rs/tracing/latest/tracing/
+//! [serde]: https://docs.rs/serde/latest/serde/
+//! [rkyv]: https://docs.rs/rkyv/latest/rkyv/
+//! [serde-lite]: https://docs.rs/serde-lite/latest/serde_lite/
+//! [miniserde]: https://docs.rs/miniserde/latest/miniserde/
+//! [rustls]: https://docs.rs/rustls/latest/rustls/
 
 mod additional_attributes;
 pub use additional_attributes::*;
@@ -204,7 +213,7 @@ pub use suspense_component::*;
 mod suspense_component;
 mod transition;
 
-#[cfg(any(debug_assertions, feature = "ssr"))]
+#[cfg(any(debug_assertions, feature = "ssr", docs))]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
