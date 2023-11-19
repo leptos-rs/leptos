@@ -161,7 +161,7 @@ impl StaticPath<'_, '_> {}
 pub struct ResolvedStaticPath(pub String);
 
 impl Display for ResolvedStaticPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.fmt(f)
     }
 }

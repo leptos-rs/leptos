@@ -29,13 +29,13 @@ pub fn Portal(
 ) -> impl IntoView {
     cfg_if! { if #[cfg(all(target_arch = "wasm32", any(feature = "hydrate", feature = "csr")))] {
         use leptos_dom::{document, Mountable};
-        use leptos_reactive::{create_render_effect, on_cleanup};
+        use leptos_reactive::{create_effect, on_cleanup};
         use wasm_bindgen::JsCast;
 
         let mount = mount
             .unwrap_or_else(|| document().body().expect("body to exist").unchecked_into());
 
-        create_render_effect(move |_| {
+        create_effect(move |_| {
             let tag = if is_svg { "g" } else { "div" };
 
             let container = document()

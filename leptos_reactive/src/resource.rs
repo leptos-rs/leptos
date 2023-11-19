@@ -384,7 +384,7 @@ where
     // client
     create_render_effect({
         let r = Rc::clone(&r);
-        move |_| r.load(false)
+        move |_| r.load(false, id)
     });
 
     Resource {
@@ -402,10 +402,9 @@ where
     S: PartialEq + Clone + 'static,
     T: 'static,
 {
-    _ = id;
     SUPPRESS_RESOURCE_LOAD.with(|s| {
         if !s.get() {
-            r.load(false)
+            r.load(false, id)
         }
     });
 }
@@ -483,7 +482,7 @@ where
         } else {
             // Server didn't mark the resource as pending, so load it on the
             // client
-            r.load(false);
+            r.load(false, id);
         }
     })
 }
@@ -528,7 +527,7 @@ where
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(f, location)
+                resource.with(f, location, self.id)
             })
         })
         .ok()
@@ -598,7 +597,7 @@ where
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 #[cfg(debug_assertions)]
                 let prev = SpecialNonReactiveZone::enter();
-                resource.refetch();
+                resource.refetch(self.id);
                 #[cfg(debug_assertions)]
                 {
                     SpecialNonReactiveZone::exit(prev);
@@ -708,9 +707,10 @@ impl<S, T> SignalUpdate for Resource<S, T> {
                     for suspense_context in
                         resource.suspense_contexts.borrow().iter()
                     {
-                        suspense_context.decrement(
+                        suspense_context.decrement_for_resource(
                             resource.serializable
                                 != ResourceSerialization::Local,
+                            self.id,
                         );
                     }
                 }
@@ -748,7 +748,7 @@ where
         let location = std::panic::Location::caller();
         match with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with_maybe(f, location)
+                resource.with_maybe(f, location, self.id)
             })
         })
         .expect("runtime to be alive")
@@ -783,7 +783,7 @@ where
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with_maybe(f, location)
+                resource.with_maybe(f, location, self.id)
             })
         })
         .ok()
@@ -835,7 +835,7 @@ where
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read(location)
+                resource.read(location, self.id)
             })
         })
         .ok()
@@ -1155,11 +1155,15 @@ where
     T: 'static,
 {
     #[track_caller]
-    pub fn read(&self, location: &'static Location<'static>) -> Option<T>
+    pub fn read(
+        &self,
+        location: &'static Location<'static>,
+        id: ResourceId,
+    ) -> Option<T>
     where
         T: Clone,
     {
-        self.with(T::clone, location)
+        self.with(T::clone, location, id)
     }
 
     #[track_caller]
@@ -1167,6 +1171,7 @@ where
         &self,
         f: impl FnOnce(&T) -> U,
         location: &'static Location<'static>,
+        id: ResourceId,
     ) -> Option<U> {
         let global_suspense_cx = use_context::<GlobalSuspenseContext>();
         let suspense_cx = use_context::<SuspenseContext>();
@@ -1177,7 +1182,14 @@ where
             .ok()?
             .flatten();
 
-        self.handle_result(location, global_suspense_cx, suspense_cx, v, false)
+        self.handle_result(
+            location,
+            global_suspense_cx,
+            suspense_cx,
+            v,
+            false,
+            id,
+        )
     }
 
     #[track_caller]
@@ -1185,6 +1197,7 @@ where
         &self,
         f: impl FnOnce(&Option<T>) -> U,
         location: &'static Location<'static>,
+        id: ResourceId,
     ) -> Option<U> {
         let global_suspense_cx = use_context::<GlobalSuspenseContext>();
         let suspense_cx = use_context::<SuspenseContext>();
@@ -1197,6 +1210,7 @@ where
             suspense_cx,
             Some(v),
             !was_loaded,
+            id,
         )
     }
 
@@ -1207,6 +1221,7 @@ where
         suspense_cx: Option<SuspenseContext>,
         v: Option<U>,
         force_suspend: bool,
+        id: ResourceId,
     ) -> Option<U> {
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
@@ -1276,8 +1291,9 @@ where
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
                         if !has_value || force_suspend {
-                            s.increment(
+                            s.increment_for_resource(
                                 serializable != ResourceSerialization::Local,
+                                id,
                             );
                             if serializable == ResourceSerialization::Blocking {
                                 s.should_block.set_value(true);
@@ -1295,9 +1311,10 @@ where
                             contexts.insert(*s);
 
                             if !has_value || force_suspend {
-                                s.increment(
+                                s.increment_for_resource(
                                     serializable
                                         != ResourceSerialization::Local,
+                                    id,
                                 );
                             }
                         }
@@ -1314,15 +1331,15 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub fn refetch(&self) {
-        self.load(true);
+    pub fn refetch(&self, id: ResourceId) {
+        self.load(true, id);
     }
 
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    fn load(&self, refetching: bool) {
+    fn load(&self, refetching: bool, id: ResourceId) {
         // doesn't refetch if already refetching
         if refetching && self.scheduled.get() {
             return;
@@ -1359,8 +1376,9 @@ where
             let suspense_contexts = self.suspense_contexts.clone();
 
             for suspense_context in suspense_contexts.borrow().iter() {
-                suspense_context.increment(
+                suspense_context.increment_for_resource(
                     self.serializable != ResourceSerialization::Local,
+                    id,
                 );
                 if self.serializable == ResourceSerialization::Blocking {
                     suspense_context.should_block.set_value(true);
@@ -1384,8 +1402,9 @@ where
                     }
 
                     for suspense_context in suspense_contexts.borrow().iter() {
-                        suspense_context.decrement(
+                        suspense_context.decrement_for_resource(
                             serializable != ResourceSerialization::Local,
+                            id,
                         );
                     }
                 }

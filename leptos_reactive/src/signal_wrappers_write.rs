@@ -234,11 +234,11 @@ impl<T> Clone for SignalSetterTypes<T> {
 
 impl<T> Copy for SignalSetterTypes<T> {}
 
-impl<T> std::fmt::Debug for SignalSetterTypes<T>
+impl<T> core::fmt::Debug for SignalSetterTypes<T>
 where
-    T: std::fmt::Debug,
+    T: core::fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Write(arg0) => {
                 f.debug_tuple("WriteSignal").field(arg0).finish()

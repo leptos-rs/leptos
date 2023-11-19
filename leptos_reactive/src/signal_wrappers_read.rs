@@ -91,8 +91,8 @@ impl<T> Clone for Signal<T> {
 
 impl<T> Copy for Signal<T> {}
 
-impl<T> std::fmt::Debug for Signal<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> core::fmt::Debug for Signal<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut s = f.debug_struct("Signal");
         s.field("inner", &self.inner);
         #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -458,8 +458,8 @@ impl<T> Clone for SignalTypes<T> {
 
 impl<T> Copy for SignalTypes<T> {}
 
-impl<T> std::fmt::Debug for SignalTypes<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> core::fmt::Debug for SignalTypes<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::ReadSignal(arg0) => {
                 f.debug_tuple("ReadSignal").field(arg0).finish()
@@ -1313,7 +1313,7 @@ impl TextProp {
 }
 
 impl Debug for TextProp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("TextProp").finish()
     }
 }
@@ -1362,5 +1362,11 @@ where
     #[inline(always)]
     fn from(s: F) -> Self {
         TextProp(Rc::new(move || s().into()))
+    }
+}
+
+impl Default for TextProp {
+    fn default() -> Self {
+        Self(Rc::new(|| Oco::Borrowed("")))
     }
 }

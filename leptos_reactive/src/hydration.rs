@@ -2,7 +2,7 @@
 use crate::Owner;
 use crate::{
     runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
-    SuspenseContext,
+    SignalGet, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
 #[cfg(feature = "experimental-islands")]
@@ -84,9 +84,9 @@ impl SharedContext {
                 let pending = context
                     .pending_serializable_resources
                     .read_only()
-                    .try_with(|n| *n)
-                    .unwrap_or(0);
-                if pending == 0 {
+                    .try_get()
+                    .unwrap_or_default();
+                if pending.is_empty() {
                     _ = tx1.unbounded_send(());
                     _ = tx2.unbounded_send(());
                     _ = tx3.unbounded_send(());
@@ -242,8 +242,8 @@ pub struct FragmentData {
     pub local_only: bool,
 }
 
-impl std::fmt::Debug for SharedContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for SharedContext {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SharedContext").finish()
     }
 }

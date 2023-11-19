@@ -27,15 +27,12 @@ fn tachys_todomvc_ssr(b: &mut Bencher) {
     let runtime = create_runtime();
     b.iter(|| {
         use crate::todomvc::tachys::*;
-        use tachydom::view::Render;
+        use tachydom::view::{Render, RenderHtml};
 
-        let mut buf = String::new();
-        let rendered = TodoMVC(Todos::new());
-        rendered.to_html(&mut buf, &Default::default());
+        let rendered = TodoMVC(Todos::new()).to_html();
         assert_eq!(
-            buf,
-            "<main><section class=\"todoapp\"><header class=\"header\"><h1>todos</h1><input placeholder=\"What needs to be done?\" autofocus=\"\" class=\"new-todo\"></header><section class=\"main hidden\"><input id=\"toggle-all\" type=\"checkbox\" class=\"toggle-all\"><label for=\"toggle-all\">Mark all as complete</label><ul class=\"todo-list\"></ul></section><footer class=\"footer hidden\"><span class=\"todo-count\"><strong>0</strong><!> items<!> left</span><ul class=\"filters\"><li><a href=\"#/\" class=\"selected selected\">All</a></li><li><a href=\"#/active\" class=\"\">Active</a></li><li><a href=\"#/completed\" class=\"\">Completed</a></li></ul><button class=\"clear-completed hidden hidden\">Clear completed</button></footer></section><footer class=\"info\"><p>Double-click to edit a todo</p><p>Created by <a href=\"http://todomvc.com\">Greg Johnston</a></p><p>Part of <a href=\"http://todomvc.com\">TodoMVC</a></p></footer></main>"
-        );
+            rendered,
+"<main><section class=\"todoapp\"><header class=\"header\"><h1>todos</h1><input placeholder=\"What needs to be done?\" autofocus class=\"new-todo\"></header><section class=\"main hidden\"><input id=\"toggle-all\" type=\"checkbox\" class=\"toggle-all\"><label for=\"toggle-all\">Mark all as complete</label><ul class=\"todo-list\"></ul></section><footer class=\"footer hidden\"><span class=\"todo-count\"><strong>0</strong><!> items<!> left</span><ul class=\"filters\"><li><a href=\"#/\" class=\"selected selected\">All</a></li><li><a href=\"#/active\" class=\"\">Active</a></li><li><a href=\"#/completed\" class=\"\">Completed</a></li></ul><button class=\"clear-completed hidden hidden\">Clear completed</button></footer></section><footer class=\"info\"><p>Double-click to edit a todo</p><p>Created by <a href=\"http://todomvc.com\">Greg Johnston</a></p><p>Part of <a href=\"http://todomvc.com\">TodoMVC</a></p></footer></main>"        );
     });
     runtime.dispose();
 }
@@ -94,12 +91,10 @@ fn tachys_todomvc_ssr_with_1000(b: &mut Bencher) {
     let runtime = create_runtime();
     b.iter(|| {
         use crate::todomvc::tachys::*;
-        use tachydom::view::Render;
+        use tachydom::view::{Render, RenderHtml};
 
-        let mut buf = String::new();
-        let rendered = TodoMVC(Todos::new_with_1000());
-        rendered.to_html(&mut buf, &Default::default());
-        assert!(buf.len() > 20_000)
+        let rendered = TodoMVC(Todos::new_with_1000()).to_html();
+        assert!(rendered.len() > 20_000)
     });
     runtime.dispose();
 }

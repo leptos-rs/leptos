@@ -32,7 +32,7 @@ pub fn Redirect<P>(
     options: Option<NavigateOptions>,
 ) -> impl IntoView
 where
-    P: std::fmt::Display + 'static,
+    P: core::fmt::Display + 'static,
 {
     // resolve relative path
     let path = use_resolved_path(move || path.to_string());
@@ -68,8 +68,8 @@ pub struct ServerRedirectFunction {
     f: Rc<dyn Fn(&str)>,
 }
 
-impl std::fmt::Debug for ServerRedirectFunction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for ServerRedirectFunction {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ServerRedirectFunction").finish()
     }
 }

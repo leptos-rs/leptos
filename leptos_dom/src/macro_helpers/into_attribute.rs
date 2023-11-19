@@ -88,8 +88,8 @@ impl PartialEq for Attribute {
     }
 }
 
-impl std::fmt::Debug for Attribute {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Attribute {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
             Self::Fn(_) => f.debug_tuple("Fn").finish(),
@@ -278,7 +278,7 @@ impl IntoAttribute for TextProp {
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for std::fmt::Arguments<'_> {
+impl IntoAttribute for core::fmt::Arguments<'_> {
     fn into_attribute(self) -> Attribute {
         match self.as_str() {
             Some(s) => s.into_attribute(),
@@ -450,7 +450,13 @@ pub(crate) fn attribute_expression(
                     el.remove_attribute(attr_name).unwrap_throw();
                 }
             }
-            _ => panic!("Remove nested Fn in Attribute"),
+            Attribute::Fn(f) => {
+                let mut v = f();
+                while let Attribute::Fn(f) = v {
+                    v = f();
+                }
+                attribute_expression(el, attr_name, v, force);
+            }
         }
     }
 }

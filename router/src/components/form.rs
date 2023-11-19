@@ -365,6 +365,47 @@ fn current_window_origin() -> String {
 /// **Note:** `<ActionForm/>` only works with server functions that use the
 /// default `Url` encoding. This is to ensure that `<ActionForm/>` works correctly
 /// both before and after WASM has loaded.
+///
+/// ## Complex Inputs
+/// Server function arguments that are structs with nested serializable fields
+/// should make use of indexing notation of `serde_qs`.
+///
+/// ```rust
+/// # use leptos::*;
+/// # use leptos_router::*;
+///
+/// #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+/// struct HeftyData {
+///     first_name: String,
+///     last_name: String,
+/// }
+///
+/// #[component]
+/// fn ComplexInput() -> impl IntoView {
+///     let submit = Action::<VeryImportantFn, _>::server();
+///
+///     view! {
+///       <ActionForm action=submit>
+///         <input type="text" name="hefty_arg[first_name]" value="leptos"/>
+///         <input
+///           type="text"
+///           name="hefty_arg[last_name]"
+///           value="closures-everywhere"
+///         />
+///         <input type="submit"/>
+///       </ActionForm>
+///     }
+/// }
+///
+/// #[server]
+/// async fn very_important_fn(
+///     hefty_arg: HeftyData,
+/// ) -> Result<(), ServerFnError> {
+///     assert_eq!(hefty_arg.first_name.as_str(), "leptos");
+///     assert_eq!(hefty_arg.last_name.as_str(), "closures-everywhere");
+///     Ok(())
+/// }
+/// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)

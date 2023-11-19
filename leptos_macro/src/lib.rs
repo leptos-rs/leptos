@@ -971,9 +971,9 @@ pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
     }
 }
 
-/// Generates a `lens` into struct with a default getter and setter
+/// Generates a `slice` into a struct with a default getter and setter.
 ///
-/// Can be used to access deeply nested fields within a global state object
+/// Can be used to access deeply nested fields within a global state object.
 ///
 /// ```rust
 /// # use leptos::{create_runtime, create_rw_signal};

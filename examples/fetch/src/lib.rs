@@ -89,15 +89,15 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-            <ErrorBoundary fallback>
-                <Transition fallback=move || {
-                    view! { <div>"Loading (Suspense Fallback)..."</div> }
-                }>
+            <Transition fallback=move || {
+                view! { <div>"Loading (Suspense Fallback)..."</div> }
+            }>
+                <ErrorBoundary fallback>
                 <div>
                     {cats_view}
                 </div>
-                </Transition>
-            </ErrorBoundary>
+                </ErrorBoundary>
+            </Transition>
         </div>
     }
 }
