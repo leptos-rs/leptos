@@ -36,14 +36,6 @@ fn optional_no_strip_and_strip_option(
 }
 
 #[component]
-fn default_without_value(
-    ,
-    #[prop(default)] default: bool,
-) -> impl IntoView {
-    _ = default;
-}
-
-#[component]
 fn default_with_invalid_value(
     ,
     #[prop(default= |)] default: bool,

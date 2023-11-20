@@ -28,13 +28,6 @@ fn optional_no_strip_and_strip_option(
 }
 
 #[::leptos::component]
-fn default_without_value(
-    #[prop(default)] default: bool,
-) -> impl ::leptos::IntoView {
-    _ = default;
-}
-
-#[::leptos::component]
 fn default_with_invalid_value(
     #[prop(default= |)] default: bool,
 ) -> impl ::leptos::IntoView {

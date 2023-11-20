@@ -16,6 +16,11 @@ fn Component(
     _ = into;
 }
 
+#[component]
+fn ImplicitDefault(#[prop(default)] default: String) -> impl IntoView {
+    let _ = default;
+}
+
 #[test]
 fn component() {
     let cp = ComponentProps::builder().into("").strip_option(9).build();
@@ -24,4 +29,7 @@ fn component() {
     assert_eq!(cp.strip_option, Some(9));
     assert_eq!(cp.default, NonZeroUsize::new(10).unwrap());
     assert_eq!(cp.into, "");
+
+    let cp = ImplicitDefaultProps::builder().build();
+    assert_eq!(cp.default, String::default());
 }
