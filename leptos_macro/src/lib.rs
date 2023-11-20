@@ -34,6 +34,7 @@ mod view;
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
+mod signal_bundle;
 mod slice;
 mod slot;
 
@@ -1002,4 +1003,16 @@ pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
 #[proc_macro]
 pub fn slice(input: TokenStream) -> TokenStream {
     slice::slice_impl(input)
+}
+
+/// Derive convenience methods for converting a struct into a
+/// bundle of signals.
+#[proc_macro_error]
+#[proc_macro_derive(SignalBundle, attributes(bundle))]
+pub fn derive_signal_bundle(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    syn::parse_macro_input!(input as signal_bundle::Model)
+        .into_token_stream()
+        .into()
 }
