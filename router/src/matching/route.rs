@@ -1,5 +1,5 @@
-use crate::{Method, SsrMode};
-use leptos::{leptos_dom::View, *};
+use crate::{Loader, Method, SsrMode, StaticData, StaticMode};
+use leptos::leptos_dom::View;
 use std::rc::Rc;
 
 /// Defines a single route in a nested route tree. This is the return
@@ -14,19 +14,26 @@ pub struct RouteDefinition {
     /// Other route definitions nested within this one.
     pub children: Vec<RouteDefinition>,
     /// The view that should be displayed when this route is matched.
-    pub view: Rc<dyn Fn(Scope) -> View>,
+    pub view: Rc<dyn Fn() -> View>,
     /// The mode this route prefers during server-side rendering.
     pub ssr_mode: SsrMode,
     /// The HTTP request methods this route is able to handle.
     pub methods: &'static [Method],
+    /// A data loader function that will be called when this route is matched.
+    pub data: Option<Loader>,
+    /// The route's preferred mode of static generation, if any
+    pub static_mode: Option<StaticMode>,
+    /// The data required to fill any dynamic segments in the path during static rendering.
+    pub static_params: Option<StaticData>,
 }
 
-impl std::fmt::Debug for RouteDefinition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RouteDefinition {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RouteDefinition")
             .field("path", &self.path)
             .field("children", &self.children)
             .field("ssr_mode", &self.ssr_mode)
+            .field("static_render", &self.static_mode)
             .finish()
     }
 }

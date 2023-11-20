@@ -1,0 +1,26 @@
+name: CI Examples
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - v*
+  schedule:
+    # Run once a day at 3:00 AM EST
+    - cron: "0 8 * * *"
+
+jobs:
+  get-examples-matrix:
+    uses: ./.github/workflows/get-examples-matrix.yml
+
+  test:
+    name: CI
+    needs: [get-examples-matrix]
+    strategy:
+      matrix: ${{ fromJSON(needs.get-examples-matrix.outputs.matrix) }}
+      fail-fast: false
+    uses: ./.github/workflows/run-cargo-make-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "ci"
+      toolchain: nightly

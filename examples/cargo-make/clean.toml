@@ -1,0 +1,29 @@
+[tasks.clean]
+dependencies = [
+  "clean-cargo",
+  "clean-trunk",
+  "clean-node_modules",
+  "clean-playwright",
+]
+
+[tasks.clean-cargo]
+command = "rm"
+args = ["-rf", "target"]
+
+[tasks.clean-trunk]
+script = '''
+find . -type d -name dist | xargs rm -rf
+'''
+
+[tasks.clean-node_modules]
+script = '''
+project_dir=${PWD##*/}
+if [ "$project_dir" != "todomvc" ]; then
+  find . -type d -name node_modules | xargs rm -rf
+fi
+'''
+
+[tasks.clean-playwright]
+script = '''
+find . -name playwright-report -name playwright -name test-results | xargs rm -rf
+'''

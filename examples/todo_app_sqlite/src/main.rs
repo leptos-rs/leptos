@@ -1,5 +1,4 @@
 use cfg_if::cfg_if;
-use leptos::*;
 mod todo;
 
 // boilerplate to run in different modes
@@ -9,6 +8,7 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use crate::todo::*;
+        use leptos::*;
         use leptos_actix::{generate_route_list, LeptosRoutes};
 
         #[get("/style.css")]
@@ -24,7 +24,12 @@ cfg_if! {
                 .await
                 .expect("could not run SQLx migrations");
 
-            crate::todo::register_server_functions();
+            // Explicit server function registration is no longer required
+            // on the main branch. On 0.3.0 and earlier, uncomment the lines
+            // below to register the server functions.
+            // _ = GetTodos::register();
+            // _ = AddTodo::register();
+            // _ = DeleteTodo::register();
 
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             let conf = get_configuration(None).await.unwrap();
@@ -32,7 +37,7 @@ cfg_if! {
             let addr = conf.leptos_options.site_addr;
 
             // Generate the list of routes in your Leptos App
-            let routes = generate_route_list(|cx| view! { cx, <TodoApp/> });
+            let routes = generate_route_list(TodoApp);
 
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
@@ -42,7 +47,7 @@ cfg_if! {
                 App::new()
                     .service(css)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .leptos_routes(leptos_options.to_owned(), routes.to_owned(), |cx| view! { cx, <TodoApp/> })
+                    .leptos_routes(leptos_options.to_owned(), routes.to_owned(), TodoApp)
                     .service(Files::new("/", site_root))
                     //.wrap(middleware::Compress::default())
             })

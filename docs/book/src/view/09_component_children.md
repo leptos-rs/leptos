@@ -5,7 +5,7 @@ children into an HTML element. For example, imagine I have a `<FancyForm/>` comp
 that enhances an HTML `<form>`. I need some way to pass all its inputs.
 
 ```rust
-view! { cx,
+view! {
     <Form>
         <fieldset>
             <label>
@@ -28,12 +28,12 @@ other components:
 In fact, you’ve already seen these both in action in the [`<Show/>`](/view/06_control_flow.html#show) component:
 
 ```rust
-view! { cx,
+view! {
   <Show
     // `when` is a normal prop
     when=move || value() > 5
     // `fallback` is a "render prop": a function that returns a view
-    fallback=|cx| view! { cx, <Small/> }
+    fallback=|| view! { <Small/> }
   >
     // `<Big/>` (and anything else here)
     // will be given to the `children` prop
@@ -47,7 +47,6 @@ Let’s define a component that takes some children and a render prop.
 ```rust
 #[component]
 pub fn TakesChildren<F, IV>(
-    cx: Scope,
     /// Takes a function (type F) that returns anything that can be
     /// converted into a View (type IV)
     render_prop: F,
@@ -58,19 +57,19 @@ where
     F: Fn() -> IV,
     IV: IntoView,
 {
-    view! { cx,
+    view! {
         <h2>"Render Prop"</h2>
         {render_prop()}
 
         <h2>"Children"</h2>
-        {children(cx)}
+        {children()}
     }
 }
 ```
 
 `render_prop` and `children` are both functions, so we can call them to generate
 the appropriate views. `children`, in particular, is an alias for
-`Box<dyn FnOnce(Scope) -> Fragment>`. (Aren't you glad we named it `Children` instead?)
+`Box<dyn FnOnce() -> Fragment>`. (Aren't you glad we named it `Children` instead?)
 
 > If you need a `Fn` or `FnMut` here because you need to call `children` more than once,
 > we also provide `ChildrenFn` and `ChildrenMut` aliases.
@@ -78,8 +77,8 @@ the appropriate views. `children`, in particular, is an alias for
 We can use the component like this:
 
 ```rust
-view! { cx,
-    <TakesChildren render_prop=|| view! { cx, <p>"Hi, there!"</p> }>
+view! {
+    <TakesChildren render_prop=|| view! { <p>"Hi, there!"</p> }>
         // these get passed to `children`
         "Some text"
         <span>"A span"</span>
@@ -97,15 +96,15 @@ a component that takes its children and turns them into an unordered list.
 
 ```rust
 #[component]
-pub fn WrapsChildren(cx: Scope, children: Children) -> impl IntoView {
+pub fn WrapsChildren(children: Children) -> impl IntoView {
     // Fragment has `nodes` field that contains a Vec<View>
-    let children = children(cx)
+    let children = children()
         .nodes
         .into_iter()
-        .map(|child| view! { cx, <li>{child}</li> })
-        .collect_view(cx);
+        .map(|child| view! { <li>{child}</li> })
+        .collect_view();
 
-    view! { cx,
+    view! {
         <ul>{children}</ul>
     }
 }
@@ -114,15 +113,117 @@ pub fn WrapsChildren(cx: Scope, children: Children) -> impl IntoView {
 Calling it like this will create a list:
 
 ```rust
-view! { cx,
-    <WrappedChildren>
+view! {
+    <WrapsChildren>
         "A"
         "B"
         "C"
-    </WrappedChildren>
+    </WrapsChildren>
 }
 ```
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/9-component-children-0-5-m4jwhp?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/9-component-children-0-5-m4jwhp?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+
+<details>
+<summary>CodeSandbox Source</summary>
+
+```rust
+use leptos::*;
+
+// Often, you want to pass some kind of child view to another
+// component. There are two basic patterns for doing this:
+// - "render props": creating a component prop that takes a function
+//   that creates a view
+// - the `children` prop: a special property that contains content
+//   passed as the children of a component in your view, not as a
+//   property
+
+#[component]
+pub fn App() -> impl IntoView {
+    let (items, set_items) = create_signal(vec![0, 1, 2]);
+    let render_prop = move || {
+        // items.with(...) reacts to the value without cloning
+        // by applying a function. Here, we pass the `len` method
+        // on a `Vec<_>` directly
+        let len = move || items.with(Vec::len);
+        view! {
+            <p>"Length: " {len}</p>
+        }
+    };
+
+    view! {
+        // This component just displays the two kinds of children,
+        // embedding them in some other markup
+        <TakesChildren
+            // for component props, you can shorthand
+            // `render_prop=render_prop` => `render_prop`
+            // (this doesn't work for HTML element attributes)
+            render_prop
+        >
+            // these look just like the children of an HTML element
+            <p>"Here's a child."</p>
+            <p>"Here's another child."</p>
+        </TakesChildren>
+        <hr/>
+        // This component actually iterates over and wraps the children
+        <WrapsChildren>
+            <p>"Here's a child."</p>
+            <p>"Here's another child."</p>
+        </WrapsChildren>
+    }
+}
+
+/// Displays a `render_prop` and some children within markup.
+#[component]
+pub fn TakesChildren<F, IV>(
+    /// Takes a function (type F) that returns anything that can be
+    /// converted into a View (type IV)
+    render_prop: F,
+    /// `children` takes the `Children` type
+    /// this is an alias for `Box<dyn FnOnce() -> Fragment>`
+    /// ... aren't you glad we named it `Children` instead?
+    children: Children,
+) -> impl IntoView
+where
+    F: Fn() -> IV,
+    IV: IntoView,
+{
+    view! {
+        <h1><code>"<TakesChildren/>"</code></h1>
+        <h2>"Render Prop"</h2>
+        {render_prop()}
+        <hr/>
+        <h2>"Children"</h2>
+        {children()}
+    }
+}
+
+/// Wraps each child in an `<li>` and embeds them in a `<ul>`.
+#[component]
+pub fn WrapsChildren(children: Children) -> impl IntoView {
+    // children() returns a `Fragment`, which has a
+    // `nodes` field that contains a Vec<View>
+    // this means we can iterate over the children
+    // to create something new!
+    let children = children()
+        .nodes
+        .into_iter()
+        .map(|child| view! { <li>{child}</li> })
+        .collect::<Vec<_>>();
+
+    view! {
+        <h1><code>"<WrapsChildren/>"</code></h1>
+        // wrap our wrapped children in a UL
+        <ul>{children}</ul>
+    }
+}
+
+fn main() {
+    leptos::mount_to_body(App)
+}
+```
+
+</details>
+</preview>

@@ -1,5 +1,0 @@
-[tasks.web-test]
-dependencies = ["auto-setup", "cargo-leptos-e2e"]
-
-[tasks.clean-all]
-dependencies = ["clean-cargo", "clean-node_modules", "clean-playwright"]

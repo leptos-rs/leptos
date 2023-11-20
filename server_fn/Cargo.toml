@@ -20,6 +20,12 @@ proc-macro2 = "1"
 ciborium = "0.2"
 xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
 const_format = "0.2"
+inventory = { version = "0.3", optional = true }
+lazy_static = "1"
+
+[dev-dependencies]
+server_fn = { version = "0.2" }
+serde = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net = "0.2"
@@ -30,8 +36,7 @@ reqwest = { version = "0.11", default-features = false }
 once_cell = "1"
 
 [features]
-default = ["default-tls"]
 default-tls = ["reqwest/default-tls"]
 rustls = ["reqwest/rustls-tls"]
-ssr = []
-stable = ["server_fn_macro_default/stable"]
+ssr = ["inventory"]
+nightly = ["server_fn_macro_default/nightly"]

@@ -87,7 +87,7 @@ static TEMPLATE: &str = r#"<main>
         </main>"#;
 
 #[bench]
-fn tera_todomvc(b: &mut Bencher) {
+fn tera_todomvc_ssr(b: &mut Bencher) {
     use serde::{Deserialize, Serialize};
     use tera::*;
 
@@ -127,7 +127,7 @@ fn tera_todomvc(b: &mut Bencher) {
 }
 
 #[bench]
-fn tera_todomvc_1000(b: &mut Bencher) {
+fn tera_todomvc_ssr_1000(b: &mut Bencher) {
     use serde::{Deserialize, Serialize};
     use tera::*;
 

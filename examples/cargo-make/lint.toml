@@ -1,0 +1,9 @@
+[tasks.pre-clippy]
+env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings" }
+
+[tasks.check-style]
+dependencies = ["check-format-flow", "clippy-flow"]
+
+[tasks.check-format]
+env = { LEPTOS_PROJECT_DIRECTORY = "../../" }
+args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]

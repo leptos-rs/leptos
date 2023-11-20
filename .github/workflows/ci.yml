@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  get-leptos-changed:
+    uses: ./.github/workflows/get-leptos-changed.yml
+
+  test:
+    name: CI
+    needs: [get-leptos-changed]
+    if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
+    strategy:
+      matrix:
+        directory:
+          [
+            integrations/actix,
+            integrations/axum,
+            integrations/viz,
+            integrations/utils,
+            leptos,
+            leptos_config,
+            leptos_dom,
+            leptos_hot_reload,
+            leptos_macro,
+            leptos_reactive,
+            leptos_server,
+            meta,
+            router,
+            server_fn,
+            server_fn/server_fn_macro_default,
+            server_fn_macro,
+          ]
+    uses: ./.github/workflows/run-cargo-make-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "ci"
+      toolchain: nightly

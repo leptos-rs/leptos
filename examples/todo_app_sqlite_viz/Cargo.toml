@@ -11,13 +11,11 @@ console_log = "1.0.0"
 console_error_panic_hook = "0.1.7"
 futures = "0.3.25"
 cfg-if = "1.0.0"
-leptos = { path = "../../leptos", default-features = false, features = [
-  "serde",
-] }
-leptos_viz = { path = "../../integrations/viz", default-features = false, optional = true }
-leptos_meta = { path = "../../meta", default-features = false }
-leptos_router = { path = "../../router", default-features = false }
-leptos_reactive = { path = "../../leptos_reactive", default-features = false }
+leptos = { path = "../../leptos" }
+leptos_viz = { path = "../../integrations/viz", optional = true }
+leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos_router = { path = "../../router", features = ["nightly"] }
+leptos_reactive = { path = "../../leptos_reactive", features = ["nightly"] }
 log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1", features = ["derive"] }
@@ -32,7 +30,6 @@ thiserror = "1.0.38"
 wasm-bindgen = "0.2"
 
 [features]
-default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [

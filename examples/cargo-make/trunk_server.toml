@@ -1,0 +1,10 @@
+[env]
+CLIENT_PROCESS_NAME = "trunk"
+
+[tasks.build]
+command = "trunk"
+args = ["build"]
+
+[tasks.start-client]
+command = "trunk"
+args = ["serve", "${@}"]

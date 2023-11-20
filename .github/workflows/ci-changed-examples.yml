@@ -1,0 +1,32 @@
+name: CI Changed Examples
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  get-example-changed:
+    uses: ./.github/workflows/get-example-changed.yml
+
+  get-matrix:
+    needs: [get-example-changed]
+    uses: ./.github/workflows/get-changed-examples-matrix.yml
+    with:
+      example_changed: ${{ fromJSON(needs.get-example-changed.outputs.example_changed) }}
+
+  test:
+    name: CI
+    needs: [get-example-changed, get-matrix]
+    if: needs.get-example-changed.outputs.example_changed == 'true'
+    strategy:
+      matrix: ${{ fromJSON(needs.get-matrix.outputs.matrix) }}
+      fail-fast: false
+    uses: ./.github/workflows/run-cargo-make-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "ci"
+      toolchain: nightly

@@ -1,14 +1,17 @@
 extend = [
-    { path = "../cargo-make/common.toml" },
-    { path = "../cargo-make/wasm-web-test.toml" },
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/wasm-test.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
 ]
 
 [tasks.build]
+toolchain = "stable"
 command = "cargo"
-args = ["+stable", "build-all-features"]
+args = ["build-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check]
+toolchain = "stable"
 command = "cargo"
-args = ["+stable", "check-all-features"]
+args = ["check-all-features"]
 install_crate = "cargo-all-features"

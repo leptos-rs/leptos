@@ -31,9 +31,8 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 }
 
 #[component]
-pub fn BusyButton(cx: Scope) -> impl IntoView {
+pub fn BusyButton() -> impl IntoView {
 	view! {
-        cx,
         <button on:click=move |_| {
             spawn_local(async {
                 add_todo("So much to do!".to_string()).await;
@@ -42,15 +41,6 @@ pub fn BusyButton(cx: Scope) -> impl IntoView {
             "Add Todo"
         </button>
 	}
-}
-
-// somewhere in main.rs
-fn main() {
-	// ...
-
-	AddTodo::register();
-
-	// ...
 }
 ```
 
@@ -75,9 +65,21 @@ move |_| {
 There are a few things to note about the way you define a server function, too.
 
 - Server functions are created by using the [`#[server]` macro](https://docs.rs/leptos_server/latest/leptos_server/index.html#server) to annotate a top-level function, which can be defined anywhere.
-- We provide the macro a type name. The type name is used to register the server function (in `main.rs`), and it’s used internally as a container to hold, serialize, and deserialize the arguments.
+- We provide the macro a type name. The type name is used internally as a container to hold, serialize, and deserialize the arguments.
 - We provide the macro a path. This is a prefix for the path at which we’ll mount a server function handler on our server. (See examples for [Actix](https://github.com/leptos-rs/leptos/blob/main/examples/todo_app_sqlite/src/main.rs#L44) and [Axum](https://github.com/leptos-rs/leptos/blob/598523cd9d0d775b017cb721e41ebae9349f01e2/examples/todo_app_sqlite_axum/src/main.rs#L51).)
 - You’ll need to have `serde` as a dependency with the `derive` featured enabled for the macro to work properly. You can easily add it to `Cargo.toml` with `cargo add serde --features=derive`.
+
+## Server Function URL Prefixes
+
+You can optionally define a specific URL prefix to be used in the definition of the server function.
+This is done by providing an optional 2nd argument to the `#[server]` macro.
+By default the URL prefix will be `/api`, if not specified.
+Here are some examples:
+
+```rust
+#[server(AddTodo)]         // will use the default URL prefix of `/api`
+#[server(AddTodo, "/foo")] // will use the URL prefix of `/foo`
+```
 
 ## Server Function Encodings
 
@@ -106,6 +108,29 @@ In other words, you have two choices:
 
 **But remember**: Leptos will handle all the details of this encoding and decoding for you. When you use a server function, it looks just like calling any other asynchronous function!
 
+> **Why not `PUT` or `DELETE`? Why URL/form encoding, and not JSON?**
+>
+> These are reasonable questions. Much of the web is built on REST API patterns that encourage the use of semantic HTTP methods like `DELETE` to delete an item from a database, and many devs are accustomed to sending data to APIs in the JSON format.
+>
+> The reason we use `POST` or `GET` with URL-encoded data by default is the `<form>` support. For better or for worse, HTML forms don’t support `PUT` or `DELETE`, and they don’t support sending JSON. This means that if you use anything but a `GET` or `POST` request with URL-encoded data, it can only work once WASM has loaded. As we’ll see [in a later chapter](../progressive_enhancement), this isn’t always a great idea.
+>
+> The CBOR encoding is suported for historical reasons; an earlier version of server functions used a URL encoding that didn’t support nested objects like structs or vectors as server function arguments, which CBOR did. But note that the CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of your app is not available.
+
+
+## Server Functions Endpoint Paths
+
+By default, a unique path will be generated. You can optionally define a specific endpoint path to be used in the URL. This is done by providing an optional 4th argument to the `#[server]` macro. Leptos will generate the complete path by concatenating the URL prefix (2nd argument) and the endpoint path (4th argument).
+For example,
+
+```rust
+#[server(MyServerFnType, "/api", "Url", "hello")]
+```
+will generate a server function endpoint at `/api/hello` that accepts a POST request.
+
+> **Can I use the same server function endpoint path with multiple encodings?**
+>
+> No. Different server functions must have unique paths. The `#[server]` macro automatically generates unique paths, but you need to be careful if you choose to specify the complete path manually, as the server looks up server functions by their path.
+
 ## An Important Note on Security
 
 Server functions are a cool technology, but it’s very important to remember. **Server functions are not magic; they’re syntax sugar for defining a public API.** The _body_ of a server function is never made public; it’s just part of your server binary. But the server function is a publicly accessible API endpoint, and it’s return value is just a JSON or similar blob. You should _never_ return something sensitive from a server function.
@@ -114,7 +139,7 @@ Server functions are a cool technology, but it’s very important to remember. *
 
 So far, everything I’ve said is actually framework agnostic. (And in fact, the Leptos server function crate has been integrated into Dioxus as well!) Server functions are simply a way of defining a function-like RPC call that leans on Web standards like HTTP requests and URL encoding.
 
-But in a way, they also provide the last missing primitive in our story so far. Because a server function is just a plain Rust async function, it integrates perfectly with the async Leptos primitives we discussed [earlier](../async/README.md). So you can easily integrate your server functions with the rest of your applications:
+But in a way, they also provide the last missing primitive in our story so far. Because a server function is just a plain Rust async function, it integrates perfectly with the async Leptos primitives we discussed [earlier](https://leptos-rs.github.io/leptos/async/index.html). So you can easily integrate your server functions with the rest of your applications:
 
 - Create **resources** that call the server function to load data from the server
 - Read these resources under `<Suspense/>` or `<Transition/>` to enable streaming SSR and fallback states while data loads.

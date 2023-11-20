@@ -1,4 +1,7 @@
-use leptos_reactive::Scope;
+#[cfg(not(feature = "nightly"))]
+use leptos_reactive::{
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 use wasm_bindgen::JsValue;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -12,16 +15,19 @@ use wasm_bindgen::UnwrapThrowExt;
 pub enum Property {
     /// A static JavaScript value.
     Value(JsValue),
-    /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-    Fn(Scope, Box<dyn Fn() -> JsValue>),
+    /// A (presumably reactive) function, which will be run inside an effect to update the property.
+    Fn(Box<dyn Fn() -> JsValue>),
 }
 
-/// Converts some type into a [Property].
+/// Converts some type into a [`Property`].
 ///
-/// This is implemented by default for Rust primitive types, [String] and friends, and [JsValue].
+/// This is implemented by default for Rust primitive types, [`String`] and friends, and [`JsValue`].
 pub trait IntoProperty {
-    /// Converts the object into a [Property].
-    fn into_property(self, cx: Scope) -> Property;
+    /// Converts the object into a [`Property`].
+    fn into_property(self) -> Property;
+
+    /// Helper function for dealing with `Box<dyn IntoProperty>`.
+    fn into_property_boxed(self: Box<Self>) -> Property;
 }
 
 impl<T, U> IntoProperty for T
@@ -29,16 +35,13 @@ where
     T: Fn() -> U + 'static,
     U: Into<JsValue>,
 {
-    fn into_property(self, cx: Scope) -> Property {
+    fn into_property(self) -> Property {
         let modified_fn = Box::new(move || self().into());
-        Property::Fn(cx, modified_fn)
+        Property::Fn(modified_fn)
     }
-}
 
-impl<T: IntoProperty> IntoProperty for (Scope, T) {
-    #[inline(always)]
-    fn into_property(self, _: Scope) -> Property {
-        self.1.into_property(self.0)
+    fn into_property_boxed(self: Box<Self>) -> Property {
+        (*self).into_property()
     }
 }
 
@@ -46,15 +49,62 @@ macro_rules! prop_type {
     ($prop_type:ty) => {
         impl IntoProperty for $prop_type {
             #[inline(always)]
-            fn into_property(self, _cx: Scope) -> Property {
+            fn into_property(self) -> Property {
                 Property::Value(self.into())
+            }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
             }
         }
 
         impl IntoProperty for Option<$prop_type> {
             #[inline(always)]
-            fn into_property(self, _cx: Scope) -> Property {
+            fn into_property(self) -> Property {
                 Property::Value(self.into())
+            }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
+            }
+        }
+    };
+}
+
+macro_rules! prop_signal_type {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoProperty for $signal_type
+        where
+            T: Into<JsValue> + Clone,
+        {
+            fn into_property(self) -> Property {
+                let modified_fn = Box::new(move || self.get().into());
+                Property::Fn(modified_fn)
+            }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
+            }
+        }
+    };
+}
+
+macro_rules! prop_signal_type_optional {
+    ($signal_type:ty) => {
+        #[cfg(not(feature = "nightly"))]
+        impl<T> IntoProperty for $signal_type
+        where
+            T: Clone,
+            Option<T>: Into<JsValue>,
+        {
+            fn into_property(self) -> Property {
+                let modified_fn = Box::new(move || self.get().into());
+                Property::Fn(modified_fn)
+            }
+
+            fn into_property_boxed(self: Box<Self>) -> Property {
+                (*self).into_property()
             }
         }
     };
@@ -80,22 +130,29 @@ prop_type!(f32);
 prop_type!(f64);
 prop_type!(bool);
 
+prop_signal_type!(ReadSignal<T>);
+prop_signal_type!(RwSignal<T>);
+prop_signal_type!(Memo<T>);
+prop_signal_type!(Signal<T>);
+prop_signal_type!(MaybeSignal<T>);
+prop_signal_type_optional!(MaybeProp<T>);
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
+use leptos_reactive::Oco;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[inline(never)]
 pub(crate) fn property_helper(
     el: &web_sys::Element,
-    name: Cow<'static, str>,
+    name: Oco<'static, str>,
     value: Property,
 ) {
     use leptos_reactive::create_render_effect;
 
     match value {
-        Property::Fn(cx, f) => {
+        Property::Fn(f) => {
             let el = el.clone();
-            create_render_effect(cx, move |_| {
+            create_render_effect(move |_| {
                 let new = f();
                 let prop_name = wasm_bindgen::intern(&name);
                 property_expression(&el, prop_name, new.clone());

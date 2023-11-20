@@ -1,0 +1,34 @@
+[tasks.start-server]
+
+[tasks.stop-server]
+condition = { env_set = ["SERVER_PROCESS_NAME"] }
+script = '''
+  if [ ! -z $(pidof ${SERVER_PROCESS_NAME}) ]; then
+    pkill -ef ${SERVER_PROCESS_NAME}
+  fi
+'''
+
+[tasks.server-status]
+condition = { env_set = ["SERVER_PROCESS_NAME"] }
+script = '''
+  if [ -z $(pidof ${SERVER_PROCESS_NAME}) ]; then
+    echo "  ${SERVER_PROCESS_NAME} is not running"
+  else
+    echo "  ${SERVER_PROCESS_NAME} is up"
+  fi
+'''
+
+[tasks.maybe-start-server]
+condition = { env_set = ["SERVER_PROCESS_NAME"] }
+script = '''
+  YELLOW="\e[0;33m"
+  RESET="\e[0m"
+
+  if [ -z $(pidof ${SERVER_PROCESS_NAME}) ]; then
+    echo "  Starting ${SERVER_PROCESS_NAME}"
+    echo "  ${YELLOW}>> Run cargo make stop to end process${RESET}"
+    cargo make start-server ${@} & 
+  else
+    echo "  ${SERVER_PROCESS_NAME} is already started"
+  fi
+'''

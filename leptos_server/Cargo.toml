@@ -4,29 +4,30 @@ version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for the Leptos web framework."
 readme = "../README.md"
 
 [dependencies]
 leptos_reactive = { workspace = true }
-server_fn = { workspace = true, default-features = false }
+leptos_macro = { workspace = true }
+server_fn = { workspace = true }
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tracing = "0.1"
+inventory = "0.3"
 
 [dev-dependencies]
 leptos = { path = "../leptos" }
 
 [features]
-default = ["default-tls"]
-csr = ["leptos_reactive/csr"]
+csr = ["leptos_reactive/csr", "leptos_macro/csr"]
 default-tls = ["server_fn/default-tls"]
-hydrate = ["leptos_reactive/hydrate"]
+hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate"]
 rustls = ["server_fn/rustls"]
-ssr = ["leptos_reactive/ssr", "server_fn/ssr"]
-stable = ["leptos_reactive/stable", "server_fn/stable"]
+ssr = ["leptos_reactive/ssr", "server_fn/ssr", "leptos_macro/ssr"]
+nightly = ["leptos_reactive/nightly", "server_fn/nightly"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["nightly"]

@@ -1,11 +1,8 @@
-extend = [{ path = "../cargo-make/common.toml" }]
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/cargo-leptos.toml" },
+]
 
-[tasks.build]
-command = "cargo"
-args = ["+nightly", "build-all-features"]
-install_crate = "cargo-all-features"
+[env]
 
-[tasks.check]
-command = "cargo"
-args = ["+nightly", "check-all-features"]
-install_crate = "cargo-all-features"
+CLIENT_PROCESS_NAME = "counter_isomorphic"

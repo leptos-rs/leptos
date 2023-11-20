@@ -1,10 +1,10 @@
 [package]
 name = "leptos_meta"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "Tools to set HTML metadata in the Leptos web framework."
 
 [dependencies]
@@ -12,7 +12,7 @@ cfg-if = "1"
 leptos = { workspace = true }
 tracing = "0.1"
 wasm-bindgen = "0.2"
-indexmap = "1"
+indexmap = "2"
 
 [dependencies.web-sys]
 version = "0.3"
@@ -23,8 +23,8 @@ default = []
 csr = ["leptos/csr", "leptos/tracing"]
 hydrate = ["leptos/hydrate", "leptos/tracing"]
 ssr = ["leptos/ssr", "leptos/tracing"]
-stable = ["leptos/stable", "leptos/tracing"]
+nightly = ["leptos/nightly", "leptos/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["nightly"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

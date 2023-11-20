@@ -1,0 +1,31 @@
+error: unexpected end of input, expected identifier
+  --> tests/slice/red.rs:21:18
+   |
+21 |     let (_, _) = slice!();
+   |                  ^^^^^^^^
+   |
+   = note: this error originates in the macro `slice` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected `.`
+  --> tests/slice/red.rs:23:18
+   |
+23 |     let (_, _) = slice!(outer_signal);
+   |                  ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `slice` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: unexpected end of input, expected identifier
+  --> tests/slice/red.rs:25:18
+   |
+25 |     let (_, _) = slice!(outer_signal.);
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `slice` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: unexpected end of input, expected identifier
+  --> tests/slice/red.rs:27:18
+   |
+27 |     let (_, _) = slice!(outer_signal.inner.);
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `slice` (in Nightly builds, run with -Z macro-backtrace for more info)

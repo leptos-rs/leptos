@@ -1,9 +1,9 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal,
-    RwSignal, Scope, StoredValue,
+    batch, create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
+    spawn_local, store_value, ReadSignal, RwSignal, StoredValue,
 };
-use std::{future::Future, pin::Pin, rc::Rc};
+use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
 /// An action synchronizes an imperative `async` call to the synchronous reactive system.
 ///
@@ -13,13 +13,13 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
 ///     // return a task id
 ///     42
 /// }
-/// let save_data = create_action(cx, |task: &String| {
+/// let save_data = create_action(|task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
@@ -35,26 +35,26 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input(), None); // no argument yet
-/// assert_eq!(pending(), false); // isn't pending a response
-/// assert_eq!(result_of_call(), None); // there's no "last value"
-/// assert_eq!(version(), 0);
+/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(pending.get(), false); // isn't pending a response
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(version.get(), 0);
 /// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// // assert_eq!(input(), Some("My todo".to_string()));
-/// // assert_eq!(pending(), true); // is pending
-/// // assert_eq!(result_of_call(), None); // has not yet gotten a response
+/// // assert_eq!(input.get(), Some("My todo".to_string()));
+/// // assert_eq!(pending.get(), true); // is pending
+/// // assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// // after call has resolved
-/// assert_eq!(input(), None); // input clears out after resolved
-/// assert_eq!(pending(), false); // no longer pending
-/// assert_eq!(result_of_call(), Some(42));
-/// assert_eq!(version(), 1);
-/// # }
-/// # });
+/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(pending.get(), false); // no longer pending
+/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(version.get(), 1);
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// The input to the `async` function should always be a single value,
@@ -63,20 +63,19 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // if there's a single argument, just use that
-/// let action1 = create_action(cx, |input: &String| {
+/// let action1 = create_action(|input: &String| {
 ///     let input = input.clone();
 ///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
-/// let action2 = create_action(cx, |input: &()| async { todo!() });
+/// let action2 = create_action(|input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 =
-///     create_action(cx, |input: &(usize, String)| async { todo!() });
-/// # });
+/// let action3 = create_action(|input: &(usize, String)| async { todo!() });
+/// # runtime.dispose();
 /// ```
 pub struct Action<I, O>(StoredValue<ActionState<I, O>>)
 where
@@ -97,6 +96,68 @@ where
         self.0.with_value(|a| a.dispatch(input))
     }
 
+    /// Create an [Action].
+    ///
+    /// [Action] is a type of [Signal] which represent imperative calls to
+    /// an asynchronous function. Where a [Resource] is driven as a function
+    /// of a [Signal], [Action]s are [Action::dispatch]ed by events or handlers.
+    ///
+    /// ```rust
+    /// # use leptos::*;
+    /// # let runtime = create_runtime();
+    ///
+    /// let act = Action::new(|n: &u8| {
+    ///     let n = n.to_owned();
+    ///     async move { n * 2 }
+    /// });
+    /// # if false {
+    /// act.dispatch(3);
+    /// assert_eq!(act.value().get(), Some(6));
+    ///
+    /// // Remember that async functions already return a future if they are
+    /// // not `await`ed. You can save keystrokes by leaving out the `async move`
+    ///
+    /// let act2 = Action::new(|n: &String| yell(n.to_owned()));
+    /// act2.dispatch(String::from("i'm in a doctest"));
+    /// assert_eq!(act2.value().get(), Some("I'M IN A DOCTEST".to_string()));
+    /// # }
+    ///
+    /// async fn yell(n: String) -> String {
+    ///     n.to_uppercase()
+    /// }
+    ///
+    /// # runtime.dispose();
+    /// ```
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn new<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        let version = create_rw_signal(0);
+        let input = create_rw_signal(None);
+        let value = create_rw_signal(None);
+        let pending = create_rw_signal(false);
+        let pending_dispatches = Rc::new(Cell::new(0));
+        let action_fn = Rc::new(move |input: &I| {
+            let fut = action_fn(input);
+            Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
+        });
+
+        Action(store_value(ActionState {
+            version,
+            url: None,
+            input,
+            value,
+            pending,
+            pending_dispatches,
+            action_fn,
+        }))
+    }
+
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -106,13 +167,90 @@ where
         self.0.with_value(|a| a.pending.read_only())
     }
 
-    /// Updates whether the action is currently pending.
+    /// Create an [Action] to imperatively call a [server_fn::server] function.
+    ///
+    /// The struct representing your server function's arguments should be
+    /// provided to the [Action]. Unless specified as an argument to the server
+    /// macro, the generated struct is your function's name converted to CamelCase.
+    ///
+    /// ```rust
+    /// # // Not in a localset, so this would always panic.
+    /// # if false {
+    /// # use leptos::*;
+    /// # let rt = create_runtime();
+    ///
+    /// // The type argument can be on the right of the equal sign.
+    /// let act = Action::<Add, _>::server();
+    /// let args = Add { lhs: 5, rhs: 7 };
+    /// act.dispatch(args);
+    /// assert_eq!(act.value().get(), Some(Ok(12)));
+    ///
+    /// // Or on the left of the equal sign.
+    /// let act: Action<Sub, _> = Action::server();
+    /// let args = Sub { lhs: 20, rhs: 5 };
+    /// act.dispatch(args);
+    /// assert_eq!(act.value().get(), Some(Ok(15)));
+    ///
+    /// let not_dispatched = Action::<Add, _>::server();
+    /// assert_eq!(not_dispatched.value().get(), None);
+    ///
+    /// #[server]
+    /// async fn add(lhs: u8, rhs: u8) -> Result<u8, ServerFnError> {
+    ///     Ok(lhs + rhs)
+    /// }
+    ///
+    /// #[server]
+    /// async fn sub(lhs: u8, rhs: u8) -> Result<u8, ServerFnError> {
+    ///     Ok(lhs - rhs)
+    /// }
+    ///
+    /// # rt.dispose();
+    /// # }
+    /// ```
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn server() -> Action<I, Result<I::Output, ServerFnError>>
+    where
+        I: ServerFn<Output = O> + Clone,
+    {
+        // The server is able to call the function directly
+        #[cfg(feature = "ssr")]
+        let action_function = |args: &I| I::call_fn(args.clone(), ());
+
+        // When not on the server send a fetch to request the fn call.
+        #[cfg(not(feature = "ssr"))]
+        let action_function = |args: &I| I::call_fn_client(args.clone(), ());
+
+        // create the action
+        Action::new(action_function).using_server_fn::<I>()
+    }
+
+    /// Updates whether the action is currently pending. If the action has been dispatched
+    /// multiple times, and some of them are still pending, it will *not* update the `pending`
+    /// signal.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn set_pending(&self, pending: bool) {
-        self.0.try_with_value(|a| a.pending.set(pending));
+        self.0.try_with_value(|a| {
+            let pending_dispatches = &a.pending_dispatches;
+            let still_pending = {
+                pending_dispatches.set(if pending {
+                    pending_dispatches.get().wrapping_add(1)
+                } else {
+                    pending_dispatches.get().saturating_sub(1)
+                });
+                pending_dispatches.get()
+            };
+            if still_pending == 0 {
+                a.pending.set(false);
+            } else {
+                a.pending.set(true);
+            }
+        });
     }
 
     /// The URL associated with the action (typically as part of a server function.)
@@ -170,7 +308,7 @@ where
     O: 'static,
 {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
@@ -195,6 +333,8 @@ where
     pub value: RwSignal<Option<O>>,
     pending: RwSignal<bool>,
     url: Option<String>,
+    /// How many dispatched actions are still pending.
+    pending_dispatches: Rc<Cell<usize>>,
     #[allow(clippy::complexity)]
     action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
@@ -210,20 +350,30 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
-        let fut = (self.action_fn)(&input);
-        self.input.set(Some(input));
-        let input = self.input;
-        let version = self.version;
-        let pending = self.pending;
-        let value = self.value;
-        pending.set(true);
-        spawn_local(async move {
-            let new_value = fut.await;
-            value.set(Some(new_value));
-            input.set(None);
-            pending.set(false);
-            version.update(|n| *n += 1);
-        })
+        if !is_suppressing_resource_load() {
+            let fut = (self.action_fn)(&input);
+            self.input.set(Some(input));
+            let input = self.input;
+            let version = self.version;
+            let pending = self.pending;
+            let pending_dispatches = Rc::clone(&self.pending_dispatches);
+            let value = self.value;
+            pending.set(true);
+            pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
+            spawn_local(async move {
+                let new_value = fut.await;
+                batch(move || {
+                    value.set(Some(new_value));
+                    input.set(None);
+                    version.update(|n| *n += 1);
+                    pending_dispatches
+                        .set(pending_dispatches.get().saturating_sub(1));
+                    if pending_dispatches.get() == 0 {
+                        pending.set(false);
+                    }
+                });
+            })
+        }
     }
 }
 
@@ -236,13 +386,13 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
 ///     // return a task id
 ///     42
 /// }
-/// let save_data = create_action(cx, |task: &String| {
+/// let save_data = create_action(|task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
@@ -258,26 +408,26 @@ where
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input(), None); // no argument yet
-/// assert_eq!(pending(), false); // isn't pending a response
-/// assert_eq!(result_of_call(), None); // there's no "last value"
-/// assert_eq!(version(), 0);
+/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(pending.get(), false); // isn't pending a response
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(version.get(), 0);
 /// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// // assert_eq!(input(), Some("My todo".to_string()));
-/// // assert_eq!(pending(), true); // is pending
-/// // assert_eq!(result_of_call(), None); // has not yet gotten a response
+/// // assert_eq!(input.get(), Some("My todo".to_string()));
+/// // assert_eq!(pending.get(), true); // is pending
+/// // assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// // after call has resolved
-/// assert_eq!(input(), None); // input clears out after resolved
-/// assert_eq!(pending(), false); // no longer pending
-/// assert_eq!(result_of_call(), Some(42));
-/// assert_eq!(version(), 1);
+/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(pending.get(), false); // no longer pending
+/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(version.get(), 1);
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// The input to the `async` function should always be a single value,
@@ -286,52 +436,32 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// // if there's a single argument, just use that
-/// let action1 = create_action(cx, |input: &String| {
+/// let action1 = create_action(|input: &String| {
 ///     let input = input.clone();
 ///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
-/// let action2 = create_action(cx, |input: &()| async { todo!() });
+/// let action2 = create_action(|input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 =
-///     create_action(cx, |input: &(usize, String)| async { todo!() });
-/// # });
+/// let action3 = create_action(|input: &(usize, String)| async { todo!() });
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn create_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> Action<I, O>
+pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O>
 where
     I: 'static,
     O: 'static,
     F: Fn(&I) -> Fu + 'static,
     Fu: Future<Output = O> + 'static,
 {
-    let version = create_rw_signal(cx, 0);
-    let input = create_rw_signal(cx, None);
-    let value = create_rw_signal(cx, None);
-    let pending = create_rw_signal(cx, false);
-    let action_fn = Rc::new(move |input: &I| {
-        let fut = action_fn(input);
-        Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
-    });
-
-    Action(store_value(
-        cx,
-        ActionState {
-            version,
-            url: None,
-            input,
-            value,
-            pending,
-            action_fn,
-        },
-    ))
+    Action::new(action_fn)
 }
 
 /// Creates an [Action] that can be used to call a server function.
@@ -344,23 +474,17 @@ where
 ///     todo!()
 /// }
 ///
-/// # run_scope(create_runtime(), |cx| {
-/// let my_server_action = create_server_action::<MyServerFn>(cx);
-/// # });
+/// # let runtime = create_runtime();
+/// let my_server_action = create_server_action::<MyServerFn>();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn create_server_action<S>(
-    cx: Scope,
-) -> Action<S, Result<S::Output, ServerFnError>>
+pub fn create_server_action<S>() -> Action<S, Result<S::Output, ServerFnError>>
 where
     S: Clone + ServerFn,
 {
-    #[cfg(feature = "ssr")]
-    let c = move |args: &S| S::call_fn(args.clone(), cx);
-    #[cfg(not(feature = "ssr"))]
-    let c = move |args: &S| S::call_fn_client(args.clone(), cx);
-    create_action(cx, c).using_server_fn::<S>()
+    Action::<S, _>::server()
 }

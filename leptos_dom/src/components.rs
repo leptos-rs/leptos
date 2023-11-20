@@ -14,27 +14,31 @@ pub use dyn_child::*;
 pub use each::*;
 pub use errors::*;
 pub use fragment::*;
-use leptos_reactive::Scope;
+use leptos_reactive::{untrack_with_diagnostics, Oco};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::OnceCell;
+use std::fmt;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::rc::Rc;
-use std::{borrow::Cow, fmt};
 pub use unit::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// The core foundational leptos components.
-#[derive(educe::Educe)]
-#[educe(Default, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum CoreComponent {
     /// The [Unit] component.
-    #[educe(Default)]
     Unit(UnitRepr),
     /// The [DynChild] component.
     DynChild(DynChildRepr),
     /// The [Each] component.
     Each(EachRepr),
+}
+
+impl Default for CoreComponent {
+    fn default() -> Self {
+        Self::Unit(UnitRepr::default())
+    }
 }
 
 impl fmt::Debug for CoreComponent {
@@ -55,14 +59,14 @@ pub struct ComponentRepr {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     mounted: Rc<OnceCell<()>>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: Oco<'static, str>,
     #[cfg(debug_assertions)]
     _opening: Comment,
     /// The children of the component.
     pub children: Vec<View>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
     #[cfg(debug_assertions)]
     pub(crate) view_marker: Option<String>,
 }
@@ -155,7 +159,7 @@ impl From<ComponentRepr> for View {
 
 impl IntoView for ComponentRepr {
     #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         self.into()
     }
 }
@@ -163,24 +167,27 @@ impl IntoView for ComponentRepr {
 impl ComponentRepr {
     /// Creates a new [`Component`].
     #[inline(always)]
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>) -> Self {
         Self::new_with_id_concrete(name.into(), HydrationCtx::id())
     }
 
     /// Creates a new [`Component`] with the given hydration ID.
     #[inline(always)]
     pub fn new_with_id(
-        name: impl Into<Cow<'static, str>>,
-        id: HydrationKey,
+        name: impl Into<Oco<'static, str>>,
+        id: Option<HydrationKey>,
     ) -> Self {
         Self::new_with_id_concrete(name.into(), id)
     }
 
-    fn new_with_id_concrete(name: Cow<'static, str>, id: HydrationKey) -> Self {
+    fn new_with_id_concrete(
+        name: Oco<'static, str>,
+        id: Option<HydrationKey>,
+    ) -> Self {
         let markers = (
-            Comment::new(Cow::Owned(format!("</{name}>")), &id, true),
+            Comment::new(format!("</{name}>"), &id, true),
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Owned(format!("<{name}>")), &id, false),
+            Comment::new(format!("<{name}>"), &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -221,28 +228,34 @@ impl ComponentRepr {
             view_marker: None,
         }
     }
+
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    /// Returns the name of the component.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 /// A user-defined `leptos` component.
 pub struct Component<F, V>
 where
-    F: FnOnce(Scope) -> V,
+    F: FnOnce() -> V,
     V: IntoView,
 {
-    id: HydrationKey,
-    name: Cow<'static, str>,
+    id: Option<HydrationKey>,
+    name: Oco<'static, str>,
     children_fn: F,
 }
 
 impl<F, V> Component<F, V>
 where
-    F: FnOnce(Scope) -> V,
+    F: FnOnce() -> V,
     V: IntoView,
 {
     /// Creates a new component.
-    pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
+    pub fn new(name: impl Into<Oco<'static, str>>, f: F) -> Self {
         Self {
-            id: HydrationCtx::next_component(),
+            id: HydrationCtx::id(),
             name: name.into(),
             children_fn: f,
         }
@@ -251,11 +264,11 @@ where
 
 impl<F, V> IntoView for Component<F, V>
 where
-    F: FnOnce(Scope) -> V,
+    F: FnOnce() -> V,
     V: IntoView,
 {
     #[track_caller]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         let Self {
             id,
             name,
@@ -265,11 +278,10 @@ where
         let mut repr = ComponentRepr::new_with_id(name, id);
 
         // disposed automatically when the parent scope is disposed
-        let (child, _) = cx
-            .run_child_scope(|cx| cx.untrack(|| children_fn(cx).into_view(cx)));
+        let child = untrack_with_diagnostics(|| children_fn().into_view());
 
         repr.children.push(child);
 
-        repr.into_view(cx)
+        repr.into_view()
     }
 }

@@ -10,12 +10,10 @@ crate-type = ["cdylib", "rlib"]
 console_log = "1.0.0"
 console_error_panic_hook = "0.1.7"
 cfg-if = "1.0.0"
-leptos = { path = "../../leptos", default-features = false, features = [
-  "serde",
-] }
-leptos_axum = { path = "../../integrations/axum", default-features = false, optional = true }
-leptos_meta = { path = "../../meta", default-features = false }
-leptos_router = { path = "../../router", default-features = false }
+leptos = { path = "../../leptos", features = ["nightly"] }
+leptos_axum = { path = "../../integrations/axum", optional = true }
+leptos_meta = { path = "../../meta" }
+leptos_router = { path = "../../router" }
 log = "0.4.17"
 serde = { version = "1", features = ["derive"] }
 simple_logger = "4.0.0"

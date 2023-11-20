@@ -1,20 +1,26 @@
-#![forbid(unsafe_code)]
-use crate::{
-    store_value, RwSignal, Scope, SignalSet, StoredValue, WriteSignal,
-};
+use crate::{store_value, RwSignal, SignalSet, StoredValue, WriteSignal};
 
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
 pub trait IntoSignalSetter<T>: Sized {
     /// Consumes `self`, returning [`SignalSetter<T>`].
-    fn mapped_signal_setter(self, cx: Scope) -> SignalSetter<T>;
+    #[deprecated = "Will be removed in `leptos v0.6`. Please use \
+                    `IntoSignalSetter::into_signal_setter()` instead."]
+    fn mapped_signal_setter(self) -> SignalSetter<T>;
+
+    /// Consumes `self`, returning [`SignalSetter<T>`].
+    fn into_signal_setter(self) -> SignalSetter<T>;
 }
 
 impl<F, T> IntoSignalSetter<T> for F
 where
     F: Fn(T) + 'static,
 {
-    fn mapped_signal_setter(self, cx: Scope) -> SignalSetter<T> {
-        SignalSetter::map(cx, self)
+    fn mapped_signal_setter(self) -> SignalSetter<T> {
+        self.into_signal_setter()
+    }
+
+    fn into_signal_setter(self) -> SignalSetter<T> {
+        SignalSetter::map(self)
     }
 }
 
@@ -34,22 +40,22 @@ where
 /// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 2);
-/// let set_double_input = SignalSetter::map(cx, move |n| set_count(n * 2));
+/// # let runtime = create_runtime();
+/// let (count, set_count) = create_signal(2);
+/// let set_double_input = SignalSetter::map(move |n| set_count.set(n * 2));
 ///
 /// // this function takes any kind of signal setter
 /// fn set_to_4(setter: &SignalSetter<i32>) {
 ///     // ✅ calling the signal sets the value
-///     //    it is a shorthand for arg.set()
-///     setter(4);
+///     //    can be `setter(4)` on nightly
+///     setter.set(4);
 /// }
 ///
 /// set_to_4(&set_count.into());
-/// assert_eq!(count(), 4);
+/// assert_eq!(count.get(), 4);
 /// set_to_4(&set_double_input);
-/// assert_eq!(count(), 8);
-/// # });
+/// assert_eq!(count.get(), 8);
+/// # runtime.dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignalSetter<T>
@@ -63,11 +69,7 @@ where
 
 impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner,
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -84,12 +86,14 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
 
 impl<T> Copy for SignalSetter<T> {}
 
-impl<T> SignalSet<T> for SignalSetter<T> {
+impl<T> SignalSet for SignalSetter<T> {
+    type Value = T;
+
     fn set(&self, new_value: T) {
         match self.inner {
             SignalSetterTypes::Default => {}
             SignalSetterTypes::Write(w) => w.set(new_value),
-            SignalSetterTypes::Mapped(_, s) => {
+            SignalSetterTypes::Mapped(s) => {
                 s.with_value(|setter| setter(new_value))
             }
         }
@@ -99,7 +103,7 @@ impl<T> SignalSet<T> for SignalSetter<T> {
         match self.inner {
             SignalSetterTypes::Default => Some(new_value),
             SignalSetterTypes::Write(w) => w.try_set(new_value),
-            SignalSetterTypes::Mapped(_, s) => {
+            SignalSetterTypes::Mapped(s) => {
                 let mut new_value = Some(new_value);
 
                 let _ = s
@@ -119,40 +123,33 @@ where
     /// reactive signals.
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let set_double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///     // ✅ calling the signal sets the value
-    ///     //    it is a shorthand for arg.set()
-    ///     setter(4)
+    ///     //    can be `setter(4)` on nightly
+    ///     setter.set(4)
     /// }
     ///
     /// set_to_4(&set_count.into());
-    /// assert_eq!(count(), 4);
+    /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_count);
-    /// assert_eq!(count(), 8);
-    /// # });
+    /// assert_eq!(count.get(), 8);
+    /// # runtime.dispose();
     /// ```
     #[track_caller]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(
-            level = "trace",
-            skip_all,
-            fields(
-                cx = ?cx.id,
-            )
-        )
+        instrument(level = "trace", skip_all)
     )]
-    pub fn map(cx: Scope, mapped_setter: impl Fn(T) + 'static) -> Self {
+    pub fn map(mapped_setter: impl Fn(T) + 'static) -> Self {
         Self {
-            inner: SignalSetterTypes::Mapped(
-                cx,
-                store_value(cx, Box::new(mapped_setter)),
-            ),
+            inner: SignalSetterTypes::Mapped(store_value(Box::new(
+                mapped_setter,
+            ))),
             #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
@@ -162,22 +159,22 @@ where
     ///
     /// ```rust
     /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let set_double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///   // ✅ calling the signal sets the value
-    ///   //    it is a shorthand for arg.set()
-    ///   setter(4);
+    ///   //    can be `setter(4)` on nightly
+    ///   setter.set(4);
     /// }
     ///
     /// set_to_4(&set_count.into());
-    /// assert_eq!(count(), 4);
+    /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_count);
-    /// assert_eq!(count(), 8);
-    /// # });
+    /// assert_eq!(count.get(), 8);
+    /// # runtime.dispose();
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
@@ -192,7 +189,7 @@ where
     pub fn set(&self, value: T) {
         match &self.inner {
             SignalSetterTypes::Write(s) => s.set(value),
-            SignalSetterTypes::Mapped(_, s) => s.with_value(|s| s(value)),
+            SignalSetterTypes::Mapped(s) => s.with_value(|s| s(value)),
             SignalSetterTypes::Default => {}
         }
     }
@@ -225,32 +222,28 @@ where
     T: 'static,
 {
     Write(WriteSignal<T>),
-    Mapped(Scope, StoredValue<Box<dyn Fn(T)>>),
+    Mapped(StoredValue<Box<dyn Fn(T)>>),
     Default,
 }
 
 impl<T> Clone for SignalSetterTypes<T> {
     fn clone(&self) -> Self {
-        match self {
-            Self::Write(arg0) => Self::Write(*arg0),
-            Self::Mapped(cx, f) => Self::Mapped(*cx, *f),
-            Self::Default => Self::Default,
-        }
+        *self
     }
 }
 
 impl<T> Copy for SignalSetterTypes<T> {}
 
-impl<T> std::fmt::Debug for SignalSetterTypes<T>
+impl<T> core::fmt::Debug for SignalSetterTypes<T>
 where
-    T: std::fmt::Debug,
+    T: core::fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Write(arg0) => {
                 f.debug_tuple("WriteSignal").field(arg0).finish()
             }
-            Self::Mapped(_, _) => f.debug_tuple("Mapped").finish(),
+            Self::Mapped(_) => f.debug_tuple("Mapped").finish(),
             Self::Default => f.debug_tuple("SignalSetter<Default>").finish(),
         }
     }
@@ -263,7 +256,7 @@ where
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Write(l0), Self::Write(r0)) => l0 == r0,
-            (Self::Mapped(_, l0), Self::Mapped(_, r0)) => std::ptr::eq(l0, r0),
+            (Self::Mapped(l0), Self::Mapped(r0)) => std::ptr::eq(l0, r0),
             _ => false,
         }
     }

@@ -1,5 +1,5 @@
 // Implementation based on Solid Router
-// see https://github.com/solidjs/solid-router/blob/main/src/utils.ts
+// see <https://github.com/solidjs/solid-router/blob/main/src/utils.ts>
 
 use crate::ParamsMap;
 
@@ -57,11 +57,14 @@ impl Matcher {
         let loc_len = loc_segments.len();
         let len_diff: i32 = loc_len as i32 - self.len as i32;
 
+        let trailing_iter = location.chars().rev().take_while(|n| *n == '/');
+
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
         // 2) location has add'l segments, there's no splat, and partial matches not allowed
         if loc_len < self.len
             || (len_diff > 0 && self.splat.is_none() && !self.partial)
+            || (self.splat.is_none() && trailing_iter.clone().count() > 1)
         {
             None
         }
@@ -86,11 +89,17 @@ impl Matcher {
 
             if let Some(splat) = &self.splat {
                 if !splat.is_empty() {
-                    let value = if len_diff > 0 {
+                    let mut value = if len_diff > 0 {
                         loc_segments[self.len..].join("/")
                     } else {
                         "".into()
                     };
+
+                    // add trailing slashes to splat
+                    let trailing_slashes =
+                        trailing_iter.skip(1).collect::<String>();
+                    value.push_str(&trailing_slashes);
+
                     params.insert(splat.into(), value);
                 }
             }

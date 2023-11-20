@@ -12,16 +12,16 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.6", features = ["syn-full"] }
+attribute-derive = { version = "0.8", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
-itertools = "0.10"
+itertools = "0.11"
 prettyplease = "0.2.4"
-proc-macro-error = "1"
+proc-macro-error = { version = "1", default-features = false }
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
-rstml = "0.10.6"
+rstml = "0.11.0"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
@@ -30,18 +30,20 @@ tracing = "0.1.37"
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = "0.14"
+typed-builder = "0.18"
 trybuild = "1"
 leptos = { path = "../leptos" }
+insta = "1.29"
+serde = "1"
 
 [features]
-default = ["ssr"]
 csr = []
 hydrate = []
-ssr = []
-stable = ["server_fn_macro/stable"]
+ssr = ["server_fn_macro/ssr"]
+nightly = ["server_fn_macro/nightly"]
 tracing = []
+experimental-islands = []
 
 [package.metadata.cargo-all-features]
-denylist = ["stable", "tracing"]
+denylist = ["nightly", "tracing"]
 skip_feature_sets = [["csr", "hydrate"], ["hydrate", "csr"], ["hydrate", "ssr"]]

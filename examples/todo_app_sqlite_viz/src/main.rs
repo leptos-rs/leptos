@@ -21,10 +21,10 @@ cfg_if! {
             .ok_or(StateError::new::<LeptosOptions>())?;
         let handler = leptos_viz::render_app_to_stream_with_context(
             options.clone(),
-            move |cx| {
-                provide_context(cx, id.clone());
+            move || {
+                provide_context(id.clone());
             },
-            |cx| view! { cx, <TodoApp/> },
+            TodoApp,
         );
         handler(req).await
     }
@@ -40,13 +40,18 @@ cfg_if! {
         .await
         .expect("could not run SQLx migrations"); */
 
-        crate::todo::register_server_functions();
+        // Explicit server function registration is no longer required
+        // on the main branch. On 0.3.0 and earlier, uncomment the lines
+        // below to register the server functions.
+        // _ = GetTodos::register();
+        // _ = AddTodo::register();
+        // _ = DeleteTodo::register();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+        let routes = generate_route_list(TodoApp);
 
         // build our application with a route
         let app = Router::new()
@@ -55,14 +60,14 @@ cfg_if! {
             .leptos_routes(
                 leptos_options.clone(),
                 routes,
-                |cx| view! { cx, <TodoApp/> },
+                TodoApp,
             )
             .get("/*", file_and_error_handler)
             .with(State(leptos_options));
 
         // run our app with hyper
         // `viz::Server` is a re-export of `hyper::Server`
-        log!("listening on http://{}", &addr);
+        logging::log!("listening on http://{}", &addr);
         viz::Server::bind(&addr)
             .serve(ServiceMaker::from(app))
             .await

@@ -8,7 +8,7 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos" }
+leptos = { path = "../../leptos", features = ["csr", "nightly"] }
 reqwasm = "0.5"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"

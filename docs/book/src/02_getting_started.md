@@ -14,24 +14,51 @@ If you don’t already have it installed, you can install Trunk by running
 cargo install trunk
 ```
 
-Create a basic Rust binary project
+Create a basic Rust project
 
 ```bash
 cargo init leptos-tutorial
 ```
 
-> We recommend using `nightly` Rust, as it enables [a few nice features](https://github.com/leptos-rs/leptos#nightly-note). To use `nightly` Rust with WebAssembly, you can run
+`cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
+
+```bash
+cargo add leptos --features=csr,nightly
+```
+
+> **Note**: This version of the book reflects the Leptos 0.5 release. The CodeSandbox examples have not yet been updated from 0.4 and earlier versions.
+
+Or you can leave off `nightly` if you're using stable Rust
+
+```bash
+cargo add leptos --features=csr
+```
+
+> Using `nightly` Rust, and the `nightly` feature in Leptos enables the function-call syntax for signal getters and setters that is used in most of this book.
+>
+> To use nightly Rust, you can either opt into nightly for all your Rust projects by running
 >
 > ```bash
 > rustup toolchain install nightly
 > rustup default nightly
-> rustup target add wasm32-unknown-unknown
 > ```
+>
+> or only for this project
+>
+> ```bash
+> rustup toolchain install nightly
+> cd <into your project>
+> rustup override set nightly
+> ```
+>
+> [See here for more details.](https://doc.rust-lang.org/book/appendix-07-nightly-rust.html)
+> 
+> If you’d rather use stable Rust with Leptos, you can do that too. In the guide and examples, you’ll just use the [`ReadSignal::get()`](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html#impl-SignalGet%3CT%3E-for-ReadSignal%3CT%3E) and [`WriteSignal::set()`](https://docs.rs/leptos/latest/leptos/struct.WriteSignal.html#impl-SignalGet%3CT%3E-for-ReadSignal%3CT%3E) methods instead of calling signal getters and setters as functions.
 
-`cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
+Make sure you've added the `wasm32-unknown-unknown` target so that Rust can compile your code to WebAssembly to run in the browser.
 
 ```bash
-cargo add leptos
+rustup target add wasm32-unknown-unknown
 ```
 
 Create a simple `index.html` in the root of the `leptos-tutorial` directory
@@ -50,7 +77,7 @@ And add a simple “Hello, world!” to your `main.rs`
 use leptos::*;
 
 fn main() {
-    mount_to_body(|cx| view! { cx,  <p>"Hello, world!"</p> })
+    mount_to_body(|| view! { <p>"Hello, world!"</p> })
 }
 ```
 

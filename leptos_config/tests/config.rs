@@ -17,6 +17,7 @@ site-root = "my_target/site"
 site-pkg-dir = "my_pkg"
 site-addr = "0.0.0.0:80"
 reload-port = "8080"
+reload-external-port = "8080"
 env = "PROD"
 "#;
 
@@ -27,6 +28,7 @@ _site-root = "my_target/site"
 _site-pkg-dir = "my_pkg"
 _site-addr = "0.0.0.0:80"
 _reload-port = "8080"
+_reload-external-port = "8080"
 _env = "PROD"
 "#;
 
@@ -46,7 +48,7 @@ async fn get_configuration_from_file_ok() {
         .unwrap()
         .leptos_options;
 
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -54,6 +56,7 @@ async fn get_configuration_from_file_ok() {
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
+    assert_eq!(config.reload_external_port, Some(8080));
 }
 
 #[tokio::test]
@@ -93,7 +96,7 @@ async fn get_config_from_file_ok() {
         .unwrap()
         .leptos_options;
 
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -101,6 +104,7 @@ async fn get_config_from_file_ok() {
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
+    assert_eq!(config.reload_external_port, Some(8080));
 }
 
 #[tokio::test]
@@ -128,7 +132,7 @@ fn get_config_from_str_content() {
     let config = get_config_from_str(CARGO_TOML_CONTENT_OK)
         .unwrap()
         .leptos_options;
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -136,19 +140,21 @@ fn get_config_from_str_content() {
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
+    assert_eq!(config.reload_external_port, Some(8080));
 }
 
 #[tokio::test]
 async fn get_config_from_env() {
     // Test config values from environment variables
-    std::env::set_var("LEPTOS_OUTPUT_NAME", "app_test");
+    std::env::set_var("LEPTOS_OUTPUT_NAME", "app-test");
     std::env::set_var("LEPTOS_SITE_ROOT", "my_target/site");
     std::env::set_var("LEPTOS_SITE_PKG_DIR", "my_pkg");
     std::env::set_var("LEPTOS_SITE_ADDR", "0.0.0.0:80");
     std::env::set_var("LEPTOS_RELOAD_PORT", "8080");
+    std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "8080");
 
     let config = get_configuration(None).await.unwrap().leptos_options;
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
 
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
@@ -157,12 +163,14 @@ async fn get_config_from_env() {
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
+    assert_eq!(config.reload_external_port, Some(8080));
 
     // Test default config values
     std::env::remove_var("LEPTOS_SITE_ROOT");
     std::env::remove_var("LEPTOS_SITE_PKG_DIR");
     std::env::remove_var("LEPTOS_SITE_ADDR");
     std::env::remove_var("LEPTOS_RELOAD_PORT");
+    std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "443");
 
     let config = get_configuration(None).await.unwrap().leptos_options;
     assert_eq!(config.site_root, "target/site");
@@ -172,12 +180,13 @@ async fn get_config_from_env() {
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
     );
     assert_eq!(config.reload_port, 3001);
+    assert_eq!(config.reload_external_port, Some(443));
 }
 
 #[test]
 fn leptos_options_builder_default() {
-    let conf = LeptosOptions::builder().output_name("app_test").build();
-    assert_eq!(conf.output_name, "app_test");
+    let conf = LeptosOptions::builder().output_name("app-test").build();
+    assert_eq!(conf.output_name, "app-test");
     assert!(matches!(conf.env, Env::DEV));
     assert_eq!(conf.site_pkg_dir, "pkg");
     assert_eq!(conf.site_root, ".");
@@ -186,4 +195,5 @@ fn leptos_options_builder_default() {
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
     );
     assert_eq!(conf.reload_port, 3001);
+    assert_eq!(conf.reload_external_port, None);
 }

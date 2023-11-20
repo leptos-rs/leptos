@@ -8,7 +8,7 @@ use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]
 fn inc() {
-    mount_to_body(|cx| view! { cx,  <Counters/> });
+    mount_to_body(|| view! { <Counters/> });
 
     let document = leptos::document();
     let div = document.query_selector("div").unwrap().unwrap();
@@ -107,7 +107,7 @@ fn inc() {
          Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
          <DynChild> -->5<!-- </DynChild> --></span> from <span><!-- \
          <DynChild> -->2<!-- </DynChild> --></span> counters.</p><ul><!-- \
-         <Each> --><!-- <EachItem> --><!-- <Counter> \
+         <Each> --><!-- <EachItem> --><!-- <EachItem> --><!-- <Counter> \
          --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
          -->2<!-- </DynChild> \
          --></span><button>+1</button><button>x</button></li><!-- </Counter> \

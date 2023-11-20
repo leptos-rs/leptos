@@ -1,0 +1,18 @@
+[package]
+name = "tailwind-csr-trunk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../../leptos", features = ["csr", "nightly"] }
+leptos_meta = { path = "../../meta", features = ["csr", "nightly"] }
+leptos_router = { path = "../../router", features = ["csr", "nightly"] }
+log = "0.4"
+gloo-net = { version = "0.2", features = ["http"] }
+
+
+# dependecies for client (enable when csr or hydrate set)
+wasm-bindgen = { version = "0.2" }
+console_log = { version = "1"}
+console_error_panic_hook = { version = "0.1"}
+

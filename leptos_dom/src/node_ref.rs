@@ -1,6 +1,6 @@
 use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{
-    create_effect, create_rw_signal, signal_prelude::*, RwSignal, Scope,
+    create_render_effect, create_rw_signal, signal_prelude::*, RwSignal,
 };
 use std::cell::Cell;
 
@@ -8,13 +8,12 @@ use std::cell::Cell;
 /// macro to create your UI.
 ///
 /// ```
-/// # use leptos::*;
-///
+/// # use leptos::{*, logging::log};
 /// use leptos::html::Input;
 ///
 /// #[component]
-/// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///     let input_ref = create_node_ref::<Input>(cx);
+/// pub fn MyComponent() -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>();
 ///
 ///     let on_click = move |_| {
 ///         let node =
@@ -25,7 +24,6 @@ use std::cell::Cell;
 ///     };
 ///
 ///     view! {
-///       cx,
 ///       <div>
 ///       // `node_ref` loads the input
 ///       <input _ref=input_ref type="text"/>
@@ -44,13 +42,12 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 /// macro to create your UI.
 ///
 /// ```
-/// # use leptos::*;
-///
+/// # use leptos::{*, logging::log};
 /// use leptos::html::Input;
 ///
 /// #[component]
-/// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///     let input_ref = create_node_ref::<Input>(cx);
+/// pub fn MyComponent() -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>();
 ///
 ///     let on_click = move |_| {
 ///         let node =
@@ -61,24 +58,59 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 ///     };
 ///
 ///     view! {
-///       cx,
 ///       <div>
-///       // `node_ref` loads the input
-///       <input _ref=input_ref type="text"/>
-///       // the button consumes it
-///       <button on:click=on_click>"Click me"</button>
+///           // `node_ref` loads the input
+///           <input _ref=input_ref type="text"/>
+///           // the button consumes it
+///           <button on:click=on_click>"Click me"</button>
 ///       </div>
 ///     }
 /// }
 /// ```
 #[inline(always)]
-pub fn create_node_ref<T: ElementDescriptor + 'static>(
-    cx: Scope,
-) -> NodeRef<T> {
-    NodeRef(create_rw_signal(cx, None))
+pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
+    NodeRef(create_rw_signal(None))
 }
 
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
+    /// Creates a shared reference to a DOM node created while using the `view`
+    /// macro to create your UI.
+    ///
+    /// This is identical to [`create_node_ref`].
+    ///
+    /// ```
+    /// # use leptos::{*, logging::log};
+    ///
+    /// use leptos::html::Input;
+    ///
+    /// #[component]
+    /// pub fn MyComponent() -> impl IntoView {
+    ///     let input_ref = NodeRef::<Input>::new();
+    ///
+    ///     let on_click = move |_| {
+    ///         let node =
+    ///             input_ref.get().expect("input_ref should be loaded by now");
+    ///         // `node` is strongly typed
+    ///         // it is dereferenced to an `HtmlInputElement` automatically
+    ///         log!("value is {:?}", node.value())
+    ///     };
+    ///
+    ///     view! {
+    ///       <div>
+    ///           // `node_ref` loads the input
+    ///           <input _ref=input_ref type="text"/>
+    ///           // the button consumes it
+    ///           <button on:click=on_click>"Click me"</button>
+    ///       </div>
+    ///     }
+    /// }
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new() -> Self {
+        create_node_ref()
+    }
+
     /// Gets the element that is currently stored in the reference.
     ///
     /// This tracks reactively, so that node references can be used in effects.
@@ -130,14 +162,14 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     /// Runs the provided closure when the `NodeRef` has been connected
     /// with it's [`HtmlElement`].
     #[inline(always)]
-    pub fn on_load<F>(self, cx: Scope, f: F)
+    pub fn on_load<F>(self, f: F)
     where
         T: Clone,
         F: FnOnce(HtmlElement<T>) + 'static,
     {
         let f = Cell::new(Some(f));
 
-        create_effect(cx, move |_| {
+        create_render_effect(move |_| {
             if let Some(node_ref) = self.get() {
                 f.take().unwrap()(node_ref);
             }
@@ -147,14 +179,20 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
 
 impl<T: ElementDescriptor> Clone for NodeRef<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
 impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}
 
+impl<T: ElementDescriptor + 'static> Default for NodeRef<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "stable"))] {
+    if #[cfg(feature = "nightly")] {
         impl<T: Clone + ElementDescriptor + 'static> FnOnce<()> for NodeRef<T> {
             type Output = Option<HtmlElement<T>>;
 

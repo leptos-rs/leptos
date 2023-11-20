@@ -1,0 +1,11 @@
+[tasks.build]
+toolchain = "nightly"
+command = "cargo"
+args = ["build-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.check]
+toolchain = "nightly"
+command = "cargo"
+args = ["check-all-features"]
+install_crate = "cargo-all-features"

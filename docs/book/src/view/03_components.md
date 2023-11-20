@@ -12,10 +12,10 @@ per click.
 You _could_ do this by just creating two `<progress>` elements:
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 let double_count = move || count() * 2;
 
-view! { cx,
+view! {
     <progress
         max="50"
         value=count
@@ -35,10 +35,8 @@ Instead, let’s create a `<ProgressBar/>` component.
 
 ```rust
 #[component]
-fn ProgressBar(
-    cx: Scope
-) -> impl IntoView {
-    view! { cx,
+fn ProgressBar() -> impl IntoView {
+    view! {
         <progress
             max="50"
             // hmm... where will we get this from?
@@ -64,10 +62,9 @@ In Leptos, you define props by giving additional arguments to the component func
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
     progress: ReadSignal<i32>
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max="50"
             // now this works
@@ -81,9 +78,9 @@ Now we can use our component in the main `<App/>` component’s view.
 
 ```rust
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
-    view! { cx,
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
+    view! {
         <button on:click=move |_| { set_count.update(|n| *n += 1); }>
             "Click me"
         </button>
@@ -97,18 +94,6 @@ Using a component in the view looks a lot like using an HTML element. You’ll
 notice that you can easily tell the difference between an element and a component
 because components always have `PascalCase` names. You pass the `progress` prop
 in as if it were an HTML element attribute. Simple.
-
-> ### Important Note
->
-> For every `Component`, Leptos generates a corresponding `ComponentProps` type. This
-> is what allows us to have named props, when Rust does not have named function parameters.
-> If you’re defining a component in one module and importing it into another, make
-> sure you include this `ComponentProps` type:
->
-> `use progress_bar::{ProgressBar, ProgressBarProps};`
->
-> **Note**: This is still true as of `0.2.5`, but the requirement has been removed on `main`
-> and will not apply to later versions.
 
 ### Reactive and Static Props
 
@@ -130,14 +115,13 @@ argument to the component function with `#[prop(optional)]`.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
     // mark this prop optional
     // you can specify it or not when you use <ProgressBar/>
     #[prop(optional)]
     max: u16,
     progress: ReadSignal<i32>
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -161,12 +145,11 @@ with `#[prop(default = ...)`.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
     #[prop(default = 100)]
     max: u16,
     progress: ReadSignal<i32>
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -183,11 +166,11 @@ as the `progress` prop on another `<ProgressBar/>`.
 
 ```rust
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
     let double_count = move || count() * 2;
 
-    view! { cx,
+    view! {
         <button on:click=move |_| { set_count.update(|n| *n += 1); }>
             "Click me"
         </button>
@@ -211,7 +194,6 @@ implement the trait `Fn() -> i32`. So you could use a generic component:
 ```rust
 #[component]
 fn ProgressBar<F>(
-    cx: Scope,
     #[prop(default = 100)]
     max: u16,
     progress: F
@@ -219,7 +201,7 @@ fn ProgressBar<F>(
 where
     F: Fn() -> i32 + 'static,
 {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -231,9 +213,24 @@ where
 This is a perfectly reasonable way to write this component: `progress` now takes
 any value that implements this `Fn()` trait.
 
-> Note that generic component props _cannot_ be specified inline (as `<F: Fn() -> i32>`)
-> or as `progress: impl Fn() -> i32 + 'static,`, in part because they’re actually used to generate
-> a `struct ProgressBarProps`, and struct fields cannot be `impl` types.
+This generic can also be specified inline:
+
+```rust
+#[component]
+fn ProgressBar<F: Fn() -> i32 + 'static>(
+    #[prop(default = 100)] max: u16,
+    progress: F,
+) -> impl IntoView {
+    view! {
+        <progress
+            max=max
+            value=progress
+        />
+    }
+}
+```
+
+> Note that generic component props _can’t_ be specified with an `impl` yet (`progress: impl Fn() -> i32 + 'static,`), in part because they’re actually used to generate a `struct ProgressBarProps`, and struct fields cannot be `impl` types. The `#[component]` macro may be further improved in the future to allow inline `impl` generic props.
 
 ### `into` Props
 
@@ -251,14 +248,13 @@ reactive value.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
     #[prop(default = 100)]
     max: u16,
     #[prop(into)]
     progress: Signal<i32>
 ) -> impl IntoView
 {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -267,21 +263,94 @@ fn ProgressBar(
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
     let double_count = move || count() * 2;
 
-    view! { cx,
+    view! {
         <button on:click=move |_| { set_count.update(|n| *n += 1); }>
             "Click me"
         </button>
         // .into() converts `ReadSignal` to `Signal`
         <ProgressBar progress=count/>
         // use `Signal::derive()` to wrap a derived signal
-        <ProgressBar progress=Signal::derive(cx, double_count)/>
+        <ProgressBar progress=Signal::derive(double_count)/>
     }
 }
 ```
+
+### Optional Generic Props
+
+Note that you can’t specify optional generic props for a component. Let’s see what would happen if you try:
+
+```rust,compile_fail
+#[component]
+fn ProgressBar<F: Fn() -> i32 + 'static>(
+    #[prop(optional)] progress: Option<F>,
+) -> impl IntoView {
+    progress.map(|progress| {
+        view! {
+            <progress
+                max=100
+                value=progress
+            />
+        }
+    })
+}
+
+#[component]
+pub fn App() -> impl IntoView {
+    view! {
+        <ProgressBar/>
+    }
+}
+```
+
+Rust helpfully gives the error
+
+```
+xx |         <ProgressBar/>
+   |          ^^^^^^^^^^^ cannot infer type of the type parameter `F` declared on the function `ProgressBar`
+   |
+help: consider specifying the generic argument
+   |
+xx |         <ProgressBar::<F>/>
+   |                     +++++
+```
+
+There are just two problems:
+
+1. Leptos’s view macro doesn’t support specifying a generic on a component with this turbofish syntax.
+2. Even if you could, specifying the correct type here is not possible; closures and functions in general are unnameable types. The compiler can display them with a shorthand, but you can’t specify them.
+
+However, you can get around this by providing a concrete type using `Box<dyn _>` or `&dyn _`:
+
+```rust
+#[component]
+fn ProgressBar(
+    #[prop(optional)] progress: Option<Box<dyn Fn() -> i32>>,
+) -> impl IntoView {
+    progress.map(|progress| {
+        view! {
+            <progress
+                max=100
+                value=progress
+            />
+        }
+    })
+}
+
+#[component]
+pub fn App() -> impl IntoView {
+    view! {
+        <ProgressBar/>
+    }
+}
+```
+
+Because the Rust compiler now knows the concrete type of the prop, and therefore its size in memory even in the `None` case, this compiles fine.
+
+> In this particular case, `&dyn Fn() -> i32` will cause lifetime issues, but in other cases, it may be a possibility.
 
 ## Documenting Components
 
@@ -297,7 +366,6 @@ component function, and each one of the props:
 /// Shows progress toward a goal.
 #[component]
 fn ProgressBar(
-    cx: Scope,
     /// The maximum value of the progress bar.
     #[prop(default = 100)]
     max: u16,
@@ -318,6 +386,96 @@ type, and each of the fields used to add props. It can be a little hard to
 understand how powerful this is until you hover over the component name or props
 and see the power of the `#[component]` macro combined with rust-analyzer here.
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/3-components-50t2e7?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A7%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A7%7D%5D)
+> #### Advanced Topic: `#[component(transparent)]`
+>
+> All Leptos components return `-> impl IntoView`. Some, though, need to return
+> some data directly without any additional wrapping. These can be marked with
+> `#[component(transparent)]`, in which case they return exactly the value they
+> return, without the rendering system transforming them in any way.
+>
+> This is mostly used in two situations:
+>
+> 1. Creating wrappers around `<Suspense/>` or `<Transition/>`, which return a
+>    transparent suspense structure to integrate with SSR and hydration properly.
+> 2. Refactoring `<Route/>` definitions for `leptos_router` out into separate
+>    components, because `<Route/>` is a transparent component that returns a
+>    `RouteDefinition` struct rather than a view.
+>
+> In general, you should not need to use transparent components unless you are
+> creating custom wrapping components that fall into one of these two categories.
 
-<iframe src="https://codesandbox.io/p/sandbox/3-components-50t2e7?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A7%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A7%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/3-components-0-5-5vvl69?file=%2Fsrc%2Fmain.rs%3A1%2C1)
+
+<iframe src="https://codesandbox.io/p/sandbox/3-components-0-5-5vvl69?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+
+<details>
+<summary>CodeSandbox Source</summary>
+
+```rust
+use leptos::*;
+
+// Composing different components together is how we build
+// user interfaces. Here, we'll define a resuable <ProgressBar/>.
+// You'll see how doc comments can be used to document components
+// and their properties.
+
+/// Shows progress toward a goal.
+#[component]
+fn ProgressBar(
+    // Marks this as an optional prop. It will default to the default
+    // value of its type, i.e., 0.
+    #[prop(default = 100)]
+    /// The maximum value of the progress bar.
+    max: u16,
+    // Will run `.into()` on the value passed into the prop.
+    #[prop(into)]
+    // `Signal<T>` is a wrapper for several reactive types.
+    // It can be helpful in component APIs like this, where we
+    // might want to take any kind of reactive value
+    /// How much progress should be displayed.
+    progress: Signal<i32>,
+) -> impl IntoView {
+    view! {
+        <progress
+            max={max}
+            value=progress
+        />
+        <br/>
+    }
+}
+
+#[component]
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
+
+    let double_count = move || count() * 2;
+
+    view! {
+        <button
+            on:click=move |_| {
+                set_count.update(|n| *n += 1);
+            }
+        >
+            "Click me"
+        </button>
+        <br/>
+        // If you have this open in CodeSandbox or an editor with
+        // rust-analyzer support, try hovering over `ProgressBar`,
+        // `max`, or `progress` to see the docs we defined above
+        <ProgressBar max=50 progress=count/>
+        // Let's use the default max value on this one
+        // the default is 100, so it should move half as fast
+        <ProgressBar progress=count/>
+        // Signal::derive creates a Signal wrapper from our derived signal
+        // using double_count means it should move twice as fast
+        <ProgressBar max=50 progress=Signal::derive(double_count)/>
+    }
+}
+
+fn main() {
+    leptos::mount_to_body(App)
+}
+```
+
+</details>
+</preview>

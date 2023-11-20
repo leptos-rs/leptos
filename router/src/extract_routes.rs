@@ -1,8 +1,13 @@
 use crate::{
     Branch, Method, RouterIntegrationContext, ServerIntegration, SsrMode,
+    StaticDataMap, StaticMode, StaticParamsMap, StaticPath,
 };
 use leptos::*;
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 /// Context to contain all possible routes.
 #[derive(Clone, Default, Debug)]
@@ -12,27 +17,38 @@ pub struct PossibleBranchContext(pub(crate) Rc<RefCell<Vec<Branch>>>);
 /// A route that this application can serve.
 pub struct RouteListing {
     path: String,
+    leptos_path: String,
     mode: SsrMode,
     methods: HashSet<Method>,
+    static_mode: Option<StaticMode>,
 }
 
 impl RouteListing {
     /// Create a route listing from its parts.
     pub fn new(
         path: impl ToString,
+        leptos_path: impl ToString,
         mode: SsrMode,
         methods: impl IntoIterator<Item = Method>,
+        static_mode: Option<StaticMode>,
     ) -> Self {
         Self {
             path: path.to_string(),
+            leptos_path: leptos_path.to_string(),
             mode,
             methods: methods.into_iter().collect(),
+            static_mode,
         }
     }
 
     /// The path this route handles.
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// The leptos-formatted path this route handles.
+    pub fn leptos_path(&self) -> &str {
+        &self.leptos_path
     }
 
     /// The rendering mode for this path.
@@ -44,55 +60,109 @@ impl RouteListing {
     pub fn methods(&self) -> impl Iterator<Item = Method> + '_ {
         self.methods.iter().copied()
     }
+
+    /// Whether this route is statically rendered.
+    #[inline(always)]
+    pub fn static_mode(&self) -> Option<StaticMode> {
+        self.static_mode
+    }
+
+    /// Build a route statically, will return `Ok(true)` on success or `Ok(false)` when the route
+    /// is not marked as statically rendered. All route parameters to use when resolving all paths
+    /// to render should be passed in the `params` argument.
+    pub async fn build_static<IV>(
+        &self,
+        options: &LeptosOptions,
+        app_fn: impl Fn() -> IV + Send + 'static + Clone,
+        additional_context: impl Fn() + Send + 'static + Clone,
+        params: &StaticParamsMap,
+    ) -> Result<bool, std::io::Error>
+    where
+        IV: IntoView + 'static,
+    {
+        match self.static_mode {
+            None => Ok(false),
+            Some(_) => {
+                let mut path = StaticPath::new(&self.leptos_path);
+                path.add_params(params);
+                for path in path.into_paths() {
+                    path.write(
+                        options,
+                        app_fn.clone(),
+                        additional_context.clone(),
+                    )
+                    .await?;
+                }
+                Ok(true)
+            }
+        }
+    }
 }
 
 /// Generates a list of all routes this application could possibly serve. This returns the raw routes in the leptos_router
-/// format. Odds are you want `generate_route_list()` from either the actix, axum, or viz integrations if you want
-/// to work with their router
+/// format. Odds are you want `generate_route_list()` from either the [`actix`], [`axum`], or [`viz`] integrations if you want
+/// to work with their router.
+///
+/// [`actix`]: <https://docs.rs/actix/>
+/// [`axum`]: <https://docs.rs/axum/>
+/// [`viz`]: <https://docs.rs/viz/>
 pub fn generate_route_list_inner<IV>(
-    app_fn: impl FnOnce(Scope) -> IV + 'static,
-) -> Vec<RouteListing>
+    app_fn: impl Fn() -> IV + 'static + Clone,
+) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
     let runtime = create_runtime();
-    run_scope(runtime, move |cx| {
-        let integration = ServerIntegration {
-            path: "http://leptos.rs/".to_string(),
-        };
 
-        provide_context(cx, RouterIntegrationContext::new(integration));
-        let branches = PossibleBranchContext::default();
-        provide_context(cx, branches.clone());
+    let integration = ServerIntegration {
+        path: "http://leptos.rs/".to_string(),
+    };
 
-        leptos::suppress_resource_load(true);
-        _ = app_fn(cx).into_view(cx);
-        leptos::suppress_resource_load(false);
+    provide_context(RouterIntegrationContext::new(integration));
+    let branches = PossibleBranchContext::default();
+    provide_context(branches.clone());
 
-        let branches = branches.0.borrow();
-        branches
-            .iter()
-            .flat_map(|branch| {
-                let mode = branch
-                    .routes
-                    .iter()
-                    .map(|route| route.key.ssr_mode)
-                    .max()
-                    .unwrap_or_default();
-                let methods = branch
-                    .routes
-                    .iter()
-                    .flat_map(|route| route.key.methods)
-                    .copied()
-                    .collect::<HashSet<_>>();
-                let pattern =
-                    branch.routes.last().map(|route| route.pattern.clone());
-                pattern.map(|path| RouteListing {
-                    path,
-                    mode,
-                    methods: methods.clone(),
-                })
+    leptos::suppress_resource_load(true);
+    _ = app_fn().into_view();
+    leptos::suppress_resource_load(false);
+
+    let branches = branches.0.borrow();
+    let mut static_data_map: StaticDataMap = HashMap::new();
+    let routes = branches
+        .iter()
+        .flat_map(|branch| {
+            let mode = branch
+                .routes
+                .iter()
+                .map(|route| route.key.ssr_mode)
+                .max()
+                .unwrap_or_default();
+            let methods = branch
+                .routes
+                .iter()
+                .flat_map(|route| route.key.methods)
+                .copied()
+                .collect::<HashSet<_>>();
+            let route = branch
+                .routes
+                .last()
+                .map(|route| (route.key.static_mode, route.pattern.clone()));
+            for route in branch.routes.iter() {
+                static_data_map.insert(
+                    route.pattern.to_string(),
+                    route.key.static_params.clone(),
+                );
+            }
+            route.map(|(static_mode, path)| RouteListing {
+                leptos_path: path.clone(),
+                path,
+                mode,
+                methods: methods.clone(),
+                static_mode,
             })
-            .collect()
-    })
+        })
+        .collect::<Vec<_>>();
+
+    runtime.dispose();
+    (routes, static_data_map)
 }

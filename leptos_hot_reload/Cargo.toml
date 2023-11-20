@@ -19,9 +19,9 @@ syn = { version = "2", features = [
 	"printing",
 ] }
 quote = "1"
-rstml = "0.10.6"
+rstml = "0.11.0"
 proc-macro2 = { version = "1", features = ["span-locations", "nightly"] }
 parking_lot = "0.12"
 walkdir = "2"
 camino = "1.1.3"
-indexmap = "1.9.2"
+indexmap = "2"

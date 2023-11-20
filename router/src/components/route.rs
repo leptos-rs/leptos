@@ -1,9 +1,17 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    ParamsMap, RouterContext, SsrMode,
+    ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap,
 };
 use leptos::{leptos_dom::Transparent, *};
-use std::{cell::Cell, rc::Rc};
+use std::{
+    any::Any,
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    future::Future,
+    pin::Pin,
+    rc::Rc,
+    sync::Arc,
+};
 
 thread_local! {
     static ROUTE_ID: Cell<usize> = Cell::new(0);
@@ -39,14 +47,13 @@ pub enum Method {
 )]
 #[component(transparent)]
 pub fn Route<E, F, P>(
-    cx: Scope,
     /// The path fragment that this route should match. This can be static (`users`),
     /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
     /// wildcard (`user/*any`).
     path: P,
     /// The view that should be shown when this route is matched. This can be any function
-    /// that takes a [Scope] and returns a type that implements [IntoView] (like `|cx| view! { cx, <p>"Show this"</p> })`
-    /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
+    /// that returns a type that implements [`IntoView`] (like `|| view! { <p>"Show this"</p> })`
+    /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
     #[prop(optional)]
@@ -54,22 +61,28 @@ pub fn Route<E, F, P>(
     /// The HTTP methods that this route can handle (defaults to only `GET`).
     #[prop(default = &[Method::Get])]
     methods: &'static [Method],
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
 ) -> impl IntoView
 where
     E: IntoView,
-    F: Fn(Scope) -> E + 'static,
-    P: std::fmt::Display,
+    F: Fn() -> E + 'static,
+    P: core::fmt::Display,
 {
     define_route(
-        cx,
         children,
         path.to_string(),
-        Rc::new(move |cx| view(cx).into_view(cx)),
+        Rc::new(move || view().into_view()),
         ssr,
         methods,
+        data,
+        None,
+        None,
     )
 }
 
@@ -82,7 +95,6 @@ where
 )]
 #[component(transparent)]
 pub fn ProtectedRoute<P, E, F, C>(
-    cx: Scope,
     /// The path fragment that this route should match. This can be static (`users`),
     /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
     /// wildcard (`user/*any`).
@@ -99,50 +111,109 @@ pub fn ProtectedRoute<P, E, F, C>(
     /// The HTTP methods that this route can handle (defaults to only `GET`).
     #[prop(default = &[Method::Get])]
     methods: &'static [Method],
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
 ) -> impl IntoView
 where
     E: IntoView,
-    F: Fn(Scope) -> E + 'static,
-    P: std::fmt::Display + 'static,
-    C: Fn(Scope) -> bool + 'static,
+    F: Fn() -> E + 'static,
+    P: core::fmt::Display + 'static,
+    C: Fn() -> bool + 'static,
 {
     use crate::Redirect;
     let redirect_path = redirect_path.to_string();
 
     define_route(
-        cx,
         children,
         path.to_string(),
-        Rc::new(move |cx| {
-            if condition(cx) {
-                view(cx).into_view(cx)
+        Rc::new(move || {
+            if condition() {
+                view().into_view()
             } else {
-                view! { cx, <Redirect path=redirect_path.clone()/> }
-                    .into_view(cx)
+                view! { <Redirect path=redirect_path.clone()/> }.into_view()
             }
         }),
         ssr,
         methods,
+        data,
+        None,
+        None,
     )
 }
+
+/// Describes a portion of the nested layout of the app, specifying the route it should match,
+/// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all,)
 )]
+#[component(transparent)]
+pub fn StaticRoute<E, F, P, S>(
+    /// The path fragment that this route should match. This can be static (`users`),
+    /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
+    /// wildcard (`user/*any`).
+    path: P,
+    /// The view that should be shown when this route is matched. This can be any function
+    /// that returns a type that implements [IntoView] (like `|| view! { <p>"Show this"</p> })`
+    /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
+    view: F,
+    /// Creates a map of the params that should be built for a particular route.
+    static_params: S,
+    /// The static route mode
+    #[prop(optional)]
+    mode: StaticMode,
+    /// A data-loading function that will be called when the route is matched. Its results can be
+    /// accessed with [`use_route_data`](crate::use_route_data).
+    #[prop(optional, into)]
+    data: Option<Loader>,
+    /// `children` may be empty or include nested routes.
+    #[prop(optional)]
+    children: Option<Children>,
+) -> impl IntoView
+where
+    E: IntoView,
+    F: Fn() -> E + 'static,
+    P: core::fmt::Display,
+    S: Fn() -> Pin<Box<dyn Future<Output = StaticParamsMap> + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
+{
+    define_route(
+        children,
+        path.to_string(),
+        Rc::new(move || view().into_view()),
+        SsrMode::default(),
+        &[Method::Get],
+        data,
+        Some(mode),
+        Some(Arc::new(static_params)),
+    )
+}
+
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn define_route(
-    cx: Scope,
     children: Option<Children>,
     path: String,
-    view: Rc<dyn Fn(Scope) -> View>,
+    view: Rc<dyn Fn() -> View>,
     ssr_mode: SsrMode,
     methods: &'static [Method],
+    data: Option<Loader>,
+    static_mode: Option<StaticMode>,
+    static_params: Option<StaticData>,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
-            children(cx)
+            children()
                 .as_children()
                 .iter()
                 .filter_map(|child| {
@@ -168,19 +239,22 @@ pub(crate) fn define_route(
         view,
         ssr_mode,
         methods,
+        data,
+        static_mode,
+        static_params,
     }
 }
 
 impl IntoView for RouteDefinition {
-    fn into_view(self, cx: Scope) -> View {
-        Transparent::new(self).into_view(cx)
+    fn into_view(self) -> View {
+        Transparent::new(self).into_view()
     }
 }
 
 /// Context type that contains information about the current, matched route.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteContext {
-    inner: Rc<RouteContextInner>,
+    pub(crate) inner: Rc<RouteContextInner>,
 }
 
 impl RouteContext {
@@ -189,9 +263,8 @@ impl RouteContext {
         tracing::instrument(level = "info", skip_all,)
     )]
     pub(crate) fn new(
-        cx: Scope,
         router: &RouterContext,
-        child: impl Fn(Scope) -> Option<RouteContext> + 'static,
+        child: impl Fn() -> Option<RouteContext> + 'static,
         matcher: impl Fn() -> Option<RouteMatch> + 'static,
     ) -> Option<Self> {
         let base = router.base();
@@ -199,31 +272,37 @@ impl RouteContext {
         let RouteMatch { path_match, route } = matcher()?;
         let PathMatch { path, .. } = path_match;
         let RouteDefinition {
-            view: element, id, ..
+            view: element,
+            id,
+            data,
+            ..
         } = route.key;
-        let params = create_memo(cx, move |_| {
+        let params = create_memo(move |_| {
             matcher()
                 .map(|matched| matched.path_match.params)
                 .unwrap_or_default()
         });
 
-        Some(Self {
-            inner: Rc::new(RouteContextInner {
-                cx,
-                id,
-                base_path: base,
-                child: Box::new(child),
-                path: create_rw_signal(cx, path),
-                original_path: route.original_path.to_string(),
-                params,
-                outlet: Box::new(move |cx| Some(element(cx))),
-            }),
-        })
-    }
+        let inner = Rc::new(RouteContextInner {
+            id,
+            base_path: base,
+            child: Box::new(child),
+            path: create_rw_signal(path),
+            original_path: route.original_path.to_string(),
+            params,
+            outlet: Box::new(move || Some(element())),
+            data: RefCell::new(None),
+        });
+        if let Some(loader) = data {
+            let data = {
+                let inner = Rc::clone(&inner);
+                provide_context(RouteContext { inner });
+                (loader.data)()
+            };
+            *inner.data.borrow_mut() = Some(data);
+        }
 
-    /// Returns the reactive scope of the current route.
-    pub fn cx(&self) -> Scope {
-        self.inner.cx
+        Some(RouteContext { inner })
     }
 
     pub(crate) fn id(&self) -> usize {
@@ -234,9 +313,19 @@ impl RouteContext {
     /// including param values in their places.
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
-    /// For the opposite behavior, see [RouteContext::original_path].
+    /// For the opposite behavior, see [`RouteContext::original_path`].
+    #[track_caller]
     pub fn path(&self) -> String {
-        self.inner.path.get_untracked()
+        #[cfg(debug_assertions)]
+        let caller = std::panic::Location::caller();
+
+        self.inner.path.try_get_untracked().unwrap_or_else(|| {
+            leptos::logging::debug_warn!(
+                "at {caller}, you call `.path()` on a `<Route/>` that has \
+                 already been disposed"
+            );
+            Default::default()
+        })
     }
 
     pub(crate) fn set_path(&self, path: String) {
@@ -247,7 +336,7 @@ impl RouteContext {
     /// with the param name rather than the matched parameter itself.
     ///
     /// e.g., this will return `/article/:id` rather than `/article/0`
-    /// For the opposite behavior, see [RouteContext::path].
+    /// For the opposite behavior, see [`RouteContext::path`].
     pub fn original_path(&self) -> &str {
         &self.inner.original_path
     }
@@ -257,23 +346,17 @@ impl RouteContext {
         self.inner.params
     }
 
-    pub(crate) fn base(
-        cx: Scope,
-        path: &str,
-        fallback: Option<fn(Scope) -> View>,
-    ) -> Self {
+    pub(crate) fn base(path: &str, fallback: Option<fn() -> View>) -> Self {
         Self {
             inner: Rc::new(RouteContextInner {
-                cx,
                 id: 0,
                 base_path: path.to_string(),
-                child: Box::new(|_| None),
-                path: create_rw_signal(cx, path.to_string()),
+                child: Box::new(|| None),
+                path: create_rw_signal(path.to_string()),
                 original_path: path.to_string(),
-                params: create_memo(cx, |_| ParamsMap::new()),
-                outlet: Box::new(move |cx| {
-                    fallback.as_ref().map(move |f| f(cx))
-                }),
+                params: create_memo(|_| ParamsMap::new()),
+                outlet: Box::new(move || fallback.as_ref().map(move |f| f())),
+                data: Default::default(),
             }),
         }
     }
@@ -290,46 +373,62 @@ impl RouteContext {
 
     pub(crate) fn resolve_path_tracked(&self, to: &str) -> Option<String> {
         resolve_path(&self.inner.base_path, to, Some(&self.inner.path.get()))
-            .map(String::from)
+            .map(Cow::into_owned)
     }
 
     /// The nested child route, if any.
-    pub fn child(&self, cx: Scope) -> Option<RouteContext> {
-        (self.inner.child)(cx)
+    pub fn child(&self) -> Option<RouteContext> {
+        (self.inner.child)()
     }
 
     /// The view associated with the current route.
-    pub fn outlet(&self, cx: Scope) -> impl IntoView {
-        (self.inner.outlet)(cx)
+    pub fn outlet(&self) -> impl IntoView {
+        (self.inner.outlet)()
     }
 }
 
 pub(crate) struct RouteContextInner {
-    cx: Scope,
     base_path: String,
     pub(crate) id: usize,
-    pub(crate) child: Box<dyn Fn(Scope) -> Option<RouteContext>>,
+    pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
     pub(crate) path: RwSignal<String>,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
-    pub(crate) outlet: Box<dyn Fn(Scope) -> Option<View>>,
+    pub(crate) outlet: Box<dyn Fn() -> Option<View>>,
+    pub(crate) data: RefCell<Option<Rc<dyn Any>>>,
 }
 
 impl PartialEq for RouteContextInner {
     fn eq(&self, other: &Self) -> bool {
-        self.cx == other.cx
-            && self.base_path == other.base_path
+        self.base_path == other.base_path
             && self.path == other.path
             && self.original_path == other.original_path
             && self.params == other.params
     }
 }
 
-impl std::fmt::Debug for RouteContextInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RouteContextInner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RouteContextInner")
             .field("path", &self.path)
             .field("ParamsMap", &self.params)
             .finish()
+    }
+}
+
+#[derive(Clone)]
+pub struct Loader {
+    pub(crate) data: Rc<dyn Fn() -> Rc<dyn Any>>,
+}
+
+impl<F, T> From<F> for Loader
+where
+    F: Fn() -> T + 'static,
+    T: Any + Clone + 'static,
+{
+    fn from(f: F) -> Self {
+        Self {
+            data: Rc::new(move || Rc::new(f())),
+        }
     }
 }

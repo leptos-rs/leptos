@@ -2,15 +2,14 @@ use test::Bencher;
 
 #[bench]
 fn leptos_ssr_bench(b: &mut Bencher) {
+	use leptos::*;
+	let r = create_runtime();
     b.iter(|| {
-		use leptos::*;
-		leptos_dom::HydrationCtx::reset_id();
-		_ = create_scope(create_runtime(), |cx| {
+			leptos::leptos_dom::HydrationCtx::reset_id();
 			#[component]
-			fn Counter(cx: Scope, initial: i32) -> impl IntoView {
-				let (value, set_value) = create_signal(cx, initial);
+			fn Counter(initial: i32) -> impl IntoView {
+				let (value, set_value) = create_signal(initial);
 				view! {
-					cx,
 					<div>
 						<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
 						<span>"Value: " {move || value().to_string()} "!"</span>
@@ -20,7 +19,6 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 			}
 
 			let rendered = view! { 
-				cx,
 				<main>
 					<h1>"Welcome to our benchmark page."</h1>
 					<p>"Here's some introductory text."</p>
@@ -28,14 +26,53 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 					<Counter initial=2/>
 					<Counter initial=3/>
 				</main>
-			}.into_view(cx).render_to_string(cx);
+			}.into_view().render_to_string();
 
 			assert_eq!(
 				rendered,
-				"<main id=\"_0-1\"><h1 id=\"_0-2\">Welcome to our benchmark page.</h1><p id=\"_0-3\">Here&#x27;s some introductory text.</p><div id=\"_0-3-1\"><button id=\"_0-3-2\">-1</button><span id=\"_0-3-3\">Value: <!>1<!--hk=_0-3-4-->!</span><button id=\"_0-3-5\">+1</button></div><!--hk=_0-3-0--><div id=\"_0-3-5-1\"><button id=\"_0-3-5-2\">-1</button><span id=\"_0-3-5-3\">Value: <!>2<!--hk=_0-3-5-4-->!</span><button id=\"_0-3-5-5\">+1</button></div><!--hk=_0-3-5-0--><div id=\"_0-3-5-5-1\"><button id=\"_0-3-5-5-2\">-1</button><span id=\"_0-3-5-5-3\">Value: <!>3<!--hk=_0-3-5-5-4-->!</span><button id=\"_0-3-5-5-5\">+1</button></div><!--hk=_0-3-5-5-0--></main>"
-			);
-		});
+"<main data-hk=\"0-0-0-1\"><h1 data-hk=\"0-0-0-2\">Welcome to our benchmark page.</h1><p data-hk=\"0-0-0-3\">Here&#x27;s some introductory text.</p><div data-hk=\"0-0-0-5\"><button data-hk=\"0-0-0-6\">-1</button><span data-hk=\"0-0-0-7\">Value: <!>1<!--hk=0-0-0-8-->!</span><button data-hk=\"0-0-0-9\">+1</button></div><!--hk=0-0-0-4--><div data-hk=\"0-0-0-11\"><button data-hk=\"0-0-0-12\">-1</button><span data-hk=\"0-0-0-13\">Value: <!>2<!--hk=0-0-0-14-->!</span><button data-hk=\"0-0-0-15\">+1</button></div><!--hk=0-0-0-10--><div data-hk=\"0-0-0-17\"><button data-hk=\"0-0-0-18\">-1</button><span data-hk=\"0-0-0-19\">Value: <!>3<!--hk=0-0-0-20-->!</span><button data-hk=\"0-0-0-21\">+1</button></div><!--hk=0-0-0-16--></main>"			);
 	});
+	r.dispose();
+}
+
+#[bench]
+fn tachys_ssr_bench(b: &mut Bencher) {
+	use leptos::{create_runtime, create_signal, SignalGet, SignalUpdate};
+	use tachy_maccy::view;
+	use tachydom::view::{Render, RenderHtml};
+	use tachydom::html::element::ElementChild;
+	use tachydom::html::attribute::global::ClassAttribute;
+	use tachydom::html::attribute::global::GlobalAttributes;
+	use tachydom::html::attribute::global::OnAttribute;
+	use tachydom::renderer::dom::Dom;
+	let rt = create_runtime();
+    b.iter(|| {
+		fn counter(initial: i32) -> impl Render<Dom> + RenderHtml<Dom> {
+			let (value, set_value) = create_signal(initial);
+			view! {
+				<div>
+					<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+					<span>"Value: " {move || value().to_string()} "!"</span>
+					<button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+				</div>
+			}
+		}
+
+		let rendered = view! { 
+			<main>
+				<h1>"Welcome to our benchmark page."</h1>
+				<p>"Here's some introductory text."</p>
+				{counter(1)}
+				{counter(2)}
+				{counter(3)}
+			</main>
+		}.to_html();
+		assert_eq!(
+			rendered,
+			"<main><h1>Welcome to our benchmark page.</h1><p>Here's some introductory text.</p><div><button>-1</button><span>Value: <!>1<!>!</span><button>+1</button></div><div><button>-1</button><span>Value: <!>2<!>!</span><button>+1</button></div><div><button>-1</button><span>Value: <!>3<!>!</span><button>+1</button></div></main>"
+		);
+	});
+	rt.dispose();
 }
 
 #[bench]

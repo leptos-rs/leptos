@@ -14,8 +14,8 @@ For example, instead of embedding logic in a component directly like this:
 
 ```rust
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let (todos, set_todos) = create_signal(cx, vec![Todo { /* ... */ }]);
+pub fn TodoApp() -> impl IntoView {
+    let (todos, set_todos) = create_signal(vec![Todo { /* ... */ }]);
     // ⚠️ this is hard to test because it's embedded in the component
     let num_remaining = move || todos.with(|todos| {
         todos.iter().filter(|todo| !todo.completed).sum()
@@ -37,14 +37,14 @@ impl Todos {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_remaining {
+    fn test_remaining() {
         // ...
     }
 }
 
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let (todos, set_todos) = create_signal(cx, Todos(vec![Todo { /* ... */ }]));
+pub fn TodoApp() -> impl IntoView {
+    let (todos, set_todos) = create_signal(Todos(vec![Todo { /* ... */ }]));
     // ✅ this has a test associated with it
     let num_remaining = move || todos.with(Todos::num_remaining);
 }
@@ -53,98 +53,48 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
 In general, the less of your logic is wrapped into your components themselves, the
 more idiomatic your code will feel and the easier it will be to test.
 
-## 2. Test components with `wasm-bindgen-test`
+## 2. Test components with end-to-end (`e2e`) testing
 
-[`wasm-bindgen-test`](https://crates.io/crates/wasm-bindgen-test) is a great utility
-for integrating or end-to-end testing WebAssembly apps in a headless browser.
+Our [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples) directory has several examples with extensive end-to-end testing, using different testing tools.
 
-To use this testing utility, you need to add `wasm-bindgen-test` to your `Cargo.toml`:
+The easiest way to see how to use these is to take a look at the test examples themselves:
 
-```toml
-[dev-dependencies]
-wasm-bindgen-test = "0.3.0"
-```
+### `wasm-bindgen-test` with [`counter`](https://github.com/leptos-rs/leptos/blob/main/examples/counter/tests/web.rs)
 
-You should create tests in a separate `tests` directory. You can then run your tests in the browser of your choice:
+This is a fairly simple manual testing setup that uses the [`wasm-pack test`](https://rustwasm.github.io/wasm-pack/book/commands/test.html) command.
 
-```bash
-wasm-pack test --firefox
-```
+#### Sample Test
 
-> To see the full setup, check out the tests for the [`counter`](https://github.com/leptos-rs/leptos/tree/main/examples/counter) example.
-
-### Writing Your Tests
-
-Most tests will involve some combination of vanilla DOM manipulation and comparison to a `view`. For example, here’s a test [for the
-`counter` example](https://github.com/leptos-rs/leptos/blob/main/examples/counter/tests/mod.rs).
-
-First, we set up the testing environment.
-
-```rust
-use wasm_bindgen_test::*;
-use counter::*;
-use leptos::*;
-use web_sys::HtmlElement;
-
-// tell the test runner to run tests in the browser
-wasm_bindgen_test_configure!(run_in_browser);
-```
-
-I’m going to create a simpler wrapper for each test case, and mount it there.
-This makes it easy to encapsulate the test results.
-
-```rust
-// like marking a regular test with #[test]
+````rust
 #[wasm_bindgen_test]
 fn clear() {
     let document = leptos::document();
     let test_wrapper = document.create_element("section").unwrap();
-    document.body().unwrap().append_child(&test_wrapper);
+    let _ = document.body().unwrap().append_child(&test_wrapper);
 
-    // start by rendering our counter and mounting it to the DOM
-    // note that we start at the initial value of 10
     mount_to(
         test_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=10 step=1/> },
+        || view! { <SimpleCounter initial_value=10 step=1/> },
     );
-}
-```
 
-We’ll use some manual DOM operations to grab the `<div>` that wraps
-the whole component, as well as the `clear` button.
+    let div = test_wrapper.query_selector("div").unwrap().unwrap();
+    let clear = test_wrapper
+        .query_selector("button")
+        .unwrap()
+        .unwrap()
+        .unchecked_into::<web_sys::HtmlElement>();
 
-```rust
-// now we extract the buttons by iterating over the DOM
-// this would be easier if they had IDs
-let div = test_wrapper.query_selector("div").unwrap().unwrap();
-let clear = test_wrapper
-    .query_selector("button")
-    .unwrap()
-    .unwrap()
-    .unchecked_into::<web_sys::HtmlElement>();
-```
+    clear.click();
 
-Now we can use ordinary DOM APIs to simulate user interaction.
-
-```rust
-// now let's click the `clear` button
-clear.click();
-```
-
-You can test individual DOM element attributes or text node values. Sometimes
-I like to test the whole view at once. We can do this by testing the element’s
-`outerHTML` against our expectations.
-
-```rust
 assert_eq!(
     div.outer_html(),
     // here we spawn a mini reactive system to render the test case
-    run_scope(create_runtime(), |cx| {
+    run_scope(create_runtime(), || {
         // it's as if we're creating it with a value of 0, right?
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, set_value) = create_signal(0);
 
         // we can remove the event listeners because they're not rendered to HTML
-        view! { cx,
+        view! {
             <div>
                 <button>"Clear"</button>
                 <button>"-1"</button>
@@ -157,24 +107,113 @@ assert_eq!(
         .outer_html()
     })
 );
-```
+}
+````
 
-That test involved us manually replicating the `view` that’s inside the component.
-There's actually an easier way to do this... We can just test against a `<SimpleCounter/>`
-with the initial value `0`. This is where our wrapping element comes in: I’ll just test
-the wrapper’s `innerHTML` against another comparison case.
+### [`wasm-bindgen-test` with `counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable/tests/web)
+
+This more developed test suite uses a system of fixtures to refactor the manual DOM manipulation of the `counter` tests and easily test a wide range of cases.
+
+#### Sample Test
 
 ```rust
-assert_eq!(test_wrapper.inner_html(), {
-    let comparison_wrapper = document.create_element("section").unwrap();
-    leptos::mount_to(
-        comparison_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=0 step=1/>},
-    );
-    comparison_wrapper.inner_html()
+use super::*;
+use crate::counters_page as ui;
+use pretty_assertions::assert_eq;
+
+#[wasm_bindgen_test]
+fn should_increase_the_total_count() {
+    // Given
+    ui::view_counters();
+    ui::add_counter();
+
+    // When
+    ui::increment_counter(1);
+    ui::increment_counter(1);
+    ui::increment_counter(1);
+
+    // Then
+    assert_eq!(ui::total(), 3);
+}
+```
+
+### [Playwright with `counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable/e2e)
+
+These tests use the common JavaScript testing tool Playwright to run end-to-end tests on the same example, using a library and testing approach familiar to may who have done frontend development before.
+
+#### Sample Test
+
+```js
+import { test, expect } from "@playwright/test";
+import { CountersPage } from "./fixtures/counters_page";
+
+test.describe("Increment Count", () => {
+  test("should increase the total count", async ({ page }) => {
+    const ui = new CountersPage(page);
+    await ui.goto();
+    await ui.addCounter();
+
+    await ui.incrementCount();
+    await ui.incrementCount();
+    await ui.incrementCount();
+
+    await expect(ui.total).toHaveText("3");
+  });
 });
 ```
 
-This is only a very limited introduction to testing. But I hope it’s useful as you begin to build applications.
+### [Gherkin/Cucumber Tests with `todo_app_sqlite`](https://github.com/leptos-rs/leptos/blob/main/examples/todo_app_sqlite/e2e/README.md)
 
-> For more, see [the testing section of the `wasm-bindgen` guide](https://rustwasm.github.io/wasm-bindgen/wasm-bindgen-test/index.html#testing-on-wasm32-unknown-unknown-with-wasm-bindgen-test).
+You can integrate any testing tool you’d like into this flow. This example uses Cucumber, a testing framework based on natural language.
+
+```
+@add_todo
+Feature: Add Todo
+
+    Background:
+        Given I see the app
+
+    @add_todo-see
+    Scenario: Should see the todo
+        Given I set the todo as Buy Bread
+        When I click the Add button
+        Then I see the todo named Buy Bread
+
+    # @allow.skipped
+    @add_todo-style
+    Scenario: Should see the pending todo
+        When I add a todo as Buy Oranges
+        Then I see the pending todo
+```
+
+The definitions for these actions are defined in Rust code.
+
+```rust
+use crate::fixtures::{action, world::AppWorld};
+use anyhow::{Ok, Result};
+use cucumber::{given, when};
+
+#[given("I see the app")]
+#[when("I open the app")]
+async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
+    let client = &world.client;
+    action::goto_path(client, "").await?;
+
+    Ok(())
+}
+
+#[given(regex = "^I add a todo as (.*)$")]
+#[when(regex = "^I add a todo as (.*)$")]
+async fn i_add_a_todo_titled(world: &mut AppWorld, text: String) -> Result<()> {
+    let client = &world.client;
+    action::add_todo(client, text.as_str()).await?;
+
+    Ok(())
+}
+
+// etc.
+```
+
+### Learning More
+
+Feel free to check out the CI setup in the Leptos repo to learn more about how to use these tools in your own application. All of these testing methods are run regularly against actual Leptos example apps.

@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
-#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
+#![cfg_attr(feature = "nightly", feature(fn_traits))]
+#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 
 //! The DOM implementation for `leptos`.
 
@@ -10,43 +10,48 @@
 pub extern crate tracing;
 
 mod components;
+mod directive;
 mod events;
 pub mod helpers;
 pub mod html;
 mod hydration;
-mod logging;
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging;
 mod macro_helpers;
 pub mod math;
 mod node_ref;
+/// Utilities for exporting nonces to be used for a Content Security Policy.
+pub mod nonce;
 pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;
+
 use cfg_if::cfg_if;
 pub use components::*;
+pub use directive::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub use events::add_event_helper;
-pub use events::typed as ev;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
+pub use events::{typed as ev, typed::EventHandler};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-use leptos_reactive::Scope;
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
-    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
-pub use logging::*;
+use leptos_reactive::{Oco, TextProp};
 pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::{borrow::Cow, fmt, rc::Rc};
 pub use transparent::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -63,7 +68,7 @@ thread_local! {
 /// Converts the value into a [`View`].
 pub trait IntoView {
     /// Converts the value into [`View`].
-    fn into_view(self, cx: Scope) -> View;
+    fn into_view(self) -> View;
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -96,8 +101,8 @@ impl IntoView for () {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "<() />", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        Unit.into_view(cx)
+    fn into_view(self) -> View {
+        Unit.into_view()
     }
 }
 
@@ -109,11 +114,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "Option<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         if let Some(t) = self {
-            t.into_view(cx)
+            t.into_view()
         } else {
-            Unit.into_view(cx)
+            Unit.into_view()
         }
     }
 }
@@ -128,22 +133,23 @@ where
         instrument(level = "info", name = "Fn() -> impl IntoView", skip_all)
     )]
     #[track_caller]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(self).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(self).into_view()
     }
 }
 
-impl<T> IntoView for (Scope, T)
+impl<N> IntoView for Rc<dyn Fn() -> N>
 where
-    T: IntoView,
+    N: IntoView + 'static,
 {
-    #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
-        self.1.into_view(self.0)
+    #[inline]
+    fn into_view(self) -> View {
+        // reuse impl for `Fn() -> impl IntoView`
+        IntoView::into_view(move || self())
     }
 }
 
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for ReadSignal<T>
 where
     T: IntoView + Clone,
@@ -152,11 +158,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for RwSignal<T>
 where
     T: IntoView + Clone,
@@ -165,11 +171,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for Memo<T>
 where
     T: IntoView + Clone,
@@ -178,11 +184,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Memo<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for Signal<T>
 where
     T: IntoView + Clone,
@@ -191,11 +197,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Signal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for MaybeSignal<T>
 where
     T: IntoView + Clone,
@@ -204,15 +210,35 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
+    }
+}
+
+#[cfg(not(feature = "nightly"))]
+impl<T> IntoView for MaybeProp<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
+    )]
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
+    }
+}
+
+impl IntoView for TextProp {
+    fn into_view(self) -> View {
+        self.get().into_view()
     }
 }
 
 /// Collects an iterator or collection into a [`View`].
 pub trait CollectView {
     /// Collects an iterator or collection into a [`View`].
-    fn collect_view(self, cx: Scope) -> View;
+    fn collect_view(self) -> View;
 }
 
 impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
@@ -220,11 +246,11 @@ impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "#text", skip_all)
     )]
-    fn collect_view(self, cx: Scope) -> View {
+    fn collect_view(self) -> View {
         self.into_iter()
-            .map(|v| v.into_view(cx))
+            .map(|v| v.into_view())
             .collect::<Fragment>()
-            .into_view(cx)
+            .into_view()
     }
 }
 
@@ -235,7 +261,7 @@ cfg_if! {
     pub struct Element {
       #[doc(hidden)]
       #[cfg(debug_assertions)]
-      pub name: Cow<'static, str>,
+      pub name: Oco<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
       #[cfg(debug_assertions)]
@@ -256,11 +282,11 @@ cfg_if! {
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
-      name: Cow<'static, str>,
+      name: Oco<'static, str>,
       is_void: bool,
-      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      attrs: SmallVec<[(Oco<'static, str>, Oco<'static, str>); 4]>,
       children: ElementChildren,
-      id: HydrationKey,
+      id: Option<HydrationKey>,
       #[cfg(debug_assertions)]
       /// Optional marker for the view macro source, in debug mode.
       pub view_marker: Option<String>
@@ -270,8 +296,12 @@ cfg_if! {
       fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use fmt::Write;
 
-        let attrs =
-          self.attrs.iter().map(|(n, v)| format!(" {n}=\"{v}\"")).collect::<String>();
+        let attrs = self.attrs.iter().fold(String::new(), |mut output, (n, v)| {
+            // can safely ignore output
+            // see https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
+            let _ = write!(output, " {n}=\"{v}\"");
+            output
+        });
 
         if self.is_void {
           write!(f, "<{}{attrs} />", self.name)
@@ -296,7 +326,7 @@ cfg_if! {
 
 impl Element {
     /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement>`].
-    pub fn into_html_element(self, cx: Scope) -> HtmlElement<AnyElement> {
+    pub fn into_html_element(self) -> HtmlElement<AnyElement> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             let Self {
@@ -315,7 +345,6 @@ impl Element {
             };
 
             HtmlElement {
-                cx,
                 element,
                 #[cfg(debug_assertions)]
                 span: ::tracing::Span::current(),
@@ -339,7 +368,6 @@ impl Element {
             let element = AnyElement { name, is_void, id };
 
             HtmlElement {
-                cx,
                 element,
                 attrs,
                 children,
@@ -352,7 +380,7 @@ impl Element {
 
 impl IntoView for Element {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "<Element />", skip_all, fields(tag = %self.name)))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Element(self)
     }
 }
@@ -376,7 +404,7 @@ impl Element {
               is_void: el.is_void(),
               attrs: Default::default(),
               children: Default::default(),
-              id: el.hydration_id().clone(),
+              id: *el.hydration_id(),
               #[cfg(debug_assertions)]
               view_marker: None
             }
@@ -389,22 +417,22 @@ impl Element {
 struct Comment {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node: web_sys::Node,
-    content: Cow<'static, str>,
+    content: Oco<'static, str>,
 }
 
 impl Comment {
     #[inline]
     fn new(
-        content: impl Into<Cow<'static, str>>,
-        id: &HydrationKey,
+        content: impl Into<Oco<'static, str>>,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         Self::new_inner(content.into(), id, closing)
     }
 
     fn new_inner(
-        content: Cow<'static, str>,
-        id: &HydrationKey,
+        content: Oco<'static, str>,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         cfg_if! {
@@ -414,12 +442,20 @@ impl Comment {
 
                 Self { content }
             } else {
+                #[cfg(not(feature = "hydrate"))]
+                {
+                    _ = id;
+                    _ = closing;
+                }
+
                 let node = COMMENT.with(|comment| comment.clone_node().unwrap());
 
                 #[cfg(debug_assertions)]
                 node.set_text_content(Some(&format!(" {content} ")));
 
-                if HydrationCtx::is_hydrating() {
+                #[cfg(feature = "hydrate")]
+                if HydrationCtx::is_hydrating() && id.is_some() {
+                    let id = id.as_ref().unwrap();
                     let id = HydrationCtx::to_string(id, closing);
 
                     if let Some(marker) = hydration::get_marker(&id) {
@@ -450,27 +486,28 @@ pub struct Text {
     /// to update the node without recreating it, we need to be able
     /// to possibly reuse a previous node.
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    node: web_sys::Node,
+    pub(crate) node: web_sys::Node,
     /// The current contents of the text node.
-    pub content: Cow<'static, str>,
+    pub content: Oco<'static, str>,
 }
 
 impl fmt::Debug for Text {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.content)
+        fmt::Debug::fmt(&self.content, f)
     }
 }
 
 impl IntoView for Text {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "#text", skip_all, fields(content = %self.content)))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Text(self)
     }
 }
 
 impl Text {
     /// Creates a new [`Text`].
-    pub fn new(content: Cow<'static, str>) -> Self {
+    pub fn new(content: Oco<'static, str>) -> Self {
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             node: crate::document()
@@ -483,6 +520,9 @@ impl Text {
 
 /// A leptos view which can be mounted to the DOM.
 #[derive(Clone, PartialEq, Eq)]
+#[must_use = "You are creating a View but not using it. An unused view can \
+              cause your view to be rendered as () unexpectedly, and it can \
+              also cause issues with client-side hydration."]
 pub enum View {
     /// HTML element node.
     Element(Element),
@@ -525,13 +565,13 @@ impl Default for View {
 
 impl IntoView for View {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "Node", skip_all, fields(kind = self.kind_name())))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         self
     }
 }
 
 impl IntoView for &View {
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         self.clone()
     }
 }
@@ -541,14 +581,14 @@ impl<const N: usize> IntoView for [View; N] {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "[Node; N]", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        Fragment::new(self.into_iter().collect()).into_view(cx)
+    fn into_view(self) -> View {
+        Fragment::new(self.into_iter().collect()).into_view()
     }
 }
 
 impl IntoView for &Fragment {
-    fn into_view(self, cx: Scope) -> View {
-        self.to_owned().into_view(cx)
+    fn into_view(self) -> View {
+        self.to_owned().into_view()
     }
 }
 
@@ -668,12 +708,9 @@ impl View {
 
     /// Returns [`Ok(HtmlElement<AnyElement>)`] if this [`View`] is
     /// of type [`Element`]. [`Err(View)`] otherwise.
-    pub fn into_html_element(
-        self,
-        cx: Scope,
-    ) -> Result<HtmlElement<AnyElement>, Self> {
+    pub fn into_html_element(self) -> Result<HtmlElement<AnyElement>, Self> {
         if let Self::Element(el) = self {
-            Ok(el.into_html_element(cx))
+            Ok(el.into_html_element())
         } else {
             Err(self)
         }
@@ -681,8 +718,7 @@ impl View {
 
     /// Adds an event listener, analogous to [`HtmlElement::on`].
     ///
-    /// This method will attach an event listener to **all** child
-    /// [`HtmlElement`] children.
+    /// This method will attach an event listener to **all** children
     #[inline(always)]
     pub fn on<E: ev::EventDescriptor + 'static>(
         self,
@@ -727,9 +763,9 @@ impl View {
                 let event_handler = Rc::new(RefCell::new(event_handler));
 
                 c.children.iter().cloned().for_each(|c| {
-                  let event_handler = event_handler.clone();
+                  let event_handler = Rc::clone(&event_handler);
 
-                  c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
+                  _ = c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
                 });
               }
               Self::CoreComponent(c) => match c {
@@ -744,6 +780,65 @@ impl View {
             _ = event_handler;
           }
         }
+
+        self
+    }
+
+    /// Adds a directive analogous to [`HtmlElement::directive`].
+    ///
+    /// This method will attach directive to **all** child
+    /// [`HtmlElement`] children.
+    #[inline(always)]
+    pub fn directive<T, P>(
+        self,
+        handler: impl Directive<T, P> + 'static,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if::cfg_if! {
+          if #[cfg(debug_assertions)] {
+            trace!("calling directive()");
+            let span = ::tracing::Span::current();
+            let handler = move |e, p| {
+              let _guard = span.enter();
+              handler.run(e, p);
+            };
+          }
+        }
+
+        self.directive_impl(Box::new(handler), param)
+    }
+
+    fn directive_impl<T, P>(
+        self,
+        handler: Box<dyn Directive<T, P>>,
+        param: P,
+    ) -> Self
+    where
+        T: ?Sized + 'static,
+        P: Clone + 'static,
+    {
+        cfg_if! { if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+            match &self {
+                Self::Element(el) => {
+                    let _ = el.clone().into_html_element().directive(handler, param);
+                }
+                Self::Component(c) => {
+                    let handler = Rc::from(handler);
+
+                    for child in c.children.iter().cloned() {
+                        let _ = child.directive(Rc::clone(&handler), param.clone());
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            let _ = handler;
+            let _ = param;
+        }}
 
         self
     }
@@ -831,16 +926,14 @@ pub enum MountKind<'a> {
 /// Runs the provided closure and mounts the result to the `<body>`.
 pub fn mount_to_body<F, N>(f: F)
 where
-    F: FnOnce(Scope) -> N + 'static,
+    F: Fn() -> N + 'static,
     N: IntoView,
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
-    crate::console_warn(
+    crate::logging::console_warn(
         "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as \
          features, which may cause issues like <Suspense/>` failing to work \
-         silently. `csr` is enabled by default on `leptos`, and can be \
-         disabled by adding `default-features = false` to your `leptos` \
-         dependency.",
+         silently.",
     );
 
     cfg_if! {
@@ -856,28 +949,35 @@ where
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
-    F: FnOnce(Scope) -> N + 'static,
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    mount_to_with_stop_hydrating(parent, true, f)
+}
+
+/// Runs the provided closure and mounts the result to the provided element.
+pub fn mount_to_with_stop_hydrating<F, N>(
+    parent: web_sys::HtmlElement,
+    stop_hydrating: bool,
+    f: F,
+) where
+    F: FnOnce() -> N + 'static,
     N: IntoView,
 {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let disposer = leptos_reactive::create_scope(
-          leptos_reactive::create_runtime(),
-          move |cx| {
-            let node = f(cx).into_view(cx);
-
-            HydrationCtx::stop_hydrating();
-
-            parent.append_child(&node.get_mountable_node()).unwrap();
-
+            let node = f().into_view();
+            if stop_hydrating {
+                HydrationCtx::stop_hydrating();
+            }
+            if cfg!(feature = "csr") {
+                parent.append_child(&node.get_mountable_node()).unwrap();
+            }
             std::mem::forget(node);
-          },
-        );
-
-        std::mem::forget(disposer);
       } else {
         _ = parent;
         _ = f;
+        _ = stop_hydrating;
         crate::warn!("`mount_to` should not be called outside the browser.");
       }
     }
@@ -894,7 +994,7 @@ thread_local! {
 /// This is cached as a thread-local variable, so calling `window()` multiple times
 /// requires only one call out to JavaScript.
 pub fn window() -> web_sys::Window {
-    WINDOW.with(|window| window.clone())
+    WINDOW.with(Clone::clone)
 }
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
@@ -902,7 +1002,7 @@ pub fn window() -> web_sys::Window {
 /// This is cached as a thread-local variable, so calling `document()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
-    DOCUMENT.with(|document| document.clone())
+    DOCUMENT.with(Clone::clone)
 }
 
 /// Returns true if running on the server (SSR).
@@ -961,12 +1061,12 @@ macro_rules! impl_into_view_for_tuples {
       $($ty: IntoView),*
     {
       #[inline]
-      fn into_view(self, cx: Scope) -> View {
+      fn into_view(self) -> View {
         paste::paste! {
           let ($([<$ty:lower>],)*) = self;
           [
-            $([<$ty:lower>].into_view(cx)),*
-          ].into_view(cx)
+            $([<$ty:lower>].into_view()),*
+          ].into_view()
         }
       }
     }
@@ -1036,7 +1136,7 @@ impl IntoView for String {
         instrument(level = "info", name = "#text", skip_all)
     )]
     #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Text(Text::new(self.into()))
     }
 }
@@ -1047,8 +1147,19 @@ impl IntoView for &'static str {
         instrument(level = "info", name = "#text", skip_all)
     )]
     #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Text(Text::new(self.into()))
+    }
+}
+
+impl IntoView for Oco<'static, str> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    #[inline(always)]
+    fn into_view(self) -> View {
+        View::Text(Text::new(self))
     }
 }
 
@@ -1060,11 +1171,24 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "#text", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         self.into_iter()
-            .map(|v| v.into_view(cx))
+            .map(|v| v.into_view())
             .collect::<Fragment>()
-            .into_view(cx)
+            .into_view()
+    }
+}
+
+impl IntoView for core::fmt::Arguments<'_> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    fn into_view(self) -> View {
+        match self.as_str() {
+            Some(s) => s.into_view(),
+            None => self.to_string().into_view(),
+        }
     }
 }
 
@@ -1073,7 +1197,7 @@ macro_rules! viewable_primitive {
     $(
       impl IntoView for $child_type {
         #[inline(always)]
-        fn into_view(self, _cx: Scope) -> View {
+        fn into_view(self) -> View {
           View::Text(Text::new(self.to_string().into()))
         }
       }
@@ -1121,11 +1245,10 @@ viewable_primitive![
     std::num::NonZeroIsize,
     std::num::NonZeroUsize,
     std::panic::Location<'_>,
-    std::fmt::Arguments<'_>,
 ];
 
 cfg_if! {
-  if #[cfg(not(feature = "stable"))] {
+  if #[cfg(feature = "nightly")] {
     viewable_primitive! {
         std::backtrace::Backtrace
     }

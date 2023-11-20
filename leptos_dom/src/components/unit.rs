@@ -17,7 +17,7 @@ use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 pub struct UnitRepr {
     comment: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for UnitRepr {
@@ -65,7 +65,7 @@ impl IntoView for Unit {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "<() />", skip_all)
     )]
-    fn into_view(self, _: leptos_reactive::Scope) -> crate::View {
+    fn into_view(self) -> crate::View {
         let component = UnitRepr::default();
 
         View::CoreComponent(CoreComponent::Unit(component))

@@ -1,30 +1,34 @@
-// `queue_microtask` needs to be in its own module, which is the only thing
-// in this entire framework that requires "unsafe" code (because Rust seems to
-// that a `wasm_bindgen` imported function like this is unsafe)
-// this is stupid, and one day hopefully web_sys will add queue_microtask itself
+/// The microtask is a short function which will run after the current task has
+/// completed its work and when there is no other code waiting to be run before
+/// control of the execution context is returned to the browser's event loop.
+///
+/// Microtasks are especially useful for libraries and frameworks that need
+/// to perform final cleanup or other just-before-rendering tasks.
+///
+/// [MDN queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask)
+pub fn queue_microtask(task: impl FnOnce() + 'static) {
+    #[cfg(not(all(
+        target_arch = "wasm32",
+        any(feature = "hydrate", feature = "csr")
+    )))]
+    {
+        task();
+    }
 
-use cfg_if::cfg_if;
+    #[cfg(all(
+        target_arch = "wasm32",
+        any(feature = "hydrate", feature = "csr")
+    ))]
+    {
+        use js_sys::{Function, Reflect};
+        use wasm_bindgen::prelude::*;
 
-cfg_if! {
-    if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
-        /// Exposes the [`queueMicrotask`](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
-        /// in the browser, and simply runs the given function when on the server.
-        pub fn queue_microtask(task: impl FnOnce() + 'static) {
-            microtask(wasm_bindgen::closure::Closure::once_into_js(task));
-        }
-
-        #[cfg(any(feature = "csr", feature = "hydrate"))]
-        #[wasm_bindgen::prelude::wasm_bindgen(
-            inline_js = "export function microtask(f) { queueMicrotask(f); }"
-        )]
-        extern "C" {
-            fn microtask(task: wasm_bindgen::JsValue);
-        }
-    } else {
-        /// Exposes the [`queueMicrotask`](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
-        /// in the browser, and simply runs the given function when on the server.
-        pub fn queue_microtask(task: impl FnOnce() + 'static) {
-            task();
-        }
+        let task = Closure::once_into_js(task);
+        let window = web_sys::window().expect("window not available");
+        let queue_microtask =
+            Reflect::get(&window, &JsValue::from_str("queueMicrotask"))
+                .expect("queueMicrotask not available");
+        let queue_microtask = queue_microtask.unchecked_into::<Function>();
+        _ = queue_microtask.call1(&JsValue::UNDEFINED, &task);
     }
 }

@@ -1,57 +1,153 @@
-extend = [{ path = "./cargo-make/common.toml" }]
+extend = [{ path = "./cargo-make/main.toml" }]
 
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_CARGO_BUILD_TEST_FLAGS = ""
 CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
-    "counter",
-    "counter_isomorphic",
-    "counters",
-    "counters_stable",
-    "counter_without_macros",
-    "error_boundary",
-    "errors_axum",
-    "fetch",
-    "hackernews",
-    "hackernews_axum",
-    "login_with_token_csr_only",
-    "parent_child",
-    "router",
-    "session_auth_axum",
-    "ssr_modes",
-    "ssr_modes_axum",
-    "tailwind",
-    "tailwind_csr_trunk",
-    "todo_app_sqlite",
-    "todo_app_sqlite_axum",
-    "todo_app_sqlite_viz",
-    "todomvc",
+  "animated_show",
+  "counter",
+  "counter_isomorphic",
+  "counters",
+  "counters_stable",
+  "counter_url_query",
+  "counter_without_macros",
+  "error_boundary",
+  "errors_axum",
+  "fetch",
+  "hackernews",
+  "hackernews_axum",
+  "js-framework-benchmark",
+  "login_with_token_csr_only",
+  "parent_child",
+  "router",
+  "session_auth_axum",
+  "slots",
+  "ssr_modes",
+  "ssr_modes_axum",
+  "suspense_tests",
+  "tailwind_actix",
+  "tailwind_csr",
+  "tailwind_axum",
+  "timer",
+  "todo_app_sqlite",
+  "todo_app_sqlite_axum",
+  "todo_app_sqlite_viz",
+  "todomvc",
 ]
 
-[tasks.verify-flow]
-description = "Provides pre and post hooks for verify"
-dependencies = ["pre-verify", "verify", "post-verify"]
+[tasks.gen-members]
+workspace = false
+description = "Generate the list of workspace members"
+script = '''
+examples=$(ls | 
+grep -v .md | 
+grep -v Makefile.toml | 
+grep -v cargo-make | 
+grep -v gtk | 
+jq -R -s -c 'split("\n")[:-1]')
+echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
+'''
 
-[tasks.verify]
-description = "Run all quality checks and tests"
-dependencies = ["check-style", "test-unit-and-web"]
+[tasks.test-report]
+workspace = false
+description = "report web testing technology used by examples - OPTION: [all]"
+script = '''
+set -emu
 
-[tasks.test-unit-and-web]
-description = "Run all unit and web tests"
-dependencies = ["test-flow", "web-test-flow"]
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+ITALIC="\e[3m"
+YELLOW="\e[0;33m"
+RESET="\e[0m"
 
-[tasks.pre-verify]
+echo
+echo "${YELLOW}Web Test Technology${RESET}"
+echo
 
-[tasks.post-verify]
-dependencies = ["clean-all"]
+makefile_paths=$(find . -name Makefile.toml -not -path '*/target/*' -not -path '*/node_modules/*' |
+  sed 's%./%%' |
+  sed 's%/Makefile.toml%%' |
+  grep -v Makefile.toml |
+  sort -u)
 
-[tasks.web-test-flow]
-description = "Provides pre and post hooks for web-test"
-dependencies = ["pre-web-test", "web-test", "post-web-test"]
+start_path=$(pwd)
 
-[tasks.pre-web-test]
+for path in $makefile_paths; do
+  cd $path
 
-[tasks.web-test]
+  crate_symbols=
 
-[tasks.post-web-test]
+  pw_count=$(find . -name playwright.config.ts | wc -l)
+
+  while read -r line; do
+      case $line in
+      *"cucumber"*)
+          crate_symbols=$crate_symbols"C"
+          ;;
+      *"fantoccini"*)
+          crate_symbols=$crate_symbols"D"
+          ;;
+      esac
+  done <"./Cargo.toml"
+
+  while read -r line; do
+    case $line in
+      *"cargo-make/wasm-test.toml"*)
+          crate_symbols=$crate_symbols"W"
+        ;;
+      *"cargo-make/playwright-test.toml"*)
+          crate_symbols=$crate_symbols"P"
+          crate_symbols=$crate_symbols"N"
+        ;;
+      *"cargo-make/playwright-trunk-test.toml"*)
+          crate_symbols=$crate_symbols"P"
+          crate_symbols=$crate_symbols"T"
+        ;;
+      *"cargo-make/trunk_server.toml"*)
+          crate_symbols=$crate_symbols"T"
+        ;;
+      *"cargo-make/cargo-leptos-webdriver-test.toml"*)
+          crate_symbols=$crate_symbols"L"
+        ;;
+      *"cargo-make/cargo-leptos-test.toml"*)
+          crate_symbols=$crate_symbols"L"
+          if [ $pw_count -gt 0 ]; then
+            crate_symbols=$crate_symbols"P"
+          fi
+        ;;
+    esac
+  done <"./Makefile.toml"
+
+  # Sort list of tools
+  sorted_crate_symbols=$(echo ${crate_symbols} | grep -o . | sort | tr -d "\n") 
+
+  formatted_crate_symbols=" ➤ ${BOLD}${YELLOW}${sorted_crate_symbols}${RESET}"
+  crate_line=$path
+  if [ ! -z ${1+x} ]; then
+    # Show all examples
+    if [ ! -z $crate_symbols ]; then
+      crate_line=$crate_line$formatted_crate_symbols
+    fi
+    echo $crate_line
+  elif [ ! -z $crate_symbols ]; then
+    # Filter out examples that do not run tests in `ci`
+    crate_line=$crate_line$formatted_crate_symbols
+    echo $crate_line
+  fi
+
+  cd ${start_path}
+done
+
+c="${BOLD}${YELLOW}C${RESET} = Cucumber"
+d="${BOLD}${YELLOW}D${RESET} = WebDriver"
+l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
+n="${BOLD}${YELLOW}N${RESET} = Node"
+p="${BOLD}${YELLOW}P${RESET} = Playwright"
+t="${BOLD}${YELLOW}T${RESET} = Trunk"
+w="${BOLD}${YELLOW}W${RESET} = WASM"
+
+echo
+echo "${ITALIC}Keys:${RESET} $c, $d, $l, $n, $p, $t, $w"
+echo
+'''

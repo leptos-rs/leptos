@@ -14,10 +14,10 @@ This allows you to write components like this:
 
 ```rust
 #[component]
-fn Home(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn Home() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <main class="my-0 mx-auto max-w-3xl text-center">
             <h2 class="p-6 text-4xl">"Welcome to Leptos with Tailwind"</h2>
             <p class="px-10 pb-10 text-left">"Tailwind will scan your Rust files for Tailwind class names and compile them into a CSS file."</p>
@@ -36,7 +36,7 @@ fn Home(cx: Scope) -> impl IntoView {
 }
 ```
 
-It can be a little complicated to set up the Tailwind integration at first, but you can check out our two examples of how to use Tailwind with a [client-side-rendered `trunk` application](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind_csr_trunk) or with a [server-rendered `cargo-leptos` application](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind). `cargo-leptos` also has some [built-in Tailwind support](https://github.com/leptos-rs/cargo-leptos#site-parameters) that you can use as an alternative to Tailwind’s CLI.
+It can be a little complicated to set up the Tailwind integration at first, but you can check out our two examples of how to use Tailwind with a [client-side-rendered `trunk` application](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind_csr) or with a [server-rendered `cargo-leptos` application](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind_actix). `cargo-leptos` also has some [built-in Tailwind support](https://github.com/leptos-rs/cargo-leptos#site-parameters) that you can use as an alternative to Tailwind’s CLI.
 
 ## Stylers: Compile-time CSS Extraction
 
@@ -48,9 +48,9 @@ This allows you to write components like this:
 use stylers::style;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     let styler_class = style! { "App",
-        #two{
+        ##two{
             color: blue;
         }
         div.one{
@@ -74,7 +74,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         }
     };
 
-    view! { cx, class = styler_class,
+    view! { class = styler_class,
         <div class="one">
             <h1 id="two">"Hello"</h1>
             <h2>"World"</h2>
@@ -93,7 +93,7 @@ pub fn App(cx: Scope) -> impl IntoView {
 use styled::style;
 
 #[component]
-pub fn MyComponent(cx: Scope) -> impl IntoView {
+pub fn MyComponent() -> impl IntoView {
     let styles = style!(
       div {
         background-color: red;
@@ -101,7 +101,7 @@ pub fn MyComponent(cx: Scope) -> impl IntoView {
       }
     );
 
-    styled::view! { cx, styles,
+    styled::view! { styles,
         <div>"This text should be red with white text."</div>
     }
 }

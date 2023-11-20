@@ -38,7 +38,7 @@ special knowledge.
 For example, let’s start with a simple signal and derived signal:
 
 ```rust
-let (value, set_value) = create_signal(cx, 0);
+let (value, set_value) = create_signal(0);
 let is_odd = move || value() & 1 == 1;
 ```
 
@@ -54,7 +54,7 @@ Let’s say I want to render some text if the number is odd, and some other text
 if it’s even. Well, how about this?
 
 ```rust
-view! { cx,
+view! {
     <p>
     {move || if is_odd() {
         "Odd"
@@ -81,7 +81,7 @@ let message = move || {
     }
 };
 
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -90,7 +90,7 @@ This works fine. We can make it a little shorter if we’d like, using `bool::th
 
 ```rust
 let message = move || is_odd().then(|| "Ding ding ding!");
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -112,7 +112,7 @@ let message = move || {
         _ => "Even"
     }
 };
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -131,7 +131,7 @@ above, where the value switches from even to odd on every change, this is fine.
 But consider the following example:
 
 ```rust
-let (value, set_value) = create_signal(cx, 0);
+let (value, set_value) = create_signal(0);
 
 let message = move || if value() > 5 {
     "Big"
@@ -139,7 +139,7 @@ let message = move || if value() > 5 {
     "Small"
 };
 
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -148,10 +148,10 @@ This _works_, for sure. But if you added a log, you might be surprised
 
 ```rust
 let message = move || if value() > 5 {
-    log!("{}: rendering Big", value());
+    logging::log!("{}: rendering Big", value());
     "Big"
 } else {
-    log!("{}: rendering Small", value());
+    logging::log!("{}: rendering Small", value());
     "Small"
 };
 ```
@@ -194,12 +194,12 @@ the answer. You pass it a `when` condition function, a `fallback` to be shown if
 the `when` function returns `false`, and children to be rendered if `when` is `true`.
 
 ```rust
-let (value, set_value) = create_signal(cx, 0);
+let (value, set_value) = create_signal(0);
 
-view! { cx,
+view! {
   <Show
-    when=move || value() > 5
-    fallback=|cx| view! { cx, <Small/> }
+    when=move || { value() > 5 }
+    fallback=|| view! { <Small/> }
   >
     <Big/>
   </Show>
@@ -208,7 +208,8 @@ view! { cx,
 
 `<Show/>` memoizes the `when` condition, so it only renders its `<Small/>` once,
 continuing to show the same component until `value` is greater than five;
-then it renders `<Big/>` once, continuing to show it indefinitely.
+then it renders `<Big/>` once, continuing to show it indefinitely or until `value`
+goes below five and then renders `<Small/>` again.
 
 This is a helpful tool to avoid rerendering when using dynamic `if` expressions.
 As always, there's some overhead: for a very simple node (like updating a single
@@ -227,19 +228,19 @@ can be a little annoying if you’re returning different HTML elements from
 different branches of a conditional:
 
 ```rust,compile_error
-view! { cx,
+view! {
     <main>
         {move || match is_odd() {
             true if value() == 1 => {
                 // returns HtmlElement<Pre>
-                view! { cx, <pre>"One"</pre> }
+                view! { <pre>"One"</pre> }
             },
             false if value() == 2 => {
                 // returns HtmlElement<P>
-                view! { cx, <p>"Two"</p> }
+                view! { <p>"Two"</p> }
             }
             // returns HtmlElement<Textarea>
-            _ => view! { cx, <textarea>{value()}</textarea> }
+            _ => view! { <textarea>{value()}</textarea> }
         }}
     </main>
 }
@@ -259,29 +260,125 @@ to get yourself out of this situation:
 1. If you have multiple `HtmlElement` types, convert them to `HtmlElement<AnyElement>`
    with [`.into_any()`](https://docs.rs/leptos/latest/leptos/struct.HtmlElement.html#method.into_any)
 2. If you have a variety of view types that are not all `HtmlElement`, convert them to
-   `View`s with [`.into_view(cx)`](https://docs.rs/leptos/latest/leptos/trait.IntoView.html#tymethod.into_view).
+   `View`s with [`.into_view()`](https://docs.rs/leptos/latest/leptos/trait.IntoView.html#tymethod.into_view).
 
 Here’s the same example, with the conversion added:
 
 ```rust,compile_error
-view! { cx,
+view! {
     <main>
         {move || match is_odd() {
             true if value() == 1 => {
                 // returns HtmlElement<Pre>
-                view! { cx, <pre>"One"</pre> }.into_any()
+                view! { <pre>"One"</pre> }.into_any()
             },
             false if value() == 2 => {
                 // returns HtmlElement<P>
-                view! { cx, <p>"Two"</p> }.into_any()
+                view! { <p>"Two"</p> }.into_any()
             }
             // returns HtmlElement<Textarea>
-            _ => view! { cx, <textarea>{value()}</textarea> }.into_any()
+            _ => view! { <textarea>{value()}</textarea> }.into_any()
         }}
     </main>
 }
 ```
 
-[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/6-control-flow-in-view-zttwfx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D)
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/6-control-flow-0-5-4yn7qz?file=%2Fsrc%2Fmain.rs%3A1%2C1)
 
-<iframe src="https://codesandbox.io/p/sandbox/6-control-flow-in-view-zttwfx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/6-control-flow-0-5-4yn7qz?file=%2Fsrc%2Fmain.rs%3A1%2C1" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+
+<details>
+<summary>CodeSandbox Source</summary>
+
+```rust
+use leptos::*;
+
+#[component]
+fn App() -> impl IntoView {
+    let (value, set_value) = create_signal(0);
+    let is_odd = move || value() & 1 == 1;
+    let odd_text = move || if is_odd() { Some("How odd!") } else { None };
+
+    view! {
+        <h1>"Control Flow"</h1>
+
+        // Simple UI to update and show a value
+        <button on:click=move |_| set_value.update(|n| *n += 1)>
+            "+1"
+        </button>
+        <p>"Value is: " {value}</p>
+
+        <hr/>
+
+        <h2><code>"Option<T>"</code></h2>
+        // For any `T` that implements `IntoView`,
+        // so does `Option<T>`
+
+        <p>{odd_text}</p>
+        // This means you can use `Option` methods on it
+        <p>{move || odd_text().map(|text| text.len())}</p>
+
+        <h2>"Conditional Logic"</h2>
+        // You can do dynamic conditional if-then-else
+        // logic in several ways
+        //
+        // a. An "if" expression in a function
+        //    This will simply re-render every time the value
+        //    changes, which makes it good for lightweight UI
+        <p>
+            {move || if is_odd() {
+                "Odd"
+            } else {
+                "Even"
+            }}
+        </p>
+
+        // b. Toggling some kind of class
+        //    This is smart for an element that's going to
+        //    toggled often, because it doesn't destroy
+        //    it in between states
+        //    (you can find the `hidden` class in `index.html`)
+        <p class:hidden=is_odd>"Appears if even."</p>
+
+        // c. The <Show/> component
+        //    This only renders the fallback and the child
+        //    once, lazily, and toggles between them when
+        //    needed. This makes it more efficient in many cases
+        //    than a {move || if ...} block
+        <Show when=is_odd
+            fallback=|| view! { <p>"Even steven"</p> }
+        >
+            <p>"Oddment"</p>
+        </Show>
+
+        // d. Because `bool::then()` converts a `bool` to
+        //    `Option`, you can use it to create a show/hide toggled
+        {move || is_odd().then(|| view! { <p>"Oddity!"</p> })}
+
+        <h2>"Converting between Types"</h2>
+        // e. Note: if branches return different types,
+        //    you can convert between them with
+        //    `.into_any()` (for different HTML element types)
+        //    or `.into_view()` (for all view types)
+        {move || match is_odd() {
+            true if value() == 1 => {
+                // <pre> returns HtmlElement<Pre>
+                view! { <pre>"One"</pre> }.into_any()
+            },
+            false if value() == 2 => {
+                // <p> returns HtmlElement<P>
+                // so we convert into a more generic type
+                view! { <p>"Two"</p> }.into_any()
+            }
+            _ => view! { <textarea>{value()}</textarea> }.into_any()
+        }}
+    }
+}
+
+fn main() {
+    leptos::mount_to_body(App)
+}
+```
+
+</details>
+</preview>

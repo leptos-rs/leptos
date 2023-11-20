@@ -1,6 +1,7 @@
 pub mod typed;
 
-use std::{borrow::Cow, cell::RefCell, collections::HashSet};
+use leptos_reactive::Oco;
+use std::{cell::RefCell, collections::HashSet};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::{
     convert::FromWasmAbi, intern, prelude::Closure, JsCast, JsValue,
@@ -8,7 +9,7 @@ use wasm_bindgen::{
 };
 
 thread_local! {
-    pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
+    pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Oco<'static, str>>> = RefCell::new(HashSet::new());
 }
 
 // Used in template macro
@@ -47,8 +48,8 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn add_event_listener<E>(
     target: &web_sys::Element,
-    key: Cow<'static, str>,
-    event_name: Cow<'static, str>,
+    key: Oco<'static, str>,
+    event_name: Oco<'static, str>,
     #[cfg(debug_assertions)] mut cb: Box<dyn FnMut(E)>,
     #[cfg(not(debug_assertions))] cb: Box<dyn FnMut(E)>,
     options: &Option<web_sys::AddEventListenerOptions>,
@@ -59,10 +60,10 @@ pub fn add_event_listener<E>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = Box::new(move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         });
       }
     }
@@ -88,10 +89,10 @@ pub(crate) fn add_event_listener_undelegated<E>(
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
         let cb = Box::new(move |e| {
-          leptos_reactive::SpecialNonReactiveZone::enter();
+          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit();
+          leptos_reactive::SpecialNonReactiveZone::exit(prev);
         });
       }
     }
@@ -115,7 +116,7 @@ pub(crate) fn add_event_listener_undelegated<E>(
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn add_delegated_event_listener(
     key: &str,
-    event_name: Cow<'static, str>,
+    event_name: Oco<'static, str>,
     options: &Option<web_sys::AddEventListenerOptions>,
 ) {
     GLOBAL_EVENTS.with(|global_events| {
@@ -158,19 +159,13 @@ pub(crate) fn add_delegated_event_listener(
                     }
 
                     // navigate up tree
-                    let host =
-                        js_sys::Reflect::get(&node, &JsValue::from_str("host"))
-                            .unwrap_throw();
-                    if host.is_truthy()
-                        && host != node
-                        && host.dyn_ref::<web_sys::Node>().is_some()
-                    {
-                        node = host;
-                    } else if let Some(parent) =
-                        node.unchecked_into::<web_sys::Node>().parent_node()
+                    if let Some(parent) =
+                        node.unchecked_ref::<web_sys::Node>().parent_node()
                     {
                         node = parent.into()
-                    } else {
+                    } else if let Some(root) = node.dyn_ref::<web_sys::ShadowRoot>() {
+                        node = root.host().unchecked_into();
+                    } else  {
                         node = JsValue::null()
                     }
                 }

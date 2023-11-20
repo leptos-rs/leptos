@@ -1,5 +1,0 @@
-[tasks.web-test]
-dependencies = ["wasm-web-test"]
-
-[tasks.clean-all]
-dependencies = ["clean-cargo", "clean-trunk"]

@@ -2,15 +2,21 @@ use std::borrow::Cow;
 
 #[doc(hidden)]
 #[cfg(not(feature = "ssr"))]
-pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
+pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
+    use js_sys::RegExp;
+    use once_cell::unsync::Lazy;
     use wasm_bindgen::JsValue;
 
-    #[allow(non_snake_case)]
-    let OPTIONAL_RE = js_sys::RegExp::new(OPTIONAL, "");
-    #[allow(non_snake_case)]
-    let OPTIONAL_RE_2 = js_sys::RegExp::new(OPTIONAL_2, "");
+    thread_local! {
+        static OPTIONAL_RE: Lazy<RegExp> = Lazy::new(|| {
+            RegExp::new(OPTIONAL, "")
+        });
+        static OPTIONAL_RE_2: Lazy<RegExp> = Lazy::new(|| {
+            RegExp::new(OPTIONAL_2, "")
+        });
+    }
 
-    let captures = OPTIONAL_RE.exec(pattern);
+    let captures = OPTIONAL_RE.with(|re| re.exec(pattern));
     match captures {
         None => vec![pattern.into()],
         Some(matched) => {
@@ -28,7 +34,7 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
             prefixes.push(prefix.clone());
 
             while let Some(matched) =
-                OPTIONAL_RE_2.exec(suffix.trim_start_matches('?'))
+                OPTIONAL_RE_2.with(|re| re.exec(suffix.trim_start_matches('?')))
             {
                 prefix += &matched.get(1).as_string().unwrap();
                 prefixes.push(prefix.clone());
@@ -52,7 +58,7 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
 
 #[doc(hidden)]
 #[cfg(feature = "ssr")]
-pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
+pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
     use regex::Regex;
 
     lazy_static::lazy_static! {
@@ -95,5 +101,5 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
     }
 }
 
-const OPTIONAL: &str = r#"(/?:[^/]+)\?"#;
-const OPTIONAL_2: &str = r#"^(/:[^/]+)\?"#;
+const OPTIONAL: &str = r"(/?:[^/]+)\?";
+const OPTIONAL_2: &str = r"^(/:[^/]+)\?";

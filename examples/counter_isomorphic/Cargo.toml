@@ -19,19 +19,17 @@ console_error_panic_hook = "0.1"
 futures = "0.3"
 cfg-if = "1"
 lazy_static = "1"
-leptos = { path = "../../leptos", default-features = false, features = [
-	"serde",
-] }
+leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_meta = { path = "../../meta", default-features = false }
-leptos_router = { path = "../../router", default-features = false }
+leptos_meta = { path = "../../meta" }
+leptos_router = { path = "../../router" }
 log = "0.4"
 gloo-net = { git = "https://github.com/rustwasm/gloo" }
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.87"
 serde = { version = "1", features = ["derive"] }
 
 [features]
-default = []
+default = ["nightly"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
 	"dep:actix-files",
@@ -41,10 +39,10 @@ ssr = [
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
-stable = ["leptos/stable", "leptos_router/stable"]
+nightly = ["leptos/nightly", "leptos_router/nightly"]
 
 [package.metadata.cargo-all-features]
-denylist = ["actix-files", "actix-web", "leptos_actix", "stable"]
+denylist = ["actix-files", "actix-web", "leptos_actix", "nightly"]
 skip_feature_sets = [["ssr", "hydrate"]]
 
 [package.metadata.leptos]

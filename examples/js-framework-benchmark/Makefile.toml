@@ -1,0 +1,20 @@
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/wasm-test.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
+]
+
+[tasks.build]
+toolchain = "nightly"
+command = "cargo"
+args = ["build-all-features", "--target", "wasm32-unknown-unknown"]
+install_crate = "cargo-all-features"
+
+[tasks.check]
+toolchain = "nightly"
+command = "cargo"
+args = ["check-all-features", "--target", "wasm32-unknown-unknown"]
+install_crate = "cargo-all-features"
+
+[tasks.pre-clippy]
+env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features --target wasm32-unknown-unknown -- -D warnings" }

@@ -1,0 +1,42 @@
+extend = [
+    { path = "./compile.toml" },
+    { path = "./clean.toml" },
+    { path = "./lint.toml" },
+    { path = "./node.toml" },
+    { path = "./process.toml" },
+]
+
+# CI Stages
+
+[tasks.ci]
+dependencies = ["prepare", "lint", "build", "test-flow", "integration-test"]
+
+[tasks.prepare]
+dependencies = ["setup-node"]
+
+[tasks.lint]
+dependencies = ["check-style"]
+
+[tasks.integration-test]
+
+# Support Local Runs
+
+[tasks.ci-clean]
+dependencies = ["ci", "clean"]
+
+[tasks.check-clean]
+dependencies = ["check", "clean"]
+
+[tasks.build-clean]
+dependencies = ["build", "clean"]
+
+# ALIASES
+
+[tasks.verify-flow]
+alias = "ci"
+
+[tasks.t]
+dependencies = ["test-flow"]
+
+[tasks.it]
+alias = "integration-test"

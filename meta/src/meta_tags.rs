@@ -1,7 +1,7 @@
 use crate::{use_head, TextProp};
-use leptos::{component, IntoView, Scope};
+use leptos::{component, Attribute, IntoView};
 
-/// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
+/// Injects an [`HTMLMetaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
 ///
 /// ```
@@ -9,10 +9,10 @@ use leptos::{component, IntoView, Scope};
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+/// fn MyApp() -> impl IntoView {
+///   provide_meta_context();
 ///
-///   view! { cx,
+///   view! {
 ///     <main>
 ///       <Meta charset="utf-8"/>
 ///       <Meta name="description" content="A Leptos fan site."/>
@@ -23,7 +23,6 @@ use leptos::{component, IntoView, Scope};
 /// ```
 #[component(transparent)]
 pub fn Meta(
-    cx: Scope,
     /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
     #[prop(optional, into)]
     charset: Option<TextProp>,
@@ -39,13 +38,20 @@ pub fn Meta(
     /// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
     #[prop(optional, into)]
     content: Option<TextProp>,
+    /// Custom attributes.
+    #[prop(attrs, optional)]
+    attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
-    let meta = use_head(cx);
+    let meta = use_head();
     let next_id = meta.tags.get_next_id();
     let id = format!("leptos-link-{}", next_id.0);
 
     let builder_el = leptos::leptos_dom::html::as_meta_tag(move || {
-        leptos::leptos_dom::html::meta(cx)
+        attrs
+            .into_iter()
+            .fold(leptos::leptos_dom::html::meta(), |el, (name, value)| {
+                el.attr(name, value)
+            })
             .attr("charset", move || charset.as_ref().map(|v| v.get()))
             .attr("name", move || name.as_ref().map(|v| v.get()))
             .attr("property", move || property.as_ref().map(|v| v.get()))
@@ -53,5 +59,5 @@ pub fn Meta(
             .attr("content", move || content.as_ref().map(|v| v.get()))
     });
 
-    meta.tags.register(cx, id.into(), builder_el.into_any());
+    meta.tags.register(id.into(), builder_el.into_any());
 }

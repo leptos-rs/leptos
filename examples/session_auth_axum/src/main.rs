@@ -14,10 +14,9 @@ if #[cfg(feature = "ssr")] {
     use session_auth_axum::todo::*;
     use session_auth_axum::auth::*;
     use session_auth_axum::state::AppState;
-    use session_auth_axum::*;
     use session_auth_axum::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
-    use leptos::{log, view, provide_context, get_configuration};
+    use leptos::{logging::log, provide_context, get_configuration};
     use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
     use axum_session::{SessionConfig, SessionLayer, SessionStore};
     use axum_session_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
@@ -27,19 +26,20 @@ if #[cfg(feature = "ssr")] {
 
         log!("{:?}", path);
 
-        handle_server_fns_with_context(path, headers, raw_query, move |cx| {
-            provide_context(cx, auth_session.clone());
-            provide_context(cx, app_state.pool.clone());
+        handle_server_fns_with_context(path, headers, raw_query, move || {
+            provide_context(auth_session.clone());
+            provide_context(app_state.pool.clone());
         }, request).await
     }
 
     async fn leptos_routes_handler(auth_session: AuthSession, State(app_state): State<AppState>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context(app_state.leptos_options.clone(),
-            move |cx| {
-                provide_context(cx, auth_session.clone());
-                provide_context(cx, app_state.pool.clone());
+            let handler = leptos_axum::render_route_with_context(app_state.leptos_options.clone(),
+            app_state.routes.clone(),
+            move || {
+                provide_context(auth_session.clone());
+                provide_context(app_state.pool.clone());
             },
-            |cx| view! { cx, <TodoApp/> }
+            TodoApp
         );
         handler(req).await.into_response()
     }
@@ -64,17 +64,28 @@ if #[cfg(feature = "ssr")] {
             .await
             .expect("could not run SQLx migrations");
 
-        crate::todo::register_server_functions();
+        // Explicit server function registration is no longer required
+        // on the main branch. On 0.3.0 and earlier, uncomment the lines
+        // below to register the server functions.
+        // _ = GetTodos::register();
+        // _ = AddTodo::register();
+        // _ = DeleteTodo::register();
+        // _ = Login::register();
+        // _ = Logout::register();
+        // _ = Signup::register();
+        // _ = GetUser::register();
+        // _ = Foo::register();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+        let routes = generate_route_list(TodoApp);
 
         let app_state = AppState{
             leptos_options,
             pool: pool.clone(),
+            routes: routes.clone(),
         };
 
         // build our application with a route

@@ -7,12 +7,12 @@ As you build components you may occasionally find yourself wanting to “project
 Consider the following:
 
 ```rust
-pub fn LoggedIn<F, IV>(cx: Scope, fallback: F, children: ChildrenFn) -> impl IntoView
+pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
 where
-    F: Fn(Scope) -> IV + 'static,
+    F: Fn() -> IV + 'static,
     IV: IntoView,
 {
-    view! { cx,
+    view! {
         <Suspense
             fallback=|| ()
         >
@@ -22,16 +22,16 @@ where
                 when=move || todo!()
                 fallback=fallback
             >
-				{children(cx)}
+				{children()}
 			</Show>
         </Suspense>
     }
 }
 ```
 
-This is pretty straightforward: when the user is logged in, we want to show `children`. Until if the user is not logged in, we want to show `fallback`. And while we’re waiting to find out, we just render `()`, i.e., nothing.
+This is pretty straightforward: when the user is logged in, we want to show `children`. If the user is not logged in, we want to show `fallback`. And while we’re waiting to find out, we just render `()`, i.e., nothing.
 
-In other words, we want to pass the children of `<WhenLoaded/>` _through_ the `<Suspense/>` component to become the children of the `<Show/>`. This is what I mean by “projection.”
+In other words, we want to pass the children of `<LoggedIn/>` _through_ the `<Suspense/>` component to become the children of the `<Show/>`. This is what I mean by “projection.”
 
 This won’t compile.
 
@@ -50,18 +50,16 @@ If you want to really understand the issue here, it may help to look at the expa
 
 ```rust
 Suspense(
-    cx,
     ::leptos::component_props_builder(&Suspense)
         .fallback(|| ())
         .children({
             // fallback and children are moved into this closure
-            Box::new(move |cx| {
+            Box::new(move || {
                 {
                     // fallback and children captured here
                     leptos::Fragment::lazy(|| {
                         vec![
                             (Show(
-                                cx,
                                 ::leptos::component_props_builder(&Show)
                                     .when(|| true)
 									// but fallback is moved into Show here
@@ -70,7 +68,7 @@ Suspense(
                                     .children(children)
                                     .build(),
                             )
-                            .into_view(cx)),
+                            .into_view()),
                         ]
                     })
                 }
@@ -91,22 +89,22 @@ We can solve this problem by using the [`store_value`](https://docs.rs/leptos/la
 In this case, it’s really simple:
 
 ```rust
-pub fn LoggedIn<F, IV>(cx: Scope, fallback: F, children: ChildrenFn) -> impl IntoView
+pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
 where
-    F: Fn(Scope) -> IV + 'static,
+    F: Fn() -> IV + 'static,
     IV: IntoView,
 {
-    let fallback = store_value(cx, fallback);
-    let children = store_value(cx, children);
-    view! { cx,
+    let fallback = store_value(fallback);
+    let children = store_value(children);
+    view! {
         <Suspense
             fallback=|| ()
         >
             <Show
                 when=|| todo!()
-                fallback=move |cx| fallback.with_value(|fallback| fallback(cx))
+                fallback=move || fallback.with_value(|fallback| fallback())
             >
-                {children.with_value(|children| children(cx))}
+                {children.with_value(|children| children())}
             </Show>
         </Suspense>
     }
@@ -125,9 +123,9 @@ Consider this example
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     let name = "Alice".to_string();
-    view! { cx,
+    view! {
         <Outer>
             <Inner>
                 <Inmost name=name.clone()/>
@@ -137,18 +135,18 @@ pub fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Outer(cx: Scope, children: ChildrenFn) -> impl IntoView {
-    children(cx)
+pub fn Outer(ChildrenFn) -> impl IntoView {
+    children()
 }
 
 #[component]
-pub fn Inner(cx: Scope, children: ChildrenFn) -> impl IntoView {
-    children(cx)
+pub fn Inner(ChildrenFn) -> impl IntoView {
+    children()
 }
 
 #[component]
-pub fn Inmost(cx: Scope, name: String) -> impl IntoView {
-    view! { cx,
+pub fn Inmost(ng) -> impl IntoView {
+    view! {
         <p>{name}</p>
     }
 }
@@ -165,7 +163,7 @@ It’s captured through multiple levels of children that need to run more than o
 In this case, the `clone:` syntax comes in handy. Calling `clone:name` will clone `name` _before_ moving it into `<Inner/>`’s children, which solves our ownership issue.
 
 ```rust
-view! { cx,
+view! {
 	<Outer>
 		<Inner clone:name>
 			<Inmost name=name.clone()/>

@@ -1,6 +1,5 @@
-use rstml::node::NodeElement;
+use rstml::node::{NodeElement, NodeName};
 
-///
 /// Converts `syn::Block` to simple expression
 ///
 /// For example:
@@ -14,22 +13,23 @@ use rstml::node::NodeElement;
 /// // variable
 /// {path::x}
 /// ```
+#[must_use]
 pub fn block_to_primitive_expression(block: &syn::Block) -> Option<&syn::Expr> {
     // its empty block, or block with multi lines
     if block.stmts.len() != 1 {
         return None;
     }
     match &block.stmts[0] {
-        syn::Stmt::Expr(e, None) => return Some(&e),
-        _ => {}
+        syn::Stmt::Expr(e, None) => Some(e),
+        _ => None,
     }
-    None
 }
 
 /// Converts simple literals to its string representation.
 ///
 /// This function doesn't convert literal wrapped inside block
 /// like: `{"string"}`.
+#[must_use]
 pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     match &value {
         syn::Expr::Lit(lit) => match &lit.lit {
@@ -43,8 +43,28 @@ pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     }
 }
 
+/// # Panics
+///
+/// Will panic if the last element does not exist in the path.
+#[must_use]
+pub fn is_component_tag_name(name: &NodeName) -> bool {
+    match name {
+        NodeName::Path(path) => {
+            !path.path.segments.is_empty()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .unwrap()
+                    .ident
+                    .to_string()
+                    .starts_with(|c: char| c.is_ascii_uppercase())
+        }
+        NodeName::Block(_) | NodeName::Punctuated(_) => false,
+    }
+}
+
+#[must_use]
 pub fn is_component_node(node: &NodeElement) -> bool {
-    node.name()
-        .to_string()
-        .starts_with(|c: char| c.is_ascii_uppercase())
+    is_component_tag_name(node.name())
 }

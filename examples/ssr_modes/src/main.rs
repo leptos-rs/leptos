@@ -10,10 +10,13 @@ async fn main() -> std::io::Result<()> {
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(|cx| view! { cx, <App/> });
+    let routes = generate_route_list(|| view! { <App/> });
 
-    let _ = GetPost::register();
-    let _ = ListPostMetadata::register();
+    // Explicit server function registration is no longer required
+    // on the main branch. On 0.3.0 and earlier, uncomment the lines
+    // below to register the server functions.
+    // _ = GetPost::register();
+    // _ = ListPostMetadata::register();
 
     HttpServer::new(move || {
         let leptos_options = &conf.leptos_options;
@@ -24,7 +27,7 @@ async fn main() -> std::io::Result<()> {
             .leptos_routes(
                 leptos_options.to_owned(),
                 routes.to_owned(),
-                |cx| view! { cx, <App/> },
+                || view! { <App/> },
             )
             .service(Files::new("/", site_root))
         //.wrap(middleware::Compress::default())

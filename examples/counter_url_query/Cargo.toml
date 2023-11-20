@@ -1,0 +1,20 @@
+[package]
+name = "counter_url_query"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[dependencies]
+leptos = { path = "../../leptos", features = ["csr", "nightly"] }
+leptos_router = { path = "../../router", features = ["csr"] }
+console_log = "1"
+log = "0.4"
+console_error_panic_hook = "0.1.7"
+
+[dev-dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-test = "0.3.0"
+web-sys = "0.3"

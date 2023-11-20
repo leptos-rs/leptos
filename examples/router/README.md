@@ -2,10 +2,6 @@
 
 This example demonstrates how Leptos’s router works for client side routing.
 
-## Build and Run it
+## Getting Started
 
-```bash
-trunk serve --open
-```
-
-> If you don't have `trunk` installed, [click here for install instructions.](https://trunkrs.dev/)
+See the [Examples README](../README.md) for setup and run instructions.

@@ -12,18 +12,18 @@ pub use location::*;
 pub use params::*;
 pub use state::*;
 
-impl std::fmt::Debug for RouterIntegrationContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RouterIntegrationContext {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RouterIntegrationContext").finish()
     }
 }
 
-/// The [Router](crate::Router) relies on a [RouterIntegrationContext], which tells the router
-/// how to find things like the current URL, and how to navigate to a new page. The [History] trait
+/// The [`Router`](crate::Router) relies on a [`RouterIntegrationContext`], which tells the router
+/// how to find things like the current URL, and how to navigate to a new page. The [`History`] trait
 /// can be implemented on any type to provide this information.
 pub trait History {
     /// A signal that updates whenever the current location changes.
-    fn location(&self, cx: Scope) -> ReadSignal<LocationChange>;
+    fn location(&self) -> ReadSignal<LocationChange>;
 
     /// Called to navigate to a new location.
     fn navigate(&self, loc: &LocationChange);
@@ -49,13 +49,13 @@ impl BrowserIntegration {
 }
 
 impl History for BrowserIntegration {
-    fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
+    fn location(&self) -> ReadSignal<LocationChange> {
         use crate::{NavigateOptions, RouterContext};
 
-        let (location, set_location) = create_signal(cx, Self::current());
+        let (location, set_location) = create_signal(Self::current());
 
         leptos::window_event_listener_untyped("popstate", move |_| {
-            let router = use_context::<RouterContext>(cx);
+            let router = use_context::<RouterContext>();
             if let Some(router) = router {
                 let path_stack = router.inner.path_stack;
 
@@ -64,7 +64,9 @@ impl History for BrowserIntegration {
 
                 let is_navigating_back = path_stack.with_value(|stack| {
                     stack.len() == 1
-                        || stack.get(stack.len() - 2) == Some(&change.value)
+                        || (stack.len() >= 2
+                            && stack.get(stack.len() - 2)
+                                == Some(&change.value))
                 });
                 if is_navigating_back {
                     path_stack.update_value(|stack| {
@@ -86,11 +88,11 @@ impl History for BrowserIntegration {
                         state: change.state,
                     },
                 ) {
-                    leptos::error!("{e:#?}");
+                    leptos::logging::error!("{e:#?}");
                 }
                 set_location.set(Self::current());
             } else {
-                leptos::warn!("RouterContext not found");
+                leptos::logging::warn!("RouterContext not found");
             }
         });
 
@@ -116,36 +118,44 @@ impl History for BrowserIntegration {
                 .unwrap_throw();
         }
         // scroll to el
-        if let Ok(hash) = leptos_dom::helpers::location().hash() {
-            if !hash.is_empty() {
-                let hash = js_sys::decode_uri(&hash[1..])
-                    .ok()
-                    .and_then(|decoded| decoded.as_string())
-                    .unwrap_or(hash);
-                let el = leptos_dom::document().get_element_by_id(&hash);
-                if let Some(el) = el {
-                    el.scroll_into_view()
-                } else if loc.scroll {
-                    leptos_dom::window().scroll_to_with_x_and_y(0.0, 0.0);
-                }
-            }
-        }
+        scroll_to_el(loc.scroll);
     }
 }
 
-/// The wrapper type that the [Router](crate::Router) uses to interact with a [History].
+pub(crate) fn scroll_to_el(loc_scroll: bool) {
+    if let Ok(hash) = leptos_dom::helpers::location().hash() {
+        if !hash.is_empty() {
+            let hash = js_sys::decode_uri(&hash[1..])
+                .ok()
+                .and_then(|decoded| decoded.as_string())
+                .unwrap_or(hash);
+            let el = leptos_dom::document().get_element_by_id(&hash);
+            if let Some(el) = el {
+                el.scroll_into_view();
+                return;
+            }
+        }
+    }
+
+    // scroll to top
+    if loc_scroll {
+        leptos_dom::window().scroll_to_with_x_and_y(0.0, 0.0);
+    }
+}
+
+/// The wrapper type that the [`Router`](crate::Router) uses to interact with a [`History`].
 /// This is automatically provided in the browser. For the server, it should be provided
 /// as a context. Be sure that it can survive conversion to a URL in the browser.
 ///
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let rt = create_runtime();
 /// let integration = ServerIntegration {
 ///     path: "http://leptos.rs/".to_string(),
 /// };
-/// provide_context(cx, RouterIntegrationContext::new(integration));
-/// # });
+/// provide_context(RouterIntegrationContext::new(integration));
+/// # rt.dispose();
 /// ```
 #[derive(Clone)]
 pub struct RouterIntegrationContext(pub Rc<dyn History>);
@@ -158,8 +168,8 @@ impl RouterIntegrationContext {
 }
 
 impl History for RouterIntegrationContext {
-    fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
-        self.0.location(cx)
+    fn location(&self) -> ReadSignal<LocationChange> {
+        self.0.location()
     }
 
     fn navigate(&self, loc: &LocationChange) {
@@ -177,13 +187,13 @@ impl History for RouterIntegrationContext {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let rt = create_runtime();
 /// let integration = ServerIntegration {
 ///     // Swap out with your URL if integrating manually.
 ///     path: "http://leptos.rs/".to_string(),
 /// };
-/// provide_context(cx, RouterIntegrationContext::new(integration));
-/// # });
+/// provide_context(RouterIntegrationContext::new(integration));
+/// # rt.dispose();
 /// ```
 #[derive(Clone, Debug)]
 pub struct ServerIntegration {
@@ -191,16 +201,13 @@ pub struct ServerIntegration {
 }
 
 impl History for ServerIntegration {
-    fn location(&self, cx: leptos::Scope) -> ReadSignal<LocationChange> {
-        create_signal(
-            cx,
-            LocationChange {
-                value: self.path.clone(),
-                replace: false,
-                scroll: true,
-                state: State(None),
-            },
-        )
+    fn location(&self) -> ReadSignal<LocationChange> {
+        create_signal(LocationChange {
+            value: self.path.clone(),
+            replace: false,
+            scroll: true,
+            state: State(None),
+        })
         .0
     }
 

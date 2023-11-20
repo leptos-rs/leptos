@@ -28,12 +28,10 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]`](https://docs.rs/server_fn/latest/server_fn/attr.server.html) macro allows you to annotate a function to
+//! The [`#[server]`][server] macro allows you to annotate a function to
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
-//! **Important**: All server functions must be registered by calling [ServerFn::register_in]
-//! somewhere within your `main` function.
 //! **Important**: Before calling a server function on a non-web platform, you must set the server URL by calling [`set_server_url`].
 //!
 //! ```rust,ignore
@@ -71,42 +69,65 @@
 //! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 //!   inside the function body can’t fail, the processes of serialization/deserialization and the
 //!   network call are fallible.
-//! - **Return types must implement [Serialize](serde::Serialize).**
+//! - **Return types must implement [`serde::Serialize`].**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
-//! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
-//!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
-//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
+//! - **Arguments must be implement [`serde::Serialize`].** They are serialized as an `application/x-www-form-urlencoded`
+//!   form data using [`serde_qs`] or as `application/cbor` using [`cbor`].
+//!
+//! [server]: <https://docs.rs/server_fn/latest/server_fn/attr.server.html>
+//! [`serde_qs`]: <https://docs.rs/serde_qs/latest/serde_qs/>
+//! [`cbor`]: <https://docs.rs/cbor/latest/cbor/>
 
 // used by the macro
 #[doc(hidden)]
 pub use const_format;
+// used by the macro
+#[cfg(feature = "ssr")]
+#[doc(hidden)]
+pub use inventory;
+#[cfg(any(feature = "ssr", doc))]
 use proc_macro2::TokenStream;
+#[cfg(any(feature = "ssr", doc))]
 use quote::TokenStreamExt;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+// used by the macro
+#[doc(hidden)]
+pub use serde;
+use serde::{de::DeserializeOwned, Serialize};
 pub use server_fn_macro_default::server;
-use std::{future::Future, pin::Pin, str::FromStr, sync::Arc};
+use std::{future::Future, pin::Pin, str::FromStr};
+#[cfg(any(feature = "ssr", doc))]
 use syn::parse_quote;
-use thiserror::Error;
 // used by the macro
 #[doc(hidden)]
 pub use xxhash_rust;
+/// Error types used in server functions.
+pub mod error;
+pub use error::ServerFnError;
+
+/// Default server function registry
+pub mod default;
 
 /// Something that can register a server function.
 pub trait ServerFunctionRegistry<T> {
     /// An error that can occur when registering a server function.
     type Error: std::error::Error;
-    /// Registers a server function at the given URL.
-    fn register(
+
+    /// Server functions are automatically registered on most platforms, (including Linux, macOS,
+    /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
+    /// this will explicitly register server functions.
+    fn register_explicit(
+        prefix: &'static str,
         url: &'static str,
-        server_function: Arc<ServerFnTraitObj<T>>,
+        server_function: SerializedFnTraitObj<T>,
         encoding: Encoding,
     ) -> Result<(), Self::Error>;
-    /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
-    fn get(url: &str) -> Option<ServerFunction<T>>;
 
     /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
-    fn get_trait_obj(url: &str) -> Option<Arc<ServerFnTraitObj<T>>>;
+    fn get(url: &str) -> Option<ServerFnTraitObj<T>>;
+
+    /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
+    fn get_trait_obj(url: &str) -> Option<ServerFnTraitObj<T>>;
     /// Returns the encoding of the server FN at the given URL, or `None` if no function is
     /// registered at that URL
     fn get_encoding(url: &str) -> Option<Encoding>;
@@ -114,21 +135,62 @@ pub trait ServerFunctionRegistry<T> {
     fn paths_registered() -> Vec<&'static str>;
 }
 
-/// A Struct to hold information about a ServerFunction
-#[derive(Clone)]
-pub struct ServerFunction<T> {
-    /// A trait obj for the server fn that can be called
-    pub trait_obj: Arc<ServerFnTraitObj<T>>,
-    /// The encoding and method to serialize and deserialize the server fn
-    pub encoding: Encoding,
-}
 /// A server function that can be called from the client.
-pub type ServerFnTraitObj<T> = dyn Fn(
+pub type SerializedFnTraitObj<T> =
+    fn(
         T,
         &[u8],
-    ) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
-    + Send
-    + Sync;
+    ) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>;
+
+/// A server function that can be called from the client.
+#[derive(Clone)]
+pub struct ServerFnTraitObj<T> {
+    pub(crate) prefix: &'static str,
+    pub(crate) url: &'static str,
+    pub(crate) encoding: Encoding,
+    pub(crate) run: SerializedFnTraitObj<T>,
+}
+
+impl<T> ServerFnTraitObj<T> {
+    /// Creates a new server function with the given prefix, URL, encoding, and function.
+    pub const fn new(
+        prefix: &'static str,
+        url: &'static str,
+        encoding: Encoding,
+        run: SerializedFnTraitObj<T>,
+    ) -> Self {
+        Self {
+            prefix,
+            url,
+            encoding,
+            run,
+        }
+    }
+
+    /// Runs the server function with the given server agruments and serialized buffer from the client.
+    pub fn call(
+        &self,
+        args: T,
+        buffer: &[u8],
+    ) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>> {
+        (self.run)(args, buffer)
+    }
+
+    /// Returns the prefix of the server function.
+    pub fn prefix(&self) -> &str {
+        self.prefix
+    }
+
+    /// Returns the URL of the server function.
+    pub fn url(&self) -> &str {
+        self.url
+    }
+
+    /// Returns the encoding of the server function.
+    pub fn encoding(&self) -> Encoding {
+        self.encoding
+    }
+}
 
 /// A dual type to hold the possible Response datatypes
 #[derive(Debug)]
@@ -143,7 +205,7 @@ pub enum Payload {
 
 /// Attempts to find a server function registered at the given path.
 ///
-/// This can be used by a server to handle the requests, as in the following example (using `actix-web`)
+/// This can be used by a server to handle the requests, as in the following example (using [`actix-web`])
 ///
 /// ```rust, ignore
 /// #[post("{tail:.*}")]
@@ -184,10 +246,12 @@ pub enum Payload {
 ///     }
 /// }
 /// ```
+///
+/// [`actix-web`]: <https://docs.rs/actix-web/>
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
-) -> Option<ServerFunction<T>> {
+) -> Option<ServerFnTraitObj<T>> {
     R::get(path)
 }
 
@@ -195,7 +259,7 @@ pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_trait_obj_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
-) -> Option<Arc<ServerFnTraitObj<T>>> {
+) -> Option<ServerFnTraitObj<T>> {
     R::get_trait_obj(path)
 }
 
@@ -216,7 +280,7 @@ pub fn server_fns_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 
 /// Holds the current options for encoding types.
 /// More could be added, but they need to be serde
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub enum Encoding {
     /// A Binary Encoding Scheme Called Cbor
     Cbor,
@@ -243,6 +307,7 @@ impl FromStr for Encoding {
     }
 }
 
+#[cfg(any(feature = "ssr", doc))]
 impl quote::ToTokens for Encoding {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let option: syn::Ident = match *self {
@@ -263,8 +328,7 @@ impl quote::ToTokens for Encoding {
 ///
 /// Server functions are created using the `server` macro.
 ///
-/// The function should be registered by calling `ServerFn::register()`. The set of server functions
-/// can be queried on the server for routing purposes by calling [server_fn_by_path].
+/// The set of server functions can be queried on the server for routing purposes by calling [`server_fn_by_path`].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn<T: 'static>
@@ -272,7 +336,7 @@ where
     Self: Serialize + DeserializeOwned + Sized + 'static,
 {
     /// The return type of the function.
-    type Output: Serialize;
+    type Output: serde::Serialize;
 
     /// URL prefix that should be prepended by the client to the generated URL.
     fn prefix() -> &'static str;
@@ -297,93 +361,75 @@ where
         cx: T,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
-    /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(any(feature = "ssr", doc,))]
-    fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
-    {
-        // create the handler for this server function
-        // takes a String -> returns its async value
-
-        let run_server_fn = Arc::new(|cx: T, data: &[u8]| {
-            // decode the args
-            let value = match Self::encoding() {
-                Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
-                    serde_qs::from_bytes(data).map_err(|e| {
-                        ServerFnError::Deserialization(e.to_string())
-                    })
-                }
-                Encoding::Cbor => ciborium::de::from_reader(data)
-                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
+    /// Returns a trait object that can be used to call the server function.
+    #[cfg(any(feature = "ssr", doc))]
+    fn call_from_bytes(
+        cx: T,
+        data: &[u8],
+    ) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>> {
+        // decode the args
+        let value = match Self::encoding() {
+            Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
+                serde_qs::Config::new(5, false)
+                    .deserialize_bytes(data)
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            }
+            Encoding::Cbor => ciborium::de::from_reader(data)
+                .map_err(|e| ServerFnError::Deserialization(e.to_string())),
+        };
+        Box::pin(async move {
+            let value: Self = match value {
+                Ok(v) => v,
+                Err(e) => return Err(e),
             };
-            Box::pin(async move {
-                let value: Self = match value {
-                    Ok(v) => v,
-                    Err(e) => return Err(e),
-                };
 
-                // call the function
-                let result = match value.call_fn(cx).await {
-                    Ok(r) => r,
-                    Err(e) => return Err(e),
-                };
+            // call the function
+            let result = match value.call_fn(cx).await {
+                Ok(r) => r,
+                Err(e) => return Err(e),
+            };
 
-                // serialize the output
-                let result = match Self::encoding() {
-                    Encoding::Url | Encoding::GetJSON => {
-                        match serde_json::to_string(&result).map_err(|e| {
+            // serialize the output
+            let result = match Self::encoding() {
+                Encoding::Url | Encoding::GetJSON => {
+                    match serde_json::to_string(&result).map_err(|e| {
+                        ServerFnError::Serialization(e.to_string())
+                    }) {
+                        Ok(r) => Payload::Url(r),
+                        Err(e) => return Err(e),
+                    }
+                }
+                Encoding::Cbor | Encoding::GetCBOR => {
+                    let mut buffer: Vec<u8> = Vec::new();
+                    match ciborium::ser::into_writer(&result, &mut buffer)
+                        .map_err(|e| {
                             ServerFnError::Serialization(e.to_string())
                         }) {
-                            Ok(r) => Payload::Url(r),
-                            Err(e) => return Err(e),
-                        }
+                        Ok(_) => Payload::Binary(buffer),
+                        Err(e) => return Err(e),
                     }
-                    Encoding::Cbor | Encoding::GetCBOR => {
-                        let mut buffer: Vec<u8> = Vec::new();
-                        match ciborium::ser::into_writer(&result, &mut buffer)
-                            .map_err(|e| {
-                                ServerFnError::Serialization(e.to_string())
-                            }) {
-                            Ok(_) => Payload::Binary(buffer),
-                            Err(e) => return Err(e),
-                        }
-                    }
-                };
+                }
+            };
 
-                Ok(result)
-            })
-                as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
-        });
-
-        // store it in the hashmap
-        R::register(Self::url(), run_server_fn, Self::encoding())
-            .map_err(|e| ServerFnError::Registration(e.to_string()))
+            Ok(result)
+        })
+            as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
     }
-}
 
-/// Type for errors that can occur when using server functions.
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum ServerFnError {
-    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
-    #[error("error while trying to register the server function: {0}")]
-    Registration(String),
-    /// Occurs on the client if there is a network error while trying to run function on server.
-    #[error("error reaching server to call server function: {0}")]
-    Request(String),
-    /// Occurs when there is an error while actually running the function on the server.
-    #[error("error running server function: {0}")]
-    ServerError(String),
-    /// Occurs on the client if there is an error deserializing the server's response.
-    #[error("error deserializing server function results {0}")]
-    Deserialization(String),
-    /// Occurs on the client if there is an error serializing the server function arguments.
-    #[error("error serializing server function arguments {0}")]
-    Serialization(String),
-    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
-    #[error("error deserializing server function arguments {0}")]
-    Args(String),
-    /// Occurs on the server if there's a missing argument.
-    #[error("missing argument {0}")]
-    MissingArg(String),
+    /// Registers the server function explicitly on platforms that require it,
+    /// allowing the server to query it by URL.
+    #[cfg(any(feature = "ssr", doc,))]
+    fn register_in_explicit<R: ServerFunctionRegistry<T>>(
+    ) -> Result<(), ServerFnError> {
+        // store it in the hashmap
+        R::register_explicit(
+            Self::prefix(),
+            Self::url(),
+            Self::call_from_bytes,
+            Self::encoding(),
+        )
+        .map_err(|e| ServerFnError::Registration(e.to_string()))
+    }
 }
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
@@ -514,14 +560,22 @@ where
     let status = resp.status();
     #[cfg(not(target_arch = "wasm32"))]
     let status = status.as_u16();
-    if (500..=599).contains(&status) {
+    if (400..=599).contains(&status) {
         let text = resp.text().await.unwrap_or_default();
-        #[cfg(target_arch = "wasm32")]
-        let status_text = resp.status_text();
-        #[cfg(not(target_arch = "wasm32"))]
-        let status_text = status.to_string();
-        return Err(serde_json::from_str(&text)
-            .unwrap_or(ServerFnError::ServerError(status_text)));
+        return Err(match serde_json::from_str(&text) {
+            Ok(e) => e,
+            Err(_) => {
+                #[cfg(target_arch = "wasm32")]
+                let status_text = resp.status_text();
+                #[cfg(not(target_arch = "wasm32"))]
+                let status_text = status.to_string();
+                ServerFnError::ServerError(if text.is_empty() {
+                    format!("{} {}", status, status_text)
+                } else {
+                    format!("{} {}: {}", status, status_text, text)
+                })
+            }
+        });
     }
 
     // Decoding the body of the request
@@ -558,7 +612,7 @@ where
 // Lazily initialize the client to be reused for all server function calls.
 #[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
-    once_cell::sync::Lazy::new(|| reqwest::Client::new());
+    once_cell::sync::Lazy::new(reqwest::Client::new);
 
 #[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static ROOT_URL: once_cell::sync::OnceCell<&'static str> =

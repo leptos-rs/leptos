@@ -4,10 +4,10 @@
 
 Routing drives most websites. A router is the answer to the question, “Given this URL, what should appear on the page?”
 
-A URL consists of many parts. For example, the URL `https://leptos.dev/blog/search?q=Search#results` consists of
+A URL consists of many parts. For example, the URL `https://my-cool-blog.com/blog/search?q=Search#results` consists of
 
 - a _scheme_: `https`
-- a _domain_: `leptos.dev`
+- a _domain_: `my-cool-blog.com`
 - a **path**: `/blog/search`
 - a **query** (or **search**): `?q=Search`
 - a _hash_: `#results`

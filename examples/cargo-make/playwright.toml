@@ -1,0 +1,101 @@
+[tasks.test-playwright-autostart]
+command = "npm"
+args = ["run", "e2e:auto-start"]
+
+[tasks.test-playwright]
+script = '''
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+RED="\e[0;31m"
+RESET="\e[0m"
+
+project_dir=$CARGO_MAKE_WORKING_DIRECTORY
+
+# Discover commands
+if command -v pnpm; then
+    PLAYWRIGHT_CMD=pnpm
+elif command -v npm; then
+    PLAYWRIGHT_CMD=npx
+else
+    echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
+    exit 1
+fi
+
+# Run playwright command
+for pw_path in $(find . -name playwright.config.ts)
+do
+  pw_dir=$(dirname $pw_path)
+  cd $pw_dir
+  ${PLAYWRIGHT_CMD} playwright test
+  cd $project_dir
+done
+'''
+
+[tasks.test-playwright-ui]
+script = '''
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+RED="\e[0;31m"
+RESET="\e[0m"
+
+project_dir=$CARGO_MAKE_WORKING_DIRECTORY
+
+# Discover commands
+if command -v pnpm; then
+    PLAYWRIGHT_CMD=pnpm
+elif command -v npm; then
+    PLAYWRIGHT_CMD=npx
+else
+    echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
+    exit 1
+fi
+
+# Run playwright command
+for pw_path in $(find . -name playwright.config.ts)
+do
+  pw_dir=$(dirname $pw_path)
+  cd $pw_dir
+  ${PLAYWRIGHT_CMD} playwright test --ui
+  cd $project_dir
+done
+'''
+
+[tasks.test-playwright-report]
+script = '''
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+RED="\e[0;31m"
+RESET="\e[0m"
+
+project_dir=$CARGO_MAKE_WORKING_DIRECTORY
+
+# Discover commands
+if command -v pnpm; then
+    PLAYWRIGHT_CMD=pnpm
+elif command -v npm; then
+    PLAYWRIGHT_CMD=npx
+else
+    echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
+    exit 1
+fi
+
+# Run playwright command
+for pw_path in $(find . -name playwright.config.ts)
+do
+  pw_dir=$(dirname $pw_path)
+  cd $pw_dir
+  ${PLAYWRIGHT_CMD} playwright show-report
+  cd $project_dir
+done
+'''
+
+# ALIASES
+
+[tasks.pw]
+dependencies = ["test-playwright"]
+
+[tasks.pw-ui]
+dependencies = ["test-playwright-ui"]
+
+[tasks.pw-report]
+dependencies = ["test-playwright-report"]

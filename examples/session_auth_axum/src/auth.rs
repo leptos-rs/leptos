@@ -145,34 +145,32 @@ pub async fn foo() -> Result<String, ServerFnError> {
 }
 
 #[server(GetUser, "/api")]
-pub async fn get_user(cx: Scope) -> Result<Option<User>, ServerFnError> {
-    let auth = auth(cx)?;
+pub async fn get_user() -> Result<Option<User>, ServerFnError> {
+    let auth = auth()?;
 
     Ok(auth.current_user)
 }
 
 #[server(Login, "/api")]
 pub async fn login(
-    cx: Scope,
     username: String,
     password: String,
     remember: Option<String>,
 ) -> Result<(), ServerFnError> {
-    let pool = pool(cx)?;
-    let auth = auth(cx)?;
+    let pool = pool()?;
+    let auth = auth()?;
 
     let user: User = User::get_from_username(username, &pool)
         .await
-        .ok_or("User does not exist.")
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+        .ok_or_else(|| {
+            ServerFnError::ServerError("User does not exist.".into())
+        })?;
 
-    match verify(password, &user.password)
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
-    {
+    match verify(password, &user.password)? {
         true => {
             auth.login_user(user.id);
             auth.remember_user(remember.is_some());
-            leptos_axum::redirect(cx, "/");
+            leptos_axum::redirect("/");
             Ok(())
         }
         false => Err(ServerFnError::ServerError(
@@ -183,14 +181,13 @@ pub async fn login(
 
 #[server(Signup, "/api")]
 pub async fn signup(
-    cx: Scope,
     username: String,
     password: String,
     password_confirmation: String,
     remember: Option<String>,
 ) -> Result<(), ServerFnError> {
-    let pool = pool(cx)?;
-    let auth = auth(cx)?;
+    let pool = pool()?;
+    let auth = auth()?;
 
     if password != password_confirmation {
         return Err(ServerFnError::ServerError(
@@ -204,28 +201,31 @@ pub async fn signup(
         .bind(username.clone())
         .bind(password_hashed)
         .execute(&pool)
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+        .await?;
 
-    let user = User::get_from_username(username, &pool)
-        .await
-        .ok_or("Signup failed: User does not exist.")
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+    let user =
+        User::get_from_username(username, &pool)
+            .await
+            .ok_or_else(|| {
+                ServerFnError::ServerError(
+                    "Signup failed: User does not exist.".into(),
+                )
+            })?;
 
     auth.login_user(user.id);
     auth.remember_user(remember.is_some());
 
-    leptos_axum::redirect(cx, "/");
+    leptos_axum::redirect("/");
 
     Ok(())
 }
 
 #[server(Logout, "/api")]
-pub async fn logout(cx: Scope) -> Result<(), ServerFnError> {
-    let auth = auth(cx)?;
+pub async fn logout() -> Result<(), ServerFnError> {
+    let auth = auth()?;
 
     auth.logout_user();
-    leptos_axum::redirect(cx, "/");
+    leptos_axum::redirect("/");
 
     Ok(())
 }

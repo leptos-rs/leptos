@@ -5,43 +5,30 @@ use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Todo {
+    id: u16,
+    title: String,
+    completed: bool,
+}
+
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
         // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-            SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))
-        }
-
-        pub fn register_server_functions() {
-            _ = GetTodos::register();
-            _ = AddTodo::register();
-            _ = DeleteTodo::register();
-            _ = FormDataHandler::register();
-        }
-
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
-        pub struct Todo {
-            id: u16,
-            title: String,
-            completed: bool,
-        }
-    } else {
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-        pub struct Todo {
-            id: u16,
-            title: String,
-            completed: bool,
+            Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
         }
     }
 }
 
 #[server(GetTodos, "/api")]
-pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
+pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>(cx);
+    let req_parts = use_context::<leptos_axum::RequestParts>();
 
     if let Some(req_parts) = req_parts {
         println!("Uri = {:?}", req_parts.uri);
@@ -54,11 +41,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut todos = Vec::new();
     let mut rows =
         sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
-    while let Some(row) = rows
-        .try_next()
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
-    {
+    while let Some(row) = rows.try_next().await? {
         todos.push(row);
     }
 
@@ -71,7 +54,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     //     status: Some(StatusCode::IM_A_TEAPOT),
     // };
 
-    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>(cx);
+    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>();
     // if let Some(res_options) = res_options_outer {
     //     res_options.overwrite(res_parts).await;
     // }
@@ -96,48 +79,24 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
-#[server(DeleteTodo, "/api")]
+// The struct name and path prefix arguments are optional.
+#[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
-    sqlx::query("DELETE FROM todos WHERE id = $1")
+    Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
         .execute(&mut conn)
         .await
-        .map(|_| ())
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct FormData {
-    hi: String,
-}
-
-#[server(FormDataHandler, "/api")]
-pub async fn form_data(cx: Scope) -> Result<FormData, ServerFnError> {
-    use axum::extract::FromRequest;
-
-    let req = use_context::<leptos_axum::LeptosRequest<axum::body::Body>>(cx)
-        .and_then(|req| req.take_request())
-        .unwrap();
-    if req.method() == http::Method::POST {
-        let form = axum::Form::from_request(req, &())
-            .await
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
-        Ok(form.0)
-    } else {
-        Err(ServerFnError::ServerError(
-            "wrong form fields submitted".to_string(),
-        ))
-    }
+        .map(|_| ())?)
 }
 
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    //let id = use_context::<String>(cx);
-    provide_meta_context(cx);
+pub fn TodoApp() -> impl IntoView {
+    //let id = use_context::<String>();
+    provide_meta_context();
     view! {
-        cx,
+
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
         <Router>
@@ -146,26 +105,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             </header>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! { cx,
-                        <Todos/>
-                    }/> //Route
-                    <Route path="weird" methods=&[Method::Get, Method::Post]
-                        ssr=SsrMode::Async
-                        view=|cx| {
-                            let res = create_resource(cx, || (), move |_| async move {
-                                form_data(cx).await
-                            });
-                            view! { cx,
-                                <Suspense fallback=|| ()>
-                                    <pre>
-                                        {move || {
-                                            res.with(cx, |body| format!("{body:#?}"))
-                                        }}
-                                    </pre>
-                                </Suspense>
-                            }
-                        }
-                    />
+                    <Route path="" view=Todos/>
                 </Routes>
             </main>
         </Router>
@@ -173,24 +113,18 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Todos(cx: Scope) -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>(cx);
-    let delete_todo = create_server_action::<DeleteTodo>(cx);
+pub fn Todos() -> impl IntoView {
+    let add_todo = create_server_multi_action::<AddTodo>();
+    let delete_todo = create_server_action::<DeleteTodo>();
     let submissions = add_todo.submissions();
 
     // list of todos is loaded from the server in reaction to changes
     let todos = create_resource(
-        cx,
         move || (add_todo.version().get(), delete_todo.version().get()),
-        move |_| get_todos(cx),
+        move |_| get_todos(),
     );
 
     view! {
-        cx,
-        <form method="POST" action="/weird">
-            <input type="text" name="hi" value="John"/>
-            <input type="submit"/>
-        </form>
         <div>
             <MultiActionForm action=add_todo>
                 <label>
@@ -199,25 +133,25 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
+            <Transition fallback=move || view! {<p>"Loading..."</p> }>
+                <ErrorBoundary fallback=|errors| view!{<ErrorTemplate errors=errors/>}>
                     {move || {
                         let existing_todos = {
                             move || {
-                                todos.read(cx)
+                                todos.get()
                                     .map(move |todos| match todos {
                                         Err(e) => {
-                                            view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
+                                            view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()
                                         }
                                         Ok(todos) => {
                                             if todos.is_empty() {
-                                                view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
+                                                view! { <p>"No tasks were found."</p> }.into_view()
                                             } else {
                                                 todos
                                                     .into_iter()
                                                     .map(move |todo| {
                                                         view! {
-                                                            cx,
+
                                                             <li>
                                                                 {todo.title}
                                                                 <ActionForm action=delete_todo>
@@ -227,7 +161,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                             </li>
                                                         }
                                                     })
-                                                    .collect_view(cx)
+                                                    .collect_view()
                                             }
                                         }
                                     })
@@ -242,15 +176,15 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                             .filter(|submission| submission.pending().get())
                             .map(|submission| {
                                 view! {
-                                    cx,
+
                                     <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                                 }
                             })
-                            .collect_view(cx)
+                            .collect_view()
                         };
 
                         view! {
-                            cx,
+
                             <ul>
                                 {existing_todos}
                                 {pending_todos}

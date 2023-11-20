@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use cfg_if::cfg_if;
 use std::rc::Rc;
 use thiserror::Error;
@@ -95,7 +94,7 @@ cfg_if! {
 
             fn de(json: &str) -> Result<Self, SerializationError> {
                 let intermediate =
-                    serde_json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))?;
+                    serde_json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))?;
                 Self::deserialize(&intermediate).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
             }
         }

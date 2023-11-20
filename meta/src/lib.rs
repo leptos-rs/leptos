@@ -4,10 +4,10 @@
 //! # Leptos Meta
 //!
 //! Leptos Meta allows you to modify content in a document’s `<head>` from within components
-//! using the [Leptos](https://github.com/leptos-rs/leptos) web framework.
+//! using the [`Leptos`](https://github.com/leptos-rs/leptos) web framework.
 //!
 //! Document metadata is updated automatically when running in the browser. For server-side
-//! rendering, after the component tree is rendered to HTML, [MetaContext::dehydrate] can generate
+//! rendering, after the component tree is rendered to HTML, [`MetaContext::dehydrate`] can generate
 //! HTML that should be injected into the `<head>` of the HTML document being rendered.
 //!
 //! ```
@@ -15,20 +15,20 @@
 //! use leptos_meta::*;
 //!
 //! #[component]
-//! fn MyApp(cx: Scope) -> impl IntoView {
-//!     let (name, set_name) = create_signal(cx, "Alice".to_string());
+//! fn MyApp() -> impl IntoView {
+//!     let (name, set_name) = create_signal("Alice".to_string());
 //!
-//!     view! { cx,
+//!     view! {
 //!       <Title
 //!         // reactively sets document.title when `name` changes
-//!         text=name
+//!         text=move || name.get()
 //!         // applies the `formatter` function to the `text` value
 //!         formatter=|text| format!("“{text}” is your name")
 //!       />
 //!       <main>
 //!         <input
-//!           prop:value=name
-//!           on:input=move |ev| set_name(event_target_value(&ev))
+//!           prop:value=move || name.get()
+//!           on:input=move |ev| set_name.set(event_target_value(&ev))
 //!         />
 //!       </main>
 //!     }
@@ -51,7 +51,6 @@ use leptos::{
     *,
 };
 use std::{
-    borrow::Cow,
     cell::{Cell, RefCell},
     fmt::Debug,
     rc::Rc,
@@ -76,10 +75,10 @@ pub use style::*;
 pub use stylesheet::*;
 pub use title::*;
 
-/// Contains the current state of meta tags. To access it, you can use [use_head].
+/// Contains the current state of meta tags. To access it, you can use [`use_head`].
 ///
 /// This should generally by provided somewhere in the root of your application using
-/// [provide_meta_context].
+/// [`provide_meta_context`].
 #[derive(Clone, Default, Debug)]
 pub struct MetaContext {
     /// Metadata associated with the `<html>` element
@@ -100,15 +99,15 @@ pub struct MetaTagsContext {
     els: Rc<
         RefCell<
             IndexMap<
-                Cow<'static, str>,
-                (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>),
+                Oco<'static, str>,
+                (HtmlElement<AnyElement>, Option<web_sys::Element>),
             >,
         >,
     >,
 }
 
-impl std::fmt::Debug for MetaTagsContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for MetaTagsContext {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("MetaTagsContext").finish()
     }
 }
@@ -120,8 +119,8 @@ impl MetaTagsContext {
         self.els
             .borrow()
             .iter()
-            .map(|(_, (builder_el, cx, _))| {
-                builder_el.clone().into_view(*cx).render_to_string(*cx)
+            .map(|(_, (builder_el, _))| {
+                builder_el.clone().into_view().render_to_string()
             })
             .collect()
     }
@@ -129,8 +128,8 @@ impl MetaTagsContext {
     #[doc(hidden)]
     pub fn register(
         &self,
-        cx: Scope,
-        id: Cow<'static, str>,
+
+        id: Oco<'static, str>,
         builder_el: HtmlElement<AnyElement>,
     ) {
         cfg_if! {
@@ -152,7 +151,7 @@ impl MetaTagsContext {
                     }
                 });
 
-                on_cleanup(cx, {
+                on_cleanup({
                     let el = el.clone();
                     let els = self.els.clone();
                     let id = id.clone();
@@ -166,10 +165,10 @@ impl MetaTagsContext {
                 self
                     .els
                     .borrow_mut()
-                    .insert(id, (builder_el.into_any(), cx, Some(el)));
+                    .insert(id, (builder_el.into_any(), Some(el)));
 
             } else {
-                self.els.borrow_mut().insert(id, (builder_el, cx, None));
+                self.els.borrow_mut().insert(id, (builder_el, None));
             }
         }
     }
@@ -187,38 +186,38 @@ impl MetaTagsContext {
     }
 }
 
-/// Provides a [MetaContext], if there is not already one provided. This ensures that you can provide it
-/// at the highest possible level, without overwriting a [MetaContext] that has already been provided
+/// Provides a [`MetaContext`], if there is not already one provided. This ensures that you can provide it
+/// at the highest possible level, without overwriting a [`MetaContext`] that has already been provided
 /// (for example, by a server-rendering integration.)
-pub fn provide_meta_context(cx: Scope) {
-    if use_context::<MetaContext>(cx).is_none() {
-        provide_context(cx, MetaContext::new());
+pub fn provide_meta_context() {
+    if use_context::<MetaContext>().is_none() {
+        provide_context(MetaContext::new());
     }
 }
 
-/// Returns the current [MetaContext].
+/// Returns the current [`MetaContext`].
 ///
-/// If there is no [MetaContext] in this [Scope](leptos::Scope) or any parent scope, this will
-/// create a new [MetaContext] and provide it to the current scope.
+/// If there is no [`MetaContext`] in this or any parent scope, this will
+/// create a new [`MetaContext`] and provide it to the current scope.
 ///
 /// Note that this may cause confusing behavior, e.g., if multiple nested routes independently
-/// call `use_head()` but a single [MetaContext] has not been provided at the application root.
-/// The best practice is always to call [provide_meta_context] early in the application.
-pub fn use_head(cx: Scope) -> MetaContext {
+/// call `use_head()` but a single [`MetaContext`] has not been provided at the application root.
+/// The best practice is always to call [`provide_meta_context`] early in the application.
+pub fn use_head() -> MetaContext {
     #[cfg(debug_assertions)]
     feature_warning();
 
-    match use_context::<MetaContext>(cx) {
+    match use_context::<MetaContext>() {
         None => {
             debug_warn!(
                 "use_head() is being called without a MetaContext being \
                  provided. We'll automatically create and provide one, but if \
                  this is being called in a child route it may cause bugs. To \
-                 be safe, you should provide_meta_context(cx) somewhere in \
-                 the root of the app."
+                 be safe, you should provide_meta_context() somewhere in the \
+                 root of the app."
             );
             let meta = MetaContext::new();
-            provide_context(cx, meta.clone());
+            provide_context(meta.clone());
             meta
         }
         Some(ctx) => ctx,
@@ -226,7 +225,7 @@ pub fn use_head(cx: Scope) -> MetaContext {
 }
 
 impl MetaContext {
-    /// Creates an empty [MetaContext].
+    /// Creates an empty [`MetaContext`].
     pub fn new() -> Self {
         Default::default()
     }
@@ -242,10 +241,10 @@ impl MetaContext {
     /// use leptos_meta::*;
     ///
     /// # #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-    /// run_scope(create_runtime(), |cx| {
-    ///   provide_meta_context(cx);
+    /// # let runtime = create_runtime();
+    ///   provide_meta_context();
     ///
-    ///   let app = view! { cx,
+    ///   let app = view! {
     ///     <main>
     ///       <Title text="my title"/>
     ///       <Stylesheet href="/style.css"/>
@@ -255,11 +254,11 @@ impl MetaContext {
     ///
     ///   // `app` contains only the body content w/ hydration stuff, not the meta tags
     ///   assert!(
-    ///      !app.into_view(cx).render_to_string(cx).contains("my title")
+    ///      !app.into_view().render_to_string().contains("my title")
     ///   );
     ///   // `MetaContext::dehydrate()` gives you HTML that should be in the `<head>`
-    ///   assert!(use_head(cx).dehydrate().contains("<title>my title</title>"))
-    /// });
+    ///   assert!(use_head().dehydrate().contains("<title>my title</title>"));
+    /// # runtime.dispose();
     /// # }
     /// ```
     pub fn dehydrate(&self) -> String {
@@ -276,7 +275,9 @@ impl MetaContext {
         }
         tags.push_str(&self.tags.as_string());
 
-        HydrationCtx::continue_from(prev_key);
+        if let Some(prev_key) = prev_key {
+            HydrationCtx::continue_from(prev_key);
+        }
         tags
     }
 }
@@ -285,17 +286,17 @@ impl MetaContext {
 /// and open the `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
 #[cfg(feature = "ssr")]
-pub fn generate_head_metadata(cx: Scope) -> String {
-    let (head, body) = generate_head_metadata_separated(cx);
-    format!("{head}</head><{body}>")
+pub fn generate_head_metadata() -> String {
+    let (head, body) = generate_head_metadata_separated();
+    format!("{head}</head>{body}")
 }
 
 /// Extracts the metadata that should be inserted at the beginning of the `<head>` tag
 /// and on the opening `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
 #[cfg(feature = "ssr")]
-pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
-    let meta = use_context::<MetaContext>(cx);
+pub fn generate_head_metadata_separated() -> (String, String) {
+    let meta = use_context::<MetaContext>();
     let head = meta
         .as_ref()
         .map(|meta| meta.dehydrate())
@@ -310,6 +311,6 @@ pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
 #[cfg(debug_assertions)]
 pub(crate) fn feature_warning() {
     if !cfg!(any(feature = "csr", feature = "hydrate", feature = "ssr")) {
-        leptos::debug_warn!("WARNING: `leptos_meta` does nothing unless you enable one of its features (`csr`, `hydrate`, or `ssr`). See the docs at https://docs.rs/leptos_meta/latest/leptos_meta/ for more information.");
+        leptos::logging::debug_warn!("WARNING: `leptos_meta` does nothing unless you enable one of its features (`csr`, `hydrate`, or `ssr`). See the docs at https://docs.rs/leptos_meta/latest/leptos_meta/ for more information.");
     }
 }

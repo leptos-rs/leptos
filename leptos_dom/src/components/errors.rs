@@ -1,12 +1,13 @@
 use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{signal_prelude::*, use_context, RwSignal};
-use std::{borrow::Cow, collections::HashMap, error::Error, sync::Arc};
+use server_fn::error::Error;
+use std::{borrow::Cow, collections::HashMap};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
 #[repr(transparent)]
-pub struct Errors(HashMap<ErrorKey, Arc<dyn Error + Send + Sync>>);
+pub struct Errors(HashMap<ErrorKey, Error>);
 
 /// A unique key for an error that occurs at a particular location in the user interface.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -24,7 +25,7 @@ where
 }
 
 impl IntoIterator for Errors {
-    type Item = (ErrorKey, Arc<dyn Error + Send + Sync>);
+    type Item = (ErrorKey, Error);
     type IntoIter = IntoIter;
 
     #[inline(always)]
@@ -33,17 +34,12 @@ impl IntoIterator for Errors {
     }
 }
 
-/// An owning iterator over all the errors contained in the [Errors] struct.
+/// An owning iterator over all the errors contained in the [`Errors`] struct.
 #[repr(transparent)]
-pub struct IntoIter(
-    std::collections::hash_map::IntoIter<
-        ErrorKey,
-        Arc<dyn Error + Send + Sync>,
-    >,
-);
+pub struct IntoIter(std::collections::hash_map::IntoIter<ErrorKey, Error>);
 
 impl Iterator for IntoIter {
-    type Item = (ErrorKey, Arc<dyn Error + Send + Sync>);
+    type Item = (ErrorKey, Error);
 
     #[inline(always)]
     fn next(
@@ -53,18 +49,12 @@ impl Iterator for IntoIter {
     }
 }
 
-/// An iterator over all the errors contained in the [Errors] struct.
+/// An iterator over all the errors contained in the [`Errors`] struct.
 #[repr(transparent)]
-pub struct Iter<'a>(
-    std::collections::hash_map::Iter<
-        'a,
-        ErrorKey,
-        Arc<dyn Error + Send + Sync>,
-    >,
-);
+pub struct Iter<'a>(std::collections::hash_map::Iter<'a, ErrorKey, Error>);
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = (&'a ErrorKey, &'a Arc<dyn Error + Send + Sync>);
+    type Item = (&'a ErrorKey, &'a Error);
 
     #[inline(always)]
     fn next(
@@ -77,11 +67,16 @@ impl<'a> Iterator for Iter<'a> {
 impl<T, E> IntoView for Result<T, E>
 where
     T: IntoView + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Into<Error>,
 {
-    fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
-        let id = ErrorKey(HydrationCtx::peek().previous.into());
-        let errors = use_context::<RwSignal<Errors>>(cx);
+    fn into_view(self) -> crate::View {
+        let id = ErrorKey(
+            HydrationCtx::peek()
+                .map(|n| n.to_string())
+                .unwrap_or_default()
+                .into(),
+        );
+        let errors = use_context::<RwSignal<Errors>>();
         match self {
             Ok(stuff) => {
                 if let Some(errors) = errors {
@@ -89,9 +84,10 @@ where
                         errors.0.remove(&id);
                     });
                 }
-                stuff.into_view(cx)
+                stuff.into_view()
             }
             Err(error) => {
+                let error = error.into();
                 match errors {
                     Some(errors) => {
                         errors.update({
@@ -109,7 +105,7 @@ where
                         cfg_if! {
                           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                             use leptos_reactive::{on_cleanup, queue_microtask};
-                            on_cleanup(cx, move || {
+                            on_cleanup(move || {
                               queue_microtask(move || {
                                 errors.update(|errors: &mut Errors| {
                                   errors.remove(&id);
@@ -128,11 +124,12 @@ where
                         );
                     }
                 }
-                ().into_view(cx)
+                ().into_view()
             }
         }
     }
 }
+
 impl Errors {
     /// Returns `true` if there are no errors.
     #[inline(always)]
@@ -143,24 +140,21 @@ impl Errors {
     /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
     pub fn insert<E>(&mut self, key: ErrorKey, error: E)
     where
-        E: Error + Send + Sync + 'static,
+        E: Into<Error>,
     {
-        self.0.insert(key, Arc::new(error));
+        self.0.insert(key, error.into());
     }
 
     /// Add an error with the default key for errors outside the reactive system
     pub fn insert_with_default_key<E>(&mut self, error: E)
     where
-        E: Error + Send + Sync + 'static,
+        E: Into<Error>,
     {
-        self.0.insert(Default::default(), Arc::new(error));
+        self.0.insert(Default::default(), error.into());
     }
 
     /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
-    pub fn remove(
-        &mut self,
-        key: &ErrorKey,
-    ) -> Option<Arc<dyn Error + Send + Sync>> {
+    pub fn remove(&mut self, key: &ErrorKey) -> Option<Error> {
         self.0.remove(key)
     }
 

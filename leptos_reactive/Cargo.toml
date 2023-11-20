@@ -17,7 +17,6 @@ miniserde = { version = "0.1", optional = true }
 rkyv = { version = "0.7.39", features = [
   "validation",
   "uuid",
-  "copy",
   "strict",
 ], optional = true }
 bytecheck = { version = "0.7", features = [
@@ -29,7 +28,9 @@ serde-wasm-bindgen = "0.5"
 serde_json = "1"
 base64 = "0.21"
 thiserror = "1"
-tokio = { version = "1", features = ["rt"], optional = true }
+tokio = { version = "1", features = [
+  "rt",
+], optional = true, default-features = false }
 tracing = "0.1"
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
@@ -41,17 +42,18 @@ web-sys = { version = "0.3", optional = true, features = [
   "Window",
 ] }
 cfg-if = "1"
-indexmap = "1"
-ouroboros = { version = "0.15.6", default-features = false }
+indexmap = "2"
+self_cell = "1.0.0"
+pin-project = "1"
+paste = "1"
 
 [dev-dependencies]
-criterion = { version = "0.4.0", features = ["html_reports"] }
-reactive-signals = { version = "0.1.0-alpha.4", features = ["profile"] }
-l021 = { package = "leptos", version = "0.2.1" }
-sycamore = { version = "0.8", features = ["ssr"] }
 log = "0.4"
 tokio-test = "0.4"
 leptos = { path = "../leptos" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = { version = "0.4" }
 
 [features]
 default = []
@@ -68,14 +70,15 @@ hydrate = [
   "dep:web-sys",
 ]
 ssr = ["dep:tokio"]
-stable = []
+nightly = ["rkyv?/copy"]
 serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 rkyv = ["dep:rkyv", "dep:bytecheck"]
+experimental-islands = []
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["nightly"]
 skip_feature_sets = [
   [
     "csr",
@@ -114,15 +117,3 @@ skip_feature_sets = [
     "rkyv",
   ],
 ]
-
-[[bench]]
-name = "deep_update"
-harness = false
-
-[[bench]]
-name = "fan_out"
-harness = false
-
-[[bench]]
-name = "narrow_down"
-harness = false

@@ -1,12 +1,11 @@
 use crate::{
     hydration::HydrationKey, ComponentRepr, HydrationCtx, IntoView, View,
 };
-use leptos_reactive::Scope;
 
 /// Trait for converting any iterable into a [`Fragment`].
 pub trait IntoFragment {
     /// Consumes this type, returning [`Fragment`].
-    fn into_fragment(self, cx: Scope) -> Fragment;
+    fn into_fragment(self) -> Fragment;
 }
 
 impl<I, V> IntoFragment for I
@@ -18,15 +17,18 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    fn into_fragment(self, cx: Scope) -> Fragment {
-        self.into_iter().map(|v| v.into_view(cx)).collect()
+    fn into_fragment(self) -> Fragment {
+        self.into_iter().map(|v| v.into_view()).collect()
     }
 }
 
 /// Represents a group of [`views`](View).
+#[must_use = "You are creating a Fragment but not using it. An unused view can \
+              cause your view to be rendered as () unexpectedly, and it can \
+              also cause issues with client-side hydration."]
 #[derive(Debug, Clone)]
 pub struct Fragment {
-    id: HydrationKey,
+    id: Option<HydrationKey>,
     /// The nodes contained in the fragment.
     pub nodes: Vec<View>,
     #[cfg(debug_assertions)]
@@ -47,7 +49,7 @@ impl From<View> for Fragment {
 
 impl From<Fragment> for View {
     fn from(value: Fragment) -> Self {
-        let mut frag = ComponentRepr::new_with_id("", value.id.clone());
+        let mut frag = ComponentRepr::new_with_id("", value.id);
 
         #[cfg(debug_assertions)]
         {
@@ -75,7 +77,10 @@ impl Fragment {
 
     /// Creates a new [`Fragment`] with the given hydration ID from a [`Vec<Node>`].
     #[inline(always)]
-    pub const fn new_with_id(id: HydrationKey, nodes: Vec<View>) -> Self {
+    pub const fn new_with_id(
+        id: Option<HydrationKey>,
+        nodes: Vec<View>,
+    ) -> Self {
         Self {
             id,
             nodes,
@@ -84,7 +89,7 @@ impl Fragment {
         }
     }
 
-    /// Gives access to the [View] children contained within the fragment.
+    /// Gives access to the [`View`] children contained within the fragment.
     #[inline(always)]
     pub fn as_children(&self) -> &[View] {
         &self.nodes
@@ -92,7 +97,7 @@ impl Fragment {
 
     /// Returns the fragment's hydration ID.
     #[inline(always)]
-    pub fn id(&self) -> &HydrationKey {
+    pub fn id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 
@@ -106,7 +111,7 @@ impl Fragment {
 
 impl IntoView for Fragment {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
-    fn into_view(self, _: leptos_reactive::Scope) -> View {
+    fn into_view(self) -> View {
         self.into()
     }
 }
