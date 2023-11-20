@@ -84,7 +84,29 @@ use std::any::{Any, TypeId};
 /// that was provided in `<Parent/>`, meaning that the second `<Child/>` receives the context
 /// from its sibling instead.
 ///
-/// This can be solved by introducing some additional reactivity. In this case, it’s simplest
+/// ### Solution
+///
+/// If you are using the full Leptos framework, you can use the [`Provider`](leptos::Provider)
+/// component to solve this issue.
+///
+/// ```rust
+/// # use leptos::*;
+/// #[component]
+/// fn Child() -> impl IntoView {
+///     let context = expect_context::<&'static str>();
+///     // creates a new reactive node, which means the context will
+///     // only be provided to its children, not modified in the parent
+///     view! {
+///         <Provider value="child_context">
+///             <div>{format!("child (context: {context})")}</div>
+///         </Provider>
+///     }
+/// }
+/// ```
+///
+/// ### Alternate Solution
+///
+/// This can also be solved by introducing some additional reactivity. In this case, it’s simplest
 /// to simply make the body of `<Child/>` a function, which means it will be wrapped in a
 /// new reactive node when rendered:
 /// ```rust
