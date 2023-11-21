@@ -151,7 +151,7 @@ pub fn App() -> impl IntoView {
 
 
 #[component]
-pub fn ButtonC<F>() -> impl IntoView {
+pub fn ButtonC() -> impl IntoView {
     view! {
         <button>"Toggle"</button>
     }
