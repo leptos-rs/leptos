@@ -146,13 +146,20 @@ set_num.set(2); // (nothing happens)
 use leptos::html::Input;
 use leptos::*;
 
+#[derive(Copy, Clone)]
+struct LogContext(RwSignal<Vec<String>>);
+
 #[component]
 fn App() -> impl IntoView {
     // Just making a visible log here
     // You can ignore this...
     let log = create_rw_signal::<Vec<String>>(vec![]);
     let logged = move || log().join("\n");
-    provide_context(log);
+
+    // the newtype pattern isn't *necessary* here but is a good practice
+    // it avoids confusion with other possible future `RwSignal<Vec<String>>` contexts
+    // and makes it easier to refer to it
+    provide_context(LogContext(log));
 
     view! {
         <CreateAnEffect/>
@@ -170,7 +177,7 @@ fn CreateAnEffect() -> impl IntoView {
     // any time one of the source signals changes
     create_effect(move |_| {
         log(if use_last() {
-            format!("{}  {}", first(), last())
+            with!(|first, last| format!("{first} {last}"))
         } else {
             first()
         })
@@ -307,7 +314,7 @@ where
 }
 
 fn log(msg: impl std::fmt::Display) {
-    let log = use_context::<RwSignal<Vec<String>>>().unwrap();
+    let log = use_context::<LogContext>().unwrap().0;
     log.update(|log| log.push(msg.to_string()));
 }
 
