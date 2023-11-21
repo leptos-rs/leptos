@@ -172,7 +172,7 @@ fn CreateAnEffect() -> impl IntoView {
         log(
 
             if use_last() {
-                format!("{}  {}", first(), last())
+                with!(|first, last| format!("{first} {last}"))
             } else {
                 first()
             },
