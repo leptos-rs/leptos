@@ -2,6 +2,7 @@
 
 - [Introduction](./01_introduction.md)
 - [Getting Started](./02_getting_started.md)
+  - [Leptos DX](./leptos_dx.md)
 - [Building User Interfaces](./view/README.md)
   - [A Basic Component](./view/01_basic_component.md)
   - [Dynamic Attributes](./view/02_dynamic_attributes.md)
@@ -48,5 +49,6 @@
 - [Deployment](./deployment/README.md)
   - [Optimizing WASM Binary Size](./deployment/binary_size.md)
 - [Guide: Islands](./islands.md)
+
 - [Appendix: How Does the Reactive System Work?](./appendix_reactive_graph.md)
-- [Appendix: Some Small DX Improvements](./appendix_dx.md)
+
