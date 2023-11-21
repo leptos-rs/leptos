@@ -6,8 +6,12 @@ use leptos::*;
 use portal::App;
 use web_sys::HtmlButtonElement;
 
+async fn next_tick() {
+    gloo_timers::future::TimeoutFuture::new(25).await;
+}
+
 #[wasm_bindgen_test]
-fn portal() {
+async fn portal() {
     let document = leptos::document();
     let body = document.body().unwrap();
 
@@ -24,7 +28,7 @@ fn portal() {
 
     show_button.click();
 
-    // next_tick().await;
+    next_tick().await;
 
     // check HTML
     assert_eq!(
