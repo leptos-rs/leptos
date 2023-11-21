@@ -5,17 +5,32 @@ There are two basic paths to getting started with Leptos:
 1. Client-side rendering with [Trunk](https://trunkrs.dev/) - a great option if you just want to make a snappy website with Leptos, or work with a pre-existing server or 3rd-party API's.
 2. Full-stack / Universal server-side rendering with [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) - a great option for building a CRUD-style website or a web-app with Rust powering both frontend and backend. Universal apps rely on either Actix-web or Axum on the server (so you may want to keep their docs handy, too), or you can even go Universal WASM/WASI with the Leptos and Axum integration (more on these options later).
 
-In Part 1 of this book, we'll start with Client-side rendering Leptos sites and building reactive UI's using `Trunk` to serve our JS+Wasm bundle to the browser.
+In Part 1 of this book, we'll start with Client-side rendering  Leptos sites and building reactive UI's using `Trunk` to serve our JS+Wasm bundle to the browser.
 
 We’ll introduce `cargo-leptos` in Part 2 of this book, which is all about working with the full power of Leptos in its Full-stack, SSR mode.
 
-If you don’t already have it installed, you can install Trunk by running
+```admonish note
+If you're coming from the Javascript world and terms like Client-Side Rendering (CSR) and server-side rendering (SSR) are unfamiliar to you, the easiest way to understand the difference is by analogy:
+
+CSR is similar to working with React (or a 'signals'-based framework like SolidJS), and focuses on producing a client-side UI which you can use with any tech stack on the server.
+
+SSR is like working with a full-stack framework like Next.js in the React world (or Solid's "SolidStart" framework) - SSR helps you build sites and apps using JS on both the client and the server.
+
+Leptos is similar: you can use it to either just make your UI, or you can use full-stack / 'Universal' Leptos to build an app powered by Rust on both client and server.
+
+```
+
+## Hello World! Getting Set up for Leptos CSR Development
+
+First up, make sure Rust is installed and up-to-date ([see here if you need instructions](https://www.rust-lang.org/tools/install)).
+
+If you don’t have it installed already, you can install the "Trunk" tool for running Leptos CSR sites by running the following on the command-line:
 
 ```bash
 cargo install trunk
 ```
 
-Create a basic Rust project
+And then create a basic Rust project
 
 ```bash
 cargo init leptos-tutorial
@@ -97,4 +112,9 @@ Trunk should automatically compile your app and open it in your default browser.
 If you make edits to `main.rs`, Trunk will recompile your source code and
 live-reload the page.
 
-But before we get started building UI's, there's a couple of things you might want to know to help make your experience with Leptos a little bit smoother.
+
+Welcome to the world of UI development with Rust and WebAssembly (WASM), powered by Leptos and Trunk!
+
+---
+
+Now before we get started building your first real UI's with Leptos, there's a couple of things you might want to know to help make your experience with Leptos just a little bit easier.
