@@ -206,5 +206,3 @@ fn ssr_option() {
 
     runtime.dispose();
 }
-
-// TODO: Remmove this comment that was used to simulate a leptos source change
