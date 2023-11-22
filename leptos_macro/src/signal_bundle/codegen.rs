@@ -1,238 +1,183 @@
-use super::parsing::{Field, Model};
 use proc_macro2::TokenStream;
-use quote::ToTokens;
+use quote::{format_ident, ToTokens};
 use syn::spanned::Spanned;
+
+use super::{parsing::Field, Model};
 
 impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let signal_bundle = generate_signal_bundle(self);
-        let rw_signal_bundle = self.generate_rw_signal_bundle();
-        let store_bundle = self.generate_store_bundle();
+        let read_struct: Struct = (SignalKind::ReadSignal, self).into();
+        let write_struct: Struct = (SignalKind::WriteSignal, self).into();
+        let rw_struct: Struct = (SignalKind::RwSignal, self).into();
+        let stored_struct: Struct = (SignalKind::StoredValue, self).into();
 
-        let tokens_ = quote! {
-          #signal_bundle
-          #rw_signal_bundle
-          #store_bundle
+        let read_write_structs = self.modes.signal.then_some(quote! {
+            #read_struct
+            #write_struct
+        });
+        let rw_struct = self.modes.rw_signal.then_some(quote! { #rw_struct });
+        let stored_struct =
+            self.modes.store.then_some(quote! { #stored_struct });
+
+        let s = quote! {
+            #read_write_structs
+
+            #rw_struct
+
+            #stored_struct
         };
 
-        tokens.extend(tokens_);
+        tokens.extend(s)
     }
 }
 
-impl Model {
-    fn generate_rw_signal_bundle(&self) -> Option<TokenStream> {
-        todo!()
-    }
+struct Struct {
+    vis: syn::Visibility,
+    generics: syn::Generics,
+    name: syn::Ident,
+    signal_kind: SignalKind,
+    is_tuple_struct: bool,
+    fields: Vec<StructField>,
+}
 
-    fn generate_store_bundle(&self) -> Option<TokenStream> {
-        todo!()
+impl From<(SignalKind, &Model)> for Struct {
+    fn from((signal_kind, model): (SignalKind, &Model)) -> Self {
+        Self {
+            vis: model.vis.to_owned(),
+            generics: model.generics.to_owned(),
+            name: model.struct_name.to_owned(),
+            signal_kind,
+            is_tuple_struct: model.is_tuple_struct,
+            fields: model
+                .fields
+                .iter()
+                .map(|field| (model.vis.to_owned(), signal_kind, field).into())
+                .collect(),
+        }
     }
 }
 
-enum FieldModeKind {
+impl ToTokens for Struct {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            vis,
+            generics,
+            name,
+            signal_kind,
+            is_tuple_struct,
+            fields,
+        } = self;
+
+        let is_tuple_struct = *is_tuple_struct;
+
+        let (_, generic_types, where_clause) = generics.split_for_impl();
+
+        let struct_where_clause =
+            (!is_tuple_struct).then_some(quote! { #where_clause });
+        let tuple_where_clause =
+            is_tuple_struct.then_some(quote! { #where_clause });
+
+        let name = match signal_kind {
+            SignalKind::ReadSignal => format_ident!("{name}Read"),
+            SignalKind::WriteSignal => format_ident!("{name}Write"),
+            SignalKind::RwSignal => format_ident!("{name}Rw"),
+            SignalKind::StoredValue => format_ident!("{name}Stored"),
+        };
+
+        let fields = fields.iter().map(ToTokens::to_token_stream);
+        let fields = wrap_with_struct_or_tuple_delimiters(
+            is_tuple_struct,
+            quote! { #(#fields),* },
+        );
+
+        let semi_token = is_tuple_struct.then_some(quote!(;));
+
+        let s = quote! {
+            #[derive(Clone, Copy)]
+            #vis struct #name #generic_types
+            #struct_where_clause
+                #fields
+                #tuple_where_clause #semi_token
+        };
+
+        tokens.extend(s)
+    }
+}
+
+struct StructField {
+    vis: syn::Visibility,
+    signal_kind: SignalKind,
+    field: Field,
+}
+
+impl From<(syn::Visibility, SignalKind, &Field)> for StructField {
+    fn from(
+        (vis, signal_kind, field): (syn::Visibility, SignalKind, &Field),
+    ) -> Self {
+        Self {
+            vis,
+            signal_kind,
+            field: field.to_owned(),
+        }
+    }
+}
+
+impl ToTokens for StructField {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            vis,
+            signal_kind,
+            field,
+        } = self;
+
+        let field = match field {
+            Field::Named { name, ty } => quote! { #name: #signal_kind<#ty> },
+            Field::Unnamed(ty) => quote! { #ty },
+        };
+
+        let s = quote! { #vis #field };
+
+        tokens.extend(s)
+    }
+}
+
+#[derive(Clone, Copy)]
+enum SignalKind {
     ReadSignal,
     WriteSignal,
     RwSignal,
-    Store,
+    StoredValue,
 }
 
-impl ToTokens for FieldModeKind {
+impl ToTokens for SignalKind {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let ty_prefix = quote! { ::leptos::leptos_reactive };
+        let prefix = quote! { ::leptos::leptos_reactive };
 
-        let tokens_ = match self {
-            FieldModeKind::ReadSignal => quote! { #ty_prefix::ReadSignal },
-            FieldModeKind::WriteSignal => quote! { #ty_prefix::WriteSignal },
-            FieldModeKind::RwSignal => quote! { #ty_prefix::RwSignal },
-            FieldModeKind::Store => quote! { #ty_prefix::StoredValue },
+        let s = match self {
+            SignalKind::ReadSignal => quote! { #prefix::ReadSignal },
+            SignalKind::WriteSignal => quote! { #prefix::WriteSignal },
+            SignalKind::RwSignal => quote! { #prefix::RwSignal },
+            SignalKind::StoredValue => quote! { #prefix::StoredValue },
         };
 
-        tokens.extend(tokens_);
+        tokens.extend(s)
     }
 }
 
-fn generate_signal_bundle(model: &Model) -> Option<TokenStream> {
-    if !model.modes.signal {
-        return None;
-    }
-
-    let Model {
-        modes: _,
-        vis,
-        struct_name,
-        generics,
-        is_tuple_struct,
-        fields,
-    } = model;
-
-    let is_tuple_struct = *is_tuple_struct;
-
-    let (impl_generic_types, generic_types, where_clause) =
-        generics.split_for_impl();
-
-    let tuple_where_clause = is_tuple_struct
-        .then_some(quote! { #where_clause })
-        .unwrap_or_default();
-    let struct_where_clause = (!is_tuple_struct)
-        .then_some(quote! { #where_clause })
-        .unwrap_or_default();
-    let tuple_semi_token = is_tuple_struct.then_some(quote!(;));
-
-    let read_name = quote::format_ident!("{struct_name}Read");
-    let write_name = quote::format_ident!("{struct_name}Write");
-
-    let read_fields = {
-        let fields = fields
-            .iter()
-            .zip(field_names(fields))
-            .zip(field_types(fields))
-            .map(|((field, name), ty)| {
-                (
-                    field,
-                    name,
-                    wrap_with_signal_type(FieldModeKind::ReadSignal, ty),
-                )
-            })
-            .map(|(field, name, ty)| {
-                if matches!(field, Field::Named { .. }) {
-                    quote! { #name: #ty }
-                } else {
-                    quote! { #ty }
-                }
-            });
-
-        wrap_with_struct_or_tuple_braces(
-            is_tuple_struct,
-            quote! { #(#fields),* },
-        )
-    };
-
-    let write_fields = {
-        let fields = fields
-            .iter()
-            .zip(field_names(fields))
-            .zip(field_types(fields))
-            .map(|((field, name), ty)| {
-                (
-                    field,
-                    name,
-                    wrap_with_signal_type(FieldModeKind::WriteSignal, ty),
-                )
-            })
-            .map(|(field, name, ty)| {
-                if matches!(field, Field::Named { .. }) {
-                    quote! { #name: #ty }
-                } else {
-                    quote! { #ty }
-                }
-            });
-
-        wrap_with_struct_or_tuple_braces(
-            is_tuple_struct,
-            quote! { #(#fields),* },
-        )
-    };
-
-    let self_fields = field_names(fields);
-    let self_fields = wrap_with_struct_or_tuple_braces(
-        is_tuple_struct,
-        quote! { #(#self_fields),* },
-    );
-
-    let field_names_ = field_names(fields);
-
-    let read_field_names =
-        field_names(fields).map(|name| quote::format_ident!("read_{name}"));
-
-    let write_field_names =
-        field_names(fields).map(|name| quote::format_ident!("write_{name}"));
-
-    let read_output_fields =
-        fields.iter().zip(field_names(fields)).map(|(field, name)| {
-            if matches!(field, Field::Named { .. }) {
-                let read_name = quote::format_ident!("read_{name}");
-
-                quote! { #name: #read_name }
-            } else {
-                quote! { #name }
-            }
-        });
-    let read_output_fields = wrap_with_struct_or_tuple_braces(
-        is_tuple_struct,
-        quote! { #(#read_output_fields),* },
-    );
-
-    Some(quote! {
-      #[derive(Clone, Copy)]
-      #vis struct #read_name
-        #generic_types
-        #struct_where_clause
-        #read_fields
-        #tuple_where_clause
-        #tuple_semi_token
-
-      #[derive(Clone, Copy)]
-      #vis struct #write_name
-        #generic_types
-        #struct_where_clause
-        #write_fields
-        #tuple_where_clause
-        #tuple_semi_token
-
-      impl #impl_generic_types #struct_name #generic_types #where_clause {
-        #vis fn into_signal_bundle(self) -> (#read_name, #write_name) {
-          let Self #self_fields = self;
-        }
-        #(
-            let (#read_field_names, #write_field_names)
-                = ::leptos::leptos_reactive::create_signal(#field_names_);
-        )*
-
-        (
-            #read_name #read_output_fields,
-            // #write_name #write_output_fields,
-        )
-      }
-    })
-}
-
-/// Wraps `inner` with `()` or `{}` depending if it's a tuple
-/// struct or not.
-fn wrap_with_struct_or_tuple_braces(
+fn wrap_with_struct_or_tuple_delimiters(
     is_tuple_struct: bool,
     inner: impl ToTokens,
 ) -> TokenStream {
     if is_tuple_struct {
-        quote! { ( #inner ) }
-    } else {
         quote! { { #inner } }
+    } else {
+        quote! { (#inner) }
     }
 }
 
-/// Produces an iterator of field names.
-fn field_names(fields: &[Field]) -> impl Iterator<Item = TokenStream> + '_ {
+fn field_names(fields: &[Field]) -> impl Iterator<Item = syn::Ident> + '_ {
     fields.iter().enumerate().map(|(i, field)| match field {
-        Field::Named { name, .. } => quote! { #name },
-        Field::Unnamed(ty) => {
-            let field_name = quote::format_ident!("_{i}", span = ty.span());
-
-            quote! { #field_name }
-        }
+        Field::Named { name, .. } => name.to_owned(),
+        Field::Unnamed(ty) => quote::format_ident!("_{i}", span = ty.span()),
     })
-}
-
-/// Produces an iterator of field types.
-fn field_types(fields: &[Field]) -> impl Iterator<Item = TokenStream> + '_ {
-    fields.iter().map(|field| match field {
-        Field::Named { ty, .. } => quote! { #ty },
-        Field::Unnamed(ty) => quote! { #ty },
-    })
-}
-
-/// Wraps a type with the appropriate signal type.
-fn wrap_with_signal_type(
-    mode: FieldModeKind,
-    ty: impl ToTokens,
-) -> TokenStream {
-    quote! { #mode<#ty> }
 }

@@ -133,6 +133,7 @@ impl Parse for ModeKind {
     }
 }
 
+#[derive(Clone)]
 pub enum Field {
     Named { name: syn::Ident, ty: syn::Type },
     Unnamed(syn::Type),
