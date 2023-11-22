@@ -386,11 +386,14 @@ attr_signal_type_optional!(MaybeProp<T>);
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
 #[inline(never)]
+#[track_caller]
 pub fn attribute_helper(
     el: &web_sys::Element,
     name: Oco<'static, str>,
     value: Attribute,
 ) {
+    #[cfg(debug_assertions)]
+    let called_at = std::panic::Location::caller();
     use leptos_reactive::create_render_effect;
     match value {
         Attribute::Fn(f) => {
@@ -398,12 +401,26 @@ pub fn attribute_helper(
             create_render_effect(move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) {
-                    attribute_expression(&el, &name, new.clone(), true);
+                    attribute_expression(
+                        &el,
+                        &name,
+                        new.clone(),
+                        true,
+                        #[cfg(debug_assertions)]
+                        called_at,
+                    );
                 }
                 new
             });
         }
-        _ => attribute_expression(el, &name, value, false),
+        _ => attribute_expression(
+            el,
+            &name,
+            value,
+            false,
+            #[cfg(debug_assertions)]
+            called_at,
+        ),
     };
 }
 
@@ -414,6 +431,7 @@ pub(crate) fn attribute_expression(
     attr_name: &str,
     value: Attribute,
     force: bool,
+    #[cfg(debug_assertions)] called_at: &'static std::panic::Location<'static>,
 ) {
     use crate::HydrationCtx;
 
@@ -452,10 +470,25 @@ pub(crate) fn attribute_expression(
             }
             Attribute::Fn(f) => {
                 let mut v = f();
+                crate::debug_warn!(
+                    "At {called_at}, you are providing a dynamic attribute \
+                     with a nested function. For example, you might have a \
+                     closure that returns another function instead of a \
+                     value. This creates some added overhead. If possible, \
+                     you should instead provide a function that returns a \
+                     value instead.",
+                );
                 while let Attribute::Fn(f) = v {
                     v = f();
                 }
-                attribute_expression(el, attr_name, v, force);
+                attribute_expression(
+                    el,
+                    attr_name,
+                    v,
+                    force,
+                    #[cfg(debug_assertions)]
+                    called_at,
+                );
             }
         }
     }
