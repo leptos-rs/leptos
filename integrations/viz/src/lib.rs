@@ -11,7 +11,6 @@ use futures::{
     Future, SinkExt, Stream, StreamExt,
 };
 use http::{header, method::Method, uri::Uri, version::Version, StatusCode};
-
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
