@@ -12,11 +12,11 @@ We’ll introduce `cargo-leptos` in Part 2 of this book, which is all about work
 ```admonish note
 If you're coming from the Javascript world and terms like Client-Side Rendering (CSR) and server-side rendering (SSR) are unfamiliar to you, the easiest way to understand the difference is by analogy:
 
-CSR is similar to working with React (or a 'signals'-based framework like SolidJS), and focuses on producing a client-side UI which you can use with any tech stack on the server.
+Leptos' CSR mode is similar to working with React (or a 'signals'-based framework like SolidJS), and focuses on producing a client-side UI which you can use with any tech stack on the server.
 
-SSR is like working with a full-stack framework like Next.js in the React world (or Solid's "SolidStart" framework) - SSR helps you build sites and apps using JS on both the client and the server.
+Using Leptos' SSR mode is similar to working with a full-stack framework like Next.js in the React world (or Solid's "SolidStart" framework) - SSR helps you build sites and apps that are rendered on the server then sent down to the client. SSR can help to improve your site's loading performance and accessibility as well as make it easier for one person to work on *both* client- and server-side without needing to context-switch between different languages for frontend and backend.
 
-Leptos is similar: you can use it to either just make your UI, or you can use full-stack / 'Universal' Leptos to build an app powered by Rust on both client and server.
+The Leptos framework can be used either in CSR mode to just make a UI (like React), or you can use Leptos in full-stack / 'Universal' mode (like Next.js) so that you can build both your UI and your server with one language: Rust.
 
 ```
 
@@ -117,4 +117,4 @@ Welcome to the world of UI development with Rust and WebAssembly (WASM), powered
 
 ---
 
-Now before we get started building your first real UI's with Leptos, there's a couple of things you might want to know to help make your experience with Leptos just a little bit easier.
+Now before we get started building your first real UI's with Leptos, there are a couple of things you might want to know to help make your experience with Leptos just a little bit easier.

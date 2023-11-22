@@ -3,7 +3,7 @@
 So far, everything we’ve written has been rendered almost entirely in the browser. When we create an app using Trunk, it’s served using a local development server. If you build it for production and deploy it, it’s served by whatever server or CDN you’re using. In either case, what’s served is an HTML page with
 
 1. the URL of your Leptos app, which has been compiled to WebAssembly (WASM)
-2. the URL of the JavaScript used to initialized this WASM blob
+2. the URL of the JavaScript used to initialize this WASM blob
 3. an empty `<body>` element
 
 When the JS and WASM have loaded, Leptos will render your app into the `<body>`. This means that nothing appears on the screen until JS/WASM have loaded and run. This has some drawbacks:
