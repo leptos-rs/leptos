@@ -13,7 +13,7 @@ axum = { version = "0.6", default-features = false, features = [
 ] }
 futures = "0.3"
 http = "0.2.8"
-hyper = "0.14.23"
+hyper = "~1"
 leptos = { workspace = true, features = ["ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }

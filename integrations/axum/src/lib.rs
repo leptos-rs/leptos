@@ -51,7 +51,6 @@ use http::{
     header, method::Method, request::Parts, uri::Uri, version::Version,
     Response,
 };
-use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
@@ -162,7 +161,9 @@ pub async fn generate_request_and_parts(
 ) -> (Request<Body>, RequestParts) {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
-    let body = body::to_bytes(body).await.unwrap_or_default();
+    let a = body.collect::<Vec<_>>().await;
+    let b = a.into_iter().filter_map(|a| a.ok()).collect::<Vec<_>>();
+    let body: Bytes = b.concat().into();
     let request_parts = RequestParts {
         method: parts.method.clone(),
         uri: parts.uri.clone(),
