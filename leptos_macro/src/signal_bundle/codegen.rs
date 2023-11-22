@@ -1,4 +1,3 @@
-use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
 use syn::spanned::Spanned;
@@ -200,6 +199,7 @@ impl ToTokens for Impl {
 struct IntoSignalFunction {
     vis: syn::Visibility,
     name: syn::Ident,
+    is_tuple_struct: bool,
     mode: ModeKind,
     fields: Vec<Field>,
 }
@@ -209,9 +209,12 @@ impl ToTokens for IntoSignalFunction {
         let Self {
             vis,
             name,
+            is_tuple_struct,
             mode,
             fields,
         } = self;
+
+        let is_tuple_struct = *is_tuple_struct;
 
         let fn_name = match mode {
             ModeKind::Signal => {
@@ -225,11 +228,134 @@ impl ToTokens for IntoSignalFunction {
             }
         };
 
-        let s = quote! {
-            #vis fn #fn_name(self)
+        let return_ty = match mode {
+            ModeKind::Signal => {
+                let read_name = format_ident!("{name}Read");
+                let write_name = format_ident!("{name}Write");
+
+                quote! { (#read_name, #write_name) }
+            }
+            ModeKind::RwSignal => {
+                let rw_name = format_ident!("{name}Rw");
+
+                quote! { #rw_name }
+            }
+            ModeKind::Store => {
+                let stored_name = format_ident!("{name}Stored");
+
+                quote! { #stored_name }
+            }
         };
 
-        todo!();
+        let self_fields = field_names(fields);
+        let self_fields = wrap_with_struct_or_tuple_delimiters(
+            is_tuple_struct,
+            quote! { #(#self_fields),* },
+        );
+
+        let signal_fn = match mode {
+            ModeKind::Signal => quote! { create_signal },
+            ModeKind::RwSignal => quote! { create_rw_signal },
+            ModeKind::Store => quote! { store_value },
+        };
+
+        let field_names_ = field_names(fields);
+
+        let signal_field_names = match mode {
+            ModeKind::Signal => field_names(fields)
+                .map(|name| {
+                    let read_name = format_ident!("{name}_read");
+                    let write_name = format_ident!("{name}_write");
+
+                    quote! { (#read_name, #write_name) }
+                })
+                .collect::<Vec<_>>(),
+            ModeKind::RwSignal | ModeKind::Store => {
+                { field_names(fields).map(|name| quote! { #name }) }
+                    .collect::<Vec<_>>()
+            }
+        };
+
+        let return_value = match mode {
+            ModeKind::Signal => {
+                let read_struct = format_ident!("{name}Read");
+                let write_struct = format_ident!("{name}Write");
+
+                let read_fields = field_names(fields).map(|name| {
+                    let read_name = format_ident!("read_{name}");
+
+                    if is_tuple_struct {
+                        quote! { #read_name }
+                    } else {
+                        quote! { #name: read_name }
+                    }
+                });
+                let read_fields = wrap_with_struct_or_tuple_delimiters(
+                    is_tuple_struct,
+                    quote! { #(#read_fields),* },
+                );
+
+                let write_fields = field_names(fields).map(|name| {
+                    let write_name = format_ident!("write_{name}");
+
+                    if is_tuple_struct {
+                        quote! { #write_name }
+                    } else {
+                        quote! { #name: #write_name }
+                    }
+                });
+                let write_fields = wrap_with_struct_or_tuple_delimiters(
+                    is_tuple_struct,
+                    quote! { #(#write_fields),* },
+                );
+
+                quote! {
+                    (
+                        #read_struct #read_fields,
+                        #write_struct #write_fields,
+                    )
+                }
+            }
+            ModeKind::RwSignal => {
+                let rw_name = format_ident!("{name}Rw");
+
+                let rw_fields = field_names(fields);
+                let rw_fields = wrap_with_struct_or_tuple_delimiters(
+                    is_tuple_struct,
+                    quote! { #(#rw_fields),* },
+                );
+
+                quote! {
+                    #rw_name #rw_fields
+                }
+            }
+            ModeKind::Store => {
+                let stored_name = format_ident!("{name}Stored");
+
+                let stored_fields = field_names(fields);
+                let stored_fields = wrap_with_struct_or_tuple_delimiters(
+                    is_tuple_struct,
+                    quote! { #(#stored_fields),* },
+                );
+
+                quote! {
+                    #stored_name #stored_fields
+                }
+            }
+        };
+
+        let s = quote! {
+            #vis fn #fn_name(self) -> #return_ty {
+                let Self #self_fields = self;
+
+                #(
+                    let #signal_field_names
+                        = ::leptos::leptos_reactive::#signal_fn(#field_names_);
+                )*
+
+                #return_value
+            }
+        };
 
         tokens.extend(s)
     }
