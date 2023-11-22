@@ -25,16 +25,16 @@ tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.4", features = ["fs"], optional = true }
 tokio = { version = "1.22.0", features = ["full"], optional = true }
 http = { version = "0.2.8" }
-sqlx = { version = "0.6.2", features = [
+sqlx = { version = "0.7.2", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
 ], optional = true }
 thiserror = "1.0.38"
 wasm-bindgen = "0.2"
-axum_session_auth = { version = "0.2.1", features = [
+axum_session_auth = { version = "0.9.0", features = [
 	"sqlite-rustls",
 ], optional = true }
-axum_session = { version = "0.2.3", features = [
+axum_session = { version = "0.9.0", features = [
 	"sqlite-rustls",
 ], optional = true }
 bcrypt = { version = "0.14", optional = true }
