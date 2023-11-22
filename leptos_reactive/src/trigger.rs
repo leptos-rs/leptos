@@ -94,6 +94,7 @@ impl Trigger {
         let diagnostics = diagnostics!(self);
 
         with_runtime(|runtime| {
+            runtime.update_if_necessary(self.id);
             self.id.subscribe(runtime, diagnostics);
         })
         .is_ok()
