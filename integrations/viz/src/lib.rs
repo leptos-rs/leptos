@@ -107,14 +107,16 @@ pub fn redirect(path: &str) {
 pub async fn generate_request_parts(req: Request) -> RequestParts {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
-    let body = body
+    let body = match body
         .collect::<Vec<_>>()
         .await
         .into_iter()
-        .filter_map(|result| result.ok())
-        .collect::<Vec<Bytes>>()
-        .concat()
-        .into();
+        .collect::<Result<Vec<Bytes>, _>>()
+    {
+        Ok(body) => body.concat().into(),
+        Err(_) => Bytes::default(),
+    };
+
     RequestParts {
         method: parts.method,
         uri: parts.uri,

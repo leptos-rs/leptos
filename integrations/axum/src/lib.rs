@@ -161,14 +161,15 @@ pub async fn generate_request_and_parts(
 ) -> (Request<Body>, RequestParts) {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
-    let body: Bytes = body
+    let body = match body
         .collect::<Vec<_>>()
         .await
         .into_iter()
-        .filter_map(|a| a.ok())
-        .collect::<Vec<Bytes>>()
-        .concat()
-        .into();
+        .collect::<Result<Vec<Bytes>, _>>()
+    {
+        Ok(body) => body.concat().into(),
+        Err(_) => Bytes::default(),
+    };
     let request_parts = RequestParts {
         method: parts.method.clone(),
         uri: parts.uri.clone(),
