@@ -18,9 +18,12 @@ impl ToTokens for Model {
             #read_struct
             #write_struct
         });
+
         let rw_struct = self.modes.rw_signal.then_some(quote! { #rw_struct });
         let stored_struct =
             self.modes.store.then_some(quote! { #stored_struct });
+
+        let impls = Impl::from(self);
 
         let s = quote! {
             #read_write_structs
@@ -28,9 +31,9 @@ impl ToTokens for Model {
             #rw_struct
 
             #stored_struct
-        };
 
-        todo!();
+            #impls
+        };
 
         tokens.extend(s)
     }
@@ -175,6 +178,37 @@ struct Impl {
     inner: TokenStream,
 }
 
+impl From<&Model> for Impl {
+    fn from(model: &Model) -> Self {
+        let read_write_signal_method = model
+            .modes
+            .signal
+            .then_some(IntoSignalMethod::from((ModeKind::Signal, model)));
+        let rw_method = model
+            .modes
+            .rw_signal
+            .then_some(IntoSignalMethod::from((ModeKind::RwSignal, model)));
+        let stored_method = model
+            .modes
+            .store
+            .then_some(IntoSignalMethod::from((ModeKind::Store, model)));
+
+        let inner = quote! {
+            #read_write_signal_method
+
+            #rw_method
+
+            #stored_method
+        };
+
+        Self {
+            generics: model.generics.to_owned(),
+            name: model.struct_name.to_owned(),
+            inner,
+        }
+    }
+}
+
 impl ToTokens for Impl {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
@@ -196,7 +230,7 @@ impl ToTokens for Impl {
     }
 }
 
-struct IntoSignalFunction {
+struct IntoSignalMethod {
     vis: syn::Visibility,
     name: syn::Ident,
     is_tuple_struct: bool,
@@ -204,7 +238,19 @@ struct IntoSignalFunction {
     fields: Vec<Field>,
 }
 
-impl ToTokens for IntoSignalFunction {
+impl From<(ModeKind, &Model)> for IntoSignalMethod {
+    fn from((mode, model): (ModeKind, &Model)) -> Self {
+        Self {
+            vis: model.vis.to_owned(),
+            name: model.struct_name.to_owned(),
+            is_tuple_struct: model.is_tuple_struct,
+            mode,
+            fields: model.fields.to_owned(),
+        }
+    }
+}
+
+impl ToTokens for IntoSignalMethod {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
             vis,
