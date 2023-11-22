@@ -1,8 +1,12 @@
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
 use syn::spanned::Spanned;
 
-use super::{parsing::Field, Model};
+use super::{
+    parsing::{Field, ModeKind},
+    Model,
+};
 
 impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -26,6 +30,8 @@ impl ToTokens for Model {
 
             #stored_struct
         };
+
+        todo!();
 
         tokens.extend(s)
     }
@@ -159,6 +165,71 @@ impl ToTokens for SignalKind {
             SignalKind::RwSignal => quote! { #prefix::RwSignal },
             SignalKind::StoredValue => quote! { #prefix::StoredValue },
         };
+
+        tokens.extend(s)
+    }
+}
+
+struct Impl {
+    generics: syn::Generics,
+    name: syn::Ident,
+    inner: TokenStream,
+}
+
+impl ToTokens for Impl {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            generics,
+            name,
+            inner,
+        } = self;
+
+        let (impl_types, struct_types, where_clause) =
+            generics.split_for_impl();
+
+        let s = quote! {
+            impl #impl_types #name #struct_types #where_clause {
+                #inner
+            }
+        };
+
+        tokens.extend(s)
+    }
+}
+
+struct IntoSignalFunction {
+    vis: syn::Visibility,
+    name: syn::Ident,
+    mode: ModeKind,
+    fields: Vec<Field>,
+}
+
+impl ToTokens for IntoSignalFunction {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            vis,
+            name,
+            mode,
+            fields,
+        } = self;
+
+        let fn_name = match mode {
+            ModeKind::Signal => {
+                format_ident!("into_signals", span = name.span())
+            }
+            ModeKind::RwSignal => {
+                format_ident!("into_rw_signals", span = name.span())
+            }
+            ModeKind::Store => {
+                format_ident!("into_stored_values", span = name.span())
+            }
+        };
+
+        let s = quote! {
+            #vis fn #fn_name(self)
+        };
+
+        todo!();
 
         tokens.extend(s)
     }

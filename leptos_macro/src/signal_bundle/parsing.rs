@@ -109,7 +109,7 @@ impl Parse for Modes {
     }
 }
 
-enum ModeKind {
+pub enum ModeKind {
     Signal,
     RwSignal,
     Store,
