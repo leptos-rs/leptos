@@ -194,9 +194,11 @@ mod error_boundary;
 pub use error_boundary::*;
 mod animated_show;
 mod for_loop;
+mod provider;
 mod show;
 pub use animated_show::*;
 pub use for_loop::*;
+pub use provider::*;
 #[cfg(feature = "experimental-islands")]
 pub use serde;
 #[cfg(feature = "experimental-islands")]
