@@ -122,10 +122,10 @@ impl Parse for ModeKind {
         let this = match ident.to_string().as_str() {
             "signal" => Self::Signal,
             "rw_signal" => Self::RwSignal,
-            "store" => Self::Store,
+            "stored" => Self::Store,
             _ => abort!(
               ident, "unknown argument to `#[bundle()]`";
-              hint = "must be any of `signal`, `rw_signal`, and `store`"
+              hint = "must be any of `signal`, `rw_signal`, and `stored`"
             ),
         };
 

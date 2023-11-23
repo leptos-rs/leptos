@@ -1007,6 +1007,97 @@ pub fn slice(input: TokenStream) -> TokenStream {
 
 /// Derive convenience methods for converting a struct into a
 /// bundle of signals.
+///
+/// This macro takes any of the following 3 arguments.
+/// - `signal`
+/// - `rw_signal`
+/// - `stored`
+///
+/// # `signal`
+///
+/// This is equivalent to calling `create_signal()` for each of
+/// the structs fields.
+///
+/// This will create two structs:
+/// - `<struct name>Read` consisting of only `ReadSignal<_>`'s
+/// - `<struct name>Write` consisting of only `WriteSignal<_>`'s
+///
+/// and will implement a `.into_signals()` on your original struct.
+///
+/// ## Example
+/// ```rust
+/// #[derive(Default, SignalBundle)]
+/// struct Bundle {
+///     a: usize,
+///     b: usizeg
+/// }
+///
+/// let (bundle, set_bundle) = Bundle::default().into_signals();
+///
+/// set_bundle.a.set(7);
+///
+/// assert_eq!(bundle.a.get(), 7);
+/// ```
+///
+/// # `rw_signal`
+///
+/// This is equivalent to calling `create_rw_signal()` for each of
+/// the structs fields.
+///
+/// This will create a single struct
+/// - `<struct name>Rw` consisting of only `RwSignal<_>`'s
+///
+/// and will implement a `.into_rw_signals()` on your original struct.
+///
+/// # Example
+///
+/// ```rust
+/// # use leptos::*;
+/// # let _ = create_runtime();
+///
+/// #[derive(Default)]
+/// #[bundle(rw_signal)]
+/// struct Bundle {
+///     a: String,
+///     b: String,
+/// }
+///
+/// let rw_bundle = Bundle::default().into_rw_signals();
+///
+/// rw_bundle.a.set("Hello!".into());
+///
+/// assert_eq!(rw_bundle.a.get(), "Hello!");
+/// ```
+///
+/// # `stored`
+///
+/// This is equivalent to calling `store_value()` for each of
+/// the structs fields.
+///
+/// This will create a single struct
+/// - `<struct name>Stored` consisting of only `StoredValue<_>`'s
+///
+/// and will implement a `.into_stored_values()` on your original struct.
+///
+/// # Example
+///
+/// ```rust
+/// # use leptos::*;
+/// # let _ = create_runtime();
+///
+/// #[derive(Default)]
+/// #[bundle(stored)]
+/// struct Bundle {
+///     a: String,
+///     b: String,
+/// }
+///
+/// let rw_bundle = Bundle::default().into_stored_values();
+///
+/// rw_bundle.a.set("Hello!".into());
+///
+/// assert_eq!(rw_bundle.a.get(), "Hello!");
+/// ```
 #[proc_macro_error]
 #[proc_macro_derive(SignalBundle, attributes(bundle))]
 pub fn derive_signal_bundle(

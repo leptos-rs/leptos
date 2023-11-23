@@ -35,6 +35,8 @@ impl ToTokens for Model {
             #impls
         };
 
+        println!("\n\n{s}\n\n");
+
         tokens.extend(s)
     }
 }
@@ -140,7 +142,7 @@ impl ToTokens for StructField {
 
         let field = match field {
             Field::Named { name, ty } => quote! { #name: #signal_kind<#ty> },
-            Field::Unnamed(ty) => quote! { #ty },
+            Field::Unnamed(ty) => quote! { #signal_kind<#ty> },
         };
 
         let s = quote! { #vis #field };
@@ -159,7 +161,7 @@ enum SignalKind {
 
 impl ToTokens for SignalKind {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let prefix = quote! { ::leptos::leptos_reactive };
+        let prefix = quote! { ::leptos };
 
         let s = match self {
             SignalKind::ReadSignal => quote! { #prefix::ReadSignal },
@@ -310,8 +312,8 @@ impl ToTokens for IntoSignalMethod {
         let signal_field_names = match mode {
             ModeKind::Signal => field_names(fields)
                 .map(|name| {
-                    let read_name = format_ident!("{name}_read");
-                    let write_name = format_ident!("{name}_write");
+                    let read_name = format_ident!("read_{name}");
+                    let write_name = format_ident!("write_{name}");
 
                     quote! { (#read_name, #write_name) }
                 })
@@ -333,7 +335,7 @@ impl ToTokens for IntoSignalMethod {
                     if is_tuple_struct {
                         quote! { #read_name }
                     } else {
-                        quote! { #name: read_name }
+                        quote! { #name: #read_name }
                     }
                 });
                 let read_fields = wrap_with_struct_or_tuple_delimiters(
@@ -396,7 +398,7 @@ impl ToTokens for IntoSignalMethod {
 
                 #(
                     let #signal_field_names
-                        = ::leptos::leptos_reactive::#signal_fn(#field_names_);
+                        = ::leptos::#signal_fn(#field_names_);
                 )*
 
                 #return_value
@@ -412,9 +414,9 @@ fn wrap_with_struct_or_tuple_delimiters(
     inner: impl ToTokens,
 ) -> TokenStream {
     if is_tuple_struct {
-        quote! { { #inner } }
+        quote! { ( #inner ) }
     } else {
-        quote! { (#inner) }
+        quote! { { #inner } }
     }
 }
 
