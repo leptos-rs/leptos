@@ -10,7 +10,7 @@ description = "Viz integrations for the Leptos web framework."
 [dependencies]
 viz = { version = "0.4.8" }
 futures = "0.3"
-http = "0.2.8"
+http = "0.2.11"
 hyper = "0.14.23"
 leptos = { workspace = true, features = ["ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
