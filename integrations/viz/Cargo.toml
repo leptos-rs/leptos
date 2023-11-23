@@ -11,7 +11,6 @@ description = "Viz integrations for the Leptos web framework."
 viz = { version = "0.4.8" }
 futures = "0.3"
 http = "0.2.8"
-hyper = "~1"
 leptos = { workspace = true, features = ["ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
