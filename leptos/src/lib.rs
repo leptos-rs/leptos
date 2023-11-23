@@ -180,7 +180,9 @@ pub mod error {
 pub use leptos_macro::template;
 #[cfg(not(all(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
-pub use leptos_macro::{component, island, server, slice, slot, view, Params};
+pub use leptos_macro::{
+    component, island, server, slice, slot, view, Params, SignalBundle,
+};
 pub use leptos_reactive::*;
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
