@@ -14,7 +14,7 @@ args = [
     "app_suite",
     "--",
     "--retry",
-    "2",
+    "5",
     "--fail-fast",
     "${@}",
 ]
