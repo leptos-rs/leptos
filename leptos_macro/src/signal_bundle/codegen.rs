@@ -35,8 +35,6 @@ impl ToTokens for Model {
             #impls
         };
 
-        println!("\n\n{s}\n\n");
-
         tokens.extend(s)
     }
 }
