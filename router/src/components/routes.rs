@@ -484,11 +484,11 @@ fn root_route(
 
                     if prev.is_none() || !root_equal.get() {
                         root.as_ref().map(|route| {
-                            let (outlet, disposer) = outlet((*route).clone());
-                            drop(std::mem::replace(
+                            drop(std::mem::take(
                                 &mut *root_disposer.borrow_mut(),
-                                Some(disposer),
                             ));
+                            let (outlet, disposer) = outlet((*route).clone());
+                            *root_disposer.borrow_mut() = Some(disposer);
                             outlet
                         })
                     } else {
