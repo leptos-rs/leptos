@@ -40,6 +40,8 @@ Example projects depend on the following tools. Please install them as needed.
 - [Cargo Make](https://sagiegurari.github.io/cargo-make/)
   - Run `cargo install --force cargo-make`
   - Setup a command alias like `alias cm='cargo make'` to reduce typing (**_Optional_**)
+- [Trunk](https://github.com/thedodd/trunk)
+  - Run `cargo install trunk`
 - [Node Version Manager](https://github.com/nvm-sh/nvm/) (**_Optional_**)
 - [Node.js](https://nodejs.org/)
 - [pnpm](https://pnpm.io/) (**_Optional_**)
