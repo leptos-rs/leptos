@@ -1247,7 +1247,9 @@ where
             }
             #[cfg(all(feature = "hydrate", debug_assertions))]
             {
-                if self.serializable != ResourceSerialization::Local {
+                if self.serializable != ResourceSerialization::Local
+                    && !SpecialNonReactiveZone::is_inside()
+                {
                     crate::macros::debug_warn!(
                         "At {location}, you are reading a resource in \
                          `hydrate` mode outside a <Suspense/> or \
