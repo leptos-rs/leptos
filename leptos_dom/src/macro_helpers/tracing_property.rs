@@ -1,5 +1,3 @@
-use wasm_bindgen::UnwrapThrowExt;
-
 #[macro_export]
 /// Use for tracing property
 macro_rules! tracing_props {
@@ -11,8 +9,9 @@ macro_rules! tracing_props {
         );
     };
     ($($prop:tt),+ $(,)?) => {
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         {
-            use ::leptos::leptos_dom::tracing_property::{Match, SerializeMatch, DefaultMatch};
+            use ::leptos::leptos_dom::tracing_property::{Match, DebugMatch, DefaultMatch};
             let mut props = String::from('[');
             $(
                 let prop = (&&Match {
@@ -40,29 +39,17 @@ pub struct Match<T> {
     pub value: std::cell::Cell<Option<T>>,
 }
 
-pub trait SerializeMatch {
+pub trait DebugMatch {
     type Return;
     fn spez(&self) -> Self::Return;
 }
-impl<T: serde::Serialize> SerializeMatch for &Match<&T> {
+impl<T: core::fmt::Debug> DebugMatch for &Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-
-        // suppresses warnings when serializing signals into props
-        #[cfg(debug_assertions)]
-        let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-
-        let value = serde_json::to_string(self.value.get().unwrap_throw())
-            .map_or_else(
-                |err| format!(r#"{{"name": "{name}", "error": "{err}"}}"#),
-                |value| format!(r#"{{"name": "{name}", "value": {value}}}"#),
-            );
-
-        #[cfg(debug_assertions)]
-        leptos_reactive::SpecialNonReactiveZone::exit(prev);
-
-        value
+        let debug_value =
+            format!("{:?}", self.value.get().unwrap()).replace('"', r#"\""#);
+        format!(r#"{{"name": "{name}", "value": "{debug_value}"}}"#,)
     }
 }
 
@@ -74,7 +61,9 @@ impl<T> DefaultMatch for Match<&T> {
     type Return = String;
     fn spez(&self) -> Self::Return {
         let name = self.name;
-        format!(r#"{{"name": "{name}", "value": "[unserializable value]"}}"#)
+        format!(
+            r#"{{"name": "{name}", "value": "[value does not implement Debug]"}}"#
+        )
     }
 }
 
@@ -87,7 +76,7 @@ fn match_primitive() {
         value: std::cell::Cell::new(Some(&test)),
     })
         .spez();
-    assert_eq!(prop, r#"{"name": "test", "value": "string"}"#);
+    assert_eq!(prop, r#"{"name": "test", "value": "\"string\""}"#);
 
     // &str
     let test = "string";
@@ -96,7 +85,7 @@ fn match_primitive() {
         value: std::cell::Cell::new(Some(&test)),
     })
         .spez();
-    assert_eq!(prop, r#"{"name": "test", "value": "string"}"#);
+    assert_eq!(prop, r#"{"name": "test", "value": "\"string\""}"#);
 
     // u128
     let test: u128 = 1;
@@ -138,7 +127,7 @@ fn match_primitive() {
 #[test]
 fn match_serialize() {
     use serde::Serialize;
-    #[derive(Serialize)]
+    #[derive(Debug)]
     struct CustomStruct {
         field: &'static str,
     }
@@ -149,7 +138,10 @@ fn match_serialize() {
         value: std::cell::Cell::new(Some(&test)),
     })
         .spez();
-    assert_eq!(prop, r#"{"name": "test", "value": {"field":"field"}}"#);
+    assert_eq!(
+        prop,
+        r#"{"name": "test", "value": "CustomStruct { field: \"field\" }"}"#
+    );
     // Verification of ownership
     assert_eq!(test.field, "field");
 }
@@ -170,7 +162,7 @@ fn match_no_serialize() {
         .spez();
     assert_eq!(
         prop,
-        r#"{"name": "test", "value": "[unserializable value]"}"#
+        r#"{"name": "test", "value": "[value does not implement Debug]"}"#
     );
     // Verification of ownership
     assert_eq!(test.field, "field");
