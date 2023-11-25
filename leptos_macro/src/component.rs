@@ -1,6 +1,6 @@
 use attribute_derive::Attribute as AttributeDerive;
 use convert_case::{
-    Case::{Pascal, Snake},
+    Case::{self, Pascal, Snake},
     Casing,
 };
 use itertools::Itertools;
@@ -118,8 +118,6 @@ impl ToTokens for Model {
 
         let no_props = props.is_empty();
 
-        let mut body = body.to_owned();
-
         // check for components that end ;
         if !is_transparent {
             let ends_semi =
@@ -139,7 +137,7 @@ impl ToTokens for Model {
             }
         }
 
-        body.sig.ident = format_ident!("__{}", body.sig.ident);
+        let module_name = module_name_from_fn(body);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
@@ -237,12 +235,12 @@ impl ToTokens for Model {
         let body_expr = if *is_island {
             quote! {
                 ::leptos::SharedContext::with_hydration(move || {
-                    #body_name(#prop_names)
+                    #module_name::#body_name(#prop_names)
                 })
             }
         } else {
             quote! {
-                #body_name(#prop_names)
+                #module_name::#body_name(#prop_names)
             }
         };
 
@@ -367,7 +365,6 @@ impl ToTokens for Model {
             .collect::<TokenStream>();
 
         let body = quote! {
-            #body
             #destructure_props
             #tracing_span_expr
             #component
@@ -1161,4 +1158,23 @@ fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
     ]
     .iter()
     .any(|test| ty == test)
+}
+
+pub fn module_name_from_fn(body: &ItemFn) -> Ident {
+    let snake = &body
+        .sig
+        .ident
+        .to_string()
+        .from_case(Case::Camel)
+        .to_case(Case::Snake);
+    let name = format!("component_module_{snake}");
+    Ident::new(&name, body.sig.ident.span())
+}
+
+pub fn strip_argument_attributes(fun: &mut ItemFn) {
+    for argument in fun.sig.inputs.iter_mut() {
+        if let FnArg::Typed(ref mut argument) = argument {
+            argument.attrs.clear();
+        }
+    }
 }

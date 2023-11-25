@@ -8,7 +8,9 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use rstml::{node::KeyedAttribute, parse};
-use syn::parse_macro_input;
+use syn::{
+    parse_macro_input, spanned::Spanned, token::Pub, ItemFn, Visibility,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -31,6 +33,7 @@ impl Default for Mode {
 
 mod params;
 mod view;
+use crate::component::{module_name_from_fn, strip_argument_attributes};
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
@@ -598,21 +601,45 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    let parse_result = syn::parse::<component::Model>(s.clone());
+    let mut fn_result = syn::parse::<ItemFn>(s.clone());
+    let parse_result = syn::parse::<component::Model>(s);
 
-    if let Ok(model) = parse_result {
-        model
-            .is_transparent(is_transparent)
-            .into_token_stream()
-            .into()
+    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut fn_result, parse_result)
+    {
+        let expanded = model.is_transparent(is_transparent).into_token_stream();
+        if !matches!(unexpanded.vis, Visibility::Public(_)) {
+            unexpanded.vis = Visibility::Public(Pub {
+                span: unexpanded.vis.span(),
+            })
+        }
+        let module_name = module_name_from_fn(unexpanded);
+        strip_argument_attributes(unexpanded);
+        quote! {
+            #expanded
+            #[doc(hidden)]
+            mod #module_name {
+                use super::*;
+
+                #[allow(non_snake_case, dead_code)]
+                #unexpanded
+            }
+        }
+    } else if let Ok(mut unexpanded) = fn_result {
+        let module_name = module_name_from_fn(&unexpanded);
+        strip_argument_attributes(&mut unexpanded);
+        quote! {
+            #[doc(hidden)]
+            mod #module_name {
+                use super::*;
+
+                #[allow(non_snake_case, dead_code)]
+                #unexpanded
+            }
+        }
     } else {
-        // When the input syntax is invalid, e.g. while typing, we let
-        // the dummy model output tokens similar to the input, which improves
-        // IDEs and rust-analyzer's auto-complete capabilities.
-        parse_macro_input!(s as component::DummyModel)
-            .into_token_stream()
-            .into()
+        quote! {}
     }
+    .into()
 }
 
 /// Defines a component as an interactive island when you are using the
