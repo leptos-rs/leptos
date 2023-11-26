@@ -4,13 +4,12 @@
 #[macro_use]
 extern crate proc_macro_error;
 
+use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use rstml::{node::KeyedAttribute, parse};
-use syn::{
-    parse_macro_input, spanned::Spanned, token::Pub, ItemFn, Visibility,
-};
+use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -33,7 +32,7 @@ impl Default for Mode {
 
 mod params;
 mod view;
-use crate::component::{module_name_from_fn, strip_argument_attributes};
+use crate::component::module_name_from_fn_signature;
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
@@ -601,19 +600,17 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    let mut fn_result = syn::parse::<ItemFn>(s.clone());
+    let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut fn_result, parse_result)
-    {
+    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model.is_transparent(is_transparent).into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
             })
         }
-        let module_name = module_name_from_fn(unexpanded);
-        strip_argument_attributes(unexpanded);
+        let module_name = module_name_from_fn_signature(&unexpanded.sig);
         quote! {
             #expanded
             #[doc(hidden)]
@@ -624,16 +621,15 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 #unexpanded
             }
         }
-    } else if let Ok(mut unexpanded) = fn_result {
-        let module_name = module_name_from_fn(&unexpanded);
-        strip_argument_attributes(&mut unexpanded);
+    } else if let Ok(dummy) = dummy {
+        let module_name = module_name_from_fn_signature(&dummy.sig);
         quote! {
             #[doc(hidden)]
             mod #module_name {
                 use super::*;
 
                 #[allow(non_snake_case, dead_code)]
-                #unexpanded
+                #dummy
             }
         }
     } else {

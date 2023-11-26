@@ -137,7 +137,7 @@ impl ToTokens for Model {
             }
         }
 
-        let module_name = module_name_from_fn(body);
+        let module_name = module_name_from_fn_signature(&body.sig);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
@@ -544,10 +544,10 @@ impl Model {
 /// used to improve IDEs and rust-analyzer's auto-completion behavior in case
 /// of a syntax error.
 pub struct DummyModel {
-    attrs: Vec<Attribute>,
-    vis: Visibility,
-    sig: Signature,
-    body: TokenStream,
+    pub attrs: Vec<Attribute>,
+    pub vis: Visibility,
+    pub sig: Signature,
+    pub body: TokenStream,
 }
 
 impl Parse for DummyModel {
@@ -1160,21 +1160,12 @@ fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
     .any(|test| ty == test)
 }
 
-pub fn module_name_from_fn(body: &ItemFn) -> Ident {
-    let snake = &body
-        .sig
+pub fn module_name_from_fn_signature(sig: &Signature) -> Ident {
+    let snake = &sig
         .ident
         .to_string()
         .from_case(Case::Camel)
         .to_case(Case::Snake);
     let name = format!("component_module_{snake}");
-    Ident::new(&name, body.sig.ident.span())
-}
-
-pub fn strip_argument_attributes(fun: &mut ItemFn) {
-    for argument in fun.sig.inputs.iter_mut() {
-        if let FnArg::Typed(ref mut argument) = argument {
-            argument.attrs.clear();
-        }
-    }
+    Ident::new(&name, sig.ident.span())
 }
