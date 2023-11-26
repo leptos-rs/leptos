@@ -47,7 +47,7 @@ pub(crate) fn fragment_to_tokens(
             )?;
 
             Some(quote! {
-                #node.into_view()
+                ::leptos::IntoView::into_view(#node)
             })
         })
         .peekable();
@@ -305,11 +305,8 @@ pub(crate) fn element_to_tokens(
                         global_class,
                         None,
                     )
-                    .unwrap_or({
-                        let span = Span::call_site();
-                        quote_spanned! {
-                            span => ::leptos::leptos_dom::Unit
-                        }
+                    .unwrap_or(quote_spanned! {
+                        Span::call_site()=> ::leptos::leptos_dom::Unit
                     }),
                     false,
                 ),
@@ -378,7 +375,7 @@ pub(crate) fn attribute_to_tokens(
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         let value = expr_to_ident(attribute_value(node));
-        let node_ref = quote_spanned! { span => node_ref };
+        let node_ref = quote_spanned! { span=> node_ref };
 
         quote! {
             .#node_ref(#value)
@@ -415,18 +412,14 @@ pub(crate) fn attribute_to_tokens(
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),
         };
-        let on = {
-            let span = on.span();
-            quote_spanned! {
-                span => .on
-            }
+        let on = quote_spanned! {
+            on.span()=> .on
         };
         let event_type = if is_custom {
             event_type
         } else if let Some(ev_name) = event_name_ident {
-            let span = ev_name.span();
             quote_spanned! {
-                span => #ev_name
+                ev_name.span()=> #ev_name
             }
         } else {
             event_type
@@ -434,9 +427,8 @@ pub(crate) fn attribute_to_tokens(
 
         let event_type = if is_force_undelegated {
             let undelegated = if let Some(undelegated) = undelegated_ident {
-                let span = undelegated.span();
                 quote_spanned! {
-                    span => #undelegated
+                    undelegated.span()=> #undelegated
                 }
             } else {
                 quote! { undelegated }
@@ -455,11 +447,8 @@ pub(crate) fn attribute_to_tokens(
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),
         };
-        let prop = {
-            let span = prop.span();
-            quote_spanned! {
-                span => .prop
-            }
+        let prop = quote_spanned! {
+            prop.span()=> .prop
         };
         quote! {
             #prop(#name, #[allow(unused_braces)] {#value})
@@ -470,11 +459,8 @@ pub(crate) fn attribute_to_tokens(
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),
         };
-        let class = {
-            let span = class.span();
-            quote_spanned! {
-                span => .class
-            }
+        let class = quote_spanned! {
+            class.span()=> .class
         };
         quote! {
             #class(#name, #[allow(unused_braces)] {#value})
@@ -485,11 +471,8 @@ pub(crate) fn attribute_to_tokens(
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),
         };
-        let style = {
-            let span = style.span();
-            quote_spanned! {
-                span => .style
-            }
+        let style = quote_spanned! {
+            style.span()=> .style
         };
         quote! {
             #style(#name, #[allow(unused_braces)] {#value})
@@ -518,7 +501,7 @@ pub(crate) fn attribute_to_tokens(
             Some(value) => {
                 quote! { #value }
             }
-            None => quote_spanned! { span => "" },
+            None => quote_spanned! { span=> "" },
         };
 
         let attr = match &node.key {
@@ -526,9 +509,8 @@ pub(crate) fn attribute_to_tokens(
             _ => None,
         };
         let attr = if let Some(attr) = attr {
-            let span = attr.span();
             quote_spanned! {
-                span => .attr
+                attr.span()=> .attr
             }
         } else {
             quote! {

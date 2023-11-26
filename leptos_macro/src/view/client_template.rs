@@ -144,23 +144,25 @@ fn element_to_tokens(
     let debug_name = node.name().to_string();
     let this_nav = if is_root_el {
         quote_spanned! {
-            span => let #this_el_ident = #debug_name;
+            span=> let #this_el_ident = #debug_name;
                 let #this_el_ident =
-                ::leptos::wasm_bindgen::JsCast::unchecked_into::<leptos::web_sys::Node>(#parent.clone());
+                    ::leptos::wasm_bindgen::JsCast::unchecked_into::<::leptos::web_sys::Node>(
+                        ::std::clone::Clone::clone(#parent)
+                    );
                 //debug!("=> got {}", #this_el_ident.node_name());
         }
     } else if let Some(prev_sib) = &prev_sib {
         quote_spanned! {
-            span => let #this_el_ident = #debug_name;
+            span=> let #this_el_ident = #debug_name;
                 //log::debug!("next_sibling ({})", #debug_name);
-                let #this_el_ident = #prev_sib.next_sibling().unwrap_or_else(|| panic!("error : {} => {} ", #debug_name, "nextSibling"));
+                let #this_el_ident = #prev_sib.next_sibling().unwrap_or_else(|| ::std::panic!("error : {} => {} ", #debug_name, "nextSibling"));
                 //log::debug!("=> got {}", #this_el_ident.node_name());
         }
     } else {
         quote_spanned! {
-            span => let #this_el_ident = #debug_name;
+            span=> let #this_el_ident = #debug_name;
                 //log::debug!("first_child ({})", #debug_name);
-                let #this_el_ident = #parent.first_child().unwrap_or_else(|| panic!("error: {} => {}", #debug_name, "firstChild"));
+                let #this_el_ident = #parent.first_child().unwrap_or_else(|| ::std::panic!("error: {} => {}", #debug_name, "firstChild"));
                 //log::debug!("=> got {}", #this_el_ident.node_name());
         }
     };
@@ -297,7 +299,11 @@ fn attr_to_tokens(
         let (event_type, handler) =
             crate::view::event_from_attribute_node(node, false);
         expressions.push(quote! {
-            ::leptos::leptos_dom::add_event_helper(::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #event_type, #handler);
+            ::leptos::leptos_dom::add_event_helper(
+                ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
+                #event_type,
+                #handler,
+            );
         })
     }
     // Properties
@@ -305,7 +311,11 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => ::leptos::leptos_dom::property(::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name, #value.into_property())
+            span=> ::leptos::leptos_dom::property(
+                ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
+                #name,
+                ::leptos::IntoProperty::into_property(#value),
+            )
         });
     }
     // Classes
@@ -313,7 +323,11 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => ::leptos::leptos_dom::class_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), #value.into_class())
+            span=> ::leptos::leptos_dom::class_helper(
+                ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
+                ::std::convert::Into::into(#name),
+                ::leptos::IntoClass::into_class(#value),
+            )
         });
     }
     // Attributes
@@ -337,7 +351,11 @@ fn attr_to_tokens(
                 // For client-side rendering, dynamic attributes don't need to be rendered in the template
                 // They'll immediately be set synchronously before the cloned template is mounted
                 expressions.push(quote_spanned! {
-                    span => ::leptos::leptos_dom::attribute_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), {#value}.into_attribute())
+                    span=> ::leptos::leptos_dom::attribute_helper(
+                        ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
+                        ::std::convert::Into::into(#name),
+                        ::leptos::IntoAttribute::into_attribute({#value}),
+                    )
                 });
             }
         }
@@ -465,15 +483,15 @@ fn block_to_tokens(
         let name = child_ident(*next_el_id, span);
         let location = if let Some(sibling) = &prev_sib {
             quote_spanned! {
-                span => //log::debug!("-> next sibling");
-                        let #name = #sibling.next_sibling().unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "nextSibling"));
-                        //log::debug!("\tnext sibling = {}", #name.node_name());
+                span=> //log::debug!("-> next sibling");
+                    let #name = #sibling.next_sibling().unwrap_or_else(|| ::std::panic!("error : {} => {} ", "{block}", "nextSibling"));
+                    //log::debug!("\tnext sibling = {}", #name.node_name());
             }
         } else {
             quote_spanned! {
-                span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                        let #name = #parent.first_child().unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "firstChild"));
-                        //log::debug!("\tfirst child = {}", #name.node_name());
+                span=> //log::debug!("\\|/ first child on {}", #parent.node_name());
+                    let #name = #parent.first_child().unwrap_or_else(|| ::std::panic!("error : {} => {} ", "{block}", "firstChild"));
+                    //log::debug!("\tfirst child = {}", #name.node_name());
             }
         };
         (Some(name), location)
@@ -481,7 +499,7 @@ fn block_to_tokens(
 
     let mount_kind = match &next_sib {
         Some(child) => {
-            quote! { ::leptos::leptos_dom::MountKind::Before(&#child.clone()) }
+            quote! { ::leptos::leptos_dom::MountKind::Before(&::std::clone::Clone::clone(#child)) }
         }
         None => {
             quote! { ::leptos::leptos_dom::MountKind::Append(&#parent) }
@@ -504,7 +522,7 @@ fn block_to_tokens(
             navigations.push(location);
 
             expressions.push(quote! {
-                ::leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view());
+                ::leptos::leptos_dom::mount_child(#mount_kind, &::leptos::IntoView::into_view({#value}));
             });
 
             if let Some(name) = name {

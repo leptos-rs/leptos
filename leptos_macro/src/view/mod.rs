@@ -25,7 +25,7 @@ pub(crate) fn render_view(
     let empty = {
         let span = Span::call_site();
         quote_spanned! {
-            span => leptos::leptos_dom::Unit
+            span=> ::leptos::leptos_dom::Unit
         }
     };
 
@@ -402,9 +402,8 @@ fn fancy_class_name<'a>(
     if name == "class" {
         if let Some(Tuple(tuple)) = node.value() {
             if tuple.elems.len() == 2 {
-                let span = node.key.span();
                 let class = quote_spanned! {
-                    span => .class
+                    node.key.span()=> .class
                 };
                 let class_name = &tuple.elems[0];
                 let class_name = if let Expr::Lit(ExprLit {
@@ -472,9 +471,8 @@ fn fancy_style_name<'a>(
     if name == "style" {
         if let Some(Tuple(tuple)) = node.value() {
             if tuple.elems.len() == 2 {
-                let span = node.key.span();
                 let style = quote_spanned! {
-                    span => .style
+                    node.key.span()=> .style
                 };
                 let style_name = &tuple.elems[0];
                 let style_name = if let Expr::Lit(ExprLit {
@@ -539,7 +537,7 @@ pub(crate) fn directive_call_from_attribute_node(
     let handler = format_ident!("{directive_name}", span = attr.key.span());
 
     let param = if let Some(value) = attr.value() {
-        quote! { #value.into() }
+        quote! { ::std::convert::Into::into(#value) }
     } else {
         quote! { () }
     };
