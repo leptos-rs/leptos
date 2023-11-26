@@ -232,6 +232,7 @@ impl ToTokens for Model {
             quote! {}
         };
 
+        let body_name = unmodified_fn_name_from_fn_name(&body_name);
         let body_expr = if *is_island {
             quote! {
                 ::leptos::SharedContext::with_hydration(move || {
@@ -1168,4 +1169,8 @@ pub fn module_name_from_fn_signature(sig: &Signature) -> Ident {
         .to_case(Case::Snake);
     let name = format!("component_module_{snake}");
     Ident::new(&name, sig.ident.span())
+}
+
+pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
+    Ident::new(&format!("__{ident}"), ident.span())
 }

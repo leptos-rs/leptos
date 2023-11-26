@@ -32,7 +32,9 @@ impl Default for Mode {
 
 mod params;
 mod view;
-use crate::component::module_name_from_fn_signature;
+use crate::component::{
+    module_name_from_fn_signature, unmodified_fn_name_from_fn_name,
+};
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
@@ -610,6 +612,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 span: unexpanded.vis.span(),
             })
         }
+        unexpanded.sig.ident =
+            unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
         let module_name = module_name_from_fn_signature(&unexpanded.sig);
         quote! {
             #expanded
@@ -621,7 +625,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 #unexpanded
             }
         }
-    } else if let Ok(dummy) = dummy {
+    } else if let Ok(mut dummy) = dummy {
+        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         let module_name = module_name_from_fn_signature(&dummy.sig);
         quote! {
             #[doc(hidden)]
