@@ -196,9 +196,7 @@ pub async fn generate_request_and_parts(
 ///         .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     let listener =
-///         tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
 ///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
@@ -443,9 +441,8 @@ pub type PinnedHtmlStream =
 ///     ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
-///         .serve(app.into_make_service())
+///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
 /// }
@@ -535,9 +532,8 @@ where
 ///         ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
-///         .serve(app.into_make_service())
+///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
 /// }
