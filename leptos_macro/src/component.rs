@@ -203,7 +203,7 @@ impl ToTokens for Model {
                     #[cfg(debug_assertions)]
                     let _guard = span.entered();
                 },
-                if no_props {
+                if no_props || !cfg!(feature = "trace-component-props") {
                     quote! {}
                 } else {
                     quote! {
