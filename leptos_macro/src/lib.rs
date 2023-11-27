@@ -716,28 +716,46 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
-pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
-        let transparent = parse_macro_input!(args as syn::Ident);
+pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let mut dummy = syn::parse::<DummyModel>(s.clone());
+    let parse_result = syn::parse::<component::Model>(s);
 
-        if transparent != "transparent" {
-            abort!(
-                transparent,
-                "only `transparent` is supported";
-                help = "try `#[island(transparent)]` or `#[island]`"
-            );
+    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+        let expanded = model.is_island().into_token_stream();
+        if !matches!(unexpanded.vis, Visibility::Public(_)) {
+            unexpanded.vis = Visibility::Public(Pub {
+                span: unexpanded.vis.span(),
+            })
         }
+        let module_name = module_name_from_fn_signature(&unexpanded.sig);
+        unexpanded.sig.ident =
+            unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
+        quote! {
+            #expanded
+            #[doc(hidden)]
+            mod #module_name {
+                use super::*;
 
-        true
+                #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+                #unexpanded
+            }
+        }
+    } else if let Ok(mut dummy) = dummy {
+        let module_name = module_name_from_fn_signature(&dummy.sig);
+        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+        quote! {
+            #[doc(hidden)]
+            mod #module_name {
+                use super::*;
+
+                #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+                #dummy
+            }
+        }
     } else {
-        false
-    };
-
-    parse_macro_input!(s as component::Model)
-        .is_transparent(is_transparent)
-        .is_island()
-        .into_token_stream()
-        .into()
+        quote! {}
+    }
+    .into()
 }
 
 /// Annotates a struct so that it can be used with your Component as a `slot`.
