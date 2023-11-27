@@ -62,7 +62,7 @@ cfg_if! {
             let routes = generate_route_list(App);
 
             // build our application with a route
-            let app: axum::Router<(), axum::body::Body> = Router::new()
+            let app = Router::new()
             .leptos_routes(&leptos_options, routes, || view! { <App/> } )
             .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
             .with_state(leptos_options);
