@@ -3,13 +3,13 @@ use cfg_if::cfg_if;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        body::{boxed, Body, BoxBody},
+        body::Body,
         http::{Request, Response, StatusCode, Uri},
     };
     use tower::ServiceExt;
     use tower_http::services::ServeDir;
 
-    pub async fn file_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    pub async fn file_handler(uri: Uri) -> Result<Response<Body>, (StatusCode, String)> {
         let res = get_static_file(uri.clone(), "/pkg").await?;
 
         if res.status() == StatusCode::NOT_FOUND {
@@ -24,7 +24,7 @@ if #[cfg(feature = "ssr")] {
         }
     }
 
-    pub async fn get_static_file_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    pub async fn get_static_file_handler(uri: Uri) -> Result<Response<Body>, (StatusCode, String)> {
         let res = get_static_file(uri.clone(), "/static").await?;
 
         if res.status() == StatusCode::NOT_FOUND {
@@ -34,14 +34,14 @@ if #[cfg(feature = "ssr")] {
         }
     }
 
-    async fn get_static_file(uri: Uri, base: &str) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    async fn get_static_file(uri: Uri, base: &str) -> Result<Response<Body>, (StatusCode, String)> {
         let req = Request::builder().uri(&uri).body(Body::empty()).unwrap();
 
         // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
         // When run normally, the root should be the crate root
         if base == "/static" {
             match ServeDir::new("./static").oneshot(req).await {
-                Ok(res) => Ok(res.map(boxed)),
+                Ok(res) => Ok(res.into_response()),
                 Err(err) => Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     format!("Something went wrong: {}", err),
@@ -49,7 +49,7 @@ if #[cfg(feature = "ssr")] {
         }
         } else if base == "/pkg" {
             match ServeDir::new("./pkg").oneshot(req).await {
-                Ok(res) => Ok(res.map(boxed)),
+                Ok(res) => Ok(res.into_response()),
                 Err(err) => Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     format!("Something went wrong: {}", err),
