@@ -197,7 +197,8 @@ pub async fn generate_request_and_parts(
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
-///     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+///     let listener =
+///         tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 ///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
@@ -979,7 +980,8 @@ fn provide_contexts(
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
-///     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+///     let listener =
+///         tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 ///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
