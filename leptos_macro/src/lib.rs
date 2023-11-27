@@ -612,9 +612,9 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 span: unexpanded.vis.span(),
             })
         }
+        let module_name = module_name_from_fn_signature(&unexpanded.sig);
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
-        let module_name = module_name_from_fn_signature(&unexpanded.sig);
         quote! {
             #expanded
             #[doc(hidden)]
@@ -626,8 +626,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             }
         }
     } else if let Ok(mut dummy) = dummy {
-        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         let module_name = module_name_from_fn_signature(&dummy.sig);
+        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
             mod #module_name {
