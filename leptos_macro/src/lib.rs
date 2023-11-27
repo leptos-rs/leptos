@@ -621,7 +621,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             mod #module_name {
                 use super::*;
 
-                #[allow(non_snake_case, dead_code)]
+                #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes, unused_variables)]
                 #unexpanded
             }
         }
@@ -633,7 +633,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             mod #module_name {
                 use super::*;
 
-                #[allow(non_snake_case, dead_code)]
+                #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes, unused_variables)]
                 #dummy
             }
         }

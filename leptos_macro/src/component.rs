@@ -586,7 +586,21 @@ impl ToTokens for DummyModel {
             let mut sig = sig.clone();
             sig.inputs.iter_mut().for_each(|arg| {
                 if let FnArg::Typed(ty) = arg {
-                    ty.attrs.clear();
+                    ty.attrs.retain(|attr| match &attr.meta {
+                        Meta::List(list) => list
+                            .path
+                            .segments
+                            .first()
+                            .map(|n| n.ident != "prop")
+                            .unwrap_or(true),
+                        Meta::NameValue(name_value) => name_value
+                            .path
+                            .segments
+                            .first()
+                            .map(|n| n.ident != "doc")
+                            .unwrap_or(true),
+                        _ => true,
+                    });
                 }
             });
             sig
