@@ -1,6 +1,6 @@
 use attribute_derive::Attribute as AttributeDerive;
 use convert_case::{
-    Case::{self, Pascal, Snake},
+    Case::{Pascal, Snake},
     Casing,
 };
 use itertools::Itertools;
@@ -137,7 +137,6 @@ impl ToTokens for Model {
             }
         }
 
-        let module_name = module_name_from_fn_signature(&body.sig);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
@@ -236,12 +235,12 @@ impl ToTokens for Model {
         let body_expr = if *is_island {
             quote! {
                 ::leptos::SharedContext::with_hydration(move || {
-                    #module_name::#body_name(#prop_names)
+                    #body_name(#prop_names)
                 })
             }
         } else {
             quote! {
-                #module_name::#body_name(#prop_names)
+                #body_name(#prop_names)
             }
         };
 
@@ -1173,16 +1172,6 @@ fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
     ]
     .iter()
     .any(|test| ty == test)
-}
-
-pub fn module_name_from_fn_signature(sig: &Signature) -> Ident {
-    let snake = &sig
-        .ident
-        .to_string()
-        .from_case(Case::Camel)
-        .to_case(Case::Snake);
-    let name = format!("component_module_{snake}");
-    Ident::new(&name, sig.ident.span())
 }
 
 pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {

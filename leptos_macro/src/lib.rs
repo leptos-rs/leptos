@@ -32,9 +32,7 @@ impl Default for Mode {
 
 mod params;
 mod view;
-use crate::component::{
-    module_name_from_fn_signature, unmodified_fn_name_from_fn_name,
-};
+use crate::component::unmodified_fn_name_from_fn_name;
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
@@ -612,30 +610,20 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 span: unexpanded.vis.span(),
             })
         }
-        let module_name = module_name_from_fn_signature(&unexpanded.sig);
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
         quote! {
             #expanded
             #[doc(hidden)]
-            mod #module_name {
-                use super::*;
-
-                #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
-                #unexpanded
-            }
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #unexpanded
         }
     } else if let Ok(mut dummy) = dummy {
-        let module_name = module_name_from_fn_signature(&dummy.sig);
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
-            mod #module_name {
-                use super::*;
-
-                #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
-                #dummy
-            }
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #dummy
         }
     } else {
         quote! {}
@@ -727,30 +715,20 @@ pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
                 span: unexpanded.vis.span(),
             })
         }
-        let module_name = module_name_from_fn_signature(&unexpanded.sig);
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
         quote! {
             #expanded
             #[doc(hidden)]
-            mod #module_name {
-                use super::*;
-
-                #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
-                #unexpanded
-            }
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #unexpanded
         }
     } else if let Ok(mut dummy) = dummy {
-        let module_name = module_name_from_fn_signature(&dummy.sig);
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
-            mod #module_name {
-                use super::*;
-
-                #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
-                #dummy
-            }
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #dummy
         }
     } else {
         quote! {}
