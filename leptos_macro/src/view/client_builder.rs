@@ -47,7 +47,7 @@ pub(crate) fn fragment_to_tokens(
             )?;
 
             Some(quote! {
-                ::leptos::IntoView::into_view(#node)
+                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
             })
         })
         .peekable();

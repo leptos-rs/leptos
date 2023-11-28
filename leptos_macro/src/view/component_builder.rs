@@ -211,7 +211,7 @@ pub(crate) fn component_to_tokens(
         component
     } else {
         quote! {
-            ::leptos::IntoView::into_view(#component)
+            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
             #(#events_and_directives)*
         }
     }

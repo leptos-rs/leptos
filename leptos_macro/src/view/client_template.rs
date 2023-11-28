@@ -522,7 +522,7 @@ fn block_to_tokens(
             navigations.push(location);
 
             expressions.push(quote! {
-                ::leptos::leptos_dom::mount_child(#mount_kind, &::leptos::IntoView::into_view(#value));
+                ::leptos::leptos_dom::mount_child(#mount_kind, &::leptos::IntoView::into_view(#[allow(unused_braces)] {#value}));
             });
 
             if let Some(name) = name {

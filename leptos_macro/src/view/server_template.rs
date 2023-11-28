@@ -78,7 +78,7 @@ pub(crate) fn fragment_to_tokens_ssr(
     let nodes = nodes.iter().map(|node| {
         let node = root_node_to_tokens_ssr(node, global_class, None);
         quote! {
-            ::leptos::IntoView::into_view(#node)
+            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
         }
     });
     quote! {
@@ -236,7 +236,7 @@ fn element_to_tokens_ssr(
         }
 
         chunks.push(SsrElementChunks::View(quote! {
-            ::leptos::IntoView::into_view(#component)
+            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
         }));
     } else {
         let tag_name = node.name().to_string();
@@ -372,14 +372,14 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                    ::leptos::IntoView::into_view(#block)
+                                    ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
                                 }));
                             }
                         }
                         // Keep invalid blocks for faster IDE diff (on user type)
                         Node::Block(block @ NodeBlock::Invalid { .. }) => {
                             chunks.push(SsrElementChunks::View(quote! {
-                                ::leptos::IntoView::into_view(#block)
+                                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
                             }));
                         }
                         Node::Fragment(_) => abort!(
