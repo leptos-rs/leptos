@@ -5,3 +5,7 @@ This example creates a basic clone of the Hacker News site. It showcases Leptos'
 ## Getting Started
 
 See the [Examples README](../README.md) for setup and run instructions.
+
+## Quick Start
+
+Run `cargo leptos watch` to run this example.
