@@ -144,7 +144,7 @@ pub(crate) fn component_to_tokens(
 
             let clonables = items_to_clone
                 .iter()
-                .map(|ident| quote! { let #ident = ::std::clone::Clone::clone(#ident); });
+                .map(|ident| quote! { let #ident = #ident.clone(); });
 
             if bindables.len() > 0 {
                 quote! {

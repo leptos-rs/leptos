@@ -115,7 +115,7 @@ pub(crate) fn slot_to_tokens(
 
             let clonables = items_to_clone
                 .iter()
-                .map(|ident| quote! { let #ident = ::std::clone::Clone::clone(#ident); });
+                .map(|ident| quote! { let #ident = #ident.clone(); });
 
             if bindables.len() > 0 {
                 quote! {
@@ -154,13 +154,12 @@ pub(crate) fn slot_to_tokens(
     });
 
     let slot = quote! {
-        ::std::convert::Into::into(
-            #component_name::builder()
-                #(#props)*
-                #(#slots)*
-                #children
-                .build()
-        ),
+        #component_name::builder()
+            #(#props)*
+            #(#slots)*
+            #children
+            .build()
+            .into()
     };
 
     parent_slots

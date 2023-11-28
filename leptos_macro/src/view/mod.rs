@@ -537,7 +537,7 @@ pub(crate) fn directive_call_from_attribute_node(
     let handler = format_ident!("{directive_name}", span = attr.key.span());
 
     let param = if let Some(value) = attr.value() {
-        quote! { ::std::convert::Into::into(#value) }
+        quote! { #value.into() }
     } else {
         quote! { () }
     };

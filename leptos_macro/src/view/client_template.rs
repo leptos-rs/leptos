@@ -499,7 +499,7 @@ fn block_to_tokens(
 
     let mount_kind = match &next_sib {
         Some(child) => {
-            quote! { ::leptos::leptos_dom::MountKind::Before(&::std::clone::Clone::clone(#child)) }
+            quote! { ::leptos::leptos_dom::MountKind::Before(&#child.clone()) }
         }
         None => {
             quote! { ::leptos::leptos_dom::MountKind::Append(&#parent) }
