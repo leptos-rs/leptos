@@ -133,16 +133,16 @@ pub(crate) fn root_element_to_tokens_ssr(
                 if holes.is_empty() {
                     let template = template.replace("\\{", "{").replace("\\}", "}");
                     quote! {
-                        ::leptos::leptos_dom::html::StringOrView::String(::std::convert::Into::into(#template))
+                        ::leptos::leptos_dom::html::StringOrView::String(#template.into())
                     }
                 } else {
                 let template = template.replace("\\{", "{{").replace("\\}", "}}");
                     quote! {
                         ::leptos::leptos_dom::html::StringOrView::String(
-                            ::std::convert::Into::into(::std::format!(
+                            ::std::format!(
                                 #template,
                                 #(#holes),*
-                            ))
+                            ).into()
                         )
                     }
                 }
@@ -152,7 +152,7 @@ pub(crate) fn root_element_to_tokens_ssr(
                     #[allow(unused_braces)]
                     {
                         let view = #view;
-                        ::leptos::leptos_dom::html::StringOrView::View(::std::rc::Rc::new(move || ::std::clone::Clone::clone(view)))
+                        ::leptos::leptos_dom::html::StringOrView::View(::std::rc::Rc::new(move || view.clone()))
                     }
                 }
             },
@@ -236,7 +236,7 @@ fn element_to_tokens_ssr(
         }
 
         chunks.push(SsrElementChunks::View(quote! {
-            ::leptos::IntoView::into_view({#component})
+            ::leptos::IntoView::into_view(#component)
         }));
     } else {
         let tag_name = node.name().to_string();
@@ -372,14 +372,14 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                    ::leptos::IntoView::into_view({#block})
+                                    ::leptos::IntoView::into_view(#block)
                                 }));
                             }
                         }
                         // Keep invalid blocks for faster IDE diff (on user type)
                         Node::Block(block @ NodeBlock::Invalid { .. }) => {
                             chunks.push(SsrElementChunks::View(quote! {
-                                ::leptos::IntoView::into_view({#block})
+                                ::leptos::IntoView::into_view(#block)
                             }));
                         }
                         Node::Fragment(_) => abort!(

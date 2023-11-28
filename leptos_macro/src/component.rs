@@ -415,7 +415,7 @@ impl ToTokens for Model {
                 };
                 let children = if is_island_with_children {
                     quote! {
-                        .children(::std::boxed::Box::new(move || ::leptos::Fragment::lazy(|| vec![
+                        .children(::std::boxed::Box::new(move || ::leptos::Fragment::lazy(|| ::std::vec![
                             ::leptos::SharedContext::with_hydration(move || {
                                 ::leptos::IntoView::into_view(
                                     ::leptos::leptos_dom::html::custom(

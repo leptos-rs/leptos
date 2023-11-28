@@ -147,7 +147,7 @@ fn element_to_tokens(
             span=> let #this_el_ident = #debug_name;
                 let #this_el_ident =
                     ::leptos::wasm_bindgen::JsCast::unchecked_into::<::leptos::web_sys::Node>(
-                        ::std::clone::Clone::clone(#parent)
+                        #parent.clone()
                     );
                 //debug!("=> got {}", #this_el_ident.node_name());
         }
@@ -325,7 +325,7 @@ fn attr_to_tokens(
         expressions.push(quote_spanned! {
             span=> ::leptos::leptos_dom::class_helper(
                 ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
-                ::std::convert::Into::into(#name),
+                #name.into(),
                 ::leptos::IntoClass::into_class(#value),
             )
         });
@@ -353,7 +353,7 @@ fn attr_to_tokens(
                 expressions.push(quote_spanned! {
                     span=> ::leptos::leptos_dom::attribute_helper(
                         ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
-                        ::std::convert::Into::into(#name),
+                        #name.into(),
                         ::leptos::IntoAttribute::into_attribute({#value}),
                     )
                 });
@@ -522,7 +522,7 @@ fn block_to_tokens(
             navigations.push(location);
 
             expressions.push(quote! {
-                ::leptos::leptos_dom::mount_child(#mount_kind, &::leptos::IntoView::into_view({#value}));
+                ::leptos::leptos_dom::mount_child(#mount_kind, &::leptos::IntoView::into_view(#value));
             });
 
             if let Some(name) = name {
