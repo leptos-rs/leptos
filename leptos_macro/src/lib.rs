@@ -4,11 +4,12 @@
 #[macro_use]
 extern crate proc_macro_error;
 
+use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use rstml::{node::KeyedAttribute, parse};
-use syn::parse_macro_input;
+use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -31,6 +32,7 @@ impl Default for Mode {
 
 mod params;
 mod view;
+use crate::component::unmodified_fn_name_from_fn_name;
 use view::{client_template::render_template, render_view};
 mod component;
 mod server;
@@ -598,21 +600,30 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    let parse_result = syn::parse::<component::Model>(s.clone());
+    let mut dummy = syn::parse::<DummyModel>(s.clone());
+    let parse_result = syn::parse::<component::Model>(s);
 
-    if let Ok(model) = parse_result {
-        model
-            .is_transparent(is_transparent)
-            .into_token_stream()
-            .into()
+    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+        let expanded = model.is_transparent(is_transparent).into_token_stream();
+        unexpanded.sig.ident =
+            unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
+        quote! {
+            #expanded
+            #[doc(hidden)]
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #unexpanded
+        }
+    } else if let Ok(mut dummy) = dummy {
+        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+        quote! {
+            #[doc(hidden)]
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #dummy
+        }
     } else {
-        // When the input syntax is invalid, e.g. while typing, we let
-        // the dummy model output tokens similar to the input, which improves
-        // IDEs and rust-analyzer's auto-complete capabilities.
-        parse_macro_input!(s as component::DummyModel)
-            .into_token_stream()
-            .into()
+        quote! {}
     }
+    .into()
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -688,28 +699,36 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
-pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
-        let transparent = parse_macro_input!(args as syn::Ident);
+pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let mut dummy = syn::parse::<DummyModel>(s.clone());
+    let parse_result = syn::parse::<component::Model>(s);
 
-        if transparent != "transparent" {
-            abort!(
-                transparent,
-                "only `transparent` is supported";
-                help = "try `#[island(transparent)]` or `#[island]`"
-            );
+    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+        let expanded = model.is_island().into_token_stream();
+        if !matches!(unexpanded.vis, Visibility::Public(_)) {
+            unexpanded.vis = Visibility::Public(Pub {
+                span: unexpanded.vis.span(),
+            })
         }
-
-        true
+        unexpanded.sig.ident =
+            unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
+        quote! {
+            #expanded
+            #[doc(hidden)]
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #unexpanded
+        }
+    } else if let Ok(mut dummy) = dummy {
+        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
+        quote! {
+            #[doc(hidden)]
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #dummy
+        }
     } else {
-        false
-    };
-
-    parse_macro_input!(s as component::Model)
-        .is_transparent(is_transparent)
-        .is_island()
-        .into_token_stream()
-        .into()
+        quote! {}
+    }
+    .into()
 }
 
 /// Annotates a struct so that it can be used with your Component as a `slot`.
