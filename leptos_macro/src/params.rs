@@ -20,7 +20,7 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 
 				quote_spanned! {
 					span=> #ident: <#ty as ::leptos_router::IntoParam>::into_param(
-                        map.get(#field_name_string).map(::std::string::String::as_str), 
+                        map.get(#field_name_string).map(::std::string::String::as_str),
                         #field_name_string
                     )?
 				}
