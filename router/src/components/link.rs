@@ -217,7 +217,7 @@ where
                     target=target
                     prop:state=state.map(|s| s.to_js_value())
                     prop:replace=replace
-                    aria-current=move || if is_active.get() { Some("a") } else { None }
+                    aria-current=move || if is_active.get() { Some("page") } else { None }
                     class=class
                     id=id
                 >
