@@ -159,7 +159,7 @@ pub(crate) fn slot_to_tokens(
             #(#slots)*
             #children
             .build()
-            .into()
+            .into(),
     };
 
     parent_slots
