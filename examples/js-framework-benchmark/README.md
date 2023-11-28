@@ -6,3 +6,7 @@ This example creates a large table with randomized entries, it also shows usage 
 ## Getting Started
 
 See the [Examples README](../README.md) for setup and run instructions.
+
+## Quick Start
+
+Run `trunk serve --open` to run this example.

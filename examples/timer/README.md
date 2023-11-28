@@ -5,3 +5,7 @@ This example creates a simple timer based on `setInterval` in a client side rend
 ## Getting Started
 
 See the [Examples README](../README.md) for setup and run instructions.
+
+## Quick Start
+
+Run `trunk serve --open` to run this example.
