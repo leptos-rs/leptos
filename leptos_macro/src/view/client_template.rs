@@ -354,7 +354,7 @@ fn attr_to_tokens(
                     span=> ::leptos::leptos_dom::attribute_helper(
                         ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
                         #name.into(),
-                        ::leptos::IntoAttribute::into_attribute({#value}),
+                        ::leptos::IntoAttribute::into_attribute(#[allow(unused_braces)] {#value}),
                     )
                 });
             }

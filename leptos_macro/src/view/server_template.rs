@@ -460,7 +460,7 @@ fn attribute_to_tokens_ssr<'a>(
                 } else {
                     template.push_str("{}");
                     holes.push(quote! {
-                        &::leptos::IntoAttribute::into_attribute({#value})
+                        &::leptos::IntoAttribute::into_attribute(#[allow(unused_braces)] {#value})
                             .as_nameless_value_string()
                             .map(|a| ::std::format!(
                                 "{}=\"{}\"",
