@@ -605,11 +605,6 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model.is_transparent(is_transparent).into_token_stream();
-        if !matches!(unexpanded.vis, Visibility::Public(_)) {
-            unexpanded.vis = Visibility::Public(Pub {
-                span: unexpanded.vis.span(),
-            })
-        }
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
         quote! {
