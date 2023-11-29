@@ -1,11 +1,9 @@
 # Part 2: Server Side Rendering
 
-The second part of the book is all about how to turn your beautiful UI's into full-stack, "Universal" Rust + Leptos powered websites and applications.
+The second part of the book is all about how to turn your beautiful UIs into full-stack Rust + Leptos powered websites and applications.
 
-As you read in the last chapter, there are some limitations to using Client-Side Rendered Leptos apps - over the next few chapters, you'll see how we can overcome those limitations
+As you read in the last chapter, there are some limitations to using client-side rendered Leptos apps - over the next few chapters, you'll see how we can overcome those limitations
 and get the best performance and SEO out of your Leptos apps.
-
-Let's see how we can use the full power of Leptos and Rust on the server to make your next cutting-edge application!
 
 
 ```admonish info

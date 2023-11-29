@@ -7,8 +7,10 @@ There are a couple of things you can do to improve your experience of developing
 
 Because of the nature of macros (they can expand from anything to anything, but only if the input is exactly correct at that instant) it can be hard for rust-analyzer to do proper autocompletion and other support.
 
-But you can tell rust-analyzer to ignore certain proc macros. For `#[component]` and `#[server]` especially, which annotate function bodies but don't actually transform anything inside the body of your function, this can be really helpful.
 
+If you run into issues using these macros in your editor, you can explicitly tell rust-analyzer to ignore certain proc macros. For the `#[server]` macro especially, which annotates function bodies but doesn't actually transform anything inside the body of your function, this can be really helpful.
+
+Starting in Leptos version 0.5.3, rust-analyzer support was added for the `#[component]` macro, but if you run into issues, you may want to add `#[component]` to the macro ignore list as well (see below).
 Note that this means that rust-analyzer doesn't know about your component props, which may generate its own set of errors or warnings in the IDE.
 
 VSCode `settings.json`:
@@ -16,7 +18,8 @@ VSCode `settings.json`:
 ```json
 "rust-analyzer.procMacro.ignored": {
 	"leptos_macro": [
-		"component",
+    // optional:
+		// "component",
 		"server"
 	],
 }
@@ -33,7 +36,8 @@ require('lspconfig').rust_analyzer.setup {
       procMacro = {
         ignored = {
             leptos_macro = {
-                "component",
+                -- optional: --
+                -- "component",
                 "server",
             },
         },
@@ -50,7 +54,15 @@ Helix, in `.helix/languages.toml`:
 name = "rust"
 
 [language-server.rust-analyzer]
-config = { procMacro = { ignored = { leptos_macro = ["component", "server"] } } }
+config = { procMacro = { ignored =
+    { leptos_macro =
+        [
+          # Optional:
+          # "component",
+          "server"
+        ]
+    }
+} }
 ```
 
 ```admonish info
