@@ -259,12 +259,12 @@ You’ll notice a few differences here:
 Every time `data` changes, now, each memo will be recalculated. If its value has changed,
 it will update its text node, without rerendering the whole row.
 
-## Pros
+### Pros
 
 We get the same fine-grained reactivity of the signal-wrapped version, without needing to
 wrap the data in signals.
 
-## Cons
+### Cons
 
 It’s a bit more complex to set up this memo-per-row inside the `<For/>` loop rather than
 using nested signals. For example, you’ll notice that we have to guard against the possibility
