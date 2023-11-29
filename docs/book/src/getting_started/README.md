@@ -2,21 +2,27 @@
 
 There are two basic paths to getting started with Leptos:
 
-1. Client-side rendering with [Trunk](https://trunkrs.dev/) - a great option if you just want to make a snappy website with Leptos, or work with a pre-existing server or 3rd-party API's.
-2. Full-stack / Universal server-side rendering with [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) - a great option for building a CRUD-style website or a web-app with Rust powering both frontend and backend. Universal apps rely on either Actix-web or Axum on the server (so you may want to keep their docs handy, too), or you can even go Universal WASM/WASI with the Leptos and Axum integration (more on these options later).
+1. Client-side rendering (CSR) with [Trunk](https://trunkrs.dev/) - a great option if you just want to make a snappy website with Leptos, or work with a pre-existing server or API.
+In CSR mode, Trunk compiles your Leptos app to WebAssembly (WASM) and runs it in the browser like a typical Javascript single-page app (SPA). The advantages of Leptos CSR include faster build times and a quicker iterative development cycle, as well as a simpler mental model and more options for deploying your app. CSR apps do come with some disadvantages: initial load times for your end users are slower compared to a server-side rendering approach, and the usual SEO challenges that come along with using a JS single-page app model apply to Leptos CSR apps as well. Also note that, under the hood, an auto-generated snippet of JS is used to load the Leptos WASM bundle, so JS *must* be enabled on the client device for your CSR app to display properly. As with all software engineering, there are trade-offs here you'll need to consider.
 
-In Part 1 of this book, we'll start with Client-side rendering  Leptos sites and building reactive UI's using `Trunk` to serve our JS+Wasm bundle to the browser.
+2. Full-stack, server-side rendering (SSR) with [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) - SSR is a great option for building CRUD-style websites and custom web apps if you want Rust powering both your frontend and backend. With the Leptos SSR option, your app is rendered to HTML on the server and sent down to the browser; then, WebAssembly is used to instrument the HTML so your app becomes interactive - this process is called 'hydration'. On the server side, Leptos SSR apps integrate closely with your choice of either [Actix-web](https://docs.rs/leptos_actix/latest/leptos_actix/index.html) or [Axum](https://docs.rs/leptos_axum/latest/leptos_axum/index.html) server libraries, so you can leverage the those communities' crates to help build out your Leptos server.
+The advantages of taking the SSR route with Leptos include helping you get the best initial load times and optimal SEO scores for your web app. SSR apps can also dramatically simplify working across the server/client boundary via a Leptos feature called "server functions", which lets you transparently call functions on the server from your client code (more on this feature later). Full-stack SSR isn't all rainbows and butterflies, though - disadvantages include a slower developer iteration loop (because you need to recompile both the server and client when making Rust code changes), as well as some added complexity that comes along with hydration.
 
-We’ll introduce `cargo-leptos` in Part 2 of this book, which is all about working with the full power of Leptos in its Full-stack, SSR mode.
+By the end of the book, you should have a good idea of which features and trade-offs to make and which route to take - CSR or SSR - depending on the project requirements.
+
+
+In Part 1 of this book, we'll start with client-side rendering Leptos sites and building reactive UI's using `Trunk` to serve our JS and WASM bundle to the browser.
+
+We’ll introduce `cargo-leptos` in Part 2 of this book, which is all about working with the full power of Leptos in its full-stack, SSR mode.
 
 ```admonish note
-If you're coming from the Javascript world and terms like Client-Side Rendering (CSR) and server-side rendering (SSR) are unfamiliar to you, the easiest way to understand the difference is by analogy:
+If you're coming from the Javascript world and terms like client-side rendering (CSR) and server-side rendering (SSR) are unfamiliar to you, the easiest way to understand the difference is by analogy:
 
 Leptos' CSR mode is similar to working with React (or a 'signals'-based framework like SolidJS), and focuses on producing a client-side UI which you can use with any tech stack on the server.
 
 Using Leptos' SSR mode is similar to working with a full-stack framework like Next.js in the React world (or Solid's "SolidStart" framework) - SSR helps you build sites and apps that are rendered on the server then sent down to the client. SSR can help to improve your site's loading performance and accessibility as well as make it easier for one person to work on *both* client- and server-side without needing to context-switch between different languages for frontend and backend.
 
-The Leptos framework can be used either in CSR mode to just make a UI (like React), or you can use Leptos in full-stack / 'Universal' mode (like Next.js) so that you can build both your UI and your server with one language: Rust.
+The Leptos framework can be used either in CSR mode to just make a UI (like React), or you can use Leptos in full-stack SSR mode (like Next.js) so that you can build both your UI and your server with one language: Rust.
 
 ```
 
@@ -41,8 +47,6 @@ cargo init leptos-tutorial
 ```bash
 cargo add leptos --features=csr,nightly
 ```
-
-> **Note**: This version of the book reflects the Leptos 0.5 release. The CodeSandbox examples have not yet been updated from 0.4 and earlier versions.
 
 Or you can leave off `nightly` if you're using stable Rust
 
