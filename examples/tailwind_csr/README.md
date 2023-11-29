@@ -51,3 +51,7 @@ Allow vscode Ports forward: 3000, 3001.
 ### Attribution
 
 Many thanks to GreatGreg for putting together this guide. You can find the original, with added details, [here](https://github.com/leptos-rs/leptos/discussions/125).
+
+## Quick Start
+
+Run `trunk serve --open` to run this example.

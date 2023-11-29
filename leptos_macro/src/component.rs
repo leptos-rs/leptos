@@ -118,8 +118,6 @@ impl ToTokens for Model {
 
         let no_props = props.is_empty();
 
-        let mut body = body.to_owned();
-
         // check for components that end ;
         if !is_transparent {
             let ends_semi =
@@ -139,7 +137,6 @@ impl ToTokens for Model {
             }
         }
 
-        body.sig.ident = format_ident!("__{}", body.sig.ident);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
@@ -203,7 +200,7 @@ impl ToTokens for Model {
                     #[cfg(debug_assertions)]
                     let _guard = span.entered();
                 },
-                if no_props {
+                if no_props || !cfg!(feature = "trace-component-props") {
                     quote! {}
                 } else {
                     quote! {
@@ -234,6 +231,7 @@ impl ToTokens for Model {
             quote! {}
         };
 
+        let body_name = unmodified_fn_name_from_fn_name(&body_name);
         let body_expr = if *is_island {
             quote! {
                 ::leptos::SharedContext::with_hydration(move || {
@@ -251,7 +249,7 @@ impl ToTokens for Model {
         } else {
             quote! {
                 ::leptos::leptos_dom::Component::new(
-                    stringify!(#name),
+                    ::std::stringify!(#name),
                     move || {
                         #tracing_guard_expr
                         #tracing_props_expr
@@ -293,13 +291,14 @@ impl ToTokens for Model {
                 && cfg!(feature = "ssr")
             {
                 quote! {
-                    let children = Box::new(|| ::leptos::Fragment::lazy(|| vec![
+                    let children = ::std::boxed::Box::new(|| ::leptos::Fragment::lazy(|| ::std::vec![
                         ::leptos::SharedContext::with_hydration(move || {
-                            ::leptos::leptos_dom::html::custom(
-                                ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                            ::leptos::IntoView::into_view(
+                                ::leptos::leptos_dom::html::custom(
+                                    ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                )
+                                .child(::leptos::SharedContext::no_hydration(children))
                             )
-                            .child(::leptos::SharedContext::no_hydration(children))
-                            .into_view()
                         })
                     ]));
                 }
@@ -367,7 +366,6 @@ impl ToTokens for Model {
             .collect::<TokenStream>();
 
         let body = quote! {
-            #body
             #destructure_props
             #tracing_span_expr
             #component
@@ -414,13 +412,14 @@ impl ToTokens for Model {
                 };
                 let children = if is_island_with_children {
                     quote! {
-                        .children(Box::new(move || ::leptos::Fragment::lazy(|| vec![
+                        .children(::std::boxed::Box::new(move || ::leptos::Fragment::lazy(|| ::std::vec![
                             ::leptos::SharedContext::with_hydration(move || {
-                                ::leptos::leptos_dom::html::custom(
-                                    ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                ::leptos::IntoView::into_view(
+                                    ::leptos::leptos_dom::html::custom(
+                                        ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                    )
+                                    .prop("$$owner", ::leptos::Owner::current().map(|n| n.as_ffi()))
                                 )
-                                .prop("$$owner", ::leptos::Owner::current().map(|n| n.as_ffi()))
-                                .into_view()
                         })])))
                     }
                 } else {
@@ -547,10 +546,10 @@ impl Model {
 /// used to improve IDEs and rust-analyzer's auto-completion behavior in case
 /// of a syntax error.
 pub struct DummyModel {
-    attrs: Vec<Attribute>,
-    vis: Visibility,
-    sig: Signature,
-    body: TokenStream,
+    pub attrs: Vec<Attribute>,
+    pub vis: Visibility,
+    pub sig: Signature,
+    pub body: TokenStream,
 }
 
 impl Parse for DummyModel {
@@ -588,7 +587,21 @@ impl ToTokens for DummyModel {
             let mut sig = sig.clone();
             sig.inputs.iter_mut().for_each(|arg| {
                 if let FnArg::Typed(ty) = arg {
-                    ty.attrs.clear();
+                    ty.attrs.retain(|attr| match &attr.meta {
+                        Meta::List(list) => list
+                            .path
+                            .segments
+                            .first()
+                            .map(|n| n.ident != "prop")
+                            .unwrap_or(true),
+                        Meta::NameValue(name_value) => name_value
+                            .path
+                            .segments
+                            .first()
+                            .map(|n| n.ident != "doc")
+                            .unwrap_or(true),
+                        _ => true,
+                    });
                 }
             });
             sig
@@ -1161,4 +1174,8 @@ fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
     ]
     .iter()
     .any(|test| ty == test)
+}
+
+pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
+    Ident::new(&format!("__{ident}"), ident.span())
 }

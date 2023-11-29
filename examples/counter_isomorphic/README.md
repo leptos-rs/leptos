@@ -5,3 +5,7 @@ This example demonstrates how to use a function isomorphically, to run a server 
 ## Getting Started
 
 See the [Examples README](../README.md) for setup and run instructions.
+
+## Quick Start
+
+Run `cargo leptos watch` to run this example.

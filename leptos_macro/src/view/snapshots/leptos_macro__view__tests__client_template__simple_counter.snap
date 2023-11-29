@@ -28,42 +28,60 @@ fn view() {
             .unwrap();
         let _el1 = "div";
         let _el1 = ::leptos::wasm_bindgen::JsCast::unchecked_into::<
-            leptos::web_sys::Node,
+            ::leptos::web_sys::Node,
         >(root.clone());
         let _el2 = "button";
         let _el2 = _el1
             .first_child()
-            .unwrap_or_else(|| panic!("error: {} => {}", "button", "firstChild"));
+            .unwrap_or_else(|| ::std::panic!("error: {} => {}", "button", "firstChild"));
         let _el3 = _el2
             .first_child()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "firstChild"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "{block}", "firstChild")
+            });
         let _el4 = "button";
         let _el4 = _el2
             .next_sibling()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "button", "nextSibling"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "button", "nextSibling")
+            });
         let _el5 = _el4
             .first_child()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "firstChild"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "{block}", "firstChild")
+            });
         let _el6 = "span";
         let _el6 = _el4
             .next_sibling()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "span", "nextSibling"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "span", "nextSibling")
+            });
         let _el7 = _el6
             .first_child()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "firstChild"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "{block}", "firstChild")
+            });
         let _el8 = _el7
             .next_sibling()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "nextSibling"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "{block}", "nextSibling")
+            });
         let _el9 = _el8
             .next_sibling()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "nextSibling"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "{block}", "nextSibling")
+            });
         let _el10 = "button";
         let _el10 = _el6
             .next_sibling()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "button", "nextSibling"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "button", "nextSibling")
+            });
         let _el11 = _el10
             .first_child()
-            .unwrap_or_else(|| panic!("error : {} => {} ", "{block}", "firstChild"));
+            .unwrap_or_else(|| {
+                ::std::panic!("error : {} => {} ", "{block}", "firstChild")
+            });
         ::leptos::leptos_dom::add_event_helper(
             ::leptos::wasm_bindgen::JsCast::unchecked_ref(&_el2),
             ::leptos::leptos_dom::ev::click,
@@ -76,7 +94,7 @@ fn view() {
         );
         ::leptos::leptos_dom::mount_child(
             ::leptos::leptos_dom::MountKind::Before(&_el8.clone()),
-            &{ { value } }.into_view(),
+            &::leptos::IntoView::into_view(#[allow(unused_braces)] { { value } }),
         );
         ::leptos::leptos_dom::add_event_helper(
             ::leptos::wasm_bindgen::JsCast::unchecked_ref(&_el10),

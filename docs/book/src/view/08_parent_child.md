@@ -151,7 +151,7 @@ pub fn App() -> impl IntoView {
 
 
 #[component]
-pub fn ButtonC<F>() -> impl IntoView {
+pub fn ButtonC() -> impl IntoView {
     view! {
         <button>"Toggle"</button>
     }
@@ -261,7 +261,7 @@ Isn’t there some way to skip levels?
 
 There is!
 
-### The Context API
+### 4.1 The Context API
 
 You can provide data that skips levels by using [`provide_context`](https://docs.rs/leptos/latest/leptos/fn.provide_context.html)
 and [`use_context`](https://docs.rs/leptos/latest/leptos/fn.use_context.html). Contexts are identified
@@ -284,6 +284,7 @@ pub fn App() -> impl IntoView {
 }
 
 // <Layout/> and <Content/> omitted
+// To work in this version, drop their references to set_toggled
 
 #[component]
 pub fn ButtonD() -> impl IntoView {

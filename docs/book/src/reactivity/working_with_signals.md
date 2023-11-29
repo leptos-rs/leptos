@@ -114,7 +114,7 @@ let memoized_double_count = create_memo(move |_| count() * 2);
 ```rust
 let (first_name, set_first_name) = create_signal("Bridget".to_string());
 let (last_name, set_last_name) = create_signal("Jones".to_string());
-let full_name = move || format!("{} {}", first_name(), last_name());
+let full_name = move || with!(|first_name, last_name| format!("{first_name} {last_name}"));
 ```
 
 **3) A and B are independent signals, but sometimes updated at the same time.** When you make the call to update A, make a separate call to update B.

@@ -22,7 +22,7 @@ axum = { version = "0.6.1", optional = true }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.4", features = ["fs"], optional = true }
 tokio = { version = "1.22.0", features = ["full"], optional = true }
-http = { version = "0.2.8" }
+http = { version = "0.2.11" }
 sqlx = { version = "0.6.2", features = [
 	"runtime-tokio-rustls",
 	"sqlite",

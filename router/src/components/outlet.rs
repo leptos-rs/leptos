@@ -52,6 +52,7 @@ pub fn Outlet() -> impl IntoView {
                 prev_disposer.flatten()
             }
             (Some(child), _) => {
+                drop(prev_disposer);
                 is_showing.set(Some(child.id()));
                 let (outlet, disposer) = build_outlet(child);
                 set_outlet.set(Some(outlet));
