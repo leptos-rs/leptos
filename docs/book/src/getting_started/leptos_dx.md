@@ -18,7 +18,7 @@ VSCode `settings.json`:
 ```json
 "rust-analyzer.procMacro.ignored": {
 	"leptos_macro": [
-    // optional:
+        // optional:
 		// "component",
 		"server"
 	],
