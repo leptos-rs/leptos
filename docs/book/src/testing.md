@@ -30,7 +30,7 @@ pub struct Todos(Vec<Todo>);
 
 impl Todos {
     pub fn num_remaining(&self) -> usize {
-        todos.iter().filter(|todo| !todo.completed).sum()
+        self.0.iter().filter(|todo| !todo.completed).sum()
     }
 }
 

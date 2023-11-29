@@ -135,17 +135,17 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-pub fn Outer(ChildrenFn) -> impl IntoView {
+pub fn Outer(children: ChildrenFn) -> impl IntoView {
     children()
 }
 
 #[component]
-pub fn Inner(ChildrenFn) -> impl IntoView {
+pub fn Inner(children: ChildrenFn) -> impl IntoView {
     children()
 }
 
 #[component]
-pub fn Inmost(ng) -> impl IntoView {
+pub fn Inmost(name: String) -> impl IntoView {
     view! {
         <p>{name}</p>
     }
