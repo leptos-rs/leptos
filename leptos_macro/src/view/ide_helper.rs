@@ -103,13 +103,13 @@ impl IdeTagHelper {
             // todo: check is html, and emit_warning in case of custom tag
             quote! { ::leptos::leptos_dom::html }
         };
-        quote!( #namespace::#name)
+        quote! { #namespace::#name }
     }
 
     /// Returns `syn::Path`-like `TokenStream` to the `custom` section in docs.
     fn create_custom_tag_fn_path(span: Span) -> TokenStream {
         let custom_ident = Ident::new("custom", span);
-        quote! {leptos::leptos_dom::html::#custom_ident::<leptos::leptos_dom::html::Custom>}
+        quote! { ::leptos::leptos_dom::html::#custom_ident::<::leptos::leptos_dom::html::Custom> }
     }
 
     // Extract from NodeName completion idents.

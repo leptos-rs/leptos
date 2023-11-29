@@ -249,7 +249,7 @@ impl ToTokens for Model {
         } else {
             quote! {
                 ::leptos::leptos_dom::Component::new(
-                    stringify!(#name),
+                    ::std::stringify!(#name),
                     move || {
                         #tracing_guard_expr
                         #tracing_props_expr
@@ -291,13 +291,14 @@ impl ToTokens for Model {
                 && cfg!(feature = "ssr")
             {
                 quote! {
-                    let children = Box::new(|| ::leptos::Fragment::lazy(|| vec![
+                    let children = ::std::boxed::Box::new(|| ::leptos::Fragment::lazy(|| ::std::vec![
                         ::leptos::SharedContext::with_hydration(move || {
-                            ::leptos::leptos_dom::html::custom(
-                                ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                            ::leptos::IntoView::into_view(
+                                ::leptos::leptos_dom::html::custom(
+                                    ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                )
+                                .child(::leptos::SharedContext::no_hydration(children))
                             )
-                            .child(::leptos::SharedContext::no_hydration(children))
-                            .into_view()
                         })
                     ]));
                 }
@@ -411,13 +412,14 @@ impl ToTokens for Model {
                 };
                 let children = if is_island_with_children {
                     quote! {
-                        .children(Box::new(move || ::leptos::Fragment::lazy(|| vec![
+                        .children(::std::boxed::Box::new(move || ::leptos::Fragment::lazy(|| ::std::vec![
                             ::leptos::SharedContext::with_hydration(move || {
-                                ::leptos::leptos_dom::html::custom(
-                                    ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                ::leptos::IntoView::into_view(
+                                    ::leptos::leptos_dom::html::custom(
+                                        ::leptos::leptos_dom::html::Custom::new("leptos-children"),
+                                    )
+                                    .prop("$$owner", ::leptos::Owner::current().map(|n| n.as_ffi()))
                                 )
-                                .prop("$$owner", ::leptos::Owner::current().map(|n| n.as_ffi()))
-                                .into_view()
                         })])))
                     }
                 } else {
