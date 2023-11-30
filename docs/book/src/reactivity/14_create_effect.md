@@ -146,13 +146,20 @@ set_num.set(2); // (nothing happens)
 use leptos::html::Input;
 use leptos::*;
 
+#[derive(Copy, Clone)]
+struct LogContext(RwSignal<Vec<String>>);
+
 #[component]
 fn App() -> impl IntoView {
     // Just making a visible log here
     // You can ignore this...
     let log = create_rw_signal::<Vec<String>>(vec![]);
     let logged = move || log().join("\n");
-    provide_context(log);
+
+    // the newtype pattern isn't *necessary* here but is a good practice
+    // it avoids confusion with other possible future `RwSignal<Vec<String>>` contexts
+    // and makes it easier to refer to it
+    provide_context(LogContext(log));
 
     view! {
         <CreateAnEffect/>
@@ -169,34 +176,43 @@ fn CreateAnEffect() -> impl IntoView {
     // this will add the name to the log
     // any time one of the source signals changes
     create_effect(move |_| {
-        log(
-
-            if use_last() {
-                format!("{}  {}", first(), last())
-            } else {
-                first()
-            },
-        )
+        log(if use_last() {
+            with!(|first, last| format!("{first} {last}"))
+        } else {
+            first()
+        })
     });
 
     view! {
-        <h1><code>"create_effect"</code> " Version"</h1>
+        <h1>
+            <code>"create_effect"</code>
+            " Version"
+        </h1>
         <form>
             <label>
                 "First Name"
-                <input type="text" name="first" prop:value=first
+                <input
+                    type="text"
+                    name="first"
+                    prop:value=first
                     on:change=move |ev| set_first(event_target_value(&ev))
                 />
             </label>
             <label>
                 "Last Name"
-                <input type="text" name="last" prop:value=last
+                <input
+                    type="text"
+                    name="last"
+                    prop:value=last
                     on:change=move |ev| set_last(event_target_value(&ev))
                 />
             </label>
             <label>
                 "Show Last Name"
-                <input type="checkbox" name="use_last" prop:checked=use_last
+                <input
+                    type="checkbox"
+                    name="use_last"
+                    prop:checked=use_last
                     on:change=move |ev| set_use_last(event_target_checked(&ev))
                 />
             </label>
@@ -231,24 +247,10 @@ fn ManualVersion() -> impl IntoView {
     view! {
         <h1>"Manual Version"</h1>
         <form on:change=on_change>
+            <label>"First Name" <input type="text" name="first" node_ref=first/></label>
+            <label>"Last Name" <input type="text" name="last" node_ref=last/></label>
             <label>
-                "First Name"
-                <input type="text" name="first"
-                    node_ref=first
-                />
-            </label>
-            <label>
-                "Last Name"
-                <input type="text" name="last"
-                    node_ref=last
-                />
-            </label>
-            <label>
-                "Show Last Name"
-                <input type="checkbox" name="use_last"
-                    checked
-                    node_ref=use_last
-                />
+                "Show Last Name" <input type="checkbox" name="use_last" checked node_ref=use_last/>
             </label>
         </form>
     }
@@ -273,20 +275,16 @@ fn EffectVsDerivedSignal() -> impl IntoView {
         move || (!my_value.with(String::is_empty)).then(|| Some(my_value.get()));
 
     view! {
-        <input
-            prop:value=my_value
-            on:input= move |ev| set_my_value(event_target_value(&ev))
-        />
+        <input prop:value=my_value on:input=move |ev| set_my_value(event_target_value(&ev))/>
 
         <p>
             <code>"my_optional_value"</code>
             " is "
             <code>
-                <Show
-                    when=move || my_optional_value().is_some()
-                    fallback=|| view! { "None" }
-                >
-                    "Some(\"" {my_optional_value().unwrap()} "\")"
+                <Show when=move || my_optional_value().is_some() fallback=|| view! { "None" }>
+                    "Some(\""
+                    {my_optional_value().unwrap()}
+                    "\")"
                 </Show>
             </code>
         </p>
@@ -316,7 +314,7 @@ where
 }
 
 fn log(msg: impl std::fmt::Display) {
-    let log = use_context::<RwSignal<Vec<String>>>().unwrap();
+    let log = use_context::<LogContext>().unwrap().0;
     log.update(|log| log.push(msg.to_string()));
 }
 

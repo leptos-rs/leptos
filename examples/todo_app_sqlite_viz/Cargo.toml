@@ -21,7 +21,7 @@ simple_logger = "4.0.0"
 serde = { version = "1", features = ["derive"] }
 viz = { version = "0.4.8", features = ["serve"], optional = true }
 tokio = { version = "1.25.0", features = ["full"], optional = true }
-http = { version = "0.2.8" }
+http = { version = "0.2.11" }
 sqlx = { version = "0.6.2", features = [
   "runtime-tokio-rustls",
   "sqlite",

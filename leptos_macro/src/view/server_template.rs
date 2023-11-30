@@ -42,14 +42,14 @@ pub(crate) fn root_node_to_tokens_ssr(
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
             quote! {
-                leptos::leptos_dom::html::text(#node)
+                ::leptos::leptos_dom::html::text(#node)
             }
         }
         Node::RawText(r) => {
             let text = r.to_string_best();
             let text = syn::LitStr::new(&text, r.span());
             quote! {
-                leptos::leptos_dom::html::text(#text)
+                ::leptos::leptos_dom::html::text(#text)
             }
         }
         Node::Block(node) => {
@@ -78,12 +78,12 @@ pub(crate) fn fragment_to_tokens_ssr(
     let nodes = nodes.iter().map(|node| {
         let node = root_node_to_tokens_ssr(node, global_class, None);
         quote! {
-            #node.into_view()
+            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
         }
     });
     quote! {
         {
-            leptos::Fragment::lazy(|| ::std::vec![
+            ::leptos::Fragment::lazy(|| ::std::vec![
                 #(#nodes),*
             ])
             #view_marker
@@ -133,17 +133,16 @@ pub(crate) fn root_element_to_tokens_ssr(
                 if holes.is_empty() {
                     let template = template.replace("\\{", "{").replace("\\}", "}");
                     quote! {
-                        leptos::leptos_dom::html::StringOrView::String(#template.into())
+                        ::leptos::leptos_dom::html::StringOrView::String(#template.into())
                     }
                 } else {
                 let template = template.replace("\\{", "{{").replace("\\}", "}}");
                     quote! {
-                        leptos::leptos_dom::html::StringOrView::String(
-                            format!(
+                        ::leptos::leptos_dom::html::StringOrView::String(
+                            ::std::format!(
                                 #template,
                                 #(#holes),*
-                            )
-                            .into()
+                            ).into()
                         )
                     }
                 }
@@ -153,7 +152,7 @@ pub(crate) fn root_element_to_tokens_ssr(
                     #[allow(unused_braces)]
                     {
                         let view = #view;
-                        leptos::leptos_dom::html::StringOrView::View(std::rc::Rc::new(move || view.clone()))
+                        ::leptos::leptos_dom::html::StringOrView::View(::std::rc::Rc::new(move || view.clone()))
                     }
                 }
             },
@@ -189,7 +188,7 @@ pub(crate) fn root_element_to_tokens_ssr(
             }
         } else {
             quote! {
-                ::leptos::leptos_dom::#typed_element_name::default()
+                <::leptos::leptos_dom::#typed_element_name as ::std::default::Default>::default()
             }
         };
         let view_marker = if let Some(marker) = view_marker {
@@ -237,7 +236,7 @@ fn element_to_tokens_ssr(
         }
 
         chunks.push(SsrElementChunks::View(quote! {
-          {#component}.into_view()
+            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
         }));
     } else {
         let tag_name = node.name().to_string();
@@ -284,8 +283,12 @@ fn element_to_tokens_ssr(
                     template.push_str(" {}");
                     holes.push(quote! {
                         {#end}.into_iter().filter_map(|(name, attr)| {
-                           Some(format!("{}=\"{}\"", name, ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)))
-                        }).collect::<Vec<_>>().join(" ")
+                           Some(::std::format!(
+                                "{}=\"{}\"",
+                                name,
+                                ::leptos::leptos_dom::ssr::escape_attr(&attr.as_nameless_value_string()?)
+                            ))
+                        }).collect::<::std::vec::Vec<_>>().join(" ")
                     });
                 };
             }
@@ -299,7 +302,7 @@ fn element_to_tokens_ssr(
         };
         template.push_str("{}");
         holes.push(quote! {
-            #hydration_id.map(|id| format!(" data-hk=\"{id}\"")).unwrap_or_default()
+            #hydration_id.map(|id| ::std::format!(" data-hk=\"{id}\"")).unwrap_or_default()
         });
 
         set_class_attribute_ssr(node, template, holes, global_class);
@@ -315,7 +318,7 @@ fn element_to_tokens_ssr(
                 let value = inner_html;
 
                 holes.push(quote! {
-                  (#value).into_attribute().as_nameless_value_string().unwrap_or_default()
+                  ::leptos::IntoAttribute::into_attribute(#value).as_nameless_value_string().unwrap_or_default()
                 })
             } else {
                 for child in &node.children {
@@ -369,14 +372,14 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                    {#block}.into_view()
+                                    ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
                                 }));
                             }
                         }
                         // Keep invalid blocks for faster IDE diff (on user type)
                         Node::Block(block @ NodeBlock::Invalid { .. }) => {
                             chunks.push(SsrElementChunks::View(quote! {
-                                {#block}.into_view()
+                                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
                             }));
                         }
                         Node::Fragment(_) => abort!(
@@ -411,7 +414,7 @@ fn attribute_to_tokens_ssr<'a>(
         let (event_type, _, _) = parse_event_name(name);
 
         exprs_for_compiler.push(quote! {
-            leptos::leptos_dom::helpers::ssr_event_listener(::leptos::ev::#event_type, #handler);
+            ::leptos::leptos_dom::helpers::ssr_event_listener(::leptos::ev::#event_type, #handler);
         })
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
@@ -457,9 +460,13 @@ fn attribute_to_tokens_ssr<'a>(
                 } else {
                     template.push_str("{}");
                     holes.push(quote! {
-                        &{#value}.into_attribute()
+                        &::leptos::IntoAttribute::into_attribute(#[allow(unused_braces)] {#value})
                             .as_nameless_value_string()
-                            .map(|a| format!("{}=\"{}\"", #name, leptos::leptos_dom::ssr::escape_attr(&a)))
+                            .map(|a| ::std::format!(
+                                "{}=\"{}\"",
+                                #name,
+                                ::leptos::leptos_dom::ssr::escape_attr(&a)
+                            ))
                             .unwrap_or_default()
                     })
                 }
@@ -582,8 +589,8 @@ fn set_class_attribute_ssr(
             if let Some(value) = value {
                 template.push_str(" {}");
                 holes.push(quote! {
-                  &(#value).into_attribute().as_nameless_value_string()
-                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
+                  &::leptos::IntoAttribute::into_attribute(#value).as_nameless_value_string()
+                    .map(|a| ::leptos::leptos_dom::ssr::escape_attr(&a).to_string())
                     .unwrap_or_default()
                 });
             }
@@ -592,7 +599,7 @@ fn set_class_attribute_ssr(
         for (_span, name, value) in &class_attrs {
             template.push_str(" {}");
             holes.push(quote! {
-              (#value).into_class().as_value_string(#name)
+                ::leptos::IntoClass::into_class(#value).as_value_string(#name)
             });
         }
 
@@ -693,8 +700,8 @@ fn set_style_attribute_ssr(
             if let Some(value) = value {
                 template.push_str(" {};");
                 holes.push(quote! {
-                  &(#value).into_attribute().as_nameless_value_string()
-                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
+                  &::leptos::IntoAttribute::into_attribute(#value).as_nameless_value_string()
+                    .map(|a| ::leptos::leptos_dom::ssr::escape_attr(&a).to_string())
                     .unwrap_or_default()
                 });
             }
@@ -703,7 +710,7 @@ fn set_style_attribute_ssr(
         for (_span, name, value) in &style_attrs {
             template.push_str(" {}");
             holes.push(quote! {
-              (#value).into_style().as_value_string(#name).unwrap_or_default()
+                ::leptos::IntoStyle::into_style(#value).as_value_string(#name).unwrap_or_default()
             });
         }
 
