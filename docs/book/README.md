@@ -1,15 +1,3 @@
-This project contains the core of a new introductory guide to Leptos.
+The Leptos book is now available at [https://book.leptos.dev](https://book.leptos.dev).
 
-It is built using `mdbook`. You can view a local copy by installing `mdbook`
-
-```bash
-cargo install mdbook
-```
-
-and run the book with
-```
-mdbook serve
-```
-
-It should be available at `http://localhost:3000`.
-
+The source code for the book has moved to [https://github.com/leptos-rs/book](https://github.com/leptos-rs/book). Please open issues or make PRs in that repository.
