@@ -62,7 +62,7 @@ fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
 #[doc(hidden)]
 pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
     let from = remove_wildcard(&normalize(from, false));
-    from + &normalize(to, false)
+    from + normalize(to, false).as_ref()
 }
 
 fn begins_with_query_or_hash(text: &str) -> bool {

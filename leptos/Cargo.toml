@@ -66,6 +66,7 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 nonce = ["leptos_dom/nonce"]
+spin = ["leptos_reactive/spin"]
 experimental-islands = [
   "leptos_dom/experimental-islands",
   "leptos_macro/experimental-islands",

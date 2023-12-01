@@ -26,6 +26,7 @@ bytecheck = { version = "0.7", features = [
 rustc-hash = "1"
 serde-wasm-bindgen = "0.5"
 serde_json = "1"
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1", optional = true }
 base64 = "0.21"
 thiserror = "1"
 tokio = { version = "1", features = [
@@ -76,6 +77,7 @@ serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 rkyv = ["dep:rkyv", "dep:bytecheck"]
 experimental-islands = []
+spin = ["ssr", "dep:spin-sdk"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

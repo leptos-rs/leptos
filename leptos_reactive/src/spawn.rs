@@ -75,7 +75,10 @@ where
     F: Future<Output = ()> + 'static,
 {
     cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+        if #[cfg(all(target_arch = "wasm32", target_os = "wasi", feature = "ssr", feature = "spin"))] {
+            spin_sdk::http::run(fut)
+        }
+        else if #[cfg(target_arch = "wasm32")] {
             wasm_bindgen_futures::spawn_local(fut)
         }
         else if #[cfg(any(test, doctest))] {
