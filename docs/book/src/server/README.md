@@ -1,6 +1,6 @@
 # Working with the Server
 
-The previous section described the process of server-side rendering, using the server to generate an HTML version of the page that will become interactive in the browser. So far, everything has been “isomorphic” or “universal”; in other words, your app has had the “same (_iso_) shape (_morphe_)” on the client and the server.
+The previous section described the process of server-side rendering, using the server to generate an HTML version of the page that will become interactive in the browser. So far, everything has been “isomorphic”; in other words, your app has had the “same (_iso_) shape (_morphe_)” on the client and the server.
 
 But a server can do a lot more than just render HTML! In fact, a server can do a whole bunch of things your browser _can’t,_ like reading from and writing to a SQL database.
 
