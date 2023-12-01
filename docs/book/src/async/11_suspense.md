@@ -77,7 +77,7 @@ In other words:
 
 1. It only polls the `Future` once, and does not respond to any reactive changes.
 2. It does not render anything until the `Future` resolves.
-3. After the `Future` resolves, its binds its data to whatever variable name you choose and then renders its children with that variable in scope.
+3. After the `Future` resolves, it binds its data to whatever variable name you choose and then renders its children with that variable in scope.
 
 ```rust
 async fn fetch_monkeys(monkey: i32) -> i32 {
