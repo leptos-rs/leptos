@@ -1,0 +1,114 @@
+name: Run Task
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        required: true
+        type: string
+      cargo_make_task:
+        required: true
+        type: string
+      toolchain:
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+jobs:
+  test:
+    name: Run ${{ inputs.cargo_make_task }} (${{ inputs.toolchain }})
+    runs-on: ubuntu-latest
+
+    steps:
+      # Setup environment
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ inputs.toolchain }}
+          override: true
+          components: rustfmt
+
+      - name: Add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Setup cargo-make
+        uses: davidB/rust-cargo-make@v1
+
+      - name: Cargo generate-lockfile
+        run: cargo generate-lockfile
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Trunk
+        uses: jetli/trunk-action@v0.4.0
+        with:
+          version: "latest"
+
+      - name: Print Trunk Version
+        run: trunk --version
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Maybe install chromedriver
+        run: |
+          project_makefile=${{inputs.directory}}/Makefile.toml
+          webdriver_count=$(cat $project_makefile | grep "cargo-make/webdriver.toml" | wc -l)
+          if [ $webdriver_count -eq 1 ]; then
+              if ! command -v chromedriver &>/dev/null; then
+                  echo chromedriver required
+                  sudo apt-get update
+                  sudo apt-get install chromium-chromedriver
+              else
+                  echo chromedriver is already installed
+              fi
+          else
+              echo chromedriver is not required
+          fi
+
+      - name: Maybe install playwright browser dependencies
+        run: |
+          for pw_path in $(find ${{inputs.directory}} -name playwright.config.ts)
+          do
+            pw_dir=$(dirname $pw_path)
+            if [ ! -v $pw_dir ]; then
+              echo "Playwright required in $pw_dir"
+              cd $pw_dir
+              pnpm dlx playwright install --with-deps
+            else
+              echo Playwright is not required
+            fi
+          done
+
+      # Run Cargo Make Task
+      - name: ${{ inputs.cargo_make_task }}
+        run: |
+          cd ${{ inputs.directory }}
+          cargo make --profile=github-actions ${{ inputs.cargo_make_task }}

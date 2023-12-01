@@ -1,0 +1,7 @@
+contact_links:
+  - name: Support or Question
+    url: https://github.com/leptos-rs/leptos/discussions/new?category=q-a
+    about: Do you need help figuring out how to do something, or want some help troubleshooting a bug? You can ask in our Discussions section.
+  - name: Discord Discussions
+    url: https://discord.gg/YdRAhS7eQB
+    about: For more informal, real-time conversation and support, you can join our Discord server.
