@@ -2,25 +2,38 @@ use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+#[cfg(feature = "ssr")]
+use tracing::instrument;
 
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use std::sync::atomic::{AtomicI32, Ordering};
         use broadcaster::BroadcastChannel;
+        use once_cell::sync::OnceCell;
+
         static COUNT: AtomicI32 = AtomicI32::new(0);
 
         lazy_static::lazy_static! {
             pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
         }
+
+        static LOG_INIT: OnceCell<()> = OnceCell::new();
+        fn init_logging() {
+            LOG_INIT.get_or_init(|| {
+                simple_logger::SimpleLogger::new().env().init().unwrap();
+            });
+        }
     }
 }
 
 #[server]
+#[cfg_attr(feature = "ssr", instrument)]
 pub async fn get_server_count() -> Result<i32, ServerFnError> {
     Ok(COUNT.load(Ordering::Relaxed))
 }
 
 #[server]
+#[cfg_attr(feature = "ssr", instrument)]
 pub async fn adjust_server_count(
     delta: i32,
     msg: String,
@@ -33,6 +46,7 @@ pub async fn adjust_server_count(
 }
 
 #[server]
+#[cfg_attr(feature = "ssr", instrument)]
 pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     COUNT.store(0, Ordering::Relaxed);
     _ = COUNT_CHANNEL.send(&0).await;
@@ -40,6 +54,9 @@ pub async fn clear_server_count() -> Result<i32, ServerFnError> {
 }
 #[component]
 pub fn Counters() -> impl IntoView {
+    #[cfg(feature = "ssr")]
+    init_logging();
+
     provide_meta_context();
     view! {
         <Router>
