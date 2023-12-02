@@ -10,7 +10,7 @@ pub fn resolve_path<'a>(
     from: Option<&'a str>,
 ) -> Option<Cow<'a, str>> {
     if has_scheme(path) {
-        None
+        Some(path.into())
     } else {
         let base_path = normalize(base, false);
         let from_path = from.map(|from| normalize(from, false));
