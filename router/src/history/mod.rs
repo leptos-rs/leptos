@@ -39,8 +39,8 @@ impl BrowserIntegration {
         let loc = leptos_dom::helpers::location();
         LocationChange {
             value: loc.pathname().unwrap_or_default()
-                + &loc.search().unwrap_or_default()
-                + &loc.hash().unwrap_or_default(),
+                + loc.search().unwrap_or_default().as_str()
+                + loc.hash().unwrap_or_default().as_str(),
             replace: true,
             scroll: true,
             state: State(None),

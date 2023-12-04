@@ -89,6 +89,7 @@ pub fn server_macro_impl(
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
     let block = body.block;
+    let attrs = body.attrs;
 
     let fields = body
         .inputs
@@ -276,6 +277,7 @@ pub fn server_macro_impl(
     let func = if cfg!(feature = "ssr") {
         quote! {
             #docs
+            #(#attrs)*
             #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
                 #block
             }
@@ -283,6 +285,7 @@ pub fn server_macro_impl(
     } else {
         quote! {
             #docs
+            #(#attrs)*
             #[allow(unused_variables)]
             #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
                 #server_fn_path::call_server_fn(
