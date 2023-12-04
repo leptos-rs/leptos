@@ -105,7 +105,7 @@ pub(crate) fn component_to_tokens(
             let value = attr.value().map(|v| {
                 quote! { #v }
             })?;
-            Some(quote! { (#name, #value.into_attribute()) })
+            Some(quote! { (#name, ::leptos::IntoAttribute::into_attribute(#value)) })
         })
         .collect::<Vec<_>>();
 
@@ -172,7 +172,7 @@ pub(crate) fn component_to_tokens(
         let slot = Ident::new(&slot, span);
         if values.len() > 1 {
             quote! {
-                .#slot(vec![
+                .#slot(::std::vec![
                     #(#values)*
                 ])
             }
@@ -211,7 +211,7 @@ pub(crate) fn component_to_tokens(
         component
     } else {
         quote! {
-            #component.into_view()
+            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
             #(#events_and_directives)*
         }
     }

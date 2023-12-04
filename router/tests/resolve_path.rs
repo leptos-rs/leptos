@@ -96,11 +96,29 @@ fn preserve_spaces() {
 }
 
 #[test]
-fn cannot_resolve_if_path_has_scheme() {
-    assert_eq!(resolve_path("", "http://example.com", None), None);
-    assert_eq!(resolve_path("", "https://example.com", None), None);
-    assert_eq!(resolve_path("", "example://google.com", None), None);
-    assert_eq!(resolve_path("", "tel:+15555555555", None), None);
-    assert_eq!(resolve_path("", "mailto:name@example.com", None), None);
-    assert_eq!(resolve_path("", "//relative-protocol", None), None);
+fn will_resolve_if_path_has_scheme() {
+    assert_eq!(
+        resolve_path("", "http://example.com", None).as_deref(),
+        Some("http://example.com")
+    );
+    assert_eq!(
+        resolve_path("", "https://example.com", None).as_deref(),
+        Some("https://example.com")
+    );
+    assert_eq!(
+        resolve_path("", "example://google.com", None).as_deref(),
+        Some("example://google.com")
+    );
+    assert_eq!(
+        resolve_path("", "tel:+15555555555", None).as_deref(),
+        Some("tel:+15555555555")
+    );
+    assert_eq!(
+        resolve_path("", "mailto:name@example.com", None).as_deref(),
+        Some("mailto:name@example.com")
+    );
+    assert_eq!(
+        resolve_path("", "//relative-protocol", None).as_deref(),
+        Some("//relative-protocol")
+    );
 }

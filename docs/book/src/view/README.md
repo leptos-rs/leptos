@@ -1,5 +1,2 @@
-# Building User Interfaces
-
-This first section will introduce you to the basic tools you need to build a reactive
-user interface using Leptos. By the end of this section, you should be able to 
-build a simple, synchronous application that is rendered in the browser.
+<meta http-equiv="refresh" content="0; URL=https://book.leptos.dev/view/index.html">
+<link rel="canonical" href="https://book.leptos.dev/view/index.html">

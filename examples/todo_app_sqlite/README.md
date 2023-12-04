@@ -13,3 +13,7 @@ See the [E2E README](./e2e/README.md) for more information about the testing str
 ## Rendering
 
 See the [SSR Notes](../SSR_NOTES.md) for more information about Server Side Rendering.
+
+## Quick Start
+
+Run `cargo leptos watch` to run this example.

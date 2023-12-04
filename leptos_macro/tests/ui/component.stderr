@@ -1,33 +1,3 @@
-error: expected parameter name, found `,`
-  --> tests/ui/component.rs:16:5
-   |
-16 |     ,
-   |     ^ expected parameter name
-
-error: expected parameter name, found `,`
-  --> tests/ui/component.rs:24:5
-   |
-24 |     ,
-   |     ^ expected parameter name
-
-error: expected parameter name, found `,`
-  --> tests/ui/component.rs:32:5
-   |
-32 |     ,
-   |     ^ expected parameter name
-
-error: expected parameter name, found `,`
-  --> tests/ui/component.rs:40:5
-   |
-40 |     ,
-   |     ^ expected parameter name
-
-error: expected parameter name, found `,`
-  --> tests/ui/component.rs:48:5
-   |
-48 |     ,
-   |     ^ expected parameter name
-
 error: return type is incorrect
  --> tests/ui/component.rs:4:1
   |
@@ -50,32 +20,34 @@ error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `de
 10 | fn unknown_prop_option(#[prop(hello)] test: bool) -> impl IntoView {
    |                               ^^^^^
 
-error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
-  --> tests/ui/component.rs:16:5
+error: `optional` conflicts with mutually exclusive `optional_no_strip`
+  --> tests/ui/component.rs:16:12
    |
-16 |     ,
-   |     ^
+16 |     #[prop(optional, optional_no_strip)] conflicting: bool,
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
-  --> tests/ui/component.rs:24:5
+error: `optional` conflicts with mutually exclusive `strip_option`
+  --> tests/ui/component.rs:23:12
    |
-24 |     ,
-   |     ^
+23 |     #[prop(optional, strip_option)] conflicting: bool,
+   |            ^^^^^^^^^^^^^^^^^^^^^^
 
-error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
-  --> tests/ui/component.rs:32:5
+error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
+  --> tests/ui/component.rs:30:12
    |
-32 |     ,
-   |     ^
+30 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
-  --> tests/ui/component.rs:40:5
+error: unexpected end of input, expected assignment `=`
+  --> tests/ui/component.rs:36:40
    |
-40 |     ,
-   |     ^
+36 | fn default_without_value(#[prop(default)] default: bool) -> impl IntoView {
+   |                                        ^
 
-error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
-  --> tests/ui/component.rs:48:5
+error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+
+       = help: try `#[prop(default=5 * 10)]`
+  --> tests/ui/component.rs:42:22
    |
-48 |     ,
-   |     ^
+42 |     #[prop(default= |)] default: bool,
+   |                      ^

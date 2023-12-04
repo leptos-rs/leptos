@@ -1,8 +1,10 @@
 # Summary
 
 - [Introduction](./01_introduction.md)
-- [Getting Started](./02_getting_started.md)
-- [Building User Interfaces](./view/README.md)
+- [Getting Started](./getting_started/README.md)
+  - [Leptos DX](./getting_started/leptos_dx.md)
+  - [The Leptos Community and leptos-* Crates](./getting_started/community_crates.md)
+- [Part 1: Building User Interfaces](./view/README.md)
   - [A Basic Component](./view/01_basic_component.md)
   - [Dynamic Attributes](./view/02_dynamic_attributes.md)
   - [Components and Props](./view/03_components.md)
@@ -34,7 +36,8 @@
   - [`<Form/>`](./router/20_form.md)
 - [Interlude: Styling](./interlude_styling.md)
 - [Metadata](./metadata.md)
-- [Server Side Rendering](./ssr/README.md)
+- [Client-Side Rendering: Wrapping Up](./csr_wrapping_up.md)
+- [Part 2: Server Side Rendering](./ssr/README.md)
   - [`cargo-leptos`](./ssr/21_cargo_leptos.md)
   - [The Life of a Page Load](./ssr/22_life_cycle.md)
   - [Async Rendering and SSR “Modes”](./ssr/23_ssr_modes.md)
@@ -48,5 +51,6 @@
 - [Deployment](./deployment/README.md)
   - [Optimizing WASM Binary Size](./deployment/binary_size.md)
 - [Guide: Islands](./islands.md)
+
 - [Appendix: How Does the Reactive System Work?](./appendix_reactive_graph.md)
-- [Appendix: Some Small DX Improvements](./appendix_dx.md)
+

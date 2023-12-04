@@ -36,7 +36,7 @@ tower-http = { version = "0.4", features = [
   "compression-br",
 ], optional = true }
 tokio = { version = "1.22.0", features = ["full"], optional = true }
-http = { version = "0.2.8", optional = true }
+http = { version = "0.2.11", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 wasm-bindgen = "0.2"
 lazy_static = "1.4.0"

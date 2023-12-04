@@ -9,3 +9,7 @@ See the [Examples README](../README.md) for setup and run instructions.
 ## Rendering
 
 See the [SSR Notes](../SSR_NOTES.md) for more information about Server Side Rendering.
+
+## Quick Start
+
+Run `cargo leptos watch` to run this example.
