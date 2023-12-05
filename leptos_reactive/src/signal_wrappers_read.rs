@@ -91,7 +91,7 @@ impl<T> Clone for Signal<T> {
 
 impl<T> Copy for Signal<T> {}
 
-impl<T> core::fmt::Debug for Signal<T> {
+impl<T: core::fmt::Debug> core::fmt::Debug for Signal<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut s = f.debug_struct("Signal");
         s.field("inner", &self.inner);
@@ -458,14 +458,14 @@ impl<T> Clone for SignalTypes<T> {
 
 impl<T> Copy for SignalTypes<T> {}
 
-impl<T> core::fmt::Debug for SignalTypes<T> {
+impl<T: core::fmt::Debug> core::fmt::Debug for SignalTypes<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::ReadSignal(arg0) => {
-                f.debug_tuple("ReadSignal").field(arg0).finish()
-            }
-            Self::Memo(arg0) => f.debug_tuple("Memo").field(arg0).finish(),
-            Self::DerivedSignal(_) => f.debug_tuple("DerivedSignal").finish(),
+            Self::ReadSignal(arg0) => arg0.fmt(f),
+            Self::Memo(arg0) => arg0.fmt(f),
+            Self::DerivedSignal(get) => get.with_value(|get| {
+                f.debug_tuple("DerivedSignal").field(&untrack(get)).finish()
+            }),
         }
     }
 }

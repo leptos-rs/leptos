@@ -772,11 +772,10 @@ impl<T> Clone for ReadSignal<T> {
 
 impl<T> Copy for ReadSignal<T> {}
 
-impl<T> fmt::Debug for ReadSignal<T> {
+impl<T: fmt::Debug> fmt::Debug for ReadSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("ReadSignal");
-        s.field("id", &self.id);
-        s.field("ty", &self.ty);
+        self.with_untracked(|v| s.field("inner", v));
         #[cfg(any(debug_assertions, feature = "ssr"))]
         s.field("defined_at", &self.defined_at);
         s.finish()
@@ -1224,11 +1223,10 @@ impl<T> Clone for RwSignal<T> {
 
 impl<T> Copy for RwSignal<T> {}
 
-impl<T> fmt::Debug for RwSignal<T> {
+impl<T: fmt::Debug> fmt::Debug for RwSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("RwSignal");
-        s.field("id", &self.id);
-        s.field("ty", &self.ty);
+        self.with_untracked(|v| s.field("inner", v));
         #[cfg(any(debug_assertions, feature = "ssr"))]
         s.field("defined_at", &self.defined_at);
         s.finish()

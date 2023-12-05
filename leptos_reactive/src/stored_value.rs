@@ -43,12 +43,11 @@ impl<T> Clone for StoredValue<T> {
 
 impl<T> Copy for StoredValue<T> {}
 
-impl<T> fmt::Debug for StoredValue<T> {
+impl<T: fmt::Debug> fmt::Debug for StoredValue<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StoredValue")
-            .field("id", &self.id)
-            .field("ty", &self.ty)
-            .finish()
+        self.with_value(|v| {
+            f.debug_struct("StoredValue").field("inner", v).finish()
+        })
     }
 }
 
