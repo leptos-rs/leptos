@@ -92,7 +92,7 @@ pub fn Body(
     /// The `class` attribute on the `<body>`.
     #[prop(optional, into)]
     class: Option<TextProp>,
-    /// Arbitrary attributes to add to the `<html>`
+    /// Arbitrary attributes to add to the `<body>`
     #[prop(attrs)]
     attributes: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
