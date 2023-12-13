@@ -196,8 +196,7 @@ pub async fn generate_request_and_parts(
 ///         .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
+///     hyper::Server::bind(&addr)
 ///         .serve(app.into_make_service())
 ///         .await
 ///         .unwrap();
@@ -442,8 +441,7 @@ pub type PinnedHtmlStream =
 ///     ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
+///     hyper::Server::bind(&addr)
 ///         .serve(app.into_make_service())
 ///         .await
 ///         .unwrap();
@@ -543,8 +541,7 @@ where
 ///         ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
+///     hyper::Server::bind(&addr)
 ///         .serve(app.into_make_service())
 ///         .await
 ///         .unwrap();
@@ -1011,8 +1008,7 @@ fn provide_contexts(
 ///     ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
+///     hyper::Server::bind(&addr)
 ///         .serve(app.into_make_service())
 ///         .await
 ///         .unwrap();
