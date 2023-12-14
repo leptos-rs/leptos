@@ -62,7 +62,7 @@ are a few guidelines that will make it a better experience for everyone:
 - If it’s an unsolicited PR not linked to an open issue, please include a
   specific explanation for what it’s trying to achieve. For example: “When I
   was trying to deploy my app under _circumstances X_, I found that the way
-  _function Z_ was implemented caused _issue Z_. This PR should fix that by
+  _function Y_ was implemented caused _issue Z_. This PR should fix that by
   _solution._”
 - Our CI tests every PR against all the existing examples, sometimes requiring
   compilation for both server and client side, etc. It’s thorough but slow. If
