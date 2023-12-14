@@ -21,7 +21,7 @@ use leptos::{
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated, ServerFnErrorQuery, ServerFnErrorInfo};
+use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -292,22 +292,12 @@ pub fn handle_server_fns_with_context(
                                 .headers()
                                 .get(header::REFERER)
                                 .and_then(|value|
-                                          value
-                                          .to_str()
-                                          .ok()
-                                          .map(Url::parse)
-                                          .map(Result::ok)
-                                )
-                                .flatten();
+                                          Url::parse(&Regex::new(r"(?:\?|&)?server_fn_error=[^&]+").unwrap().replace(value.to_str().ok()?, "")).ok()
+                                );
 
                             if let Some(mut url) = url {
                                 url.query_pairs_mut()
-                                   .append_key_only(serde_qs::to_string(&ServerFnErrorQuery {
-                                    server_fn_error: ServerFnErrorInfo {
-                                        url: req.uri().to_string(),
-                                        error: e
-                                    }
-                                }).expect("Could not serialize server fn error").as_str());
+                                   .append_pair("server_fn_error", serde_qs::to_string(&e).expect("Could not serialize server fn error!").as_str());
                                 HttpResponse::SeeOther()
                                     .insert_header((header::LOCATION, url.to_string()))
                                     .finish()

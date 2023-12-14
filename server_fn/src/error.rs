@@ -54,7 +54,7 @@ impl From<ServerFnError> for Error {
 /// Unlike [`ServerFnErrorErr`], this does not implement [`std::error::Error`].
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", content = "message")]
 pub enum ServerFnError {
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).

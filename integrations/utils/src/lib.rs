@@ -1,21 +1,9 @@
 use futures::{Stream, StreamExt};
-use leptos::{nonce::use_nonce, use_context, RuntimeId, ServerFnError};
+use leptos::{nonce::use_nonce, use_context, RuntimeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
-use serde::{Deserialize, Serialize};
 
 extern crate tracing;
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ServerFnErrorInfo {
-    pub url: String,
-    pub error: ServerFnError
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ServerFnErrorQuery {
-    pub server_fn_error: ServerFnErrorInfo
-}
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
