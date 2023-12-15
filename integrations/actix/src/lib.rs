@@ -6,7 +6,10 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::{header::{self, HeaderName, HeaderValue}, h1};
+use actix_http::{
+    h1,
+    header::{self, HeaderName, HeaderValue},
+};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -32,9 +35,9 @@ use std::{
     pin::Pin,
     sync::Arc,
 };
-use url::Url;
 #[cfg(debug_assertions)]
 use tracing::instrument;
+use url::Url;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -242,8 +245,10 @@ pub fn handle_server_fns_with_context(
                                 && accept_header != Some("application/cbor")
                             {
                                 // Location will already be set if redirect() has been used
-                                let has_location_set =
-                                    res_parts.headers.get(header::LOCATION).is_some();
+                                let has_location_set = res_parts
+                                    .headers
+                                    .get(header::LOCATION)
+                                    .is_some();
                                 if !has_location_set {
                                     let referer = req
                                         .headers()
@@ -251,8 +256,11 @@ pub fn handle_server_fns_with_context(
                                         .and_then(|value| value.to_str().ok())
                                         .unwrap_or("/");
                                     res = HttpResponse::SeeOther();
-                                    res.insert_header((header::LOCATION, referer))
-                                        .content_type("application/json");
+                                    res.insert_header((
+                                        header::LOCATION,
+                                        referer,
+                                    ))
+                                    .content_type("application/json");
                                 }
                             };
                             // Override StatusCode if it was set in a Resource or Element
@@ -291,15 +299,32 @@ pub fn handle_server_fns_with_context(
                             let url = req
                                 .headers()
                                 .get(header::REFERER)
-                                .and_then(|value|
-                                          Url::parse(&Regex::new(r"(?:\?|&)?server_fn_error=[^&]+").unwrap().replace(value.to_str().ok()?, "")).ok()
-                                );
+                                .and_then(|value| {
+                                    Url::parse(
+                                        &Regex::new(
+                                            r"(?:\?|&)?server_fn_error=[^&]+",
+                                        )
+                                        .unwrap()
+                                        .replace(value.to_str().ok()?, ""),
+                                    )
+                                    .ok()
+                                });
 
                             if let Some(mut url) = url {
-                                url.query_pairs_mut()
-                                   .append_pair("server_fn_error", serde_qs::to_string(&e).expect("Could not serialize server fn error!").as_str());
+                                url.query_pairs_mut().append_pair(
+                                    "server_fn_error",
+                                    serde_qs::to_string(&e)
+                                        .expect(
+                                            "Could not serialize server fn \
+                                             error!",
+                                        )
+                                        .as_str(),
+                                );
                                 HttpResponse::SeeOther()
-                                    .insert_header((header::LOCATION, url.to_string()))
+                                    .insert_header((
+                                        header::LOCATION,
+                                        url.to_string(),
+                                    ))
                                     .finish()
                             } else {
                                 HttpResponse::InternalServerError().body(

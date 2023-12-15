@@ -386,14 +386,16 @@ where
             // serialize the output
             let result = match Self::encoding() {
                 Encoding::Url | Encoding::GetJSON => {
-                    let url = serde_json::to_string(&result)
-                        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+                    let url = serde_json::to_string(&result).map_err(|e| {
+                        ServerFnError::Serialization(e.to_string())
+                    })?;
                     Payload::Url(url)
                 }
                 Encoding::Cbor | Encoding::GetCBOR => {
                     let mut buffer: Vec<u8> = Vec::new();
-                    ciborium::ser::into_writer(&result, &mut buffer)
-                        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+                    ciborium::ser::into_writer(&result, &mut buffer).map_err(
+                        |e| ServerFnError::Serialization(e.to_string()),
+                    )?;
                     Payload::Binary(buffer)
                 }
             };
