@@ -28,6 +28,8 @@
               extensions= [ "rust-src" "rust-analyzer" ];
               targets = [ "wasm32-unknown-unknown" ];
             }))
+          ] ++ pkgs.lib.optionals pkg.stdenv.isDarwin [
+            darwin.apple_sdk.frameworks.SystemConfiguration
           ];
 
           shellHook = ''
