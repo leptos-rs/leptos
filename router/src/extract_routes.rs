@@ -108,6 +108,7 @@ impl RouteListing {
 /// [`viz`]: <https://docs.rs/viz/>
 pub fn generate_route_list_inner<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
 ) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
@@ -121,6 +122,8 @@ where
     provide_context(RouterIntegrationContext::new(integration));
     let branches = PossibleBranchContext::default();
     provide_context(branches.clone());
+
+    additional_context();
 
     leptos::suppress_resource_load(true);
     _ = app_fn().into_view();
