@@ -886,7 +886,7 @@ pub fn generate_route_list<IV>(
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, None, || {}).0
+    generate_route_list_with_exclusions_and_ssg(app_fn, None).0
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -898,7 +898,7 @@ pub fn generate_route_list_with_ssg<IV>(
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, None, || {})
+    generate_route_list_with_exclusions_and_ssg(app_fn, None)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -912,7 +912,7 @@ pub fn generate_route_list_with_exclusions<IV>(
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes, || {}).0
+    generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -922,13 +922,28 @@ where
 pub fn generate_route_list_with_exclusions_and_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
+) -> (Vec<RouteListing>, StaticDataMap)
+    where
+        IV: IntoView + 'static,
+{
+    generate_route_list_with_exclusions_and_ssg_and_context(app_fn, excluded_routes, || {})
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
+/// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format.
+/// Additional context will be provided to the app Element.
+pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    excluded_routes: Option<Vec<String>>,
     additional_context: impl Fn() + 'static + Clone,
 ) -> (Vec<RouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
     let (mut routes, static_data_map) =
-        leptos_router::generate_route_list_inner(app_fn, additional_context);
+        leptos_router::generate_route_list_inner_with_context(app_fn, additional_context);
 
     // Actix's Router doesn't follow Leptos's
     // Match `*` or `*someword` to replace with replace it with "/{tail.*}
