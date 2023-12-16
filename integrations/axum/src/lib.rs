@@ -1364,10 +1364,14 @@ pub fn generate_route_list_with_exclusions_and_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> (Vec<RouteListing>, StaticDataMap)
-    where
-        IV: IntoView + 'static,
+where
+    IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions_and_ssg_and_context(app_fn, excluded_routes, || {})
+    generate_route_list_with_exclusions_and_ssg_and_context(
+        app_fn,
+        excluded_routes,
+        || {},
+    )
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -1385,7 +1389,10 @@ where
     IV: IntoView + 'static,
 {
     let (routes, static_data_map) =
-        leptos_router::generate_route_list_inner_with_context(app_fn, additional_context);
+        leptos_router::generate_route_list_inner_with_context(
+            app_fn,
+            additional_context,
+        );
     // Axum's Router defines Root routes as "/" not ""
     let mut routes = routes
         .into_iter()
