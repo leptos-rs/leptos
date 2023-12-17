@@ -926,7 +926,7 @@ pub enum MountKind<'a> {
 /// Runs the provided closure and mounts the result to the `<body>`.
 pub fn mount_to_body<F, N>(f: F)
 where
-    F: Fn() -> N + 'static,
+    F: FnOnce() -> N + 'static,
     N: IntoView,
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
