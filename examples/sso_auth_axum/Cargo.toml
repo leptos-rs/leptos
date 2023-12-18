@@ -63,10 +63,7 @@ ssr = [
 	"dep:leptos_axum",
 ]
 
-[package.metadata.cargo-all-features]
-default = ["ssr"]
-denylist = ["axum", "tower", "tower-http", "tokio", "sqlx", "leptos_axum"]
-skip_feature_sets = [["ssr", "hydrate"]]
+
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
