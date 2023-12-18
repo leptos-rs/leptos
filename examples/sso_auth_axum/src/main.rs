@@ -4,7 +4,7 @@ use cfg_if::cfg_if;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        response::{Response, IntoResponse},
+        response::{IntoResponse},
         routing::get,
         extract::{Path, State, RawQuery},
         http::{Request, header::HeaderMap},
