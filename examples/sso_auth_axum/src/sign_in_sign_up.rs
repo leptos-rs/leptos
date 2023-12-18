@@ -32,8 +32,8 @@ pub async fn google_sso() -> Result<String, ServerFnError> {
         .add_scope(Scope::new("openid".to_string()))
         .add_scope(Scope::new("email".to_string()))
         // required for google auth refresh token to be part of the response.
-        .add_extra_param("access_type","offline")
-        .add_extra_param("prompt","consent")
+        .add_extra_param("access_type", "offline")
+        .add_extra_param("prompt", "consent")
         .url();
     let url = authorize_url.to_string();
     leptos::logging::log!("{url:?}");
@@ -103,7 +103,7 @@ pub async fn handle_g_auth_redirect(
         .exchange_code(AuthorizationCode::new(code.clone()))
         .request_async(async_http_client)
         .await?;
-    leptos::logging::log!("{:?}",&token_response);
+    leptos::logging::log!("{:?}", &token_response);
     let access_token = token_response.access_token().secret();
     let expires_in = token_response.expires_in().unwrap().as_secs();
     let refresh_secret = token_response.refresh_token().unwrap().secret();
@@ -147,12 +147,15 @@ pub async fn handle_g_auth_redirect(
         .execute(&pool)
         .await?;
 
-    sqlx::query("INSERT INTO google_tokens (user_id,access_secret,refresh_secret) VALUES (?,?,?)")
-        .bind(user.id)
-        .bind(access_token)
-        .bind(refresh_secret)
-        .execute(&pool)
-        .await?;
+    sqlx::query(
+        "INSERT INTO google_tokens (user_id,access_secret,refresh_secret) \
+         VALUES (?,?,?)",
+    )
+    .bind(user.id)
+    .bind(access_token)
+    .bind(refresh_secret)
+    .execute(&pool)
+    .await?;
 
     Ok((user.email, expires_in as u64))
 }

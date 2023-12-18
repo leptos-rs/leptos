@@ -49,10 +49,10 @@ pub async fn refresh_token(email: String) -> Result<u64, ServerFnError> {
     let refresh_secret = sqlx::query_as::<_, SqlRefreshToken>(
         "SELECT secret FROM google_refresh_tokens WHERE user_id = ?",
     )
-        .bind(user.id)
-        .fetch_one(&pool)
-        .await?
-        .secret;
+    .bind(user.id)
+    .fetch_one(&pool)
+    .await?
+    .secret;
 
     let token_response = oauth_client
         .exchange_refresh_token(&oauth2::RefreshToken::new(refresh_secret))
@@ -66,12 +66,15 @@ pub async fn refresh_token(email: String) -> Result<u64, ServerFnError> {
         .bind(user.id)
         .execute(&pool)
         .await?;
-    sqlx::query("INSERT INTO google_tokens (user_id,access_secret,refresh_secret) VALUES (?,?,?)")
-        .bind(user.id)
-        .bind(access_token)
-        .bind(refresh_secret)
-        .execute(&pool)
-        .await?;
+    sqlx::query(
+        "INSERT INTO google_tokens (user_id,access_secret,refresh_secret) \
+         VALUES (?,?,?)",
+    )
+    .bind(user.id)
+    .bind(access_token)
+    .bind(refresh_secret)
+    .execute(&pool)
+    .await?;
     Ok(expires_in)
 }
 #[component]
