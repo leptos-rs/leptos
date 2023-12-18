@@ -3,6 +3,9 @@
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 
+// to prevent warnings from popping up when a nightly feature is stabilized
+#![allow(stable_features)]
+
 //! The DOM implementation for `leptos`.
 
 #[doc(hidden)]

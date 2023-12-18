@@ -31,7 +31,7 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     let req_parts = use_context::<leptos_axum::RequestParts>();
 
     if let Some(req_parts) = req_parts {
-        println!("Uri = {:?}", req_parts.uri);
+        //println!("Uri = {:?}", req_parts.uri);
     }
 
     use futures::TryStreamExt;

@@ -2,6 +2,9 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+// to prevent warnings from popping up when a nightly feature is stabilized
+#![allow(stable_features)]
+
 //! Implementation of the `server_fn` macro.
 //!
 //! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
