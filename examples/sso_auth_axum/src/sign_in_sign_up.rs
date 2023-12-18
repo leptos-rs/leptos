@@ -169,7 +169,8 @@ pub fn HandleGAuth() -> impl IntoView {
     let rw_email = expect_context::<Email>().0;
     let rw_expires_in = expect_context::<ExpiresIn>().0;
     create_effect(move |_| {
-        if let Some(Ok((email, expires_in))) = handle_g_auth_redirect.value().get()
+        if let Some(Ok((email, expires_in))) =
+            handle_g_auth_redirect.value().get()
         {
             rw_email.set(Some(email));
             rw_expires_in.set(expires_in);
@@ -181,7 +182,7 @@ pub fn HandleGAuth() -> impl IntoView {
         if let Ok(OAuthParams { code, state }) = query.get_untracked() {
             handle_g_auth_redirect.dispatch(HandleGAuthRedirect {
                 provided_csrf: state.unwrap(),
-                code:code.unwrap(),
+                code: code.unwrap(),
             });
         } else {
             leptos::logging::log!("error parsing oauth params");
