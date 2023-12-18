@@ -187,6 +187,8 @@
 #![cfg_attr(feature = "nightly", feature(auto_traits))]
 #![cfg_attr(feature = "nightly", feature(negative_impls))]
 #![cfg_attr(feature = "nightly", feature(type_name_of_val))]
+// to prevent warnings from popping up when a nightly feature is stabilized
+#![allow(stable_features)]
 
 mod animation;
 mod components;

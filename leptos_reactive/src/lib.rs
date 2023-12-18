@@ -5,7 +5,7 @@
 #![cfg_attr(feature = "nightly", feature(type_name_of_val))]
 #![cfg_attr(feature = "nightly", feature(auto_traits))]
 #![cfg_attr(feature = "nightly", feature(negative_impls))]
-// to prevent warnings on new from popping up when one of those features is stabilized
+// to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
