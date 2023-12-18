@@ -116,7 +116,7 @@ pub fn App() -> impl IntoView {
     });
 
     create_effect(move |_| {
-        if let Some(Ok(expires_in)) = refresh_token.value()() {
+        if let Some(Ok(expires_in)) = refresh_token.value().get() {
             rw_expires_in.set(expires_in);
         }
     });
@@ -131,7 +131,7 @@ pub fn App() -> impl IntoView {
                     <Route path="" view=move || {
                         view!{
                             {display_email}
-                            <Show when=move||email().is_some() fallback=||view!{<SignIn/>}>
+                            <Show when=move||email.get().is_some() fallback=||view!{<SignIn/>}>
                                 <LogOut/>
                             </Show>
                             }

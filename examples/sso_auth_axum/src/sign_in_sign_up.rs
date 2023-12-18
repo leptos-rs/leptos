@@ -48,7 +48,7 @@ pub fn SignIn() -> impl IntoView {
     let g_auth = Action::<GoogleSso, _>::server();
 
     create_effect(move |_| {
-        if let Some(Ok(redirect)) = g_auth.value()() {
+        if let Some(Ok(redirect)) = g_auth.value().get() {
             window().location().set_href(&redirect).unwrap();
         }
     });
@@ -156,8 +156,8 @@ pub async fn handle_g_auth_redirect(
 
 #[derive(Params, Debug, PartialEq, Clone)]
 pub struct OAuthParams {
-    pub code: String,
-    pub state: String,
+    pub code: Option<String>,
+    pub state: Option<String>,
 }
 
 #[component]
@@ -169,7 +169,7 @@ pub fn HandleGAuth() -> impl IntoView {
     let rw_email = expect_context::<Email>().0;
     let rw_expires_in = expect_context::<ExpiresIn>().0;
     create_effect(move |_| {
-        if let Some(Ok((email, expires_in))) = handle_g_auth_redirect.value()()
+        if let Some(Ok((email, expires_in))) = handle_g_auth_redirect.value().get()
         {
             rw_email.set(Some(email));
             rw_expires_in.set(expires_in);
@@ -180,8 +180,8 @@ pub fn HandleGAuth() -> impl IntoView {
     create_effect(move |_| {
         if let Ok(OAuthParams { code, state }) = query.get_untracked() {
             handle_g_auth_redirect.dispatch(HandleGAuthRedirect {
-                provided_csrf: state,
-                code,
+                provided_csrf: state.unwrap(),
+                code:code.unwrap(),
             });
         } else {
             leptos::logging::log!("error parsing oauth params");
