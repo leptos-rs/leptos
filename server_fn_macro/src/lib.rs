@@ -1,7 +1,6 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
-
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
 
