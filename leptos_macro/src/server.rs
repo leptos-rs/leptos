@@ -34,8 +34,8 @@ pub fn server_impl(args: TokenStream, s: TokenStream) -> TokenStream {
     };
     args.docs = attrs
         .iter()
-        .cloned()
         .filter(|attr| attr.meta.path().is_ident("doc"))
+        .cloned()
         .collect();
     // default to PascalCase version of function name if no struct name given
     if args.struct_name.is_none() {
