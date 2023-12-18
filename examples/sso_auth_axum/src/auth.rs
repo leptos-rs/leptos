@@ -1,5 +1,4 @@
 use cfg_if::cfg_if;
-use leptos::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 

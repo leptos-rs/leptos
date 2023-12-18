@@ -3,11 +3,6 @@ use super::*;
 cfg_if! {
     if #[cfg(feature="ssr")]{
         use oauth2::{
-            basic::BasicClient,
-            ClientSecret,
-            AuthUrl,
-            TokenUrl,
-            RedirectUrl,
             AuthorizationCode,
             TokenResponse,
             reqwest::async_http_client,
@@ -16,7 +11,7 @@ cfg_if! {
         };
         use serde_json::Value;
         use crate::{
-            auth::{SqlUser,User,SqlCsrfToken},
+            auth::{User,SqlCsrfToken},
             state::AppState
         };
     }
@@ -89,7 +84,7 @@ pub async fn handle_g_auth_redirect(
     let pool = pool()?;
     let auth_session = auth()?;
     // If there's no match we'll return an error.
-    let csrf_token = sqlx::query_as::<_, SqlCsrfToken>(
+    let _ = sqlx::query_as::<_, SqlCsrfToken>(
         "SELECT csrf_token FROM csrf_tokens WHERE csrf_token = ?",
     )
     .bind(provided_csrf)
@@ -136,8 +131,7 @@ pub async fn handle_g_auth_redirect(
             .bind(&email)
             .execute(&pool)
             .await?;
-        let user = User::get_from_email(&email, &pool).await.unwrap();
-        user
+        User::get_from_email(&email, &pool).await.unwrap()
     };
 
     auth_session.login_user(user.id);
@@ -179,7 +173,7 @@ pub fn HandleGAuth() -> impl IntoView {
         {
             rw_email.set(Some(email));
             rw_expires_in.set(expires_in);
-            navigate(&format!("/"), NavigateOptions::default());
+            navigate("/", NavigateOptions::default());
         }
     });
 

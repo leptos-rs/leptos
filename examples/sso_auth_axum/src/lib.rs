@@ -14,7 +14,7 @@ cfg_if! {
     if #[cfg(feature = "ssr")] {
         use crate::{
             state::AppState,
-            auth::{AuthSession,User,SqlUser,SqlRefreshToken}
+            auth::{AuthSession,User,SqlRefreshToken}
         };
         use oauth2::{
             reqwest::async_http_client,
