@@ -38,7 +38,7 @@ pub fn TestComponent(
 }
 
 #[component]
-fn TestMutCallback<'a, F>(mut callback: F, value: &'a str) -> impl IntoView
+fn TestMutCallback<F>(mut callback: F, value: &'static str) -> impl IntoView
 where
     F: FnMut(u32) + 'static,
 {
