@@ -16,7 +16,7 @@ futures = "0.3"
 getrandom = { version = "0.2", optional = true }
 html-escape = "0.2"
 indexmap = "2"
-itertools = "0.10"
+itertools = "0.12"
 js-sys = "0.3"
 leptos_reactive = { workspace = true }
 server_fn = { workspace = true }

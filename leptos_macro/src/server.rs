@@ -4,13 +4,10 @@ use proc_macro2::Literal;
 use quote::{ToTokens, __private::TokenStream as TokenStream2};
 use syn::{
     parse::{Parse, ParseStream},
-    Ident, ItemFn, LitStr, Token,
+    Attribute, Ident, ItemFn, LitStr, Token,
 };
 
-pub fn server_impl(
-    args: proc_macro::TokenStream,
-    s: TokenStream,
-) -> TokenStream {
+pub fn server_impl(args: TokenStream, s: TokenStream) -> TokenStream {
     let function: syn::ItemFn = match syn::parse(s.clone()) {
         Ok(f) => f,
         // Returning the original input stream in the case of a parsing
@@ -35,6 +32,11 @@ pub fn server_impl(
         Ok(args) => args,
         Err(e) => return e.to_compile_error().into(),
     };
+    args.docs = attrs
+        .iter()
+        .filter(|attr| attr.meta.path().is_ident("doc"))
+        .cloned()
+        .collect();
     // default to PascalCase version of function name if no struct name given
     if args.struct_name.is_none() {
         let upper_camel_case_name = Converter::new()
@@ -66,6 +68,7 @@ pub fn server_impl(
 }
 
 struct ServerFnArgs {
+    docs: Vec<Attribute>,
     struct_name: Option<Ident>,
     prefix: Option<Literal>,
     encoding: Option<Literal>,
@@ -79,7 +82,9 @@ impl ToTokens for ServerFnArgs {
         let prefix = self.prefix.as_ref().map(|p| quote::quote! { #p, });
         let encoding = self.encoding.as_ref().map(|e| quote::quote! { #e, });
         let fn_path = self.fn_path.as_ref().map(|f| quote::quote! { #f });
+        let docs = &self.docs;
         tokens.extend(quote::quote! {
+            #(#docs)*
             #struct_name
             #prefix
             #encoding
@@ -191,6 +196,7 @@ impl Parse for ServerFnArgs {
         }
 
         Ok(Self {
+            docs: vec![],
             struct_name,
             prefix,
             encoding,
