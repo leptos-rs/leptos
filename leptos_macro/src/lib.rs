@@ -76,7 +76,8 @@ mod slot;
 /// # runtime.dispose();
 /// ```
 ///
-/// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags
+/// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags. (Generics
+///    on components are specified as `<Component<T>/>`, not the turbofish `<Component::<T>/>`.)
 /// ```rust
 /// # use leptos::*;
 /// # let runtime = create_runtime();
