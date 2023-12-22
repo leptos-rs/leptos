@@ -1,7 +1,10 @@
 use futures::{Stream, StreamExt};
-use leptos::{nonce::use_nonce, use_context, RuntimeId};
+use http::HeaderValue;
+use leptos::{nonce::use_nonce, use_context, RuntimeId, ServerFnError};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
+use regex::Regex;
+use url::Url;
 
 extern crate tracing;
 
@@ -156,4 +159,30 @@ pub async fn build_async_response(
     runtime.dispose();
 
     format!("{head}<body{body_meta}>{buf}{tail}")
+}
+
+pub fn referer_to_url(referer: &HeaderValue) -> Option<Url> {
+    Url::parse(
+        &Regex::new(r"(?:\?|&)?server_fn_error=[^&]+")
+            .unwrap()
+            .replace(referer.to_str().ok()?, ""),
+    )
+    .ok()
+}
+
+pub trait WithServerFn {
+    fn with_server_fn(self, e: &ServerFnError) -> Self;
+}
+
+impl WithServerFn for Url {
+    fn with_server_fn(mut self, e: &ServerFnError) -> Self {
+        self.query_pairs_mut().append_pair(
+            "server_fn_error",
+            serde_qs::to_string(e)
+                .expect("Could not serialize server fn error!")
+                .as_str(),
+        );
+
+        self
+    }
 }

@@ -37,8 +37,8 @@ use axum::{
     body::{Body, Bytes, Full, StreamBody},
     extract::{FromRef, FromRequestParts, MatchedPath, Path, RawQuery},
     http::{
-        header::{HeaderName, HeaderValue},
-        HeaderMap, Request, StatusCode,
+        header::{self, HeaderName, HeaderValue}, request::Parts, uri::Uri, version::Version, Response,
+        HeaderMap, Request, StatusCode, method::Method
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
@@ -47,10 +47,6 @@ use futures::{
     channel::mpsc::{Receiver, Sender},
     Future, SinkExt, Stream, StreamExt,
 };
-use http::{
-    header, method::Method, request::Parts, uri::Uri, version::Version,
-    Response,
-};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
@@ -58,7 +54,9 @@ use leptos::{
     ssr::*,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_integration_utils::{
+    build_async_response, html_parts_separated, referer_to_url, WithServerFn
+};
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
@@ -337,13 +335,13 @@ async fn handle_server_fns_inner(
                         // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                         else {
                             let referer = headers
-                                .get("Referer")
+                                .get(header::REFERER)
                                 .and_then(|value| value.to_str().ok())
                                 .unwrap_or("/");
 
                             res = res
                                 .status(StatusCode::SEE_OTHER)
-                                .header("Location", referer);
+                                .header(header::LOCATION, referer);
                         }
                         // Override StatusCode if it was set in a Resource or Element
                         res = match status {
@@ -357,25 +355,38 @@ async fn handle_server_fns_inner(
                         };
                         match serialized {
                             Payload::Binary(data) => res
-                                .header("Content-Type", "application/cbor")
+                                .header(header::CONTENT_TYPE, "application/cbor")
                                 .body(Full::from(data)),
                             Payload::Url(data) => res
                                 .header(
-                                    "Content-Type",
+                                    header::CONTENT_TYPE,
                                     "application/x-www-form-urlencoded",
                                 )
                                 .body(Full::from(data)),
                             Payload::Json(data) => res
-                                .header("Content-Type", "application/json")
+                                .header(header::CONTENT_TYPE, "application/json")
                                 .body(Full::from(data)),
                         }
                     }
-                    Err(e) => Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Full::from(
-                            serde_json::to_string(&e)
-                                .unwrap_or_else(|_| e.to_string()),
-                        )),
+                    Err(e) => {
+                        let referer = headers
+                            .get(header::REFERER)
+                            .and_then(referer_to_url);
+
+                        if let Some(referer) = referer {
+                            Response::builder()
+                                .status(StatusCode::SEE_OTHER)
+                                .header(header::LOCATION, referer.with_server_fn(&e).as_str())
+                                .body(Default::default())
+                        } else {
+                            Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(Full::from(
+                                    serde_json::to_string(&e)
+                                        .unwrap_or_else(|_| e.to_string()),
+                                ))
+                        }
+                    }
                 };
                 // clean up the scope
                 runtime.dispose();
@@ -819,11 +830,11 @@ async fn generate_response(
     let mut res_headers = res_options.headers.clone();
     headers.extend(res_headers.drain());
 
-    if !headers.contains_key(http::header::CONTENT_TYPE) {
+    if !headers.contains_key(header::CONTENT_TYPE) {
         // Set the Content Type headers on all responses. This makes Firefox show the page source
         // without complaining
         headers.insert(
-            http::header::CONTENT_TYPE,
+            header::CONTENT_TYPE,
             HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
         );
     }
@@ -1162,11 +1173,11 @@ where
                 headers.extend(res_headers.drain());
 
                 // This one doesn't use generate_response(), so we need to do this seperately
-                if !headers.contains_key(http::header::CONTENT_TYPE) {
+                if !headers.contains_key(header::CONTENT_TYPE) {
                     // Set the Content Type headers on all responses. This makes Firefox show the page source
                     // without complaining
                     headers.insert(
-                        http::header::CONTENT_TYPE,
+                        header::CONTENT_TYPE,
                         HeaderValue::from_str("text/html; charset=utf-8")
                             .unwrap(),
                     );
@@ -1489,7 +1500,7 @@ where
                 let mut res = Response::new(body);
                 if let Some(v) = content_type {
                     res.headers_mut().insert(
-                        HeaderName::from_static("content-type"),
+                        header::CONTENT_TYPE,
                         HeaderValue::from_static(v),
                     );
                 }

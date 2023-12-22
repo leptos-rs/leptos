@@ -8,7 +8,8 @@
 
 use actix_http::{
     h1,
-    header::{self, HeaderName, HeaderValue},
+    header::{self, HeaderValue},
+    StatusCode
 };
 use actix_web::{
     body::BoxBody,
@@ -17,14 +18,13 @@ use actix_web::{
     *,
 };
 use futures::{Stream, StreamExt};
-use http::StatusCode;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_integration_utils::{build_async_response, html_parts_separated, referer_to_url, WithServerFn};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -37,7 +37,6 @@ use std::{
 };
 #[cfg(debug_assertions)]
 use tracing::instrument;
-use url::Url;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -299,31 +298,13 @@ pub fn handle_server_fns_with_context(
                             let url = req
                                 .headers()
                                 .get(header::REFERER)
-                                .and_then(|value| {
-                                    Url::parse(
-                                        &Regex::new(
-                                            r"(?:\?|&)?server_fn_error=[^&]+",
-                                        )
-                                        .unwrap()
-                                        .replace(value.to_str().ok()?, ""),
-                                    )
-                                    .ok()
-                                });
+                                .and_then(referer_to_url);
 
-                            if let Some(mut url) = url {
-                                url.query_pairs_mut().append_pair(
-                                    "server_fn_error",
-                                    serde_qs::to_string(&e)
-                                        .expect(
-                                            "Could not serialize server fn \
-                                             error!",
-                                        )
-                                        .as_str(),
-                                );
+                            if let Some(url) = url {
                                 HttpResponse::SeeOther()
                                     .insert_header((
                                         header::LOCATION,
-                                        url.to_string(),
+                                        url.with_server_fn(&e).as_str(),
                                     ))
                                     .finish()
                             } else {
@@ -1089,7 +1070,7 @@ where
                 });
                 if let Some(v) = content_type {
                     res.headers_mut().insert(
-                        HeaderName::from_static("content-type"),
+                        header::CONTENT_TYPE,
                         HeaderValue::from_static(v),
                     );
                 }

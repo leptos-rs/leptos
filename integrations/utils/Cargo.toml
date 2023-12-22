@@ -16,6 +16,9 @@ leptos_config = { workspace = true }
 tracing = "0.1.37"
 serde_qs = "0.12"
 serde = { version = "1", features = ["derive"] }
+url = "2.4"
+http = "0.2.11"
+regex = "1.7.0"
 
 [features]
 experimental-islands = []
