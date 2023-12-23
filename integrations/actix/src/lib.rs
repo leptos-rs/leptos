@@ -9,7 +9,7 @@
 use actix_http::{
     h1,
     header::{self, HeaderValue},
-    StatusCode
+    StatusCode,
 };
 use actix_web::{
     body::BoxBody,
@@ -24,7 +24,9 @@ use leptos::{
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated, referer_to_url, WithServerFn};
+use leptos_integration_utils::{
+    build_async_response, html_parts_separated, referer_to_url, WithServerFn,
+};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;

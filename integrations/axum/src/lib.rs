@@ -37,8 +37,12 @@ use axum::{
     body::{Body, Bytes, Full, StreamBody},
     extract::{FromRef, FromRequestParts, MatchedPath, Path, RawQuery},
     http::{
-        header::{self, HeaderName, HeaderValue}, request::Parts, uri::Uri, version::Version, Response,
-        HeaderMap, Request, StatusCode, method::Method
+        header::{self, HeaderName, HeaderValue},
+        method::Method,
+        request::Parts,
+        uri::Uri,
+        version::Version,
+        HeaderMap, Request, Response, StatusCode,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
@@ -55,7 +59,7 @@ use leptos::{
     *,
 };
 use leptos_integration_utils::{
-    build_async_response, html_parts_separated, referer_to_url, WithServerFn
+    build_async_response, html_parts_separated, referer_to_url, WithServerFn,
 };
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
@@ -355,7 +359,10 @@ async fn handle_server_fns_inner(
                         };
                         match serialized {
                             Payload::Binary(data) => res
-                                .header(header::CONTENT_TYPE, "application/cbor")
+                                .header(
+                                    header::CONTENT_TYPE,
+                                    "application/cbor",
+                                )
                                 .body(Full::from(data)),
                             Payload::Url(data) => res
                                 .header(
@@ -364,7 +371,10 @@ async fn handle_server_fns_inner(
                                 )
                                 .body(Full::from(data)),
                             Payload::Json(data) => res
-                                .header(header::CONTENT_TYPE, "application/json")
+                                .header(
+                                    header::CONTENT_TYPE,
+                                    "application/json",
+                                )
                                 .body(Full::from(data)),
                         }
                     }
@@ -376,7 +386,10 @@ async fn handle_server_fns_inner(
                         if let Some(referer) = referer {
                             Response::builder()
                                 .status(StatusCode::SEE_OTHER)
-                                .header(header::LOCATION, referer.with_server_fn(&e).as_str())
+                                .header(
+                                    header::LOCATION,
+                                    referer.with_server_fn(&e).as_str(),
+                                )
                                 .body(Default::default())
                         } else {
                             Response::builder()

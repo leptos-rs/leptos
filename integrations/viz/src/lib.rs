@@ -10,7 +10,7 @@ use futures::{
     channel::mpsc::{Receiver, Sender},
     Future, SinkExt, Stream, StreamExt,
 };
-use http::{header, method::Method, uri::Uri, version::Version, StatusCode};
+use http::{uri::Uri, version::Version};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
@@ -18,16 +18,19 @@ use leptos::{
     ssr::*,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_integration_utils::{
+    build_async_response, html_parts_separated, referer_to_url, WithServerFn,
+};
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{pin::Pin, sync::Arc};
 use tokio::task::spawn_blocking;
 use viz::{
+    header,
     headers::{HeaderMap, HeaderName, HeaderValue},
-    Body, Bytes, Error, Handler, IntoResponse, Request, RequestExt, Response,
-    ResponseExt, Result, Router,
+    Body, Bytes, Error, Handler, IntoResponse, Method, Request, RequestExt,
+    Response, ResponseExt, Result, Router, StatusCode,
 };
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
@@ -260,7 +263,7 @@ async fn handle_server_fns_inner(
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                                     else {
                                         let referer = headers
-                                            .get("Referer")
+                                            .get(header::REFERER)
                                             .and_then(|value| {
                                                 value.to_str().ok()
                                             })
@@ -268,7 +271,7 @@ async fn handle_server_fns_inner(
 
                                         res = res
                                             .status(StatusCode::SEE_OTHER)
-                                            .header("Location", referer);
+                                            .header(header::LOCATION, referer);
                                     }
                                     // Override StatusCode if it was set in a Resource or Element
                                     res = match status {
@@ -297,12 +300,28 @@ async fn handle_server_fns_inner(
                                             .body(Body::from(data)),
                                     }
                                 }
-                                Err(e) => Response::builder()
-                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                    .body(Body::from(
-                                        serde_json::to_string(&e)
-                                            .unwrap_or_else(|_| e.to_string()),
-                                    )),
+                                Err(e) => {
+                                    let url = headers
+                                        .get(header::REFERER)
+                                        .and_then(referer_to_url);
+
+                                    if let Some(url) = url {
+                                        Response::builder()
+                                            .status(StatusCode::SEE_OTHER)
+                                            .header(
+                                                header::LOCATION,
+                                                url.with_server_fn(&e).as_str(),
+                                            )
+                                            .body(Default::default())
+                                    } else {
+                                        Response::builder()
+                                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                            .body(Body::from(
+                                                serde_json::to_string(&e)
+                                                    .unwrap_or_else(|_| e.to_string()),
+                                            ))
+                                    }
+                                }
                             };
                             runtime.dispose();
                             res
@@ -1121,7 +1140,7 @@ where
                 let mut res = Response::html(body);
                 if let Some(v) = content_type {
                     res.headers_mut().insert(
-                        HeaderName::from_static("content-type"),
+                        header::CONTENT_TYPE,
                         HeaderValue::from_static(v),
                     );
                 }
