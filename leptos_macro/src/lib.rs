@@ -603,10 +603,12 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         false
     };
 
-    let mut dummy = syn::parse::<DummyModel>(s.clone());
+    let Ok(mut dummy) = syn::parse::<DummyModel>(s.clone()) else {
+        return s;
+    };
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+    if let (ref mut unexpanded, Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model.is_transparent(is_transparent).into_token_stream();
         unexpanded.sig.ident =
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
@@ -616,15 +618,13 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
             #unexpanded
         }
-    } else if let Ok(mut dummy) = dummy {
+    } else {
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
             #dummy
         }
-    } else {
-        quote! {}
     }
     .into()
 }
@@ -703,10 +703,12 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let mut dummy = syn::parse::<DummyModel>(s.clone());
+    let Ok(mut dummy) = syn::parse::<DummyModel>(s.clone()) else {
+        return s;
+    };
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+    if let (ref mut unexpanded, Ok(model)) = (&mut dummy, parse_result) {
         let expanded = model.is_island().into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
@@ -721,15 +723,13 @@ pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
             #unexpanded
         }
-    } else if let Ok(mut dummy) = dummy {
+    } else {
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
             #dummy
         }
-    } else {
-        quote! {}
     }
     .into()
 }
