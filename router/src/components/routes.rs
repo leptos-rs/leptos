@@ -14,6 +14,7 @@ use std::{
     ops::IndexMut,
     rc::Rc,
 };
+use uuid::Uuid;
 
 /// Contains route definitions and manages the actual routing process.
 ///
@@ -76,15 +77,16 @@ pub fn Routes(
 ) -> impl IntoView {
     let router = use_context::<RouterContext>()
         .expect("<Routes/> component should be nested within a <Router/>.");
+    let router_id = router.id();
 
     let base_route = router.base();
     let base = base.unwrap_or_default();
 
-    Branches::initialize(&base, children());
+    Branches::initialize(router_id, &base, children());
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>() {
-        Branches::with(&base, |branches| {
+        Branches::with(router_id, &base, |branches| {
             *context.0.borrow_mut() = branches.to_vec()
         });
     }
@@ -93,7 +95,8 @@ pub fn Routes(
     let current_route = next_route;
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(base, &router, current_route, &root_equal);
+    let route_states =
+        route_states(router_id, base, &router, current_route, &root_equal);
     provide_context(route_states);
 
     let id = HydrationCtx::id();
@@ -156,15 +159,16 @@ pub fn AnimatedRoutes(
 ) -> impl IntoView {
     let router = use_context::<RouterContext>()
         .expect("<Routes/> component should be nested within a <Router/>.");
+    let router_id = router.id();
 
     let base_route = router.base();
     let base = base.unwrap_or_default();
 
-    Branches::initialize(&base, children());
+    Branches::initialize(router_id, &base, children());
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>() {
-        Branches::with(&base, |branches| {
+        Branches::with(router_id, &base, |branches| {
             *context.0.borrow_mut() = branches.to_vec()
         });
     }
@@ -193,8 +197,9 @@ pub fn AnimatedRoutes(
             let prev_matches = prev
                 .map(|(_, r)| r)
                 .cloned()
-                .map(|location| get_route_matches(&base, location));
-            let matches = get_route_matches(&base, next_route.clone());
+                .map(|location| get_route_matches(router_id, &base, location));
+            let matches =
+                get_route_matches(router_id, &base, next_route.clone());
             let same_route = prev_matches
                 .and_then(|p| p.first().as_ref().map(|r| r.route.key.clone()))
                 == matches.first().as_ref().map(|r| r.route.key.clone());
@@ -221,7 +226,8 @@ pub fn AnimatedRoutes(
     let current_route = create_memo(move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(base, &router, current_route, &root_equal);
+    let route_states =
+        route_states(router_id, base, &router, current_route, &root_equal);
 
     let root = root_route(base_route, route_states, root_equal);
     let node_ref = create_node_ref::<html::Div>();
@@ -267,16 +273,16 @@ pub fn AnimatedRoutes(
 pub(crate) struct Branches;
 
 thread_local! {
-    static BRANCHES: RefCell<HashMap<String, Vec<Branch>>> = RefCell::new(HashMap::new());
+    static BRANCHES: RefCell<HashMap<Uuid , HashMap<String, Vec<Branch>>>> = RefCell::new(HashMap::new());
 }
 
 impl Branches {
-    pub fn initialize(base: &str, children: Fragment) {
-        BRANCHES.with(|branches| {
+    pub fn initialize(router_id: Uuid, base: &str, children: Fragment) {
+        BRANCHES.with(|routers| {
             #[cfg(debug_assertions)]
             {
                 if cfg!(any(feature = "csr", feature = "hydrate"))
-                    && !branches.borrow().is_empty()
+                    && !routers.borrow().is_empty()
                 {
                     leptos::logging::warn!(
                         "You should only render the <Routes/> component once \
@@ -285,7 +291,9 @@ impl Branches {
                 }
             }
 
-            let mut current = branches.borrow_mut();
+            let mut routers = routers.borrow_mut();
+            routers.entry(router_id).or_default();
+            let current = routers.get_mut(&router_id).unwrap();
             if !current.contains_key(base) {
                 let mut branches = Vec::new();
                 let children = children
@@ -321,27 +329,34 @@ impl Branches {
         })
     }
 
-    pub fn with<T>(base: &str, cb: impl FnOnce(&[Branch]) -> T) -> T {
-        BRANCHES.with(|branches| {
-            let branches = branches.borrow();
-            let branches = branches.get(base).expect(
-                "Branches::initialize() should be called before \
-                 Branches::with()",
-            );
+    pub fn with<T>(
+        router_id: Uuid,
+        base: &str,
+        cb: impl FnOnce(&[Branch]) -> T,
+    ) -> T {
+        BRANCHES.with(|routers| {
+            let routers = routers.borrow();
+            let branches =
+                routers.get(&router_id).and_then(|r| r.get(base)).expect(
+                    "Branches::initialize() should be called before \
+                     Branches::with()",
+                );
             cb(branches)
         })
     }
 }
 
 fn route_states(
+    router_id: Uuid,
     base: String,
     router: &RouterContext,
     current_route: Memo<String>,
     root_equal: &Rc<Cell<bool>>,
 ) -> Memo<RouterState> {
     // whenever path changes, update matches
-    let matches =
-        create_memo(move |_| get_route_matches(&base, current_route.get()));
+    let matches = create_memo(move |_| {
+        get_route_matches(router_id, &base, current_route.get())
+    });
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ

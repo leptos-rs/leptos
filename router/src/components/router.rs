@@ -10,6 +10,7 @@ use leptos::*;
 use leptos_reactive::use_transition;
 use std::{cell::RefCell, rc::Rc};
 use thiserror::Error;
+use uuid::Uuid;
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
 
@@ -51,6 +52,7 @@ pub struct RouterContext {
     pub(crate) inner: Rc<RouterContextInner>,
 }
 pub(crate) struct RouterContextInner {
+    id: Uuid,
     pub location: Location,
     pub base: RouteContext,
     pub possible_routes: RefCell<Option<Vec<Branch>>>,
@@ -165,6 +167,7 @@ impl RouterContext {
         });
 
         let inner = Rc::new(RouterContextInner {
+            id: Uuid::new_v4(),
             base_path: base_path.into_owned(),
             path_stack: store_value(vec![location.pathname.get_untracked()]),
             location,
@@ -201,6 +204,10 @@ impl RouterContext {
     /// The [`RouteContext`] of the base route.
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
+    }
+
+    pub(crate) fn id(&self) -> Uuid {
+        self.inner.id
     }
 
     /// A list of all possible routes this router can match.

@@ -9,6 +9,7 @@ pub use matcher::*;
 pub use resolve_path::*;
 pub use route::*;
 use std::rc::Rc;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RouteMatch {
@@ -17,31 +18,41 @@ pub(crate) struct RouteMatch {
 }
 
 pub(crate) fn get_route_matches(
+    router_id: Uuid,
     base: &str,
     location: String,
 ) -> Rc<Vec<RouteMatch>> {
     #[cfg(feature = "ssr")]
     {
         use lru::LruCache;
-        use std::{cell::RefCell, num::NonZeroUsize};
+        use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize};
+        type RouteMatchCache = LruCache<String, Rc<Vec<RouteMatch>>>;
         thread_local! {
-            static ROUTE_MATCH_CACHE: RefCell<LruCache<String, Rc<Vec<RouteMatch>>>> = RefCell::new(LruCache::new(NonZeroUsize::new(32).unwrap()));
+            static ROUTE_MATCH_CACHES: RefCell<HashMap<Uuid , RouteMatchCache>> = RefCell::new(HashMap::new());
         }
 
-        ROUTE_MATCH_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
+        ROUTE_MATCH_CACHES.with(|caches| {
+            let mut caches = caches.borrow_mut();
+            caches.entry(router_id).or_insert_with(|| {
+                LruCache::new(NonZeroUsize::new(32).unwrap())
+            });
+            let cache = caches.get_mut(&router_id).unwrap();
             Rc::clone(cache.get_or_insert(location.clone(), || {
-                build_route_matches(base, location)
+                build_route_matches(router_id, base, location)
             }))
         })
     }
 
     #[cfg(not(feature = "ssr"))]
-    build_route_matches(base, location)
+    build_route_matches(router_id, base, location)
 }
 
-fn build_route_matches(base: &str, location: String) -> Rc<Vec<RouteMatch>> {
-    Rc::new(Branches::with(base, |branches| {
+fn build_route_matches(
+    router_id: Uuid,
+    base: &str,
+    location: String,
+) -> Rc<Vec<RouteMatch>> {
+    Rc::new(Branches::with(router_id, base, |branches| {
         for branch in branches {
             if let Some(matches) = branch.matcher(&location) {
                 return matches;
