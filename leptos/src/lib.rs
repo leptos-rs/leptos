@@ -57,8 +57,8 @@
 //!   [`todo_app_sqlite_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_axum), and
 //!   [`todo_app_sqlite_viz`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_viz)
 //!   show how to build a full-stack app using server functions and database connections.
-//! - [`tailwind`](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind) shows how to integrate
-//!   TailwindCSS with `cargo-leptos`.
+//! - [`tailwind`](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind_csr) shows how to integrate
+//!   TailwindCSS with `cargo-leptos` for CSR.
 //!
 //! Details on how to run each example can be found in its README.
 //!
