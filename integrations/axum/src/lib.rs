@@ -180,7 +180,7 @@ pub async fn generate_request_and_parts(
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
-/// ```rust,ignore
+/// ```
 /// use axum::{handler::Handler, routing::post, Router};
 /// use leptos::*;
 /// use std::net::SocketAddr;
@@ -416,7 +416,7 @@ pub type PinnedHtmlStream =
 /// includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```rust,ignore
+/// ```
 /// use axum::{handler::Handler, Router};
 /// use leptos::*;
 /// use leptos_config::get_configuration;
@@ -516,7 +516,7 @@ where
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```rust,ignore
+/// ```
 /// use axum::{handler::Handler, Router};
 /// use leptos::*;
 /// use leptos_config::get_configuration;
@@ -985,7 +985,7 @@ fn provide_contexts(
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
-/// ```rust,ignore
+/// ```
 /// use axum::{handler::Handler, Router};
 /// use leptos::*;
 /// use leptos_config::get_configuration;
