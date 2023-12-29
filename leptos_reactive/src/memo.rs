@@ -86,7 +86,33 @@ pub fn create_memo<T>(f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + 'static,
 {
-    Runtime::current().create_memo(f)
+    Runtime::current().create_raw_memo(move |current_value| {
+        let new_value = f(current_value.as_ref());
+        let is_different = current_value.as_ref() != Some(&new_value);
+        (new_value, is_different)
+    })
+}
+
+#[allow(missing_docs)] // TODO
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
+#[inline(always)]
+pub fn create_raw_memo<T>(
+    f: impl Fn(Option<T>) -> (T, bool) + 'static,
+) -> Memo<T>
+where
+    T: PartialEq + 'static,
+{
+    Runtime::current().create_raw_memo(f)
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -215,6 +241,16 @@ impl<T> Memo<T> {
         T: PartialEq + 'static,
     {
         create_memo(f)
+    }
+
+    #[allow(missing_docs)] // TODO
+    #[inline(always)]
+    #[track_caller]
+    pub fn new_raw(f: impl Fn(Option<T>) -> (T, bool) + 'static) -> Memo<T>
+    where
+        T: PartialEq + 'static,
+    {
+        create_raw_memo(f)
     }
 }
 
@@ -519,8 +555,8 @@ impl_get_fn_traits![Memo];
 
 pub(crate) struct MemoState<T, F>
 where
-    T: PartialEq + 'static,
-    F: Fn(Option<&T>) -> T,
+    T: 'static,
+    F: Fn(Option<T>) -> (T, bool),
 {
     pub f: F,
     pub t: PhantomData<T>,
@@ -530,8 +566,8 @@ where
 
 impl<T, F> AnyComputation for MemoState<T, F>
 where
-    T: PartialEq + 'static,
-    F: Fn(Option<&T>) -> T,
+    T: 'static,
+    F: Fn(Option<T>) -> (T, bool),
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -546,24 +582,27 @@ where
         )
     )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
-        let (new_value, is_different) = {
-            let value = value.borrow();
-            let curr_value = value
-                .downcast_ref::<Option<T>>()
-                .expect("to downcast memo value");
-
-            // run the effect
-            let new_value = (self.f)(curr_value.as_ref());
-            let is_different = curr_value.as_ref() != Some(&new_value);
-            (new_value, is_different)
-        };
-        if is_different {
+        // we defensively take and release the BorrowMut twice here
+        // in case a change during the memo running schedules a rerun
+        // ideally this should never happen, but this guards against panic
+        let curr_value = {
+            // downcast value
             let mut value = value.borrow_mut();
-            let curr_value = value
+            let value = value
                 .downcast_mut::<Option<T>>()
                 .expect("to downcast memo value");
-            *curr_value = Some(new_value);
-        }
+            value.take()
+        };
+
+        // run the memo
+        let (new_value, is_different) = (self.f)(curr_value);
+
+        // set new value
+        let mut value = value.borrow_mut();
+        let value = value
+            .downcast_mut::<Option<T>>()
+            .expect("to downcast memo value");
+        *value = Some(new_value);
 
         is_different
     }

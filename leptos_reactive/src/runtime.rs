@@ -1191,12 +1191,12 @@ impl RuntimeId {
 
     #[track_caller]
     #[inline(always)]
-    pub(crate) fn create_memo<T>(
+    pub(crate) fn create_raw_memo<T>(
         self,
-        f: impl Fn(Option<&T>) -> T + 'static,
+        f: impl Fn(Option<T>) -> (T, bool) + 'static,
     ) -> Memo<T>
     where
-        T: PartialEq + Any + 'static,
+        T: 'static,
     {
         Memo {
             id: self.create_concrete_memo(
