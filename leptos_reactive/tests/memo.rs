@@ -233,7 +233,9 @@ fn raw_memo_slice() {
 
     let token = create_raw_memo(move |old_token| {
         state.with(move |state| {
-            if let Some(token) = old_token.filter(|old_token| old_token == &state.token) {
+            if let Some(token) =
+                old_token.filter(|old_token| old_token == &state.token)
+            {
                 (token, false)
             } else {
                 (state.token.clone(), true)
