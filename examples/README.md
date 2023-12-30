@@ -4,23 +4,15 @@
 
 The examples in this directory are all built and tested against the current `main` branch.
 
-To the extent that new features have been released or breaking changes have been made since the previous release, the examples are compatible with the `main` branch but not the current release.
-
-To see the examples as they were at the time of the `0.5.0` release, [click here](https://github.com/leptos-rs/leptos/tree/v0.5.0/examples).
-
-## Cargo Make
-
-[Cargo Make](https://sagiegurari.github.io/cargo-make/) is used to build, test, and run examples.
-
-Here are the highlights.
-
-- Extendable custom task files are located in the [cargo-make](./cargo-make/) directory
-- Running a task will automatically install `cargo` dependencies 
-- Each `Makefile.toml` file must extend the [cargo-make/main.toml](./cargo-make/main.toml) file
-- [cargo-make](./cargo-make/) files that end in `*-test.toml` configure web testing strategies
-- Run `cargo make test-report` to learn which examples have web tests
+To the extent that new features have been released or breaking changes have been made since the previous release, the examples are compatible with the `main` branch and not the current release.
 
 ## Getting Started
+
+The simplest way to get started with any example is to use the “quick start” command found in the README for each example. Most of the examples use either [`trunk`](https://trunkrs.dev/) (a simple build system and dev server for client-side-rendered apps) or [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) (a build system for server-rendered and client-hydrated apps). 
+
+## Using Cargo Make
+
+You can also run any of the examples using [`cargo-make`](https://github.com/sagiegurari/cargo-make). Note that this is completely optional. We use it for CI, and it can be convenient for running the examples, but is not required.
 
 Follow these steps to get any example up and running.
 
@@ -28,6 +20,15 @@ Follow these steps to get any example up and running.
 2. Run `cargo make ci` to setup and test the example
 3. Run `cargo make start` to run the example
 4. Open the client URL in the console output (<http://127.0.0.1:8080> or <http://127.0.0.1:3000> by default)
+5. Run `cargo make stop` to end any processes started by `cargo make start`. 
+
+Here are a few additional notes:
+
+- Extendable custom task files are located in the [cargo-make](./cargo-make/) directory
+- Running a task will automatically install `cargo` dependencies 
+- Each `Makefile.toml` file must extend the [cargo-make/main.toml](./cargo-make/main.toml) file
+- [cargo-make](./cargo-make/) files that end in `*-test.toml` configure web testing strategies
+- Run `cargo make test-report` to learn which examples have web tests
 
 ## Prerequisites
 
