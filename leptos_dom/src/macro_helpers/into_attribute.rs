@@ -138,15 +138,6 @@ macro_rules! impl_into_attr_boxed {
     };
 }
 
-impl IntoAttribute for Option<Attribute> {
-    #[inline(always)]
-    fn into_attribute(self) -> Attribute {
-        self.unwrap_or(Attribute::Option(None))
-    }
-
-    impl_into_attr_boxed! {}
-}
-
 impl IntoAttribute for String {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
@@ -201,46 +192,10 @@ impl IntoAttribute for bool {
     impl_into_attr_boxed! {}
 }
 
-impl IntoAttribute for Option<String> {
+impl<T: IntoAttribute> IntoAttribute for Option<T> {
     #[inline(always)]
     fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::Owned))
-    }
-
-    impl_into_attr_boxed! {}
-}
-
-impl IntoAttribute for Option<&'static str> {
-    #[inline(always)]
-    fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::Borrowed))
-    }
-
-    impl_into_attr_boxed! {}
-}
-
-impl IntoAttribute for Option<Rc<str>> {
-    #[inline(always)]
-    fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::Counted))
-    }
-
-    impl_into_attr_boxed! {}
-}
-
-impl IntoAttribute for Option<Cow<'static, str>> {
-    #[inline(always)]
-    fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(Oco::from))
-    }
-
-    impl_into_attr_boxed! {}
-}
-
-impl IntoAttribute for Option<Oco<'static, str>> {
-    #[inline(always)]
-    fn into_attribute(self) -> Attribute {
-        Attribute::Option(self)
+        self.map_or(Attribute::Option(None), IntoAttribute::into_attribute)
     }
 
     impl_into_attr_boxed! {}
@@ -310,17 +265,6 @@ macro_rules! attr_type {
                 self.into_attribute()
             }
         }
-
-        impl IntoAttribute for Option<$attr_type> {
-            fn into_attribute(self) -> Attribute {
-                Attribute::Option(self.map(|n| n.to_string().into()))
-            }
-
-            #[inline]
-            fn into_attribute_boxed(self: Box<Self>) -> Attribute {
-                self.into_attribute()
-            }
-        }
     };
 }
 
@@ -330,24 +274,6 @@ macro_rules! attr_signal_type {
         impl<T> IntoAttribute for $signal_type
         where
             T: IntoAttribute + Clone,
-        {
-            fn into_attribute(self) -> Attribute {
-                let modified_fn = Rc::new(move || self.get().into_attribute());
-                Attribute::Fn(modified_fn)
-            }
-
-            impl_into_attr_boxed! {}
-        }
-    };
-}
-
-macro_rules! attr_signal_type_optional {
-    ($signal_type:ty) => {
-        #[cfg(not(feature = "nightly"))]
-        impl<T> IntoAttribute for $signal_type
-        where
-            T: Clone,
-            Option<T>: IntoAttribute,
         {
             fn into_attribute(self) -> Attribute {
                 let modified_fn = Rc::new(move || self.get().into_attribute());
@@ -381,7 +307,7 @@ attr_signal_type!(RwSignal<T>);
 attr_signal_type!(Memo<T>);
 attr_signal_type!(Signal<T>);
 attr_signal_type!(MaybeSignal<T>);
-attr_signal_type_optional!(MaybeProp<T>);
+attr_signal_type!(MaybeProp<T>);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]

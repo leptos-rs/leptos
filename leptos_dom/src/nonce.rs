@@ -69,16 +69,6 @@ impl IntoAttribute for Nonce {
     }
 }
 
-impl IntoAttribute for Option<Nonce> {
-    fn into_attribute(self) -> Attribute {
-        Attribute::Option(self.map(|n| n.0.into()))
-    }
-
-    fn into_attribute_boxed(self: Box<Self>) -> Attribute {
-        Attribute::Option(self.map(|n| n.0.into()))
-    }
-}
-
 /// Accesses the nonce that has been generated during the current
 /// server response. This can be added to inline `<script>` and
 /// `<style>` tags for compatibility with a Content Security Policy.
