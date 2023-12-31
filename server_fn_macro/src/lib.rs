@@ -1,46 +1,20 @@
 #![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
-// to prevent warnings from popping up when a nightly feature is stabilized
-#![allow(stable_features)]
 
 //! Implementation of the `server_fn` macro.
 //!
 //! This crate contains the implementation of the `server_fn` macro. [`server_macro_impl`] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
 
+use convert_case::{Case, Converter};
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
-use proc_macro_error::abort;
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
     *,
 };
-
-/// Describes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
-/// can be a custom context of this type. This context can be used to access the server's state within the server function.
-pub struct ServerContext {
-    /// The type of the context.
-    pub ty: Ident,
-    /// The path to the context type. Used to reference the context type in the generated code.
-    pub path: Path,
-}
-
-fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
-    if let FnArg::Typed(t) = f {
-        if let Type::Path(path) = &*t.ty {
-            path.path
-                .segments
-                .iter()
-                .any(|segment| segment.ident == server_context.ty)
-        } else {
-            false
-        }
-    } else {
-        false
-    }
-}
 
 /// The implementation of the `server_fn` macro.
 /// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
@@ -53,14 +27,9 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 /// ```ignore
 /// #[proc_macro_attribute]
 /// pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-///     let server_context = Some(ServerContext {
-///         ty: syn::parse_quote!(MyContext),
-///         path: syn::parse_quote!(my_crate::prelude::MyContext),
-///     });
 ///     match server_macro_impl(
 ///         args.into(),
 ///         s.into(),
-///         Some(server_context),
 ///         Some(syn::parse_quote!(my_crate::exports::server_fn)),
 ///     ) {
 ///         Err(e) => e.to_compile_error().into(),
@@ -72,21 +41,57 @@ pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
     trait_obj_wrapper: Type,
-    server_context: Option<ServerContext>,
     server_fn_path: Option<Path>,
+    default_path: &str,
 ) -> Result<TokenStream2> {
-    let ServerFnName {
+    let mut body = syn::parse::<ServerFnBody>(body.into())?;
+
+    // extract all #[middleware] attributes, removing them from signature of dummy
+    let mut middlewares: Vec<Middleware> = vec![];
+    body.attrs.retain(|attr| {
+        if attr.meta.path().is_ident("middleware") {
+            if let Ok(middleware) = attr.parse_args() {
+                middlewares.push(middleware);
+                false
+            } else {
+                true
+            }
+        } else {
+            true
+        }
+    });
+
+    let dummy = body.to_dummy_output();
+    let dummy_name = body.to_dummy_ident();
+    let args = syn::parse::<ServerFnArgs>(args.into())?;
+
+    // default values for args
+    let ServerFnArgs {
         struct_name,
         prefix,
-        encoding,
+        input,
+        output,
         fn_path,
-        ..
-    } = syn::parse2::<ServerFnName>(args)?;
-    let prefix = prefix.unwrap_or_else(|| Literal::string(""));
+    } = args;
+    let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
-    let encoding = quote!(#server_fn_path::#encoding);
+    let input = input.unwrap_or_else(|| syn::parse_quote!(PostUrl));
+    let input_is_rkyv = input == "Rkyv";
+    let input_is_multipart = input == "MultipartFormData";
+    let input = codec_ident(server_fn_path.as_ref(), input);
+    let output = output.unwrap_or_else(|| syn::parse_quote!(Json));
+    let output = codec_ident(server_fn_path.as_ref(), output);
+    // default to PascalCase version of function name if no struct name given
+    let struct_name = struct_name.unwrap_or_else(|| {
+        let upper_camel_case_name = Converter::new()
+            .from_case(Case::Snake)
+            .to_case(Case::UpperCamel)
+            .convert(body.ident.to_string());
+        Ident::new(&upper_camel_case_name, body.ident.span())
+    });
 
-    let mut body = syn::parse::<ServerFnBody>(body.into())?;
+    // build struct for type
+    let mut body = body;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
@@ -96,23 +101,17 @@ pub fn server_macro_impl(
     let fields = body
         .inputs
         .iter_mut()
-        .filter(|f| {
-            if let Some(ctx) = &server_context {
-                !fn_arg_is_cx(f, ctx)
-            } else {
-                true
-            }
-        })
         .map(|f| {
             let typed_arg = match f {
                 FnArg::Receiver(_) => {
-                    abort!(
-                        f,
-                        "cannot use receiver types in server function macro"
-                    )
+                    return Err(syn::Error::new(
+                        f.span(),
+                        "cannot use receiver types in server function macro",
+                    ))
                 }
                 FnArg::Typed(t) => t,
             };
+            // allow #[server(default)] on fields — TODO is this documented?
             let mut default = false;
             let mut other_attrs = Vec::new();
             for attr in typed_arg.attrs.iter() {
@@ -141,87 +140,76 @@ pub fn server_macro_impl(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let cx_arg = body.inputs.iter().next().and_then(|f| {
-        server_context
-            .as_ref()
-            .and_then(|ctx| fn_arg_is_cx(f, ctx).then_some(f))
-    });
-    let cx_fn_arg = if cx_arg.is_some() {
-        quote! { cx, }
-    } else {
-        quote! {}
-    };
+    let fn_args = body
+        .inputs
+        .iter()
+        .filter_map(|f| match f {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(t) => Some(t),
+        })
+        .collect::<Vec<_>>();
 
-    let fn_args = body.inputs.iter().map(|f| {
-        let typed_arg = match f {
-            FnArg::Receiver(_) => {
-                abort!(f, "cannot use receiver types in server function macro")
-            }
-            FnArg::Typed(t) => t,
-        };
-        let is_cx = if let Some(ctx) = &server_context {
-            fn_arg_is_cx(f, ctx)
-        } else {
-            false
-        };
-        if is_cx {
+    let field_names = body
+        .inputs
+        .iter()
+        .filter_map(|f| match f {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(t) => Some(&t.pat),
+        })
+        .collect::<Vec<_>>();
+
+    // if there's exactly one field, impl From<T> for the struct
+    let first_field = body
+        .inputs
+        .iter()
+        .filter_map(|f| match f {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(t) => Some((&t.pat, &t.ty)),
+        })
+        .next();
+    let from_impl =
+        (body.inputs.len() == 1 && first_field.is_some()).then(|| {
+            let field = first_field.unwrap();
+            let (name, ty) = field;
             quote! {
-                #[allow(unused)]
-                #typed_arg
-            }
-        } else {
-            quote! { #typed_arg }
-        }
-    });
-    let fn_args_2 = fn_args.clone();
-
-    let field_names = body.inputs.iter().filter_map(|f| match f {
-        FnArg::Receiver(_) => todo!(),
-        FnArg::Typed(t) => {
-            if let Some(ctx) = &server_context {
-                if fn_arg_is_cx(f, ctx) {
-                    None
-                } else {
-                    Some(&t.pat)
+                impl From<#struct_name> for #ty {
+                    fn from(value: #struct_name) -> Self {
+                        let #struct_name { #name } = value;
+                        #name
+                    }
                 }
-            } else {
-                Some(&t.pat)
+
+                impl From<#ty> for #struct_name {
+                    fn from(#name: #ty) -> Self {
+                        #struct_name { #name }
+                    }
+                }
             }
-        }
-    });
+        });
 
-    let field_names_2 = field_names.clone();
-    let field_names_3 = field_names.clone();
-    let field_names_4 = field_names.clone();
-    let field_names_5 = field_names.clone();
-
+    // check output type
     let output_arrow = body.output_arrow;
     let return_ty = body.return_ty;
 
-    let output_ty = 'output_ty: {
-        if let syn::Type::Path(pat) = &return_ty {
-            if pat.path.segments[0].ident == "Result" {
-                if let PathArguments::AngleBracketed(args) =
-                    &pat.path.segments[0].arguments
-                {
-                    break 'output_ty &args.args[0];
-                }
+    let output_ty = output_type(&return_ty)?;
+    let error_ty = err_type(&return_ty)?;
+    let error_ty =
+        error_ty.map(ToTokens::to_token_stream).unwrap_or_else(|| {
+            quote! {
+                #server_fn_path::error::NoCustomError
             }
-        }
+        });
 
-        abort!(
-            return_ty,
-            "server functions should return Result<T, ServerFnError>"
-        );
-    };
-
-    let server_ctx_path = if let Some(ctx) = &server_context {
-        let path = &ctx.path;
-        quote!(#path)
-    } else {
-        quote!(())
-    };
-
+    // build server fn path
+    let serde_path = server_fn_path.as_ref().map(|path| {
+        let path = path
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>();
+        let path = path.join("::");
+        format!("{path}::serde")
+    });
     let server_fn_path = server_fn_path
         .map(|path| quote!(#path))
         .unwrap_or_else(|| quote! { server_fn });
@@ -239,43 +227,49 @@ pub fn server_macro_impl(
         #[doc = #link_to_server_fn]
     };
 
+    // pass through docs
     let docs = body
         .docs
         .iter()
         .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
         .collect::<TokenStream2>();
 
+    // auto-registration with inventory
     let inventory = if cfg!(feature = "ssr") {
         quote! {
-            #server_fn_path::inventory::submit! {
-                #trait_obj_wrapper::from_generic_server_fn(#server_fn_path::ServerFnTraitObj::new(
-                    #struct_name::PREFIX,
-                    #struct_name::URL,
-                    #struct_name::ENCODING,
-                    <#struct_name as #server_fn_path::ServerFn<#server_ctx_path>>::call_from_bytes,
-                ))
-            }
+            #server_fn_path::inventory::submit! {{
+                use #server_fn_path::ServerFn;
+                #server_fn_path::ServerFnTraitObj::new(
+                    #struct_name::PATH,
+                    |req| {
+                        Box::pin(#struct_name::run_on_server(req))
+                    },
+                    #struct_name::middlewares
+                )
+            }}
         }
     } else {
         quote! {}
     };
 
-    let call_fn = if cfg!(feature = "ssr") {
+    // run_body in the trait implementation
+    let run_body = if cfg!(feature = "ssr") {
         quote! {
-            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
+            async fn run_body(self) -> #return_ty {
                 let #struct_name { #(#field_names),* } = self;
-                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
+                #dummy_name(#(#field_names),*).await
             }
         }
     } else {
         quote! {
-            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
-                let #struct_name { #(#field_names_3),* } = self;
-                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_4),*).await })
+            #[allow(unused_variables)]
+            async fn run_body(self) -> #return_ty {
+                unreachable!()
             }
         }
     };
 
+    // the actual function definition
     let func = if cfg!(feature = "ssr") {
         quote! {
             #docs
@@ -289,114 +283,414 @@ pub fn server_macro_impl(
             #docs
             #(#attrs)*
             #[allow(unused_variables)]
-            #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-                #server_fn_path::call_server_fn(
-                    &{
-                        let prefix = #struct_name::PREFIX.to_string();
-                        prefix + "/" + #struct_name::URL
-                    },
-                    #struct_name { #(#field_names_5),* },
-                    #encoding
-                ).await
+            #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
+                use #server_fn_path::ServerFn;
+                let data = #struct_name { #(#field_names),* };
+                data.run_on_client().await
             }
         }
+    };
+
+    // TODO rkyv derives
+    let derives = if input_is_multipart {
+        quote! {}
+    } else if input_is_rkyv {
+        todo!("implement derives for Rkyv")
+    } else {
+        quote! {
+            Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
+        }
+    };
+    let serde_path = (!input_is_multipart && !input_is_rkyv).then(|| {
+        quote! {
+            #[serde(crate = #serde_path)]
+        }
+    });
+
+    // TODO reqwest
+    let client = quote! {
+        #server_fn_path::client::browser::BrowserClient
+    };
+
+    // TODO Actix etc
+    let req = if !cfg!(feature = "ssr") {
+        quote! {
+            #server_fn_path::request::BrowserMockReq
+        }
+    } else if cfg!(feature = "axum") {
+        quote! {
+            ::axum::http::Request<::axum::body::Body>
+        }
+    } else if cfg!(feature = "actix") {
+        quote! {
+            ::actix_web::HttpRequest
+        }
+    } else {
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "If the `ssr` feature is enabled, either the `actix` or `axum` \
+             features should also be enabled.",
+        ));
+    };
+    let res = if !cfg!(feature = "ssr") {
+        quote! {
+            #server_fn_path::response::BrowserMockRes
+        }
+    } else if cfg!(feature = "axum") {
+        quote! {
+            ::axum::http::Response<::axum::body::Body>
+        }
+    } else if cfg!(feature = "actix") {
+        quote! {
+            ::actix_web::HttpResponse
+        }
+    } else {
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "If the `ssr` feature is enabled, either the `actix` or `axum` \
+             features should also be enabled.",
+        ));
+    };
+
+    // generate path
+    let path = quote! {
+        if #fn_path.is_empty() {
+            #server_fn_path::const_format::concatcp!(
+                #prefix,
+                "/",
+                #fn_name_as_str,
+                #server_fn_path::xxhash_rust::const_xxh64::xxh64(
+                    concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
+                    0
+                )
+            )
+        } else {
+            #server_fn_path::const_format::concatcp!(
+                #prefix,
+                #fn_path
+            )
+        }
+    };
+
+    // only emit the dummy (unmodified server-only body) for the server build
+    let dummy = cfg!(feature = "ssr").then_some(dummy);
+    let middlewares = if cfg!(feature = "ssr") {
+        quote! {
+            vec![
+                #(
+                    std::sync::Arc::new(#middlewares),
+                ),*
+            ]
+        }
+    } else {
+        quote! { vec![] }
     };
 
     Ok(quote::quote! {
         #args_docs
         #docs
-        #[derive(Clone, Debug, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize)]
+        #[derive(Debug, #derives)]
+        #serde_path
         pub struct #struct_name {
             #(#fields),*
         }
 
-        impl #struct_name {
-            const URL: &'static str = if #fn_path.is_empty() {
-                    #server_fn_path::const_format::concatcp!(
-                    #fn_name_as_str,
-                    #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                        concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
-                        0
-                    )
-                )
-            } else {
-                #fn_path
-            };
-            const PREFIX: &'static str = #prefix;
-            const ENCODING: #server_fn_path::Encoding = #encoding;
+        #from_impl
+
+        impl #server_fn_path::ServerFn for #struct_name {
+            // TODO prefix
+            const PATH: &'static str = #path;
+
+            type Client = #client;
+            type ServerRequest = #req;
+            type ServerResponse = #res;
+            type Output = #output_ty;
+            type InputEncoding = #input;
+            type OutputEncoding = #output;
+            type Error = #error_ty;
+
+            fn middlewares() -> Vec<std::sync::Arc<dyn #server_fn_path::middleware::Layer<#req, #res>>> {
+                #middlewares
+            }
+
+            #run_body
         }
 
         #inventory
 
-        impl #server_fn_path::ServerFn<#server_ctx_path> for #struct_name {
-            type Output = #output_ty;
-
-            fn prefix() -> &'static str {
-                Self::PREFIX
-            }
-
-            fn url() -> &'static str {
-                Self::URL
-            }
-
-            fn encoding() -> #server_fn_path::Encoding {
-                Self::ENCODING
-            }
-
-            #call_fn
-        }
-
         #func
+
+        #dummy
     })
 }
 
-struct ServerFnName {
-    _attrs: Vec<Attribute>,
-    struct_name: Ident,
-    _comma: Option<Token![,]>,
+#[derive(Debug)]
+struct Middleware {
+    expr: syn::Expr,
+}
+
+impl ToTokens for Middleware {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let expr = &self.expr;
+        tokens.extend(quote::quote! {
+            #expr
+        });
+    }
+}
+
+impl Parse for Middleware {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let arg: syn::Expr = input.parse()?;
+        Ok(Middleware { expr: arg })
+    }
+}
+
+fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
+    if let syn::Type::Path(pat) = &return_ty {
+        if pat.path.segments[0].ident == "Result" {
+            if pat.path.segments.is_empty() {
+                panic!("{:#?}", pat.path);
+            } else if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
+                return Ok(&args.args[0]);
+            }
+        }
+    };
+
+    Err(syn::Error::new(
+        return_ty.span(),
+        "server functions should return Result<T, ServerFnError> or Result<T, \
+         ServerFnError<E>>",
+    ))
+}
+
+fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
+    if let syn::Type::Path(pat) = &return_ty {
+        if pat.path.segments[0].ident == "Result" {
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
+                // Result<T>
+                if args.args.len() == 1 {
+                    return Ok(None);
+                }
+                // Result<T, _>
+                else if let GenericArgument::Type(Type::Path(pat)) =
+                    &args.args[1]
+                {
+                    if pat.path.segments[0].ident == "ServerFnError" {
+                        let args = &pat.path.segments[0].arguments;
+                        match args {
+                            // Result<T, ServerFnError>
+                            PathArguments::None => return Ok(None),
+                            // Result<T, ServerFnError<E>>
+                            PathArguments::AngleBracketed(args) => {
+                                if args.args.len() == 1 {
+                                    return Ok(Some(&args.args[0]));
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    Err(syn::Error::new(
+        return_ty.span(),
+        "server functions should return Result<T, ServerFnError> or Result<T, \
+         ServerFnError<E>>",
+    ))
+}
+
+#[derive(Debug)]
+struct ServerFnArgs {
+    struct_name: Option<Ident>,
     prefix: Option<Literal>,
-    _comma2: Option<Token![,]>,
-    encoding: Path,
-    _comma3: Option<Token![,]>,
+    input: Option<Ident>,
+    output: Option<Ident>,
     fn_path: Option<Literal>,
 }
 
-impl Parse for ServerFnName {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let _attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
-        let struct_name = input.parse()?;
-        let _comma = input.parse()?;
-        let prefix = input.parse()?;
-        let _comma2 = input.parse()?;
-        let encoding = input
-            .parse::<Literal>()
-            .map(|encoding| {
-                match encoding.to_string().to_lowercase().as_str() {
-                    "\"url\"" => syn::parse_quote!(Encoding::Url),
-                    "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
-                    "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
-                    "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
-                    _ => abort!(encoding, "Encoding Not Found"),
+impl Parse for ServerFnArgs {
+    fn parse(stream: ParseStream) -> syn::Result<Self> {
+        // legacy 4-part arguments
+        let mut struct_name: Option<Ident> = None;
+        let mut prefix: Option<Literal> = None;
+        let mut encoding: Option<Literal> = None;
+        let mut fn_path: Option<Literal> = None;
+
+        // new arguments: can only be keyed by name
+        let mut input: Option<Ident> = None;
+        let mut output: Option<Ident> = None;
+
+        let mut use_key_and_value = false;
+        let mut arg_pos = 0;
+
+        while !stream.is_empty() {
+            arg_pos += 1;
+            let lookahead = stream.lookahead1();
+            if lookahead.peek(Ident) {
+                let key_or_value: Ident = stream.parse()?;
+
+                let lookahead = stream.lookahead1();
+                if lookahead.peek(Token![=]) {
+                    stream.parse::<Token![=]>()?;
+                    let key = key_or_value;
+                    use_key_and_value = true;
+                    if key == "name" {
+                        if struct_name.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `name`",
+                            ));
+                        }
+                        struct_name = Some(stream.parse()?);
+                    } else if key == "prefix" {
+                        if prefix.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `prefix`",
+                            ));
+                        }
+                        prefix = Some(stream.parse()?);
+                    } else if key == "encoding" {
+                        if encoding.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `encoding`",
+                            ));
+                        }
+                        encoding = Some(stream.parse()?);
+                    } else if key == "endpoint" {
+                        if fn_path.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `endpoint`",
+                            ));
+                        }
+                        fn_path = Some(stream.parse()?);
+                    } else if key == "input" {
+                        if encoding.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "`encoding` and `input` should not both be \
+                                 specified",
+                            ));
+                        } else if input.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `input`",
+                            ));
+                        }
+                        input = Some(stream.parse()?);
+                    } else if key == "output" {
+                        if encoding.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "`encoding` and `output` should not both be \
+                                 specified",
+                            ));
+                        } else if output.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `output`",
+                            ));
+                        }
+                        output = Some(stream.parse()?);
+                    } else {
+                        return Err(lookahead.error());
+                    }
+                } else {
+                    let value = key_or_value;
+                    if use_key_and_value {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "positional argument follows keyword argument",
+                        ));
+                    }
+                    if arg_pos == 1 {
+                        struct_name = Some(value)
+                    } else {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "expected string literal",
+                        ));
+                    }
                 }
-            })
-            .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));
-        let _comma3 = input.parse()?;
-        let fn_path = input.parse()?;
+            } else if lookahead.peek(LitStr) {
+                let value: Literal = stream.parse()?;
+                if use_key_and_value {
+                    return Err(syn::Error::new(
+                        value.span(),
+                        "If you use keyword arguments (e.g., `name` = \
+                         Something), then you can no longer use arguments \
+                         without a keyword.",
+                    ));
+                }
+                match arg_pos {
+                    1 => return Err(lookahead.error()),
+                    2 => prefix = Some(value),
+                    3 => encoding = Some(value),
+                    4 => fn_path = Some(value),
+                    _ => {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "unexpected extra argument",
+                        ))
+                    }
+                }
+            } else {
+                return Err(lookahead.error());
+            }
+
+            if !stream.is_empty() {
+                stream.parse::<Token![,]>()?;
+            }
+        }
+
+        // parse legacy encoding into input/output
+        if let Some(encoding) = encoding {
+            match encoding.to_string().to_lowercase().as_str() {
+                "\"url\"" => {
+                    input = syn::parse_quote!(PostUrl);
+                    output = syn::parse_quote!(Json);
+                }
+                "\"cbor\"" => {
+                    input = syn::parse_quote!(Cbor);
+                    output = syn::parse_quote!(Cbor);
+                }
+                "\"getcbor\"" => {
+                    input = syn::parse_quote!(GetUrl);
+                    output = syn::parse_quote!(Cbor);
+                }
+                "\"getjson\"" => {
+                    input = syn::parse_quote!(GetUrl);
+                    output = syn::parse_quote!(Json);
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        encoding.span(),
+                        "Encoding not found.",
+                    ))
+                }
+            }
+        }
 
         Ok(Self {
             _attrs,
             struct_name,
-            _comma,
             prefix,
-            _comma2,
-            encoding,
-            _comma3,
+            input,
+            output,
             fn_path,
         })
     }
 }
 
-#[allow(unused)]
+#[derive(Debug)]
 struct ServerFnBody {
     pub attrs: Vec<Attribute>,
     pub vis: syn::Visibility,
@@ -408,11 +702,10 @@ struct ServerFnBody {
     pub inputs: Punctuated<FnArg, Token![,]>,
     pub output_arrow: Token![->],
     pub return_ty: syn::Type,
-    pub block: Box<Block>,
+    pub block: TokenStream2,
     pub docs: Vec<(String, Span)>,
 }
 
-/// The custom rusty variant of parsing rsx!
 impl Parse for ServerFnBody {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
@@ -477,4 +770,58 @@ impl Parse for ServerFnBody {
             docs,
         })
     }
+}
+
+impl ServerFnBody {
+    fn to_dummy_ident(&self) -> Ident {
+        Ident::new(&format!("__{}", self.ident), self.ident.span())
+    }
+
+    fn to_dummy_output(&self) -> TokenStream2 {
+        let ident = self.to_dummy_ident();
+        let Self {
+            attrs,
+            vis,
+            async_token,
+            fn_token,
+            generics,
+            inputs,
+            output_arrow,
+            return_ty,
+            block,
+            ..
+        } = &self;
+        quote! {
+            #[doc(hidden)]
+            #(#attrs)*
+            #vis #async_token #fn_token #ident #generics ( #inputs ) #output_arrow #return_ty
+            #block
+        }
+    }
+}
+
+/// Returns either the path of the codec (if it's a builtin) or the
+/// original ident.
+fn codec_ident(server_fn_path: Option<&Path>, ident: Ident) -> TokenStream2 {
+    if let Some(server_fn_path) = server_fn_path {
+        let str = ident.to_string();
+        if [
+            "GetUrl",
+            "PostUrl",
+            "Cbor",
+            "Json",
+            "Rkyv",
+            "Streaming",
+            "StreamingText",
+            "MultipartFormData",
+        ]
+        .contains(&str.as_str())
+        {
+            return quote! {
+                #server_fn_path::codec::#ident
+            };
+        }
+    }
+
+    ident.into_token_stream()
 }

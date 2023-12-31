@@ -1,6 +1,6 @@
 [package]
 name = "server_fn_macro_default"
-version = { workspace = true }
+version = "0.1.0"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -11,8 +11,11 @@ description = "The default implementation of the server_fn macro without a conte
 proc-macro = true
 
 [dependencies]
-syn = { version = "2", features = ["full"] }
-server_fn_macro = { workspace = true }
+syn = { version = "2" }
+server_fn_macro = { path = "../server_fn_macro" }
 
 [features]
 nightly = ["server_fn_macro/nightly"]
+ssr = ["server_fn_macro/ssr"]
+actix = ["server_fn_macro/actix"]
+axum = ["server_fn_macro/axum"]

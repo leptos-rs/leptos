@@ -11,7 +11,7 @@ members = [
   "leptos_server",
   "server_fn",
   "server_fn_macro",
-  "server_fn/server_fn_macro_default",
+  "server_fn_macro_default",
 
   # integrations
   "integrations/actix",

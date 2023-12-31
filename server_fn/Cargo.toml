@@ -1,42 +1,92 @@
 [package]
 name = "server_fn"
-version = { workspace = true }
+version = "0.6.0"
 edition = "2021"
-authors = ["Greg Johnston"]
-license = "MIT"
-repository = "https://github.com/leptos-rs/leptos"
-description = "RPC for any web framework."
-readme = "../README.md"
 
 [dependencies]
-server_fn_macro_default = { workspace = true }
-serde = { version = "1", features = ["derive"] }
-serde_qs = "0.12"
-thiserror = "1"
-serde_json = "1"
-quote = "1"
-syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
-proc-macro2 = "1"
-ciborium = "0.2"
-xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
+# used for hashing paths in #[server] macro
 const_format = "0.2"
-inventory = { version = "0.3", optional = true }
-lazy_static = "1"
+xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
 
-[dev-dependencies]
-server_fn = { version = "0.2" }
-serde = "1"
+# used across multiple featurs
+serde = { version = "1", features = ["derive"] }
+send_wrapper = { version = "0.6", features = ["futures"], optional = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-gloo-net = "0.2"
-js-sys = "0.3"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.11", default-features = false }
+# registration system
+inventory = {version="0.3",optional=true}
+dashmap = "5"
 once_cell = "1"
 
+## servers 
+# actix 
+actix-web = { version = "4", optional = true }
+
+# axum
+axum = { version = "0.7", optional = true, features = ["multipart"] }
+tower = { version = "0.4", optional = true }
+tower-layer = { version = "0.3", optional = true }
+
+## input encodings 
+serde_qs = { version = "0.12", optional = true }
+multer = { version = "3", optional = true }
+
+## output encodings 
+# serde 
+serde_json = { version = "1", optional = true }
+futures = "0.3"
+http = { version = "1", optional = true }
+ciborium = { version = "0.2", optional = true }
+hyper = { version = "1", optional = true }
+bytes = "1"
+thiserror = "1"
+http-body-util = { version = "0.1.0", optional = true }
+rkyv = { version = "0.7", features = [
+  "validation",
+  "uuid",
+  "strict",
+], optional = true }
+
+# client
+gloo-net = { version = "0.5", optional = true }
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+wasm-streams = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
+  "console",
+  "ReadableStream",
+  "ReadableStreamDefaultReader",
+] }
+
+# reqwest client 
+reqwest = { version = "0.11", default-features = false, optional = true, features = [
+  "multipart",
+  "stream",
+] }
+
 [features]
+actix = ["dep:actix-web", "dep:send_wrapper"]
+axum = [
+  "dep:axum",
+  "dep:http",
+  "dep:hyper",
+  "dep:http-body-util",
+  "dep:tower",
+  "dep:tower-layer",
+]
+browser = [
+  "dep:gloo-net",
+  "dep:js-sys",
+  "dep:send_wrapper",
+  "dep:web-sys",
+  "dep:wasm-streams",
+  "dep:wasm-bindgen-futures",
+]
+json = ["dep:serde_json"]
+multipart = ["dep:multer"]
+url = ["dep:serde_qs"]
+cbor = ["dep:ciborium"]
+rkyv = ["dep:rkyv"]
 default-tls = ["reqwest/default-tls"]
 rustls = ["reqwest/rustls-tls"]
+reqwest = ["dep:http", "dep:reqwest"]
 ssr = ["inventory"]
-nightly = ["server_fn_macro_default/nightly"]
