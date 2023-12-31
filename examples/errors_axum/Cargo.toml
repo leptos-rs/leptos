@@ -7,22 +7,22 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-console_log = "1.0.0"
-console_error_panic_hook = "0.1.7"
-cfg-if = "1.0.0"
+console_log = "1.0"
+console_error_panic_hook = "0.1"
+cfg-if = "1.0"
 leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
-log = "0.4.17"
+log = "0.4"
 serde = { version = "1", features = ["derive"] }
-simple_logger = "4.0.0"
-axum = { version = "0.6.1", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.4", features = ["fs"], optional = true }
-tokio = { version = "1.22.0", features = ["full"], optional = true }
-http = { version = "0.2.8" }
-thiserror = "1.0.38"
+simple_logger = "4.0"
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+http = { version = "1.0" }
+thiserror = "1.0"
 wasm-bindgen = "0.2"
 
 [features]
