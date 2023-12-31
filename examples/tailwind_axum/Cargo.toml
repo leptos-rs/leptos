@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum = { version = "0.6.18", optional = true }
-console_error_panic_hook = "0.1.7"
+axum = { version = "0.7", optional = true }
+console_error_panic_hook = "0.1"
 console_log = "1"
 cfg-if = "1"
 leptos = { path = "../../leptos", features = ["nightly"] }
@@ -17,13 +17,13 @@ leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_router = { path = "../../router", features = ["nightly"] }
 log = "0.4.17"
 simple_logger = "4"
-tokio = { version = "1.28.1", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.4", features = ["fs"], optional = true }
-wasm-bindgen = "0.2.84"
-thiserror = "1.0.40"
-tracing = { version = "0.1.37", optional = true }
-http = "0.2.11"
+tokio = { version = "1", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs"], optional = true }
+wasm-bindgen = "0.2"
+thiserror = "1.0"
+tracing = { version = "0.1", optional = true }
+http = "1.0"
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

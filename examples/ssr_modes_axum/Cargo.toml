@@ -18,9 +18,9 @@ leptos_router = { path = "../../router", features = ["nightly"] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
-axum = { version = "0.6.1", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.4", features = ["fs"], optional = true }
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs"], optional = true }
 tokio = { version = "1", features = ["time"], optional = true }
 wasm-bindgen = "0.2"
 
