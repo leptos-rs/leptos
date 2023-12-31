@@ -3,7 +3,7 @@ use cfg_if::cfg_if;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        body::{Body, BoxBody},
+        body::Body,
         extract::State,
         response::IntoResponse,
         http::{Request, Response, StatusCode, Uri},
@@ -25,7 +25,7 @@ if #[cfg(feature = "ssr")] {
         }
     }
 
-    async fn get_static_file(uri: Uri, root: &str) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    async fn get_static_file(uri: Uri, root: &str) -> Result<Response<Body>, (StatusCode, String)> {
         let req = Request::builder().uri(uri.clone()).body(Body::empty()).unwrap();
         // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
         // This path is relative to the cargo root

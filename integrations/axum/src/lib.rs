@@ -34,11 +34,15 @@
 //! directory in the Leptos repository.
 
 use axum::{
-    body::{Body, Bytes, Full, StreamBody},
+    body::{Body, Bytes},
     extract::{FromRef, FromRequestParts, MatchedPath, Path, RawQuery},
     http::{
-        header::{HeaderName, HeaderValue},
-        HeaderMap, Request, StatusCode,
+        header::{self, HeaderName, HeaderValue},
+        method::Method,
+        request::Parts,
+        uri::Uri,
+        version::Version,
+        HeaderMap, Request, Response, StatusCode,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
@@ -47,11 +51,7 @@ use futures::{
     channel::mpsc::{Receiver, Sender},
     Future, SinkExt, Stream, StreamExt,
 };
-use http::{
-    header, method::Method, request::Parts, uri::Uri, version::Version,
-    Response,
-};
-use hyper::body;
+use http_body_util::BodyExt;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
@@ -162,7 +162,7 @@ pub async fn generate_request_and_parts(
 ) -> (Request<Body>, RequestParts) {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
-    let body = body::to_bytes(body).await.unwrap_or_default();
+    let body = body.collect().await.unwrap_or_default().to_bytes();
     let request_parts = RequestParts {
         method: parts.method.clone(),
         uri: parts.uri.clone(),
@@ -196,9 +196,8 @@ pub async fn generate_request_and_parts(
 ///         .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
-///         .serve(app.into_make_service())
+///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
 /// }
@@ -358,21 +357,21 @@ async fn handle_server_fns_inner(
                         match serialized {
                             Payload::Binary(data) => res
                                 .header("Content-Type", "application/cbor")
-                                .body(Full::from(data)),
+                                .body(Body::from(data)),
                             Payload::Url(data) => res
                                 .header(
                                     "Content-Type",
                                     "application/x-www-form-urlencoded",
                                 )
-                                .body(Full::from(data)),
+                                .body(Body::from(data)),
                             Payload::Json(data) => res
                                 .header("Content-Type", "application/json")
-                                .body(Full::from(data)),
+                                .body(Body::from(data)),
                         }
                     }
                     Err(e) => Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Full::from(
+                        .body(Body::from(
                             serde_json::to_string(&e)
                                 .unwrap_or_else(|_| e.to_string()),
                         )),
@@ -382,7 +381,7 @@ async fn handle_server_fns_inner(
                 res
             } else {
                 Response::builder().status(StatusCode::BAD_REQUEST).body(
-                    Full::from(format!(
+                    Body::from(format!(
                         "Could not find a server function at the route \
                          {fn_name}. \n\nIt's likely that either
                          1. The API prefix you specify in the `#[server]` \
@@ -442,9 +441,8 @@ pub type PinnedHtmlStream =
 ///     ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
-///         .serve(app.into_make_service())
+///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
 /// }
@@ -463,13 +461,8 @@ pub fn render_app_to_stream<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -490,13 +483,8 @@ pub fn render_route<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -504,6 +492,7 @@ where
 {
     render_route_with_context(options, paths, || {}, app_fn)
 }
+
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
@@ -543,9 +532,8 @@ where
 ///         ));
 ///
 ///     // run our app with hyper
-///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
-///         .serve(app.into_make_service())
+///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
 /// }
@@ -564,13 +552,8 @@ pub fn render_app_to_stream_in_order<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -611,13 +594,8 @@ pub fn render_app_to_stream_with_context<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -644,13 +622,8 @@ pub fn render_route_with_context<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -704,6 +677,7 @@ where
         }
     }
 }
+
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
@@ -732,13 +706,8 @@ pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     replace_blocks: bool,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -791,7 +760,7 @@ where
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
-) -> Response<StreamBody<PinnedHtmlStream>> {
+) -> Response<Body> {
     let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
     // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
@@ -806,9 +775,9 @@ async fn generate_response(
         futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
             .chain(stream);
 
-    let mut res = Response::new(StreamBody::new(
-        Box::pin(complete_stream) as PinnedHtmlStream
-    ));
+    let mut res =
+        Body::from_stream(Box::pin(complete_stream) as PinnedHtmlStream)
+            .into_response();
 
     if let Some(status) = res_options.status {
         *res.status_mut() = status
@@ -819,11 +788,11 @@ async fn generate_response(
     let mut res_headers = res_options.headers.clone();
     headers.extend(res_headers.drain());
 
-    if !headers.contains_key(http::header::CONTENT_TYPE) {
+    if !headers.contains_key(header::CONTENT_TYPE) {
         // Set the Content Type headers on all responses. This makes Firefox show the page source
         // without complaining
         headers.insert(
-            http::header::CONTENT_TYPE,
+            header::CONTENT_TYPE,
             HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
         );
     }
@@ -897,13 +866,8 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -1012,8 +976,9 @@ fn provide_contexts(
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
-///     axum::Server::bind(&addr)
-///         .serve(app.into_make_service())
+///     let listener =
+///         tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+///     axum::serve(listener, app.into_make_service())
 ///         .await
 ///         .unwrap();
 /// }
@@ -1075,13 +1040,8 @@ pub fn render_app_async_stream_with_context<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<
-    Box<
-        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
-            + Send
-            + 'static,
-    >,
-> + Clone
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
        + Send
        + 'static
 where
@@ -1149,10 +1109,10 @@ where
                 let complete_stream =
                     futures::stream::iter([Ok(Bytes::from(html))]);
 
-                let mut res = Response::new(StreamBody::new(Box::pin(
-                    complete_stream,
+                let mut res = Body::from_stream(
+                    Box::pin(complete_stream) as PinnedHtmlStream
                 )
-                    as PinnedHtmlStream));
+                .into_response();
                 if let Some(status) = res_options.status {
                     *res.status_mut() = status
                 }
@@ -1162,11 +1122,11 @@ where
                 headers.extend(res_headers.drain());
 
                 // This one doesn't use generate_response(), so we need to do this seperately
-                if !headers.contains_key(http::header::CONTENT_TYPE) {
+                if !headers.contains_key(header::CONTENT_TYPE) {
                     // Set the Content Type headers on all responses. This makes Firefox show the page source
                     // without complaining
                     headers.insert(
-                        http::header::CONTENT_TYPE,
+                        header::CONTENT_TYPE,
                         HeaderValue::from_str("text/html; charset=utf-8")
                             .unwrap(),
                     );
@@ -1291,6 +1251,7 @@ where
         })
     }
 }
+
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
@@ -1464,7 +1425,7 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, S, axum::body::Body>,
+        H: axum::handler::Handler<T, S>,
         T: 'static;
 }
 
@@ -1803,7 +1764,7 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, S, axum::body::Body>,
+        H: axum::handler::Handler<T, S>,
         T: 'static,
     {
         let mut router = self;
