@@ -1,0 +1,24 @@
+[package]
+name = "leptos_pavex"
+version = { workspace = true }
+edition = "2021"
+authors = ["Ben Wishovich"]
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Pavex integrations for the Leptos web framework."
+
+[dependencies]
+pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+futures = "0.3"
+leptos = { workspace = true, features = ["ssr"] }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_router = { workspace = true, features = ["ssr"] }
+leptos_integration_utils = { workspace = true }
+parking_lot = "0.12.1"
+regex = "1.7.0"
+tracing = "0.1.37"
+tokio = { version = "1", features = ["full"] }
+
+[features]
+nonce = ["leptos/nonce"]
+experimental-islands = ["leptos_integration_utils/experimental-islands"]
