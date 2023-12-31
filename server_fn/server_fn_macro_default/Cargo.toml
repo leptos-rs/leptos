@@ -1,6 +1,6 @@
 [package]
 name = "server_fn_macro_default"
-version = "0.1.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -12,7 +12,7 @@ proc-macro = true
 
 [dependencies]
 syn = { version = "2" }
-server_fn_macro = { path = "../server_fn_macro" }
+server_fn_macro = { workspace = true }
 
 [features]
 nightly = ["server_fn_macro/nightly"]
