@@ -336,7 +336,7 @@ impl Branches {
             let branches = branches.borrow();
             let branches = branches.get(&(router_id, Cow::from(base))).expect(
                 "Branches::initialize() should be called before \
-                     Branches::with()",
+                 Branches::with()",
             );
             cb(branches)
         })
