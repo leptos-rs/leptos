@@ -1,4 +1,4 @@
-use crate::{ServerFn, ServerFnError};
+use server_fn::{ServerFn, ServerFnError};
 use leptos_reactive::{
     create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
     spawn_local, store_value, untrack, ReadSignal, RwSignal, StoredValue,
