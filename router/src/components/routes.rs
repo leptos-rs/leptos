@@ -272,8 +272,9 @@ pub fn AnimatedRoutes(
 
 pub(crate) struct Branches;
 
+type BranchesCacheKey = (usize, Cow<'static, str>);
 thread_local! {
-    static BRANCHES: RefCell<HashMap<(usize, Cow<'static, str>), Vec<Branch>>> = RefCell::new(HashMap::new());
+    static BRANCHES: RefCell<HashMap<BranchesCacheKey, Vec<Branch>>> = RefCell::new(HashMap::new());
 }
 
 impl Branches {
