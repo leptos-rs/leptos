@@ -1,0 +1,22 @@
+[package]
+name = "todo_app_sqlite_pavex"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+path = "src/bin/bp.rs"
+name = "bp"
+
+[dependencies]
+cargo_px_env = "0.1"
+pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+pavex_cli_client = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+tracing = "0.1"
+
+# Configuration
+serde = { version = "1", features = ["derive"] }
+serde-aux = "4"
+
+# Leptos
+leptos_pavex.workspace = true
+

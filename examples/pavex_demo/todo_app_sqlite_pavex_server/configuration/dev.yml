@@ -1,0 +1,6 @@
+# This file contains the configuration for the dev environment.
+# None of the values here are actually secret, so it's fine
+# to commit this file to the repository.
+server:
+  ip: "127.0.0.1"
+  port: 8000
