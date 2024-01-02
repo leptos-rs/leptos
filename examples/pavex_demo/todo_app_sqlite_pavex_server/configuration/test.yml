@@ -1,0 +1,8 @@
+# This file contains the configuration for the API when spawned
+# in black-box tests.
+# None of the values here are actually secret, so it's fine
+# to commit this file to the repository.
+server:
+  ip: "127.0.0.1"
+  # The OS will assign a random port to the test server.
+  port: 0

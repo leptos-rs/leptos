@@ -1,8 +1,9 @@
-use crate::{ServerFn, ServerFnError};
+//use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
     batch, create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
     spawn_local, store_value, ReadSignal, RwSignal, StoredValue,
 };
+use server_fn::{ServerFn, ServerFnError};
 use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
 /// An action synchronizes an imperative `async` call to the synchronous reactive system.

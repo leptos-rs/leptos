@@ -50,17 +50,21 @@ pub fn server_impl(args: TokenStream, s: TokenStream) -> TokenStream {
     if args.prefix.is_none() {
         args.prefix = Some(Literal::string("/api"));
     }
+    let args_prefix = match &args.prefix {
+        Some(s) => s.to_string(),
+        None => "/api".to_string(),
+    };
     // default to "Url" if no encoding given
     if args.encoding.is_none() {
         args.encoding = Some(Literal::string("Url"));
     }
-
+    // Either this match is wrong, or the impl in the macro crate is wrong
     match server_fn_macro::server_macro_impl(
         quote::quote!(#args),
         mapped_body,
         syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
-        None,
         Some(syn::parse_quote!(::leptos::server_fn)),
+        &args_prefix,
     ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),
