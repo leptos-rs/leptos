@@ -8,13 +8,13 @@ use crate::{
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
     cmp::Reverse,
     collections::HashMap,
     ops::IndexMut,
     rc::Rc,
 };
-use uuid::Uuid;
 
 /// Contains route definitions and manages the actual routing process.
 ///
@@ -273,16 +273,16 @@ pub fn AnimatedRoutes(
 pub(crate) struct Branches;
 
 thread_local! {
-    static BRANCHES: RefCell<HashMap<Uuid , HashMap<String, Vec<Branch>>>> = RefCell::new(HashMap::new());
+    static BRANCHES: RefCell<HashMap<(usize, Cow<'static, str>), Vec<Branch>>> = RefCell::new(HashMap::new());
 }
 
 impl Branches {
-    pub fn initialize(router_id: Uuid, base: &str, children: Fragment) {
-        BRANCHES.with(|routers| {
+    pub fn initialize(router_id: usize, base: &str, children: Fragment) {
+        BRANCHES.with(|branches| {
             #[cfg(debug_assertions)]
             {
                 if cfg!(any(feature = "csr", feature = "hydrate"))
-                    && !routers.borrow().is_empty()
+                    && !branches.borrow().is_empty()
                 {
                     leptos::logging::warn!(
                         "You should only render the <Routes/> component once \
@@ -291,10 +291,8 @@ impl Branches {
                 }
             }
 
-            let mut routers = routers.borrow_mut();
-            routers.entry(router_id).or_default();
-            let current = routers.get_mut(&router_id).unwrap();
-            if !current.contains_key(base) {
+            let mut current = branches.borrow_mut();
+            if !current.contains_key(&(router_id, Cow::from(base))) {
                 let mut branches = Vec::new();
                 let children = children
                     .as_children()
@@ -324,30 +322,29 @@ impl Branches {
                     true,
                     base,
                 );
-                current.insert(base.to_string(), branches);
+                current.insert((router_id, Cow::Owned(base.into())), branches);
             }
         })
     }
 
     pub fn with<T>(
-        router_id: Uuid,
+        router_id: usize,
         base: &str,
         cb: impl FnOnce(&[Branch]) -> T,
     ) -> T {
-        BRANCHES.with(|routers| {
-            let routers = routers.borrow();
-            let branches =
-                routers.get(&router_id).and_then(|r| r.get(base)).expect(
-                    "Branches::initialize() should be called before \
+        BRANCHES.with(|branches| {
+            let branches = branches.borrow();
+            let branches = branches.get(&(router_id, Cow::from(base))).expect(
+                "Branches::initialize() should be called before \
                      Branches::with()",
-                );
+            );
             cb(branches)
         })
     }
 }
 
 fn route_states(
-    router_id: Uuid,
+    router_id: usize,
     base: String,
     router: &RouterContext,
     current_route: Memo<String>,
