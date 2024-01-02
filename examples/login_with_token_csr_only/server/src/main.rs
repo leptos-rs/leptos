@@ -1,13 +1,16 @@
 use api_boundary as json;
 use axum::{
-    extract::{State, TypedHeader},
-    headers::{authorization::Bearer, Authorization},
+    extract::State,
     http::Method,
     response::Json,
     routing::{get, post},
     Router,
 };
-use std::{env, sync::Arc};
+use axum_extra::TypedHeader;
+use headers::{authorization::Bearer, Authorization};
+use parking_lot::RwLock;
+use std::{env, net::SocketAddr, sync::Arc};
+use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 
 mod adapters;
@@ -32,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
     }
     env_logger::init();
 
-    let shared_state = Arc::new(AppState::default());
+    let shared_state = Arc::new(RwLock::new(AppState::default()));
 
     let cors_layer = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -46,11 +49,10 @@ async fn main() -> anyhow::Result<()> {
         .route_layer(cors_layer)
         .with_state(shared_state);
 
-    let addr = "0.0.0.0:3000".parse().unwrap();
-    log::info!("Listen on {addr}");
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await?;
+    let addr = "0.0.0.0:3000".parse::<SocketAddr>()?;
+    log::info!("Start listening on http://{addr}");
+    let listener = TcpListener::bind(addr).await?;
+    axum::serve(listener, app.into_make_service()).await?;
     Ok(())
 }
 
@@ -73,40 +75,43 @@ enum Error {
 }
 
 async fn create_user(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<RwLock<AppState>>>,
     Json(credentials): Json<json::Credentials>,
 ) -> Result<()> {
     let credentials = Credentials::try_from(credentials)?;
-    state.create_user(credentials)?;
+    state.write().create_user(credentials)?;
     Ok(Json(()))
 }
 
 async fn login(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<RwLock<AppState>>>,
     Json(credentials): Json<json::Credentials>,
 ) -> Result<json::ApiToken> {
     let json::Credentials { email, password } = credentials;
     log::debug!("{email} tries to login");
     let email = email.parse().map_err(|_|
-          // Here we don't want to leak detailed info.
-          LoginError::InvalidEmailOrPassword)?;
-    let token = state.login(email, &password).map(|s| s.to_string())?;
+        // Here we don't want to leak detailed info.
+        LoginError::InvalidEmailOrPassword)?;
+    let token = state
+        .write()
+        .login(email, &password)
+        .map(|s| s.to_string())?;
     Ok(Json(json::ApiToken { token }))
 }
 
 async fn logout(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<RwLock<AppState>>>,
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<()> {
-    state.logout(auth.token())?;
+    state.write().logout(auth.token())?;
     Ok(Json(()))
 }
 
 async fn get_user_info(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<RwLock<AppState>>>,
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<json::UserInfo> {
-    let user = state.authorize_user(auth.token())?;
+    let user = state.read().authorize_user(auth.token())?;
     let CurrentUser { email, .. } = user;
     Ok(Json(json::UserInfo {
         email: email.into_string(),
