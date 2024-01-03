@@ -14,7 +14,8 @@ pub trait Client<CustErr> {
 pub mod browser {
     use super::Client;
     use crate::{
-        error::ServerFnError, request::browser::BrowserRequest, response::browser::BrowserResponse,
+        error::ServerFnError, request::browser::BrowserRequest,
+        response::browser::BrowserResponse,
     };
     use send_wrapper::SendWrapper;
     use std::future::Future;
@@ -27,7 +28,8 @@ pub mod browser {
 
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>> + Send {
+        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
+               + Send {
             SendWrapper::new(async move {
                 req.0
                     .take()
@@ -56,7 +58,8 @@ pub mod reqwest {
 
         fn send(
             req: Self::Request,
-        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>> + Send {
+        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
+               + Send {
             CLIENT
                 .execute(req)
                 .map_err(|e| ServerFnError::Request(e.to_string()))

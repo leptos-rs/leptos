@@ -1,8 +1,9 @@
 use super::{Encoding, FromReq, IntoReq};
-use crate::error::ServerFnError;
-use crate::request::{ClientReq, Req};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use crate::{
+    error::ServerFnError,
+    request::{ClientReq, Req},
+};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Pass arguments as a URL-encoded query string of a `GET` request.
 pub struct GetUrl;
@@ -19,9 +20,13 @@ where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>> {
-        let data =
-            serde_qs::to_string(&self).map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
+        let data = serde_qs::to_string(&self)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
         Request::try_new_get(path, accepts, GetUrl::CONTENT_TYPE, &data)
     }
 }
@@ -48,9 +53,13 @@ where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>> {
-        let qs =
-            serde_qs::to_string(&self).map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
+        let qs = serde_qs::to_string(&self)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
         Request::try_new_post(path, accepts, PostUrl::CONTENT_TYPE, qs)
     }
 }

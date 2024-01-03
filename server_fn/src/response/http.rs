@@ -10,7 +10,10 @@ impl<CustErr> Res<CustErr> for Response<Body>
 where
     CustErr: Send + Sync + Debug + Display + 'static,
 {
-    fn try_from_string(content_type: &str, data: String) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_string(
+        content_type: &str,
+        data: String,
+    ) -> Result<Self, ServerFnError<CustErr>> {
         let builder = http::Response::builder();
         builder
             .status(200)
@@ -19,7 +22,10 @@ where
             .map_err(|e| ServerFnError::Response(e.to_string()))
     }
 
-    fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_bytes(
+        content_type: &str,
+        data: Bytes,
+    ) -> Result<Self, ServerFnError<CustErr>> {
         let builder = http::Response::builder();
         builder
             .status(200)
@@ -30,9 +36,12 @@ where
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send + 'static,
+        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>
+            + Send
+            + 'static,
     ) -> Result<Self, ServerFnError<CustErr>> {
-        let body = Body::from_stream(data.map(|n| n.map_err(ServerFnErrorErr::from)));
+        let body =
+            Body::from_stream(data.map(|n| n.map_err(ServerFnErrorErr::from)));
         let builder = http::Response::builder();
         builder
             .status(200)

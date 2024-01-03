@@ -1,6 +1,9 @@
 use super::Res;
 use crate::error::ServerFnError;
-use actix_web::{http::header, http::StatusCode, HttpResponse};
+use actix_web::{
+    http::{header, StatusCode},
+    HttpResponse,
+};
 use bytes::Bytes;
 use futures::Stream;
 use send_wrapper::SendWrapper;
@@ -18,7 +21,10 @@ impl<CustErr> Res<CustErr> for ActixResponse
 where
     CustErr: Display,
 {
-    fn try_from_string(content_type: &str, data: String) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_string(
+        content_type: &str,
+        data: String,
+    ) -> Result<Self, ServerFnError<CustErr>> {
         let mut builder = HttpResponse::build(StatusCode::OK);
         Ok(ActixResponse(SendWrapper::new(
             builder
@@ -27,7 +33,10 @@ where
         )))
     }
 
-    fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, ServerFnError<CustErr>> {
+    fn try_from_bytes(
+        content_type: &str,
+        data: Bytes,
+    ) -> Result<Self, ServerFnError<CustErr>> {
         let mut builder = HttpResponse::build(StatusCode::OK);
         Ok(ActixResponse(SendWrapper::new(
             builder
@@ -38,7 +47,8 @@ where
 
     fn error_response(err: ServerFnError<CustErr>) -> Self {
         ActixResponse(SendWrapper::new(
-            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).body(err.to_string()),
+            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(err.to_string()),
         ))
     }
 

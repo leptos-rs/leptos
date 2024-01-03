@@ -13,19 +13,23 @@ impl<Req, Res> BoxedService<Req, Res> {
 }
 
 pub trait Service<Request, Response> {
-    fn run(&mut self, req: Request) -> Pin<Box<dyn Future<Output = Response> + Send>>;
+    fn run(
+        &mut self,
+        req: Request,
+    ) -> Pin<Box<dyn Future<Output = Response> + Send>>;
 }
 
 #[cfg(feature = "axum")]
 mod axum {
+    use super::{BoxedService, Service};
     use crate::{response::Res, ServerFnError};
     use axum::body::Body;
     use http::{Request, Response};
-    use std::fmt::{Debug, Display};
-    use std::future::Future;
-    use std::pin::Pin;
-
-    use super::{BoxedService, Service};
+    use std::{
+        fmt::{Debug, Display},
+        future::Future,
+        pin::Pin,
+    };
 
     impl<S> super::Service<Request<Body>, Response<Body>> for S
     where
@@ -47,11 +51,18 @@ mod axum {
         }
     }
 
-    impl tower::Service<Request<Body>> for BoxedService<Request<Body>, Response<Body>> {
+    impl tower::Service<Request<Body>>
+        for BoxedService<Request<Body>, Response<Body>>
+    {
         type Response = Response<Body>;
         type Error = ServerFnError;
-        type Future =
-            Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+        type Future = Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = Result<Self::Response, Self::Error>,
+                    > + Send,
+            >,
+        >;
 
         fn poll_ready(
             &mut self,
@@ -68,7 +79,10 @@ mod axum {
 
     impl<L> super::Layer<Request<Body>, Response<Body>> for L
     where
-        L: tower_layer::Layer<BoxedService<Request<Body>, Response<Body>>> + Sync + Send + 'static,
+        L: tower_layer::Layer<BoxedService<Request<Body>, Response<Body>>>
+            + Sync
+            + Send
+            + 'static,
         L::Service: Service<Request<Body>, Response<Body>> + Send + 'static,
     {
         fn layer(
@@ -87,8 +101,11 @@ mod actix {
         ServerFnError,
     };
     use actix_web::{HttpRequest, HttpResponse};
-    use std::fmt::{Debug, Display};
-    use std::{future::Future, pin::Pin};
+    use std::{
+        fmt::{Debug, Display},
+        future::Future,
+        pin::Pin,
+    };
 
     impl<S> super::Service<HttpRequest, HttpResponse> for S
     where
@@ -96,7 +113,10 @@ mod actix {
         S::Future: Send + 'static,
         S::Error: Into<ServerFnError> + Debug + Display + 'static,
     {
-        fn run(&mut self, req: HttpRequest) -> Pin<Box<dyn Future<Output = HttpResponse> + Send>> {
+        fn run(
+            &mut self,
+            req: HttpRequest,
+        ) -> Pin<Box<dyn Future<Output = HttpResponse> + Send>> {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
