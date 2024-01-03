@@ -7,6 +7,12 @@ use std::future::Future;
 
 pub struct ActixRequest(pub(crate) SendWrapper<HttpRequest>);
 
+impl From<HttpRequest> for ActixRequest {
+    fn from(value: HttpRequest) -> Self {
+        ActixRequest(SendWrapper::new(value))
+    }
+}
+
 impl<CustErr> Req<CustErr> for ActixRequest {
     fn as_query(&self) -> Option<&str> {
         self.0.uri().query()
@@ -19,7 +25,10 @@ impl<CustErr> Req<CustErr> for ActixRequest {
             .map(|h| String::from_utf8_lossy(h.as_bytes()).to_string())
     }
 
-    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send {
+    fn try_into_bytes(
+        self,
+    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send
+    {
         // Actix is going to keep this on a single thread anyway so it's fine to wrap it
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
@@ -31,7 +40,8 @@ impl<CustErr> Req<CustErr> for ActixRequest {
 
     fn try_into_string(
         self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send {
+    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send
+    {
         // Actix is going to keep this on a single thread anyway so it's fine to wrap it
         // with SendWrapper, which makes it `Send` but will panic if it moves to another thread
         SendWrapper::new(async move {
@@ -43,8 +53,10 @@ impl<CustErr> Req<CustErr> for ActixRequest {
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, ServerFnError>> + Send, ServerFnError<CustErr>>
-    {
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
+        ServerFnError<CustErr>,
+    > {
         Ok(futures::stream::once(async { todo!() }))
     }
 }

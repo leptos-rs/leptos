@@ -268,8 +268,9 @@ pub mod axum {
 #[cfg(feature = "actix")]
 pub mod actix {
     use crate::{
-        request::actix::ActixRequest, response::actix::ActixResponse,
-        LazyServerFnMap, ServerFn, ServerFnTraitObj,
+        middleware::BoxedService, request::actix::ActixRequest,
+        response::actix::ActixResponse, LazyServerFnMap, ServerFn,
+        ServerFnTraitObj,
     };
     use actix_web::{HttpRequest, HttpResponse};
     use send_wrapper::SendWrapper;
@@ -290,20 +291,28 @@ pub mod actix {
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
             T::PATH,
-            ServerFnTraitObj::new(T::PATH, |req| {
-                Box::pin(T::run_on_server(req))
-            }),
+            ServerFnTraitObj::new(
+                T::PATH,
+                |req| Box::pin(T::run_on_server(req)),
+                T::middlewares,
+            ),
         );
     }
 
     pub async fn handle_server_fn(req: HttpRequest) -> HttpResponse {
         let path = req.uri().path();
         if let Some(server_fn) = REGISTERED_SERVER_FUNCTIONS.get(path) {
-            server_fn
-                .run(ActixRequest(SendWrapper::new(req)))
-                .await
-                .0
-                .take()
+            let middleware = (server_fn.middleware)();
+            let mut service = BoxedService::new(*server_fn);
+            for middleware in middleware {
+                service = middleware.layer(service);
+            }
+            service.0.run(ActixRequest::from(req)).await.0.take()
+            /*server_fn
+            .run(ActixRequest(SendWrapper::new(req)))
+            .await
+            .0
+            .take()*/
         } else {
             HttpResponse::BadRequest().body(format!(
                 "Could not find a server function at the route {path}. \
