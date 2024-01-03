@@ -9,20 +9,19 @@ pub mod response;
 
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
+// reexports for the sake of the macro
+#[doc(hidden)]
+pub use const_format;
 use dashmap::DashMap;
 pub use error::ServerFnError;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
 use request::Req;
 use response::{ClientRes, Res};
-use serde::{de::DeserializeOwned, Serialize};
-use std::{future::Future, pin::Pin, sync::Arc};
-
-// reexports for the sake of the macro
-#[doc(hidden)]
-pub use const_format;
 #[doc(hidden)]
 pub use serde;
+use serde::{de::DeserializeOwned, Serialize};
+use std::{future::Future, pin::Pin, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
 
@@ -30,7 +29,11 @@ pub trait ServerFn
 where
     Self: Send
         + FromReq<Self::Error, Self::ServerRequest, Self::InputEncoding>
-        + IntoReq<Self::Error, <Self::Client as Client<Self::Error>>::Request, Self::InputEncoding>,
+        + IntoReq<
+            Self::Error,
+            <Self::Client as Client<Self::Error>>::Request,
+            Self::InputEncoding,
+        >,
 {
     const PATH: &'static str;
 
@@ -50,8 +53,11 @@ where
     /// This needs to be converted into `ServerResponse` on the server side, and converted
     /// *from* `ClientResponse` when received by the client.
     type Output: IntoRes<Self::Error, Self::ServerResponse, Self::OutputEncoding>
-        + FromRes<Self::Error, <Self::Client as Client<Self::Error>>::Response, Self::OutputEncoding>
-        + Send;
+        + FromRes<
+            Self::Error,
+            <Self::Client as Client<Self::Error>>::Response,
+            Self::OutputEncoding,
+        > + Send;
 
     /// The [`Encoding`] used in the request for arguments into the server function.
     type InputEncoding: Encoding;
@@ -64,7 +70,8 @@ where
     type Error: Serialize + DeserializeOwned;
 
     /// Middleware that should be applied to this server function.
-    fn middlewares() -> Vec<Arc<dyn Layer<Self::ServerRequest, Self::ServerResponse>>> {
+    fn middlewares(
+    ) -> Vec<Arc<dyn Layer<Self::ServerRequest, Self::ServerResponse>>> {
         Vec::new()
     }
 
@@ -85,10 +92,12 @@ where
 
     fn run_on_client(
         self,
-    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send {
+    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
+    {
         async move {
             // create and send request on client
-            let req = self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
+            let req =
+                self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
             let res = Self::Client::send(req).await?;
 
             let status = res.status();
@@ -102,11 +111,13 @@ where
                 let text = res.try_into_string().await?;
                 match serde_json::from_str(&text) {
                     Ok(e) => Err(e),
-                    Err(_) => Err(ServerFnError::ServerError(if text.is_empty() {
-                        format!("{} {}", status, status_text)
-                    } else {
-                        format!("{} {}: {}", status, status_text, text)
-                    })),
+                    Err(_) => {
+                        Err(ServerFnError::ServerError(if text.is_empty() {
+                            format!("{} {}", status, status_text)
+                        } else {
+                            format!("{} {}: {}", status, status_text, text)
+                        }))
+                    }
                 }
             } else {
                 // otherwise, deserialize the body as is
@@ -125,7 +136,9 @@ where
     #[doc(hidden)]
     fn execute_on_server(
         req: Self::ServerRequest,
-    ) -> impl Future<Output = Result<Self::ServerResponse, ServerFnError<Self::Error>>> + Send {
+    ) -> impl Future<
+        Output = Result<Self::ServerResponse, ServerFnError<Self::Error>>,
+    > + Send {
         async {
             let this = Self::from_req(req).await?;
             let output = this.run_body().await?;
@@ -139,6 +152,7 @@ where
     }
 }
 
+#[cfg(feature = "ssr")]
 #[doc(hidden)]
 pub use inventory;
 
@@ -197,7 +211,8 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 
 impl<Req, Res> Copy for ServerFnTraitObj<Req, Res> {}
 
-type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
+type LazyServerFnMap<Req, Res> =
+    Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
 
 // Axum integration
 #[cfg(feature = "axum")]
@@ -211,12 +226,17 @@ pub mod axum {
 
     inventory::collect!(ServerFnTraitObj<Request<Body>, Response<Body>>);
 
-    static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<Request<Body>, Response<Body>> =
-        initialize_server_fn_map!(Request<Body>, Response<Body>);
+    static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
+        Request<Body>,
+        Response<Body>,
+    > = initialize_server_fn_map!(Request<Body>, Response<Body>);
 
     pub fn register_explicit<T>()
     where
-        T: ServerFn<ServerRequest = Request<Body>, ServerResponse = Response<Body>> + 'static,
+        T: ServerFn<
+                ServerRequest = Request<Body>,
+                ServerResponse = Response<Body>,
+            > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
             T::PATH,
@@ -242,7 +262,14 @@ pub mod axum {
             Response::builder()
                 .status(StatusCode::BAD_REQUEST)
                 .body(Body::from(format!(
-                    "Could not find a server function at the route {path}. \n\nIt's likely that either\n 1. The API prefix you specify in the `#[server]` macro doesn't match the prefix at which your server function handler is mounted, or \n2. You are on a platform that doesn't support automatic server function registration and you need to call ServerFn::register_explicit() on the server function type, somewhere in your `main` function.",
+                    "Could not find a server function at the route {path}. \
+                     \n\nIt's likely that either\n 1. The API prefix you \
+                     specify in the `#[server]` macro doesn't match the \
+                     prefix at which your server function handler is mounted, \
+                     or \n2. You are on a platform that doesn't support \
+                     automatic server function registration and you need to \
+                     call ServerFn::register_explicit() on the server \
+                     function type, somewhere in your `main` function.",
                 )))
                 .unwrap()
         }
@@ -252,25 +279,32 @@ pub mod axum {
 // Actix integration
 #[cfg(feature = "actix")]
 pub mod actix {
+    use crate::{
+        request::actix::ActixRequest, response::actix::ActixResponse,
+        LazyServerFnMap, ServerFn, ServerFnTraitObj,
+    };
     use actix_web::{HttpRequest, HttpResponse};
     use send_wrapper::SendWrapper;
 
-    use crate::request::actix::ActixRequest;
-    use crate::response::actix::ActixResponse;
-    use crate::{LazyServerFnMap, ServerFn, ServerFnTraitObj};
-
     inventory::collect!(ServerFnTraitObj<ActixRequest, ActixResponse>);
 
-    static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<ActixRequest, ActixResponse> =
-        initialize_server_fn_map!(ActixRequest, ActixResponse);
+    static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
+        ActixRequest,
+        ActixResponse,
+    > = initialize_server_fn_map!(ActixRequest, ActixResponse);
 
     pub fn register_explicit<T>()
     where
-        T: ServerFn<ServerRequest = ActixRequest, ServerResponse = ActixResponse> + 'static,
+        T: ServerFn<
+                ServerRequest = ActixRequest,
+                ServerResponse = ActixResponse,
+            > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
             T::PATH,
-            ServerFnTraitObj::new(T::PATH, |req| Box::pin(T::run_on_server(req))),
+            ServerFnTraitObj::new(T::PATH, |req| {
+                Box::pin(T::run_on_server(req))
+            }),
         );
     }
 
@@ -284,7 +318,14 @@ pub mod actix {
                 .take()
         } else {
             HttpResponse::BadRequest().body(format!(
-                "Could not find a server function at the route {path}. \n\nIt's likely that either\n 1. The API prefix you specify in the `#[server]` macro doesn't match the prefix at which your server function handler is mounted, or \n2. You are on a platform that doesn't support automatic server function registration and you need to call ServerFn::register_explicit() on the server function type, somewhere in your `main` function.",
+                "Could not find a server function at the route {path}. \
+                 \n\nIt's likely that either\n 1. The API prefix you specify \
+                 in the `#[server]` macro doesn't match the prefix at which \
+                 your server function handler is mounted, or \n2. You are on \
+                 a platform that doesn't support automatic server function \
+                 registration and you need to call \
+                 ServerFn::register_explicit() on the server function type, \
+                 somewhere in your `main` function.",
             ))
         }
     }
