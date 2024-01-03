@@ -1,8 +1,9 @@
 use super::{Encoding, FromReq};
-use crate::error::ServerFnError;
-use crate::request::browser::BrowserFormData;
-use crate::request::{ClientReq, Req};
-use crate::IntoReq;
+use crate::{
+    error::ServerFnError,
+    request::{browser::BrowserFormData, ClientReq, Req},
+    IntoReq,
+};
 use futures::StreamExt;
 use multer::Multipart;
 use web_sys::FormData;
@@ -46,9 +47,17 @@ where
     Request: ClientReq<CustErr, FormData = BrowserFormData>,
     T: Into<MultipartData>,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>> {
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
         let multi = self.into();
-        Request::try_new_multipart(path, accepts, multi.into_client_data().unwrap())
+        Request::try_new_multipart(
+            path,
+            accepts,
+            multi.into_client_data().unwrap(),
+        )
     }
 }
 
@@ -64,8 +73,10 @@ where
             .and_then(|ct| multer::parse_boundary(ct).ok())
             .expect("couldn't parse boundary");
         let stream = req.try_into_stream()?;
-        let data =
-            multer::Multipart::new(stream.map(|data| data.map_err(|e| e.to_string())), boundary);
+        let data = multer::Multipart::new(
+            stream.map(|data| data.map_err(|e| e.to_string())),
+            boundary,
+        );
         Ok(MultipartData::Server(data).into())
     }
 }

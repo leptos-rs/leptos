@@ -1,6 +1,5 @@
-use crate::error::ServerFnError;
-
 use super::ClientReq;
+use crate::error::ServerFnError;
 use bytes::Bytes;
 pub use gloo_net::http::Request;
 use js_sys::Uint8Array;

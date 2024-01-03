@@ -1,6 +1,5 @@
-use crate::error::ServerFnError;
-
 use super::ClientRes;
+use crate::error::ServerFnError;
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Response;
@@ -14,7 +13,8 @@ pub struct BrowserResponse(pub(crate) SendWrapper<Response>);
 impl<CustErr> ClientRes<CustErr> for BrowserResponse {
     fn try_into_string(
         self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send {
+    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send
+    {
         // the browser won't send this async work between threads (because it's single-threaded)
         // so we can safely wrap this
         SendWrapper::new(async move {
@@ -25,7 +25,10 @@ impl<CustErr> ClientRes<CustErr> for BrowserResponse {
         })
     }
 
-    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send {
+    fn try_into_bytes(
+        self,
+    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send
+    {
         // the browser won't send this async work between threads (because it's single-threaded)
         // so we can safely wrap this
         SendWrapper::new(async move {

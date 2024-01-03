@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
-static REDIRECT_HOOK: OnceLock<Box<dyn Fn(&str) + Send + Sync>> = OnceLock::new();
+static REDIRECT_HOOK: OnceLock<Box<dyn Fn(&str) + Send + Sync>> =
+    OnceLock::new();
 
 pub fn set_redirect_hook(hook: impl Fn(&str) + Send + Sync + 'static) {
     REDIRECT_HOOK.set(Box::new(hook));

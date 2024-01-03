@@ -1,10 +1,11 @@
 use super::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
-use crate::error::ServerFnError;
-use crate::request::{ClientReq, Req};
-use crate::response::{ClientRes, Res};
+use crate::{
+    error::ServerFnError,
+    request::{ClientReq, Req},
+    response::{ClientRes, Res},
+};
 use bytes::Bytes;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Pass arguments and receive responses using `cbor` in a `POST` request.
 pub struct Cbor;
@@ -18,11 +19,20 @@ where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>> {
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
         let mut buffer: Vec<u8> = Vec::new();
         ciborium::ser::into_writer(&self, &mut buffer)
             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
-        Request::try_new_post_bytes(path, accepts, Cbor::CONTENT_TYPE, Bytes::from(buffer))
+        Request::try_new_post_bytes(
+            path,
+            accepts,
+            Cbor::CONTENT_TYPE,
+            Bytes::from(buffer),
+        )
     }
 }
 
@@ -58,7 +68,8 @@ where
 {
     async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
         let data = res.try_into_bytes().await?;
-        ciborium::de::from_reader(data.as_ref()).map_err(|e| ServerFnError::Args(e.to_string()))
+        ciborium::de::from_reader(data.as_ref())
+            .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }
 

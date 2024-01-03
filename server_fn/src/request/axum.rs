@@ -33,11 +33,12 @@ impl<CustErr> Req<CustErr> for Request<Body> {
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, ServerFnError>> + Send, ServerFnError<CustErr>>
-    {
-        Ok(self
-            .into_body()
-            .into_data_stream()
-            .map(|chunk| chunk.map_err(|e| ServerFnError::Deserialization(e.to_string()))))
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
+        ServerFnError<CustErr>,
+    > {
+        Ok(self.into_body().into_data_stream().map(|chunk| {
+            chunk.map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        }))
     }
 }
