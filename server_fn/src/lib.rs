@@ -14,14 +14,14 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 pub use const_format;
 use dashmap::DashMap;
 pub use error::ServerFnError;
+use error::ServerFnErrorSerde;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
 use request::Req;
 use response::{ClientRes, Res};
 #[doc(hidden)]
 pub use serde;
-use serde::{de::DeserializeOwned, Serialize};
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{fmt::Display, future::Future, pin::Pin, str::FromStr, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
 
@@ -67,7 +67,7 @@ where
 
     /// The type of the custom error on [`ServerFnError`], if any. (If there is no
     /// custom error type, this can be `NoCustomError` by default.)
-    type Error: Serialize + DeserializeOwned;
+    type Error: ServerFnErrorSerde;
 
     /// Middleware that should be applied to this server function.
     fn middlewares(
@@ -103,26 +103,14 @@ where
             let status = res.status();
             let location = res.location();
 
-            // if it returns an error status, deserialize the error
-            // this is the same logic as the current implementation of server fns
-            // TODO I don't love that this requires shipping `serde_json` for errors
+            // if it returns an error status, deserialize the error using FromStr
             let res = if (400..=599).contains(&status) {
-                let status_text = res.status_text();
                 let text = res.try_into_string().await?;
-                match serde_json::from_str(&text) {
-                    Ok(e) => Err(e),
-                    Err(_) => {
-                        Err(ServerFnError::ServerError(if text.is_empty() {
-                            format!("{} {}", status, status_text)
-                        } else {
-                            format!("{} {}: {}", status, status_text, text)
-                        }))
-                    }
-                }
+                Err(Self::Error::de(&text))
             } else {
                 // otherwise, deserialize the body as is
-                Self::Output::from_res(res).await
-            };
+                Ok(Self::Output::from_res(res).await)
+            }?;
 
             // if redirected, call the redirect hook (if that's been set)
             if (300..=399).contains(&status) {
