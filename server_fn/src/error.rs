@@ -1,6 +1,11 @@
-use core::fmt::{self, Display};
 use serde::{Deserialize, Serialize};
-use std::{error, fmt, fmt::Write, ops, str::FromStr, sync::Arc};
+use std::{
+    error, fmt,
+    fmt::{Display, Write},
+    ops,
+    str::FromStr,
+    sync::Arc,
+};
 use thiserror::Error;
 
 /// This is a result type into which any error can be converted,
@@ -65,7 +70,7 @@ impl fmt::Display for NoCustomError {
 impl FromStr for NoCustomError {
     type Err = ();
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
         Ok(NoCustomError)
     }
 }
