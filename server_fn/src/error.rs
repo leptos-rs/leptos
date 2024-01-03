@@ -1,6 +1,6 @@
-use core::fmt::Display;
+use core::fmt::{self, Display};
 use serde::{Deserialize, Serialize};
-use std::{error, fmt, ops, sync::Arc};
+use std::{error, fmt, fmt::Write, ops, str::FromStr, sync::Arc};
 use thiserror::Error;
 
 /// This is a result type into which any error can be converted,
@@ -53,12 +53,20 @@ impl From<ServerFnError> for Error {
 /// An empty value indicating that there is no custom error type associated
 /// with this server function.
 #[derive(Debug, Deserialize, Serialize)]
-pub struct NoCustomError(());
+pub struct NoCustomError;
 
 // Implement `Display` for `NoCustomError`
 impl fmt::Display for NoCustomError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Unit Type Displayed")
+    }
+}
+
+impl FromStr for NoCustomError {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(NoCustomError)
     }
 }
 
@@ -204,6 +212,80 @@ where
         )
     }
 }
+
+pub trait ServerFnErrorSerde: Sized {
+    fn ser(&self) -> String;
+
+    fn de(data: &str) -> Self;
+}
+
+impl<CustErr> ServerFnErrorSerde for ServerFnError<CustErr>
+where
+    CustErr: FromStr + Display,
+{
+    fn ser(&self) -> String {
+        let mut buf = String::new();
+        match self {
+            ServerFnError::WrappedServerError(e) => {
+                write!(&mut buf, "WrappedServerFn|{}", e)
+            }
+            ServerFnError::Registration(e) => {
+                write!(&mut buf, "Registration|{}", e)
+            }
+            ServerFnError::Request(e) => write!(&mut buf, "Request|{}", e),
+            ServerFnError::Response(e) => write!(&mut buf, "Response|{}", e),
+            ServerFnError::ServerError(e) => {
+                write!(&mut buf, "ServerError|{}", e)
+            }
+            ServerFnError::Deserialization(e) => {
+                write!(&mut buf, "Deserialization|{}", e)
+            }
+            ServerFnError::Serialization(e) => {
+                write!(&mut buf, "Serialization|{}", e)
+            }
+            ServerFnError::Args(e) => write!(&mut buf, "Args|{}", e),
+            ServerFnError::MissingArg(e) => {
+                write!(&mut buf, "MissingArg|{}", e)
+            }
+        };
+        buf
+    }
+
+    fn de(data: &str) -> Self {
+        data.split_once('|')
+            .and_then(|(ty, data)| match ty {
+                "WrappedServerFn" => match CustErr::from_str(data) {
+                    Ok(d) => Some(ServerFnError::WrappedServerError(d)),
+                    Err(_) => None,
+                },
+                "Registration" => {
+                    Some(ServerFnError::Registration(data.to_string()))
+                }
+                "Request" => Some(ServerFnError::Request(data.to_string())),
+                "Response" => Some(ServerFnError::Response(data.to_string())),
+                "ServerError" => {
+                    Some(ServerFnError::ServerError(data.to_string()))
+                }
+                "Deserialization" => {
+                    Some(ServerFnError::Deserialization(data.to_string()))
+                }
+                "Serialization" => {
+                    Some(ServerFnError::Serialization(data.to_string()))
+                }
+                "Args" => Some(ServerFnError::Args(data.to_string())),
+                "MissingArg" => {
+                    Some(ServerFnError::MissingArg(data.to_string()))
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                ServerFnError::Deserialization(format!(
+                    "Could not deserialize error {data:?}"
+                ))
+            })
+    }
+}
+
 impl<E> std::error::Error for ServerFnError<E>
 where
     E: std::error::Error + 'static,
