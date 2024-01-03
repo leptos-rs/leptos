@@ -212,17 +212,17 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
-    pub fn server() -> Action<I, Result<I::Output, ServerFnError>>
+    pub fn server() -> Action<I, Result<I::Output, ServerFnError<I::Error>>>
     where
         I: ServerFn<Output = O> + Clone,
     {
         // The server is able to call the function directly
         #[cfg(feature = "ssr")]
-        let action_function = |args: &I| I::call_fn(args.clone(), ());
+        let action_function = |args: &I| I::run_body(args.clone());
 
         // When not on the server send a fetch to request the fn call.
         #[cfg(not(feature = "ssr"))]
-        let action_function = |args: &I| I::call_fn_client(args.clone(), ());
+        let action_function = |args: &I| I::run_on_client(args.clone());
 
         // create the action
         Action::new(action_function).using_server_fn::<I>()
@@ -267,13 +267,8 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
-        let prefix = T::prefix();
         self.0.update_value(|state| {
-            state.url = if prefix.is_empty() {
-                Some(T::url().to_string())
-            } else {
-                Some(prefix.to_string() + "/" + T::url())
-            };
+            state.url = Some(T::url().to_string());
         });
         self
     }
@@ -483,7 +478,8 @@ where
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn create_server_action<S>() -> Action<S, Result<S::Output, ServerFnError>>
+pub fn create_server_action<S>(
+) -> Action<S, Result<S::Output, ServerFnError<S::Error>>>
 where
     S: Clone + ServerFn,
 {
