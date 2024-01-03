@@ -167,24 +167,25 @@ pub fn server_macro_impl(
             FnArg::Typed(t) => Some((&t.pat, &t.ty)),
         })
         .next();
-    let from_impl = (body.inputs.len() == 1 && first_field.is_some()).then(|| {
-        let field = first_field.unwrap();
-        let (name, ty) = field;
-        quote! {
-            impl From<#struct_name> for #ty {
-                fn from(value: #struct_name) -> Self {
-                    let #struct_name { #name } = value;
-                    #name
+    let from_impl =
+        (body.inputs.len() == 1 && first_field.is_some()).then(|| {
+            let field = first_field.unwrap();
+            let (name, ty) = field;
+            quote! {
+                impl From<#struct_name> for #ty {
+                    fn from(value: #struct_name) -> Self {
+                        let #struct_name { #name } = value;
+                        #name
+                    }
                 }
-            }
 
-            impl From<#ty> for #struct_name {
-                fn from(#name: #ty) -> Self {
-                    #struct_name { #name }
+                impl From<#ty> for #struct_name {
+                    fn from(#name: #ty) -> Self {
+                        #struct_name { #name }
+                    }
                 }
             }
-        }
-    });
+        });
 
     // check output type
     let output_arrow = body.output_arrow;
@@ -192,11 +193,12 @@ pub fn server_macro_impl(
 
     let output_ty = output_type(&return_ty)?;
     let error_ty = err_type(&return_ty)?;
-    let error_ty = error_ty.map(ToTokens::to_token_stream).unwrap_or_else(|| {
-        quote! {
-            #server_fn_path::error::NoCustomError
-        }
-    });
+    let error_ty =
+        error_ty.map(ToTokens::to_token_stream).unwrap_or_else(|| {
+            quote! {
+                #server_fn_path::error::NoCustomError
+            }
+        });
 
     // build server fn path
     let serde_path = server_fn_path.as_ref().map(|path| {
@@ -317,14 +319,18 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            ::axum::http::Request<::axum::body::Body>
+            #server_fn_path::axum_export::http::Request<#server_fn_path::axum_export::body::Body>
         }
     } else if cfg!(feature = "actix") {
         quote! {
-            ::actix_web::HttpRequest
+            #server_fn_path::actix_export::HttpRequest
         }
     } else {
-        return Err(syn::Error::new(Span::call_site(), "If the `ssr` feature is enabled, either the `actix` or `axum` features should also be enabled."));
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "If the `ssr` feature is enabled, either the `actix` or `axum` \
+             features should also be enabled.",
+        ));
     };
     let res = if !cfg!(feature = "ssr") {
         quote! {
@@ -332,14 +338,18 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "axum") {
         quote! {
-            ::axum::http::Response<::axum::body::Body>
+            #server_fn_path::axum_export::http::Response<#server_fn_path::axum_export::body::Body>
         }
     } else if cfg!(feature = "actix") {
         quote! {
-            ::actix_web::HttpResponse
+            #server_fn_path::actix_export::HttpResponse
         }
     } else {
-        return Err(syn::Error::new(Span::call_site(), "If the `ssr` feature is enabled, either the `actix` or `axum` features should also be enabled."));
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "If the `ssr` feature is enabled, either the `actix` or `axum` \
+             features should also be enabled.",
+        ));
     };
 
     // generate path
@@ -440,7 +450,9 @@ fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
         if pat.path.segments[0].ident == "Result" {
             if pat.path.segments.is_empty() {
                 panic!("{:#?}", pat.path);
-            } else if let PathArguments::AngleBracketed(args) = &pat.path.segments[0].arguments {
+            } else if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
                 return Ok(&args.args[0]);
             }
         }
@@ -448,20 +460,25 @@ fn output_type(return_ty: &Type) -> Result<&GenericArgument> {
 
     Err(syn::Error::new(
         return_ty.span(),
-        "server functions should return Result<T, ServerFnError> or Result<T, ServerFnError<E>>",
+        "server functions should return Result<T, ServerFnError> or Result<T, \
+         ServerFnError<E>>",
     ))
 }
 
 fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
     if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
-            if let PathArguments::AngleBracketed(args) = &pat.path.segments[0].arguments {
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
                 // Result<T>
                 if args.args.len() == 1 {
                     return Ok(None);
                 }
                 // Result<T, _>
-                else if let GenericArgument::Type(Type::Path(pat)) = &args.args[1] {
+                else if let GenericArgument::Type(Type::Path(pat)) =
+                    &args.args[1]
+                {
                     if pat.path.segments[0].ident == "ServerFnError" {
                         let args = &pat.path.segments[0].arguments;
                         match args {
@@ -483,7 +500,8 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
 
     Err(syn::Error::new(
         return_ty.span(),
-        "server functions should return Result<T, ServerFnError> or Result<T, ServerFnError<E>>",
+        "server functions should return Result<T, ServerFnError> or Result<T, \
+         ServerFnError<E>>",
     ))
 }
 
@@ -558,7 +576,8 @@ impl Parse for ServerFnArgs {
                         if encoding.is_some() {
                             return Err(syn::Error::new(
                                 key.span(),
-                                "`encoding` and `input` should not both be specified",
+                                "`encoding` and `input` should not both be \
+                                 specified",
                             ));
                         } else if input.is_some() {
                             return Err(syn::Error::new(
@@ -571,7 +590,8 @@ impl Parse for ServerFnArgs {
                         if encoding.is_some() {
                             return Err(syn::Error::new(
                                 key.span(),
-                                "`encoding` and `output` should not both be specified",
+                                "`encoding` and `output` should not both be \
+                                 specified",
                             ));
                         } else if output.is_some() {
                             return Err(syn::Error::new(
@@ -594,7 +614,10 @@ impl Parse for ServerFnArgs {
                     if arg_pos == 1 {
                         struct_name = Some(value)
                     } else {
-                        return Err(syn::Error::new(value.span(), "expected string literal"));
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "expected string literal",
+                        ));
                     }
                 }
             } else if lookahead.peek(LitStr) {
@@ -602,8 +625,9 @@ impl Parse for ServerFnArgs {
                 if use_key_and_value {
                     return Err(syn::Error::new(
                         value.span(),
-                        "If you use keyword arguments (e.g., `name` = Something), \
-                        then you can no longer use arguments without a keyword.",
+                        "If you use keyword arguments (e.g., `name` = \
+                         Something), then you can no longer use arguments \
+                         without a keyword.",
                     ));
                 }
                 match arg_pos {
@@ -611,7 +635,12 @@ impl Parse for ServerFnArgs {
                     2 => prefix = Some(value),
                     3 => encoding = Some(value),
                     4 => fn_path = Some(value),
-                    _ => return Err(syn::Error::new(value.span(), "unexpected extra argument")),
+                    _ => {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "unexpected extra argument",
+                        ))
+                    }
                 }
             } else {
                 return Err(lookahead.error());
@@ -641,7 +670,12 @@ impl Parse for ServerFnArgs {
                     input = syn::parse_quote!(GetUrl);
                     output = syn::parse_quote!(Json);
                 }
-                _ => return Err(syn::Error::new(encoding.span(), "Encoding not found.")),
+                _ => {
+                    return Err(syn::Error::new(
+                        encoding.span(),
+                        "Encoding not found.",
+                    ))
+                }
             }
         }
 
