@@ -29,23 +29,32 @@ pub trait FromReq<CustErr, Request, Encoding>
 where
     Self: Sized,
 {
-    fn from_req(req: Request) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
+    fn from_req(
+        req: Request,
+    ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
 }
 
 pub trait IntoReq<CustErr, Request, Encoding> {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>>;
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>>;
 }
 
 pub trait FromRes<CustErr, Response, Encoding>
 where
     Self: Sized,
 {
-    fn from_res(res: Response)
-        -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
+    fn from_res(
+        res: Response,
+    ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
 }
 
 pub trait IntoRes<CustErr, Response, Encoding> {
-    fn into_res(self) -> impl Future<Output = Result<Response, ServerFnError<CustErr>>> + Send;
+    fn into_res(
+        self,
+    ) -> impl Future<Output = Result<Response, ServerFnError<CustErr>>> + Send;
 }
 
 pub trait Encoding {

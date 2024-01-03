@@ -1,10 +1,11 @@
 use super::{Encoding, FromReq, FromRes};
-use crate::error::ServerFnError;
-use crate::request::{ClientReq, Req};
-use crate::response::{ClientRes, Res};
-use crate::{IntoReq, IntoRes};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use crate::{
+    error::ServerFnError,
+    request::{ClientReq, Req},
+    response::{ClientRes, Res},
+    IntoReq, IntoRes,
+};
+use serde::{de::DeserializeOwned, Serialize};
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
 pub struct Json;
 
@@ -17,7 +18,11 @@ where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>> {
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
         let data = serde_json::to_string(&self)
             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
         Request::try_new_post(path, accepts, Json::CONTENT_TYPE, data)
@@ -31,7 +36,8 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
         let string_data = req.try_into_string().await?;
-        serde_json::from_str::<Self>(&string_data).map_err(|e| ServerFnError::Args(e.to_string()))
+        serde_json::from_str::<Self>(&string_data)
+            .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }
 
@@ -54,6 +60,7 @@ where
 {
     async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
         let data = res.try_into_string().await?;
-        serde_json::from_str(&data).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        serde_json::from_str(&data)
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
 }

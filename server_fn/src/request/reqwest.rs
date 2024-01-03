@@ -1,12 +1,10 @@
-use std::sync::OnceLock;
-
-use crate::error::ServerFnError;
-
 use super::ClientReq;
+use crate::error::ServerFnError;
 use bytes::Bytes;
 use once_cell::sync::Lazy;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 pub use reqwest::{multipart::Form, Client, Method, Request, Url};
+use std::sync::OnceLock;
 
 pub(crate) static CLIENT: Lazy<Client> = Lazy::new(Client::new);
 static ROOT_URL: OnceLock<&'static str> = OnceLock::new();
@@ -34,8 +32,8 @@ impl<CustErr> ClientReq<CustErr> for Request {
         query: &str,
     ) -> Result<Self, ServerFnError<CustErr>> {
         let url = format!("{}{}", get_server_url(), path);
-        let mut url =
-            Url::try_from(url.as_str()).map_err(|e| ServerFnError::Request(e.to_string()))?;
+        let mut url = Url::try_from(url.as_str())
+            .map_err(|e| ServerFnError::Request(e.to_string()))?;
         url.set_query(Some(query));
         let req = CLIENT
             .get(url)

@@ -1,11 +1,12 @@
-use std::pin::Pin;
-
 use super::{Encoding, FromRes};
-use crate::error::{NoCustomError, ServerFnError};
-use crate::response::{ClientRes, Res};
-use crate::IntoRes;
+use crate::{
+    error::{NoCustomError, ServerFnError},
+    response::{ClientRes, Res},
+    IntoRes,
+};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
+use std::pin::Pin;
 
 pub struct Streaming;
 
@@ -38,7 +39,9 @@ pub struct ByteStream<CustErr = NoCustomError>(
 );
 
 impl<CustErr> ByteStream<CustErr> {
-    pub fn into_inner(self) -> impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send {
+    pub fn into_inner(
+        self,
+    ) -> impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send {
         self.0
     }
 }
@@ -53,7 +56,8 @@ where
     }
 }
 
-impl<CustErr, Response> IntoRes<CustErr, Response, Streaming> for ByteStream<CustErr>
+impl<CustErr, Response> IntoRes<CustErr, Response, Streaming>
+    for ByteStream<CustErr>
 where
     Response: Res<CustErr>,
     CustErr: 'static,
@@ -84,7 +88,9 @@ pub struct TextStream<CustErr = NoCustomError>(
 );
 
 impl<CustErr> TextStream<CustErr> {
-    pub fn into_inner(self) -> impl Stream<Item = Result<String, ServerFnError<CustErr>>> + Send {
+    pub fn into_inner(
+        self,
+    ) -> impl Stream<Item = Result<String, ServerFnError<CustErr>>> + Send {
         self.0
     }
 }
@@ -99,7 +105,8 @@ where
     }
 }
 
-impl<CustErr, Response> IntoRes<CustErr, Response, StreamingText> for TextStream<CustErr>
+impl<CustErr, Response> IntoRes<CustErr, Response, StreamingText>
+    for TextStream<CustErr>
 where
     Response: Res<CustErr>,
     CustErr: 'static,

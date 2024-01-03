@@ -59,16 +59,22 @@ where
     fn to_content_type(&self) -> Option<String>;
 
     /// Attempts to extract the body of the request into [`Bytes`].
-    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send;
+    fn try_into_bytes(
+        self,
+    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send;
 
     /// Attempts to convert the body of the request into a string.
-    fn try_into_string(self)
-        -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send;
+    fn try_into_string(
+        self,
+    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send;
 
     /// Attempts to convert the body of the request into a string.
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, ServerFnError>> + Send, ServerFnError<CustErr>>;
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
+        ServerFnError<CustErr>,
+    >;
 }
 
 /// A mocked request type that can be used in place of the actual server request,
@@ -84,20 +90,26 @@ impl<CustErr> Req<CustErr> for BrowserMockReq {
         unreachable!()
     }
 
-    fn try_into_bytes(self) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send {
+    fn try_into_bytes(
+        self,
+    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send
+    {
         async { unreachable!() }
     }
 
     fn try_into_string(
         self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send {
+    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send
+    {
         async { unreachable!() }
     }
 
     fn try_into_stream(
         self,
-    ) -> Result<impl Stream<Item = Result<Bytes, ServerFnError>> + Send, ServerFnError<CustErr>>
-    {
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
+        ServerFnError<CustErr>,
+    > {
         Ok(futures::stream::once(async { unreachable!() }))
     }
 }
