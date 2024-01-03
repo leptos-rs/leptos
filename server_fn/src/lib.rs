@@ -7,9 +7,14 @@ pub mod redirect;
 pub mod request;
 pub mod response;
 
+#[cfg(feature = "actix")]
+#[doc(hidden)]
+pub use ::actix_web as actix_export;
+#[cfg(feature = "axum")]
+#[doc(hidden)]
+pub use ::axum as axum_export;
 use client::Client;
 use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
-// reexports for the sake of the macro
 #[doc(hidden)]
 pub use const_format;
 use dashmap::DashMap;
