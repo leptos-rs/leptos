@@ -40,7 +40,6 @@ use syn::{
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
-    trait_obj_wrapper: Type,
     server_fn_path: Option<Path>,
     default_path: &str,
 ) -> Result<TokenStream2> {

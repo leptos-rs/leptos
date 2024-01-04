@@ -2,7 +2,7 @@ use crate::{
     hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
     ToHref, Url,
 };
-use leptos::{html::form, logging::*, *};
+use leptos::{html::form, logging::*, server_fn::ServerFn, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -411,10 +411,10 @@ fn current_window_origin() -> String {
     tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
-pub fn ActionForm<I, O>(
+pub fn ActionForm<I, O, Enc>(
     /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [create_server_action](leptos_server::create_server_action) or added
-    /// manually using [leptos_server::Action::using_server_fn].
+    /// by default using [`create_server_action`](l:eptos_server::create_server_action) or added
+    /// manually using [`using_server_fn`](leptos_server::Action::using_server_fn).
     action: Action<I, Result<O, ServerFnError>>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
@@ -435,8 +435,9 @@ pub fn ActionForm<I, O>(
     children: Children,
 ) -> impl IntoView
 where
-    I: Clone + ServerFn + 'static,
+    I: Clone + DeserializeOwned + ServerFn<InputEncoding = Enc> + 'static,
     O: Clone + Serialize + DeserializeOwned + 'static,
+    ServerFnError<I::Error>: Clone, //    Enc: FormDataEncoding,
 {
     let action_url = if let Some(url) = action.url() {
         url
@@ -452,14 +453,15 @@ where
     let input = action.input();
 
     let on_error = Rc::new(move |e: &gloo_net::Error| {
-        batch(move || {
+        // TODO
+        /*        batch(move || {
             action.set_pending(false);
             let e = ServerFnError::Request(e.to_string());
             value.try_set(Some(Err(e.clone())));
             if let Some(error) = error {
                 error.try_set(Some(Box::new(ServerFnErrorErr::from(e))));
             }
-        });
+        });*/
     });
 
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
@@ -472,7 +474,8 @@ where
                 });
             }
             Err(e) => {
-                error!("{e}");
+                // TODO
+                /*                error!("{e}");
                 let e = ServerFnError::Serialization(e.to_string());
                 batch(move || {
                     value.try_set(Some(Err(e.clone())));
@@ -480,7 +483,7 @@ where
                         error
                             .try_set(Some(Box::new(ServerFnErrorErr::from(e))));
                     }
-                });
+                }); */
             }
         }
     });
@@ -547,13 +550,14 @@ where
                 }
                 Err(e) => {
                     error!("{e:?}");
-                    if let Some(error) = error {
+                    // TODO
+                    /*                    if let Some(error) = error {
                         error.try_set(Some(Box::new(
                             ServerFnErrorErr::Request(
                                 e.as_string().unwrap_or_default(),
                             ),
                         )));
-                    }
+                    }*/
                 }
             };
             batch(move || {
@@ -563,18 +567,6 @@ where
         });
     });
     let class = class.map(|bx| bx.into_attribute_boxed());
-
-    #[cfg(debug_assertions)]
-    {
-        if I::encoding() != server_fn::Encoding::Url {
-            leptos::logging::warn!(
-                "<ActionForm/> only supports the `Url` encoding for server \
-                 functions, but {} uses {:?}.",
-                std::any::type_name::<I>(),
-                I::encoding()
-            );
-        }
-    }
 
     let mut props = FormProps::builder()
         .action(action_url)
@@ -622,7 +614,7 @@ pub fn MultiActionForm<I, O>(
     children: Children,
 ) -> impl IntoView
 where
-    I: Clone + ServerFn + 'static,
+    I: Clone + ServerFn + DeserializeOwned + 'static,
     O: Clone + Serializable + 'static,
 {
     let multi_action = action;

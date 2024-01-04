@@ -13,6 +13,7 @@ futures = "0.3"
 cfg-if = "1.0"
 http = "1.0"
 leptos = { path = "../../leptos", features = ["nightly"] }
+server_fn = { path = "../../server_fn", features = ["url", "json"] }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_router = { path = "../../router", features = ["nightly"] }
