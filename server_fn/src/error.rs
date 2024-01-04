@@ -116,9 +116,9 @@ pub(crate) trait ServerFnErrorKind {}
 impl ServerFnErrorKind for ServerFnError {}
 
 // This impl should catch passing () or nothing to server_fn_error
-impl ViaError<()> for &&&WrapError<()> {
-    fn to_server_error(&self) -> ServerFnError<()> {
-        ServerFnError::WrappedServerError(self.0.clone())
+impl ViaError<NoCustomError> for &&&WrapError<()> {
+    fn to_server_error(&self) -> ServerFnError {
+        ServerFnError::WrappedServerError(NoCustomError)
     }
 }
 
@@ -225,7 +225,7 @@ where
 }
 
 pub trait ServerFnErrorSerde: Sized {
-    fn ser(&self) -> String;
+    fn ser(&self) -> Result<String, std::fmt::Error>;
 
     fn de(data: &str) -> Self;
 }
@@ -234,7 +234,7 @@ impl<CustErr> ServerFnErrorSerde for ServerFnError<CustErr>
 where
     CustErr: FromStr + Display,
 {
-    fn ser(&self) -> String {
+    fn ser(&self) -> Result<String, std::fmt::Error> {
         let mut buf = String::new();
         match self {
             ServerFnError::WrappedServerError(e) => {
@@ -258,8 +258,8 @@ where
             ServerFnError::MissingArg(e) => {
                 write!(&mut buf, "MissingArg|{}", e)
             }
-        };
-        buf
+        }?;
+        Ok(buf)
     }
 
     fn de(data: &str) -> Self {

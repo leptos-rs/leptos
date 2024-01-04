@@ -158,14 +158,10 @@ pub fn server_macro_impl(
         .collect::<Vec<_>>();
 
     // if there's exactly one field, impl From<T> for the struct
-    let first_field = body
-        .inputs
-        .iter()
-        .filter_map(|f| match f {
-            FnArg::Receiver(_) => None,
-            FnArg::Typed(t) => Some((&t.pat, &t.ty)),
-        })
-        .next();
+    let first_field = body.inputs.iter().find_map(|f| match f {
+        FnArg::Receiver(_) => None,
+        FnArg::Typed(t) => Some((&t.pat, &t.ty)),
+    });
     let from_impl =
         (body.inputs.len() == 1 && first_field.is_some()).then(|| {
             let field = first_field.unwrap();
@@ -698,7 +694,7 @@ struct ServerFnBody {
     pub fn_token: Token![fn],
     pub ident: Ident,
     pub generics: Generics,
-    pub paren_token: token::Paren,
+    pub _paren_token: token::Paren,
     pub inputs: Punctuated<FnArg, Token![,]>,
     pub output_arrow: Token![->],
     pub return_ty: syn::Type,
@@ -718,7 +714,7 @@ impl Parse for ServerFnBody {
         let generics: Generics = input.parse()?;
 
         let content;
-        let paren_token = syn::parenthesized!(content in input);
+        let _paren_token = syn::parenthesized!(content in input);
 
         let inputs = syn::punctuated::Punctuated::parse_terminated(&content)?;
 
@@ -761,7 +757,7 @@ impl Parse for ServerFnBody {
             fn_token,
             ident,
             generics,
-            paren_token,
+            _paren_token,
             inputs,
             output_arrow,
             return_ty,

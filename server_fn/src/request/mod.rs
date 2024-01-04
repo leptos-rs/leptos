@@ -90,18 +90,12 @@ impl<CustErr> Req<CustErr> for BrowserMockReq {
         unreachable!()
     }
 
-    fn try_into_bytes(
-        self,
-    ) -> impl Future<Output = Result<Bytes, ServerFnError<CustErr>>> + Send
-    {
-        async { unreachable!() }
+    async fn try_into_bytes(self) -> Result<Bytes, ServerFnError<CustErr>> {
+        unreachable!()
     }
 
-    fn try_into_string(
-        self,
-    ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send
-    {
-        async { unreachable!() }
+    async fn try_into_string(self) -> Result<String, ServerFnError<CustErr>> {
+        unreachable!()
     }
 
     fn try_into_stream(

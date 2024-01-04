@@ -13,7 +13,7 @@ mod rkyv;
 pub use rkyv::*;
 #[cfg(feature = "url")]
 mod url;
-use crate::{client::Client, error::ServerFnError, request::ClientReq};
+use crate::{error::ServerFnError, request::ClientReq};
 use futures::Future;
 #[cfg(feature = "url")]
 pub use url::*;
