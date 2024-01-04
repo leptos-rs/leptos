@@ -1,13 +1,13 @@
 use super::Res;
-use crate::error::ServerFnError;
+use crate::error::{ServerFnError, ServerFnErrorErr};
 use actix_web::{
     http::{header, StatusCode},
     HttpResponse,
 };
 use bytes::Bytes;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use send_wrapper::SendWrapper;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 pub struct ActixResponse(pub(crate) SendWrapper<HttpResponse>);
 
@@ -19,7 +19,7 @@ impl ActixResponse {
 
 impl<CustErr> Res<CustErr> for ActixResponse
 where
-    CustErr: Display,
+    CustErr: Display + Debug + 'static,
 {
     fn try_from_string(
         content_type: &str,
@@ -54,8 +54,15 @@ where
 
     fn try_from_stream(
         content_type: &str,
-        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>,
+        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + 'static,
     ) -> Result<Self, ServerFnError<CustErr>> {
-        todo!()
+        let mut builder = HttpResponse::build(StatusCode::OK);
+        Ok(ActixResponse(SendWrapper::new(
+            builder
+                .insert_header((header::CONTENT_TYPE, content_type))
+                .streaming(
+                    data.map(|data| data.map_err(ServerFnErrorErr::from)),
+                ),
+        )))
     }
 }
