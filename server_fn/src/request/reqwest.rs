@@ -51,13 +51,13 @@ impl<CustErr> ClientReq<CustErr> for Request {
         body: String,
     ) -> Result<Self, ServerFnError<CustErr>> {
         let url = format!("{}{}", get_server_url(), path);
-        Ok(CLIENT
+        CLIENT
             .post(url)
             .header(CONTENT_TYPE, content_type)
             .header(ACCEPT, accepts)
             .body(body)
             .build()
-            .map_err(|e| ServerFnError::Request(e.to_string()))?)
+            .map_err(|e| ServerFnError::Request(e.to_string()))
     }
 
     fn try_new_post_bytes(
@@ -67,13 +67,13 @@ impl<CustErr> ClientReq<CustErr> for Request {
         body: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>> {
         let url = format!("{}{}", get_server_url(), path);
-        Ok(CLIENT
+        CLIENT
             .post(url)
             .header(CONTENT_TYPE, content_type)
             .header(ACCEPT, accepts)
             .body(body)
             .build()
-            .map_err(|e| ServerFnError::Request(e.to_string()))?)
+            .map_err(|e| ServerFnError::Request(e.to_string()))
     }
 
     fn try_new_multipart(
@@ -81,11 +81,11 @@ impl<CustErr> ClientReq<CustErr> for Request {
         accepts: &str,
         body: Self::FormData,
     ) -> Result<Self, ServerFnError<CustErr>> {
-        Ok(CLIENT
+        CLIENT
             .post(path)
             .header(ACCEPT, accepts)
             .multipart(body)
             .build()
-            .map_err(|e| ServerFnError::Request(e.to_string()))?)
+            .map_err(|e| ServerFnError::Request(e.to_string()))
     }
 }

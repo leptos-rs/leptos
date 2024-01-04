@@ -162,11 +162,13 @@ macro_rules! initialize_server_fn_map {
     };
 }
 
+pub type MiddlewareSet<Req, Res> = Vec<Arc<dyn Layer<Req, Res>>>;
+
 pub struct ServerFnTraitObj<Req, Res> {
     path: &'static str,
     method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
-    middleware: fn() -> Vec<Arc<dyn Layer<Req, Res>>>,
+    middleware: fn() -> MiddlewareSet<Req, Res>,
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
@@ -174,7 +176,7 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
         path: &'static str,
         method: Method,
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
-        middleware: fn() -> Vec<Arc<dyn Layer<Req, Res>>>,
+        middleware: fn() -> MiddlewareSet<Req, Res>,
     ) -> Self {
         Self {
             path,
@@ -215,6 +217,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
     }
 }
 
+#[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> =
     Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
 
@@ -222,7 +225,7 @@ type LazyServerFnMap<Req, Res> =
 #[cfg(feature = "axum")]
 pub mod axum {
     use crate::{
-        middleware::{BoxedService, Layer, Service},
+        middleware::{BoxedService, Service},
         Encoding, LazyServerFnMap, ServerFn, ServerFnTraitObj,
     };
     use axum::body::Body;
@@ -262,7 +265,7 @@ pub mod axum {
     pub async fn handle_server_fn(req: Request<Body>) -> Response<Body> {
         let path = req.uri().path();
 
-        if let Some(mut service) = get_server_fn_service(&path) {
+        if let Some(mut service) = get_server_fn_service(path) {
             service.run(req).await
         } else {
             Response::builder()

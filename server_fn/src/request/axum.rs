@@ -26,9 +26,8 @@ impl<CustErr> Req<CustErr> for Request<Body> {
 
     async fn try_into_string(self) -> Result<String, ServerFnError<CustErr>> {
         let bytes = self.try_into_bytes().await?;
-        let body = String::from_utf8(bytes.to_vec())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()));
-        body
+        String::from_utf8(bytes.to_vec())
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
 
     fn try_into_stream(

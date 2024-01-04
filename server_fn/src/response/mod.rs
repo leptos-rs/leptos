@@ -72,30 +72,34 @@ pub trait ClientRes<CustErr> {
 
 /// A mocked response type that can be used in place of the actual server response,
 /// when compiling for the browser.
+///
+/// ## Panics
+/// This always panics if its methods are called. It is used solely to stub out the
+/// server response type when compiling for the client.
 pub struct BrowserMockRes;
 
 impl<CustErr> Res<CustErr> for BrowserMockRes {
     fn try_from_string(
-        content_type: &str,
-        data: String,
+        _content_type: &str,
+        _data: String,
     ) -> Result<Self, ServerFnError<CustErr>> {
         unreachable!()
     }
 
     fn try_from_bytes(
-        content_type: &str,
-        data: Bytes,
+        _content_type: &str,
+        _data: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>> {
         unreachable!()
     }
 
-    fn error_response(err: ServerFnError<CustErr>) -> Self {
+    fn error_response(_err: ServerFnError<CustErr>) -> Self {
         unreachable!()
     }
 
     fn try_from_stream(
-        content_type: &str,
-        data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>,
+        _content_type: &str,
+        _data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>,
     ) -> Result<Self, ServerFnError<CustErr>> {
         todo!()
     }
