@@ -20,6 +20,7 @@ leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_router = { path = "../../router", features = ["nightly"] }
+server_fn = { path = "../../server_fn", features = ["cbor"] }
 log = "0.4.17"
 simple_logger = "4.0.0"
 gloo = { git = "https://github.com/rustwasm/gloo" }
