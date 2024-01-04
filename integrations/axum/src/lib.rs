@@ -39,11 +39,10 @@ use axum::{
     http::{
         header::{self, HeaderName, HeaderValue},
         request::Parts,
-        HeaderMap, Request, Response, StatusCode,
+        HeaderMap, Method, Request, Response, StatusCode,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
-    RequestPartsExt,
 };
 use futures::{
     channel::mpsc::{Receiver, Sender},
@@ -1540,6 +1539,8 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
+
+        // register router paths
         for listing in paths.iter() {
             let path = listing.path();
 
@@ -1631,6 +1632,31 @@ where
                 };
             }
         }
+
+        // register server functions
+        for (path, method) in server_fn::axum::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = move |req: Request<Body>| async move {
+                handle_server_fns_with_context(additional_context, req).await
+            };
+            router = router.route(
+                path,
+                match method {
+                    Method::GET => get(handler),
+                    Method::POST => post(handler),
+                    Method::PUT => put(handler),
+                    Method::DELETE => delete(handler),
+                    Method::PATCH => patch(handler),
+                    _ => {
+                        panic!(
+                            "Unsupported server function HTTP method: \
+                             {method:?}"
+                        );
+                    }
+                },
+            );
+        }
+
         router
     }
 

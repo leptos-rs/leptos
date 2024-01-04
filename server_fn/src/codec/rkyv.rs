@@ -5,6 +5,7 @@ use crate::{
     response::{ClientRes, Res},
 };
 use bytes::Bytes;
+use http::Method;
 use rkyv::{
     de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     validation::validators::DefaultValidator, Archive, CheckBytes, Deserialize,
@@ -16,6 +17,7 @@ pub struct Rkyv;
 
 impl Encoding for Rkyv {
     const CONTENT_TYPE: &'static str = "application/rkyv";
+    const METHOD: Method = Method::POST;
 }
 
 impl<CustErr, T, Request> IntoReq<CustErr, Request, Rkyv> for T

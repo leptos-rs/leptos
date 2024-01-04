@@ -20,6 +20,7 @@ pub use const_format;
 use dashmap::DashMap;
 pub use error::ServerFnError;
 use error::ServerFnErrorSerde;
+use http::Method;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
 use request::Req;
@@ -155,7 +156,7 @@ macro_rules! initialize_server_fn_map {
         once_cell::sync::Lazy::new(|| {
             $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
                 .into_iter()
-                .map(|obj| (obj.path(), *obj))
+                .map(|obj| (obj.path(), obj.clone()))
                 .collect()
         })
     };
@@ -163,6 +164,7 @@ macro_rules! initialize_server_fn_map {
 
 pub struct ServerFnTraitObj<Req, Res> {
     path: &'static str,
+    method: Method,
     handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
     middleware: fn() -> Vec<Arc<dyn Layer<Req, Res>>>,
 }
@@ -170,11 +172,13 @@ pub struct ServerFnTraitObj<Req, Res> {
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
     pub const fn new(
         path: &'static str,
+        method: Method,
         handler: fn(Req) -> Pin<Box<dyn Future<Output = Res> + Send>>,
         middleware: fn() -> Vec<Arc<dyn Layer<Req, Res>>>,
     ) -> Self {
         Self {
             path,
+            method,
             handler,
             middleware,
         }
@@ -182,6 +186,10 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
 
     pub fn path(&self) -> &'static str {
         self.path
+    }
+
+    pub fn method(&self) -> Method {
+        self.method.clone()
     }
 }
 
@@ -198,11 +206,14 @@ where
 
 impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
     fn clone(&self) -> Self {
-        *self
+        Self {
+            path: self.path,
+            method: self.method.clone(),
+            handler: self.handler,
+            middleware: self.middleware,
+        }
     }
 }
-
-impl<Req, Res> Copy for ServerFnTraitObj<Req, Res> {}
 
 type LazyServerFnMap<Req, Res> =
     Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
@@ -212,10 +223,10 @@ type LazyServerFnMap<Req, Res> =
 pub mod axum {
     use crate::{
         middleware::{BoxedService, Layer, Service},
-        LazyServerFnMap, ServerFn, ServerFnTraitObj,
+        Encoding, LazyServerFnMap, ServerFn, ServerFnTraitObj,
     };
     use axum::body::Body;
-    use http::{Request, Response, StatusCode};
+    use http::{Method, Request, Response, StatusCode};
 
     inventory::collect!(ServerFnTraitObj<Request<Body>, Response<Body>>);
 
@@ -235,10 +246,17 @@ pub mod axum {
             T::PATH,
             ServerFnTraitObj::new(
                 T::PATH,
+                T::InputEncoding::METHOD,
                 |req| Box::pin(T::run_on_server(req)),
                 T::middlewares,
             ),
         );
+    }
+
+    pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
+        REGISTERED_SERVER_FUNCTIONS
+            .iter()
+            .map(|item| (item.path(), item.method()))
     }
 
     pub async fn handle_server_fn(req: Request<Body>) -> Response<Body> {
@@ -268,7 +286,7 @@ pub mod axum {
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
         REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
             let middleware = (server_fn.middleware)();
-            let mut service = BoxedService::new(*server_fn);
+            let mut service = BoxedService::new(server_fn.clone());
             for middleware in middleware {
                 service = middleware.layer(service);
             }
@@ -282,11 +300,10 @@ pub mod axum {
 pub mod actix {
     use crate::{
         middleware::BoxedService, request::actix::ActixRequest,
-        response::actix::ActixResponse, LazyServerFnMap, ServerFn,
+        response::actix::ActixResponse, Encoding, LazyServerFnMap, ServerFn,
         ServerFnTraitObj,
     };
     use actix_web::{HttpRequest, HttpResponse};
-    use send_wrapper::SendWrapper;
 
     inventory::collect!(ServerFnTraitObj<ActixRequest, ActixResponse>);
 
@@ -306,6 +323,7 @@ pub mod actix {
             T::PATH,
             ServerFnTraitObj::new(
                 T::PATH,
+                T::InputEncoding::METHOD,
                 |req| Box::pin(T::run_on_server(req)),
                 T::middlewares,
             ),
@@ -316,7 +334,8 @@ pub mod actix {
         let path = req.uri().path();
         if let Some(server_fn) = REGISTERED_SERVER_FUNCTIONS.get(path) {
             let middleware = (server_fn.middleware)();
-            let mut service = BoxedService::new(*server_fn);
+            // http::Method is the only non-Copy type here
+            let mut service = BoxedService::new(server_fn.clone());
             for middleware in middleware {
                 service = middleware.layer(service);
             }
