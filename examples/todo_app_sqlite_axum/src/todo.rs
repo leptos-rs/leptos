@@ -26,9 +26,11 @@ cfg_if! {
 
 #[server(GetTodos, "/api")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
+    use http::{header::SET_COOKIE, request::Parts, HeaderValue, StatusCode};
+    use leptos_axum::ResponseOptions;
+
     // this is just an example of how to access server context injected in the handlers
-    // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>();
+    let req_parts = use_context::<Parts>();
 
     if let Some(req_parts) = req_parts {
         println!("Uri = {:?}", req_parts.uri);
@@ -45,19 +47,10 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
         todos.push(row);
     }
 
-    // Add a random header(because why not)
-    // let mut res_headers = HeaderMap::new();
-    // res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
-
-    // let res_parts = leptos_axum::ResponseParts {
-    //     headers: res_headers,
-    //     status: Some(StatusCode::IM_A_TEAPOT),
-    // };
-
-    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>();
-    // if let Some(res_options) = res_options_outer {
-    //     res_options.overwrite(res_parts).await;
-    // }
+    // Lines below show how to set status code and headers on the response
+    // let resp = expect_context::<ResponseOptions>();
+    // resp.set_status(StatusCode::IM_A_TEAPOT);
+    // resp.insert_header(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
 
     Ok(todos)
 }

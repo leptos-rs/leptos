@@ -12,7 +12,7 @@ mod rkyv;
 pub use rkyv::*;
 #[cfg(feature = "url")]
 mod url;
-use crate::error::ServerFnError;
+use crate::{client::Client, error::ServerFnError, request::ClientReq};
 use futures::Future;
 #[cfg(feature = "url")]
 pub use url::*;
@@ -59,4 +59,14 @@ pub trait IntoRes<CustErr, Response, Encoding> {
 
 pub trait Encoding {
     const CONTENT_TYPE: &'static str;
+}
+
+pub trait FormDataEncoding<Client, CustErr, Request>
+where
+    Self: Sized,
+    Client: ClientReq<CustErr>,
+{
+    fn form_data_into_req(
+        form_data: Client::FormData,
+    ) -> Result<Self, ServerFnError<CustErr>>;
 }

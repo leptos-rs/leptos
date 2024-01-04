@@ -57,7 +57,7 @@ impl From<ServerFnError> for Error {
 
 /// An empty value indicating that there is no custom error type associated
 /// with this server function.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub struct NoCustomError;
 
 // Implement `Display` for `NoCustomError`
@@ -182,6 +182,12 @@ pub enum ServerFnError<E = NoCustomError> {
 impl<CustErr> From<CustErr> for ServerFnError<CustErr> {
     fn from(value: CustErr) -> Self {
         ServerFnError::WrappedServerError(value)
+    }
+}
+
+impl<E: std::error::Error> From<E> for ServerFnError {
+    fn from(value: E) -> Self {
+        ServerFnError::ServerError(value.to_string())
     }
 }
 
