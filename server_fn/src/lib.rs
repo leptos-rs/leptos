@@ -72,7 +72,7 @@ where
 
     /// The type of the custom error on [`ServerFnError`], if any. (If there is no
     /// custom error type, this can be `NoCustomError` by default.)
-    type Error: ServerFnErrorSerde;
+    type Error: FromStr + Display;
 
     /// Middleware that should be applied to this server function.
     fn middlewares(
@@ -111,7 +111,7 @@ where
             // if it returns an error status, deserialize the error using FromStr
             let res = if (400..=599).contains(&status) {
                 let text = res.try_into_string().await?;
-                Err(Self::Error::de(&text))
+                Err(ServerFnError::<Self::Error>::de(&text))
             } else {
                 // otherwise, deserialize the body as is
                 Ok(Self::Output::from_res(res).await)
@@ -244,12 +244,7 @@ pub mod axum {
     pub async fn handle_server_fn(req: Request<Body>) -> Response<Body> {
         let path = req.uri().path();
 
-        if let Some(server_fn) = REGISTERED_SERVER_FUNCTIONS.get(path) {
-            let middleware = (server_fn.middleware)();
-            let mut service = BoxedService::new(*server_fn);
-            for middleware in middleware {
-                service = middleware.layer(service);
-            }
+        if let Some(mut service) = get_server_fn_service(&path) {
             service.run(req).await
         } else {
             Response::builder()
@@ -266,6 +261,19 @@ pub mod axum {
                 )))
                 .unwrap()
         }
+    }
+
+    pub fn get_server_fn_service(
+        path: &str,
+    ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
+        REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
+            let middleware = (server_fn.middleware)();
+            let mut service = BoxedService::new(*server_fn);
+            for middleware in middleware {
+                service = middleware.layer(service);
+            }
+            service
+        })
     }
 }
 

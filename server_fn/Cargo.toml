@@ -81,7 +81,7 @@ browser = [
   "dep:wasm-streams",
   "dep:wasm-bindgen-futures",
 ]
-#json = ["dep:serde_json"]
+json = []
 multipart = ["dep:multer"]
 url = ["dep:serde_qs"]
 cbor = ["dep:ciborium"]

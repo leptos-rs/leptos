@@ -37,7 +37,6 @@ mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 use view::{client_template::render_template, render_view};
 mod component;
-mod server;
 mod slice;
 mod slot;
 
@@ -971,7 +970,15 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    server::server_impl(args, s)
+    match server_fn_macro::server_macro_impl(
+        args.into(),
+        s.into(),
+        Some(syn::parse_quote!(::leptos::server_fn)),
+        "/api",
+    ) {
+        Err(e) => e.to_compile_error().into(),
+        Ok(s) => s.to_token_stream().into(),
+    }
 }
 
 /// Derives a trait that parses a map of string keys and values into a typed
