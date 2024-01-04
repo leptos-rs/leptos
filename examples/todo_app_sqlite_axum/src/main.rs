@@ -52,7 +52,6 @@ cfg_if! {
 
         // build our application with a route
         let app = Router::new()
-        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
         .leptos_routes(&leptos_options, routes, || view! { <TodoApp/> } )
         .fallback(file_and_error_handler)

@@ -3,6 +3,7 @@ use crate::{
     error::ServerFnError,
     request::{ClientReq, Req},
 };
+use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Pass arguments as a URL-encoded query string of a `GET` request.
@@ -13,6 +14,7 @@ pub struct PostUrl;
 
 impl Encoding for GetUrl {
     const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+    const METHOD: Method = Method::GET;
 }
 
 impl<CustErr, T, Request> IntoReq<CustErr, Request, GetUrl> for T
@@ -46,6 +48,7 @@ where
 
 impl Encoding for PostUrl {
     const CONTENT_TYPE: &'static str = "application/x-www-form-urlencoded";
+    const METHOD: Method = Method::POST;
 }
 
 impl<CustErr, T, Request> IntoReq<CustErr, Request, PostUrl> for T

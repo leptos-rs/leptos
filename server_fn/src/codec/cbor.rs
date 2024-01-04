@@ -5,6 +5,7 @@ use crate::{
     response::{ClientRes, Res},
 };
 use bytes::Bytes;
+use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Pass arguments and receive responses using `cbor` in a `POST` request.
@@ -12,6 +13,7 @@ pub struct Cbor;
 
 impl Encoding for Cbor {
     const CONTENT_TYPE: &'static str = "application/cbor";
+    const METHOD: Method = Method::POST;
 }
 
 impl<CustErr, T, Request> IntoReq<CustErr, Request, Cbor> for T

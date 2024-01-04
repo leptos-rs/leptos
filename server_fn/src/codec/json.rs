@@ -5,12 +5,14 @@ use crate::{
     response::{ClientRes, Res},
     IntoReq, IntoRes,
 };
+use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
 pub struct Json;
 
 impl Encoding for Json {
     const CONTENT_TYPE: &'static str = "application/json";
+    const METHOD: Method = Method::POST;
 }
 
 impl<CustErr, T, Request> IntoReq<CustErr, Request, Json> for T
