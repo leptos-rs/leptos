@@ -6,12 +6,14 @@ use crate::{
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
+use http::Method;
 use std::pin::Pin;
 
 pub struct Streaming;
 
 impl Encoding for Streaming {
     const CONTENT_TYPE: &'static str = "application/octet-stream";
+    const METHOD: Method = Method::POST;
 }
 
 /* impl<CustErr, T, Request> IntoReq<CustErr, Request, ByteStream> for T
@@ -81,6 +83,7 @@ pub struct StreamingText;
 
 impl Encoding for StreamingText {
     const CONTENT_TYPE: &'static str = "text/plain";
+    const METHOD: Method = Method::POST;
 }
 
 pub struct TextStream<CustErr = NoCustomError>(

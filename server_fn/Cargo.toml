@@ -34,7 +34,7 @@ multer = { version = "3", optional = true }
 # serde 
 serde_json = "1"
 futures = "0.3"
-http = { version = "1", optional = true }
+http = { version = "1" }
 ciborium = { version = "0.2", optional = true }
 hyper = { version = "1", optional = true }
 bytes = "1"
@@ -67,7 +67,6 @@ reqwest = { version = "0.11", default-features = false, optional = true, feature
 actix = ["dep:actix-web", "dep:send_wrapper"]
 axum = [
   "dep:axum",
-  "dep:http",
   "dep:hyper",
   "dep:http-body-util",
   "dep:tower",
@@ -88,5 +87,5 @@ cbor = ["dep:ciborium"]
 rkyv = ["dep:rkyv"]
 default-tls = ["reqwest/default-tls"]
 rustls = ["reqwest/rustls-tls"]
-reqwest = ["dep:http", "dep:reqwest"]
+reqwest = ["dep:reqwest"]
 ssr = ["inventory"]

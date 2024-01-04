@@ -4,6 +4,7 @@ mod cbor;
 pub use cbor::*;
 #[cfg(feature = "json")]
 mod json;
+use http::Method;
 #[cfg(feature = "json")]
 pub use json::*;
 #[cfg(feature = "rkyv")]
@@ -59,6 +60,7 @@ pub trait IntoRes<CustErr, Response, Encoding> {
 
 pub trait Encoding {
     const CONTENT_TYPE: &'static str;
+    const METHOD: Method;
 }
 
 pub trait FormDataEncoding<Client, CustErr, Request>

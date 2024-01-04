@@ -237,9 +237,10 @@ pub fn server_macro_impl(
     let inventory = if cfg!(feature = "ssr") {
         quote! {
             #server_fn_path::inventory::submit! {{
-                use #server_fn_path::ServerFn;
+                use #server_fn_path::{ServerFn, codec::Encoding};
                 #server_fn_path::ServerFnTraitObj::new(
                     #struct_name::PATH,
+                    <#struct_name as ServerFn>::InputEncoding::METHOD,
                     |req| {
                         Box::pin(#struct_name::run_on_server(req))
                     },

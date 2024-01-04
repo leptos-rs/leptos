@@ -5,6 +5,7 @@ use crate::{
     IntoReq,
 };
 use futures::StreamExt;
+use http::Method;
 use multer::Multipart;
 use web_sys::FormData;
 
@@ -12,6 +13,7 @@ pub struct MultipartFormData;
 
 impl Encoding for MultipartFormData {
     const CONTENT_TYPE: &'static str = "multipart/form-data";
+    const METHOD: Method = Method::POST;
 }
 
 #[derive(Debug)]
