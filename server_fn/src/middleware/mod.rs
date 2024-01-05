@@ -138,7 +138,7 @@ mod actix {
             &mut self,
             req: ActixRequest,
         ) -> Pin<Box<dyn Future<Output = ActixResponse> + Send>> {
-            let inner = self.call(req.0.take());
+            let inner = self.call(req.0.take().0);
             Box::pin(async move {
                 ActixResponse::from(inner.await.unwrap_or_else(|e| {
                     let err = ServerFnError::from(e);

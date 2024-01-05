@@ -11,7 +11,7 @@ use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
     http::header,
-    web::{Bytes, ServiceConfig},
+    web::{Payload, ServiceConfig},
     *,
 };
 use futures::{Stream, StreamExt};
@@ -178,60 +178,59 @@ pub fn handle_server_fns() -> Route {
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
 ) -> Route {
-    web::to(
-        move |req: HttpRequest, params: web::Path<String>, body: web::Bytes| {
+    web::to(move |req: HttpRequest, payload: Payload| {
+        let additional_context = additional_context.clone();
+        async move {
             let additional_context = additional_context.clone();
-            async move {
-                let additional_context = additional_context.clone();
 
-                let path = req.path();
-                if let Some(mut service) =
-                    server_fn::actix::get_server_fn_service(path)
-                {
-                    let runtime = create_runtime();
+            let path = req.path();
+            if let Some(mut service) =
+                server_fn::actix::get_server_fn_service(path)
+            {
+                let runtime = create_runtime();
 
-                    // Add additional info to the context of the server function
-                    additional_context();
-                    provide_context(req.clone());
-                    let res_parts = ResponseOptions::default();
-                    provide_context(res_parts.clone());
+                // Add additional info to the context of the server function
+                additional_context();
+                provide_context(req.clone());
+                let res_parts = ResponseOptions::default();
+                provide_context(res_parts.clone());
 
-                    let mut res =
-                        service.0.run(ActixRequest::from(req)).await.take();
+                let mut res = service
+                    .0
+                    .run(ActixRequest::from((req, payload)))
+                    .await
+                    .take();
 
-                    // Override StatusCode if it was set in a Resource or Element
-                    if let Some(status) = res_parts.0.read().status {
-                        *res.status_mut() = status;
-                    }
-
-                    // Use provided ResponseParts headers if they exist
-                    let headers = res.headers_mut();
-                    for (k, v) in
-                        std::mem::take(&mut res_parts.0.write().headers)
-                    {
-                        headers.append(k.clone(), v.clone());
-                    }
-
-                    // clean up the scope
-                    runtime.dispose();
-                    res
-                } else {
-                    HttpResponse::BadRequest().body(format!(
-                        "Could not find a server function at the route {:?}. \
-                         \n\nIt's likely that either
-                         1. The API prefix you specify in the `#[server]` \
-                         macro doesn't match the prefix at which your server \
-                         function handler is mounted, or \n2. You are on a \
-                         platform that doesn't support automatic server \
-                         function registration and you need to call \
-                         ServerFn::register_explicit() on the server function \
-                         type, somewhere in your `main` function.",
-                        req.path()
-                    ))
+                // Override StatusCode if it was set in a Resource or Element
+                if let Some(status) = res_parts.0.read().status {
+                    *res.status_mut() = status;
                 }
+
+                // Use provided ResponseParts headers if they exist
+                let headers = res.headers_mut();
+                for (k, v) in std::mem::take(&mut res_parts.0.write().headers) {
+                    headers.append(k.clone(), v.clone());
+                }
+
+                // clean up the scope
+                runtime.dispose();
+                res
+            } else {
+                HttpResponse::BadRequest().body(format!(
+                    "Could not find a server function at the route {:?}. \
+                     \n\nIt's likely that either
+                         1. The API prefix you specify in the `#[server]` \
+                     macro doesn't match the prefix at which your server \
+                     function handler is mounted, or \n2. You are on a \
+                     platform that doesn't support automatic server function \
+                     registration and you need to call \
+                     ServerFn::register_explicit() on the server function \
+                     type, somewhere in your `main` function.",
+                    req.path()
+                ))
             }
-        },
-    )
+        }
+    })
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -1229,6 +1228,14 @@ where
                 };
             }
         }
+
+        // register server functions
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = handle_server_fns_with_context(additional_context);
+            router = router.route(path, handler);
+        }
+
         router
     }
 }
@@ -1322,82 +1329,22 @@ impl LeptosRoutes for &mut ServiceConfig {
 /// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
 ///     use actix_web::web::Query;
 ///     use leptos_actix::*;
-///     let Query(data) = extractor().await?;
+///     let Query(data) = extract().await?;
 ///     Ok(data)
 /// }
 /// ```
-pub async fn extractor<T>() -> Result<T, ServerFnError>
+pub async fn extract<T, CustErr>() -> Result<T, ServerFnError<CustErr>>
 where
     T: actix_web::FromRequest,
-    <T as FromRequest>::Error: Debug,
+    <T as FromRequest>::Error: Display,
 {
-    let req = use_context::<actix_web::HttpRequest>()
-        .expect("HttpRequest should have been provided via context");
+    let req = use_context::<HttpRequest>().ok_or_else(|| {
+        ServerFnError::ServerError(
+            "HttpRequest should have been provided via context".to_string(),
+        )
+    })?;
 
-    if let Some(body) = use_context::<Bytes>() {
-        let (_, mut payload) = actix_http::h1::Payload::create(false);
-        payload.unread_data(body);
-        T::from_request(&req, &mut dev::Payload::from(payload))
-    } else {
-        T::extract(&req)
-    }
-    .await
-    .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+    T::extract(&req)
+        .await
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))
 }
-
-/// A macro that makes it easier to use extractors in server functions. The macro
-/// takes a type or types, and extracts them from the request, returning from the
-/// server function with an `Err(_)` if there is an error during extraction.
-/// ```rust,ignore
-/// let info = extract!(ConnectionInfo);
-/// let Query(data) = extract!(Query<Search>);
-/// let (info, Query(data)) = extract!(ConnectionInfo, Query<Search>);
-/// ```
-#[macro_export]
-macro_rules! extract {
-    ($($x:ty),+) => {
-        $crate::extract(|fields: ($($x),+)| async move { fields }).await?
-    };
-}
-
-// Drawn from the Actix Handler implementation
-// https://github.com/actix/actix-web/blob/19c9d858f25e8262e14546f430d713addb397e96/actix-web/src/handler.rs#L124
-pub trait Extractor<T> {
-    type Future;
-
-    fn call(self, args: T) -> Self::Future;
-}
-
-macro_rules! factory_tuple ({ $($param:ident)* } => {
-    impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
-    where
-        Func: FnOnce($($param),*) -> Fut + Clone + 'static,
-        Fut: Future,
-    {
-        type Future = Fut;
-
-        #[inline]
-        #[allow(non_snake_case)]
-        fn call(self, ($($param,)*): ($($param,)*)) -> Self::Future {
-            (self)($($param,)*)
-        }
-    }
-});
-
-factory_tuple! {}
-factory_tuple! { A }
-factory_tuple! { A B }
-factory_tuple! { A B C }
-factory_tuple! { A B C D }
-factory_tuple! { A B C D E }
-factory_tuple! { A B C D E F }
-factory_tuple! { A B C D E F G }
-factory_tuple! { A B C D E F G H }
-factory_tuple! { A B C D E F G H I }
-factory_tuple! { A B C D E F G H I J }
-factory_tuple! { A B C D E F G H I J K }
-factory_tuple! { A B C D E F G H I J K L }
-factory_tuple! { A B C D E F G H I J K L M }
-factory_tuple! { A B C D E F G H I J K L M N }
-factory_tuple! { A B C D E F G H I J K L M N O }
-factory_tuple! { A B C D E F G H I J K L M N O P }

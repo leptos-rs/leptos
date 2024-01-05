@@ -238,6 +238,7 @@ pub fn server_macro_impl(
                     #struct_name::PATH,
                     <#struct_name as ServerFn>::InputEncoding::METHOD,
                     |req| {
+                        println!("running {:?}", stringify!(#struct_name));
                         Box::pin(#struct_name::run_on_server(req))
                     },
                     #struct_name::middlewares
@@ -250,10 +251,30 @@ pub fn server_macro_impl(
 
     // run_body in the trait implementation
     let run_body = if cfg!(feature = "ssr") {
+        // using the impl Future syntax here is thanks to Actix
+        //
+        // if we use Actix types inside the function, here, it becomes !Send
+        // so we need to add SendWrapper, because Actix won't actually send it anywhere
+        // but if we used SendWrapper in an async fn, the types don't work out because it
+        // becomes impl Future<Output = SendWrapper<_>>
+        //
+        // however, SendWrapper<Future<Output = T>> impls Future<Output = T>
+        let body = quote! {
+            let #struct_name { #(#field_names),* } = self;
+            #dummy_name(#(#field_names),*).await
+        };
+        let body = if cfg!(feature = "actix") {
+            quote! {
+                #server_fn_path::actix::SendWrapper::new(async move {
+                    #body
+                })
+            }
+        } else {
+            body
+        };
         quote! {
-            async fn run_body(self) -> #return_ty {
-                let #struct_name { #(#field_names),* } = self;
-                #dummy_name(#(#field_names),*).await
+            fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
+                #body
             }
         }
     } else {
@@ -271,7 +292,7 @@ pub fn server_macro_impl(
             #docs
             #(#attrs)*
             #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
-                #block
+                #dummy_name(#(#field_names),*).await
             }
         }
     } else {
@@ -318,7 +339,7 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "actix") {
         quote! {
-            #server_fn_path::actix_export::HttpRequest
+            #server_fn_path::request::actix::ActixRequest
         }
     } else {
         return Err(syn::Error::new(
@@ -337,7 +358,7 @@ pub fn server_macro_impl(
         }
     } else if cfg!(feature = "actix") {
         quote! {
-            #server_fn_path::actix_export::HttpResponse
+            #server_fn_path::response::actix::ActixResponse
         }
     } else {
         return Err(syn::Error::new(
