@@ -242,7 +242,6 @@ async fn handle_server_fns_inner(
 
             additional_context();
             provide_context(parts);
-            // Add this so that we can set headers and status of the response
             provide_context(ResponseOptions::default());
 
             let mut res = service.run(req).await;
