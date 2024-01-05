@@ -4,7 +4,7 @@ use bytes::Bytes;
 pub use gloo_net::http::Request;
 use js_sys::Uint8Array;
 use send_wrapper::SendWrapper;
-use web_sys::FormData;
+use web_sys::{FormData, UrlSearchParams};
 
 #[derive(Debug)]
 pub struct BrowserRequest(pub(crate) SendWrapper<Request>);
@@ -86,6 +86,32 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
             Request::post(path)
                 .header("Accept", accepts)
                 .body(body.0.take())
+                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+        )))
+    }
+
+    fn try_new_post_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, ServerFnError<CustErr>> {
+        let form_data = body.0.take();
+        let url_params =
+            UrlSearchParams::new_with_str_sequence_sequence(&form_data)
+                .map_err(|e| {
+                    ServerFnError::Serialization(e.as_string().unwrap_or_else(
+                        || {
+                            "Could not serialize FormData to URLSearchParams"
+                                .to_string()
+                        },
+                    ))
+                })?;
+        Ok(Self(SendWrapper::new(
+            Request::post(path)
+                .header("Content-Type", content_type)
+                .header("Accept", accepts)
+                .body(url_params)
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
         )))
     }
