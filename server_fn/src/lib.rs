@@ -307,6 +307,9 @@ pub mod actix {
         ServerFnTraitObj,
     };
     use actix_web::{HttpRequest, HttpResponse};
+    use http::Method;
+    #[doc(hidden)]
+    pub use send_wrapper::SendWrapper;
 
     inventory::collect!(ServerFnTraitObj<ActixRequest, ActixResponse>);
 
@@ -333,6 +336,12 @@ pub mod actix {
         );
     }
 
+    pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
+        REGISTERED_SERVER_FUNCTIONS
+            .iter()
+            .map(|item| (item.path(), item.method()))
+    }
+
     pub async fn handle_server_fn(req: HttpRequest) -> HttpResponse {
         let path = req.uri().path();
         if let Some(server_fn) = REGISTERED_SERVER_FUNCTIONS.get(path) {
@@ -343,11 +352,6 @@ pub mod actix {
                 service = middleware.layer(service);
             }
             service.0.run(ActixRequest::from(req)).await.0.take()
-            /*server_fn
-            .run(ActixRequest(SendWrapper::new(req)))
-            .await
-            .0
-            .take()*/
         } else {
             HttpResponse::BadRequest().body(format!(
                 "Could not find a server function at the route {path}. \
@@ -360,5 +364,18 @@ pub mod actix {
                  somewhere in your `main` function.",
             ))
         }
+    }
+
+    pub fn get_server_fn_service(
+        path: &str,
+    ) -> Option<BoxedService<ActixRequest, ActixResponse>> {
+        REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
+            let middleware = (server_fn.middleware)();
+            let mut service = BoxedService::new(server_fn.clone());
+            for middleware in middleware {
+                service = middleware.layer(service);
+            }
+            service
+        })
     }
 }

@@ -7,6 +7,12 @@ use std::future::Future;
 
 pub struct ActixRequest(pub(crate) SendWrapper<HttpRequest>);
 
+impl ActixRequest {
+    pub fn take(self) -> HttpRequest {
+        self.0.take()
+    }
+}
+
 impl From<HttpRequest> for ActixRequest {
     fn from(value: HttpRequest) -> Self {
         ActixRequest(SendWrapper::new(value))
