@@ -88,4 +88,19 @@ impl<CustErr> ClientReq<CustErr> for Request {
             .build()
             .map_err(|e| ServerFnError::Request(e.to_string()))
     }
+
+    fn try_new_post_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, ServerFnError<CustErr>> {
+        /*CLIENT
+        .post(path)
+        .header(ACCEPT, accepts)
+        .multipart(body)
+        .build()
+        .map_err(|e| ServerFnError::Request(e.to_string()))*/
+        todo!()
+    }
 }

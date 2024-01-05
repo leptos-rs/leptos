@@ -74,6 +74,10 @@ experimental-islands = [
   "dep:serde",
   "dep:serde_json",
 ]
+trace-component-props = [
+  "leptos_dom/trace-component-props",
+  "leptos_macro/trace-component-props"
+]
 
 [package.metadata.cargo-all-features]
 denylist = [
@@ -83,6 +87,7 @@ denylist = [
   "rustls",
   "default-tls",
   "wasm-bindgen",
+  "trace-component-props"
 ]
 skip_feature_sets = [
   [
