@@ -5,14 +5,22 @@ use crate::{
 use leptos::{
     html::form,
     logging::*,
-    server_fn::{error::ServerFnErrorSerde, ServerFn},
+    server_fn::{
+        client::Client,
+        codec::{Encoding, PostUrl},
+        request::ClientReq,
+        ServerFn,
+    },
     *,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::RequestRedirect;
+use web_sys::{
+    FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
+    RequestRedirect, SubmitEvent,
+};
 
 type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
 type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
@@ -416,11 +424,14 @@ fn current_window_origin() -> String {
     tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
-pub fn ActionForm<I, O, Enc>(
+pub fn ActionForm<ServFn>(
     /// The action from which to build the form. This should include a URL, which can be generated
     /// by default using [`create_server_action`](l:eptos_server::create_server_action) or added
     /// manually using [`using_server_fn`](leptos_server::Action::using_server_fn).
-    action: Action<I, Result<O, ServerFnError<I::Error>>>,
+    action: Action<
+        ServFn,
+        Result<ServFn::Output, ServerFnError<ServFn::Error>>,
+    >,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
@@ -440,11 +451,15 @@ pub fn ActionForm<I, O, Enc>(
     children: Children,
 ) -> impl IntoView
 where
-    I: Clone + DeserializeOwned + ServerFn<InputEncoding = Enc> + 'static,
-    O: Clone + Serialize + DeserializeOwned + 'static,
-    ServerFnError<I::Error>: Debug + Clone, //    Enc: FormDataEncoding,
-    I::Error: Debug + 'static,
+    ServFn:
+        Clone + DeserializeOwned + ServerFn<InputEncoding = PostUrl> + 'static,
+    ServerFnError<ServFn::Error>: Debug + Clone,
+    ServFn::Error: Debug + 'static,
+    <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
+        ServFn::Error,
+    >>::FormData: From<FormData>,
 {
+    let has_router = has_router();
     let action_url = if let Some(url) = action.url() {
         url
     } else {
@@ -458,7 +473,81 @@ where
     let value = action.value();
     let input = action.input();
 
-    let on_error = Rc::new(move |e: &gloo_net::Error| {
+    let class = class.map(|bx| bx.into_attribute_boxed());
+
+    let on_submit = {
+        let action_url = action_url.clone();
+        move |ev: SubmitEvent| {
+            if ev.default_prevented() {
+                return;
+            }
+
+            ev.prevent_default();
+
+            let navigate = has_router.then(use_navigate);
+            let navigate_options = NavigateOptions {
+                scroll: !noscroll,
+                ..Default::default()
+            };
+
+            let form =
+                form_from_event(&ev).expect("couldn't find form submitter");
+            let form_data = FormData::new_with_form(&form).unwrap();
+            let req = <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
+                ServFn::Error,
+            >>::try_new_post_form_data(
+                &action_url,
+                ServFn::OutputEncoding::CONTENT_TYPE,
+                ServFn::InputEncoding::CONTENT_TYPE,
+                form_data.into(),
+            );
+            match req {
+                Ok(req) => {
+                    spawn_local(async move {
+                        // TODO check order of setting things here, and use batch as needed
+                        // TODO set version?
+                        match <ServFn as ServerFn>::run_on_client_with_req(req)
+                            .await
+                        {
+                            Ok(res) => {
+                                batch(move || {
+                                    version.update(|n| *n += 1);
+                                    value.try_set(Some(Ok(res)));
+                                });
+                            }
+                            Err(err) => {
+                                batch(move || {
+                                    value.set(Some(Err(err.clone())));
+                                    if let Some(error) = error {
+                                        error.set(Some(Box::new(
+                                            ServerFnErrorErr::from(err),
+                                        )));
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+                Err(_) => todo!(),
+            }
+        }
+    };
+
+    let mut action_form = form()
+        .attr("action", action_url)
+        .attr("method", "post")
+        .attr("class", class)
+        .on(ev::submit, on_submit)
+        .child(children());
+    if let Some(node_ref) = node_ref {
+        action_form = action_form.node_ref(node_ref)
+    };
+    for (attr_name, attr_value) in attributes {
+        action_form = action_form.attr(attr_name, attr_value);
+    }
+    action_form
+
+    /*    let on_error = Rc::new(move |e: &gloo_net::Error| {
         batch(move || {
             action.set_pending(false);
             let e = ServerFnError::Request(e.to_string());
@@ -556,24 +645,7 @@ where
                 action.set_pending(false);
             });
         });
-    });
-    let class = class.map(|bx| bx.into_attribute_boxed());
-
-    let mut props = FormProps::builder()
-        .action(action_url)
-        .version(version)
-        .on_form_data(on_form_data)
-        .on_response(on_response)
-        .on_error(on_error)
-        .method("post")
-        .class(class)
-        .noscroll(noscroll)
-        .children(children)
-        .build();
-    props.error = error;
-    props.node_ref = node_ref;
-    props.attributes = attributes;
-    Form(props)
+    });*/
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
@@ -657,6 +729,25 @@ where
     }
     form
 }
+
+fn form_from_event(ev: &SubmitEvent) -> Option<HtmlFormElement> {
+    let submitter = ev.unchecked_ref::<SubmitEvent>().submitter();
+    match &submitter {
+        Some(el) => {
+            if let Some(form) = el.dyn_ref::<HtmlFormElement>() {
+                Some(form.clone())
+            } else if el.is_instance_of::<HtmlInputElement>()
+                || el.is_instance_of::<HtmlButtonElement>()
+            {
+                Some(ev.target().unwrap().unchecked_into())
+            } else {
+                None
+            }
+        }
+        None => ev.target().map(|form| form.unchecked_into()),
+    }
+}
+
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)

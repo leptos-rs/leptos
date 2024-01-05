@@ -40,6 +40,13 @@ where
         body: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
+    fn try_new_post_form_data(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: Self::FormData,
+    ) -> Result<Self, ServerFnError<CustErr>>;
+
     fn try_new_multipart(
         path: &str,
         accepts: &str,

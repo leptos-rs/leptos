@@ -104,6 +104,15 @@ where
             // create and send request on client
             let req =
                 self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
+            Self::run_on_client_with_req(req).await
+        }
+    }
+
+    fn run_on_client_with_req(
+        req: <Self::Client as Client<Self::Error>>::Request,
+    ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
+    {
+        async move {
             let res = Self::Client::send(req).await?;
 
             let status = res.status();
@@ -122,7 +131,6 @@ where
             if (300..=399).contains(&status) {
                 redirect::call_redirect_hook(&location);
             }
-
             res
         }
     }
@@ -288,11 +296,11 @@ pub mod axum {
         path: &str,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
         REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
-            //let middleware = (server_fn.middleware)();
+            let middleware = (server_fn.middleware)();
             let mut service = BoxedService::new(server_fn.clone());
-            //for middleware in middleware {
-            //service = middleware.layer(service);
-            //}
+            for middleware in middleware {
+                service = middleware.layer(service);
+            }
             service
         })
     }
