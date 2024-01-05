@@ -288,11 +288,11 @@ pub mod axum {
         path: &str,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
         REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
-            let middleware = (server_fn.middleware)();
+            //let middleware = (server_fn.middleware)();
             let mut service = BoxedService::new(server_fn.clone());
-            for middleware in middleware {
-                service = middleware.layer(service);
-            }
+            //for middleware in middleware {
+            //service = middleware.layer(service);
+            //}
             service
         })
     }
@@ -306,7 +306,7 @@ pub mod actix {
         response::actix::ActixResponse, Encoding, LazyServerFnMap, ServerFn,
         ServerFnTraitObj,
     };
-    use actix_web::{HttpRequest, HttpResponse};
+    use actix_web::{web::Payload, HttpRequest, HttpResponse};
     use http::Method;
     #[doc(hidden)]
     pub use send_wrapper::SendWrapper;
@@ -342,7 +342,10 @@ pub mod actix {
             .map(|item| (item.path(), item.method()))
     }
 
-    pub async fn handle_server_fn(req: HttpRequest) -> HttpResponse {
+    pub async fn handle_server_fn(
+        req: HttpRequest,
+        payload: Payload,
+    ) -> HttpResponse {
         let path = req.uri().path();
         if let Some(server_fn) = REGISTERED_SERVER_FUNCTIONS.get(path) {
             let middleware = (server_fn.middleware)();
@@ -351,7 +354,12 @@ pub mod actix {
             for middleware in middleware {
                 service = middleware.layer(service);
             }
-            service.0.run(ActixRequest::from(req)).await.0.take()
+            service
+                .0
+                .run(ActixRequest::from((req, payload)))
+                .await
+                .0
+                .take()
         } else {
             HttpResponse::BadRequest().body(format!(
                 "Could not find a server function at the route {path}. \
