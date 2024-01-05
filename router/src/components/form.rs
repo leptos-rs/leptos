@@ -2,9 +2,14 @@ use crate::{
     hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
     ToHref, Url,
 };
-use leptos::{html::form, logging::*, server_fn::ServerFn, *};
+use leptos::{
+    html::form,
+    logging::*,
+    server_fn::{error::ServerFnErrorSerde, ServerFn},
+    *,
+};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, rc::Rc};
+use std::{error::Error, fmt::Debug, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::RequestRedirect;
@@ -415,7 +420,7 @@ pub fn ActionForm<I, O, Enc>(
     /// The action from which to build the form. This should include a URL, which can be generated
     /// by default using [`create_server_action`](l:eptos_server::create_server_action) or added
     /// manually using [`using_server_fn`](leptos_server::Action::using_server_fn).
-    action: Action<I, Result<O, ServerFnError>>,
+    action: Action<I, Result<O, ServerFnError<I::Error>>>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
@@ -437,7 +442,8 @@ pub fn ActionForm<I, O, Enc>(
 where
     I: Clone + DeserializeOwned + ServerFn<InputEncoding = Enc> + 'static,
     O: Clone + Serialize + DeserializeOwned + 'static,
-    ServerFnError<I::Error>: Clone, //    Enc: FormDataEncoding,
+    ServerFnError<I::Error>: Debug + Clone, //    Enc: FormDataEncoding,
+    I::Error: Debug + 'static,
 {
     let action_url = if let Some(url) = action.url() {
         url
@@ -453,15 +459,14 @@ where
     let input = action.input();
 
     let on_error = Rc::new(move |e: &gloo_net::Error| {
-        // TODO
-        /*        batch(move || {
+        batch(move || {
             action.set_pending(false);
             let e = ServerFnError::Request(e.to_string());
             value.try_set(Some(Err(e.clone())));
             if let Some(error) = error {
                 error.try_set(Some(Box::new(ServerFnErrorErr::from(e))));
             }
-        });*/
+        });
     });
 
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
@@ -474,8 +479,7 @@ where
                 });
             }
             Err(e) => {
-                // TODO
-                /*                error!("{e}");
+                error!("{e}");
                 let e = ServerFnError::Serialization(e.to_string());
                 batch(move || {
                     value.try_set(Some(Err(e.clone())));
@@ -483,7 +487,7 @@ where
                         error
                             .try_set(Some(Box::new(ServerFnErrorErr::from(e))));
                     }
-                }); */
+                });
             }
         }
     });
@@ -508,24 +512,11 @@ where
                     let json = json
                         .as_string()
                         .expect("couldn't get String from JsString");
-                    if (500..=599).contains(&status) {
-                        match serde_json::from_str::<ServerFnError>(&json) {
-                            Ok(res) => {
-                                value.try_set(Some(Err(res)));
-                                if let Some(error) = error {
-                                    error.try_set(None);
-                                }
-                            }
-                            Err(e) => {
-                                value.try_set(Some(Err(
-                                    ServerFnError::Deserialization(
-                                        e.to_string(),
-                                    ),
-                                )));
-                                if let Some(error) = error {
-                                    error.try_set(Some(Box::new(e)));
-                                }
-                            }
+                    if (400..=599).contains(&status) {
+                        let res = ServerFnError::<I::Error>::de(&json);
+                        value.try_set(Some(Err(res)));
+                        if let Some(error) = error {
+                            error.try_set(None);
                         }
                     } else {
                         match serde_json::from_str::<O>(&json) {
