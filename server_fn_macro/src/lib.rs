@@ -308,7 +308,6 @@ pub fn server_macro_impl(
         #server_fn_path::client::browser::BrowserClient
     };
 
-    // TODO Actix etc
     let req = if !cfg!(feature = "ssr") {
         quote! {
             #server_fn_path::request::BrowserMockReq

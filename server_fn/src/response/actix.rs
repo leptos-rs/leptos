@@ -12,8 +12,14 @@ use std::fmt::{Debug, Display};
 pub struct ActixResponse(pub(crate) SendWrapper<HttpResponse>);
 
 impl ActixResponse {
-    pub fn into_inner(self) -> HttpResponse {
+    pub fn take(self) -> HttpResponse {
         self.0.take()
+    }
+}
+
+impl From<HttpResponse> for ActixResponse {
+    fn from(value: HttpResponse) -> Self {
+        Self(SendWrapper::new(value))
     }
 }
 

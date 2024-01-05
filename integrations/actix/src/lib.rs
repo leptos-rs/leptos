@@ -17,8 +17,6 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use http::StatusCode;
 use leptos::{
-    leptos_server::{server_fn_by_path, Payload},
-    server_fn::Encoding,
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
@@ -27,6 +25,7 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
+use server_fn::request::actix::ActixRequest;
 use std::{
     fmt::{Debug, Display},
     future::Future,
@@ -185,113 +184,34 @@ pub fn handle_server_fns_with_context(
             async move {
                 let additional_context = additional_context.clone();
 
-                let path = params.into_inner();
-                let accept_header = req
-                    .headers()
-                    .get("Accept")
-                    .and_then(|value| value.to_str().ok());
-
-                if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-                    let body_ref: &[u8] = &body;
-
+                let path = req.path();
+                if let Some(mut service) =
+                    server_fn::actix::get_server_fn_service(path)
+                {
                     let runtime = create_runtime();
 
                     // Add additional info to the context of the server function
                     additional_context();
-                    let res_options = ResponseOptions::default();
-
-                    // provide HttpRequest as context in server scope
                     provide_context(req.clone());
-                    provide_context(res_options.clone());
+                    let res_parts = ResponseOptions::default();
+                    provide_context(res_parts.clone());
 
-                    // we consume the body here (using the web::Bytes extractor), but it is required for things
-                    // like MultipartForm
-                    if req
-                        .headers()
-                        .get("Content-Type")
-                        .and_then(|value| value.to_str().ok())
-                        .map(|value| {
-                            value.starts_with("multipart/form-data; boundary=")
-                        })
-                        == Some(true)
-                    {
-                        provide_context(body.clone());
+                    let mut res =
+                        service.0.run(ActixRequest::from(req)).await.take();
+
+                    // Override StatusCode if it was set in a Resource or Element
+                    if let Some(status) = res_parts.0.read().status {
+                        *res.status_mut() = status;
                     }
 
-                    let query = req.query_string().as_bytes();
+                    // Use provided ResponseParts headers if they exist
+                    let headers = res.headers_mut();
+                    for (k, v) in
+                        std::mem::take(&mut res_parts.0.write().headers)
+                    {
+                        headers.append(k.clone(), v.clone());
+                    }
 
-                    let data = match &server_fn.encoding() {
-                        Encoding::Url | Encoding::Cbor => body_ref,
-                        Encoding::GetJSON | Encoding::GetCBOR => query,
-                    };
-
-                    let res = match server_fn.call((), data).await {
-                        Ok(serialized) => {
-                            let res_options =
-                                use_context::<ResponseOptions>().unwrap();
-
-                            let mut res: HttpResponseBuilder =
-                                HttpResponse::Ok();
-                            let res_parts = res_options.0.write();
-
-                            // if accept_header isn't set to one of these, it's a form submit
-                            // redirect back to the referrer if not redirect has been set
-                            if accept_header != Some("application/json")
-                                && accept_header
-                                    != Some("application/x-www-form-urlencoded")
-                                && accept_header != Some("application/cbor")
-                            {
-                                // Location will already be set if redirect() has been used
-                                let has_location_set =
-                                    res_parts.headers.get("Location").is_some();
-                                if !has_location_set {
-                                    let referer = req
-                                        .headers()
-                                        .get("Referer")
-                                        .and_then(|value| value.to_str().ok())
-                                        .unwrap_or("/");
-                                    res = HttpResponse::SeeOther();
-                                    res.insert_header(("Location", referer))
-                                        .content_type("application/json");
-                                }
-                            };
-                            // Override StatusCode if it was set in a Resource or Element
-                            if let Some(status) = res_parts.status {
-                                res.status(status);
-                            }
-
-                            // Use provided ResponseParts headers if they exist
-                            let _count = res_parts
-                                .headers
-                                .clone()
-                                .into_iter()
-                                .map(|(k, v)| {
-                                    res.append_header((k, v));
-                                })
-                                .count();
-
-                            match serialized {
-                                Payload::Binary(data) => {
-                                    res.content_type("application/cbor");
-                                    res.body(Bytes::from(data))
-                                }
-                                Payload::Url(data) => {
-                                    res.content_type(
-                                        "application/x-www-form-urlencoded",
-                                    );
-                                    res.body(data)
-                                }
-                                Payload::Json(data) => {
-                                    res.content_type("application/json");
-                                    res.body(data)
-                                }
-                            }
-                        }
-                        Err(e) => HttpResponse::InternalServerError().body(
-                            serde_json::to_string(&e)
-                                .unwrap_or_else(|_| e.to_string()),
-                        ),
-                    };
                     // clean up the scope
                     runtime.dispose();
                     res
@@ -1386,62 +1306,6 @@ impl LeptosRoutes for &mut ServiceConfig {
         }
         router
     }
-}
-
-/// A helper to make it easier to use Actix extractors in server functions. This takes
-/// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler]: it is an async function that receives arguments that
-/// will be extracted from the request and returns some value.
-///
-/// ```rust,ignore
-/// use leptos::*;
-/// use serde::Deserialize;
-/// #[derive(Deserialize)]
-/// struct Search {
-///     q: String,
-/// }
-///
-/// #[server(ExtractoServerFn, "/api")]
-/// pub async fn extractor_server_fn() -> Result<String, ServerFnError> {
-///     use actix_web::dev::ConnectionInfo;
-///     use actix_web::web::{Data, Query};
-///
-///     extract(
-///         |data: Data<String>, search: Query<Search>, connection: ConnectionInfo| async move {
-///             format!(
-///                 "data = {}\nsearch = {}\nconnection = {:?}",
-///                 data.into_inner(),
-///                 search.q,
-///                 connection
-///             )
-///         },
-///     )
-///     .await
-/// }
-/// ```
-pub async fn extract<F, E>(
-    f: F,
-) -> Result<<<F as Extractor<E>>::Future as Future>::Output, ServerFnError>
-where
-    F: Extractor<E>,
-    E: actix_web::FromRequest,
-    <E as actix_web::FromRequest>::Error: Display,
-    <F as Extractor<E>>::Future: Future,
-{
-    let req = use_context::<actix_web::HttpRequest>()
-        .expect("HttpRequest should have been provided via context");
-
-    let input = if let Some(body) = use_context::<Bytes>() {
-        let (_, mut payload) = actix_http::h1::Payload::create(false);
-        payload.unread_data(body);
-        E::from_request(&req, &mut dev::Payload::from(payload))
-    } else {
-        E::extract(&req)
-    }
-    .await
-    .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
-
-    Ok(f.call(input).await)
 }
 
 /// A helper to make it easier to use Axum extractors in server functions, with a

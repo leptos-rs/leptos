@@ -97,6 +97,7 @@ mod axum {
 #[cfg(feature = "actix")]
 mod actix {
     use crate::{
+        request::actix::ActixRequest,
         response::{actix::ActixResponse, Res},
         ServerFnError,
     };
@@ -121,8 +122,28 @@ mod actix {
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
                     let err = ServerFnError::from(e);
-                    ActixResponse::error_response(err).into_inner()
+                    ActixResponse::error_response(err).take()
                 })
+            })
+        }
+    }
+
+    impl<S> super::Service<ActixRequest, ActixResponse> for S
+    where
+        S: actix_web::dev::Service<HttpRequest, Response = HttpResponse>,
+        S::Future: Send + 'static,
+        S::Error: Into<ServerFnError> + Debug + Display + 'static,
+    {
+        fn run(
+            &mut self,
+            req: ActixRequest,
+        ) -> Pin<Box<dyn Future<Output = ActixResponse> + Send>> {
+            let inner = self.call(req.0.take());
+            Box::pin(async move {
+                ActixResponse::from(inner.await.unwrap_or_else(|e| {
+                    let err = ServerFnError::from(e);
+                    ActixResponse::error_response(err).take()
+                }))
             })
         }
     }
