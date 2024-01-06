@@ -43,7 +43,7 @@ impl BrowserIntegration {
                 + loc.hash().unwrap_or_default().as_str(),
             replace: true,
             scroll: true,
-            state: State(None),
+            state: State(window().history().and_then(|h| h.state()).ok()),
         }
     }
 }
