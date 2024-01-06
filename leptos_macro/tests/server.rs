@@ -4,7 +4,7 @@ use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(not(feature = "ssr"))] {
         use leptos::{server, server_fn::{codec, ServerFn}, ServerFnError};
-        use std::any::type_name;
+        use std::any::TypeId;
 
         #[test]
         fn server_default() {
@@ -13,7 +13,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(&<MyServerAction as ServerFn>::PATH[..21], "/api/my_server_action");
-            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
+            assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
         #[test]
@@ -23,7 +23,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
-            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::Cbor>());
+            assert_eq!(TypeId::of::<<FooBar as ServerFn>::InputEncoding>(), TypeId::of::<codec::Cbor>());
         }
 
         #[test]
@@ -33,7 +33,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
-            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::Cbor>());
+            assert_eq!(TypeId::of::<<FooBar as ServerFn>::InputEncoding>(), TypeId::of::<codec::Cbor>());
         }
 
         #[test]
@@ -43,7 +43,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(<FooBar as ServerFn>::PATH, "/api/my_path");
-            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
+            assert_eq!(TypeId::of::<<FooBar as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
         #[test]
@@ -53,7 +53,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(&<FooBar as ServerFn>::PATH[..21], "/api/my_server_action");
-            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
+            assert_eq!(TypeId::of::<<FooBar as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
         #[test]
@@ -63,7 +63,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(&<MyServerAction as ServerFn>::PATH[..25], "/foo/bar/my_server_action");
-            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
+            assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
         #[test]
@@ -73,7 +73,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(&<MyServerAction as ServerFn>::PATH[..21], "/api/my_server_action");
-            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::GetUrl>());
+            assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::GetUrl>());
         }
 
         #[test]
@@ -83,7 +83,7 @@ cfg_if! {
                 Ok(())
             }
             assert_eq!(<MyServerAction as ServerFn>::PATH, "/api/path/to/my/endpoint");
-            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
+            assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
     }
 }
