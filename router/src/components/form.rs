@@ -8,15 +8,16 @@ use leptos::{
     server_fn::{
         client::Client,
         codec::{Encoding, PostUrl},
+        redirect::RedirectHook,
         request::ClientReq,
         ServerFn,
     },
     *,
 };
+use send_wrapper::SendWrapper;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
-use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
     RequestRedirect, SubmitEvent,
@@ -454,6 +455,7 @@ where
     ServFn:
         Clone + DeserializeOwned + ServerFn<InputEncoding = PostUrl> + 'static,
     ServerFnError<ServFn::Error>: Debug + Clone,
+    ServFn::Output: Debug,
     ServFn::Error: Debug + 'static,
     <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
         ServFn::Error,
@@ -485,10 +487,24 @@ where
             ev.prevent_default();
 
             let navigate = has_router.then(use_navigate);
-            let navigate_options = NavigateOptions {
+            let navigate_options = SendWrapper::new(NavigateOptions {
                 scroll: !noscroll,
                 ..Default::default()
-            };
+            });
+            let redirect_hook = navigate.map(|navigate| {
+                let navigate = SendWrapper::new(navigate);
+                Box::new(move |path: &str| {
+                    let path = path.to_string();
+                    // delay by a tick here, so that the Action updates *before* the redirect
+                    request_animation_frame({
+                        let navigate = navigate.clone();
+                        let navigate_options = navigate_options.clone();
+                        move || {
+                            navigate(&path, navigate_options.take());
+                        }
+                    });
+                }) as RedirectHook
+            });
 
             let form =
                 form_from_event(&ev).expect("couldn't find form submitter");
@@ -504,10 +520,14 @@ where
             match req {
                 Ok(req) => {
                     spawn_local(async move {
+                        // TODO set input
                         // TODO check order of setting things here, and use batch as needed
                         // TODO set version?
-                        match <ServFn as ServerFn>::run_on_client_with_req(req)
-                            .await
+                        match <ServFn as ServerFn>::run_on_client_with_req(
+                            req,
+                            redirect_hook.as_ref(),
+                        )
+                        .await
                         {
                             Ok(res) => {
                                 batch(move || {

@@ -23,6 +23,7 @@ use error::ServerFnErrorSerde;
 use http::Method;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
+use redirect::RedirectHook;
 use request::Req;
 use response::{ClientRes, Res};
 #[doc(hidden)]
@@ -104,12 +105,14 @@ where
             // create and send request on client
             let req =
                 self.into_req(Self::PATH, Self::OutputEncoding::CONTENT_TYPE)?;
-            Self::run_on_client_with_req(req).await
+            Self::run_on_client_with_req(req, redirect::REDIRECT_HOOK.get())
+                .await
         }
     }
 
     fn run_on_client_with_req(
         req: <Self::Client as Client<Self::Error>>::Request,
+        redirect_hook: Option<&RedirectHook>,
     ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
     {
         async move {
@@ -117,6 +120,7 @@ where
 
             let status = res.status();
             let location = res.location();
+            let has_redirect_header = res.has_redirect();
 
             // if it returns an error status, deserialize the error using FromStr
             let res = if (400..=599).contains(&status) {
@@ -128,8 +132,10 @@ where
             }?;
 
             // if redirected, call the redirect hook (if that's been set)
-            if (300..=399).contains(&status) {
-                redirect::call_redirect_hook(&location);
+            if let Some(redirect_hook) = redirect_hook {
+                if (300..=399).contains(&status) || has_redirect_header {
+                    redirect_hook(&location);
+                }
             }
             res
         }

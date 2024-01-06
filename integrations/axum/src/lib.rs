@@ -37,7 +37,7 @@ use axum::{
     body::{Body, Bytes},
     extract::{FromRef, FromRequestParts, MatchedPath},
     http::{
-        header::{self, HeaderName, HeaderValue},
+        header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
         request::Parts,
         HeaderMap, Method, Request, Response, StatusCode,
     },
@@ -54,6 +54,7 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
+use server_fn::redirect::REDIRECT_HEADER;
 use std::{
     error::Error, fmt::Debug, io, pin::Pin, sync::Arc,
     thread::available_parallelism,
@@ -114,12 +115,39 @@ impl ResponseOptions {
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(path: &str) {
-    if let Some(response_options) = use_context::<ResponseOptions>() {
-        response_options.set_status(StatusCode::FOUND);
-        response_options.insert_header(
+    if let (Some(req), Some(res)) =
+        (use_context::<Parts>(), use_context::<ResponseOptions>())
+    {
+        // insert the Location header in any case
+        res.insert_header(
             header::LOCATION,
             header::HeaderValue::from_str(path)
                 .expect("Failed to create HeaderValue"),
+        );
+
+        let accepts_html = req
+            .headers
+            .get(ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("text/html"))
+            .unwrap_or(false);
+        if accepts_html {
+            // if the request accepts text/html, it's a plain form request and needs
+            // to have the 302 code set
+            res.set_status(StatusCode::FOUND);
+        } else {
+            // otherwise, we sent it from the server fn client and actually don't want
+            // to set a real redirect, as this will break the ability to return data
+            // instead, set the REDIRECT_HEADER to indicate that the client should redirect
+            res.insert_header(
+                HeaderName::from_static(REDIRECT_HEADER),
+                HeaderValue::from_str("").unwrap(),
+            );
+        }
+    } else {
+        tracing::warn!(
+            "Couldn't retrieve either Parts or ResponseOptions while trying \
+             to redirect()."
         );
     }
 }
@@ -244,12 +272,35 @@ async fn handle_server_fns_inner(
             provide_context(parts);
             provide_context(ResponseOptions::default());
 
+            // store Accepts and Referer in case we need them for redirect (below)
+            let accepts_html = req
+                .headers()
+                .get(ACCEPT)
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.contains("text/html"))
+                .unwrap_or(false);
+            let referrer = req.headers().get(REFERER).cloned();
+
+            // actually run the server fn
             let mut res = service.run(req).await;
 
+            // update response as needed
             let res_options = expect_context::<ResponseOptions>().0;
             let res_options_inner = res_options.read();
             let (status, mut res_headers) =
                 (res_options_inner.status, res_options_inner.headers.clone());
+
+            // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
+            // Location set, then redirect to to Referer
+            if accepts_html {
+                if let Some(referrer) = referrer {
+                    let has_location = res.headers().get(LOCATION).is_some();
+                    if !has_location {
+                        *res.status_mut() = StatusCode::FOUND;
+                        res.headers_mut().insert(LOCATION, referrer);
+                    }
+                }
+            }
 
             // apply status code and headers if used changed them
             if let Some(status) = status {
