@@ -306,7 +306,7 @@ pub fn handle_server_fns_with_context(
                                 HttpResponse::SeeOther()
                                     .insert_header((
                                         header::LOCATION,
-                                        url.with_server_fn(&e).as_str(),
+                                        url.with_server_fn(&e, path.as_str()).as_str(),
                                     ))
                                     .finish()
                             } else {

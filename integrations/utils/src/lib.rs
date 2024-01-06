@@ -171,13 +171,13 @@ pub fn referer_to_url(referer: &HeaderValue) -> Option<Url> {
 }
 
 pub trait WithServerFn {
-    fn with_server_fn(self, e: &ServerFnError) -> Self;
+    fn with_server_fn(self, e: &ServerFnError, path: &str) -> Self;
 }
 
 impl WithServerFn for Url {
-    fn with_server_fn(mut self, e: &ServerFnError) -> Self {
+    fn with_server_fn(mut self, e: &ServerFnError, path: &str) -> Self {
         self.query_pairs_mut().append_pair(
-            "server_fn_error",
+            format!("server_fn_error_{path}").as_str(),
             serde_qs::to_string(e)
                 .expect("Could not serialize server fn error!")
                 .as_str(),

@@ -285,7 +285,7 @@ async fn handle_server_fns_inner(
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
     let fn_name = fn_name
         .strip_prefix('/')
-        .map(|fn_name| fn_name.to_string())
+        .map(ToString::to_string)
         .unwrap_or(fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
@@ -388,7 +388,7 @@ async fn handle_server_fns_inner(
                                 .status(StatusCode::SEE_OTHER)
                                 .header(
                                     header::LOCATION,
-                                    referer.with_server_fn(&e).as_str(),
+                                    referer.with_server_fn(&e, fn_name.as_str()).as_str(),
                                 )
                                 .body(Default::default())
                         } else {
