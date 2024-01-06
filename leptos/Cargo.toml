@@ -61,7 +61,7 @@ nightly = [
   "leptos_server/nightly",
 ]
 serde = ["leptos_reactive/serde"]
-serde-lite = ["leptos_reactive/serde-lite"]
+serde-lite = ["leptos_reactive/serde-lite", "server_fn/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]

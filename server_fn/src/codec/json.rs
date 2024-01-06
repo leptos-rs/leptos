@@ -6,7 +6,10 @@ use crate::{
     IntoReq, IntoRes,
 };
 use http::Method;
-use serde::{de::DeserializeOwned, Serialize};
+#[cfg(not(feature = "serde-lite"))]
+use serde::{de::DeserializeOwned as Deserialize, Serialize};
+#[cfg(feature = "serde-lite")]
+use serde_lite::{Deserialize, Serialize};
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
 pub struct Json;
 
@@ -34,7 +37,7 @@ where
 impl<CustErr, T, Request> FromReq<CustErr, Request, Json> for T
 where
     Request: Req<CustErr> + Send + 'static,
-    T: DeserializeOwned,
+    T: Deserialize,
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
         let string_data = req.try_into_string().await?;
@@ -58,7 +61,7 @@ where
 impl<CustErr, T, Response> FromRes<CustErr, Response, Json> for T
 where
     Response: ClientRes<CustErr> + Send,
-    T: DeserializeOwned + Send,
+    T: Deserialize + Send,
 {
     async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
         let data = res.try_into_string().await?;

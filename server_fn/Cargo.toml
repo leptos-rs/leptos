@@ -33,6 +33,7 @@ multer = { version = "3", optional = true }
 ## output encodings 
 # serde 
 serde_json = "1"
+serde-lite = { version = "0.5", optional = true }
 futures = "0.3"
 http = { version = "1" }
 ciborium = { version = "0.2", optional = true }
@@ -83,6 +84,7 @@ browser = [
   "dep:wasm-bindgen-futures",
 ]
 json = []
+serde-lite = ["dep:serde-lite"]
 multipart = ["dep:multer"]
 url = ["dep:serde_qs"]
 cbor = ["dep:ciborium"]
