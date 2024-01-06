@@ -6,7 +6,7 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::header::{HeaderName, HeaderValue};
+use actix_http::header::{HeaderName, HeaderValue, ACCEPT};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -25,7 +25,7 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
-use server_fn::request::actix::ActixRequest;
+use server_fn::{redirect::REDIRECT_HEADER, request::actix::ActixRequest};
 use std::{
     fmt::{Debug, Display},
     future::Future,
@@ -99,11 +99,57 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
+/// Provides an easy way to redirect the user from within a server function.
+///
+/// This sets the `Location` header to the URL given.
+///
+/// If the route or server function in which this is called is being accessed
+/// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
+/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
+/// header contains `text/html` as it does for an ordinary navigation.)
+///
+/// Otherwise, it sets a custom header that indicates to the client that it should redirect,
+/// without actually setting the status code. This means that the client will not follow the
+/// redirect, and can therefore return the value of the server function and then handle
+/// the redirect with client-side routing.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn redirect(path: &str) {
+    if let (Some(req), Some(res)) = (
+        use_context::<HttpRequest>(),
+        use_context::<ResponseOptions>(),
+    ) {
+        // insert the Location header in any case
+        res.insert_header(
+            header::LOCATION,
+            header::HeaderValue::from_str(path)
+                .expect("Failed to create HeaderValue"),
+        );
+
+        let accepts_html = req
+            .headers()
+            .get(ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("text/html"))
+            .unwrap_or(false);
+        if accepts_html {
+            // if the request accepts text/html, it's a plain form request and needs
+            // to have the 302 code set
+            res.set_status(StatusCode::FOUND);
+        } else {
+            // otherwise, we sent it from the server fn client and actually don't want
+            // to set a real redirect, as this will break the ability to return data
+            // instead, set the REDIRECT_HEADER to indicate that the client should redirect
+            res.insert_header(
+                HeaderName::from_static(REDIRECT_HEADER),
+                HeaderValue::from_str("").unwrap(),
+            );
+        }
+    } else {
+        tracing::warn!(
+            "Couldn't retrieve either Parts or ResponseOptions while trying \
+             to redirect()."
+        );
+    }
     if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
         response_options.insert_header(
