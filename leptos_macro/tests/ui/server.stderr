@@ -4,7 +4,7 @@ error: positional argument follows keyword argument
 3 | #[server(endpoint = "my_path", FooBar)]
   |                                ^^^^^^
 
-error: keyword argument repeated: endpoint
+error: keyword argument repeated: `endpoint`
  --> tests/ui/server.rs:8:30
   |
 8 | #[server(endpoint = "first", endpoint = "second")]
@@ -40,7 +40,7 @@ error: unexpected extra argument
 32 | #[server(FooBar, "/foo/bar", "Cbor", "my_path", "extra")]
    |                                                 ^^^^^^^
 
-error: Encoding Not Found
+error: Encoding not found.
   --> tests/ui/server.rs:37:21
    |
 37 | #[server(encoding = "wrong")]

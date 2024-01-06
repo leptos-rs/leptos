@@ -3,7 +3,8 @@ use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(not(feature = "ssr"))] {
-        use leptos::{server, server_fn::Encoding, ServerFnError};
+        use leptos::{server, server_fn::{codec, ServerFn}, ServerFnError};
+        use std::any::type_name;
 
         #[test]
         fn server_default() {
@@ -11,42 +12,38 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(MyServerAction::PREFIX, "/api");
-            assert_eq!(&MyServerAction::URL[0..16], "my_server_action");
-            assert_eq!(MyServerAction::ENCODING, Encoding::Url);
+            assert_eq!(&<MyServerAction as ServerFn>::PATH[..21], "/api/my_server_action");
+            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
         }
 
         #[test]
         fn server_full_legacy() {
-            #[server(FooBar, "/foo/bar", "Cbor", "my_path")]
+            #[server(FooBar, "/foo/bar", "Cbor", "/my_path")]
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(FooBar::PREFIX, "/foo/bar");
-            assert_eq!(FooBar::URL, "my_path");
-            assert_eq!(FooBar::ENCODING, Encoding::Cbor);
+            assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
+            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::Cbor>());
         }
 
         #[test]
         fn server_all_keywords() {
-            #[server(endpoint = "my_path", encoding = "Cbor", prefix = "/foo/bar", name = FooBar)]
+            #[server(endpoint = "/my_path", encoding = "Cbor", prefix = "/foo/bar", name = FooBar)]
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(FooBar::PREFIX, "/foo/bar");
-            assert_eq!(FooBar::URL, "my_path");
-            assert_eq!(FooBar::ENCODING, Encoding::Cbor);
+            assert_eq!(<FooBar as ServerFn>::PATH, "/foo/bar/my_path");
+            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::Cbor>());
         }
 
         #[test]
         fn server_mix() {
-            #[server(FooBar, endpoint = "my_path")]
+            #[server(FooBar, endpoint = "/my_path")]
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(FooBar::PREFIX, "/api");
-            assert_eq!(FooBar::URL, "my_path");
-            assert_eq!(FooBar::ENCODING, Encoding::Url);
+            assert_eq!(<FooBar as ServerFn>::PATH, "/api/my_path");
+            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
         }
 
         #[test]
@@ -55,9 +52,8 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(FooBar::PREFIX, "/api");
-            assert_eq!(&FooBar::URL[0..16], "my_server_action");
-            assert_eq!(FooBar::ENCODING, Encoding::Url);
+            assert_eq!(&<FooBar as ServerFn>::PATH[..21], "/api/my_server_action");
+            assert_eq!(type_name::<<FooBar as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
         }
 
         #[test]
@@ -66,9 +62,8 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(MyServerAction::PREFIX, "/foo/bar");
-            assert_eq!(&MyServerAction::URL[0..16], "my_server_action");
-            assert_eq!(MyServerAction::ENCODING, Encoding::Url);
+            assert_eq!(&<MyServerAction as ServerFn>::PATH[..25], "/foo/bar/my_server_action");
+            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
         }
 
         #[test]
@@ -77,9 +72,8 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(MyServerAction::PREFIX, "/api");
-            assert_eq!(&MyServerAction::URL[0..16], "my_server_action");
-            assert_eq!(MyServerAction::ENCODING, Encoding::GetJSON);
+            assert_eq!(&<MyServerAction as ServerFn>::PATH[..21], "/api/my_server_action");
+            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::GetUrl>());
         }
 
         #[test]
@@ -88,9 +82,8 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(MyServerAction::PREFIX, "/api");
-            assert_eq!(MyServerAction::URL, "/path/to/my/endpoint");
-            assert_eq!(MyServerAction::ENCODING, Encoding::Url);
+            assert_eq!(<MyServerAction as ServerFn>::PATH, "/api/path/to/my/endpoint");
+            assert_eq!(type_name::<<MyServerAction as ServerFn>::InputEncoding>(), type_name::<codec::PostUrl>());
         }
     }
 }
