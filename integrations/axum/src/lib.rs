@@ -59,7 +59,7 @@ use leptos::{
     *,
 };
 use leptos_integration_utils::{
-    build_async_response, html_parts_separated, referer_to_url, WithServerFn,
+    build_async_response, html_parts_separated, referrer_to_url, WithServerFn,
 };
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
@@ -285,7 +285,7 @@ async fn handle_server_fns_inner(
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
     let fn_name = fn_name
         .strip_prefix('/')
-        .map(|fn_name| fn_name.to_string())
+        .map(ToString::to_string)
         .unwrap_or(fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
@@ -381,14 +381,14 @@ async fn handle_server_fns_inner(
                     Err(e) => {
                         let referer = headers
                             .get(header::REFERER)
-                            .and_then(referer_to_url);
+                            .and_then(|referrer| referrer_to_url(referrer, fn_name.as_str()));
 
                         if let Some(referer) = referer {
                             Response::builder()
                                 .status(StatusCode::SEE_OTHER)
                                 .header(
                                     header::LOCATION,
-                                    referer.with_server_fn(&e).as_str(),
+                                    referer.with_server_fn(&e, fn_name.as_str()).as_str(),
                                 )
                                 .body(Default::default())
                         } else {

@@ -4,6 +4,7 @@ use leptos::{nonce::use_nonce, use_context, RuntimeId, ServerFnError};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 use regex::Regex;
+use serde::{Serialize, Deserialize};
 use url::Url;
 
 extern crate tracing;
@@ -161,9 +162,15 @@ pub async fn build_async_response(
     format!("{head}<body{body_meta}>{buf}{tail}")
 }
 
-pub fn referer_to_url(referer: &HeaderValue) -> Option<Url> {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerFnUrlError {
+    pub error: ServerFnError,
+    pub fn_name: String
+}
+
+pub fn referrer_to_url(referer: &HeaderValue, fn_name: &str) -> Option<Url> {
     Url::parse(
-        &Regex::new(r"(?:\?|&)?server_fn_error=[^&]+")
+        &Regex::new(&format!(r"(?:\?|&)?server_fn_error_{fn_name}=[^&]+"))
             .unwrap()
             .replace(referer.to_str().ok()?, ""),
     )
@@ -171,14 +178,14 @@ pub fn referer_to_url(referer: &HeaderValue) -> Option<Url> {
 }
 
 pub trait WithServerFn {
-    fn with_server_fn(self, e: &ServerFnError) -> Self;
+    fn with_server_fn(self, error: &ServerFnError, fn_name: &str) -> Self;
 }
 
 impl WithServerFn for Url {
-    fn with_server_fn(mut self, e: &ServerFnError) -> Self {
+    fn with_server_fn(mut self, error: &ServerFnError, fn_name: &str) -> Self {
         self.query_pairs_mut().append_pair(
-            "server_fn_error",
-            serde_qs::to_string(e)
+            format!("server_fn_error_{fn_name}").as_str(),
+            serde_qs::to_string(&ServerFnUrlError{error: error.to_owned(), fn_name: fn_name.to_owned()})
                 .expect("Could not serialize server fn error!")
                 .as_str(),
         );

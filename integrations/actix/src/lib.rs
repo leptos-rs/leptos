@@ -25,7 +25,7 @@ use leptos::{
     *,
 };
 use leptos_integration_utils::{
-    build_async_response, html_parts_separated, referer_to_url, WithServerFn,
+    build_async_response, html_parts_separated, referrer_to_url, WithServerFn,
 };
 use leptos_meta::*;
 use leptos_router::*;
@@ -189,13 +189,13 @@ pub fn handle_server_fns_with_context(
             async move {
                 let additional_context = additional_context.clone();
 
-                let path = params.into_inner();
+                let fn_name = params.into_inner();
                 let accept_header = req
                     .headers()
                     .get(header::ACCEPT)
                     .and_then(|value| value.to_str().ok());
 
-                if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+                if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                     let body_ref: &[u8] = &body;
 
                     let runtime = create_runtime();
@@ -300,13 +300,13 @@ pub fn handle_server_fns_with_context(
                             let url = req
                                 .headers()
                                 .get(header::REFERER)
-                                .and_then(referer_to_url);
+                                .and_then(|referrer| referrer_to_url(referrer, fn_name.as_str()));
 
                             if let Some(url) = url {
                                 HttpResponse::SeeOther()
                                     .insert_header((
                                         header::LOCATION,
-                                        url.with_server_fn(&e).as_str(),
+                                        url.with_server_fn(&e, fn_name.as_str()).as_str(),
                                     ))
                                     .finish()
                             } else {
