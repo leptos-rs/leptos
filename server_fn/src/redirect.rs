@@ -1,10 +1,12 @@
 use std::sync::OnceLock;
 
+pub const REDIRECT_HEADER: &str = "serverfnredirect";
+
 pub type RedirectHook = Box<dyn Fn(&str) + Send + Sync>;
 
 // allowed: not in a public API, and pretty straightforward
 #[allow(clippy::type_complexity)]
-static REDIRECT_HOOK: OnceLock<RedirectHook> = OnceLock::new();
+pub(crate) static REDIRECT_HOOK: OnceLock<RedirectHook> = OnceLock::new();
 
 pub fn set_redirect_hook(
     hook: impl Fn(&str) + Send + Sync + 'static,

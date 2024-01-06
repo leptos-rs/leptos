@@ -190,7 +190,7 @@ pub fn use_resolved_path(
 /// # runtime.dispose();
 /// ```
 #[track_caller]
-pub fn use_navigate() -> impl Fn(&str, NavigateOptions) {
+pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
     let router = use_router();
     move |to, options| {
         let router = Rc::clone(&router.inner);

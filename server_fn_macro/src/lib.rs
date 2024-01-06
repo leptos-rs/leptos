@@ -270,7 +270,9 @@ pub fn server_macro_impl(
                 })
             }
         } else {
-            body
+            quote! { async move {
+                #body
+            }}
         };
         quote! {
             fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {

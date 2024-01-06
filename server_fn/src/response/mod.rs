@@ -68,6 +68,9 @@ pub trait ClientRes<CustErr> {
 
     /// The `Location` header or (if none is set), the URL of the response.
     fn location(&self) -> String;
+
+    /// Whether the response has the [`REDIRECT_HEADER`](crate::redirect::REDIRECT_HEADER) set.
+    fn has_redirect(&self) -> bool;
 }
 
 /// A mocked response type that can be used in place of the actual server response,

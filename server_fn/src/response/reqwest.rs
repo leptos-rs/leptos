@@ -42,4 +42,8 @@ impl<CustErr> ClientRes<CustErr> for Response {
             .map(|value| String::from_utf8_lossy(value.as_bytes()).to_string())
             .unwrap_or_else(|| self.url().to_string())
     }
+
+    fn has_redirect(&self) -> bool {
+        self.headers().get("Location").is_some()
+    }
 }

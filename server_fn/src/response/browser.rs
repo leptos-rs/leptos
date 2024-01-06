@@ -1,5 +1,5 @@
 use super::ClientRes;
-use crate::error::ServerFnError;
+use crate::{error::ServerFnError, redirect::REDIRECT_HEADER};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Response;
@@ -72,5 +72,9 @@ impl<CustErr> ClientRes<CustErr> for BrowserResponse {
             .headers()
             .get("Location")
             .unwrap_or_else(|| self.0.url())
+    }
+
+    fn has_redirect(&self) -> bool {
+        self.0.headers().get(REDIRECT_HEADER).is_some()
     }
 }
