@@ -94,7 +94,6 @@ pub fn server_macro_impl(
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
-    let block = body.block;
     let attrs = body.attrs;
 
     let fields = body
