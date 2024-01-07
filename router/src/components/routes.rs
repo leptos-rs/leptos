@@ -638,7 +638,6 @@ fn create_routes(
     for original_path in expand_optionals(&route_def.path) {
         // compat: trim_end_matches ensures that routes with trailing slash still match ones with no trailing slash
         let path = join_paths(base, &original_path)
-            .trim_end_matches('/')
             .to_string();
         let pattern = if is_leaf {
             path

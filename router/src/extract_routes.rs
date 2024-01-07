@@ -42,6 +42,9 @@ impl RouteListing {
     }
 
     /// The path this route handles.
+    /// 
+    /// This should be formatted for whichever web server integegration is being used. (ex: leptos-actix.)
+    /// When returned from leptos-router, it matches `self.leptos_path()`.  
     pub fn path(&self) -> &str {
         &self.path
     }
