@@ -6,7 +6,7 @@ test.describe("Type Number", () => {
     const ui = new HomePage(page);
     await ui.goto();
 
-    await ui.enterNumber("7");
+    await ui.enterValue("7");
 
     await expect(ui.successMessage).toHaveText("You entered 7");
   });

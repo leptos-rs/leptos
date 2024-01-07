@@ -3,7 +3,7 @@ import { expect, Locator, Page } from "@playwright/test";
 export class HomePage {
   readonly page: Page;
   readonly pageTitle: Locator;
-  readonly numberInput: Locator;
+  readonly valueInput: Locator;
   readonly successMessage: Locator;
   readonly errorMessage: Locator;
 
@@ -13,7 +13,7 @@ export class HomePage {
     this.page = page;
 
     this.pageTitle = page.locator("h1");
-    this.numberInput = page.getByLabel(
+    this.valueInput = page.getByLabel(
       "Type a number (or something that's not a number!)"
     );
     this.successMessage = page.locator("label p");
@@ -25,32 +25,17 @@ export class HomePage {
     await this.page.goto("/");
   }
 
-  async enterNumber(count: string, index: number = 0) {
+  async enterValue(value: string) {
     await Promise.all([
-      this.numberInput.waitFor(),
-      this.numberInput.fill(count),
-    ]);
-  }
-
-  async clickUpArrow() {
-    await Promise.all([
-      this.numberInput.waitFor(),
-      this.numberInput.press("ArrowUp"),
-    ]);
-  }
-
-  async clickDownArrow() {
-    await Promise.all([
-      this.numberInput.waitFor(),
-      this.numberInput.press("ArrowDown"),
+      this.valueInput.waitFor(),
+      this.valueInput.fill(value),
     ]);
   }
 
   async clearInput() {
     await Promise.all([
-      this.numberInput.waitFor(),
-      this.clickUpArrow(),
-      this.numberInput.press("Backspace"),
+      this.valueInput.waitFor(),
+      this.valueInput.press("Backspace"),
     ]);
   }
 }
