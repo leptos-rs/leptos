@@ -509,6 +509,16 @@ where
             let form =
                 form_from_event(&ev).expect("couldn't find form submitter");
             let form_data = FormData::new_with_form(&form).unwrap();
+            match ServFn::from_form_data(&form_data) {
+                Ok(new_input) => {
+                    input.try_set(Some(new_input));
+                }
+                Err(err) => {
+                    if let Some(error) = error {
+                        error.set(Some(Box::new(err)));
+                    }
+                }
+            }
             let req = <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
                 ServFn::Error,
             >>::try_new_post_form_data(
@@ -519,33 +529,30 @@ where
             );
             match req {
                 Ok(req) => {
+                    action.set_pending(true);
                     spawn_local(async move {
-                        // TODO set input
-                        // TODO check order of setting things here, and use batch as needed
-                        // TODO set version?
-                        match <ServFn as ServerFn>::run_on_client_with_req(
+                        let res = <ServFn as ServerFn>::run_on_client_with_req(
                             req,
                             redirect_hook.as_ref(),
                         )
-                        .await
-                        {
-                            Ok(res) => {
-                                batch(move || {
-                                    version.update(|n| *n += 1);
+                        .await;
+                        batch(move || {
+                            version.update(|n| *n += 1);
+                            action.set_pending(false);
+                            match res {
+                                Ok(res) => {
                                     value.try_set(Some(Ok(res)));
-                                });
-                            }
-                            Err(err) => {
-                                batch(move || {
+                                }
+                                Err(err) => {
                                     value.set(Some(Err(err.clone())));
                                     if let Some(error) = error {
                                         error.set(Some(Box::new(
                                             ServerFnErrorErr::from(err),
                                         )));
                                     }
-                                });
+                                }
                             }
-                        }
+                        });
                     });
                 }
                 Err(_) => todo!(),
