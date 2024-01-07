@@ -1357,6 +1357,14 @@ impl LeptosRoutes for &mut ServiceConfig {
                 );
             }
         }
+
+        // register server functions
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = handle_server_fns_with_context(additional_context);
+            router = router.route(path, handler);
+        }
+
         router
     }
 }
