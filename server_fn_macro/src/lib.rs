@@ -370,6 +370,13 @@ pub fn server_macro_impl(
     };
 
     // generate path
+    let fn_path_starts_with_slash = fn_path.to_string().starts_with("\"/");
+    let fn_path = if fn_path_starts_with_slash || fn_path.to_string() == "\"\""
+    {
+        quote! { #fn_path }
+    } else {
+        quote! { concat!("/", #fn_path) }
+    };
     let path = quote! {
         if #fn_path.is_empty() {
             #server_fn_path::const_format::concatcp!(
@@ -415,7 +422,6 @@ pub fn server_macro_impl(
         #from_impl
 
         impl #server_fn_path::ServerFn for #struct_name {
-            // TODO prefix
             const PATH: &'static str = #path;
 
             type Client = #client;
