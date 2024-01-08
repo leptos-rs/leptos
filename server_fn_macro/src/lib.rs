@@ -369,6 +369,15 @@ pub fn server_macro_impl(
         ));
     };
 
+    // Remove any leading slashes, even if they exist (we'll add them below)
+    let fn_path = Literal::string(
+        fn_path
+            .to_string()
+            .trim_start_matches('\"')
+            .trim_start_matches('/')
+            .trim_end_matches('\"'),
+    );
+
     // generate path
     let fn_path_starts_with_slash = fn_path.to_string().starts_with("\"/");
     let fn_path = if fn_path_starts_with_slash || fn_path.to_string() == "\"\""
@@ -391,6 +400,7 @@ pub fn server_macro_impl(
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
+                "/",
                 #fn_path
             )
         }
