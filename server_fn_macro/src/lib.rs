@@ -74,10 +74,8 @@ pub fn server_macro_impl(
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
-    let input = input.unwrap_or_else(|| syn::parse_quote!(PostUrl));
-    let input_is_rkyv = input == "Rkyv";
-    let input_is_multipart = input == "MultipartFormData";
-    let input = codec_ident(server_fn_path.as_ref(), input);
+    let input_ident = input.unwrap_or_else(|| syn::parse_quote!(PostUrl));
+    let input = codec_ident(server_fn_path.as_ref(), input_ident);
     let output = output.unwrap_or_else(|| syn::parse_quote!(Json));
     let output = codec_ident(server_fn_path.as_ref(), output);
     // default to PascalCase version of function name if no struct name given
@@ -308,15 +306,15 @@ pub fn server_macro_impl(
         }
     };
 
-    // TODO rkyv derives
-    let derives = if input_is_multipart {
-        quote! {}
-    } else if input_is_rkyv {
-        todo!("implement derives for Rkyv")
-    } else {
-        quote! {
+    let derives = match input_ident.to_string().as_str() {
+        "Rkyv" => todo!("implement derives for Rkyv"),
+        "MultipartFormData" => quote! {},
+        "SerdeLite" => quote! {
+            Clone, #server_fn_path::serde_lite::Serialize, #server_fn_path::serde_lite::Deserialize
+        },
+        _ => quote! {
             Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
-        }
+        },
     };
     let serde_path = (!input_is_multipart && !input_is_rkyv).then(|| {
         quote! {
