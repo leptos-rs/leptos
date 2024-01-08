@@ -17,9 +17,10 @@ use leptos::{
 use send_wrapper::SendWrapper;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, rc::Rc};
-use wasm_bindgen::{JsCast, UnwrapThrowExt};
+use thiserror::Error;
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 use web_sys::{
-    FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
+    Event, FormData, HtmlButtonElement, HtmlFormElement, HtmlInputElement,
     RequestRedirect, SubmitEvent,
 };
 
@@ -436,17 +437,11 @@ pub fn ActionForm<ServFn>(
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
-    /// A signal that will be set if the form submission ends in an error.
-    #[prop(optional)]
-    error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<html::Form>>,
-    /// Sets whether the page should be scrolled to the top when navigating.
-    #[prop(optional)]
-    noscroll: bool,
     /// Arbitrary attributes to add to the `<form>`
-    #[prop(optional, into)]
+    #[prop(attrs, optional)]
     attributes: Vec<(&'static str, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
@@ -454,14 +449,16 @@ pub fn ActionForm<ServFn>(
 where
     ServFn:
         Clone + DeserializeOwned + ServerFn<InputEncoding = PostUrl> + 'static,
-    ServerFnError<ServFn::Error>: Debug + Clone,
-    ServFn::Output: Debug,
-    ServFn::Error: Debug + 'static,
     <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
         ServFn::Error,
     >>::FormData: From<FormData>,
 {
     let has_router = has_router();
+    if !has_router {
+        _ = server_fn::redirect::set_redirect_hook(|path: &str| {
+            _ = window().location().set_href(path);
+        });
+    }
     let action_url = if let Some(url) = action.url() {
         url
     } else {
@@ -486,76 +483,18 @@ where
 
             ev.prevent_default();
 
-            let navigate = has_router.then(use_navigate);
-            let navigate_options = SendWrapper::new(NavigateOptions {
-                scroll: !noscroll,
-                ..Default::default()
-            });
-            let redirect_hook = navigate.map(|navigate| {
-                let navigate = SendWrapper::new(navigate);
-                Box::new(move |path: &str| {
-                    let path = path.to_string();
-                    // delay by a tick here, so that the Action updates *before* the redirect
-                    request_animation_frame({
-                        let navigate = navigate.clone();
-                        let navigate_options = navigate_options.clone();
-                        move || {
-                            navigate(&path, navigate_options.take());
-                        }
-                    });
-                }) as RedirectHook
-            });
-
-            let form =
-                form_from_event(&ev).expect("couldn't find form submitter");
-            let form_data = FormData::new_with_form(&form).unwrap();
-            match ServFn::from_form_data(&form_data) {
+            match ServFn::from_event(&ev) {
                 Ok(new_input) => {
-                    input.try_set(Some(new_input));
+                    action.dispatch(new_input);
                 }
                 Err(err) => {
-                    if let Some(error) = error {
-                        error.set(Some(Box::new(err)));
-                    }
-                }
-            }
-            let req = <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
-                ServFn::Error,
-            >>::try_new_post_form_data(
-                &action_url,
-                ServFn::OutputEncoding::CONTENT_TYPE,
-                ServFn::InputEncoding::CONTENT_TYPE,
-                form_data.into(),
-            );
-            match req {
-                Ok(req) => {
-                    action.set_pending(true);
-                    spawn_local(async move {
-                        let res = <ServFn as ServerFn>::run_on_client_with_req(
-                            req,
-                            redirect_hook.as_ref(),
-                        )
-                        .await;
-                        batch(move || {
-                            version.update(|n| *n += 1);
-                            action.set_pending(false);
-                            match res {
-                                Ok(res) => {
-                                    value.try_set(Some(Ok(res)));
-                                }
-                                Err(err) => {
-                                    value.set(Some(Err(err.clone())));
-                                    if let Some(error) = error {
-                                        error.set(Some(Box::new(
-                                            ServerFnErrorErr::from(err),
-                                        )));
-                                    }
-                                }
-                            }
-                        });
+                    batch(move || {
+                        value.set(Some(Err(ServerFnError::Serialization(
+                            err.to_string(),
+                        ))));
+                        version.update(|n| *n += 1);
                     });
                 }
-                Err(_) => todo!(),
             }
         }
     };
@@ -573,106 +512,6 @@ where
         action_form = action_form.attr(attr_name, attr_value);
     }
     action_form
-
-    /*    let on_error = Rc::new(move |e: &gloo_net::Error| {
-        batch(move || {
-            action.set_pending(false);
-            let e = ServerFnError::Request(e.to_string());
-            value.try_set(Some(Err(e.clone())));
-            if let Some(error) = error {
-                error.try_set(Some(Box::new(ServerFnErrorErr::from(e))));
-            }
-        });
-    });
-
-    let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
-        let data = I::from_form_data(form_data);
-        match data {
-            Ok(data) => {
-                batch(move || {
-                    input.try_set(Some(data));
-                    action.set_pending(true);
-                });
-            }
-            Err(e) => {
-                error!("{e}");
-                let e = ServerFnError::Serialization(e.to_string());
-                batch(move || {
-                    value.try_set(Some(Err(e.clone())));
-                    if let Some(error) = error {
-                        error
-                            .try_set(Some(Box::new(ServerFnErrorErr::from(e))));
-                    }
-                });
-            }
-        }
-    });
-
-    let on_response = Rc::new(move |resp: &web_sys::Response| {
-        let resp = resp.clone().expect("couldn't get Response");
-
-        // If the response was redirected then a JSON will not be available in the response, instead
-        // it will be an actual page, so we don't want to try to parse it.
-        if resp.redirected() {
-            return;
-        }
-
-        spawn_local(async move {
-            let body = JsFuture::from(
-                resp.text().expect("couldn't get .text() from Response"),
-            )
-            .await;
-            let status = resp.status();
-            match body {
-                Ok(json) => {
-                    let json = json
-                        .as_string()
-                        .expect("couldn't get String from JsString");
-                    if (400..=599).contains(&status) {
-                        let res = ServerFnError::<I::Error>::de(&json);
-                        value.try_set(Some(Err(res)));
-                        if let Some(error) = error {
-                            error.try_set(None);
-                        }
-                    } else {
-                        match serde_json::from_str::<O>(&json) {
-                            Ok(res) => {
-                                value.try_set(Some(Ok(res)));
-                                if let Some(error) = error {
-                                    error.try_set(None);
-                                }
-                            }
-                            Err(e) => {
-                                value.try_set(Some(Err(
-                                    ServerFnError::Deserialization(
-                                        e.to_string(),
-                                    ),
-                                )));
-                                if let Some(error) = error {
-                                    error.try_set(Some(Box::new(e)));
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("{e:?}");
-                    // TODO
-                    /*                    if let Some(error) = error {
-                        error.try_set(Some(Box::new(
-                            ServerFnErrorErr::Request(
-                                e.as_string().unwrap_or_default(),
-                            ),
-                        )));
-                    }*/
-                }
-            };
-            batch(move || {
-                input.try_set(None);
-                action.set_pending(false);
-            });
-        });
-    });*/
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
@@ -683,11 +522,11 @@ where
     tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
-pub fn MultiActionForm<I, O>(
+pub fn MultiActionForm<ServFn>(
     /// The action from which to build the form. This should include a URL, which can be generated
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
-    action: MultiAction<I, Result<O, ServerFnError>>,
+    action: MultiAction<ServFn, Result<ServFn::Output, ServerFnError>>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
@@ -698,17 +537,25 @@ pub fn MultiActionForm<I, O>(
     #[prop(optional)]
     node_ref: Option<NodeRef<html::Form>>,
     /// Arbitrary attributes to add to the `<form>`
-    #[prop(optional, into)]
+    #[prop(attrs, optional)]
     attributes: Vec<(&'static str, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
 where
-    I: Clone + ServerFn + DeserializeOwned + 'static,
-    O: Clone + Serializable + 'static,
+    ServFn:
+        Clone + DeserializeOwned + ServerFn<InputEncoding = PostUrl> + 'static,
+    <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
+        ServFn::Error,
+    >>::FormData: From<FormData>,
 {
-    let multi_action = action;
-    let action = if let Some(url) = multi_action.url() {
+    let has_router = has_router();
+    if !has_router {
+        _ = server_fn::redirect::set_redirect_hook(|path: &str| {
+            _ = window().location().set_href(path);
+        });
+    }
+    let action_url = if let Some(url) = action.url() {
         url
     } else {
         debug_warn!(
@@ -718,22 +565,21 @@ where
         String::new()
     };
 
-    let on_submit = move |ev: web_sys::SubmitEvent| {
+    let on_submit = move |ev: SubmitEvent| {
         if ev.default_prevented() {
             return;
         }
 
-        match I::from_event(&ev) {
+        ev.prevent_default();
+
+        match ServFn::from_event(&ev) {
             Err(e) => {
-                error!("{e}");
                 if let Some(error) = error {
                     error.try_set(Some(Box::new(e)));
                 }
             }
             Ok(input) => {
-                ev.prevent_default();
-                ev.stop_propagation();
-                multi_action.dispatch(input);
+                action.dispatch(input);
                 if let Some(error) = error {
                     error.try_set(None);
                 }
@@ -742,19 +588,19 @@ where
     };
 
     let class = class.map(|bx| bx.into_attribute_boxed());
-    let mut form = form()
-        .attr("method", "POST")
-        .attr("action", action)
-        .on(ev::submit, on_submit)
+    let mut action_form = form()
+        .attr("action", action_url)
+        .attr("method", "post")
         .attr("class", class)
+        .on(ev::submit, on_submit)
         .child(children());
     if let Some(node_ref) = node_ref {
-        form = form.node_ref(node_ref)
+        action_form = action_form.node_ref(node_ref)
     };
     for (attr_name, attr_value) in attributes {
-        form = form.attr(attr_name, attr_value);
+        action_form = action_form.attr(attr_name, attr_value);
     }
-    form
+    action_form
 }
 
 fn form_from_event(ev: &SubmitEvent) -> Option<HtmlFormElement> {
@@ -892,12 +738,22 @@ where
     Self: Sized + serde::de::DeserializeOwned,
 {
     /// Tries to deserialize the data, given only the `submit` event.
-    fn from_event(ev: &web_sys::Event) -> Result<Self, serde_qs::Error>;
+    fn from_event(ev: &web_sys::Event) -> Result<Self, FromFormDataError>;
 
     /// Tries to deserialize the data, given the actual form data.
     fn from_form_data(
         form_data: &web_sys::FormData,
     ) -> Result<Self, serde_qs::Error>;
+}
+
+#[derive(Error, Debug)]
+pub enum FromFormDataError {
+    #[error("Could not find <form> connected to event.")]
+    MissingForm(Event),
+    #[error("Could not create FormData from <form>: {0:?}")]
+    FormData(JsValue),
+    #[error("Deserialization error: {0:?}")]
+    Deserialization(serde_qs::Error),
 }
 
 impl<T> FromFormData for T
@@ -908,13 +764,15 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
-    fn from_event(ev: &web_sys::Event) -> Result<Self, serde_qs::Error> {
-        let (form, _, _, _) = extract_form_attributes(ev);
-
-        let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
-
+    fn from_event(ev: &Event) -> Result<Self, FromFormDataError> {
+        let form = form_from_event(ev.unchecked_ref())
+            .ok_or_else(|| FromFormDataError::MissingForm(ev.clone()))?;
+        let form_data = FormData::new_with_form(&form)
+            .map_err(FromFormDataError::FormData)?;
         Self::from_form_data(&form_data)
+            .map_err(FromFormDataError::Deserialization)
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)

@@ -25,7 +25,6 @@ impl<CustErr> Req<CustErr> for Request<Body> {
     }
 
     async fn try_into_string(self) -> Result<String, ServerFnError<CustErr>> {
-        println!("accepts = {:?}", self.headers().get(http::header::ACCEPT));
         let bytes = self.try_into_bytes().await?;
         String::from_utf8(bytes.to_vec())
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))

@@ -235,7 +235,6 @@ pub fn server_macro_impl(
                     #struct_name::PATH,
                     <#struct_name as ServerFn>::InputEncoding::METHOD,
                     |req| {
-                        println!("running {:?}", stringify!(#struct_name));
                         Box::pin(#struct_name::run_on_server(req))
                     },
                     #struct_name::middlewares
