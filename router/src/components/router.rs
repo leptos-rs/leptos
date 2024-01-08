@@ -8,10 +8,16 @@ use cfg_if::cfg_if;
 use leptos::*;
 #[cfg(feature = "transition")]
 use leptos_reactive::use_transition;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use thiserror::Error;
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
+
+static GLOBAL_ROUTERS_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Provides for client-side and server-side routing. This should usually be somewhere near
 /// the root of the application.
@@ -54,6 +60,7 @@ pub struct RouterContext {
     pub(crate) inner: Rc<RouterContextInner>,
 }
 pub(crate) struct RouterContextInner {
+    id: usize,
     pub location: Location,
     pub base: RouteContext,
     trailing_slash: Option<TrailingSlash>,
@@ -170,6 +177,7 @@ impl RouterContext {
         });
 
         let inner = Rc::new(RouterContextInner {
+            id: GLOBAL_ROUTERS_COUNT.fetch_add(1, Ordering::SeqCst),
             base_path: base_path.into_owned(),
             path_stack: store_value(vec![location.pathname.get_untracked()]),
             location,
@@ -209,10 +217,14 @@ impl RouterContext {
         self.inner.base.clone()
     }
 
+    pub(crate) fn id(&self) -> usize {
+        self.inner.id
+    }
+
     pub(crate) fn trailing_slash(&self) -> Option<TrailingSlash> {
         self.inner.trailing_slash.clone()
     }
-
+    
     /// A list of all possible routes this router can match.
     pub fn possible_branches(&self) -> Vec<Branch> {
         self.inner

@@ -17,6 +17,7 @@ pub(crate) struct RouteMatch {
 }
 
 pub(crate) fn get_route_matches(
+    router_id: usize,
     base: &str,
     location: String,
 ) -> Rc<Vec<RouteMatch>> {
@@ -24,24 +25,31 @@ pub(crate) fn get_route_matches(
     {
         use lru::LruCache;
         use std::{cell::RefCell, num::NonZeroUsize};
+        type RouteMatchCache = LruCache<(usize, String), Rc<Vec<RouteMatch>>>;
         thread_local! {
-            static ROUTE_MATCH_CACHE: RefCell<LruCache<String, Rc<Vec<RouteMatch>>>> = RefCell::new(LruCache::new(NonZeroUsize::new(32).unwrap()));
+            static ROUTE_MATCH_CACHE: RefCell<RouteMatchCache> = RefCell::new(LruCache::new(NonZeroUsize::new(32).unwrap()));
         }
 
         ROUTE_MATCH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
-            Rc::clone(cache.get_or_insert(location.clone(), || {
-                build_route_matches(base, location)
-            }))
+            Rc::clone(
+                cache.get_or_insert((router_id, location.clone()), || {
+                    build_route_matches(router_id, base, location)
+                }),
+            )
         })
     }
 
     #[cfg(not(feature = "ssr"))]
-    build_route_matches(base, location)
+    build_route_matches(router_id, base, location)
 }
 
-fn build_route_matches(base: &str, location: String) -> Rc<Vec<RouteMatch>> {
-    Rc::new(Branches::with(base, |branches| {
+fn build_route_matches(
+    router_id: usize,
+    base: &str,
+    location: String,
+) -> Rc<Vec<RouteMatch>> {
+    Rc::new(Branches::with(router_id, base, |branches| {
         for branch in branches {
             if let Some(matches) = branch.matcher(&location) {
                 return matches;
