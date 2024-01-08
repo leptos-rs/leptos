@@ -12,13 +12,16 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(&<MyServerAction as ServerFn>::PATH[..21], "/api/my_server_action");
+            assert_eq!(
+                <MyServerAction as ServerFn>::PATH.trim_end_matches(char::is_numeric),
+                "/api/my_server_action"
+            );
             assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
         #[test]
         fn server_full_legacy() {
-            #[server(FooBar, "/foo/bar", "Cbor", "/my_path")]
+            #[server(FooBar, "/foo/bar", "Cbor", "my_path")]
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
@@ -28,7 +31,7 @@ cfg_if! {
 
         #[test]
         fn server_all_keywords() {
-            #[server(endpoint = "/my_path", encoding = "Cbor", prefix = "/foo/bar", name = FooBar)]
+            #[server(endpoint = "my_path", encoding = "Cbor", prefix = "/foo/bar", name = FooBar)]
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
@@ -38,7 +41,7 @@ cfg_if! {
 
         #[test]
         fn server_mix() {
-            #[server(FooBar, endpoint = "/my_path")]
+            #[server(FooBar, endpoint = "my_path")]
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
@@ -52,7 +55,10 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(&<FooBar as ServerFn>::PATH[..21], "/api/my_server_action");
+            assert_eq!(
+                <FooBar as ServerFn>::PATH.trim_end_matches(char::is_numeric),
+                "/api/my_server_action"
+            );
             assert_eq!(TypeId::of::<<FooBar as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
@@ -62,7 +68,7 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(&<MyServerAction as ServerFn>::PATH[..25], "/foo/bar/my_server_action");
+            assert_eq!(<MyServerAction as ServerFn>::PATH.trim_end_matches(char::is_numeric), "/foo/bar/my_server_action");
             assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::PostUrl>());
         }
 
@@ -72,7 +78,10 @@ cfg_if! {
             pub async fn my_server_action() -> Result<(), ServerFnError> {
                 Ok(())
             }
-            assert_eq!(&<MyServerAction as ServerFn>::PATH[..21], "/api/my_server_action");
+            assert_eq!(
+                <MyServerAction as ServerFn>::PATH.trim_end_matches(char::is_numeric),
+                "/api/my_server_action"
+            );
             assert_eq!(TypeId::of::<<MyServerAction as ServerFn>::InputEncoding>(), TypeId::of::<codec::GetUrl>());
         }
 

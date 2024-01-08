@@ -368,6 +368,15 @@ pub fn server_macro_impl(
         ));
     };
 
+    // Remove any leading slashes, even if they exist (we'll add them below)
+    let fn_path = Literal::string(
+        fn_path
+            .to_string()
+            .trim_start_matches('\"')
+            .trim_start_matches('/')
+            .trim_end_matches('\"'),
+    );
+
     // generate path
     let path = quote! {
         if #fn_path.is_empty() {
@@ -383,6 +392,7 @@ pub fn server_macro_impl(
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
+                "/",
                 #fn_path
             )
         }
