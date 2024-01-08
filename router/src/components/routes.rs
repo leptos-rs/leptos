@@ -691,36 +691,37 @@ fn create_routes(
     for original_path in expand_optionals(&route_def.path) {
         let mut path = join_paths(base, &original_path).to_string();
         trailing_slash.normalize_route_path(&mut path);
-        let mut is_wildcard = false;
         let pattern = if is_leaf {
             path
         } else if let Some((path, _splat)) = path.split_once("/*") {
-            is_wildcard = true;
             path.to_string()
         } else {
             path
         };
-        acc.push(RouteData {
+
+        let route_data = RouteData {
             key: route_def.clone(),
             id: route_def.id,
             matcher: Matcher::new_with_partial(&pattern, !is_leaf),
             pattern,
             original_path: original_path.into_owned(),
-        });
+        };
 
-        if is_wildcard {
+        if route_data.matcher.is_wildcard() {
             // already handles trailing_slash
-            // TODO: confirm/test
         } else if let Some(redirect_route) = redirect_route_for(route_def) {
             let pattern = &redirect_route.path;
-            acc.push(RouteData {
+            let redirect_route_data = RouteData {
                 id: redirect_route.id,
-                matcher: Matcher::new_with_partial(&pattern, !is_leaf), // TODO: 👀
+                matcher: Matcher::new_with_partial(&pattern, !is_leaf),
                 pattern: pattern.to_owned(),
                 original_path: pattern.to_owned(),
                 key: redirect_route,
-            });
+            };
+            acc.push(redirect_route_data);
         }
+
+        acc.push(route_data);
     }
     acc
 }

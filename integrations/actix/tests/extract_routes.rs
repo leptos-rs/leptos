@@ -107,7 +107,6 @@ fn test_redirect_app() {
             "/bar",
             "/bar/",
             "/baz/*any",
-            "/baz/*any/", // !!! TODO
             "/baz/:id",
             "/baz/:id/",
             "/baz/:name",
@@ -129,7 +128,6 @@ fn test_redirect_app() {
             "/baz/{name}",
             "/baz/{name}/",
             "/baz/{tail:.*}",
-            "/baz/{tail:.*}", // !!! TODO
             "/foo",
             "/foo/",
         ],

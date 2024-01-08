@@ -97,6 +97,11 @@ impl Matcher {
             Some(PathMatch { path, params })
         }
     }
+
+    #[doc(hidden)]
+    pub(crate) fn is_wildcard(&self) -> bool {
+        self.splat.is_some()
+    }
 }
 
 fn get_segments(pattern: &str) -> Vec<&str> {

@@ -82,7 +82,6 @@ fn test_generated_routes_redirect() {
             "/bar",
             "/bar/",
             "/baz/*any",
-            "/baz/*any/", // !!! TODO
             "/baz/:id",
             "/baz/:id/",
             "/baz/:name",
