@@ -1,13 +1,15 @@
 use crate::{
-    create_location, matching::resolve_path, scroll_to_el, Branch, History,
-    Location, LocationChange, RouteContext, RouterIntegrationContext, State,
+    create_location, matching::resolve_path, scroll_to_el, use_navigate,
+    Branch, History, Location, LocationChange, RouteContext,
+    RouterIntegrationContext, State,
 };
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
 use cfg_if::cfg_if;
-use leptos::*;
+use leptos::{server_fn::redirect::RedirectHook, *};
 #[cfg(feature = "transition")]
 use leptos_reactive::use_transition;
+use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -44,6 +46,21 @@ pub fn Router(
     if let Some(set_is_routing) = set_is_routing {
         provide_context(SetIsRouting(set_is_routing));
     }
+
+    // set server function redirect hook
+    let navigate = use_navigate();
+    let navigate = SendWrapper::new(navigate);
+    let router_hook = Box::new(move |path: &str| {
+        let path = path.to_string();
+        // delay by a tick here, so that the Action updates *before* the redirect
+        request_animation_frame({
+            let navigate = navigate.clone();
+            move || {
+                navigate(&path, Default::default());
+            }
+        });
+    }) as RedirectHook;
+    server_fn::redirect::set_redirect_hook(router_hook);
 
     children()
 }

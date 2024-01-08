@@ -77,7 +77,6 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
-    leptos_axum::redirect("/foo");
     Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
         .execute(&mut conn)
@@ -90,7 +89,6 @@ pub fn TodoApp() -> impl IntoView {
     //let id = use_context::<String>();
     provide_meta_context();
     view! {
-
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
         <Router>
