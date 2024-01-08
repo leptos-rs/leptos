@@ -1,9 +1,9 @@
 use leptos::*;
-use leptos_router::{Router, Routes, Route};
+use leptos_router::{Router, Routes, Route, TrailingSlash};
 use leptos_actix::generate_route_list;
 
 #[component]
-fn ExampleApp() -> impl IntoView {
+fn DefaultApp() -> impl IntoView {
     let view = || view! { "" };
     view! {
         <Router>
@@ -19,16 +19,51 @@ fn ExampleApp() -> impl IntoView {
 }
 
 #[test]
-fn test_extracting_routes() {
-    let routes = generate_route_list(ExampleApp);
+fn test_default_app() {
+    let routes = generate_route_list(DefaultApp);
 
-    // We still have access to the original Leptos paths:
-    let mut leptos_paths: Vec<_> = routes
-        .iter()
-        .map(|route| route.leptos_path())
-        .collect();
-    leptos_paths.sort();
-    assert_eq!(leptos_paths, [
+    // We still have access to the original (albeit normalized) Leptos paths:
+    assert_same(&routes, |r| r.leptos_path(), &[
+        "/bar",
+        "/baz/*any",
+        "/baz/:id",
+        "/baz/:name",
+        "/foo",
+    ]);
+
+    // ... But leptos-actix has also reformatted "paths" to work for Actix.
+    assert_same(&routes, |r| r.path(), &[
+        "/bar",
+        "/baz/{id}",
+        "/baz/{name}",
+        "/baz/{tail:.*}",
+        "/foo",
+    ]);
+}
+
+#[component]
+fn ExactApp() -> impl IntoView {
+    let view = || view! { "" };
+    let trailing_slash = TrailingSlash::Exact;
+    view! {
+        <Router trailing_slash>
+            <Routes>
+                <Route path="/foo" view/>
+                <Route path="/bar/" view/>
+                <Route path="/baz/:id" view/>
+                <Route path="/baz/:name/" view/>
+                <Route path="/baz/*any" view/>
+            </Routes>
+        </Router>
+    }
+}
+
+#[test]
+fn test_exact_app() {
+    let routes = generate_route_list(ExactApp);
+
+    // In Exact mode, the Leptos paths no longer have their trailing slashes stripped:
+    assert_same(&routes, |r| r.leptos_path(), &[
         "/bar/",
         "/baz/*any",
         "/baz/:id",
@@ -36,13 +71,8 @@ fn test_extracting_routes() {
         "/foo",
     ]);
 
-    // ... But leptos-actix has also reformatted "paths" to work for Actix.
-    let mut paths: Vec<_> = routes
-        .iter()
-        .map(|route| route.path())
-        .collect();
-    paths.sort();
-    assert_eq!(paths, [
+    // Actix paths also have trailing slashes as a result:
+    assert_same(&routes, |r| r.path(), &[
         "/bar/",
         "/baz/{id}",
         "/baz/{name}/",
@@ -51,3 +81,63 @@ fn test_extracting_routes() {
     ]);
 }
 
+
+#[component]
+fn RedirectApp() -> impl IntoView {
+    let view = || view! { "" };
+    let trailing_slash = TrailingSlash::Redirect;
+    view! {
+        <Router trailing_slash>
+            <Routes>
+                <Route path="/foo" view/>
+                <Route path="/bar/" view/>
+                <Route path="/baz/:id" view/>
+                <Route path="/baz/:name/" view/>
+                <Route path="/baz/*any" view/>
+            </Routes>
+        </Router>
+    }
+}
+
+#[test]
+fn test_redirect_app() {
+    let routes = generate_route_list(RedirectApp);
+
+    assert_same(&routes, |r| r.leptos_path(), &[
+        "/bar",
+        "/bar/",
+        "/baz/*any",
+        "/baz/*any/", // !!! TODO
+        "/baz/:id",
+        "/baz/:id/",
+        "/baz/:name",
+        "/baz/:name/",
+        "/foo",
+        "/foo/"
+    ]);
+
+    // ... But leptos-actix has also reformatted "paths" to work for Actix.
+    assert_same(&routes, |r| r.path(), &[
+        "/bar",
+        "/bar/",
+        "/baz/{id}",
+        "/baz/{id}/",
+        "/baz/{name}",
+        "/baz/{name}/",
+        "/baz/{tail:.*}",
+        "/baz/{tail:.*}", // !!! TODO
+        "/foo",
+        "/foo/"
+    ]);
+}
+
+
+fn assert_same<'t, T, F, U>(input: &'t Vec<T>, mapper: F, expected_sorted_values: &[U])
+where
+    F: Fn(&'t T) -> U + 't,
+    U: Ord + std::fmt::Debug,
+{
+    let mut values: Vec<U> = input.iter().map(mapper).collect();
+    values.sort();
+    assert_eq!(values, expected_sorted_values);
+}

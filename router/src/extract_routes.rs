@@ -11,7 +11,7 @@ use std::{
 
 /// Context to contain all possible routes.
 #[derive(Clone, Default, Debug)]
-pub struct PossibleBranchContext(pub(crate) Rc<RefCell<Vec<Branch>>>);
+pub struct PossibleBranchContext(pub Rc<RefCell<Vec<Branch>>>);
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 /// A route that this application can serve.

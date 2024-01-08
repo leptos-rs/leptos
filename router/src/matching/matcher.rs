@@ -31,14 +31,10 @@ impl Matcher {
             Some((p, s)) => (p, Some(s.to_string())),
             None => (path, None),
         };
-        let segments = pattern
-            .split('/')
-            .filter(|n| !n.is_empty())
-            .map(|n| n.to_string())
+        let segments = get_segments(pattern).iter()
+            .map(|s| s.to_string())
             .collect::<Vec<_>>();
-
         let len = segments.len();
-
         Self {
             splat,
             segments,
@@ -47,24 +43,22 @@ impl Matcher {
         }
     }
 
+
     #[doc(hidden)]
     pub fn test(&self, location: &str) -> Option<PathMatch> {
-        let loc_segments = location
-            .split('/')
-            .filter(|n| !n.is_empty())
-            .collect::<Vec<_>>();
+        let loc_segments = get_segments(location);
 
         let loc_len = loc_segments.len();
         let len_diff: i32 = loc_len as i32 - self.len as i32;
 
-        let trailing_iter = location.chars().rev().take_while(|n| *n == '/');
+        let trailing_slashes = location.chars().rev().take_while(|n| *n == '/').count();
 
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
         // 2) location has add'l segments, there's no splat, and partial matches not allowed
         if loc_len < self.len
             || (len_diff > 0 && self.splat.is_none() && !self.partial)
-            || (self.splat.is_none() && trailing_iter.clone().count() > 1)
+            || (self.splat.is_none() && trailing_slashes > 1)
         {
             None
         }
@@ -89,16 +83,11 @@ impl Matcher {
 
             if let Some(splat) = &self.splat {
                 if !splat.is_empty() {
-                    let mut value = if len_diff > 0 {
+                    let value = if len_diff > 0 {
                         loc_segments[self.len..].join("/")
                     } else {
                         "".into()
                     };
-
-                    // add trailing slashes to splat
-                    let trailing_slashes =
-                        trailing_iter.skip(1).collect::<String>();
-                    value.push_str(&trailing_slashes);
 
                     params.insert(splat.into(), value);
                 }
@@ -107,4 +96,14 @@ impl Matcher {
             Some(PathMatch { path, params })
         }
     }
+}
+
+
+fn get_segments(pattern: &str) -> Vec<&str> {
+    pattern.split('/')
+        .enumerate()
+        // Only remove a leading slash, not trailing slashes:
+        .skip_while(|(i, part)| *i == 0 && part.is_empty())
+        .map(|(_, part)| part)
+        .collect()
 }

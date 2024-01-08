@@ -26,13 +26,16 @@ pub fn Router(
     /// A signal that will be set while the navigation process is underway.
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
+    /// How trailing slashes should be handled in [`Route`] paths.
+    #[prop(optional)]
+    trailing_slash: Option<TrailingSlash>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
     /// to define and display [`Route`](crate::Route)s.
     children: Children,
 ) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
-    let router = RouterContext::new(base, fallback);
+    let router = RouterContext::new(base, fallback, trailing_slash);
     provide_context(router);
     provide_context(GlobalSuspenseContext::new());
     if let Some(set_is_routing) = set_is_routing {
@@ -53,6 +56,7 @@ pub struct RouterContext {
 pub(crate) struct RouterContextInner {
     pub location: Location,
     pub base: RouteContext,
+    trailing_slash: Option<TrailingSlash>,
     pub possible_routes: RefCell<Option<Vec<Branch>>>,
     #[allow(unused)] // used in CSR/hydrate
     base_path: String,
@@ -89,6 +93,7 @@ impl RouterContext {
     pub(crate) fn new(
         base: Option<&'static str>,
         fallback: Option<fn() -> View>,
+        trailing_slash: Option<TrailingSlash>,
     ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -169,6 +174,7 @@ impl RouterContext {
             path_stack: store_value(vec![location.pathname.get_untracked()]),
             location,
             base,
+            trailing_slash,
             history: Box::new(history),
 
             reference,
@@ -201,6 +207,10 @@ impl RouterContext {
     /// The [`RouteContext`] of the base route.
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
+    }
+
+    pub(crate) fn trailing_slash(&self) -> Option<TrailingSlash> {
+        self.inner.trailing_slash.clone()
     }
 
     /// A list of all possible routes this router can match.
@@ -457,6 +467,74 @@ impl Default for NavigateOptions {
             replace: false,
             scroll: true,
             state: State(None),
+        }
+    }
+}
+
+/// Declares how you would like to handle trailing slashes in Route paths. This
+/// can be set on [`Router`] and overridden in [`crate::components::Route`]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrailingSlash {
+    /// This is the default behavior as of Leptos 0.5.  Trailing slashes in your
+    /// `Route` path are stripped. i.e.: the following two route declarations
+    /// are equivalent:
+    ///  * `<Route path="/foo">`
+    ///  * `<Route path="/foo/">`
+    Drop,
+
+    /// This mode will respect your path as it is written. Ex:
+    ///  * If you specify `<Route path="/foo">`, then `/foo` matches, but
+    ///    `/foo/` does not.
+    ///  * If you specify `<Route path="/foo/">`, then `/foo/` matches, but
+    ///    `/foo` does not.
+    Exact,
+
+    /// Like `Exact`, this mode respects your path as-written. But it will also
+    /// add redirects to the specified path if a user nagivates to a URL that is
+    /// off by only the trailing slash.
+    /// 
+    /// Given `<Route path="/foo">`
+    ///  * Visiting `/foo` is valid.
+    ///  * Visiting `/foo/` serves a redirect to `/foo` 
+    /// 
+    /// Given `<Route path="/foo/">`
+    ///  * Visiting `/foo` serves a redirect to `/foo/` 
+    ///  * Visiting `/foo/` is valid.
+    Redirect,
+}
+
+impl Default for TrailingSlash {
+    fn default() -> Self {
+        // This is the behavior in 0.5. Keeping it the default for backward compatibility. 
+        // TODO: Change to `Redirect` in 0.6?
+        Self::Drop 
+    }
+}
+
+impl TrailingSlash {    
+    /// Should we redirect requests that come in with the wrong (extra/missing) trailng slash?
+    pub(crate) fn should_redirect(&self) -> bool {
+        use TrailingSlash::*;
+        match self {
+            Redirect => true,
+            Drop | Exact => false,
+        }
+    }
+
+    pub(crate) fn normalize_route_path(&self, path: &mut String) {
+        if !self.should_drop() {
+            return;
+        }
+        while path.ends_with("/") {
+            path.pop();
+        }
+    }
+
+    fn should_drop(&self) -> bool {
+        use TrailingSlash::*;
+        match self {
+            Redirect | Exact => false,
+            Drop => true,
         }
     }
 }
