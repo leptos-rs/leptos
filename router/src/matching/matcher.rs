@@ -31,7 +31,8 @@ impl Matcher {
             Some((p, s)) => (p, Some(s.to_string())),
             None => (path, None),
         };
-        let segments = get_segments(pattern).iter()
+        let segments = get_segments(pattern)
+            .iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
         let len = segments.len();
@@ -43,7 +44,6 @@ impl Matcher {
         }
     }
 
-
     #[doc(hidden)]
     pub fn test(&self, location: &str) -> Option<PathMatch> {
         let loc_segments = get_segments(location);
@@ -51,7 +51,8 @@ impl Matcher {
         let loc_len = loc_segments.len();
         let len_diff: i32 = loc_len as i32 - self.len as i32;
 
-        let trailing_slashes = location.chars().rev().take_while(|n| *n == '/').count();
+        let trailing_slashes =
+            location.chars().rev().take_while(|n| *n == '/').count();
 
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
@@ -98,9 +99,9 @@ impl Matcher {
     }
 }
 
-
 fn get_segments(pattern: &str) -> Vec<&str> {
-    pattern.split('/')
+    pattern
+        .split('/')
         .enumerate()
         // Only remove a leading slash, not trailing slashes:
         .skip_while(|(i, part)| *i == 0 && part.is_empty())

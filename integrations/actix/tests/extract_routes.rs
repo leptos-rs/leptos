@@ -1,6 +1,6 @@
 use leptos::*;
-use leptos_router::{Router, Routes, Route, TrailingSlash};
 use leptos_actix::generate_route_list;
+use leptos_router::{Route, Router, Routes, TrailingSlash};
 
 #[component]
 fn DefaultApp() -> impl IntoView {
@@ -23,22 +23,18 @@ fn test_default_app() {
     let routes = generate_route_list(DefaultApp);
 
     // We still have access to the original (albeit normalized) Leptos paths:
-    assert_same(&routes, |r| r.leptos_path(), &[
-        "/bar",
-        "/baz/*any",
-        "/baz/:id",
-        "/baz/:name",
-        "/foo",
-    ]);
+    assert_same(
+        &routes,
+        |r| r.leptos_path(),
+        &["/bar", "/baz/*any", "/baz/:id", "/baz/:name", "/foo"],
+    );
 
     // ... But leptos-actix has also reformatted "paths" to work for Actix.
-    assert_same(&routes, |r| r.path(), &[
-        "/bar",
-        "/baz/{id}",
-        "/baz/{name}",
-        "/baz/{tail:.*}",
-        "/foo",
-    ]);
+    assert_same(
+        &routes,
+        |r| r.path(),
+        &["/bar", "/baz/{id}", "/baz/{name}", "/baz/{tail:.*}", "/foo"],
+    );
 }
 
 #[component]
@@ -63,24 +59,25 @@ fn test_exact_app() {
     let routes = generate_route_list(ExactApp);
 
     // In Exact mode, the Leptos paths no longer have their trailing slashes stripped:
-    assert_same(&routes, |r| r.leptos_path(), &[
-        "/bar/",
-        "/baz/*any",
-        "/baz/:id",
-        "/baz/:name/",
-        "/foo",
-    ]);
+    assert_same(
+        &routes,
+        |r| r.leptos_path(),
+        &["/bar/", "/baz/*any", "/baz/:id", "/baz/:name/", "/foo"],
+    );
 
     // Actix paths also have trailing slashes as a result:
-    assert_same(&routes, |r| r.path(), &[
-        "/bar/",
-        "/baz/{id}",
-        "/baz/{name}/",
-        "/baz/{tail:.*}",
-        "/foo",
-    ]);
+    assert_same(
+        &routes,
+        |r| r.path(),
+        &[
+            "/bar/",
+            "/baz/{id}",
+            "/baz/{name}/",
+            "/baz/{tail:.*}",
+            "/foo",
+        ],
+    );
 }
-
 
 #[component]
 fn RedirectApp() -> impl IntoView {
@@ -103,37 +100,47 @@ fn RedirectApp() -> impl IntoView {
 fn test_redirect_app() {
     let routes = generate_route_list(RedirectApp);
 
-    assert_same(&routes, |r| r.leptos_path(), &[
-        "/bar",
-        "/bar/",
-        "/baz/*any",
-        "/baz/*any/", // !!! TODO
-        "/baz/:id",
-        "/baz/:id/",
-        "/baz/:name",
-        "/baz/:name/",
-        "/foo",
-        "/foo/"
-    ]);
+    assert_same(
+        &routes,
+        |r| r.leptos_path(),
+        &[
+            "/bar",
+            "/bar/",
+            "/baz/*any",
+            "/baz/*any/", // !!! TODO
+            "/baz/:id",
+            "/baz/:id/",
+            "/baz/:name",
+            "/baz/:name/",
+            "/foo",
+            "/foo/",
+        ],
+    );
 
     // ... But leptos-actix has also reformatted "paths" to work for Actix.
-    assert_same(&routes, |r| r.path(), &[
-        "/bar",
-        "/bar/",
-        "/baz/{id}",
-        "/baz/{id}/",
-        "/baz/{name}",
-        "/baz/{name}/",
-        "/baz/{tail:.*}",
-        "/baz/{tail:.*}", // !!! TODO
-        "/foo",
-        "/foo/"
-    ]);
+    assert_same(
+        &routes,
+        |r| r.path(),
+        &[
+            "/bar",
+            "/bar/",
+            "/baz/{id}",
+            "/baz/{id}/",
+            "/baz/{name}",
+            "/baz/{name}/",
+            "/baz/{tail:.*}",
+            "/baz/{tail:.*}", // !!! TODO
+            "/foo",
+            "/foo/",
+        ],
+    );
 }
 
-
-fn assert_same<'t, T, F, U>(input: &'t Vec<T>, mapper: F, expected_sorted_values: &[U])
-where
+fn assert_same<'t, T, F, U>(
+    input: &'t Vec<T>,
+    mapper: F,
+    expected_sorted_values: &[U],
+) where
     F: Fn(&'t T) -> U + 't,
     U: Ord + std::fmt::Debug,
 {

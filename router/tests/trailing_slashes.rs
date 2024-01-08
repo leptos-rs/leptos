@@ -1,8 +1,8 @@
 //! Some extra tests for Matcher NOT based on SolidJS's tests cases (as in matcher.rs)
 
-use leptos_router::{Matcher, params_map};
+use leptos_router::{params_map, Matcher};
 
-#[test] 
+#[test]
 fn trailing_slashes_match_exactly() {
     let matcher = Matcher::new("/foo/");
     assert!(matches(&matcher, "/foo/"));
@@ -27,7 +27,7 @@ fn trailng_slashes_params_match_exactly() {
     assert!(!matches(&matcher, "/foo/%20"));
 
     let m = matcher.test("/foo/asdf/").unwrap();
-    assert_eq!(m.params, params_map!{ "bar" => "asdf" });
+    assert_eq!(m.params, params_map! { "bar" => "asdf" });
 }
 
 fn matches(m: &Matcher, loc: &str) -> bool {

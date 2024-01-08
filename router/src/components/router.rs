@@ -224,7 +224,7 @@ impl RouterContext {
     pub(crate) fn trailing_slash(&self) -> Option<TrailingSlash> {
         self.inner.trailing_slash.clone()
     }
-    
+
     /// A list of all possible routes this router can match.
     pub fn possible_branches(&self) -> Vec<Branch> {
         self.inner
@@ -504,26 +504,26 @@ pub enum TrailingSlash {
     /// Like `Exact`, this mode respects your path as-written. But it will also
     /// add redirects to the specified path if a user nagivates to a URL that is
     /// off by only the trailing slash.
-    /// 
+    ///
     /// Given `<Route path="/foo">`
     ///  * Visiting `/foo` is valid.
-    ///  * Visiting `/foo/` serves a redirect to `/foo` 
-    /// 
+    ///  * Visiting `/foo/` serves a redirect to `/foo`
+    ///
     /// Given `<Route path="/foo/">`
-    ///  * Visiting `/foo` serves a redirect to `/foo/` 
+    ///  * Visiting `/foo` serves a redirect to `/foo/`
     ///  * Visiting `/foo/` is valid.
     Redirect,
 }
 
 impl Default for TrailingSlash {
     fn default() -> Self {
-        // This is the behavior in 0.5. Keeping it the default for backward compatibility. 
+        // This is the behavior in 0.5. Keeping it the default for backward compatibility.
         // TODO: Change to `Redirect` in 0.6?
-        Self::Drop 
+        Self::Drop
     }
 }
 
-impl TrailingSlash {    
+impl TrailingSlash {
     /// Should we redirect requests that come in with the wrong (extra/missing) trailng slash?
     pub(crate) fn should_redirect(&self) -> bool {
         use TrailingSlash::*;

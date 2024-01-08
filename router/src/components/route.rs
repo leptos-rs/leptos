@@ -1,6 +1,7 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap, TrailingSlash,
+    ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap,
+    TrailingSlash,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
@@ -101,7 +102,6 @@ where
         trailing_slash,
     )
 }
-
 
 /// Describes a route that is guarded by a certain condition. This works the same way as
 /// [`<Route/>`](Route), except that if the `condition` function evaluates to `false`, it
