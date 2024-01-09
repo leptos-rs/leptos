@@ -5,17 +5,10 @@ use crate::{
 use leptos::{
     html::form,
     logging::*,
-    server_fn::{
-        client::Client,
-        codec::{Encoding, PostUrl},
-        redirect::RedirectHook,
-        request::ClientReq,
-        ServerFn,
-    },
+    server_fn::{client::Client, codec::PostUrl, request::ClientReq, ServerFn},
     *,
 };
-use send_wrapper::SendWrapper;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 use std::{error::Error, fmt::Debug, rc::Rc};
 use thiserror::Error;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
@@ -447,8 +440,7 @@ pub fn ActionForm<ServFn>(
     children: Children,
 ) -> impl IntoView
 where
-    ServFn:
-        Clone + DeserializeOwned + ServerFn<InputEncoding = PostUrl> + 'static,
+    ServFn: DeserializeOwned + ServerFn<InputEncoding = PostUrl> + 'static,
     <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
         ServFn::Error,
     >>::FormData: From<FormData>,
@@ -470,12 +462,10 @@ where
     };
     let version = action.version();
     let value = action.value();
-    let input = action.input();
 
     let class = class.map(|bx| bx.into_attribute_boxed());
 
     let on_submit = {
-        let action_url = action_url.clone();
         move |ev: SubmitEvent| {
             if ev.default_prevented() {
                 return;

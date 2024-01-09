@@ -664,7 +664,7 @@ where
                     let path = req.uri().path_and_query().unwrap().as_str();
 
                     let full_path = format!("http://leptos.dev{path}");
-                    let (req, req_parts) = generate_request_and_parts(req);
+                    let (_, req_parts) = generate_request_and_parts(req);
                     move || {
                         provide_contexts(full_path, req_parts, default_res_options);
                         app_fn().into_view()
@@ -998,7 +998,7 @@ where
                 spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
-                        let (req, req_parts) = generate_request_and_parts(req);
+                        let (_, req_parts) = generate_request_and_parts(req);
                         move || {
                             provide_contexts(
                                 full_path,
@@ -1128,7 +1128,7 @@ where
                 spawn_task!(async move {
                     let app = {
                         let full_path = full_path.clone();
-                        let (req, req_parts) = generate_request_and_parts(req);
+                        let (_, req_parts) = generate_request_and_parts(req);
                         move || {
                             provide_contexts(
                                 full_path,

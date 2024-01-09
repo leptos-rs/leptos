@@ -6,7 +6,7 @@ use crate::{
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
 use cfg_if::cfg_if;
-use leptos::{server_fn::redirect::RedirectHook, *};
+use leptos::{logging::debug_warn, server_fn::redirect::RedirectHook, *};
 #[cfg(feature = "transition")]
 use leptos_reactive::use_transition;
 use send_wrapper::SendWrapper;
@@ -60,7 +60,9 @@ pub fn Router(
             }
         });
     }) as RedirectHook;
-    server_fn::redirect::set_redirect_hook(router_hook);
+    if server_fn::redirect::set_redirect_hook(router_hook).is_err() {
+        debug_warn!("Error setting <Router/> server function redirect hook.");
+    }
 
     children()
 }
