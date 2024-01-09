@@ -6,6 +6,7 @@
 use crate::*;
 use itertools::Itertools;
 use leptos::*;
+use std::{cell::RefCell, rc::Rc};
 
 #[component]
 fn DefaultApp() -> impl IntoView {
@@ -16,8 +17,8 @@ fn DefaultApp() -> impl IntoView {
                 <Route path="/foo" view/>
                 <Route path="/bar/" view/>
                 <Route path="/baz/:id" view/>
-                <Route path="/baz/:name/" view/>
-                <Route path="/baz/*any" view/>
+                <Route path="/name/:name/" view/>
+                <Route path="/any/*any" view/>
             </Routes>
         </Router>
     }
@@ -33,8 +34,8 @@ fn ExactApp() -> impl IntoView {
                 <Route path="/foo" view/>
                 <Route path="/bar/" view/>
                 <Route path="/baz/:id" view/>
-                <Route path="/baz/:name/" view/>
-                <Route path="/baz/*any" view/>
+                <Route path="/name/:name/" view/>
+                <Route path="/any/*any" view/>
             </Routes>
         </Router>
     }
@@ -50,8 +51,8 @@ fn RedirectApp() -> impl IntoView {
                 <Route path="/foo" view/>
                 <Route path="/bar/" view/>
                 <Route path="/baz/:id" view/>
-                <Route path="/baz/:name/" view/>
-                <Route path="/baz/*any" view/>
+                <Route path="/name/:name/" view/>
+                <Route path="/any/*any" view/>
             </Routes>
         </Router>
     }
@@ -61,7 +62,7 @@ fn test_generated_routes_default() {
     // By default, we use the behavior as of Leptos 0.5, which is equivalent to TrailingSlash::Drop.
     assert_generated_paths(
         DefaultApp,
-        &["/bar", "/baz/*any", "/baz/:id", "/baz/:name", "/foo"],
+        &["/any/*any", "/bar", "/baz/:id", "/foo", "/name/:name"],
     );
 }
 
@@ -70,7 +71,7 @@ fn test_generated_routes_exact() {
     // Allow users to precisely define whether slashes are present:
     assert_generated_paths(
         ExactApp,
-        &["/bar/", "/baz/*any", "/baz/:id", "/baz/:name/", "/foo"],
+        &["/any/*any", "/bar/", "/baz/:id", "/foo", "/name/:name/"],
     );
 }
 
@@ -80,21 +81,113 @@ fn test_generated_routes_redirect() {
     assert_generated_paths(
         RedirectApp,
         &[
+            "/any/*any",
             "/bar",
             "/bar/",
-            "/baz/*any",
             "/baz/:id",
             "/baz/:id/",
-            "/baz/:name",
-            "/baz/:name/",
             "/foo",
             "/foo/",
+            "/name/:name",
+            "/name/:name/",
         ],
     )
+}
 
-    // TODO:
-    // Test we get a redirect from "/foo/" to "/foo"
-    // Test we get a redirect from "/bar" to "/bar/".
+#[test]
+fn test_rendered_redirect() {
+    // Given an app that uses TrailngSlsahes::Redirect, rendering the redirected path
+    // should render the redirect. Other paths should not.
+
+    let expected_redirects = &[
+        ("/bar", "/bar/"),
+        ("/baz/some_id/", "/baz/some_id"),
+        ("/name/some_name", "/name/some_name/"),
+        ("/foo/", "/foo"),
+    ];
+
+    let redirect_result = Rc::new(RefCell::new(Option::None));
+    let rc = redirect_result.clone();
+    let server_redirect = move |new_value: &str| {
+        rc.replace(Some(new_value.to_string()));
+    };
+
+    let _runtime = Disposable(create_runtime());
+    let history = TestHistory::new("/");
+    provide_context(RouterIntegrationContext::new(history.clone()));
+    provide_server_redirect(server_redirect);
+
+    // We expect these redirects to exist:
+    for (src, dest) in expected_redirects {
+        let loc = format!("https://example.com{src}");
+        history.goto(&loc);
+        redirect_result.replace(None);
+        RedirectApp().into_view().render_to_string();
+        let redirected_to = redirect_result.borrow().clone();
+        assert!(
+            redirected_to.is_some(),
+            "Should redirect from {src} to {dest}"
+        );
+        assert_eq!(redirected_to.unwrap(), *dest);
+    }
+
+    // But the destination paths shouldn't themselves redirect:
+    redirect_result.replace(None);
+    for (_src, dest) in expected_redirects {
+        let loc = format!("https://example.com{dest}");
+        history.goto(&loc);
+        RedirectApp().into_view().render_to_string();
+        let redirected_to = redirect_result.borrow().clone();
+        assert!(
+            redirected_to.is_none(),
+            "Destination of redirect shouldn't also redirect: {dest}"
+        );
+    }
+}
+
+struct Disposable(RuntimeId);
+
+// If the test fails, and we don't dispose, we get irrelevant panics.
+impl Drop for Disposable {
+    fn drop(&mut self) {
+        self.0.dispose()
+    }
+}
+
+#[derive(Clone)]
+struct TestHistory {
+    loc: RwSignal<LocationChange>,
+}
+
+impl TestHistory {
+    fn new(initial: &str) -> Self {
+        let lc = LocationChange {
+            value: initial.to_owned(),
+            ..Default::default()
+        };
+        Self {
+            loc: create_rw_signal(lc),
+        }
+    }
+
+    fn goto(&self, loc: &str) {
+        let change = LocationChange {
+            value: loc.to_string(),
+            ..Default::default()
+        };
+
+        self.navigate(&change);
+    }
+}
+
+impl History for TestHistory {
+    fn location(&self) -> ReadSignal<LocationChange> {
+        self.loc.read_only()
+    }
+
+    fn navigate(&self, new_loc: &LocationChange) {
+        self.loc.update(|loc| loc.value = new_loc.value.clone())
+    }
 }
 
 // WARNING!
