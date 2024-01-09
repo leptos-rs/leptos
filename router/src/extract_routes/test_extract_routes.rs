@@ -3,9 +3,9 @@
 
 #![cfg(all(test, feature = "ssr"))]
 
+use crate::*;
 use itertools::Itertools;
 use leptos::*;
-use crate::*;
 
 #[component]
 fn DefaultApp() -> impl IntoView {
@@ -139,27 +139,14 @@ fn test_unique_route_ids() {
         .all_unique());
 }
 
-/// This is how [`generate_route_list_inner`] gets its RouteDefinitions.
-/// But it doesn't expose it anywhere where we can easily test it, so here's a quick copy:
 fn get_branches<F, IV>(app_fn: F) -> Vec<Branch>
 where
     F: Fn() -> IV + Clone + 'static,
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     let runtime = create_runtime();
-
-    let integration = ServerIntegration {
-        path: "http://leptos.rs/".to_string(),
-    };
-
-    provide_context(RouterIntegrationContext::new(integration));
-    let branches = PossibleBranchContext::default();
-    provide_context(branches.clone());
-
-    leptos::suppress_resource_load(true);
-    _ = app_fn().into_view();
-    leptos::suppress_resource_load(false);
-
+    let additional_context = || ();
+    let branches = super::get_branches(app_fn, additional_context);
     let branches = branches.0.borrow().clone();
     runtime.dispose();
     branches

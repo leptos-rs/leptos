@@ -135,21 +135,9 @@ where
 {
     let runtime = create_runtime();
 
-    let integration = ServerIntegration {
-        path: "http://leptos.rs/".to_string(),
-    };
-
-    provide_context(RouterIntegrationContext::new(integration));
-    let branches = PossibleBranchContext::default();
-    provide_context(branches.clone());
-
-    additional_context();
-
-    leptos::suppress_resource_load(true);
-    _ = app_fn().into_view();
-    leptos::suppress_resource_load(false);
-
+    let branches = get_branches(app_fn, additional_context);
     let branches = branches.0.borrow();
+
     let mut static_data_map: StaticDataMap = HashMap::new();
     let routes = branches
         .iter()
@@ -188,4 +176,28 @@ where
 
     runtime.dispose();
     (routes, static_data_map)
+}
+
+fn get_branches<IV>(
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + 'static + Clone,
+) -> PossibleBranchContext
+where
+    IV: IntoView + 'static,
+{
+    let integration = ServerIntegration {
+        path: "http://leptos.rs/".to_string(),
+    };
+
+    provide_context(RouterIntegrationContext::new(integration));
+    let branches = PossibleBranchContext::default();
+    provide_context(branches.clone());
+
+    additional_context();
+
+    leptos::suppress_resource_load(true);
+    _ = app_fn().into_view();
+    leptos::suppress_resource_load(false);
+
+    branches
 }
