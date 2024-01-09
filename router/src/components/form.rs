@@ -2,9 +2,9 @@ use crate::{
     hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
     ToHref, Url,
 };
-use leptos::{html::form, logging::*, *};
+use leptos::{html::form, logging::*, server_fn::error::ServerFnUrlError, *};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, rc::Rc};
+use std::{collections::HashSet, error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::RequestRedirect;
@@ -450,6 +450,20 @@ where
     let version = action.version();
     let value = action.value();
     let input = action.input();
+    let errors = use_context::<HashSet<ServerFnUrlError>>();
+
+    if let (Some(url_error), Some(error)) = (
+        errors
+            .map(|errors| {
+                errors
+                    .into_iter()
+                    .find(|e| e.fn_name().contains(&action_url))
+            })
+            .flatten(),
+        error,
+    ) {
+        error.try_set(Some(Box::new(ServerFnErrorErr::from(url_error))));
+    }
 
     let on_error = Rc::new(move |e: &gloo_net::Error| {
         batch(move || {

@@ -25,7 +25,8 @@ use leptos::{
     *,
 };
 use leptos_integration_utils::{
-    build_async_response, html_parts_separated, referrer_to_url, WithServerFn,
+    build_async_response, filter_server_fn_url_errors, html_parts_separated,
+    referrer_to_url, WithServerFn,
 };
 use leptos_meta::*;
 use leptos_router::*;
@@ -300,13 +301,19 @@ pub fn handle_server_fns_with_context(
                             let url = req
                                 .headers()
                                 .get(header::REFERER)
-                                .and_then(|referrer| referrer_to_url(referrer, fn_name.as_str()));
+                                .and_then(|referrer| {
+                                    referrer_to_url(referrer, fn_name.as_str())
+                                });
 
                             if let Some(url) = url {
                                 HttpResponse::SeeOther()
                                     .insert_header((
                                         header::LOCATION,
-                                        url.with_server_fn(&e, fn_name.as_str()).as_str(),
+                                        url.with_server_fn(
+                                            &e,
+                                            fn_name.as_str(),
+                                        )
+                                        .as_str(),
                                     ))
                                     .finish()
                             } else {
@@ -754,6 +761,15 @@ fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
     provide_context(MetaContext::new());
     provide_context(res_options);
     provide_context(req.clone());
+    if let Some(referrer) = req.headers().get(header::REFERER) {
+        leptos::logging::log!("Referrer = {referrer:?}");
+        provide_context(filter_server_fn_url_errors(
+            referrer
+                .to_str()
+                .expect("Invalid referer header from browser request"),
+        ));
+    }
+
     provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();

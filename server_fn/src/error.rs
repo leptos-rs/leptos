@@ -54,7 +54,7 @@ impl From<ServerFnError> for Error {
 /// Unlike [`ServerFnErrorErr`], this does not implement [`std::error::Error`].
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(tag = "type", content = "message")]
 pub enum ServerFnError {
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
@@ -71,6 +71,45 @@ pub enum ServerFnError {
     Args(String),
     /// Occurs on the server if there's a missing argument.
     MissingArg(String),
+}
+
+/// TODO: Write Documentation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct ServerFnUrlError {
+    internal_error: ServerFnError,
+    internal_fn_name: String,
+}
+
+impl ServerFnUrlError {
+    /// TODO: Write Documentation
+    pub fn new(fn_name: String, error: ServerFnError) -> Self {
+        Self {
+            internal_fn_name: fn_name,
+            internal_error: error,
+        }
+    }
+
+    /// TODO: Write documentation
+    pub fn error(&self) -> &ServerFnError {
+        &self.internal_error
+    }
+
+    /// TODO: Add docs
+    pub fn fn_name(&self) -> &str {
+        &self.internal_fn_name.as_ref()
+    }
+}
+
+impl From<ServerFnUrlError> for ServerFnError {
+    fn from(error: ServerFnUrlError) -> Self {
+        error.internal_error
+    }
+}
+
+impl From<ServerFnUrlError> for ServerFnErrorErr {
+    fn from(error: ServerFnUrlError) -> Self {
+        error.internal_error.into()
+    }
 }
 
 impl core::fmt::Display for ServerFnError {

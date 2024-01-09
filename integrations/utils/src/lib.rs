@@ -1,10 +1,13 @@
 use futures::{Stream, StreamExt};
 use http::HeaderValue;
-use leptos::{nonce::use_nonce, use_context, RuntimeId, ServerFnError};
+use leptos::{
+    nonce::use_nonce, server_fn::error::ServerFnUrlError, use_context,
+    RuntimeId, ServerFnError,
+};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 use regex::Regex;
-use serde::{Serialize, Deserialize};
+use std::collections::HashSet;
 use url::Url;
 
 extern crate tracing;
@@ -162,10 +165,24 @@ pub async fn build_async_response(
     format!("{head}<body{body_meta}>{buf}{tail}")
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ServerFnUrlError {
-    pub error: ServerFnError,
-    pub fn_name: String
+pub fn filter_server_fn_url_errors<'a>(
+    referrer: impl Into<&'a str>,
+) -> HashSet<ServerFnUrlError> {
+    Url::parse(referrer.into())
+        .expect("Cannot parse referrer from page request")
+        .query_pairs()
+        .into_iter()
+        .filter_map(|(k, v)| {
+
+            let foo = if k.starts_with("server_fn_error_") {
+                serde_qs::from_str::<'_, ServerFnUrlError>(v.as_ref()).ok()
+            } else {
+                None
+            };
+            leptos::logging::log!("Parsed query key {k} with value {foo:?}");
+            foo
+        })
+        .collect()
 }
 
 pub fn referrer_to_url(referer: &HeaderValue, fn_name: &str) -> Option<Url> {
@@ -185,9 +202,12 @@ impl WithServerFn for Url {
     fn with_server_fn(mut self, error: &ServerFnError, fn_name: &str) -> Self {
         self.query_pairs_mut().append_pair(
             format!("server_fn_error_{fn_name}").as_str(),
-            serde_qs::to_string(&ServerFnUrlError{error: error.to_owned(), fn_name: fn_name.to_owned()})
-                .expect("Could not serialize server fn error!")
-                .as_str(),
+            serde_qs::to_string(&ServerFnUrlError::new(
+                fn_name.to_owned(),
+                error.to_owned(),
+            ))
+            .expect("Could not serialize server fn error!")
+            .as_str(),
         );
 
         self
