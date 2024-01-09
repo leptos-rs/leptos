@@ -713,7 +713,7 @@ fn create_routes(
             let pattern = &redirect_route.path;
             let redirect_route_data = RouteData {
                 id: redirect_route.id,
-                matcher: Matcher::new_with_partial(&pattern, !is_leaf),
+                matcher: Matcher::new_with_partial(pattern, !is_leaf),
                 pattern: pattern.to_owned(),
                 original_path: pattern.to_owned(),
                 key: redirect_route,
@@ -738,7 +738,7 @@ fn redirect_route_for(route: &RouteDefinition) -> Option<RouteDefinition> {
     }
 
     // Are we creating a new route that adds or removes a slash?
-    let add_slash = route.path.ends_with("/");
+    let add_slash = route.path.ends_with('/');
     let view = Rc::new(move || {
         view! {
             <FixTrailingSlash add_slash />

@@ -537,7 +537,7 @@ impl TrailingSlash {
         if !self.should_drop() {
             return;
         }
-        while path.ends_with("/") {
+        while path.ends_with('/') {
             path.pop();
         }
     }
