@@ -4,7 +4,7 @@ cfg_if! {
     if #[cfg(feature = "ssr")] {
     use leptos::*;
     use axum::{
-        routing::{post, get},
+        routing::get,
         extract::{State, Path},
         http::Request,
         response::{IntoResponse, Response},

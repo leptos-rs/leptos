@@ -4,6 +4,7 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
+use server_fn::codec::SerdeLite;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
@@ -26,8 +27,7 @@ cfg_if! {
 
 #[server(GetTodos, "/api")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
-    use http::{header::SET_COOKIE, request::Parts, HeaderValue, StatusCode};
-    use leptos_axum::ResponseOptions;
+    use http::request::Parts;
 
     // this is just an example of how to access server context injected in the handlers
     let req_parts = use_context::<Parts>();
@@ -73,7 +73,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 }
 
 // The struct name and path prefix arguments are optional.
-#[server]
+#[server(output = SerdeLite)]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
