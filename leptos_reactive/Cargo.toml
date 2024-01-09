@@ -10,7 +10,7 @@ description = "Reactive system for the Leptos web framework."
 [dependencies]
 slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
-serde-lite = { version = "0.4", optional = true }
+serde-lite = { version = "0.5", optional = true }
 futures = { version = "0.3" }
 js-sys = { version = "0.3", optional = true }
 miniserde = { version = "0.1", optional = true }
@@ -24,7 +24,7 @@ bytecheck = { version = "0.7", features = [
   "simdutf8",
 ], optional = true }
 rustc-hash = "1"
-serde-wasm-bindgen = "0.5"
+serde-wasm-bindgen = "0.6"
 serde_json = "1"
 spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1", optional = true }
 base64 = "0.21"

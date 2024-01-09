@@ -28,6 +28,9 @@ use request::Req;
 use response::{ClientRes, Res};
 #[doc(hidden)]
 pub use serde;
+#[doc(hidden)]
+#[cfg(feature = "serde-lite")]
+pub use serde_lite;
 use std::{fmt::Display, future::Future, pin::Pin, str::FromStr, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
