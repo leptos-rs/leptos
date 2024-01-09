@@ -2,19 +2,24 @@
 mod cbor;
 #[cfg(feature = "cbor")]
 pub use cbor::*;
+
 #[cfg(feature = "json")]
 mod json;
-use http::Method;
 #[cfg(feature = "json")]
 pub use json::*;
+
+#[cfg(feature = "serde-lite")]
+mod serde_lite;
+#[cfg(feature = "serde-lite")]
+pub use serde_lite::*;
+
 #[cfg(feature = "rkyv")]
 mod rkyv;
 #[cfg(feature = "rkyv")]
 pub use rkyv::*;
+
 #[cfg(feature = "url")]
 mod url;
-use crate::{error::ServerFnError, request::ClientReq};
-use futures::Future;
 #[cfg(feature = "url")]
 pub use url::*;
 
@@ -24,6 +29,9 @@ mod multipart;
 pub use multipart::*;
 
 mod stream;
+use crate::{error::ServerFnError, request::ClientReq};
+use futures::Future;
+use http::Method;
 pub use stream::*;
 
 pub trait FromReq<CustErr, Request, Encoding>
