@@ -41,14 +41,28 @@ async fn do_something(should_error: Option<String>) -> Result<String, ServerFnEr
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    let do_something_action = create_server_action::<DoSomething>();
+    let do_something_action = Action::<DoSomething, _>::server();
+    let error = RwSignal::new(None);
+
+    Effect::new_isomorphic(move |_| {
+        with!(|error| {
+            logging::log!("Got error in app: {error:?}");
+        })
+    });
 
     view! {
         <h1>"Test the action form!"</h1>
-        <ErrorBoundary fallback=move |error| format!("{:#?}", error.get().into_iter().next().unwrap().1.into_inner().to_string())>
+        <ErrorBoundary fallback=move |error| format!("{:#?}", error
+                                                     .get()
+                                                     .into_iter()
+                                                     .next()
+                                                     .unwrap()
+                                                     .1.into_inner()
+                                                     .to_string())
+            >
             {do_something_action.value()}
         </ErrorBoundary>
-        <ActionForm action=do_something_action class="form">
+        <ActionForm action=do_something_action class="form" error=error>
             <label>Should error: <input type="checkbox" name="should_error"/></label>
             <button type="submit">Submit</button>
         </ActionForm>
