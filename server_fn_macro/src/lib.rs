@@ -74,10 +74,20 @@ pub fn server_macro_impl(
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
-    let input_ident = input.unwrap_or_else(|| syn::parse_quote!(PostUrl));
-    let input = codec_ident(server_fn_path.as_ref(), input_ident.clone());
-    let output = output.unwrap_or_else(|| syn::parse_quote!(Json));
-    let output = codec_ident(server_fn_path.as_ref(), output);
+    let input_ident = input
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| "PostUrl".to_string());
+    let input = input.map(|n| n.to_token_stream()).unwrap_or_else(|| {
+        quote! {
+            #server_fn_path::codec::PostUrl
+        }
+    });
+    let output = output.map(|n| n.to_token_stream()).unwrap_or_else(|| {
+        quote! {
+            #server_fn_path::codec::Json
+        }
+    });
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -306,7 +316,7 @@ pub fn server_macro_impl(
         }
     };
 
-    let (is_serde, derives) = match input_ident.to_string().as_str() {
+    let (is_serde, derives) = match input_ident.as_str() {
         "Rkyv" => todo!("implement derives for Rkyv"),
         "MultipartFormData" => (false, quote! {}),
         "SerdeLite" => (
@@ -834,30 +844,4 @@ impl ServerFnBody {
             #block
         }
     }
-}
-
-/// Returns either the path of the codec (if it's a builtin) or the
-/// original ident.
-fn codec_ident(server_fn_path: Option<&Path>, ident: Ident) -> TokenStream2 {
-    if let Some(server_fn_path) = server_fn_path {
-        let str = ident.to_string();
-        if [
-            "GetUrl",
-            "PostUrl",
-            "Cbor",
-            "Json",
-            "Rkyv",
-            "Streaming",
-            "StreamingText",
-            "MultipartFormData",
-        ]
-        .contains(&str.as_str())
-        {
-            return quote! {
-                #server_fn_path::codec::#ident
-            };
-        }
-    }
-
-    ident.into_token_stream()
 }
