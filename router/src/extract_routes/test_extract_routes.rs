@@ -1,10 +1,11 @@
-#![cfg(feature = "ssr")]
+// This is here, vs /router/tests/, because it accesses some `pub(crate)`
+// features to test crate internals that wouldn't be available there.
+
+#![cfg(all(test, feature = "ssr"))]
 
 use itertools::Itertools;
 use leptos::*;
-use leptos_router::{
-    generate_route_list_inner, Branch, Route, Router, Routes, TrailingSlash,
-};
+use crate::*;
 
 #[component]
 fn DefaultApp() -> impl IntoView {
@@ -145,8 +146,6 @@ where
     F: Fn() -> IV + Clone + 'static,
     IV: IntoView,
 {
-    use leptos_router::*;
-
     let runtime = create_runtime();
 
     let integration = ServerIntegration {
