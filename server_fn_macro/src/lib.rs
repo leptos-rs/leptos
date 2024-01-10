@@ -301,6 +301,9 @@ pub fn server_macro_impl(
             }}
         };
         quote! {
+            // we need this for Actix, for the SendWrapper to count as impl Future
+            // but non-Actix will have a clippy warning otherwise
+            #[allow(clippy::manual_async_fn)]
             fn run_body(self) -> impl std::future::Future<Output = #return_ty> + Send {
                 #body
             }
