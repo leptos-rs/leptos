@@ -50,6 +50,7 @@ rkyv = { version = "0.7", features = [
 # client
 gloo-net = { version = "0.5", optional = true }
 js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 wasm-streams = { version = "0.4", optional = true }
 web-sys = { version = "0.3", optional = true, features = [
@@ -79,6 +80,7 @@ browser = [
   "dep:gloo-net",
   "dep:js-sys",
   "dep:send_wrapper",
+  "dep:wasm-bindgen",
   "dep:web-sys",
   "dep:wasm-streams",
   "dep:wasm-bindgen-futures",

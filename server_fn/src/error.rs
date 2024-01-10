@@ -134,7 +134,7 @@ impl<E: std::error::Error + Clone> ViaError<E> for &&WrapError<E> {
 // we can still wrap it in String form
 impl<E: Display + Clone> ViaError<E> for &WrapError<E> {
     fn to_server_error(&self) -> ServerFnError<E> {
-        ServerFnError::WrappedServerError(self.0.clone())
+        ServerFnError::ServerError(self.0.to_string())
     }
 }
 
@@ -177,6 +177,12 @@ pub enum ServerFnError<E = NoCustomError> {
     Args(String),
     /// Occurs on the server if there's a missing argument.
     MissingArg(String),
+}
+
+impl ServerFnError<NoCustomError> {
+    pub fn new(msg: impl ToString) -> Self {
+        Self::ServerError(msg.to_string())
+    }
 }
 
 impl<CustErr> From<CustErr> for ServerFnError<CustErr> {

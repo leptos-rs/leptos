@@ -3,9 +3,10 @@ use crate::{error::ServerFnError, redirect::REDIRECT_HEADER};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Response;
-use js_sys::{wasm_bindgen::JsCast, Uint8Array};
+use js_sys::Uint8Array;
 use send_wrapper::SendWrapper;
 use std::future::Future;
+use wasm_bindgen::JsCast;
 use wasm_streams::ReadableStream;
 
 pub struct BrowserResponse(pub(crate) SendWrapper<Response>);
