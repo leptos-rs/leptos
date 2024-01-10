@@ -20,11 +20,10 @@ pub async fn db() -> Result<SqliteConnection, ServerFnError> {
     Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
 }
 
-#[server(GetTodos, "/api")]
+#[server]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
-    // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>();
+    let req_parts = use_context::<http::request::Parts>();
 
     if let Some(req_parts) = req_parts {
         println!("Uri = {:?}", req_parts.uri);
