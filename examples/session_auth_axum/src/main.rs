@@ -6,8 +6,8 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         response::{Response, IntoResponse},
         routing::get,
-        extract::{Path, State, RawQuery},
-        http::{Request, header::HeaderMap},
+        extract::{Path, State},
+        http::{Request},
         body::Body as AxumBody,
         Router,
     };
@@ -21,12 +21,12 @@ if #[cfg(feature = "ssr")] {
     use axum_session::{SessionConfig, SessionLayer, SessionStore};
     use axum_session_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
 
-    async fn server_fn_handler(State(app_state): State<AppState>, auth_session: AuthSession, path: Path<String>, headers: HeaderMap, raw_query: RawQuery,
+    async fn server_fn_handler(State(app_state): State<AppState>, auth_session: AuthSession, path: Path<String>,
     request: Request<AxumBody>) -> impl IntoResponse {
 
         log!("{:?}", path);
 
-        handle_server_fns_with_context(path, headers, raw_query, move || {
+        handle_server_fns_with_context( move || {
             provide_context(auth_session.clone());
             provide_context(app_state.pool.clone());
         }, request).await
@@ -58,10 +58,11 @@ if #[cfg(feature = "ssr")] {
         let auth_config = AuthConfig::<i64>::default();
         let session_store = SessionStore::<SessionSqlitePool>::new(Some(pool.clone().into()), session_config).await.unwrap();
 
-        sqlx::migrate!()
+        if let Err(e) = sqlx::migrate!()
             .run(&pool)
-            .await
-            .expect("could not run SQLx migrations");
+            .await {
+                eprintln!("{e:?}");
+            }
 
         // Explicit server function registration is no longer required
         // on the main branch. On 0.3.0 and earlier, uncomment the lines

@@ -162,9 +162,7 @@ pub async fn login(
 
     let user: User = User::get_from_username(username, &pool)
         .await
-        .ok_or_else(|| {
-            ServerFnError::ServerError("User does not exist.".into())
-        })?;
+        .ok_or_else(|| ServerFnError::new("User does not exist."))?;
 
     match verify(password, &user.password)? {
         true => {
@@ -207,9 +205,7 @@ pub async fn signup(
         User::get_from_username(username, &pool)
             .await
             .ok_or_else(|| {
-                ServerFnError::ServerError(
-                    "Signup failed: User does not exist.".into(),
-                )
+                ServerFnError::new("Signup failed: User does not exist.")
             })?;
 
     auth.login_user(user.id);
