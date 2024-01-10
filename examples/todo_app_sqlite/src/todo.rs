@@ -22,7 +22,9 @@ cfg_if! {
     }
 }
 
-#[server(GetTodos, "/api")]
+// This is an example of leptos's server functions using an alternative CBOR encoding. Both the function arguments being sent
+// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
+#[server(encoding = "Cbor")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req = use_context::<actix_web::HttpRequest>();
@@ -43,9 +45,8 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
 
     Ok(todos)
 }
-// This is an example of leptos's server functions using an alternative CBOR encoding. Both the function arguments being sent
-// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
-#[server(AddTodo, "/api", "Cbor")]
+
+#[server]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 

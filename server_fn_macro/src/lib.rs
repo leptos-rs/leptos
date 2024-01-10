@@ -13,7 +13,7 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
-    *,
+    Type, *,
 };
 
 /// The implementation of the `server_fn` macro.
@@ -71,23 +71,43 @@ pub fn server_macro_impl(
         input,
         output,
         fn_path,
+        builtin_encoding,
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
-    let input_ident = input
-        .as_ref()
-        .map(ToString::to_string)
-        .unwrap_or_else(|| "PostUrl".to_string());
-    let input = input.map(|n| n.to_token_stream()).unwrap_or_else(|| {
-        quote! {
-            #server_fn_path::codec::PostUrl
+    let input_ident = match &input {
+        Some(Type::Path(path)) => {
+            path.path.segments.last().map(|seg| seg.ident.to_string())
         }
-    });
-    let output = output.map(|n| n.to_token_stream()).unwrap_or_else(|| {
-        quote! {
-            #server_fn_path::codec::Json
-        }
-    });
+        None => Some("PostUrl".to_string()),
+        _ => None,
+    };
+    let input = input
+        .map(|n| {
+            if builtin_encoding {
+                quote! { #server_fn_path::codec::#n }
+            } else {
+                n.to_token_stream()
+            }
+        })
+        .unwrap_or_else(|| {
+            quote! {
+                #server_fn_path::codec::PostUrl
+            }
+        });
+    let output = output
+        .map(|n| {
+            if builtin_encoding {
+                quote! { #server_fn_path::codec::#n }
+            } else {
+                n.to_token_stream()
+            }
+        })
+        .unwrap_or_else(|| {
+            quote! {
+                #server_fn_path::codec::Json
+            }
+        });
     // default to PascalCase version of function name if no struct name given
     let struct_name = struct_name.unwrap_or_else(|| {
         let upper_camel_case_name = Converter::new()
@@ -316,10 +336,10 @@ pub fn server_macro_impl(
         }
     };
 
-    let (is_serde, derives) = match input_ident.as_str() {
-        "Rkyv" => todo!("implement derives for Rkyv"),
-        "MultipartFormData" => (false, quote! {}),
-        "SerdeLite" => (
+    let (is_serde, derives) = match input_ident.as_deref() {
+        Some("Rkyv") => todo!("implement derives for Rkyv"),
+        Some("MultipartFormData") => (false, quote! {}),
+        Some("SerdeLite") => (
             true,
             quote! {
                 Clone, #server_fn_path::serde_lite::Serialize, #server_fn_path::serde_lite::Deserialize
@@ -470,6 +490,21 @@ pub fn server_macro_impl(
     })
 }
 
+fn type_from_ident(ident: Ident) -> Type {
+    let mut segments = Punctuated::new();
+    segments.push(PathSegment {
+        ident,
+        arguments: PathArguments::None,
+    });
+    Type::Path(TypePath {
+        qself: None,
+        path: Path {
+            leading_colon: None,
+            segments,
+        },
+    })
+}
+
 #[derive(Debug)]
 struct Middleware {
     expr: syn::Expr,
@@ -555,9 +590,10 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
 struct ServerFnArgs {
     struct_name: Option<Ident>,
     prefix: Option<Literal>,
-    input: Option<Ident>,
-    output: Option<Ident>,
+    input: Option<Type>,
+    output: Option<Type>,
     fn_path: Option<Literal>,
+    builtin_encoding: bool,
 }
 
 impl Parse for ServerFnArgs {
@@ -569,8 +605,8 @@ impl Parse for ServerFnArgs {
         let mut fn_path: Option<Literal> = None;
 
         // new arguments: can only be keyed by name
-        let mut input: Option<Ident> = None;
-        let mut output: Option<Ident> = None;
+        let mut input: Option<Type> = None;
+        let mut output: Option<Type> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -698,23 +734,28 @@ impl Parse for ServerFnArgs {
         }
 
         // parse legacy encoding into input/output
+        let mut builtin_encoding = false;
         if let Some(encoding) = encoding {
             match encoding.to_string().to_lowercase().as_str() {
                 "\"url\"" => {
-                    input = syn::parse_quote!(PostUrl);
-                    output = syn::parse_quote!(Json);
+                    input = Some(type_from_ident(syn::parse_quote!(PostUrl)));
+                    output = Some(type_from_ident(syn::parse_quote!(Json)));
+                    builtin_encoding = true;
                 }
                 "\"cbor\"" => {
-                    input = syn::parse_quote!(Cbor);
-                    output = syn::parse_quote!(Cbor);
+                    input = Some(type_from_ident(syn::parse_quote!(Cbor)));
+                    output = Some(type_from_ident(syn::parse_quote!(Cbor)));
+                    builtin_encoding = true;
                 }
                 "\"getcbor\"" => {
-                    input = syn::parse_quote!(GetUrl);
-                    output = syn::parse_quote!(Cbor);
+                    input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
+                    output = Some(type_from_ident(syn::parse_quote!(Cbor)));
+                    builtin_encoding = true;
                 }
                 "\"getjson\"" => {
-                    input = syn::parse_quote!(GetUrl);
-                    output = syn::parse_quote!(Json);
+                    input = Some(type_from_ident(syn::parse_quote!(GetUrl)));
+                    output = Some(type_from_ident(syn::parse_quote!(Json)));
+                    builtin_encoding = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -731,6 +772,7 @@ impl Parse for ServerFnArgs {
             input,
             output,
             fn_path,
+            builtin_encoding,
         })
     }
 }
