@@ -1,4 +1,4 @@
-use crate::{Loader, Method, SsrMode, StaticData, StaticMode};
+use crate::{Loader, Method, SsrMode, StaticData, StaticMode, TrailingSlash};
 use leptos::leptos_dom::View;
 use std::rc::Rc;
 
@@ -25,6 +25,8 @@ pub struct RouteDefinition {
     pub static_mode: Option<StaticMode>,
     /// The data required to fill any dynamic segments in the path during static rendering.
     pub static_params: Option<StaticData>,
+    /// How a trailng slash in `path` should be handled.
+    pub trailing_slash: Option<TrailingSlash>,
 }
 
 impl core::fmt::Debug for RouteDefinition {
@@ -34,6 +36,7 @@ impl core::fmt::Debug for RouteDefinition {
             .field("children", &self.children)
             .field("ssr_mode", &self.ssr_mode)
             .field("static_render", &self.static_mode)
+            .field("trailing_slash", &self.trailing_slash)
             .finish()
     }
 }
