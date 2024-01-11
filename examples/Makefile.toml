@@ -32,7 +32,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
   "timer",
   "todo_app_sqlite",
   "todo_app_sqlite_axum",
-  "todo_app_sqlite_viz",
   "todomvc",
 ]
 
