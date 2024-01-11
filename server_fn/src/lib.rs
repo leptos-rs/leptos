@@ -1,10 +1,117 @@
+#![forbid(unsafe_code)]
+// uncomment this if you want to feel pain
+//#![deny(missing_docs)]
+
+//! # Server Functions
+//!
+//! This package is based on a simple idea: sometimes it’s useful to write functions
+//! that will only run on the server, and call them from the client.
+//!
+//! If you’re creating anything beyond a toy app, you’ll need to do this all the time:
+//! reading from or writing to a database that only runs on the server, running expensive
+//! computations using libraries you don’t want to ship down to the client, accessing
+//! APIs that need to be called from the server rather than the client for CORS reasons
+//! or because you need a secret API key that’s stored on the server and definitely
+//! shouldn’t be shipped down to a user’s browser.
+//!
+//! Traditionally, this is done by separating your server and client code, and by setting
+//! up something like a REST API or GraphQL API to allow your client to fetch and mutate
+//! data on the server. This is fine, but it requires you to write and maintain your code
+//! in multiple separate places (client-side code for fetching, server-side functions to run),
+//! as well as creating a third thing to manage, which is the API contract between the two.
+//!
+//! This package provides two simple primitives that allow you instead to write co-located,
+//! isomorphic server functions. (*Co-located* means you can write them in your app code so
+//! that they are “located alongside” the client code that calls them, rather than separating
+//! the client and server sides. *Isomorphic* means you can call them from the client as if
+//! you were simply calling a function; the function call has the “same shape” on the client
+//! as it does on the server.)
+//!
+//! ### `#[server]`
+//!
+//! The [`#[server]`][server] macro allows you to annotate a function to
+//! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
+//! crate that is enabled).
+//!
+//! **Important**: Before calling a server function on a non-web platform, you must set the server URL by calling [`set_server_url`].
+//!
+//! ```rust,ignore
+//! #[server]
+//! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
+//!   // do some server-only work here to access the database
+//!   let posts = ...;
+//!   Ok(posts)
+//! }
+//!
+//! // call the function
+//! # #[tokio::main]
+//! # async fn main() {
+//! async {
+//!   let posts = read_posts(3, "my search".to_string()).await;
+//!   log::debug!("posts = {posts:#?}");
+//! }
+//! # }
+//! ```
+//!
+//! If you call this function from the client, it will serialize the function arguments and `POST`
+//! them to the server as if they were the URL-encoded inputs in `<form method="post">`.
+//!
+//! Here’s what you need to remember:
+//! - **Server functions must be `async`.** Even if the work being done inside the function body
+//!   can run synchronously on the server, from the client’s perspective it involves an asynchronous
+//!   function call.
+//! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
+//!   inside the function body can’t fail, the processes of serialization/deserialization and the
+//!   network call are fallible. [`ServerFnError`] can receive generic errors.
+//! - **Server functions are part of the public API of your application.** A server function is an
+//!   ad hoc HTTP API endpoint, not a magic formula. Any server function can be accessed by any HTTP
+//!   client. You should take care to sanitize any data being returned from the function to ensure it
+//!   does not leak data that should exist only on the server.
+//! - **Server functions can’t be generic.** Because each server function creates a separate API endpoint,
+//!   it is difficult to monomorphize. As a result, server functions cannot be generic (for now?) If you need to use
+//!   a generic function, you can define a generic inner function called by multiple concrete server functions.
+//! - **Arguments and return types must be serializable.** We support a variety of different encodings,
+//!   but one way or another arguments need to be serialized to be sent to the server and deserialized
+//!   on the server, and the return type must be serialized on the server and deserialized on the client.
+//!   This means that the set of valid server function argument and return types is a subset of all
+//!   possible Rust argument and return types. (i.e., server functions are strictly more limited than
+//!   ordinary functions.)
+//!
+//! ## Server Function Encodings
+//!
+//! Server functions are designed to allow a flexible combination of input and output encodings, the set
+//! of which can be found in the [`codec`] module.
+//!
+//! The serialization/deserialization process for server functions consists of a series of steps,
+//! each of which is represented by a different trait:
+//! 1. [`IntoReq`]: The client serializes the [`ServerFn`] argument type into an HTTP request.
+//! 2. The [`Client`] sends the request to the server.
+//! 3. [`FromReq`]: The server deserializes the HTTP request back into the [`ServerFn`] type.
+//! 4. The server calls calls [`ServerFn::run_body`] on the data.
+//! 5. [`IntoRes`]: The server serializes the [`ServerFn::Output`] type into an HTTP response.
+//! 6. The server integration applies any middleware from [`ServerFn::middlewares`] and responds to the request.
+//! 7. [`FromRes`]: The client deserializes the response back into the [`ServerFn::Output`] type.
+//!
+//! [server]: <https://docs.rs/server_fn/latest/server_fn/attr.server.html>
+//! [`serde_qs`]: <https://docs.rs/serde_qs/latest/serde_qs/>
+//! [`cbor`]: <https://docs.rs/cbor/latest/cbor/>
+
+/// Implementations of the client side of the server function call.
 pub mod client;
+
+/// Encodings for arguments and results.
 pub mod codec;
+
 #[macro_use]
+/// Error types and utilities.
 pub mod error;
+/// Types to add server middleware to a server function.
 pub mod middleware;
+/// Utilities to allow client-side redirects.
 pub mod redirect;
+/// Types and traits for  for HTTP requests.
 pub mod request;
+/// Types and traits for HTTP responses.
 pub mod response;
 
 #[cfg(feature = "actix")]
@@ -35,6 +142,35 @@ use std::{fmt::Display, future::Future, pin::Pin, str::FromStr, sync::Arc};
 #[doc(hidden)]
 pub use xxhash_rust;
 
+/// Defines a function that runs only on the server, but can be called from the server or the client.
+///
+/// The type for which `ServerFn` is implemented is actually the type of the arguments to the function,
+/// while the function body itself is implemented in [`run_body`].
+///
+/// This means that `Self` here is usually a struct, in which each field is an argument to the function.
+/// In other words,
+/// ```rust,ignore
+/// #[server]
+/// pub async fn my_function(foo: String, bar: usize) -> Result<usize, ServerFnError> {
+///     Ok(foo.len() + bar)
+/// }
+/// ```
+/// should expand to
+/// ```rust,ignore
+/// #[derive(Serialize, Deserialize)]
+/// pub struct MyFunction {
+///     foo: String,
+///     bar: usize
+/// }
+///
+/// impl ServerFn for MyFunction {
+///     async fn run_body() -> Result<usize, ServerFnError> {
+///         Ok(foo.len() + bar)
+///     }
+///
+///     // etc.
+/// }
+/// ```
 pub trait ServerFn
 where
     Self: Send
@@ -45,6 +181,7 @@ where
             Self::InputEncoding,
         >,
 {
+    /// A unique path for the server function’s API endpoint, relative to the host, including its prefix.
     const PATH: &'static str;
 
     /// The type of the HTTP client that will send the request from the client side.
@@ -79,17 +216,23 @@ where
     /// custom error type, this can be `NoCustomError` by default.)
     type Error: FromStr + Display;
 
+    /// Returns [`Self::PATH`].
+    fn url() -> &'static str {
+        Self::PATH
+    }
+
     /// Middleware that should be applied to this server function.
     fn middlewares(
     ) -> Vec<Arc<dyn Layer<Self::ServerRequest, Self::ServerResponse>>> {
         Vec::new()
     }
 
-    // The body of the server function. This will only run on the server.
+    /// The body of the server function. This will only run on the server.
     fn run_body(
         self,
     ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send;
 
+    #[doc(hidden)]
     fn run_on_server(
         req: Self::ServerRequest,
     ) -> impl Future<Output = Self::ServerResponse> + Send {
@@ -100,6 +243,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     fn run_on_client(
         self,
     ) -> impl Future<Output = Result<Self::Output, ServerFnError<Self::Error>>> + Send
@@ -113,6 +257,7 @@ where
         }
     }
 
+    #[doc(hidden)]
     fn run_on_client_with_req(
         req: <Self::Client as Client<Self::Error>>::Request,
         redirect_hook: Option<&RedirectHook>,
@@ -157,16 +302,13 @@ where
             Ok(res)
         }
     }
-
-    fn url() -> &'static str {
-        Self::PATH
-    }
 }
 
 #[cfg(feature = "ssr")]
 #[doc(hidden)]
 pub use inventory;
 
+/// Uses the `inventory` crate to initialize a map between paths and server functions.
 #[macro_export]
 macro_rules! initialize_server_fn_map {
     ($req:ty, $res:ty) => {
@@ -179,8 +321,12 @@ macro_rules! initialize_server_fn_map {
     };
 }
 
+/// A list of middlewares that can be applied to a server function.
 pub type MiddlewareSet<Req, Res> = Vec<Arc<dyn Layer<Req, Res>>>;
 
+/// A trait object that allows multiple server functions that take the same
+/// request type and return the same response type to be gathered into a single
+/// collection.
 pub struct ServerFnTraitObj<Req, Res> {
     path: &'static str,
     method: Method,
@@ -189,6 +335,7 @@ pub struct ServerFnTraitObj<Req, Res> {
 }
 
 impl<Req, Res> ServerFnTraitObj<Req, Res> {
+    /// Converts the relevant parts of a server function into a trait object.
     pub const fn new(
         path: &'static str,
         method: Method,
@@ -203,10 +350,12 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
         }
     }
 
+    /// The path of the server function.
     pub fn path(&self) -> &'static str {
         self.path
     }
 
+    /// The HTTP method the server function expects.
     pub fn method(&self) -> Method {
         self.method.clone()
     }
@@ -238,7 +387,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 type LazyServerFnMap<Req, Res> =
     Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
 
-// Axum integration
+/// Axum integration.
 #[cfg(feature = "axum")]
 pub mod axum {
     use crate::{
@@ -255,6 +404,9 @@ pub mod axum {
         Response<Body>,
     > = initialize_server_fn_map!(Request<Body>, Response<Body>);
 
+    /// Explicitly register a server function. This is only necessary if you are
+    /// running the server in a WASM environment (or a rare environment that the
+    /// `inventory`).
     pub fn register_explicit<T>()
     where
         T: ServerFn<
@@ -273,12 +425,14 @@ pub mod axum {
         );
     }
 
+    /// The set of all registered server function paths.
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
         REGISTERED_SERVER_FUNCTIONS
             .iter()
             .map(|item| (item.path(), item.method()))
     }
 
+    /// An Axum handler that responds to a server function request.
     pub async fn handle_server_fn(req: Request<Body>) -> Response<Body> {
         let path = req.uri().path();
 
@@ -301,6 +455,7 @@ pub mod axum {
         }
     }
 
+    /// Returns the server function at the given path as a service that can be modified.
     pub fn get_server_fn_service(
         path: &str,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
@@ -315,7 +470,7 @@ pub mod axum {
     }
 }
 
-// Actix integration
+/// Actix integration.
 #[cfg(feature = "actix")]
 pub mod actix {
     use crate::{
@@ -335,6 +490,9 @@ pub mod actix {
         ActixResponse,
     > = initialize_server_fn_map!(ActixRequest, ActixResponse);
 
+    /// Explicitly register a server function. This is only necessary if you are
+    /// running the server in a WASM environment (or a rare environment that the
+    /// `inventory`).
     pub fn register_explicit<T>()
     where
         T: ServerFn<
@@ -353,12 +511,14 @@ pub mod actix {
         );
     }
 
+    /// The set of all registered server function paths.
     pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, Method)> {
         REGISTERED_SERVER_FUNCTIONS
             .iter()
             .map(|item| (item.path(), item.method()))
     }
 
+    /// An Actix handler that responds to a server function request.
     pub async fn handle_server_fn(
         req: HttpRequest,
         payload: Payload,
@@ -391,6 +551,7 @@ pub mod actix {
         }
     }
 
+    /// Returns the server function at the given path as a service that can be modified.
     pub fn get_server_fn_service(
         path: &str,
     ) -> Option<BoxedService<ActixRequest, ActixResponse>> {
