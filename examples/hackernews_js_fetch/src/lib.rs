@@ -43,7 +43,6 @@ cfg_if! {
 
     use axum::{
         Router,
-        routing::post
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use leptos::*;
@@ -64,7 +63,6 @@ cfg_if! {
             // build our application with a route
             let app: axum::Router = Router::new()
             .leptos_routes(&leptos_options, routes, || view! { <App/> } )
-            .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
             .with_state(leptos_options);
 
             info!("creating handler instance");

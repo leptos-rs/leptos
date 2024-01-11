@@ -35,7 +35,6 @@ cfg_if! {
                 App::new()
                     .service(css)
                     .service(favicon)
-                    .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), App)
                     .service(Files::new("/", site_root))
                 //.wrap(middleware::Compress::default())
