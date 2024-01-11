@@ -100,12 +100,11 @@ impl RouteListing {
 }
 
 /// Generates a list of all routes this application could possibly serve. This returns the raw routes in the leptos_router
-/// format. Odds are you want `generate_route_list()` from either the [`actix`], [`axum`], or [`viz`] integrations if you want
+/// format. Odds are you want `generate_route_list()` from either the [`actix`] or [`axum`] integrations if you want
 /// to work with their router.
 ///
 /// [`actix`]: <https://docs.rs/actix/>
 /// [`axum`]: <https://docs.rs/axum/>
-/// [`viz`]: <https://docs.rs/viz/>
 pub fn generate_route_list_inner<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> (Vec<RouteListing>, StaticDataMap)
@@ -115,12 +114,11 @@ where
     generate_route_list_inner_with_context(app_fn, || {})
 }
 /// Generates a list of all routes this application could possibly serve. This returns the raw routes in the leptos_router
-/// format. Odds are you want `generate_route_list()` from either the [`actix`], [`axum`], or [`viz`] integrations if you want
+/// format. Odds are you want `generate_route_list()` from either the [`actix`] or [`axum`] integrations if you want
 /// to work with their router.
 ///
 /// [`actix`]: <https://docs.rs/actix/>
 /// [`axum`]: <https://docs.rs/axum/>
-/// [`viz`]: <https://docs.rs/viz/>
 pub fn generate_route_list_inner_with_context<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     additional_context: impl Fn() + 'static + Clone,
