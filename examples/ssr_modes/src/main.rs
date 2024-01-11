@@ -23,11 +23,10 @@ async fn main() -> std::io::Result<()> {
         let site_root = &leptos_options.site_root;
 
         App::new()
-            .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
             .leptos_routes(
                 leptos_options.to_owned(),
                 routes.to_owned(),
-                || view! { <App/> },
+                App,
             )
             .service(Files::new("/", site_root))
         //.wrap(middleware::Compress::default())

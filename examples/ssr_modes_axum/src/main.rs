@@ -19,7 +19,6 @@ async fn main() {
     // _ = ListPostMetadata::register();
 
     let app = Router::new()
-        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .leptos_routes(&leptos_options, routes, || view! { <App/> })
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
