@@ -45,7 +45,14 @@ impl Matcher {
     }
 
     #[doc(hidden)]
-    pub fn test(&self, location: &str) -> Option<PathMatch> {
+    pub fn test(&self, mut location: &str) -> Option<PathMatch> {
+        // URL root paths "/" and "" are equivalent.
+        // Web servers (at least, Axum and Actix-Web) will send us a path of "/"
+        // even if we've routed "". Always treat these as equivalent:
+        if location == "/" && self.len == 0 {
+            location = ""
+        }
+
         let loc_segments = get_segments(location);
 
         let loc_len = loc_segments.len();

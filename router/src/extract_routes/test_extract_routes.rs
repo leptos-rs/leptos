@@ -232,6 +232,18 @@ fn test_unique_route_ids() {
         .all_unique());
 }
 
+#[test]
+fn test_unique_route_patterns() {
+    let branches = get_branches(RedirectApp);
+    assert!(!branches.is_empty());
+
+    assert!(branches
+        .iter()
+        .flat_map(|branch| &branch.routes)
+        .map(|route| route.pattern.as_str())
+        .all_unique());
+}
+
 fn get_branches<F, IV>(app_fn: F) -> Vec<Branch>
 where
     F: Fn() -> IV + Clone + 'static,

@@ -2,7 +2,7 @@ mod test_extract_routes;
 
 use crate::{
     Branch, Method, RouterIntegrationContext, ServerIntegration, SsrMode,
-    StaticDataMap, StaticMode, StaticParamsMap, StaticPath,
+    StaticDataMap, StaticMode, StaticParamsMap, StaticPath, provide_server_redirect,
 };
 use leptos::*;
 use std::{
@@ -192,6 +192,9 @@ where
     provide_context(RouterIntegrationContext::new(integration));
     let branches = PossibleBranchContext::default();
     provide_context(branches.clone());
+    // Suppress startup warning about using <Redirect/> without ServerRedirectFunction:
+    provide_server_redirect(|_str| ());
+
 
     additional_context();
 

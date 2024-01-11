@@ -6,7 +6,7 @@ use crate::{
         RouteDefinition, RouteMatch,
     },
     use_is_back_navigation, use_route, Redirect, RouteContext, RouterContext,
-    SetIsRouting, TrailingSlash,
+    SetIsRouting, TrailingSlash, NavigateOptions,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -728,6 +728,11 @@ fn create_routes(
 
 /// A new route that redirects to `route` with the correct trailng slash.
 fn redirect_route_for(route: &RouteDefinition) -> Option<RouteDefinition> {
+    if matches!(route.path.as_str(), "" | "/") {
+        // Root paths are an exception to the rule and are always equivalent:
+        return None;
+    }
+
     let trailing_slash = route
         .trailing_slash
         .clone()
@@ -780,8 +785,12 @@ fn FixTrailingSlash(add_slash: bool) -> impl IntoView {
         path.pop();
         path
     };
+    let options = NavigateOptions {
+        replace: true,
+        ..Default::default()
+    };
 
     view! {
-        <Redirect path/>
+        <Redirect path options/>
     }
 }
