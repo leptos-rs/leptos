@@ -1,4 +1,3 @@
-use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -12,13 +11,14 @@ pub struct Todo {
     completed: bool,
 }
 
-cfg_if! {
-    if #[cfg(feature = "ssr")] {
-        use sqlx::{Connection, SqliteConnection};
+#[cfg(feature = "ssr")]
+pub mod ssr {
+    pub use actix_web::HttpRequest;
+    pub use leptos::ServerFnError;
+    pub use sqlx::{Connection, SqliteConnection};
 
-        pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-            Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
-        }
+    pub async fn db() -> Result<SqliteConnection, ServerFnError> {
+        Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
     }
 }
 
@@ -26,8 +26,10 @@ cfg_if! {
 /// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
 #[server(encoding = "Cbor")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
+    use self::ssr::*;
+
     // this is just an example of how to access server context injected in the handlers
-    let req = use_context::<actix_web::HttpRequest>();
+    let req = use_context::<HttpRequest>();
 
     if let Some(req) = req {
         println!("req.path = {:#?}", req.path());
@@ -48,6 +50,8 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
 
 #[server]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
+    use self::ssr::*;
+
     let mut conn = db().await?;
 
     // fake API delay
@@ -66,6 +70,8 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 // The struct name and path prefix arguments are optional.
 #[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
+    use self::ssr::*;
+
     let mut conn = db().await?;
 
     Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
@@ -78,8 +84,8 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 #[component]
 pub fn TodoApp() -> impl IntoView {
     provide_meta_context();
-    view! {
 
+    view! {
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/todo_app_sqlite.css"/>
         <Router>

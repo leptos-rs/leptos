@@ -1,7 +1,7 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use axum::{routing::post, Router};
+    use axum::Router;
     use leptos::{logging::log, *};
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use ssr_modes_axum::{app::*, fallback::file_and_error_handler};

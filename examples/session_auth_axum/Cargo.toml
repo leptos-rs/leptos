@@ -12,7 +12,6 @@ console_log = "1.0"
 rand = { version = "0.8", features = ["min_const_gen"], optional = true }
 console_error_panic_hook = "0.1"
 futures = "0.3"
-cfg-if = "1.0"
 leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_axum = { path = "../../integrations/axum", optional = true }

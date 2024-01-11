@@ -1,16 +1,11 @@
 #[cfg(feature = "ssr")]
-mod ssr_imports {
-    pub use axum::{routing::get, Router};
-    pub use hackernews_islands::fallback::file_and_error_handler;
-    pub use leptos::*;
-    pub use leptos_axum::{generate_route_list, LeptosRoutes};
-}
-
-#[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
+    pub use axum::{routing::get, Router};
+    pub use hackernews_islands::fallback::file_and_error_handler;
     use hackernews_islands::*;
-    use ssr_imports::*;
+    pub use leptos::get_configuration;
+    pub use leptos_axum::{generate_route_list, LeptosRoutes};
 
     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
     let leptos_options = conf.leptos_options;
@@ -40,7 +35,5 @@ pub fn main() {
     use leptos::*;
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    mount_to_body(|| {
-        view! {  <App/> }
-    });
+    mount_to_body(App);
 }
