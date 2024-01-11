@@ -13,7 +13,6 @@ lto = true
 [dependencies]
 console_log = "1.0"
 console_error_panic_hook = "0.1"
-cfg-if = "1.0"
 leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_axum = { path = "../../integrations/axum", default-features = false, optional = true }
 leptos_meta = { path = "../../meta", features = ["nightly"] }

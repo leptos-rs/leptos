@@ -1,10 +1,5 @@
-use cfg_if::cfg_if;
 mod counters;
 
-// boilerplate to run in different modes
-cfg_if! {
-    // server-only stuff
-    if #[cfg(feature = "ssr")] {
         use leptos::*;
         use actix_files::{Files};
         use actix_web::*;
@@ -59,13 +54,4 @@ cfg_if! {
             .run()
             .await
         }
-        }
-
-    // client-only main for Trunk
-    else {
-        pub fn main() {
-            // isomorphic counters cannot work in a Client-Side-Rendered only
-            // app as a server is required to maintain state
-        }
-    }
 }

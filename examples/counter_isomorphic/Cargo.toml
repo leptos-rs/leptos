@@ -17,7 +17,6 @@ broadcaster = "1"
 console_log = "1"
 console_error_panic_hook = "0.1"
 futures = "0.3"
-cfg-if = "1"
 lazy_static = "1"
 leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
