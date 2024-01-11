@@ -5,8 +5,8 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    use_is_back_navigation, use_route, Redirect, RouteContext, RouterContext,
-    SetIsRouting, TrailingSlash, NavigateOptions,
+    use_is_back_navigation, use_route, NavigateOptions, Redirect, RouteContext,
+    RouterContext, SetIsRouting, TrailingSlash,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{

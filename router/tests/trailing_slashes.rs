@@ -21,7 +21,7 @@ fn trailing_slashes_match_exactly() {
 
     // Despite returning a pattern of "", web servers (known: Actix-Web and Axum)
     // may send us a path of "/". We should match those at the root:
-    assert_matches(&matcher, "/");    
+    assert_matches(&matcher, "/");
 }
 
 #[test]
@@ -40,11 +40,17 @@ fn trailng_slashes_params_match_exactly() {
 }
 
 fn assert_matches(matcher: &Matcher, path: &str) {
-    assert!(matches(matcher, path), "{matcher:?} should match path {path:?}");
+    assert!(
+        matches(matcher, path),
+        "{matcher:?} should match path {path:?}"
+    );
 }
 
 fn assert_no_match(matcher: &Matcher, path: &str) {
-    assert!(!matches(matcher, path), "{matcher:?} should NOT match path {path:?}");
+    assert!(
+        !matches(matcher, path),
+        "{matcher:?} should NOT match path {path:?}"
+    );
 }
 
 fn matches(m: &Matcher, loc: &str) -> bool {
