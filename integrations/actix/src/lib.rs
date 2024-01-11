@@ -20,12 +20,12 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
-    server_fn::Encoding,
+    server_fn::{Encoding, query_to_errors},
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
 use leptos_integration_utils::{
-    build_async_response, filter_server_fn_url_errors, html_parts_separated,
+    build_async_response, html_parts_separated,
     referrer_to_url, WithServerFn,
 };
 use leptos_meta::*;
@@ -761,12 +761,10 @@ fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
     provide_context(MetaContext::new());
     provide_context(res_options);
     provide_context(req.clone());
-    if let Some(referrer) = req.headers().get(header::REFERER) {
-        leptos::logging::log!("Referrer = {referrer:?}");
-        provide_context(filter_server_fn_url_errors(
-            referrer
-                .to_str()
-                .expect("Invalid referer header from browser request"),
+    if let Some(query) = req.uri().query() {
+        leptos::logging::log!("query = {query}");
+        provide_context(query_to_errors(
+            query
         ));
     }
 

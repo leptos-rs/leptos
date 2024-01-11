@@ -82,6 +82,7 @@
 // used by the macro
 #[doc(hidden)]
 pub use const_format;
+use error::ServerFnUrlError;
 // used by the macro
 #[cfg(feature = "ssr")]
 #[doc(hidden)]
@@ -95,7 +96,8 @@ use quote::TokenStreamExt;
 pub use serde;
 use serde::{de::DeserializeOwned, Serialize};
 pub use server_fn_macro_default::server;
-use std::{future::Future, pin::Pin, str::FromStr};
+use url::Url;
+use std::{future::Future, pin::Pin, str::FromStr, collections::HashSet};
 #[cfg(any(feature = "ssr", doc))]
 use syn::parse_quote;
 // used by the macro
@@ -618,4 +620,23 @@ fn get_server_url() -> &'static str {
     ROOT_URL
         .get()
         .expect("Call set_root_url before calling a server function.")
+}
+
+#[doc(hidden)]
+pub fn query_to_errors(query: &str) -> HashSet<ServerFnUrlError> {
+    // Url::parse needs an full absolute URL to parse correctly.
+    // Since this function is only interested in the query pairs,
+    // the specific scheme and domain do not matter.
+    Url::parse(&format!("http://base.com?{query}"))
+        .expect("Cannot parse referrer from page request")
+        .query_pairs()
+        .into_iter()
+        .filter_map(|(k, v)| {
+            if k.starts_with("server_fn_error_") {
+                serde_qs::from_str::<'_, ServerFnUrlError>(v.as_ref()).ok()
+            } else {
+                None
+            }
+        })
+        .collect()
 }

@@ -450,20 +450,22 @@ where
     let version = action.version();
     let value = action.value();
     let input = action.input();
-    let errors = use_context::<HashSet<ServerFnUrlError>>();
 
-    if let (Some(url_error), Some(error)) = (
+    let effect_action_url = action_url.clone();
+    Effect::new_isomorphic(move |_| {
+    let errors = use_context::<HashSet<ServerFnUrlError>>();
+            if let Some(url_error) =
         errors
             .map(|errors| {
                 errors
                     .into_iter()
-                    .find(|e| action_url.contains(e.fn_name()))
+                    .find(|e| effect_action_url.contains(e.fn_name()))
             })
-            .flatten(),
-        error,
-    ) {
-        error.try_set(Some(Box::new(ServerFnErrorErr::from(url_error))));
+            .flatten() {
+                leptos::logging::log!("In iso effect with error = {url_error:?}");
+                value.try_set(Some(Err(url_error.error().clone())));
     }
+    });
 
     let on_error = Rc::new(move |e: &gloo_net::Error| {
         batch(move || {

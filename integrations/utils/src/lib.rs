@@ -7,7 +7,6 @@ use leptos::{
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 use regex::Regex;
-use std::collections::HashSet;
 use url::Url;
 
 extern crate tracing;
@@ -163,26 +162,6 @@ pub async fn build_async_response(
     runtime.dispose();
 
     format!("{head}<body{body_meta}>{buf}{tail}")
-}
-
-pub fn filter_server_fn_url_errors<'a>(
-    referrer: impl Into<&'a str>,
-) -> HashSet<ServerFnUrlError> {
-    Url::parse(referrer.into())
-        .expect("Cannot parse referrer from page request")
-        .query_pairs()
-        .into_iter()
-        .filter_map(|(k, v)| {
-
-            let foo = if k.starts_with("server_fn_error_") {
-                serde_qs::from_str::<'_, ServerFnUrlError>(v.as_ref()).ok()
-            } else {
-                None
-            };
-            leptos::logging::log!("Parsed query key {k} with value {foo:?}");
-            foo
-        })
-        .collect()
 }
 
 pub fn referrer_to_url(referer: &HeaderValue, fn_name: &str) -> Option<Url> {
