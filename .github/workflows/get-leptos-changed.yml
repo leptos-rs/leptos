@@ -19,7 +19,7 @@ jobs:
 
       - name: Get source files that changed
         id: changed-source
-        uses: tj-actions/changed-files@v39
+        uses: tj-actions/changed-files@v41
         with:
           files: |
             integrations
