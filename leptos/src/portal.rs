@@ -11,7 +11,7 @@ use leptos_macro::component;
 /// Setting `use_shadow` to `true` places the element in a shadow root to isolate styles.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all)
+    tracing::instrument(level = "trace", skip_all)
 )]
 #[component]
 pub fn Portal(

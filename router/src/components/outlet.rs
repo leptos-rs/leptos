@@ -11,7 +11,7 @@ use web_sys::AnimationEvent;
 /// that child route is displayed. Renders nothing if there is no nested child.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
 pub fn Outlet() -> impl IntoView {

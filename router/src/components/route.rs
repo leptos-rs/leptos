@@ -43,7 +43,7 @@ pub enum Method {
 /// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn Route<E, F, P>(
@@ -91,7 +91,7 @@ where
 /// redirects to `redirect_path` instead of displaying its `view`.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn ProtectedRoute<P, E, F, C>(
@@ -150,7 +150,7 @@ where
 /// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn StaticRoute<E, F, P, S>(
@@ -198,7 +198,7 @@ where
 
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn define_route(
@@ -260,7 +260,7 @@ pub struct RouteContext {
 impl RouteContext {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn new(
         router: &RouterContext,

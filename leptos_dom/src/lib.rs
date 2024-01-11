@@ -101,7 +101,7 @@ pub trait Mountable {
 impl IntoView for () {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "<() />", skip_all)
+        instrument(level = "trace", name = "<() />", skip_all)
     )]
     fn into_view(self) -> View {
         Unit.into_view()
@@ -114,7 +114,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "Option<T>", skip_all)
+        instrument(level = "trace", name = "Option<T>", skip_all)
     )]
     fn into_view(self) -> View {
         if let Some(t) = self {
@@ -132,7 +132,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "Fn() -> impl IntoView", skip_all)
+        instrument(level = "trace", name = "Fn() -> impl IntoView", skip_all)
     )]
     #[track_caller]
     fn into_view(self) -> View {
@@ -246,7 +246,7 @@ pub trait CollectView {
 impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "#text", skip_all)
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     fn collect_view(self) -> View {
         self.into_iter()
@@ -381,7 +381,7 @@ impl Element {
 }
 
 impl IntoView for Element {
-    #[cfg_attr(debug_assertions, instrument(level = "info", name = "<Element />", skip_all, fields(tag = %self.name)))]
+    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name)))]
     fn into_view(self) -> View {
         View::Element(self)
     }
@@ -501,7 +501,7 @@ impl fmt::Debug for Text {
 }
 
 impl IntoView for Text {
-    #[cfg_attr(debug_assertions, instrument(level = "info", name = "#text", skip_all, fields(content = %self.content)))]
+    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all, fields(content = %self.content)))]
     fn into_view(self) -> View {
         View::Text(self)
     }
@@ -566,7 +566,7 @@ impl Default for View {
 }
 
 impl IntoView for View {
-    #[cfg_attr(debug_assertions, instrument(level = "info", name = "Node", skip_all, fields(kind = self.kind_name())))]
+    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "Node", skip_all, fields(kind = self.kind_name())))]
     fn into_view(self) -> View {
         self
     }
@@ -581,7 +581,7 @@ impl IntoView for &View {
 impl<const N: usize> IntoView for [View; N] {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "[Node; N]", skip_all)
+        instrument(level = "trace", name = "[Node; N]", skip_all)
     )]
     fn into_view(self) -> View {
         Fragment::new(self.into_iter().collect()).into_view()
@@ -1135,7 +1135,7 @@ api_planning! {
 impl IntoView for String {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "#text", skip_all)
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     #[inline(always)]
     fn into_view(self) -> View {
@@ -1146,7 +1146,7 @@ impl IntoView for String {
 impl IntoView for &'static str {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "#text", skip_all)
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     #[inline(always)]
     fn into_view(self) -> View {
@@ -1157,7 +1157,7 @@ impl IntoView for &'static str {
 impl IntoView for Oco<'static, str> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "#text", skip_all)
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     #[inline(always)]
     fn into_view(self) -> View {
@@ -1171,7 +1171,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "#text", skip_all)
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     fn into_view(self) -> View {
         self.into_iter()
@@ -1184,7 +1184,7 @@ where
 impl IntoView for core::fmt::Arguments<'_> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "#text", skip_all)
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     fn into_view(self) -> View {
         match self.as_str() {

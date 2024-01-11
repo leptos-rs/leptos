@@ -15,7 +15,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn into_fragment(self) -> Fragment {
         self.into_iter().map(|v| v.into_view()).collect()
@@ -110,7 +110,7 @@ impl Fragment {
 }
 
 impl IntoView for Fragment {
-    #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
+    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]
     fn into_view(self) -> View {
         self.into()
     }
