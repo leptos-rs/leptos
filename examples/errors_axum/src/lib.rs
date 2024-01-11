@@ -1,24 +1,21 @@
-use cfg_if::cfg_if;
 pub mod error_template;
 pub mod errors;
+#[cfg(feature = "ssr")]
 pub mod fallback;
 pub mod landing;
 
-// Needs to be in lib.rs AFAIK because wasm-bindgen needs us to be compiling a lib. I may be wrong.
-cfg_if! {
-    if #[cfg(feature = "hydrate")] {
-        use leptos::*;
-        use wasm_bindgen::prelude::wasm_bindgen;
-        use crate::landing::*;
+use wasm_bindgen::prelude::wasm_bindgen;
 
-        #[wasm_bindgen]
-        pub fn hydrate() {
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen]
+pub fn hydrate() {
+    use crate::landing::*;
+    use leptos::*;
 
-            leptos::mount_to_body(|| {
-                view! {  <App/> }
-            });
-        }
-    }
+    _ = console_log::init_with_level(log::Level::Debug);
+    console_error_panic_hook::set_once();
+
+    leptos::mount_to_body(|| {
+        view! {  <App/> }
+    });
 }
