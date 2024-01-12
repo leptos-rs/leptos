@@ -9,6 +9,7 @@ use std::future::Future;
 use wasm_bindgen::JsCast;
 use wasm_streams::ReadableStream;
 
+/// The response to a `fetch` request made in the browser.
 pub struct BrowserResponse(pub(crate) SendWrapper<Response>);
 
 impl<CustErr> ClientRes<CustErr> for BrowserResponse {

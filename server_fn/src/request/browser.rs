@@ -6,6 +6,7 @@ use js_sys::Uint8Array;
 use send_wrapper::SendWrapper;
 use web_sys::{FormData, UrlSearchParams};
 
+/// A `fetch` request made in the browser.
 #[derive(Debug)]
 pub struct BrowserRequest(pub(crate) SendWrapper<Request>);
 
@@ -15,6 +16,7 @@ impl From<Request> for BrowserRequest {
     }
 }
 
+/// The `FormData` type available in the browser.
 #[derive(Debug)]
 pub struct BrowserFormData(pub(crate) SendWrapper<FormData>);
 

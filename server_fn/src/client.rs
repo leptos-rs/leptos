@@ -54,6 +54,7 @@ pub mod browser {
 }
 
 #[cfg(any(feature = "reqwest", doc))]
+/// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
     use super::Client;
     use crate::{error::ServerFnError, request::reqwest::CLIENT};
@@ -61,6 +62,7 @@ pub mod reqwest {
     use reqwest::{Request, Response};
     use std::future::Future;
 
+    /// Implements [`Client`] for a request made by [`reqwest`].
     pub struct ReqwestClient;
 
     impl<CustErr> Client<CustErr> for ReqwestClient {

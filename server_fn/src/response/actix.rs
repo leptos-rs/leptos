@@ -9,9 +9,15 @@ use futures::{Stream, StreamExt};
 use send_wrapper::SendWrapper;
 use std::fmt::{Debug, Display};
 
+/// A wrapped Actix response.
+///
+/// This uses a [`SendWrapper`] that allows the Actix `HttpResponse` type to be `Send`, but panics
+/// if it it is ever sent to another thread. Actix pins request handling to a single thread, so this
+/// is necessary to be compatible with traits that require `Send` but should never panic in actual use.
 pub struct ActixResponse(pub(crate) SendWrapper<HttpResponse>);
 
 impl ActixResponse {
+    /// Returns the raw Actix response.
     pub fn take(self) -> HttpResponse {
         self.0.take()
     }

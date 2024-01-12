@@ -75,6 +75,8 @@ impl FromStr for NoCustomError {
     }
 }
 
+/// Wraps some error type, which may implement any of [`Error`], [`Clone`], or
+/// [`Display`].
 #[derive(Debug)]
 pub struct WrapError<T>(pub T);
 
@@ -98,6 +100,7 @@ macro_rules! server_fn_error {
 /// This trait serves as the conversion method between a variety of types
 /// and [`ServerFnError`].
 pub trait ViaError<E> {
+    /// Converts something into an error.
     fn to_server_error(&self) -> ServerFnError<E>;
 }
 
@@ -160,6 +163,7 @@ impl<E> ViaError<E> for WrapError<E> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ServerFnError<E = NoCustomError> {
+    /// A user-defined custom error type, which defaults to [`NoCustomError`].
     WrappedServerError(E),
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     Registration(String),
@@ -180,6 +184,7 @@ pub enum ServerFnError<E = NoCustomError> {
 }
 
 impl ServerFnError<NoCustomError> {
+    /// Constructs a new [`ServerFnError::ServerError`] from some other type.
     pub fn new(msg: impl ToString) -> Self {
         Self::ServerError(msg.to_string())
     }
@@ -230,9 +235,20 @@ where
     }
 }
 
+/// A serializable custom server function error type.
+///
+/// This is implemented for all types that implement [`FromStr`] + [`Display`].
+///
+/// This means you do not necessarily need the overhead of `serde` for a custom error type.
+/// Instead, you can use something like `strum` to derive `FromStr` and `Display` for your
+/// custom error type.
+///
+/// This is implemented for the default [`ServerFnError`], which uses [`NoCustomError`].
 pub trait ServerFnErrorSerde: Sized {
+    /// Converts the custom error type to a [`String`].
     fn ser(&self) -> Result<String, std::fmt::Error>;
 
+    /// Deserializes the custom error type from a [`String`].
     fn de(data: &str) -> Self;
 }
 
@@ -327,6 +343,7 @@ where
 /// it is easy to convert between the two types.
 #[derive(Error, Debug, Clone)]
 pub enum ServerFnErrorErr<E = NoCustomError> {
+    /// A user-defined custom error type, which defaults to [`NoCustomError`].
     #[error("internal error: {0}")]
     WrappedServerError(E),
     /// Error while trying to register the server function (only occurs in case of poisoned RwLock).

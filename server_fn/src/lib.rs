@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 // uncomment this if you want to feel pain
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 
 //! # Server Functions
 //!

@@ -9,6 +9,9 @@ use futures::{Stream, StreamExt};
 use http::Method;
 use std::pin::Pin;
 
+/// An encoding that represents a stream of bytes.
+///
+/// A server function that uses this as its output encoding should return [`ByteStream`].
 pub struct Streaming;
 
 impl Encoding for Streaming {
@@ -36,11 +39,15 @@ where
     }
 } */
 
+/// A stream of bytes.
+///
+/// A server function can return this type if its output encoding is [`Streaming`].
 pub struct ByteStream<CustErr = NoCustomError>(
     Pin<Box<dyn Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send>>,
 );
 
 impl<CustErr> ByteStream<CustErr> {
+    /// Consumes the wrapper, returning a stream of bytes.
     pub fn into_inner(
         self,
     ) -> impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send {
@@ -79,6 +86,9 @@ where
     }
 }
 
+/// An encoding that represents a stream of text.
+///
+/// A server function that uses this as its output encoding should return [`TextStream`].
 pub struct StreamingText;
 
 impl Encoding for StreamingText {
@@ -86,11 +96,15 @@ impl Encoding for StreamingText {
     const METHOD: Method = Method::POST;
 }
 
+/// A stream of bytes.
+///
+/// A server function can return this type if its output encoding is [`StreamingText`].
 pub struct TextStream<CustErr = NoCustomError>(
     Pin<Box<dyn Stream<Item = Result<String, ServerFnError<CustErr>>> + Send>>,
 );
 
 impl<CustErr> TextStream<CustErr> {
+    /// Consumes the wrapper, returning a stream of text.
     pub fn into_inner(
         self,
     ) -> impl Stream<Item = Result<String, ServerFnError<CustErr>>> + Send {

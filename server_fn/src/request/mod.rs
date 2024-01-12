@@ -3,13 +3,17 @@ use bytes::Bytes;
 use futures::Stream;
 use std::future::Future;
 
-#[cfg(feature = "actix")]
+/// Request types for Actix.
+#[cfg(any(feature = "actix", doc))]
 pub mod actix;
-#[cfg(feature = "axum")]
+/// Request types for Axum.
+#[cfg(any(feature = "axum", doc))]
 pub mod axum;
-#[cfg(feature = "browser")]
+/// Request types for the browser.
+#[cfg(any(feature = "browser", doc))]
 pub mod browser;
-#[cfg(feature = "reqwest")]
+/// Request types for [`reqwest`].
+#[cfg(any(feature = "reqwest", doc))]
 pub mod reqwest;
 
 /// Represents a request as made by the client.
@@ -17,8 +21,10 @@ pub trait ClientReq<CustErr>
 where
     Self: Sized,
 {
+    /// The type used for URL-encoded form data in this client.
     type FormData;
 
+    /// Attempts to construct a new `GET` request.
     fn try_new_get(
         path: &str,
         content_type: &str,
@@ -26,6 +32,7 @@ where
         query: &str,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
+    /// Attempts to construct a new `POST` request with a text body.
     fn try_new_post(
         path: &str,
         content_type: &str,
@@ -33,6 +40,7 @@ where
         body: String,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
+    /// Attempts to construct a new `POST` request with a binary body.
     fn try_new_post_bytes(
         path: &str,
         content_type: &str,
@@ -40,6 +48,7 @@ where
         body: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
+    /// Attempts to construct a new `POST` request with form data as the body.
     fn try_new_post_form_data(
         path: &str,
         accepts: &str,
@@ -47,6 +56,7 @@ where
         body: Self::FormData,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
+    /// Attempts to construct a new `POST` request with a multipart body.
     fn try_new_multipart(
         path: &str,
         accepts: &str,

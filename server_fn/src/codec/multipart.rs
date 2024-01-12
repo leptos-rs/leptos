@@ -9,6 +9,9 @@ use http::Method;
 use multer::Multipart;
 use web_sys::FormData;
 
+/// Encodes multipart form data.
+///
+/// You should primarily use this if you are trying to handle file uploads.
 pub struct MultipartFormData;
 
 impl Encoding for MultipartFormData {
@@ -16,24 +19,33 @@ impl Encoding for MultipartFormData {
     const METHOD: Method = Method::POST;
 }
 
+/// Describes whether the multipart data is on the client side or the server side.
 #[derive(Debug)]
 pub enum MultipartData {
+    /// `FormData` from the browser.
     Client(BrowserFormData),
+    /// Generic multipart form using [`multer`]. This implements [`Stream`](futures::Stream).
     Server(multer::Multipart<'static>),
 }
 
 impl MultipartData {
+    /// Extracts the inner data to handle as a stream.
+    ///
+    /// On the server side, this always returns `Some(_)`. On the client side, always returns `None`.
+    pub fn into_inner(self) -> Option<Multipart<'static>> {
+        match self {
+            MultipartData::Client(_) => None,
+            MultipartData::Server(data) => Some(data),
+        }
+    }
+
+    /// Extracts the inner form data on the client side.
+    ///
+    /// On the server side, this always returns `None`. On the client side, always returns `Some(_)`.
     pub fn into_client_data(self) -> Option<BrowserFormData> {
         match self {
             MultipartData::Client(data) => Some(data),
             MultipartData::Server(_) => None,
-        }
-    }
-
-    pub fn into_data(self) -> Option<Multipart<'static>> {
-        match self {
-            MultipartData::Client(_) => None,
-            MultipartData::Server(data) => Some(data),
         }
     }
 }

@@ -74,7 +74,7 @@ where
     async fn from_res(res: Response) -> Result<Self, ServerFnError<CustErr>> {
         let data = res.try_into_string().await?;
         Self::deserialize(
-            &&serde_json::from_str(&data)
+            &serde_json::from_str(&data)
                 .map_err(|e| ServerFnError::Args(e.to_string()))?,
         )
         .map_err(|e| ServerFnError::Deserialization(e.to_string()))
