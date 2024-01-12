@@ -432,7 +432,7 @@ pub fn ActionForm<I, O>(
     #[prop(optional, into)]
     attributes: Vec<(&'static str, Attribute)>,
     /// Component children; should include the HTML of the form elements.
-    children: Children,
+    children: ChildrenFn,
 ) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
@@ -452,19 +452,46 @@ where
     let input = action.input();
 
     let effect_action_url = action_url.clone();
-    Effect::new_isomorphic(move |_| {
-    let errors = use_context::<HashSet<ServerFnUrlError>>();
+
+    let children = Box::new(move || {
+        let wasm_has_loaded = RwSignal::new(false);
+        let children = StoredValue::new(children);
+        let action_url = effect_action_url.clone();
+
+        Effect::new_isomorphic(move |_| {
+            let errors = use_context::<HashSet<ServerFnUrlError>>();
             if let Some(url_error) =
-        errors
-            .map(|errors| {
                 errors
-                    .into_iter()
-                    .find(|e| effect_action_url.contains(e.fn_name()))
-            })
-            .flatten() {
-                leptos::logging::log!("In iso effect with error = {url_error:?}");
-                value.try_set(Some(Err(url_error.error().clone())));
-    }
+                .map(|errors| {
+                    errors
+                        .into_iter()
+                        .find(|e| effect_action_url.contains(e.fn_name()))
+                })
+                .flatten() {
+                    leptos::logging::log!("In iso effect with error = {url_error:?}");
+                    value.try_set(Some(Err(url_error.error().clone())));
+            }
+        });
+
+        Effect::new(move |_| {
+            leptos::logging::log!("In browser action form effect");
+            wasm_has_loaded.set(true);
+        });
+
+        view!{
+            <input
+                id={format!("leptos_wasm_has_loaded_{}", action_url.split('/').last().unwrap_or(""))}
+                name="leptos_wasm_has_loaded"
+                type="hidden"
+                value=move || with!(|wasm_has_loaded|
+                                    if *wasm_has_loaded {
+                                        "true"
+                                    } else {
+                                        "false"
+                                    })
+            />
+            {with!(|children| children())}
+        }
     });
 
     let on_error = Rc::new(move |e: &gloo_net::Error| {

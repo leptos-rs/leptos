@@ -230,6 +230,8 @@ pub fn handle_server_fns_with_context(
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
 
+                    leptos::logging::log!("In server fn before resp with data = {data:?}");
+
                     let res = match server_fn.call((), data).await {
                         Ok(serialized) => {
                             let res_options =
@@ -246,6 +248,7 @@ pub fn handle_server_fns_with_context(
                                     != Some("application/x-www-form-urlencoded")
                                 && accept_header != Some("application/cbor")
                             {
+                                leptos::logging::log!("Will redirect for form submit");
                                 // Location will already be set if redirect() has been used
                                 let has_location_set = res_parts
                                     .headers
@@ -264,7 +267,7 @@ pub fn handle_server_fns_with_context(
                                     ))
                                     .content_type("application/json");
                                 }
-                            };
+                            }
                             // Override StatusCode if it was set in a Resource or Element
                             if let Some(status) = res_parts.status {
                                 res.status(status);
@@ -282,16 +285,19 @@ pub fn handle_server_fns_with_context(
 
                             match serialized {
                                 Payload::Binary(data) => {
+                                    leptos::logging::log!("serverfn return bin = {data:?}");
                                     res.content_type("application/cbor");
                                     res.body(Bytes::from(data))
                                 }
                                 Payload::Url(data) => {
+                                    leptos::logging::log!("serverfn return url = {data:?}");
                                     res.content_type(
                                         "application/x-www-form-urlencoded",
                                     );
                                     res.body(data)
                                 }
                                 Payload::Json(data) => {
+                                    leptos::logging::log!("serverfn return json = {data:?}");
                                     res.content_type("application/json");
                                     res.body(data)
                                 }
@@ -324,6 +330,7 @@ pub fn handle_server_fns_with_context(
                             }
                         }
                     };
+                    leptos::logging::log!("done serverfn with status {}", res.status());
                     // clean up the scope
                     runtime.dispose();
                     res

@@ -42,12 +42,10 @@ async fn do_something(should_error: Option<String>) -> Result<String, ServerFnEr
 #[component]
 fn HomePage() -> impl IntoView {
     let do_something_action = Action::<DoSomething, _>::server();
-    let error = RwSignal::new(None);
+    let value = Signal::derive(move || do_something_action.value().get().unwrap_or_else(|| Ok(String::new())));
 
     Effect::new_isomorphic(move |_| {
-        with!(|error| {
-            logging::log!("Got error in app: {error:?}");
-        })
+        logging::log!("Got value = {:?}", value.get());
     });
 
     view! {
@@ -60,12 +58,12 @@ fn HomePage() -> impl IntoView {
                                                      .1.into_inner()
                                                      .to_string())
             >
-            {do_something_action.value()}
+            {value}
+            <ActionForm action=do_something_action class="form">
+                <label>Should error: <input type="checkbox" name="should_error"/></label>
+                <button type="submit">Submit</button>
+            </ActionForm>
         </ErrorBoundary>
-        <ActionForm action=do_something_action class="form" error=error>
-            <label>Should error: <input type="checkbox" name="should_error"/></label>
-            <button type="submit">Submit</button>
-        </ActionForm>
     }
 }
 
