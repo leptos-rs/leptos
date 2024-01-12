@@ -37,13 +37,19 @@ pub struct BrowserIntegration {}
 impl BrowserIntegration {
     fn current() -> LocationChange {
         let loc = leptos_dom::helpers::location();
+        let state = window()
+            .history()
+            .and_then(|h| h.state())
+            .ok()
+            .and_then(|s| (!s.is_null()).then_some(s));
+
         LocationChange {
             value: loc.pathname().unwrap_or_default()
                 + loc.search().unwrap_or_default().as_str()
                 + loc.hash().unwrap_or_default().as_str(),
             replace: true,
             scroll: true,
-            state: State(None),
+            state: State(state),
         }
     }
 }

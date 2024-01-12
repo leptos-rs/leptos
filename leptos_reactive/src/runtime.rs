@@ -951,12 +951,11 @@ impl RuntimeId {
                 false
             };
 
-            let prev_observer =
-                SetObserverOnDrop(self, runtime.observer.take());
+            let prev_observer = SetObserverOnDrop(runtime.observer.take());
 
             untracked_result = f();
 
-            runtime.observer.set(prev_observer.1);
+            runtime.observer.set(prev_observer.0);
             std::mem::forget(prev_observer); // avoid Drop
 
             #[cfg(debug_assertions)]
@@ -1371,12 +1370,12 @@ impl std::hash::Hash for Runtime {
     }
 }
 
-struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
+struct SetObserverOnDrop(Option<NodeId>);
 
 impl Drop for SetObserverOnDrop {
     fn drop(&mut self) {
         _ = with_runtime(|rt| {
-            rt.observer.set(self.1);
+            rt.observer.set(self.0);
         });
     }
 }
@@ -1393,14 +1392,13 @@ impl Drop for SetObserverOnDrop {
 )]
 #[inline(always)]
 pub fn batch<T>(f: impl FnOnce() -> T) -> T {
-    let runtime_id = Runtime::current();
     with_runtime(move |runtime| {
-        let batching = SetBatchingOnDrop(runtime_id, runtime.batching.get());
+        let batching = SetBatchingOnDrop(runtime.batching.get());
         runtime.batching.set(true);
 
         let val = f();
 
-        runtime.batching.set(batching.1);
+        runtime.batching.set(batching.0);
         std::mem::forget(batching);
 
         runtime.run_effects();
@@ -1409,12 +1407,12 @@ pub fn batch<T>(f: impl FnOnce() -> T) -> T {
     .expect("tried to run a batched update in a runtime that has been disposed")
 }
 
-struct SetBatchingOnDrop(RuntimeId, bool);
+struct SetBatchingOnDrop(bool);
 
 impl Drop for SetBatchingOnDrop {
     fn drop(&mut self) {
         _ = with_runtime(|rt| {
-            rt.batching.set(self.1);
+            rt.batching.set(self.0);
         });
     }
 }

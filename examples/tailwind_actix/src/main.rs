@@ -9,11 +9,6 @@ cfg_if! {
         use crate::app::*;
         use leptos_actix::{generate_route_list, LeptosRoutes};
 
-        #[get("/style.css")]
-        async fn css() -> impl Responder {
-            actix_files::NamedFile::open_async("./style/output.css").await
-        }
-
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
 
@@ -30,7 +25,6 @@ cfg_if! {
                 let site_root = &leptos_options.site_root;
                 let routes = &routes;
                 App::new()
-                    .service(css)
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), || view! { <App/> })
                     .service(Files::new("/", site_root))
                     .wrap(middleware::Compress::default())
