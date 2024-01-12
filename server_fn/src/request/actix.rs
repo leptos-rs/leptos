@@ -5,9 +5,15 @@ use futures::Stream;
 use send_wrapper::SendWrapper;
 use std::future::Future;
 
+/// A wrapped Actix request.
+///
+/// This uses a [`SendWrapper`] that allows the Actix `HttpRequest` type to be `Send`, but panics
+/// if it it is ever sent to another thread. Actix pins request handling to a single thread, so this
+/// is necessary to be compatible with traits that require `Send` but should never panic in actual use.
 pub struct ActixRequest(pub(crate) SendWrapper<(HttpRequest, Payload)>);
 
 impl ActixRequest {
+    /// Returns the raw Actix request, and its body.
     pub fn take(self) -> (HttpRequest, Payload) {
         self.0.take()
     }

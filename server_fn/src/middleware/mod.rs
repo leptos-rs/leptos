@@ -1,18 +1,25 @@
 use std::{future::Future, pin::Pin};
 
+/// An abstraction over a middleware layer, which can be used to add additional
+/// middleware layer to a [`Service`].
 pub trait Layer<Req, Res>: Send + Sync + 'static {
+    /// Adds this layer to the inner service.
     fn layer(&self, inner: BoxedService<Req, Res>) -> BoxedService<Req, Res>;
 }
 
+/// A type-erased service, which takes an HTTP request and returns a response.
 pub struct BoxedService<Req, Res>(pub Box<dyn Service<Req, Res> + Send>);
 
 impl<Req, Res> BoxedService<Req, Res> {
+    /// Constructs a type-erased service from this service.
     pub fn new(service: impl Service<Req, Res> + Send + 'static) -> Self {
         Self(Box::new(service))
     }
 }
 
+/// A service converts an HTTP request into a response.
 pub trait Service<Request, Response> {
+    /// Converts a request into a response.
     fn run(
         &mut self,
         req: Request,

@@ -45,15 +45,56 @@ mod multipart;
 pub use multipart::*;
 
 mod stream;
-use crate::{error::ServerFnError, request::ClientReq};
+use crate::error::ServerFnError;
 use futures::Future;
 use http::Method;
 pub use stream::*;
 
-/// Deserializes an HTTP request into the data type.
+/// Serializes a data type into an HTTP request, on the client.
+///
+/// Implementations use the methods of the [`ClientReq`](crate::ClientReq) trait to
+/// convert data into a request body. They are often quite short, usually consisting
+/// of just two steps:
+/// 1. Serializing the data into some [`String`], [`Bytes`](bytes::Bytes), or [`Stream`](futures::Stream).
+/// 2. Creating a request with a body of that type.
+///
+/// For example, here’s the implementation for [`Json`].
+///
+/// ```rust
+/// impl<CustErr, T, Request> IntoReq<CustErr, Request, Json> for T
+/// where
+///     Request: ClientReq<CustErr>,
+///     T: Serialize + Send,
+/// {
+///     fn into_req(
+///         self,
+///         path: &str,
+///         accepts: &str,
+///     ) -> Result<Request, ServerFnError<CustErr>> {
+///         // try to serialize the data
+///         let data = serde_json::to_string(&self)
+///             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+///         // and use it as the body of a POST request
+///         Request::try_new_post(path, accepts, Json::CONTENT_TYPE, data)
+///     }
+/// }
+/// ```
+pub trait IntoReq<CustErr, Request, Encoding> {
+    /// Attempts to serialize the arguments into an HTTP request.
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>>;
+}
+
+/// Deserializes an HTTP request into the data type, on the server.
 ///
 /// Implementations use the methods of the [`Req`](crate::Req) trait to access whatever is
-/// needed from the request.
+/// needed from the request. They are often quite short, usually consisting
+/// of just two steps:
+/// 1. Extracting the request body into some [`String`], [`Bytes`](bytes::Bytes), or [`Stream`](futures::Stream).
+/// 2. Deserializing that data into the data type.
 ///
 /// For example, here’s the implementation for [`Json`].
 ///
@@ -80,46 +121,89 @@ pub trait FromReq<CustErr, Request, Encoding>
 where
     Self: Sized,
 {
-    /// Attempts to deserialize the request.
+    /// Attempts to deserialize the arguments from a request.
     fn from_req(
         req: Request,
     ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
 }
 
-pub trait IntoReq<CustErr, Request, Encoding> {
-    fn into_req(
-        self,
-        path: &str,
-        accepts: &str,
-    ) -> Result<Request, ServerFnError<CustErr>>;
-}
-
-pub trait FromRes<CustErr, Response, Encoding>
-where
-    Self: Sized,
-{
-    fn from_res(
-        res: Response,
-    ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
-}
-
+/// Serializes the data type into an HTTP response.
+///
+/// Implementations use the methods of the [`Res`](crate::Res) trait to create a
+/// response. They are often quite short, usually consisting
+/// of just two steps:
+/// 1. Serializing the data type to a [`String`], [`Bytes`](bytes::Bytes), or a [`Stream`](futures::Stream).
+/// 2. Creating a response with that serialized value as its body.
+///
+/// For example, here’s the implementation for [`Json`].
+///
+/// ```rust
+/// impl<CustErr, T, Response> IntoRes<CustErr, Response, Json> for T
+/// where
+///     Response: Res<CustErr>,
+///     T: Serialize + Send,
+/// {
+///     async fn into_res(self) -> Result<Response, ServerFnError<CustErr>> {
+///         // try to serialize the data
+///         let data = serde_json::to_string(&self)
+///             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+///         // and use it as the body of a response
+///         Response::try_from_string(Json::CONTENT_TYPE, data)
+///     }
+/// }
+/// ```
 pub trait IntoRes<CustErr, Response, Encoding> {
+    /// Attempts to serialize the output into an HTTP response.
     fn into_res(
         self,
     ) -> impl Future<Output = Result<Response, ServerFnError<CustErr>>> + Send;
 }
 
-pub trait Encoding {
-    const CONTENT_TYPE: &'static str;
-    const METHOD: Method;
-}
-
-pub trait FormDataEncoding<Client, CustErr, Request>
+/// Deserializes the data type from an HTTP response.
+///
+/// Implementations use the methods of the [`ClientRes`](crate::ClientRes) trait to extract
+/// data from a response. They are often quite short, usually consisting
+/// of just two steps:
+/// 1. Extracting a [`String`], [`Bytes`](bytes::Bytes), or a [`Stream`](futures::Stream)
+/// from the response body.
+/// 2. Deserializing the data type from that value.
+///
+/// For example, here’s the implementation for [`Json`].
+///
+/// ```rust
+/// impl<CustErr, T, Response> FromRes<CustErr, Response, Json> for T
+/// where
+///     Response: ClientRes<CustErr> + Send,
+///     T: DeserializeOwned + Send,
+/// {
+///     async fn from_res(
+///         res: Response,
+///     ) -> Result<Self, ServerFnError<CustErr>> {
+///         // extracts the request body
+///         let data = res.try_into_string().await?;
+///         // and tries to deserialize it as JSON
+///         serde_json::from_str(&data)
+///             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+///     }
+/// }
+/// ```
+pub trait FromRes<CustErr, Response, Encoding>
 where
     Self: Sized,
-    Client: ClientReq<CustErr>,
 {
-    fn form_data_into_req(
-        form_data: Client::FormData,
-    ) -> Result<Self, ServerFnError<CustErr>>;
+    /// Attempts to deserialize the outputs from a response.
+    fn from_res(
+        res: Response,
+    ) -> impl Future<Output = Result<Self, ServerFnError<CustErr>>> + Send;
+}
+
+/// Defines a particular encoding format, which can be used for serializing or deserializing data.
+pub trait Encoding {
+    /// The MIME type of the data.
+    const CONTENT_TYPE: &'static str;
+
+    /// The HTTP method used for requests.
+    ///
+    /// This should be `POST` in most cases.
+    const METHOD: Method;
 }

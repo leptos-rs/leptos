@@ -1,10 +1,14 @@
-#[cfg(feature = "actix")]
+/// Response types for Actix.
+#[cfg(any(feature = "actix", doc))]
 pub mod actix;
-#[cfg(feature = "browser")]
+/// Response types for the browser.
+#[cfg(any(feature = "browser", doc))]
 pub mod browser;
-#[cfg(feature = "axum")]
+/// Response types for Axum.
+#[cfg(any(feature = "axum", doc))]
 pub mod http;
-#[cfg(feature = "reqwest")]
+/// Response types for [`reqwest`].
+#[cfg(any(feature = "reqwest", doc))]
 pub mod reqwest;
 
 use crate::error::ServerFnError;
@@ -37,6 +41,7 @@ where
             + 'static,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
+    /// Converts an error into a response, with a `500` status code and the error text as its body.
     fn error_response(err: ServerFnError<CustErr>) -> Self;
 }
 
