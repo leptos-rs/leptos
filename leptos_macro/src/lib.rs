@@ -856,64 +856,82 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 }
 
 /// Declares that a function is a [server function](https://docs.rs/server_fn/latest/server_fn/index.html).
-/// This means that its body will only run on the server, i.e., when the `ssr` feature is enabled.
+/// This means that its body will only run on the server, i.e., when the `ssr` feature on this crate is enabled.
 ///
 /// If you call a server function from the client (i.e., when the `csr` or `hydrate` features
 /// are enabled), it will instead make a network request to the server.
 ///
-/// You can specify one, two, three, or four arguments to the server function. All of these arguments are optional.
-/// 1. **`name`**: A type name that will be used to identify and register the server function
-///   (e.g., `MyServerFn`). Defaults to a PascalCased version of the function name.
-/// 2. **`prefix`**: A URL prefix at which the function will be mounted when it’s registered
-///   (e.g., `"/api"`). Defaults to `"/api"`.
-/// 3. **`encoding`**: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
-/// 4. **`endpoint`**: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
+/// ## Named Arguments
+///
+/// You can provide any combination of the following named arguments:
+/// - `name`: sets the identifier for the server function’s type, which is a struct created
+///    to hold the arguments (defaults to the function identifier in PascalCase)
+/// - `prefix`: a prefix at which the server function handler will be mounted (defaults to `/api`)
+/// - `endpoint`: specifies the exact path at which the server function handler will be mounted,
+///   relative to the prefix (defaults to the function name followed by unique hash)
+/// - `input`: the encoding for the arguments (defaults to `PostUrl`)
+/// - `output`: the encoding for the response (defaults to `Json`)
+/// - `encoding`: (legacy, may be deprecated in future) specifies the encoding, which may be one
+///   of the following (not case sensitive)
+///     - `"Url"`: `POST` request with URL-encoded arguments and JSON response
+///     - `"GetUrl"`: `GET` request with URL-encoded arguments and JSON response
+///     - `"Cbor"`: `POST` request with CBOR-encoded arguments and response
+///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response
 ///
 /// ```rust,ignore
-/// // will generate a server function at `/api-prefix/hello`
-/// #[server(MyServerFnType, "/api-prefix", "Url", "hello")]
-/// pub async fn my_server_fn_type() /* ... */
-///
-/// // will generate a server function with struct `HelloWorld` and path
-/// // `/api/hello2349232342342` (hash based on location in source)
-/// #[server]
-/// pub async fn hello_world() /* ... */
-///
-/// // The server function accepts keyword parameters
-/// #[server(endpoint = "my_endpoint")]
-/// pub async fn hello_leptos() /* ... */
-/// ```
-///
-/// The server function itself can take any number of arguments, each of which should be serializable
-/// and deserializable with `serde`.
-///
-/// ```ignore
-/// # use leptos::*; use serde::{Serialize, Deserialize};
-/// # #[derive(Serialize, Deserialize)]
-/// # pub struct Post { }
-/// #[server(ReadPosts, "/api")]
-/// pub async fn read_posts(how_many: u8, query: String) -> Result<Vec<Post>, ServerFnError> {
-///   // do some work on the server to access the database
+/// #[server(
+///   name = SomeStructName,
+///   prefix = "/my_api",
+///   endpoint = "my_fn",
+///   input = Cbor,
+///   output = Json
+/// )]
+/// pub async fn my_wacky_server_fn(input: Vec<String>) -> Result<usize, ServerFnError> {
 ///   todo!()
 /// }
 /// ```
 ///
-/// Note the following:
+/// ## Server Function Encodings
+///
+/// Server functions are designed to allow a flexible combination of `input` and `output` encodings, the set
+/// of which can be found in the [`server_fn::codec`] module.
+///
+/// The serialization/deserialization process for server functions consists of a series of steps,
+/// each of which is represented by a different trait:
+/// 1. [`IntoReq`]: The client serializes the [`ServerFn`] argument type into an HTTP request.
+/// 2. The [`Client`] sends the request to the server.
+/// 3. [`FromReq`]: The server deserializes the HTTP request back into the [`ServerFn`] type.
+/// 4. The server calls calls [`ServerFn::run_body`] on the data.
+/// 5. [`IntoRes`]: The server serializes the [`ServerFn::Output`] type into an HTTP response.
+/// 6. The server integration applies any middleware from [`ServerFn::middlewares`] and responds to the request.
+/// 7. [`FromRes`]: The client deserializes the response back into the [`ServerFn::Output`] type.
+///
+/// Whatever encoding is provided to `input` should implement `IntoReq` and `FromReq`. Whatever encoding is provided
+/// to `output` should implement `IntoRes` and `FromRes`.
+///
+/// ## Important Notes
 /// - **Server functions must be `async`.** Even if the work being done inside the function body
 ///   can run synchronously on the server, from the client’s perspective it involves an asynchronous
 ///   function call.
 /// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 ///   inside the function body can’t fail, the processes of serialization/deserialization and the
 ///   network call are fallible.
-/// - **Return types must implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html).**
-///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
-///   need to deserialize the result to return it to the client.
-/// - **Arguments must implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
-///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
-///   They are serialized as an `application/x-www-form-urlencoded`
-///   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
-///   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
-///   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
+///     - [`ServerFnError`] can be generic over some custom error type. If so, that type should implement
+///       [`FromStr`] and [`Display`], but does not need to implement [`Error`]. This is so the value
+///       can be easily serialized and deserialized along with the result.
+/// - **Server functions are part of the public API of your application.** A server function is an
+///   ad hoc HTTP API endpoint, not a magic formula. Any server function can be accessed by any HTTP
+///   client. You should take care to sanitize any data being returned from the function to ensure it
+///   does not leak data that should exist only on the server.
+/// - **Server functions can’t be generic.** Because each server function creates a separate API endpoint,
+///   it is difficult to monomorphize. As a result, server functions cannot be generic (for now?) If you need to use
+///   a generic function, you can define a generic inner function called by multiple concrete server functions.
+/// - **Arguments and return types must be serializable.** We support a variety of different encodings,
+///   but one way or another arguments need to be serialized to be sent to the server and deserialized
+///   on the server, and the return type must be serialized on the server and deserialized on the client.
+///   This means that the set of valid server function argument and return types is a subset of all
+///   possible Rust argument and return types. (i.e., server functions are strictly more limited than
+///   ordinary functions.)
 /// - **Context comes from the server.** Server functions are provided access to the HTTP request and other relevant
 ///   server data via the server integrations, but they do *not* have access to reactive state that exists in the client.
 /// - Your server must be ready to handle the server functions at the API prefix you list. The easiest way to do this
@@ -923,50 +941,6 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   server function. If you choose to specify a path in the fourth argument, you must ensure that these
 ///   are unique. You cannot define two server functions with the same URL prefix and endpoint path,
 ///   even if they have different URL encodings, e.g. a POST method at `/api/foo` and a GET method at `/api/foo`.
-///
-/// ## Server Function Encodings
-///
-/// By default, the server function call is a `POST` request that serializes the arguments as URL-encoded form data in the body
-/// of the request. But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]`
-/// macro to specify an alternate encoding:
-///
-/// ```rust,ignore
-/// #[server(AddTodo, "/api", "Url")]
-/// #[server(AddTodo, "/api", "GetJson")]
-/// #[server(AddTodo, "/api", "Cbor")]
-/// #[server(AddTodo, "/api", "GetCbor")]
-/// ```
-///
-/// The four options use different combinations of HTTP verbs and encoding methods:
-///
-/// | Name              | Method | Request     | Response |
-/// | ----------------- | ------ | ----------- | -------- |
-/// | **Url** (default) | POST   | URL encoded | JSON     |
-/// | **GetJson**       | GET    | URL encoded | JSON     |
-/// | **Cbor**          | POST   | CBOR        | CBOR     |
-/// | **GetCbor**       | GET    | URL encoded | CBOR     |
-///
-/// In other words, you have two choices:
-///
-/// - `GET` or `POST`? This has implications for things like browser or CDN caching; while `POST` requests should not be cached,
-/// `GET` requests can be.
-/// - Plain text (arguments sent with URL/form encoding, results sent as JSON) or a binary format (CBOR, encoded as a base64
-/// string)?
-///
-/// ## Why not `PUT` or `DELETE`? Why URL/form encoding, and not JSON?**
-///
-/// These are reasonable questions. Much of the web is built on REST API patterns that encourage the use of semantic HTTP
-/// methods like `DELETE` to delete an item from a database, and many devs are accustomed to sending data to APIs in the
-/// JSON format.
-///
-/// The reason we use `POST` or `GET` with URL-encoded data by default is the `<form>` support. For better or for worse,
-/// HTML forms don’t support `PUT` or `DELETE`, and they don’t support sending JSON. This means that if you use anything
-/// but a `GET` or `POST` request with URL-encoded data, it can only work once WASM has loaded.
-///
-/// The CBOR encoding is suported for historical reasons; an earlier version of server functions used a URL encoding that
-/// didn’t support nested objects like structs or vectors as server function arguments, which CBOR did. But note that the
-/// CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of
-/// your app is not available.
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
