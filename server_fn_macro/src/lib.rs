@@ -16,14 +16,7 @@ use syn::{
     Type, *,
 };
 
-/// The implementation of the `server_fn` macro.
-/// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
-/// **The Context comes from the server.** Optionally, the first argument of a server function
-/// can be a custom context. This context can be used to inject dependencies like the HTTP request
-/// or response or other server-only dependencies, but it does *not* have access to state that exists in the client.
-///
-/// The paths passed into this function are used in the generated code, so they must be in scope when the macro is called.
-///
+/// The implementation of the `server` macro.
 /// ```ignore
 /// #[proc_macro_attribute]
 /// pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
