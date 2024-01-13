@@ -582,27 +582,16 @@ where
         )
     )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
-        // we defensively take and release the BorrowMut twice here
-        // in case a change during the memo running schedules a rerun
-        // ideally this should never happen, but this guards against panic
-        let curr_value = {
-            // downcast value
-            let mut value = value.borrow_mut();
-            let value = value
-                .downcast_mut::<Option<T>>()
-                .expect("to downcast memo value");
-            value.take()
-        };
-
-        // run the memo
-        let (new_value, is_different) = (self.f)(curr_value);
-
-        // set new value
         let mut value = value.borrow_mut();
-        let value = value
+        let curr_value = value
             .downcast_mut::<Option<T>>()
             .expect("to downcast memo value");
-        *value = Some(new_value);
+
+        // run the memo
+        let (new_value, is_different) = (self.f)(curr_value.take());
+
+        // set new value
+        *curr_value = Some(new_value);
 
         is_different
     }
