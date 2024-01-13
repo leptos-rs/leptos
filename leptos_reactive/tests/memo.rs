@@ -229,7 +229,7 @@ fn owning_memo_slice() {
         token: "is this a token????".to_owned(),
     });
 
-    // We can allocate only when the value actually changes
+    // We can allocate only when `state.name` changes
     let name = create_owning_memo(move |old_name| {
         state.with(move |state| {
             if let Some(name) =
@@ -243,8 +243,8 @@ fn owning_memo_slice() {
     });
     let set_name = move |name| state.update(|state| state.name = name);
 
-    // We can also re-use the last token allocation, which is a better if the token has always the
-    // same length
+    // We can also re-use the last token allocation, which may be even better if the tokens are
+    // always of the same length
     let token = create_owning_memo(move |old_token| {
         state.with(move |state| {
             let is_different = old_token.as_ref() != Some(&state.token);
