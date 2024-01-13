@@ -310,7 +310,7 @@ async fn handle_server_fns_inner(
                                             .status(StatusCode::SEE_OTHER)
                                             .header(
                                                 header::LOCATION,
-                                                url.with_server_fn(&e, fn_name.as_str()).as_str(),
+                                                url.with_server_fn_error(&e, fn_name.as_str()).as_str(),
                                             )
                                             .body(Default::default())
                                     } else {

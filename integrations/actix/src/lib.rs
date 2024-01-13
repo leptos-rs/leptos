@@ -20,13 +20,12 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
-    server_fn::{Encoding, query_to_errors},
+    server_fn::Encoding,
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
 use leptos_integration_utils::{
-    build_async_response, html_parts_separated,
-    referrer_to_url, WithServerFn,
+    build_async_response, html_parts_separated, referrer_to_url, WithServerFn,
 };
 use leptos_meta::*;
 use leptos_router::*;
@@ -36,7 +35,7 @@ use std::{
     fmt::{Debug, Display},
     future::Future,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 #[cfg(debug_assertions)]
 use tracing::instrument;
@@ -161,6 +160,8 @@ pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|| {})
 }
 
+static REGEX_CELL: OnceLock<Regex> = OnceLock::new();
+
 /// An Actix [struct@Route](actix_web::Route) that listens for `GET` or `POST` requests with
 /// Leptos server function arguments in the URL (`GET`) or body (`POST`),
 /// runs the server function if found, and returns the resulting [HttpResponse].
@@ -199,6 +200,20 @@ pub fn handle_server_fns_with_context(
                 if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                     let body_ref: &[u8] = &body;
 
+                    let wasm_loaded = REGEX_CELL
+                        .get_or_init(|| {
+                            Regex::new(&format!(
+                                "{WASM_LOADED_NAME}=(true|false)"
+                            ))
+                            .expect("Could not parse wasm loaded regex")
+                        })
+                        .captures(std::str::from_utf8(body_ref).unwrap_or(""))
+                        .map_or(true, |capture| {
+                            capture
+                                .get(1)
+                                .map_or(true, |s| s.as_str() == "true")
+                        });
+
                     let runtime = create_runtime();
 
                     // Add additional info to the context of the server function
@@ -230,8 +245,6 @@ pub fn handle_server_fns_with_context(
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
 
-                    leptos::logging::log!("In server fn before resp with data = {data:?}");
-
                     let res = match server_fn.call((), data).await {
                         Ok(serialized) => {
                             let res_options =
@@ -241,81 +254,104 @@ pub fn handle_server_fns_with_context(
                                 HttpResponse::Ok();
                             let res_parts = res_options.0.write();
 
-                            // if accept_header isn't set to one of these, it's a form submit
-                            // redirect back to the referer if not redirect has been set
-                            if accept_header != Some("application/json")
-                                && accept_header
-                                    != Some("application/x-www-form-urlencoded")
-                                && accept_header != Some("application/cbor")
-                            {
-                                leptos::logging::log!("Will redirect for form submit");
-                                // Location will already be set if redirect() has been used
-                                let has_location_set = res_parts
-                                    .headers
-                                    .get(header::LOCATION)
-                                    .is_some();
-                                if !has_location_set {
-                                    let referer = req
-                                        .headers()
-                                        .get(header::REFERER)
-                                        .and_then(|value| value.to_str().ok())
-                                        .unwrap_or("/");
-                                    res = HttpResponse::SeeOther();
-                                    res.insert_header((
-                                        header::LOCATION,
-                                        referer,
-                                    ))
-                                    .content_type("application/json");
-                                }
-                            }
                             // Override StatusCode if it was set in a Resource or Element
                             if let Some(status) = res_parts.status {
                                 res.status(status);
                             }
 
                             // Use provided ResponseParts headers if they exist
-                            let _count = res_parts
-                                .headers
-                                .clone()
-                                .into_iter()
-                                .map(|(k, v)| {
-                                    res.append_header((k, v));
-                                })
-                                .count();
+                            for (k, v) in res_parts.headers.clone() {
+                                res.append_header((k, v));
+                            }
+
+                            leptos::logging::log!(
+                                "server fn serialized = {serialized:?}"
+                            );
 
                             match serialized {
                                 Payload::Binary(data) => {
-                                    leptos::logging::log!("serverfn return bin = {data:?}");
                                     res.content_type("application/cbor");
                                     res.body(Bytes::from(data))
                                 }
                                 Payload::Url(data) => {
-                                    leptos::logging::log!("serverfn return url = {data:?}");
                                     res.content_type(
                                         "application/x-www-form-urlencoded",
                                     );
+
+                                    // if accept_header isn't set to one of these, it's a form submit
+                                    // redirect back to the referer if not redirect has been set
+                                    if !(wasm_loaded
+                                        || matches!(
+                                            accept_header,
+                                            Some(
+                                                "application/json"
+                                                    | "application/\
+                                                       x-www-form-urlencoded"
+                                                    | "application/cbor"
+                                            )
+                                        ))
+                                    {
+                                        // Location will already be set if redirect() has been used
+                                        let has_location_set = res_parts
+                                            .headers
+                                            .get(header::LOCATION)
+                                            .is_some();
+                                        if !has_location_set {
+                                            let referer = req
+                                                .headers()
+                                                .get(header::REFERER)
+                                                .and_then(|value| {
+                                                    value.to_str().ok()
+                                                })
+                                                .unwrap_or("/");
+                                            let location = referrer_to_url(
+                                                referer, &fn_name,
+                                            );
+                                            leptos::logging::log!(
+                                                "Form submit referrer = \
+                                                 {referer:?}"
+                                            );
+                                            res = HttpResponse::SeeOther();
+                                            res.insert_header((
+                                                header::LOCATION,
+                                                location
+                                                    .with_server_fn_success(
+                                                        &data, &fn_name,
+                                                    )
+                                                    .as_str(),
+                                            ))
+                                            .content_type("application/json");
+                                        }
+                                    }
+
                                     res.body(data)
                                 }
                                 Payload::Json(data) => {
-                                    leptos::logging::log!("serverfn return json = {data:?}");
                                     res.content_type("application/json");
                                     res.body(data)
                                 }
                             }
                         }
                         Err(e) => {
-                            let url = req
-                                .headers()
-                                .get(header::REFERER)
-                                .and_then(|referrer| {
-                                    referrer_to_url(referrer, fn_name.as_str())
-                                });
+                            if !wasm_loaded {
+                                leptos::logging::log!(
+                                    "In err with WASM loaded"
+                                );
+                                let referer = req
+                                    .headers()
+                                    .get(header::REFERER)
+                                    .and_then(|value| value.to_str().ok())
+                                    .unwrap_or("/");
+                                let url = referrer_to_url(referer, &fn_name);
 
-                            if let Some(url) = url {
+                                leptos::logging::log!(
+                                    "In err with WASM loaded and url = {url}"
+                                );
+
                                 HttpResponse::SeeOther()
                                     .insert_header((
                                         header::LOCATION,
-                                        url.with_server_fn(
+                                        url.with_server_fn_error(
                                             &e,
                                             fn_name.as_str(),
                                         )
@@ -330,7 +366,7 @@ pub fn handle_server_fns_with_context(
                             }
                         }
                     };
-                    leptos::logging::log!("done serverfn with status {}", res.status());
+
                     // clean up the scope
                     runtime.dispose();
                     res
@@ -768,12 +804,13 @@ fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
     provide_context(MetaContext::new());
     provide_context(res_options);
     provide_context(req.clone());
-    if let Some(query) = req.uri().query() {
-        leptos::logging::log!("query = {query}");
-        provide_context(query_to_errors(
-            query
-        ));
-    }
+    // TODO: Fix
+    // if let Some(query) = req.uri().query() {
+    //     leptos::logging::log!("query = {query}");
+    //     provide_context(query_to_responses(
+    //         query
+    //     ));
+    // }
 
     provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]

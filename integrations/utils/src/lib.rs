@@ -1,12 +1,13 @@
 use futures::{Stream, StreamExt};
-use http::HeaderValue;
 use leptos::{
-    nonce::use_nonce, server_fn::error::ServerFnUrlError, use_context,
-    RuntimeId, ServerFnError,
+    nonce::use_nonce, server_fn::ServerFnUrlResponse, use_context, RuntimeId,
+    ServerFnError,
 };
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::{cmp::Eq, hash::Hash};
 use url::Url;
 
 extern crate tracing;
@@ -164,31 +165,63 @@ pub async fn build_async_response(
     format!("{head}<body{body_meta}>{buf}{tail}")
 }
 
-pub fn referrer_to_url(referer: &HeaderValue, fn_name: &str) -> Option<Url> {
+pub fn referrer_to_url(referer: &str, fn_name: &str) -> Url {
     Url::parse(
         &Regex::new(&format!(r"(?:\?|&)?server_fn_error_{fn_name}=[^&]+"))
             .unwrap()
-            .replace(referer.to_str().ok()?, ""),
+            .replace(referer, ""),
     )
-    .ok()
+    .expect("Could not parse URL")
 }
 
-pub trait WithServerFn {
-    fn with_server_fn(self, error: &ServerFnError, fn_name: &str) -> Self;
+pub trait WithServerFn<'de, T>
+where
+    T: Clone + Deserialize<'de> + Hash + Eq + Serialize,
+{
+    fn with_server_fn_error(self, error: &ServerFnError, fn_name: &str)
+        -> Self;
+    fn with_server_fn_success(self, data: &T, fn_name: &str) -> Self;
 }
 
-impl WithServerFn for Url {
-    fn with_server_fn(mut self, error: &ServerFnError, fn_name: &str) -> Self {
-        self.query_pairs_mut().append_pair(
-            format!("server_fn_error_{fn_name}").as_str(),
-            serde_qs::to_string(&ServerFnUrlError::new(
-                fn_name.to_owned(),
-                error.to_owned(),
-            ))
-            .expect("Could not serialize server fn error!")
-            .as_str(),
-        );
-
-        self
+impl<'de, T> WithServerFn<'de, T> for Url
+where
+    T: Clone + Deserialize<'de> + Hash + Eq + Serialize,
+{
+    fn with_server_fn_error(
+        self,
+        error: &ServerFnError,
+        fn_name: &str,
+    ) -> Self {
+        modify_server_fn_response(
+            self,
+            ServerFnUrlResponse::<T>::from_error(fn_name, error.clone()),
+            fn_name,
+        )
     }
+
+    fn with_server_fn_success(self, data: &T, fn_name: &str) -> Self {
+        modify_server_fn_response(
+            self,
+            ServerFnUrlResponse::new(fn_name, data.clone()),
+            fn_name,
+        )
+    }
+}
+
+fn modify_server_fn_response<'de, T>(
+    mut url: Url,
+    res: ServerFnUrlResponse<T>,
+    fn_name: &str,
+) -> Url
+where
+    T: Clone + Deserialize<'de> + Hash + Eq + Serialize,
+{
+    url.query_pairs_mut().append_pair(
+        format!("server_fn_response_{fn_name}").as_str(),
+        serde_qs::to_string(&res)
+            .expect("Could not serialize server fn response!")
+            .as_str(),
+    );
+
+    url
 }

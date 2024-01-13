@@ -2,7 +2,12 @@ use crate::{
     hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
     ToHref, Url,
 };
-use leptos::{html::form, logging::*, server_fn::error::ServerFnUrlError, *};
+use leptos::{
+    html::form,
+    logging::*,
+    server_fn::ServerFnUrlResponse,
+    *,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashSet, error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -459,17 +464,16 @@ where
         let action_url = effect_action_url.clone();
 
         Effect::new_isomorphic(move |_| {
-            let errors = use_context::<HashSet<ServerFnUrlError>>();
-            if let Some(url_error) =
-                errors
-                .map(|errors| {
-                    errors
+            let results = use_context::<HashSet<ServerFnUrlResponse<O>>>();
+            if let Some(result) = results
+                .map(|results| {
+                    results
                         .into_iter()
-                        .find(|e| effect_action_url.contains(e.fn_name()))
+                        .find(|e| effect_action_url.contains(e.name()))
                 })
-                .flatten() {
-                    leptos::logging::log!("In iso effect with error = {url_error:?}");
-                    value.try_set(Some(Err(url_error.error().clone())));
+                .flatten()
+            {
+                value.try_set(Some(result.get()));
             }
         });
 
@@ -478,10 +482,10 @@ where
             wasm_has_loaded.set(true);
         });
 
-        view!{
+        view! {
             <input
-                id={format!("leptos_wasm_has_loaded_{}", action_url.split('/').last().unwrap_or(""))}
-                name="leptos_wasm_has_loaded"
+                id={format!("{WASM_LOADED_NAME}_{}", action_url.split('/').last().unwrap_or(""))}
+                name=WASM_LOADED_NAME
                 type="hidden"
                 value=move || with!(|wasm_has_loaded|
                                     if *wasm_has_loaded {

@@ -82,7 +82,6 @@
 // used by the macro
 #[doc(hidden)]
 pub use const_format;
-use error::ServerFnUrlError;
 // used by the macro
 #[cfg(feature = "ssr")]
 #[doc(hidden)]
@@ -94,10 +93,10 @@ use quote::TokenStreamExt;
 // used by the macro
 #[doc(hidden)]
 pub use serde;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 pub use server_fn_macro_default::server;
 use url::Url;
-use std::{future::Future, pin::Pin, str::FromStr, collections::HashSet};
+use std::{future::Future, pin::Pin, str::FromStr, collections::HashSet, hash::Hash, cmp::Eq};
 #[cfg(any(feature = "ssr", doc))]
 use syn::parse_quote;
 // used by the macro
@@ -600,6 +599,41 @@ where
     }
 }
 
+/// TODO: Write Documentation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct ServerFnUrlResponse<T: Clone> {
+    data: Result<T, ServerFnError>,
+    fn_name: String,
+}
+
+impl<T: Clone> ServerFnUrlResponse<T> {
+    /// TODO: Write Documentation
+    pub fn from_error(fn_name: &str, error: ServerFnError) -> Self {
+        Self {
+            fn_name: fn_name.to_owned(),
+            data: Err(error),
+        }
+    }
+
+    /// TODO: Add docs
+    pub fn new(fn_name: &str, data: T) -> Self {
+        Self {
+            data: Ok(data),
+            fn_name: fn_name.to_owned(),
+        }
+    }
+
+    /// TODO: Write documentation
+    pub fn get(&self) -> Result<T, ServerFnError> {
+        self.data.clone()
+    }
+
+    /// TODO: Add docs
+    pub fn name(&self) -> &str {
+        &self.fn_name.as_ref()
+    }
+}
+
 // Lazily initialize the client to be reused for all server function calls.
 #[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
@@ -623,7 +657,7 @@ fn get_server_url() -> &'static str {
 }
 
 #[doc(hidden)]
-pub fn query_to_errors(query: &str) -> HashSet<ServerFnUrlError> {
+pub fn query_to_responses<T: Clone + DeserializeOwned + Hash + Eq>(query: &str) -> HashSet<ServerFnUrlResponse<T>> {
     // Url::parse needs an full absolute URL to parse correctly.
     // Since this function is only interested in the query pairs,
     // the specific scheme and domain do not matter.
@@ -632,8 +666,8 @@ pub fn query_to_errors(query: &str) -> HashSet<ServerFnUrlError> {
         .query_pairs()
         .into_iter()
         .filter_map(|(k, v)| {
-            if k.starts_with("server_fn_error_") {
-                serde_qs::from_str::<'_, ServerFnUrlError>(v.as_ref()).ok()
+            if k.starts_with("server_fn_response_") {
+                serde_qs::from_str::<'_, ServerFnUrlResponse<T>>(v.as_ref()).ok()
             } else {
                 None
             }
