@@ -44,9 +44,9 @@ fn HomePage() -> impl IntoView {
     let do_something_action = Action::<DoSomething, _>::server();
     let value = Signal::derive(move || do_something_action.value().get().unwrap_or_else(|| Ok(String::new())));
 
-    // Effect::new_isomorphic(move |_| {
-    //     logging::log!("Got value = {:?}", value.get());
-    // });
+    Effect::new_isomorphic(move |_| {
+        logging::log!("Got value = {:?}", value.get());
+    });
 
     view! {
         <h1>"Test the action form!"</h1>
