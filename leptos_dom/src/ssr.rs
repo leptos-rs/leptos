@@ -28,7 +28,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_string<F, N>(f: F) -> Oco<'static, str>
 where
@@ -59,7 +59,7 @@ where
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream(
     view: impl FnOnce() -> View + 'static,
@@ -83,7 +83,7 @@ pub fn render_to_stream(
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream_with_prefix(
     view: impl FnOnce() -> View + 'static,
@@ -112,7 +112,7 @@ pub fn render_to_stream_with_prefix(
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed(
     view: impl FnOnce() -> View + 'static,
@@ -138,7 +138,7 @@ pub fn render_to_stream_with_prefix_undisposed(
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
     view: impl FnOnce() -> View + 'static,
@@ -175,7 +175,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
     view: impl FnOnce() -> View + 'static,
@@ -365,7 +365,7 @@ impl View {
     /// Consumes the node and renders it into an HTML string.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub fn render_to_string(self) -> Oco<'static, str> {
         #[cfg(all(feature = "web", feature = "ssr"))]

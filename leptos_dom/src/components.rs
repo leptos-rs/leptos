@@ -158,7 +158,7 @@ impl From<ComponentRepr> for View {
 }
 
 impl IntoView for ComponentRepr {
-    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
+    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
     fn into_view(self) -> View {
         self.into()
     }
