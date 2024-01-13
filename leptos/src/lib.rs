@@ -187,7 +187,7 @@ pub use leptos_server::{
     create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
     ServerFnErrorErr,
 };
-pub use server_fn::{self, query_to_responses, ServerFn as _};
+pub use server_fn::{self, query_to_errors, ServerFn as _};
 mod error_boundary;
 pub use error_boundary::*;
 mod animated_show;
@@ -352,6 +352,3 @@ where
         (self)(props).into_view()
     }
 }
-
-#[doc(hidden)]
-pub const WASM_LOADED_NAME: &'static str = "leptos_client_wasm_loaded";

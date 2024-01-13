@@ -73,6 +73,45 @@ pub enum ServerFnError {
     MissingArg(String),
 }
 
+/// TODO: Write Documentation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct ServerFnUrlError {
+    internal_error: ServerFnError,
+    internal_fn_name: String,
+}
+
+impl ServerFnUrlError {
+    /// TODO: Write Documentation
+    pub fn new(fn_name: String, error: ServerFnError) -> Self {
+        Self {
+            internal_fn_name: fn_name,
+            internal_error: error,
+        }
+    }
+
+    /// TODO: Write documentation
+    pub fn error(&self) -> &ServerFnError {
+        &self.internal_error
+    }
+
+    /// TODO: Add docs
+    pub fn fn_name(&self) -> &str {
+        &self.internal_fn_name.as_ref()
+    }
+}
+
+impl From<ServerFnUrlError> for ServerFnError {
+    fn from(error: ServerFnUrlError) -> Self {
+        error.internal_error
+    }
+}
+
+impl From<ServerFnUrlError> for ServerFnErrorErr {
+    fn from(error: ServerFnUrlError) -> Self {
+        error.internal_error.into()
+    }
+}
+
 impl core::fmt::Display for ServerFnError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
