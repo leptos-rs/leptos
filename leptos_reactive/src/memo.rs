@@ -86,7 +86,7 @@ pub fn create_memo<T>(f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + 'static,
 {
-    Runtime::current().create_raw_memo(move |current_value| {
+    Runtime::current().create_owning_memo(move |current_value| {
         let new_value = f(current_value.as_ref());
         let is_different = current_value.as_ref() != Some(&new_value);
         (new_value, is_different)
@@ -106,13 +106,13 @@ where
 )]
 #[track_caller]
 #[inline(always)]
-pub fn create_raw_memo<T>(
+pub fn create_owning_memo<T>(
     f: impl Fn(Option<T>) -> (T, bool) + 'static,
 ) -> Memo<T>
 where
     T: PartialEq + 'static,
 {
-    Runtime::current().create_raw_memo(f)
+    Runtime::current().create_owning_memo(f)
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -246,11 +246,11 @@ impl<T> Memo<T> {
     #[allow(missing_docs)] // TODO
     #[inline(always)]
     #[track_caller]
-    pub fn new_raw(f: impl Fn(Option<T>) -> (T, bool) + 'static) -> Memo<T>
+    pub fn new_owning(f: impl Fn(Option<T>) -> (T, bool) + 'static) -> Memo<T>
     where
         T: PartialEq + 'static,
     {
-        create_raw_memo(f)
+        create_owning_memo(f)
     }
 }
 

@@ -214,7 +214,7 @@ fn dynamic_dependencies() {
 }
 
 #[test]
-fn raw_memo_slice() {
+fn owning_memo_slice() {
     use std::rc::Rc;
     let runtime = create_runtime();
 
@@ -231,7 +231,7 @@ fn raw_memo_slice() {
         dark_mode: false,
     });
 
-    let token = create_raw_memo(move |old_token| {
+    let token = create_owning_memo(move |old_token| {
         state.with(move |state| {
             if let Some(token) =
                 old_token.filter(|old_token| old_token == &state.token)

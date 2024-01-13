@@ -1191,7 +1191,7 @@ impl RuntimeId {
 
     #[track_caller]
     #[inline(always)]
-    pub(crate) fn create_raw_memo<T>(
+    pub(crate) fn create_owning_memo<T>(
         self,
         f: impl Fn(Option<T>) -> (T, bool) + 'static,
     ) -> Memo<T>
