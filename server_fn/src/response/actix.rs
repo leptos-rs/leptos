@@ -1,5 +1,5 @@
 use super::Res;
-use crate::error::{ServerFnError, ServerFnErrorErr};
+use crate::error::{ServerFnError, ServerFnErrorErr, ServerFnUrlError};
 use actix_web::{
     http::{header, StatusCode},
     HttpResponse,
@@ -7,7 +7,10 @@ use actix_web::{
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use send_wrapper::SendWrapper;
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 /// A wrapped Actix response.
 ///
@@ -31,7 +34,7 @@ impl From<HttpResponse> for ActixResponse {
 
 impl<CustErr> Res<CustErr> for ActixResponse
 where
-    CustErr: Display + Debug + 'static,
+    CustErr: FromStr + Display + Debug + 'static,
 {
     fn try_from_string(
         content_type: &str,
@@ -57,13 +60,6 @@ where
         )))
     }
 
-    fn error_response(err: ServerFnError<CustErr>) -> Self {
-        ActixResponse(SendWrapper::new(
-            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(err.to_string()),
-        ))
-    }
-
     fn try_from_stream(
         content_type: &str,
         data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + 'static,
@@ -76,5 +72,12 @@ where
                     data.map(|data| data.map_err(ServerFnErrorErr::from)),
                 ),
         )))
+    }
+
+    fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self {
+        ActixResponse(SendWrapper::new(
+            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(ServerFnUrlError::new(path, err).to_string()),
+        ))
     }
 }

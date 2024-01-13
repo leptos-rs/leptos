@@ -42,7 +42,7 @@ where
     ) -> Result<Self, ServerFnError<CustErr>>;
 
     /// Converts an error into a response, with a `500` status code and the error text as its body.
-    fn error_response(err: ServerFnError<CustErr>) -> Self;
+    fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self;
 }
 
 /// Represents the response as received by the client.
@@ -101,7 +101,7 @@ impl<CustErr> Res<CustErr> for BrowserMockRes {
         unreachable!()
     }
 
-    fn error_response(_err: ServerFnError<CustErr>) -> Self {
+    fn error_response(_path: &str, _err: ServerFnError<CustErr>) -> Self {
         unreachable!()
     }
 

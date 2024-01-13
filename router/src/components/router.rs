@@ -1,12 +1,19 @@
 use crate::{
-    create_location, matching::resolve_path, scroll_to_el, use_navigate,
-    Branch, History, Location, LocationChange, RouteContext,
+    create_location, matching::resolve_path, scroll_to_el, use_location,
+    use_navigate, Branch, History, Location, LocationChange, RouteContext,
     RouterIntegrationContext, State,
 };
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
 use cfg_if::cfg_if;
-use leptos::{logging::debug_warn, server_fn::redirect::RedirectHook, *};
+use leptos::{
+    logging::debug_warn,
+    server_fn::{
+        error::{ServerFnErrorSerde, ServerFnUrlError},
+        redirect::RedirectHook,
+    },
+    *,
+};
 #[cfg(feature = "transition")]
 use leptos_reactive::use_transition;
 use send_wrapper::SendWrapper;
@@ -62,6 +69,16 @@ pub fn Router(
     }) as RedirectHook;
     if server_fn::redirect::set_redirect_hook(router_hook).is_err() {
         debug_warn!("Error setting <Router/> server function redirect hook.");
+    }
+
+    // provide ServerFnUrlError if it exists
+    let location = use_location();
+    if let (Some(path), Some(err)) = location
+        .query
+        .with_untracked(|q| (q.get("__path").cloned(), q.get("__err").cloned()))
+    {
+        let err: ServerFnError = ServerFnErrorSerde::de(&err);
+        provide_context(Rc::new(ServerFnUrlError::new(path, err)))
     }
 
     children()

@@ -50,7 +50,7 @@ where
             .map_err(|e| ServerFnError::Response(e.to_string()))
     }
 
-    fn error_response(err: ServerFnError<CustErr>) -> Self {
+    fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .body(Body::from(err.to_string()))
