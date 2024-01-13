@@ -96,7 +96,7 @@ pub use serde;
 use serde::{de::DeserializeOwned, Serialize, Deserialize};
 pub use server_fn_macro_default::server;
 use url::Url;
-use std::{future::Future, pin::Pin, str::FromStr, collections::HashSet, hash::Hash, cmp::Eq};
+use std::{future::Future, pin::Pin, str::FromStr, hash::Hash, cmp::Eq};
 #[cfg(any(feature = "ssr", doc))]
 use syn::parse_quote;
 // used by the macro
@@ -599,6 +599,22 @@ where
     }
 }
 
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServerFnContext(String);
+
+impl ServerFnContext {
+    pub fn new(query: String) -> Self {
+        Self(query)
+    }
+
+    pub fn get_query(&self) -> &str {
+        &self.0
+    }
+}
+
+
+
 /// TODO: Write Documentation
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct ServerFnUrlResponse<T: Clone> {
@@ -657,7 +673,7 @@ fn get_server_url() -> &'static str {
 }
 
 #[doc(hidden)]
-pub fn query_to_responses<T: Clone + DeserializeOwned + Hash + Eq>(query: &str) -> HashSet<ServerFnUrlResponse<T>> {
+pub fn query_to_responses<T: Clone + DeserializeOwned + Serialize + 'static>(query: &str) -> Vec<ServerFnUrlResponse<T>> {
     // Url::parse needs an full absolute URL to parse correctly.
     // Since this function is only interested in the query pairs,
     // the specific scheme and domain do not matter.

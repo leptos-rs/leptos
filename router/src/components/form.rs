@@ -2,14 +2,9 @@ use crate::{
     hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
     ToHref, Url,
 };
-use leptos::{
-    html::form,
-    logging::*,
-    server_fn::ServerFnUrlResponse,
-    *,
-};
+use leptos::{html::form, logging::*, *};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{collections::HashSet, error::Error, rc::Rc};
+use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::RequestRedirect;
@@ -464,16 +459,19 @@ where
         let action_url = effect_action_url.clone();
 
         Effect::new_isomorphic(move |_| {
-            let results = use_context::<HashSet<ServerFnUrlResponse<O>>>();
-            if let Some(result) = results
-                .map(|results| {
-                    results
-                        .into_iter()
-                        .find(|e| effect_action_url.contains(e.name()))
-                })
-                .flatten()
-            {
-                value.try_set(Some(result.get()));
+            let context = use_context::<ServerFnContext>();
+
+            if let Some(context) = context {
+                leptos::logging::log!("Got context in iso effect with query = {}", context.get_query());
+                if let Some(result) = query_to_responses::<O>(
+                    context.get_query()
+                )
+                .into_iter()
+                .find(|r| effect_action_url.contains(r.name()))
+                {
+                    leptos::logging::log!("iso effefct got match!");
+                    value.try_set(Some(result.get()));
+                }
             }
         });
 

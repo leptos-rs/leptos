@@ -187,7 +187,10 @@ pub use leptos_server::{
     create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
     ServerFnErrorErr,
 };
-pub use server_fn::{self, query_to_responses, ServerFn as _};
+pub use server_fn::{
+    self, query_to_responses, ServerFn as _, ServerFnContext,
+    ServerFnUrlResponse,
+};
 mod error_boundary;
 pub use error_boundary::*;
 mod animated_show;

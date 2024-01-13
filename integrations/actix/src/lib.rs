@@ -20,7 +20,7 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
-    server_fn::Encoding,
+    server_fn::{Encoding, ServerFnContext},
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
@@ -351,7 +351,7 @@ pub fn handle_server_fns_with_context(
                                 HttpResponse::SeeOther()
                                     .insert_header((
                                         header::LOCATION,
-                                        url.with_server_fn_error(
+                                        <url::Url as WithServerFn<'_, ()>>::with_server_fn_error(url,
                                             &e,
                                             fn_name.as_str(),
                                         )
@@ -804,13 +804,10 @@ fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
     provide_context(MetaContext::new());
     provide_context(res_options);
     provide_context(req.clone());
-    // TODO: Fix
-    // if let Some(query) = req.uri().query() {
-    //     leptos::logging::log!("query = {query}");
-    //     provide_context(query_to_responses(
-    //         query
-    //     ));
-    // }
+    if let Some(query) = req.uri().query() {
+        leptos::logging::log!("query = {query}");
+        provide_context(ServerFnContext::new(String::from(query)));
+    }
 
     provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
