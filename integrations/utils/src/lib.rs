@@ -167,7 +167,7 @@ pub async fn build_async_response(
 
 pub fn referrer_to_url(referer: &str, fn_name: &str) -> Url {
     Url::parse(
-        &Regex::new(&format!(r"(?:\?|&)?server_fn_response_{fn_name}=[^&]+"))
+        &Regex::new(&format!(r"(?:\?|&)?server_fn_error_{fn_name}=[^&]+"))
             .unwrap()
             .replace(referer, ""),
     )
