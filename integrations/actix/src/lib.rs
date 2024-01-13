@@ -29,7 +29,10 @@ use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
 use server_fn::{
-    error::{NoCustomError, ServerFnErrorSerde, ServerFnUrlError},
+    error::{
+        NoCustomError, ServerFnErrorSerde, ServerFnUrlError,
+        SERVER_FN_ERROR_HEADER,
+    },
     redirect::REDIRECT_HEADER,
     request::actix::ActixRequest,
 };
@@ -273,17 +276,20 @@ pub fn handle_server_fns_with_context(
                             let is_error = res.status()
                                 == StatusCode::INTERNAL_SERVER_ERROR;
                             if is_error {
-                                let (headers, body) = res.into_parts();
-                                if let Ok(body) = body.try_into_bytes() {
-                                    if let Ok(body) =
-                                        String::from_utf8(body.to_vec())
-                                    {
-                                        // TODO allow other kinds?
-                                        if let Ok(err) = ServerFnUrlError::<
-                                            NoCustomError,
-                                        >::from_str(
-                                            &body
-                                        ) {
+                                if let Some(Ok(path)) = res
+                                    .headers()
+                                    .get(SERVER_FN_ERROR_HEADER)
+                                    .map(|n| n.to_str().map(|n| n.to_owned()))
+                                {
+                                    let (headers, body) = res.into_parts();
+                                    if let Ok(body) = body.try_into_bytes() {
+                                        if let Ok(body) =
+                                            String::from_utf8(body.to_vec())
+                                        {
+                                            // TODO allow other kinds?
+                                            let err: ServerFnError<
+                                                NoCustomError,
+                                            > = ServerFnErrorSerde::de(&body);
                                             if let Ok(referrer_str) =
                                                 referrer.to_str()
                                             {
@@ -298,12 +304,11 @@ pub fn handle_server_fns_with_context(
                                                     .query_pairs_mut()
                                                     .append_pair(
                                                         "__path",
-                                                        err.path(),
+                                                        &path
                                                     )
                                                     .append_pair(
                                                         "__err",
-                                                        &ServerFnErrorSerde::ser(err.error())
-                                                            .unwrap_or_else(|_| err.error().to_string())
+                                                        &ServerFnErrorSerde::ser(&err).unwrap_or_default()
                                                     );
                                                 let modified =
                                                     HeaderValue::from_str(
@@ -315,8 +320,8 @@ pub fn handle_server_fns_with_context(
                                             }
                                         }
                                     }
+                                    res = headers.set_body(BoxBody::new(""))
                                 }
-                                res = headers.set_body(BoxBody::new(""))
                             };
                             *res.status_mut() = StatusCode::FOUND;
                             res.headers_mut().insert(LOCATION, referrer);

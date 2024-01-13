@@ -1,5 +1,8 @@
 use super::Res;
-use crate::error::{ServerFnError, ServerFnErrorErr, ServerFnUrlError};
+use crate::error::{
+    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, ServerFnUrlError,
+    SERVER_FN_ERROR_HEADER,
+};
 use actix_web::{
     http::{header, StatusCode},
     HttpResponse,
@@ -77,7 +80,8 @@ where
     fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(ServerFnUrlError::new(path, err).to_string()),
+                .append_header((SERVER_FN_ERROR_HEADER, path))
+                .body(err.ser().unwrap_or_else(|_| err.to_string())),
         ))
     }
 }
