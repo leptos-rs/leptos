@@ -1,26 +1,11 @@
 use super::ClientReq;
-use crate::error::ServerFnError;
+use crate::{client::get_server_url, error::ServerFnError};
 use bytes::Bytes;
 use once_cell::sync::Lazy;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 pub use reqwest::{multipart::Form, Client, Method, Request, Url};
-use std::sync::OnceLock;
 
 pub(crate) static CLIENT: Lazy<Client> = Lazy::new(Client::new);
-static ROOT_URL: OnceLock<&'static str> = OnceLock::new();
-
-/// Set the root server url that all server function paths are relative to for the client.
-///
-/// If this is not set, it defaults to the origin.
-pub fn set_server_url(url: &'static str) {
-    ROOT_URL.set(url).unwrap();
-}
-
-fn get_server_url() -> &'static str {
-    ROOT_URL
-        .get()
-        .expect("Call `set_root_url` before calling a server function.")
-}
 
 impl<CustErr> ClientReq<CustErr> for Request {
     type FormData = Form;

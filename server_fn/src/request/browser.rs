@@ -1,5 +1,5 @@
 use super::ClientReq;
-use crate::error::ServerFnError;
+use crate::{client::get_server_url, error::ServerFnError};
 use bytes::Bytes;
 pub use gloo_net::http::Request;
 use js_sys::Uint8Array;
@@ -35,7 +35,12 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         query: &str,
     ) -> Result<Self, ServerFnError<CustErr>> {
-        let mut url = path.to_owned();
+        let server_url = get_server_url();
+        let mut url = String::with_capacity(
+            server_url.len() + path.len() + 1 + query.len(),
+        );
+        url.push_str(server_url);
+        url.push_str(path);
         url.push('?');
         url.push_str(query);
         Ok(Self(SendWrapper::new(
@@ -53,8 +58,12 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: String,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let server_url = get_server_url();
+        let mut url = String::with_capacity(server_url.len() + path.len());
+        url.push_str(server_url);
+        url.push_str(path);
         Ok(Self(SendWrapper::new(
-            Request::post(path)
+            Request::post(&url)
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
                 .body(body)
@@ -68,10 +77,14 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let server_url = get_server_url();
+        let mut url = String::with_capacity(server_url.len() + path.len());
+        url.push_str(server_url);
+        url.push_str(path);
         let body: &[u8] = &body;
         let body = Uint8Array::from(body).buffer();
         Ok(Self(SendWrapper::new(
-            Request::post(path)
+            Request::post(&url)
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
                 .body(body)
@@ -84,8 +97,12 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         body: Self::FormData,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let server_url = get_server_url();
+        let mut url = String::with_capacity(server_url.len() + path.len());
+        url.push_str(server_url);
+        url.push_str(path);
         Ok(Self(SendWrapper::new(
-            Request::post(path)
+            Request::post(&url)
                 .header("Accept", accepts)
                 .body(body.0.take())
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
