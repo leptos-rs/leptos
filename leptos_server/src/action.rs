@@ -1,9 +1,12 @@
 //use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
     batch, create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
-    spawn_local, store_value, ReadSignal, RwSignal, StoredValue,
+    spawn_local, store_value, use_context, ReadSignal, RwSignal, StoredValue,
 };
-use server_fn::{ServerFn, ServerFnError};
+use server_fn::{
+    error::{NoCustomError, ServerFnUrlError},
+    ServerFn, ServerFnError,
+};
 use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
 /// An action synchronizes an imperative `async` call to the synchronous reactive system.
@@ -168,6 +171,67 @@ where
         self.0.with_value(|a| a.pending.read_only())
     }
 
+    /// Updates whether the action is currently pending. If the action has been dispatched
+    /// multiple times, and some of them are still pending, it will *not* update the `pending`
+    /// signal.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn set_pending(&self, pending: bool) {
+        self.0.try_with_value(|a| {
+            let pending_dispatches = &a.pending_dispatches;
+            let still_pending = {
+                pending_dispatches.set(if pending {
+                    pending_dispatches.get().wrapping_add(1)
+                } else {
+                    pending_dispatches.get().saturating_sub(1)
+                });
+                pending_dispatches.get()
+            };
+            if still_pending == 0 {
+                a.pending.set(false);
+            } else {
+                a.pending.set(true);
+            }
+        });
+    }
+
+    /// The URL associated with the action (typically as part of a server function.)
+    /// This enables integration with the `ActionForm` component in `leptos_router`.
+    pub fn url(&self) -> Option<String> {
+        self.0.with_value(|a| a.url.as_ref().cloned())
+    }
+
+    /// How many times the action has successfully resolved.
+    pub fn version(&self) -> RwSignal<usize> {
+        self.0.with_value(|a| a.version)
+    }
+
+    /// The current argument that was dispatched to the `async` function.
+    /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn input(&self) -> RwSignal<Option<I>> {
+        self.0.with_value(|a| a.input)
+    }
+
+    /// The most recent return value of the `async` function.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn value(&self) -> RwSignal<Option<O>> {
+        self.0.with_value(|a| a.value)
+    }
+}
+
+impl<I> Action<I, Result<I::Output, ServerFnError<I::Error>>>
+where
+    I: ServerFn + 'static,
+{
     /// Create an [Action] to imperatively call a [server_fn::server] function.
     ///
     /// The struct representing your server function's arguments should be
@@ -214,7 +278,8 @@ where
     )]
     pub fn server() -> Action<I, Result<I::Output, ServerFnError<I::Error>>>
     where
-        I: ServerFn<Output = O> + Clone,
+        I: ServerFn + Clone,
+        I::Error: Clone + 'static,
     {
         // The server is able to call the function directly
         #[cfg(feature = "ssr")]
@@ -225,39 +290,7 @@ where
         let action_function = |args: &I| I::run_on_client(args.clone());
 
         // create the action
-        Action::new(action_function).using_server_fn::<I>()
-    }
-
-    /// Updates whether the action is currently pending. If the action has been dispatched
-    /// multiple times, and some of them are still pending, it will *not* update the `pending`
-    /// signal.
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
-    )]
-    pub fn set_pending(&self, pending: bool) {
-        self.0.try_with_value(|a| {
-            let pending_dispatches = &a.pending_dispatches;
-            let still_pending = {
-                pending_dispatches.set(if pending {
-                    pending_dispatches.get().wrapping_add(1)
-                } else {
-                    pending_dispatches.get().saturating_sub(1)
-                });
-                pending_dispatches.get()
-            };
-            if still_pending == 0 {
-                a.pending.set(false);
-            } else {
-                a.pending.set(true);
-            }
-        });
-    }
-
-    /// The URL associated with the action (typically as part of a server function.)
-    /// This enables integration with the `ActionForm` component in `leptos_router`.
-    pub fn url(&self) -> Option<String> {
-        self.0.with_value(|a| a.url.as_ref().cloned())
+        Action::new(action_function).using_server_fn()
     }
 
     /// Associates the URL of the given server function with this action.
@@ -266,35 +299,26 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
-    pub fn using_server_fn<T: ServerFn>(self) -> Self {
+    pub fn using_server_fn(self) -> Self
+    where
+        I::Error: Clone + 'static,
+    {
+        let url = I::url();
+        let action_error = use_context::<Rc<ServerFnUrlError<I::Error>>>()
+            .and_then(|err| {
+                if err.path() == url {
+                    Some(err.error().clone())
+                } else {
+                    None
+                }
+            });
         self.0.update_value(|state| {
-            state.url = Some(T::url().to_string());
+            if let Some(err) = action_error {
+                state.value.set_untracked(Some(Err(err)));
+            }
+            state.url = Some(url.to_string());
         });
         self
-    }
-
-    /// How many times the action has successfully resolved.
-    pub fn version(&self) -> RwSignal<usize> {
-        self.0.with_value(|a| a.version)
-    }
-
-    /// The current argument that was dispatched to the `async` function.
-    /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
-    )]
-    pub fn input(&self) -> RwSignal<Option<I>> {
-        self.0.with_value(|a| a.input)
-    }
-
-    /// The most recent return value of the `async` function.
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
-    )]
-    pub fn value(&self) -> RwSignal<Option<O>> {
-        self.0.with_value(|a| a.value)
     }
 }
 
@@ -482,6 +506,7 @@ pub fn create_server_action<S>(
 ) -> Action<S, Result<S::Output, ServerFnError<S::Error>>>
 where
     S: Clone + ServerFn,
+    S::Error: Clone + 'static,
 {
     Action::<S, _>::server()
 }

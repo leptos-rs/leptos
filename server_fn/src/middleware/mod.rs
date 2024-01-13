@@ -48,11 +48,12 @@ mod axum {
             &mut self,
             req: Request<Body>,
         ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send>> {
+            let path = req.uri().path().to_string();
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
                     let err = ServerFnError::from(e);
-                    Response::<Body>::error_response(err)
+                    Response::<Body>::error_response(&path, err)
                 })
             })
         }
@@ -125,11 +126,12 @@ mod actix {
             &mut self,
             req: HttpRequest,
         ) -> Pin<Box<dyn Future<Output = HttpResponse> + Send>> {
+            let path = req.uri().path().to_string();
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
-                    let err = ServerFnError::from(e);
-                    ActixResponse::error_response(err).take()
+                    let err = ServerFnError::new(e);
+                    ActixResponse::error_response(&path, err).take()
                 })
             })
         }
@@ -145,11 +147,12 @@ mod actix {
             &mut self,
             req: ActixRequest,
         ) -> Pin<Box<dyn Future<Output = ActixResponse> + Send>> {
+            let path = req.0 .0.uri().path().to_string();
             let inner = self.call(req.0.take().0);
             Box::pin(async move {
                 ActixResponse::from(inner.await.unwrap_or_else(|e| {
-                    let err = ServerFnError::from(e);
-                    ActixResponse::error_response(err).take()
+                    let err = ServerFnError::new(e);
+                    ActixResponse::error_response(&path, err).take()
                 }))
             })
         }

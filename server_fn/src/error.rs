@@ -399,3 +399,73 @@ impl<CustErr> From<ServerFnError<CustErr>> for ServerFnErrorErr<CustErr> {
         }
     }
 }
+
+/// TODO: Write Documentation
+#[derive(Debug)]
+pub struct ServerFnUrlError<CustErr> {
+    path: String,
+    error: ServerFnError<CustErr>,
+}
+
+impl<CustErr> FromStr for ServerFnUrlError<CustErr>
+where
+    CustErr: FromStr + Display,
+{
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.split_once('|') {
+            None => Err(()),
+            Some((path, error)) => {
+                let error = ServerFnError::<CustErr>::de(error);
+                Ok(ServerFnUrlError {
+                    path: path.to_string(),
+                    error,
+                })
+            }
+        }
+    }
+}
+
+impl<CustErr> Display for ServerFnUrlError<CustErr>
+where
+    CustErr: FromStr + Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}|", self.path)?;
+        write!(f, "{}", &self.error.ser()?)?;
+        Ok(())
+    }
+}
+
+impl<CustErr> ServerFnUrlError<CustErr> {
+    /// TODO: Write Documentation
+    pub fn new(path: impl Display, error: ServerFnError<CustErr>) -> Self {
+        Self {
+            path: path.to_string(),
+            error,
+        }
+    }
+
+    /// TODO: Write documentation
+    pub fn error(&self) -> &ServerFnError<CustErr> {
+        &self.error
+    }
+
+    /// TODO: Add docs
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+}
+
+impl<CustErr> From<ServerFnUrlError<CustErr>> for ServerFnError<CustErr> {
+    fn from(error: ServerFnUrlError<CustErr>) -> Self {
+        error.error
+    }
+}
+
+impl<CustErr> From<ServerFnUrlError<CustErr>> for ServerFnErrorErr<CustErr> {
+    fn from(error: ServerFnUrlError<CustErr>) -> Self {
+        error.error.into()
+    }
+}

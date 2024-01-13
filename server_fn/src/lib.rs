@@ -237,9 +237,9 @@ where
         req: Self::ServerRequest,
     ) -> impl Future<Output = Self::ServerResponse> + Send {
         async {
-            Self::execute_on_server(req)
-                .await
-                .unwrap_or_else(Self::ServerResponse::error_response)
+            Self::execute_on_server(req).await.unwrap_or_else(|e| {
+                Self::ServerResponse::error_response(Self::PATH, e)
+            })
         }
     }
 
@@ -289,6 +289,7 @@ where
         }
     }
 
+    /// Runs the server function (on the server), bubbling up an `Err(_)` after any stage.
     #[doc(hidden)]
     fn execute_on_server(
         req: Self::ServerRequest,
