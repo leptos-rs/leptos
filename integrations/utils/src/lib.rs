@@ -1,5 +1,4 @@
 use futures::{Stream, StreamExt};
-use http::HeaderValue;
 use leptos::{
     nonce::use_nonce, server_fn::error::ServerFnUrlError, use_context,
     RuntimeId, ServerFnError,
@@ -164,13 +163,13 @@ pub async fn build_async_response(
     format!("{head}<body{body_meta}>{buf}{tail}")
 }
 
-pub fn referrer_to_url(referer: &HeaderValue, fn_name: &str) -> Option<Url> {
+pub fn referrer_to_url(referer: &str, fn_name: &str) -> Url {
     Url::parse(
         &Regex::new(&format!(r"(?:\?|&)?server_fn_error_{fn_name}=[^&]+"))
             .unwrap()
-            .replace(referer.to_str().ok()?, ""),
+            .replace(referer, ""),
     )
-    .ok()
+    .expect("Could not parse URL!")
 }
 
 pub trait WithServerFn {

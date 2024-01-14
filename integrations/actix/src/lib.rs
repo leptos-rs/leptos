@@ -307,8 +307,8 @@ pub fn handle_server_fns_with_context(
                             let url = req
                                 .headers()
                                 .get(header::REFERER)
-                                .and_then(|referrer| {
-                                    referrer_to_url(referrer, fn_name.as_str())
+                                .map(|referrer| {
+                                    referrer_to_url(referrer.to_str(), fn_name.as_str())
                                 });
 
                             if let Some(url) = url {

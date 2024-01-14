@@ -352,3 +352,6 @@ where
         (self)(props).into_view()
     }
 }
+
+#[doc(hidden)]
+pub const WASM_LOADED_NAME: &'static str = "leptos_client_wasm_loaded";

@@ -469,7 +469,7 @@ where
                 })
                 .flatten() {
                     leptos::logging::log!("In iso effect with error = {url_error:?}");
-                    value.try_set(Some(Err(url_error.error().clone())));
+                    value.set(Some(Err(url_error.error().clone())));
             }
         });
 
@@ -480,8 +480,8 @@ where
 
         view!{
             <input
-                id={format!("leptos_wasm_has_loaded_{}", action_url.split('/').last().unwrap_or(""))}
-                name="leptos_wasm_has_loaded"
+                id={format!("{WASM_LOADED_NAME}_{}", action_url.split('/').last().unwrap_or(""))}
+                name=WASM_LOADED_NAME
                 type="hidden"
                 value=move || with!(|wasm_has_loaded|
                                     if *wasm_has_loaded {

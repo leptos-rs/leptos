@@ -59,11 +59,11 @@ fn HomePage() -> impl IntoView {
                                                      .to_string())
             >
             {value}
+        </ErrorBoundary>
             <ActionForm action=do_something_action class="form">
                 <label>Should error: <input type="checkbox" name="should_error"/></label>
                 <button type="submit">Submit</button>
             </ActionForm>
-        </ErrorBoundary>
     }
 }
 
