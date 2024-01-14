@@ -63,7 +63,7 @@ pub struct Unit;
 impl IntoView for Unit {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "<() />", skip_all)
+        instrument(level = "trace", name = "<() />", skip_all)
     )]
     fn into_view(self) -> crate::View {
         let component = UnitRepr::default();

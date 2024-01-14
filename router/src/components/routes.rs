@@ -1,10 +1,12 @@
 use crate::{
     animation::*,
+    components::route::new_route_id,
     matching::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    use_is_back_navigation, RouteContext, RouterContext, SetIsRouting,
+    use_is_back_navigation, use_route, NavigateOptions, Redirect, RouteContext,
+    RouterContext, SetIsRouting, TrailingSlash,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -66,7 +68,7 @@ use std::{
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
 pub fn Routes(
@@ -82,7 +84,7 @@ pub fn Routes(
     let base_route = router.base();
     let base = base.unwrap_or_default();
 
-    Branches::initialize(router_id, &base, children());
+    Branches::initialize(&router, &base, children());
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>() {
@@ -164,7 +166,7 @@ pub fn AnimatedRoutes(
     let base_route = router.base();
     let base = base.unwrap_or_default();
 
-    Branches::initialize(router_id, &base, children());
+    Branches::initialize(&router, &base, children());
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>() {
@@ -278,7 +280,7 @@ thread_local! {
 }
 
 impl Branches {
-    pub fn initialize(router_id: usize, base: &str, children: Fragment) {
+    pub fn initialize(router: &RouterContext, base: &str, children: Fragment) {
         BRANCHES.with(|branches| {
             #[cfg(debug_assertions)]
             {
@@ -293,9 +295,9 @@ impl Branches {
             }
 
             let mut current = branches.borrow_mut();
-            if !current.contains_key(&(router_id, Cow::from(base))) {
+            if !current.contains_key(&(router.id(), Cow::from(base))) {
                 let mut branches = Vec::new();
-                let children = children
+                let mut children = children
                     .as_children()
                     .iter()
                     .filter_map(|child| {
@@ -315,6 +317,7 @@ impl Branches {
                     })
                     .cloned()
                     .collect::<Vec<_>>();
+                inherit_settings(&mut children, router);
                 create_branches(
                     &children,
                     base,
@@ -323,7 +326,7 @@ impl Branches {
                     true,
                     base,
                 );
-                current.insert((router_id, Cow::Owned(base.into())), branches);
+                current.insert((router.id(), Cow::Owned(base.into())), branches);
             }
         })
     }
@@ -342,6 +345,38 @@ impl Branches {
             cb(branches)
         })
     }
+}
+
+// <Route>s may inherit settings from each other or <Router>.
+// This mutates RouteDefinitions to propagate those settings.
+fn inherit_settings(children: &mut [RouteDefinition], router: &RouterContext) {
+    struct InheritProps {
+        trailing_slash: Option<TrailingSlash>,
+    }
+    fn route_def_inherit(
+        children: &mut [RouteDefinition],
+        inherited: InheritProps,
+    ) {
+        for child in children {
+            if child.trailing_slash.is_none() {
+                child.trailing_slash = inherited.trailing_slash.clone();
+            }
+            route_def_inherit(
+                &mut child.children,
+                InheritProps {
+                    trailing_slash: child.trailing_slash.clone(),
+                },
+            );
+        }
+    }
+    route_def_inherit(
+        children,
+        InheritProps {
+            trailing_slash: router
+                .trailing_slash()
+                .or(Some(TrailingSlash::default())),
+        },
+    );
 }
 
 fn route_states(
@@ -553,6 +588,7 @@ pub(crate) struct RouterState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteData {
+    // This ID is always the same as key.id.  Deprecate?
     pub id: usize,
     pub key: RouteDefinition,
     pub pattern: String,
@@ -630,7 +666,7 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
 
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 fn create_routes(
     route_def: &RouteDefinition,
@@ -647,24 +683,114 @@ fn create_routes(
             parents_path, route_def.path
         );
     }
+    let trailing_slash = route_def
+        .trailing_slash
+        .clone()
+        .expect("trailng_slash should be set by this point");
     let mut acc = Vec::new();
     for original_path in expand_optionals(&route_def.path) {
-        let path = join_paths(base, &original_path);
+        let mut path = join_paths(base, &original_path).to_string();
+        trailing_slash.normalize_route_path(&mut path);
         let pattern = if is_leaf {
             path
+        } else if let Some((path, _splat)) = path.split_once("/*") {
+            path.to_string()
         } else {
-            path.split("/*")
-                .next()
-                .map(|n| n.to_string())
-                .unwrap_or(path)
+            path
         };
-        acc.push(RouteData {
+
+        let route_data = RouteData {
             key: route_def.clone(),
             id: route_def.id,
             matcher: Matcher::new_with_partial(&pattern, !is_leaf),
             pattern,
             original_path: original_path.into_owned(),
-        });
+        };
+
+        if route_data.matcher.is_wildcard() {
+            // already handles trailing_slash
+        } else if let Some(redirect_route) = redirect_route_for(route_def) {
+            let pattern = &redirect_route.path;
+            let redirect_route_data = RouteData {
+                id: redirect_route.id,
+                matcher: Matcher::new_with_partial(pattern, !is_leaf),
+                pattern: pattern.to_owned(),
+                original_path: pattern.to_owned(),
+                key: redirect_route,
+            };
+            acc.push(redirect_route_data);
+        }
+
+        acc.push(route_data);
     }
     acc
+}
+
+/// A new route that redirects to `route` with the correct trailng slash.
+fn redirect_route_for(route: &RouteDefinition) -> Option<RouteDefinition> {
+    if matches!(route.path.as_str(), "" | "/") {
+        // Root paths are an exception to the rule and are always equivalent:
+        return None;
+    }
+
+    let trailing_slash = route
+        .trailing_slash
+        .clone()
+        .expect("trailing_slash should be defined by now");
+
+    if !trailing_slash.should_redirect() {
+        return None;
+    }
+
+    // Are we creating a new route that adds or removes a slash?
+    let add_slash = route.path.ends_with('/');
+    let view = Rc::new(move || {
+        view! {
+            <FixTrailingSlash add_slash />
+        }
+        .into_view()
+    });
+
+    let new_pattern = if add_slash {
+        // If we need to add a slash, we need to match on the path w/o it:
+        let mut path = route.path.clone();
+        path.pop();
+        path
+    } else {
+        format!("{}/", route.path)
+    };
+    let new_route = RouteDefinition {
+        path: new_pattern,
+        children: vec![],
+        data: None,
+        methods: route.methods,
+        id: new_route_id(),
+        view,
+        ssr_mode: route.ssr_mode,
+        static_mode: route.static_mode,
+        static_params: None,
+        trailing_slash: None, // Shouldn't be needed/used from here on out
+    };
+
+    Some(new_route)
+}
+
+#[component]
+fn FixTrailingSlash(add_slash: bool) -> impl IntoView {
+    let route = use_route();
+    let path = if add_slash {
+        format!("{}/", route.path())
+    } else {
+        let mut path = route.path().to_string();
+        path.pop();
+        path
+    };
+    let options = NavigateOptions {
+        replace: true,
+        ..Default::default()
+    };
+
+    view! {
+        <Redirect path options/>
+    }
 }

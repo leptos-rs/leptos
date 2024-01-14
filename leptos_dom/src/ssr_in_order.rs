@@ -17,7 +17,7 @@ use std::collections::VecDeque;
 
 /// Renders a view to HTML, waiting to return until all `async` [Resource](leptos_reactive::Resource)s
 /// loaded in `<Suspense/>` elements have finished loading.
-#[tracing::instrument(level = "info", skip_all)]
+#[tracing::instrument(level = "trace", skip_all)]
 pub async fn render_to_string_async(
     view: impl FnOnce() -> View + 'static,
 ) -> String {
@@ -40,7 +40,7 @@ pub async fn render_to_string_async(
 /// in order:
 /// 1. HTML from the `view` in order, pausing to wait for each `<Suspense/>`
 /// 2. any serialized [Resource](leptos_reactive::Resource)s
-#[tracing::instrument(level = "info", skip_all)]
+#[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order(
     view: impl FnOnce() -> View + 'static,
 ) -> impl Stream<Item = String> {

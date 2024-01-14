@@ -7,7 +7,7 @@ impl State {
     pub fn to_js_value(&self) -> JsValue {
         match &self.0 {
             Some(v) => v.clone(),
-            None => JsValue::UNDEFINED,
+            None => JsValue::NULL,
         }
     }
 }

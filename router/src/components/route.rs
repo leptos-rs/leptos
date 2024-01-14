@@ -1,6 +1,7 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
     ParamsMap, RouterContext, SsrMode, StaticData, StaticMode, StaticParamsMap,
+    TrailingSlash,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
@@ -15,6 +16,16 @@ use std::{
 
 thread_local! {
     static ROUTE_ID: Cell<usize> = Cell::new(0);
+}
+
+// RouteDefinition.id is `pub` and required to be unique.
+// Should we make this public so users can generate unique IDs?
+pub(in crate::components) fn new_route_id() -> usize {
+    ROUTE_ID.with(|id| {
+        let next = id.get() + 1;
+        id.set(next);
+        next
+    })
 }
 
 /// Represents an HTTP method that can be handled by this route.
@@ -43,7 +54,7 @@ pub enum Method {
 /// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn Route<E, F, P>(
@@ -65,6 +76,11 @@ pub fn Route<E, F, P>(
     /// accessed with [`use_route_data`](crate::use_route_data).
     #[prop(optional, into)]
     data: Option<Loader>,
+    /// How this route should handle trailing slashes in its path.
+    /// Overrides any setting applied to [`crate::components::Router`].
+    /// Serves as a default for any inner Routes.
+    #[prop(optional)]
+    trailing_slash: Option<TrailingSlash>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -83,6 +99,7 @@ where
         data,
         None,
         None,
+        trailing_slash,
     )
 }
 
@@ -91,7 +108,7 @@ where
 /// redirects to `redirect_path` instead of displaying its `view`.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn ProtectedRoute<P, E, F, C>(
@@ -115,6 +132,11 @@ pub fn ProtectedRoute<P, E, F, C>(
     /// accessed with [`use_route_data`](crate::use_route_data).
     #[prop(optional, into)]
     data: Option<Loader>,
+    /// How this route should handle trailing slashes in its path.
+    /// Overrides any setting applied to [`crate::components::Router`].
+    /// Serves as a default for any inner Routes.
+    #[prop(optional)]
+    trailing_slash: Option<TrailingSlash>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -143,6 +165,7 @@ where
         data,
         None,
         None,
+        trailing_slash,
     )
 }
 
@@ -150,7 +173,7 @@ where
 /// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn StaticRoute<E, F, P, S>(
@@ -171,6 +194,11 @@ pub fn StaticRoute<E, F, P, S>(
     /// accessed with [`use_route_data`](crate::use_route_data).
     #[prop(optional, into)]
     data: Option<Loader>,
+    /// How this route should handle trailing slashes in its path.
+    /// Overrides any setting applied to [`crate::components::Router`].
+    /// Serves as a default for any inner Routes.
+    #[prop(optional)]
+    trailing_slash: Option<TrailingSlash>,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -193,12 +221,13 @@ where
         data,
         Some(mode),
         Some(Arc::new(static_params)),
+        trailing_slash,
     )
 }
 
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn define_route(
@@ -210,6 +239,7 @@ pub(crate) fn define_route(
     data: Option<Loader>,
     static_mode: Option<StaticMode>,
     static_params: Option<StaticData>,
+    trailing_slash: Option<TrailingSlash>,
 ) -> RouteDefinition {
     let children = children
         .map(|children| {
@@ -226,14 +256,8 @@ pub(crate) fn define_route(
         })
         .unwrap_or_default();
 
-    let id = ROUTE_ID.with(|id| {
-        let next = id.get() + 1;
-        id.set(next);
-        next
-    });
-
     RouteDefinition {
-        id,
+        id: new_route_id(),
         path,
         children,
         view,
@@ -242,6 +266,7 @@ pub(crate) fn define_route(
         data,
         static_mode,
         static_params,
+        trailing_slash,
     }
 }
 
@@ -260,7 +285,7 @@ pub struct RouteContext {
 impl RouteContext {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn new(
         router: &RouterContext,

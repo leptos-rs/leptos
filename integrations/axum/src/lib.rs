@@ -387,7 +387,7 @@ pub type PinnedHtmlStream =
 /// - [`ResponseOptions`]
 /// - [`MetaContext`](leptos_meta::MetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -408,7 +408,7 @@ where
 /// The difference between calling this and `render_app_to_stream_with_context()` is that this
 /// one respects the `SsrMode` on each Route and thus requires `Vec<RouteListing>` for route checking.
 /// This is useful if you are using `.leptos_routes_with_handler()`
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_route<IV>(
     options: LeptosOptions,
     paths: Vec<RouteListing>,
@@ -478,7 +478,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -519,7 +519,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -546,7 +546,7 @@ where
 /// The difference between calling this and `render_app_to_stream_with_context()` is that this
 /// one respects the `SsrMode` on each Route, and thus requires `Vec<RouteListing>` for route checking.
 /// This is useful if you are using `.leptos_routes_with_handler()`.
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_route_with_context<IV>(
     options: LeptosOptions,
     paths: Vec<RouteListing>,
@@ -630,7 +630,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -688,7 +688,7 @@ where
     }
 }
 
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
@@ -730,7 +730,7 @@ async fn generate_response(
     }
     res
 }
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
@@ -791,7 +791,7 @@ async fn forward_stream(
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -921,7 +921,7 @@ fn provide_contexts(
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -963,7 +963,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -1092,7 +1092,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -1564,7 +1564,7 @@ where
     LeptosOptions: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
-    #[tracing::instrument(level = "info", fields(error), skip_all)]
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
         options: &S,

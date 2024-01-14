@@ -341,7 +341,7 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(
             name = "Effect::run()",
-            level = "debug",
+            level = "trace",
             skip_all,
             fields(
               defined_at = %self.defined_at,
