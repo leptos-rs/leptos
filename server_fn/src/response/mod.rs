@@ -42,7 +42,10 @@ where
     ) -> Result<Self, ServerFnError<CustErr>>;
 
     /// Converts an error into a response, with a `500` status code and the error text as its body.
-    fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self;
+    fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self;
+
+    /// Redirect the response by setting a 302 code and Location header.
+    fn redirect(&mut self, path: &str);
 }
 
 /// Represents the response as received by the client.
@@ -101,7 +104,7 @@ impl<CustErr> Res<CustErr> for BrowserMockRes {
         unreachable!()
     }
 
-    fn error_response(_path: &str, _err: ServerFnError<CustErr>) -> Self {
+    fn error_response(_path: &str, _err: &ServerFnError<CustErr>) -> Self {
         unreachable!()
     }
 
@@ -109,6 +112,10 @@ impl<CustErr> Res<CustErr> for BrowserMockRes {
         _content_type: &str,
         _data: impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>>,
     ) -> Result<Self, ServerFnError<CustErr>> {
-        todo!()
+        unreachable!()
+    }
+
+    fn redirect(&mut self, _path: &str) {
+        unreachable!()
     }
 }

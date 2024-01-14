@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-// uncomment this if you want to feel pain
 #![deny(missing_docs)]
 
 //! # Server Functions
@@ -126,7 +125,7 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 pub use const_format;
 use dashmap::DashMap;
 pub use error::ServerFnError;
-use error::ServerFnErrorSerde;
+use error::{ServerFnErrorSerde, ServerFnUrlError};
 use http::Method;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
@@ -236,10 +235,42 @@ where
     fn run_on_server(
         req: Self::ServerRequest,
     ) -> impl Future<Output = Self::ServerResponse> + Send {
-        async {
-            Self::execute_on_server(req).await.unwrap_or_else(|e| {
-                Self::ServerResponse::error_response(Self::PATH, e)
-            })
+        // Server functions can either be called by a real Client,
+        // or directly by an HTML <form>. If they're accessed by a <form>, default to
+        // redirecting back to the Referer.
+        let accepts_html = req
+            .accepts()
+            .map(|n| n.contains("text/html"))
+            .unwrap_or(false);
+        let mut referer = req.referer().as_deref().map(ToOwned::to_owned);
+
+        async move {
+            let (mut res, err) = Self::execute_on_server(req)
+                .await
+                .map(|res| (res, None))
+                .unwrap_or_else(|e| {
+                    (
+                        Self::ServerResponse::error_response(Self::PATH, &e),
+                        Some(e),
+                    )
+                });
+
+            // if it accepts HTML, we'll redirect to the Referer
+            if accepts_html {
+                // if it had an error, encode that error in the URL
+                if let Some(err) = err {
+                    if let Ok(url) = ServerFnUrlError::new(Self::PATH, err)
+                        .to_url(referer.as_deref().unwrap_or("/"))
+                    {
+                        referer = Some(url.to_string());
+                    }
+                }
+
+                // set the status code and Location header
+                res.redirect(referer.as_deref().unwrap_or("/"));
+            }
+
+            res
         }
     }
 

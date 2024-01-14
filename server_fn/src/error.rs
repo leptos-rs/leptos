@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.
 pub const SERVER_FN_ERROR_HEADER: &'static str = "serverfnerror";
@@ -403,46 +404,21 @@ impl<CustErr> From<ServerFnError<CustErr>> for ServerFnErrorErr<CustErr> {
     }
 }
 
-/// TODO: Write Documentation
+/// Associates a particular server function error with the server function
+/// found at a particular path.
+///
+/// This can be used to pass an error from the server back to the client
+/// without JavaScript/WASM supported, by encoding it in the URL as a qurey string.
+/// This is useful for progressive enhancement.
 #[derive(Debug)]
 pub struct ServerFnUrlError<CustErr> {
     path: String,
     error: ServerFnError<CustErr>,
 }
 
-impl<CustErr> FromStr for ServerFnUrlError<CustErr>
-where
-    CustErr: FromStr + Display,
-{
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.split_once('|') {
-            None => Err(()),
-            Some((path, error)) => {
-                let error = ServerFnError::<CustErr>::de(error);
-                Ok(ServerFnUrlError {
-                    path: path.to_string(),
-                    error,
-                })
-            }
-        }
-    }
-}
-
-impl<CustErr> Display for ServerFnUrlError<CustErr>
-where
-    CustErr: FromStr + Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}|", self.path)?;
-        write!(f, "{}", &self.error.ser()?)?;
-        Ok(())
-    }
-}
-
 impl<CustErr> ServerFnUrlError<CustErr> {
-    /// TODO: Write Documentation
+    /// Creates a new structure associating the server function at some path
+    /// with a particular error.
     pub fn new(path: impl Display, error: ServerFnError<CustErr>) -> Self {
         Self {
             path: path.to_string(),
@@ -450,14 +426,29 @@ impl<CustErr> ServerFnUrlError<CustErr> {
         }
     }
 
-    /// TODO: Write documentation
+    /// The error itself.
     pub fn error(&self) -> &ServerFnError<CustErr> {
         &self.error
     }
 
-    /// TODO: Add docs
+    /// The path of the server function that generated this error.
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// Adds an encoded form of this server function error to the given base URL.
+    pub fn to_url(&self, base: &str) -> Result<Url, url::ParseError>
+    where
+        CustErr: FromStr + Display,
+    {
+        let mut url = Url::parse(base)?;
+        url.query_pairs_mut()
+            .append_pair("__path", &self.path)
+            .append_pair(
+                "__err",
+                &ServerFnErrorSerde::ser(&self.error).unwrap_or_default(),
+            );
+        Ok(url)
     }
 }
 

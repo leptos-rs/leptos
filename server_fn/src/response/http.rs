@@ -3,7 +3,7 @@ use crate::error::{ServerFnError, ServerFnErrorErr};
 use axum::body::Body;
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
-use http::Response;
+use http::{header, HeaderValue, Response, StatusCode};
 use std::fmt::{Debug, Display};
 
 impl<CustErr> Res<CustErr> for Response<Body>
@@ -50,10 +50,17 @@ where
             .map_err(|e| ServerFnError::Response(e.to_string()))
     }
 
-    fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self {
+    fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .body(Body::from(err.to_string()))
             .unwrap()
+    }
+
+    fn redirect(&mut self, path: &str) {
+        if let Ok(path) = HeaderValue::from_str(path) {
+            self.headers_mut().insert(header::LOCATION, path);
+            *self.status_mut() = StatusCode::FOUND;
+        }
     }
 }

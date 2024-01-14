@@ -1,7 +1,7 @@
 use crate::error::ServerFnError;
 use bytes::Bytes;
 use futures::Stream;
-use std::future::Future;
+use std::{borrow::Cow, future::Future};
 
 /// Request types for Actix.
 #[cfg(any(feature = "actix", doc))]
@@ -73,7 +73,13 @@ where
     fn as_query(&self) -> Option<&str>;
 
     /// Returns the `Content-Type` header, if any.
-    fn to_content_type(&self) -> Option<String>;
+    fn to_content_type(&self) -> Option<Cow<'_, str>>;
+
+    /// Returns the `Accepts` header, if any.
+    fn accepts(&self) -> Option<Cow<'_, str>>;
+
+    /// Returns the `Referer` header, if any.
+    fn referer(&self) -> Option<Cow<'_, str>>;
 
     /// Attempts to extract the body of the request into [`Bytes`].
     fn try_into_bytes(
@@ -103,10 +109,17 @@ impl<CustErr> Req<CustErr> for BrowserMockReq {
         unreachable!()
     }
 
-    fn to_content_type(&self) -> Option<String> {
+    fn to_content_type(&self) -> Option<Cow<'_, str>> {
         unreachable!()
     }
 
+    fn accepts(&self) -> Option<Cow<'_, str>> {
+        unreachable!()
+    }
+
+    fn referer(&self) -> Option<Cow<'_, str>> {
+        unreachable!()
+    }
     async fn try_into_bytes(self) -> Result<Bytes, ServerFnError<CustErr>> {
         unreachable!()
     }

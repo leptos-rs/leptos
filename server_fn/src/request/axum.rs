@@ -1,18 +1,34 @@
 use crate::{error::ServerFnError, request::Req};
 use axum::body::{Body, Bytes};
 use futures::{Stream, StreamExt};
-use http::{header::CONTENT_TYPE, Request};
+use http::{
+    header::{ACCEPT, CONTENT_TYPE, REFERER},
+    Request,
+};
 use http_body_util::BodyExt;
+use std::borrow::Cow;
 
 impl<CustErr> Req<CustErr> for Request<Body> {
     fn as_query(&self) -> Option<&str> {
         self.uri().query()
     }
 
-    fn to_content_type(&self) -> Option<String> {
+    fn to_content_type(&self) -> Option<Cow<'_, str>> {
         self.headers()
             .get(CONTENT_TYPE)
-            .map(|h| String::from_utf8_lossy(h.as_bytes()).to_string())
+            .map(|h| String::from_utf8_lossy(h.as_bytes()))
+    }
+
+    fn accepts(&self) -> Option<Cow<'_, str>> {
+        self.headers()
+            .get(ACCEPT)
+            .map(|h| String::from_utf8_lossy(h.as_bytes()))
+    }
+
+    fn referer(&self) -> Option<Cow<'_, str>> {
+        self.headers()
+            .get(REFERER)
+            .map(|h| String::from_utf8_lossy(h.as_bytes()))
     }
 
     async fn try_into_bytes(self) -> Result<Bytes, ServerFnError<CustErr>> {
