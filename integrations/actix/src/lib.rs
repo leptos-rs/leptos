@@ -6,10 +6,7 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::{
-    body::MessageBody,
-    header::{HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
-};
+use actix_http::header::{HeaderName, HeaderValue, ACCEPT};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -28,24 +25,15 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
-use server_fn::{
-    error::{
-        NoCustomError, ServerFnErrorSerde, ServerFnUrlError,
-        SERVER_FN_ERROR_HEADER,
-    },
-    redirect::REDIRECT_HEADER,
-    request::actix::ActixRequest,
-};
+use server_fn::{redirect::REDIRECT_HEADER, request::actix::ActixRequest};
 use std::{
     fmt::{Debug, Display},
     future::Future,
     pin::Pin,
-    str::FromStr,
     sync::Arc,
 };
 #[cfg(debug_assertions)]
 use tracing::instrument;
-use url::Url;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -253,81 +241,11 @@ pub fn handle_server_fns_with_context(
                 let res_parts = ResponseOptions::default();
                 provide_context(res_parts.clone());
 
-                let accepts_html = req
-                    .headers()
-                    .get(ACCEPT)
-                    .and_then(|v| v.to_str().ok())
-                    .map(|v| v.contains("text/html"))
-                    .unwrap_or(false);
-                let referrer = req.headers().get(REFERER).cloned();
-
                 let mut res = service
                     .0
                     .run(ActixRequest::from((req, payload)))
                     .await
                     .take();
-
-                // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-                // Location set, then redirect to to Referer
-                if accepts_html {
-                    if let Some(mut referrer) = referrer {
-                        let location = res.headers().get(LOCATION);
-                        if location.is_none() {
-                            let is_error = res.status()
-                                == StatusCode::INTERNAL_SERVER_ERROR;
-                            if is_error {
-                                if let Some(Ok(path)) = res
-                                    .headers()
-                                    .get(SERVER_FN_ERROR_HEADER)
-                                    .map(|n| n.to_str().map(|n| n.to_owned()))
-                                {
-                                    let (headers, body) = res.into_parts();
-                                    if let Ok(body) = body.try_into_bytes() {
-                                        if let Ok(body) =
-                                            String::from_utf8(body.to_vec())
-                                        {
-                                            // TODO allow other kinds?
-                                            let err: ServerFnError<
-                                                NoCustomError,
-                                            > = ServerFnErrorSerde::de(&body);
-                                            if let Ok(referrer_str) =
-                                                referrer.to_str()
-                                            {
-                                                let mut modified =
-                                                    Url::parse(referrer_str)
-                                                        .expect(
-                                                            "couldn't parse \
-                                                             URL from Referer \
-                                                             header.",
-                                                        );
-                                                modified
-                                                    .query_pairs_mut()
-                                                    .append_pair(
-                                                        "__path",
-                                                        &path
-                                                    )
-                                                    .append_pair(
-                                                        "__err",
-                                                        &ServerFnErrorSerde::ser(&err).unwrap_or_default()
-                                                    );
-                                                let modified =
-                                                    HeaderValue::from_str(
-                                                        modified.as_ref(),
-                                                    );
-                                                if let Ok(header) = modified {
-                                                    referrer = header;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    res = headers.set_body(BoxBody::new(""))
-                                }
-                            };
-                            *res.status_mut() = StatusCode::FOUND;
-                            res.headers_mut().insert(LOCATION, referrer);
-                        }
-                    }
-                };
 
                 // Override StatusCode if it was set in a Resource or Element
                 if let Some(status) = res_parts.0.read().status {

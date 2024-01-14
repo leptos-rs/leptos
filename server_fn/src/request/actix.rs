@@ -3,7 +3,7 @@ use actix_web::{web::Payload, HttpRequest};
 use bytes::Bytes;
 use futures::Stream;
 use send_wrapper::SendWrapper;
-use std::future::Future;
+use std::{borrow::Cow, future::Future};
 
 /// A wrapped Actix request.
 ///
@@ -16,6 +16,14 @@ impl ActixRequest {
     /// Returns the raw Actix request, and its body.
     pub fn take(self) -> (HttpRequest, Payload) {
         self.0.take()
+    }
+
+    fn header(&self, name: &str) -> Option<Cow<'_, str>> {
+        self.0
+             .0
+            .headers()
+            .get(name)
+            .map(|h| String::from_utf8_lossy(h.as_bytes()))
     }
 }
 
@@ -30,12 +38,16 @@ impl<CustErr> Req<CustErr> for ActixRequest {
         self.0 .0.uri().query()
     }
 
-    fn to_content_type(&self) -> Option<String> {
-        self.0
-             .0
-            .headers()
-            .get("Content-Type")
-            .map(|h| String::from_utf8_lossy(h.as_bytes()).to_string())
+    fn to_content_type(&self) -> Option<Cow<'_, str>> {
+        self.header("Content-Type")
+    }
+
+    fn accepts(&self) -> Option<Cow<'_, str>> {
+        self.header("Accept")
+    }
+
+    fn referer(&self) -> Option<Cow<'_, str>> {
+        self.header("Referer")
     }
 
     fn try_into_bytes(

@@ -53,7 +53,7 @@ mod axum {
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
                     let err = ServerFnError::from(e);
-                    Response::<Body>::error_response(&path, err)
+                    Response::<Body>::error_response(&path, &err)
                 })
             })
         }
@@ -131,7 +131,7 @@ mod actix {
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
                     let err = ServerFnError::new(e);
-                    ActixResponse::error_response(&path, err).take()
+                    ActixResponse::error_response(&path, &err).take()
                 })
             })
         }
@@ -152,7 +152,7 @@ mod actix {
             Box::pin(async move {
                 ActixResponse::from(inner.await.unwrap_or_else(|e| {
                     let err = ServerFnError::new(e);
-                    ActixResponse::error_response(&path, err).take()
+                    ActixResponse::error_response(&path, &err).take()
                 }))
             })
         }

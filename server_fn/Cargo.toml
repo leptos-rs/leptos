@@ -64,9 +64,10 @@ reqwest = { version = "0.11", default-features = false, optional = true, feature
   "multipart",
   "stream",
 ] }
+url = "2"
 
 [features]
-default = ["url", "json", "cbor"]
+default = [ "json", "cbor"]
 actix = ["ssr", "dep:actix-web", "dep:send_wrapper"]
 axum = [
   "ssr", 

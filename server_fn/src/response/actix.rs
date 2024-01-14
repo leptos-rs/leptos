@@ -1,10 +1,13 @@
 use super::Res;
 use crate::error::{
-    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, ServerFnUrlError,
-    SERVER_FN_ERROR_HEADER,
+    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
 };
 use actix_web::{
-    http::{header, StatusCode},
+    http::{
+        header,
+        header::{HeaderValue, LOCATION},
+        StatusCode,
+    },
     HttpResponse,
 };
 use bytes::Bytes;
@@ -77,11 +80,18 @@ where
         )))
     }
 
-    fn error_response(path: &str, err: ServerFnError<CustErr>) -> Self {
+    fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
         ActixResponse(SendWrapper::new(
             HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
                 .append_header((SERVER_FN_ERROR_HEADER, path))
                 .body(err.ser().unwrap_or_else(|_| err.to_string())),
         ))
+    }
+
+    fn redirect(&mut self, path: &str) {
+        if let Ok(path) = HeaderValue::from_str(path) {
+            *self.0.status_mut() = StatusCode::FOUND;
+            self.0.headers_mut().insert(LOCATION, path);
+        }
     }
 }

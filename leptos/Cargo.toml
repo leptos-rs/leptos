@@ -20,7 +20,7 @@ typed-builder = "0.18"
 typed-builder-macro = "0.18"
 serde = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
-server_fn = { workspace = true, features = ["browser"] }
+server_fn = { workspace = true, features = ["browser", "url", "cbor"] }
 web-sys = { version = "0.3.63", features = [
   "ShadowRoot",
   "ShadowRootInit",
