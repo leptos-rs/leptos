@@ -1,14 +1,19 @@
 use super::Res;
-use crate::error::{ServerFnError, ServerFnErrorErr};
+use crate::error::{
+    ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
+};
 use axum::body::Body;
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use http::{header, HeaderValue, Response, StatusCode};
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 impl<CustErr> Res<CustErr> for Response<Body>
 where
-    CustErr: Send + Sync + Debug + Display + 'static,
+    CustErr: Send + Sync + Debug + FromStr + Display + 'static,
 {
     fn try_from_string(
         content_type: &str,
@@ -53,7 +58,8 @@ where
     fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
         Response::builder()
             .status(http::StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Body::from(err.to_string()))
+            .header(SERVER_FN_ERROR_HEADER, path)
+            .body(err.ser().unwrap_or_else(|_| err.to_string()).into())
             .unwrap()
     }
 

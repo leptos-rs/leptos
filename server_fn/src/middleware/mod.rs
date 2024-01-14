@@ -52,7 +52,7 @@ mod axum {
             let inner = self.call(req);
             Box::pin(async move {
                 inner.await.unwrap_or_else(|e| {
-                    let err = ServerFnError::from(e);
+                    let err = ServerFnError::new(e);
                     Response::<Body>::error_response(&path, &err)
                 })
             })
