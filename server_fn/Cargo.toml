@@ -68,6 +68,7 @@ url = "2"
 
 [features]
 default = [ "json", "cbor"]
+form-redirects = []
 actix = ["ssr", "dep:actix-web", "dep:send_wrapper"]
 axum = [
   "ssr", 

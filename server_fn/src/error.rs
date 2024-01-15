@@ -408,7 +408,7 @@ impl<CustErr> From<ServerFnError<CustErr>> for ServerFnErrorErr<CustErr> {
 /// found at a particular path.
 ///
 /// This can be used to pass an error from the server back to the client
-/// without JavaScript/WASM supported, by encoding it in the URL as a qurey string.
+/// without JavaScript/WASM supported, by encoding it in the URL as a query string.
 /// This is useful for progressive enhancement.
 #[derive(Debug)]
 pub struct ServerFnUrlError<CustErr> {
@@ -449,6 +449,29 @@ impl<CustErr> ServerFnUrlError<CustErr> {
                 &ServerFnErrorSerde::ser(&self.error).unwrap_or_default(),
             );
         Ok(url)
+    }
+
+    /// Replaces any ServerFnUrlError info from the URL in the given string
+    /// with the serialized success value given.
+    pub fn strip_error_info(path: &mut String) {
+        if let Ok(mut url) = Url::parse(&*path) {
+            // NOTE: This is gross, but the Serializer you get from
+            // .query_pairs_mut() isn't an Iterator so you can't just .retain().
+            let pairs_previously = url
+                .query_pairs()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<Vec<_>>();
+            let mut pairs = url.query_pairs_mut();
+            pairs.clear();
+            for (key, value) in pairs_previously
+                .into_iter()
+                .filter(|(key, _)| key != "__path" && key != "__err")
+            {
+                pairs.append_pair(&key, &value);
+            }
+            drop(pairs);
+            *path = url.to_string();
+        }
     }
 }
 
