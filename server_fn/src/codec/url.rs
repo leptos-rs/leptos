@@ -17,7 +17,7 @@ impl Encoding for GetUrl {
     const METHOD: Method = Method::GET;
 }
 
-impl<CustErr, T, Request> IntoReq<CustErr, Request, GetUrl> for T
+impl<CustErr, T, Request> IntoReq<GetUrl, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<CustErr, Request, GetUrl> for T
+impl<CustErr, T, Request> FromReq<GetUrl, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: DeserializeOwned,
@@ -51,7 +51,7 @@ impl Encoding for PostUrl {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<CustErr, Request, PostUrl> for T
+impl<CustErr, T, Request> IntoReq<PostUrl, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
@@ -67,7 +67,7 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<CustErr, Request, PostUrl> for T
+impl<CustErr, T, Request> FromReq<PostUrl, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: DeserializeOwned,

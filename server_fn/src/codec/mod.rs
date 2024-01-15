@@ -61,7 +61,7 @@ pub use stream::*;
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust
-/// impl<CustErr, T, Request> IntoReq<CustErr, Request, Json> for T
+/// impl<CustErr, T, Request> IntoReq<Json, Request, CustErr> for T
 /// where
 ///     Request: ClientReq<CustErr>,
 ///     T: Serialize + Send,
@@ -79,7 +79,7 @@ pub use stream::*;
 ///     }
 /// }
 /// ```
-pub trait IntoReq<CustErr, Request, Encoding> {
+pub trait IntoReq<Encoding, Request, CustErr> {
     /// Attempts to serialize the arguments into an HTTP request.
     fn into_req(
         self,
@@ -99,7 +99,7 @@ pub trait IntoReq<CustErr, Request, Encoding> {
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust
-/// impl<CustErr, T, Request> FromReq<CustErr, Request, Json> for T
+/// impl<CustErr, T, Request> FromReq<Json, Request, CustErr> for T
 /// where
 ///     // require the Request implement `Req`
 ///     Request: Req<CustErr> + Send + 'static,
@@ -117,7 +117,7 @@ pub trait IntoReq<CustErr, Request, Encoding> {
 ///     }
 /// }
 /// ```
-pub trait FromReq<CustErr, Request, Encoding>
+pub trait FromReq<Encoding, Request, CustErr>
 where
     Self: Sized,
 {
@@ -138,7 +138,7 @@ where
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust
-/// impl<CustErr, T, Response> IntoRes<CustErr, Response, Json> for T
+/// impl<CustErr, T, Response> IntoRes<Json, Response, CustErr> for T
 /// where
 ///     Response: Res<CustErr>,
 ///     T: Serialize + Send,
@@ -152,7 +152,7 @@ where
 ///     }
 /// }
 /// ```
-pub trait IntoRes<CustErr, Response, Encoding> {
+pub trait IntoRes<Encoding, Response, CustErr> {
     /// Attempts to serialize the output into an HTTP response.
     fn into_res(
         self,
@@ -171,7 +171,7 @@ pub trait IntoRes<CustErr, Response, Encoding> {
 /// For example, here’s the implementation for [`Json`].
 ///
 /// ```rust
-/// impl<CustErr, T, Response> FromRes<CustErr, Response, Json> for T
+/// impl<CustErr, T, Response> FromRes<Json, Response, CustErr> for T
 /// where
 ///     Response: ClientRes<CustErr> + Send,
 ///     T: DeserializeOwned + Send,
@@ -187,7 +187,7 @@ pub trait IntoRes<CustErr, Response, Encoding> {
 ///     }
 /// }
 /// ```
-pub trait FromRes<CustErr, Response, Encoding>
+pub trait FromRes<Encoding, Response, CustErr>
 where
     Self: Sized,
 {

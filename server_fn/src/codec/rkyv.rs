@@ -20,7 +20,7 @@ impl Encoding for Rkyv {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<CustErr, Request, Rkyv> for T
+impl<CustErr, T, Request> IntoReq<Rkyv, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
     T: Serialize<AllocSerializer<1024>> + Send,
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<CustErr, Request, Rkyv> for T
+impl<CustErr, T, Request> FromReq<Rkyv, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: Serialize<AllocSerializer<1024>> + Send,
@@ -50,12 +50,12 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
         let body_bytes = req.try_into_bytes().await?;
-        rkyv::from_bytes::<T>(&body_bytes)
+        rkyv::from_bytes::<T>(body_bytes.as_ref())
             .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }
 
-impl<CustErr, T, Response> IntoRes<CustErr, Response, Rkyv> for T
+impl<CustErr, T, Response> IntoRes<Rkyv, Response, CustErr> for T
 where
     Response: Res<CustErr>,
     T: Serialize<AllocSerializer<1024>> + Send,
@@ -71,7 +71,7 @@ where
     }
 }
 
-impl<CustErr, T, Response> FromRes<CustErr, Response, Rkyv> for T
+impl<CustErr, T, Response> FromRes<Rkyv, Response, CustErr> for T
 where
     Response: ClientRes<CustErr> + Send,
     T: Serialize<AllocSerializer<1024>> + Send,

@@ -1,9 +1,18 @@
 use crate::error_template::ErrorTemplate;
+use http::{Request, Response};
 use leptos::{html::Input, *};
-use leptos_meta::*;
+use leptos_meta::{Link, Stylesheet};
 use leptos_router::*;
-use serde::{Deserialize, Serialize};
-use server_fn::codec::SerdeLite;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use server_fn::{
+    codec::{
+        Encoding, FromReq, FromRes, GetUrl, IntoReq, IntoRes, Rkyv, SerdeLite,
+    },
+    error::NoCustomError,
+    request::{browser::BrowserRequest, BrowserMockReq, ClientReq, Req},
+    response::{browser::BrowserResponse, ClientRes, Res},
+    rkyv::AlignedVec,
+};
 #[cfg(feature = "ssr")]
 use std::sync::{
     atomic::{AtomicU8, Ordering},
@@ -37,6 +46,10 @@ pub fn HomePage() -> impl IntoView {
         <SpawnLocal/>
         <WithAnAction/>
         <WithActionForm/>
+        <h2>"Alternative Encodings"</h2>
+        <ServerFnArgumentExample/>
+        <RkyvExample/>
+        <CustomEncoding/>
     }
 }
 
@@ -155,7 +168,15 @@ pub fn WithAnAction() -> impl IntoView {
         <button
             on:click=move |_| {
                 let text = input_ref.get().unwrap().value();
-                action.dispatch(AddRow { text });
+                action.dispatch(text);
+                // note: technically, this `action` takes `AddRow` (the server fn type) as its
+                // argument
+                //
+                // however, `.dispatch()` takes `impl Into<I>`, and for any one-argument server
+                // functions, `From<_>` is implemented between the server function type and the
+                // type of this single argument
+                //
+                // so `action.dispatch(text)` means `action.dispatch(AddRow { text })`
             }
         >
             Submit
@@ -195,8 +216,202 @@ pub fn WithActionForm() -> impl IntoView {
         </ActionForm>
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
         <p>The result was: {move || format!("{:?}", action.value().get())}</p>
-        <Transition>
+        <Transition>archive underaligned: need alignment 4 but have alignment 1
             <p>Total rows: {row_count}</p>
         </Transition>
+    }
+}
+
+/// The plain `#[server]` macro gives sensible defaults for the settings needed to create a server
+/// function, but those settings can also be customized. For example, you can set a specific unique
+/// path rather than the hashed path, or you can choose a different combination of input and output
+/// encodings.
+///
+/// Arguments to the server macro can be specified as named key-value pairs, like `name = value`.
+#[server(
+    // this server function will be exposed at /api2/custom_path
+    prefix = "/api2",
+    endpoint = "custom_path",
+    // it will take its arguments as a URL-encoded GET request (useful for caching)
+    input = GetUrl,
+    // it will return its output using SerdeLite
+    // (this needs to be enabled with the `serde-lite` feature on the `server_fn` crate
+    output = SerdeLite
+)]
+pub async fn length_of_input(input: String) -> Result<usize, ServerFnError> {
+    // insert a simulated wait
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    Ok(input.len())
+}
+
+#[component]
+pub fn ServerFnArgumentExample() -> impl IntoView {
+    let input_ref = NodeRef::<Input>::new();
+    let (result, set_result) = create_signal(0);
+
+    view! {
+        <h3>Custom arguments to the <code>#[server]</code> " macro"</h3>
+        <p>
+        </p>
+        <input node_ref=input_ref placeholder="Type something here."/>
+        <button
+            on:click=move |_| {
+                let value = input_ref.get().unwrap().value();
+                spawn_local(async move {
+                    let length = length_of_input(value).await.unwrap_or(0);
+                    set_result(length);
+                });
+            }
+        >
+            Click to see length
+        </button>
+        <p>Length is {result}</p>
+    }
+}
+
+/// `server_fn` supports a wide variety of input and output encodings, each of which can be
+/// referred to as a PascalCased struct name
+/// - Toml
+/// - Cbor
+/// - Rkyv
+/// - etc.
+#[server(
+    input = Rkyv,
+    output = Rkyv
+)]
+pub async fn rkyv_example(input: String) -> Result<String, ServerFnError> {
+    // insert a simulated wait
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    Ok(input.to_ascii_uppercase())
+}
+
+#[component]
+pub fn RkyvExample() -> impl IntoView {
+    let input_ref = NodeRef::<Input>::new();
+    let (input, set_input) = create_signal(String::new());
+    let rkyv_result = create_resource(input, rkyv_example);
+
+    view! {
+        <h3>Using <code>rkyv</code> encoding</h3>
+        <p>
+        </p>
+        <input node_ref=input_ref placeholder="Type something here."/>
+        <button
+            on:click=move |_| {
+                let value = input_ref.get().unwrap().value();
+                set_input(value);
+            }
+        >
+            Click to see length
+        </button>
+        <p>{input}</p>
+        <Transition>
+            {rkyv_result}
+        </Transition>
+    }
+}
+
+/// Server function encodings are just types that implement a few traits.
+/// This means that you can implement your own encodings, by implementing those traits!
+///
+/// Here, we'll create a custom encoding that serializes and deserializes the server fn
+/// using TOML. Why would you ever want to do this? I don't know, but you can!
+struct Toml;
+
+impl Encoding for Toml {
+    const CONTENT_TYPE: &'static str = "application/toml";
+    const METHOD: Method = Method::POST;
+}
+
+#[cfg(not(feature = "ssr"))]
+type Request = BrowserMockReq;
+#[cfg(feature = "ssr")]
+type Request = http::Request<axum::body::Body>;
+#[cfg(not(feature = "ssr"))]
+type Response = BrowserMockRes;
+#[cfg(feature = "ssr")]
+type Response = http::Response<axum::body::Body>;
+
+impl<T> IntoReq<Toml, BrowserRequest, NoCustomError> for T {
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<BrowserRequest, ServerFnError> {
+        let data = toml::to_string(&self)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+        Request::try_new_post(path, Toml::CONTENT_TYPE, accepts, data)
+    }
+}
+
+impl<T> FromReq<Toml, Request, NoCustomError> for T
+where
+    T: DeserializeOwned,
+{
+    async fn from_req(req: Request) -> Result<Self, ServerFnError> {
+        let string_data = req.try_into_string().await?;
+        toml::from_str::<Self>(&string_data)
+            .map_err(|e| ServerFnError::Args(e.to_string()))
+    }
+}
+
+impl<T> IntoRes<Toml, Response, NoCustomError> for T
+where
+    T: Serialize + Send,
+{
+    async fn into_res(self) -> Result<Response, ServerFnError> {
+        let data = toml::to_string(&self)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+        Response::try_from_string(Toml::CONTENT_TYPE, data)
+    }
+}
+
+impl<e> FromRes<Toml, BrowserResponse, NoCustomError> for T
+where
+    T: DeserializeOwned + Send,
+{
+    async fn from_res(res: BrowserResponse) -> Result<Self, ServerFnError> {
+        let data = res.try_into_string().await?;
+        toml::from_str(&data)
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    }
+}
+
+#[server(
+    input = Toml,
+    output = Toml
+)]
+pub async fn why_not(
+    foo: String,
+    bar: String,
+) -> Result<String, ServerFnError> {
+    // insert a simulated wait
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    Ok(foo + &bar)
+}
+
+#[component]
+pub fn CustomEncoding() -> impl IntoView {
+    let input_ref = NodeRef::<Input>::new();
+    let (result, set_result) = create_signal(0);
+
+    view! {
+        <h3>Custom encodings</h3>
+        <p>
+            "This example creates a custom encoding that sends server fn data using TOML. Why? Well... why not?"
+        </p>
+        <input node_ref=input_ref placeholder="Type something here."/>
+        <button
+            on:click=move |_| {
+                let value = input_ref.get().unwrap().value();
+                spawn_local(async move {
+                let new_value = why_not(value, ", but in TOML!!!".to_string());
+                    set_result(new_value);
+                });
+            }
+        >
+            Submit
+        </button>
+        <p>{result}</p>
     }
 }

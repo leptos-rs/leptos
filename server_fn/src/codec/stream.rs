@@ -19,7 +19,7 @@ impl Encoding for Streaming {
     const METHOD: Method = Method::POST;
 }
 
-/* impl<CustErr, T, Request> IntoReq<CustErr, Request, ByteStream> for T
+/* impl<CustErr, T, Request> IntoReq<ByteStream, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
     T: Stream<Item = Bytes> + Send,
@@ -29,7 +29,7 @@ where
     }
 } */
 
-/* impl<CustErr, T, Request> FromReq<CustErr, Request, ByteStream> for T
+/* impl<CustErr, T, Request> FromReq<ByteStream, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: Stream<Item = Bytes> + Send,
@@ -65,7 +65,7 @@ where
     }
 }
 
-impl<CustErr, Response> IntoRes<CustErr, Response, Streaming>
+impl<CustErr, Response> IntoRes<Streaming, Response, CustErr>
     for ByteStream<CustErr>
 where
     Response: Res<CustErr>,
@@ -76,7 +76,7 @@ where
     }
 }
 
-impl<CustErr, Response> FromRes<CustErr, Response, Streaming> for ByteStream
+impl<CustErr, Response> FromRes<Streaming, Response, CustErr> for ByteStream
 where
     Response: ClientRes<CustErr> + Send,
 {
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<CustErr, Response> IntoRes<CustErr, Response, StreamingText>
+impl<CustErr, Response> IntoRes<StreamingText, Response, CustErr>
     for TextStream<CustErr>
 where
     Response: Res<CustErr>,
@@ -136,7 +136,7 @@ where
     }
 }
 
-impl<CustErr, Response> FromRes<CustErr, Response, StreamingText> for TextStream
+impl<CustErr, Response> FromRes<StreamingText, Response, CustErr> for TextStream
 where
     Response: ClientRes<CustErr> + Send,
 {
