@@ -238,10 +238,13 @@ where
         // Server functions can either be called by a real Client,
         // or directly by an HTML <form>. If they're accessed by a <form>, default to
         // redirecting back to the Referer.
-        let accepts_html = req
-            .accepts()
-            .map(|n| n.contains("text/html"))
-            .unwrap_or(false);
+        let accepts_html = if cfg!(feature = "form-redirects") {
+            req.accepts()
+                .map(|n| n.contains("text/html"))
+                .unwrap_or(false)
+        } else {
+            false
+        };
         let mut referer = req.referer().as_deref().map(ToOwned::to_owned);
 
         async move {
@@ -256,6 +259,7 @@ where
                 });
 
             // if it accepts HTML, we'll redirect to the Referer
+            #[cfg(feature = "form-redirects")]
             if accepts_html {
                 // if it had an error, encode that error in the URL
                 if let Some(err) = err {
@@ -264,6 +268,11 @@ where
                     {
                         referer = Some(url.to_string());
                     }
+                }
+                // otherwise, strip error info from referer URL, as that means it's from a previous
+                // call
+                else if let Some(referer) = referer.as_mut() {
+                    ServerFnUrlError::<Self::Error>::strip_error_info(referer)
                 }
 
                 // set the status code and Location header
