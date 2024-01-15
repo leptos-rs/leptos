@@ -130,6 +130,12 @@ pub fn server_macro_impl(
                 }
                 FnArg::Typed(t) => t,
             };
+
+            // strip `mut`, which is allowed in fn args but not in struct fields
+            if let Pat::Ident(ident) = &mut *typed_arg.pat {
+                ident.mutability = None;
+            }
+
             // allow #[server(default)] on fields — TODO is this documented?
             let mut default = false;
             let mut other_attrs = Vec::new();
@@ -332,27 +338,45 @@ pub fn server_macro_impl(
         }
     };
 
-    let (is_serde, derives) = match input_ident.as_deref() {
-        Some("Rkyv") => todo!("implement derives for Rkyv"),
-        Some("MultipartFormData") => (false, quote! {}),
+    enum PathInfo {
+        Serde,
+        Rkyv,
+        None,
+    }
+
+    let (path, derives) = match input_ident.as_deref() {
+        Some("Rkyv") => (
+            PathInfo::Rkyv,
+            quote! {
+                Clone, #server_fn_path::rkyv::Archive, #server_fn_path::rkyv::Serialize, #server_fn_path::rkyv::Deserialize
+            },
+        ),
+        Some("MultipartFormData") => (PathInfo::None, quote! {}),
         Some("SerdeLite") => (
-            true,
+            PathInfo::Serde,
             quote! {
                 Clone, #server_fn_path::serde_lite::Serialize, #server_fn_path::serde_lite::Deserialize
             },
         ),
         _ => (
-            true,
+            PathInfo::Serde,
             quote! {
                 Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
             },
         ),
     };
-    let serde_path = is_serde.then(|| {
-        quote! {
+    let addl_path = match path {
+        PathInfo::Serde => quote! {
             #[serde(crate = #serde_path)]
+        },
+        PathInfo::Rkyv => {
+            let rkyv_path = format!("{server_fn_path}::rkyv");
+            quote! {
+                #[archive(crate = #rkyv_path, check_bytes)]
+            }
         }
-    });
+        PathInfo::None => quote! {},
+    };
 
     // TODO reqwest
     let client = quote! {
@@ -429,7 +453,6 @@ pub fn server_macro_impl(
         } else {
             #server_fn_path::const_format::concatcp!(
                 #prefix,
-                "/",
                 #fn_path
             )
         }
@@ -453,7 +476,7 @@ pub fn server_macro_impl(
         #args_docs
         #docs
         #[derive(Debug, #derives)]
-        #serde_path
+        #addl_path
         pub struct #struct_name {
             #(#fields),*
         }

@@ -15,7 +15,7 @@ impl Encoding for SerdeLite {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<CustErr, Request, SerdeLite> for T
+impl<CustErr, T, Request> IntoReq<SerdeLite, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
@@ -35,7 +35,7 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<CustErr, Request, SerdeLite> for T
+impl<CustErr, T, Request> FromReq<SerdeLite, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: Deserialize,
@@ -50,7 +50,7 @@ where
     }
 }
 
-impl<CustErr, T, Response> IntoRes<CustErr, Response, SerdeLite> for T
+impl<CustErr, T, Response> IntoRes<SerdeLite, Response, CustErr> for T
 where
     Response: Res<CustErr>,
     T: Serialize + Send,
@@ -66,7 +66,7 @@ where
     }
 }
 
-impl<CustErr, T, Response> FromRes<CustErr, Response, SerdeLite> for T
+impl<CustErr, T, Response> FromRes<SerdeLite, Response, CustErr> for T
 where
     Response: ClientRes<CustErr> + Send,
     T: Deserialize + Send,

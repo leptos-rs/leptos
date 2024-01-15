@@ -132,6 +132,8 @@ use once_cell::sync::Lazy;
 use redirect::RedirectHook;
 use request::Req;
 use response::{ClientRes, Res};
+#[cfg(feature = "rkyv")]
+pub use rkyv;
 #[doc(hidden)]
 pub use serde;
 #[doc(hidden)]
@@ -173,11 +175,11 @@ pub use xxhash_rust;
 pub trait ServerFn
 where
     Self: Send
-        + FromReq<Self::Error, Self::ServerRequest, Self::InputEncoding>
+        + FromReq<Self::InputEncoding, Self::ServerRequest, Self::Error>
         + IntoReq<
-            Self::Error,
-            <Self::Client as Client<Self::Error>>::Request,
             Self::InputEncoding,
+            <Self::Client as Client<Self::Error>>::Request,
+            Self::Error,
         >,
 {
     /// A unique path for the server function’s API endpoint, relative to the host, including its prefix.
@@ -198,11 +200,11 @@ where
     ///
     /// This needs to be converted into `ServerResponse` on the server side, and converted
     /// *from* `ClientResponse` when received by the client.
-    type Output: IntoRes<Self::Error, Self::ServerResponse, Self::OutputEncoding>
+    type Output: IntoRes<Self::OutputEncoding, Self::ServerResponse, Self::Error>
         + FromRes<
-            Self::Error,
-            <Self::Client as Client<Self::Error>>::Response,
             Self::OutputEncoding,
+            <Self::Client as Client<Self::Error>>::Response,
+            Self::Error,
         > + Send;
 
     /// The [`Encoding`] used in the request for arguments into the server function.

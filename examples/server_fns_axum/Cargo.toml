@@ -25,6 +25,8 @@ tower-http = { version = "0.5", features = ["fs"], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 thiserror = "1.0"
 wasm-bindgen = "0.2"
+serde_toml = "0.0.1"
+toml = "0.8.8"
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

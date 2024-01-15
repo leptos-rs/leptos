@@ -15,7 +15,7 @@ impl Encoding for Json {
     const METHOD: Method = Method::POST;
 }
 
-impl<CustErr, T, Request> IntoReq<CustErr, Request, Json> for T
+impl<CustErr, T, Request> IntoReq<Json, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
     T: Serialize + Send,
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<CustErr, Request, Json> for T
+impl<CustErr, T, Request> FromReq<Json, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: DeserializeOwned,
@@ -43,7 +43,7 @@ where
     }
 }
 
-impl<CustErr, T, Response> IntoRes<CustErr, Response, Json> for T
+impl<CustErr, T, Response> IntoRes<Json, Response, CustErr> for T
 where
     Response: Res<CustErr>,
     T: Serialize + Send,
@@ -55,7 +55,7 @@ where
     }
 }
 
-impl<CustErr, T, Response> FromRes<CustErr, Response, Json> for T
+impl<CustErr, T, Response> FromRes<Json, Response, CustErr> for T
 where
     Response: ClientRes<CustErr> + Send,
     T: DeserializeOwned + Send,

@@ -56,7 +56,7 @@ impl From<FormData> for MultipartData {
     }
 }
 
-impl<CustErr, T, Request> IntoReq<CustErr, Request, MultipartFormData> for T
+impl<CustErr, T, Request> IntoReq<MultipartFormData, Request, CustErr> for T
 where
     Request: ClientReq<CustErr, FormData = BrowserFormData>,
     T: Into<MultipartData>,
@@ -75,7 +75,7 @@ where
     }
 }
 
-impl<CustErr, T, Request> FromReq<CustErr, Request, MultipartFormData> for T
+impl<CustErr, T, Request> FromReq<MultipartFormData, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
     T: From<MultipartData>,
