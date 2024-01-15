@@ -171,13 +171,16 @@ pub fn WithAnAction() -> impl IntoView {
 /// An <ActionForm/> lets you do the same thing as dispatching an action, but automates the
 /// creation of the dispatched argument struct using a <form>. This means it also gracefully
 /// degrades well when JS/WASM are not available.
+///
+/// Try turning off WASM in your browser. The form still works, and successfully displays the error
+/// message if the server function returns an error. Otherwise, it loads the new resource data.
 #[component]
 pub fn WithActionForm() -> impl IntoView {
     let action = create_server_action::<AddRow>();
     let row_count = create_resource(action.version(), |_| get_rows());
 
     view! {
-        <h3>Using <code>create_action</code></h3>
+        <h3>Using <code>"<ActionForm/>"</code></h3>
         <p>
             <code>"<ActionForm/>"</code> "lets you use an HTML " <code>"<form>"</code>
             "to call a server function in a way that gracefully degrades."
