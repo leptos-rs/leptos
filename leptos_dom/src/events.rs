@@ -150,7 +150,10 @@ pub(crate) fn add_delegated_event_listener(
                         if !maybe_handler.is_undefined() {
                             let f = maybe_handler
                                 .unchecked_ref::<js_sys::Function>();
-                            let _ = f.call1(&node, &ev);
+
+                            if let Err(e) = f.call1(&node, &ev) {
+                                wasm_bindgen::throw_val(e);
+                            }
 
                             if ev.cancel_bubble() {
                                 return;
