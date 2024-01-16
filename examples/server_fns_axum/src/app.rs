@@ -1,8 +1,10 @@
+use futures::StreamExt;
 use leptos::{html::Input, *};
 use leptos_meta::{provide_meta_context, Link, Stylesheet};
 use leptos_router::{ActionForm, Route, Router, Routes};
 use server_fn::codec::{
-    GetUrl, MultipartData, MultipartFormData, Rkyv, SerdeLite,
+    GetUrl, MultipartData, MultipartFormData, Rkyv, SerdeLite, StreamingText,
+    TextStream,
 };
 #[cfg(feature = "ssr")]
 use std::sync::{
@@ -46,6 +48,7 @@ pub fn HomePage() -> impl IntoView {
         <ServerFnArgumentExample/>
         <RkyvExample/>
         <FileUpload/>
+        <FileWatcher/>
     }
 }
 
@@ -378,6 +381,63 @@ pub fn FileUpload() -> impl IntoView {
                 format!("{:?}", upload_action.value().get())
             }}
         </p>
+    }
+}
+
+#[component]
+pub fn FileWatcher() -> impl IntoView {
+    #[server(input = GetUrl, output = StreamingText)]
+    pub async fn watched_files() -> Result<TextStream, ServerFnError> {
+        use notify::{
+            Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher,
+        };
+        use std::path::Path;
+
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+
+        let mut watcher = RecommendedWatcher::new(
+            move |res: Result<Event, Error>| {
+                if let Ok(ev) = res {
+                    if let Some(path) = ev.paths.last() {
+                        let filename = path
+                            .file_name()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_string();
+                        _ = tx.unbounded_send(filename); //res);
+                    }
+                }
+            },
+            Config::default(),
+        )?;
+        watcher.watch(Path::new("."), RecursiveMode::Recursive)?;
+        std::mem::forget(watcher);
+
+        Ok(TextStream::from(rx))
+    }
+
+    let (files, set_files) = create_signal(Vec::new());
+
+    create_effect(move |_| {
+        spawn_local(async move {
+            while let Some(res) =
+                watched_files().await.unwrap().into_inner().next().await
+            {
+                if let Ok(filename) = res {
+                    set_files.update(|n| n.push(filename));
+                }
+            }
+        });
+    });
+
+    view! {
+        <h3>Watching files and returning a streaming response</h3>
+        <p>Add or remove some text files in the root directory of the project and see the list of changes here.</p>
+        <p>Files changed since you loaded the page:</p>
+        <ul>
+            {move || files.get().into_iter().map(|file| view! { <li><code>{file}</code></li> }).collect::<Vec<_>>()}
+        </ul>
     }
 }
 
