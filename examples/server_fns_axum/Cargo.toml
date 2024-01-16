@@ -21,7 +21,7 @@ simple_logger = "4.0"
 serde = { version = "1", features = ["derive"] }
 axum = { version = "0.7", optional = true }
 tower = { version = "0.4", optional = true }
-tower-http = { version = "0.5", features = ["fs"], optional = true }
+tower-http = { version = "0.5", features = ["fs", "tracing", "trace"], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 thiserror = "1.0"
 wasm-bindgen = "0.2"

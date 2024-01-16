@@ -232,8 +232,11 @@ pub fn WithActionForm() -> impl IntoView {
     input = GetUrl,
     // it will return its output using SerdeLite
     // (this needs to be enabled with the `serde-lite` feature on the `server_fn` crate
-    output = SerdeLite
+    output = SerdeLite,
 )]
+// You can use the `#[middleware]` macro to add appropriate middleware
+// In this case, any `tower::Layer` that takes services of `Request<Body>` will work
+#[middleware(crate::middleware::LoggingLayer)]
 pub async fn length_of_input(input: String) -> Result<usize, ServerFnError> {
     // insert a simulated wait
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
@@ -248,6 +251,12 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
     view! {
         <h3>Custom arguments to the <code>#[server]</code> " macro"</h3>
         <p>
+            This example shows how to specify additional behavior including
+            <ul>
+                <li>Specific server function <strong>paths</strong></li>
+                <li>Mixing and matching input and output <strong>encodings</strong></li>
+                <li>Adding custom <strong>middleware</strong> on a per-server-fn basis</li>
+            </ul>
         </p>
         <input node_ref=input_ref placeholder="Type something here."/>
         <button

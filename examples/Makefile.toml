@@ -21,6 +21,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
   "login_with_token_csr_only",
   "parent_child",
   "router",
+  "server_fns_axum",
   "session_auth_axum",
   "slots",
   "ssr_modes",
