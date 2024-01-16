@@ -351,6 +351,7 @@ pub fn server_macro_impl(
 }
 
 struct ServerFnName {
+    _attrs: Vec<Attribute>,
     struct_name: Ident,
     _comma: Option<Token![,]>,
     prefix: Option<Literal>,
@@ -362,6 +363,7 @@ struct ServerFnName {
 
 impl Parse for ServerFnName {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let _attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
         let struct_name = input.parse()?;
         let _comma = input.parse()?;
         let prefix = input.parse()?;
@@ -382,6 +384,7 @@ impl Parse for ServerFnName {
         let fn_path = input.parse()?;
 
         Ok(Self {
+            _attrs,
             struct_name,
             _comma,
             prefix,
@@ -412,7 +415,7 @@ struct ServerFnBody {
 /// The custom rusty variant of parsing rsx!
 impl Parse for ServerFnBody {
     fn parse(input: ParseStream) -> Result<Self> {
-        let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
+        let mut attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
         let vis: Visibility = input.parse()?;
 
         let async_token = input.parse()?;
@@ -452,6 +455,12 @@ impl Parse for ServerFnBody {
                 Some((value.unwrap_or_default(), attr.path.span()))
             })
             .collect();
+        attrs.retain(|attr| {
+            let Meta::NameValue(attr) = &attr.meta else {
+                return true;
+            };
+            !attr.path.is_ident("doc")
+        });
 
         Ok(Self {
             vis,
