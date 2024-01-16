@@ -9,6 +9,7 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
     Mutex,
 };
+use strum::{Display, EnumString};
 use wasm_bindgen::JsCast;
 use web_sys::{FormData, HtmlFormElement, SubmitEvent};
 
@@ -39,6 +40,8 @@ pub fn HomePage() -> impl IntoView {
         <SpawnLocal/>
         <WithAnAction/>
         <WithActionForm/>
+        <h2>"Custom Error Types"</h2>
+        <CustomErrorTypes/>
         <h2>"Alternative Encodings"</h2>
         <ServerFnArgumentExample/>
         <RkyvExample/>
@@ -365,6 +368,69 @@ pub fn FileUpload() -> impl IntoView {
             } else {
                 format!("{:?}", upload_action.value().get())
             }}
+        </p>
+    }
+}
+
+/// The `ServerFnError` type is generic over a custom error type, which defaults to `NoCustomError`
+/// for backwards compatibility and to support the most common use case.
+///
+/// A custom error type should implement `FromStr` and `Display`, which allows it to be converted
+/// into and from a string easily to be sent over the network. It does *not* need to implement
+/// `Serialize` and `Deserialize`, although these can be used to generate the `FromStr`/`Display`
+/// implementations if you'd like. However, it's much lighter weight to use something like `strum`
+/// simply to generate those trait implementations.
+#[server]
+pub async fn ascii_uppercase(
+    text: String,
+) -> Result<String, ServerFnError<InvalidArgument>> {
+    if text.len() < 5 {
+        Err(InvalidArgument::TooShort.into())
+    } else if text.len() > 15 {
+        Err(InvalidArgument::TooLong.into())
+    } else if text.is_ascii() {
+        Ok(text.to_ascii_uppercase())
+    } else {
+        Err(InvalidArgument::NotAscii.into())
+    }
+}
+
+// The EnumString and Display derive macros are provided by strum
+#[derive(Debug, Clone, EnumString, Display)]
+pub enum InvalidArgument {
+    TooShort,
+    TooLong,
+    NotAscii,
+}
+
+#[component]
+pub fn CustomErrorTypes() -> impl IntoView {
+    let input_ref = NodeRef::<Input>::new();
+    let (result, set_result) = create_signal(None);
+
+    view! {
+        <h3>Using custom error types</h3>
+        <p>
+            "Server functions can use a custom error type that is preserved across the network boundary."
+        </p>
+        <p>
+            "Try typing a message that is between 5 and 15 characters of ASCII text below. Then try breaking \
+            the rules!"
+        </p>
+        <input node_ref=input_ref placeholder="Type something here."/>
+        <button
+            on:click=move |_| {
+                let value = input_ref.get().unwrap().value();
+                spawn_local(async move {
+                    let data = ascii_uppercase(value).await;
+                    set_result(Some(data));
+                });
+            }
+        >
+            "Submit"
+        </button>
+        <p>
+            {move || format!("{:?}", result.get())}
         </p>
     }
 }
