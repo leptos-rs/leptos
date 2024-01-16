@@ -3,6 +3,8 @@ pub mod error_template;
 pub mod errors;
 #[cfg(feature = "ssr")]
 pub mod fallback;
+#[cfg(feature = "ssr")]
+pub mod middleware;
 
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
