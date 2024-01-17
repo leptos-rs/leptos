@@ -30,6 +30,7 @@ toml = "0.8.8"
 web-sys = { version = "0.3.67", features = ["FileList", "File"] }
 strum = { version = "0.25.0", features = ["strum_macros", "derive"] }
 notify = { version = "6.1.1", optional = true }
+pin-project-lite = "0.2.13"
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

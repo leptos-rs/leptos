@@ -1,6 +1,11 @@
 use axum::body::Body;
 use http::Request;
-use std::task::{Context, Poll};
+use pin_project_lite::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower::{Layer, Service};
 
 pub struct LoggingLayer;
@@ -23,7 +28,7 @@ where
 {
     type Response = T::Response;
     type Error = T::Error;
-    type Future = T::Future;
+    type Future = LoggingServiceFuture<T::Future>;
 
     fn poll_ready(
         &mut self,
@@ -33,8 +38,35 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        println!("Running my middleware!");
+        println!("1. Running my middleware!");
 
-        self.inner.call(req)
+        LoggingServiceFuture {
+            inner: self.inner.call(req),
+        }
+    }
+}
+
+pin_project! {
+    pub struct LoggingServiceFuture<T> {
+        #[pin]
+        inner: T,
+    }
+}
+
+impl<T> Future for LoggingServiceFuture<T>
+where
+    T: Future,
+{
+    type Output = T::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this.inner.poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(output) => {
+                println!("3. Running my middleware!");
+                Poll::Ready(output)
+            }
+        }
     }
 }
