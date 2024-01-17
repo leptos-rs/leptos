@@ -84,6 +84,3 @@ fn find_by_text(text: &str) -> HtmlElement {
         .dyn_into::<HtmlElement>()
         .unwrap()
 }
-
-// TODO: Remove this comment that was used to simulate a change
-// in the examples
