@@ -20,7 +20,7 @@ pub fn TodoApp() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Meta name="color-scheme" content="dark-light"/>
+        <Meta name="color-scheme" content="dark light"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/server_fns_axum.css"/>
         <Router>
