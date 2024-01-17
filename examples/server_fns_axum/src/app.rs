@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use leptos::{html::Input, *};
-use leptos_meta::{provide_meta_context, Link, Stylesheet};
+use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
 use leptos_router::{ActionForm, Route, Router, Routes};
 use server_fn::codec::{
     GetUrl, MultipartData, MultipartFormData, Rkyv, SerdeLite, StreamingText,
@@ -20,6 +20,7 @@ pub fn TodoApp() -> impl IntoView {
     provide_meta_context();
 
     view! {
+        <Meta name="color-scheme" content="dark-light"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/server_fns_axum.css"/>
         <Router>
@@ -411,7 +412,8 @@ pub fn FileWatcher() -> impl IntoView {
             },
             Config::default(),
         )?;
-        watcher.watch(Path::new("."), RecursiveMode::Recursive)?;
+        watcher
+            .watch(Path::new("./watched_files"), RecursiveMode::Recursive)?;
         std::mem::forget(watcher);
 
         Ok(TextStream::from(rx))
@@ -433,11 +435,11 @@ pub fn FileWatcher() -> impl IntoView {
 
     view! {
         <h3>Watching files and returning a streaming response</h3>
-        <p>Add or remove some text files in the root directory of the project and see the list of changes here.</p>
         <p>Files changed since you loaded the page:</p>
         <ul>
             {move || files.get().into_iter().map(|file| view! { <li><code>{file}</code></li> }).collect::<Vec<_>>()}
         </ul>
+        <p><em>Add or remove some text files in the <code>watched_files</code> directory and see the list of changes here.</em></p>
     }
 }
 
