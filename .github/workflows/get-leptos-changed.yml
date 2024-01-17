@@ -19,21 +19,21 @@ jobs:
 
       - name: Get source files that changed
         id: changed-source
-        uses: tj-actions/changed-files@v39
+        uses: tj-actions/changed-files@v41
         with:
           files: |
-            integrations
-            leptos
-            leptos_config
-            leptos_dom
-            leptos_hot_reload
-            leptos_macro
-            leptos_reactive
-            leptos_server
-            meta
-            router
-            server_fn
-            server_fn_macro
+            integrations/**
+            leptos/**
+            leptos_config/**
+            leptos_dom/**
+            leptos_hot_reload/**
+            leptos_macro/**
+            leptos_reactive/**
+            leptos_server/**
+            meta/**
+            router/**
+            server_fn/**
+            server_fn_macro/**
 
       - name: List source files that changed
         run: echo '${{ steps.changed-source.outputs.all_changed_files }}'
