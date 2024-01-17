@@ -11,3 +11,4 @@ Cargo.lock
 .envrc
 
 .vscode
+vendor

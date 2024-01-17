@@ -786,6 +786,7 @@ impl Parse for ServerFnArgs {
         }
 
         Ok(Self {
+            _attrs,
             struct_name,
             prefix,
             input,
@@ -814,7 +815,7 @@ struct ServerFnBody {
 
 impl Parse for ServerFnBody {
     fn parse(input: ParseStream) -> Result<Self> {
-        let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
+        let mut attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
         let vis: Visibility = input.parse()?;
 
         let async_token = input.parse()?;
@@ -854,6 +855,12 @@ impl Parse for ServerFnBody {
                 Some((value.unwrap_or_default(), attr.path.span()))
             })
             .collect();
+        attrs.retain(|attr| {
+            let Meta::NameValue(attr) = &attr.meta else {
+                return true;
+            };
+            !attr.path.is_ident("doc")
+        });
 
         Ok(Self {
             vis,
