@@ -786,7 +786,6 @@ impl Parse for ServerFnArgs {
         }
 
         Ok(Self {
-            _attrs,
             struct_name,
             prefix,
             input,
