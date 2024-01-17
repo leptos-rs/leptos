@@ -242,6 +242,7 @@ pub fn WithActionForm() -> impl IntoView {
 // In this case, any `tower::Layer` that takes services of `Request<Body>` will work
 #[middleware(crate::middleware::LoggingLayer)]
 pub async fn length_of_input(input: String) -> Result<usize, ServerFnError> {
+    println!("2. Running server function.");
     // insert a simulated wait
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     Ok(input.len())
