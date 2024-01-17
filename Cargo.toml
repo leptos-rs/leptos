@@ -34,8 +34,8 @@ leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.0-beta" }
 leptos_macro = { path = "./leptos_macro", version = "0.6.0-beta" }
 leptos_reactive = { path = "./leptos_reactive", version = "0.6.0-beta" }
 leptos_server = { path = "./leptos_server", version = "0.6.0-beta" }
-server_fn = { path = "./server_fn", version = "0.6" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.6" }
+server_fn = { path = "./server_fn", version = "0.6.0-beta" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.6.0-beta" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
 leptos_config = { path = "./leptos_config", version = "0.6.0-beta" }
 leptos_router = { path = "./router", version = "0.6.0-beta" }
