@@ -24,7 +24,7 @@ jobs:
         uses: tj-actions/changed-files@v41
         with:
           files: |
-            examples
+            examples/**
             !examples/cargo-make
             !examples/gtk
             !examples/Makefile.toml
