@@ -10,7 +10,7 @@ use thiserror::Error;
 use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.
-pub const SERVER_FN_ERROR_HEADER: &'static str = "serverfnerror";
+pub const SERVER_FN_ERROR_HEADER: &str = "serverfnerror";
 
 /// This is a result type into which any error can be converted,
 /// and which can be used directly in your `view`.

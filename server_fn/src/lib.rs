@@ -125,7 +125,9 @@ use codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes};
 pub use const_format;
 use dashmap::DashMap;
 pub use error::ServerFnError;
-use error::{ServerFnErrorSerde, ServerFnUrlError};
+use error::ServerFnErrorSerde;
+#[cfg(feature = "form-redirects")]
+use error::ServerFnUrlError;
 use http::Method;
 use middleware::{Layer, Service};
 use once_cell::sync::Lazy;
@@ -240,16 +242,17 @@ where
         // Server functions can either be called by a real Client,
         // or directly by an HTML <form>. If they're accessed by a <form>, default to
         // redirecting back to the Referer.
-        let accepts_html = if cfg!(feature = "form-redirects") {
-            req.accepts()
-                .map(|n| n.contains("text/html"))
-                .unwrap_or(false)
-        } else {
-            false
-        };
+        #[cfg(feature = "form-redirects")]
+        let accepts_html = req
+            .accepts()
+            .map(|n| n.contains("text/html"))
+            .unwrap_or(false);
+        #[cfg(feature = "form-redirects")]
         let mut referer = req.referer().as_deref().map(ToOwned::to_owned);
 
         async move {
+            #[allow(unused_variables, unused_mut)]
+            // used in form redirects feature
             let (mut res, err) = Self::execute_on_server(req)
                 .await
                 .map(|res| (res, None))
