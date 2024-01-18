@@ -1365,6 +1365,33 @@ where
     }
 }
 
+impl<T> From<Signal<T>> for TextProp
+where
+    T: Into<Self> + Clone,
+{
+    fn from(value: Signal<T>) -> Self {
+        value.get().into()
+    }
+}
+
+impl<T> From<ReadSignal<T>> for TextProp
+where
+    T: Into<Self> + Clone,
+{
+    fn from(value: ReadSignal<T>) -> Self {
+        value.get().into()
+    }
+}
+
+impl<T> From<RwSignal<T>> for TextProp
+where
+    T: Into<Self> + Clone,
+{
+    fn from(value: RwSignal<T>) -> Self {
+        value.get().into()
+    }
+}
+
 impl Default for TextProp {
     fn default() -> Self {
         Self(Rc::new(|| Oco::Borrowed("")))
