@@ -33,7 +33,10 @@ impl From<(HttpRequest, Payload)> for ActixRequest {
     }
 }
 
-impl<CustErr> Req<CustErr> for ActixRequest {
+impl<CustErr> Req<CustErr> for ActixRequest
+where
+    CustErr: 'static,
+{
     fn as_query(&self) -> Option<&str> {
         self.0 .0.uri().query()
     }

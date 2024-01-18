@@ -64,7 +64,7 @@ pub trait ClientRes<CustErr> {
     fn try_into_stream(
         self,
     ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + Sync + 'static,
         ServerFnError<CustErr>,
     >;
 

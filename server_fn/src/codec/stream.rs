@@ -1,13 +1,14 @@
-use super::{Encoding, FromRes};
+use super::{Encoding, FromReq, FromRes, IntoReq};
 use crate::{
     error::{NoCustomError, ServerFnError},
+    request::{ClientReq, Req},
     response::{ClientRes, Res},
     IntoRes,
 };
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use http::Method;
-use std::pin::Pin;
+use std::{fmt::Debug, pin::Pin};
 
 /// An encoding that represents a stream of bytes.
 ///
@@ -19,25 +20,31 @@ impl Encoding for Streaming {
     const METHOD: Method = Method::POST;
 }
 
-/* impl<CustErr, T, Request> IntoReq<ByteStream, Request, CustErr> for T
+impl<CustErr, T, Request> IntoReq<Streaming, Request, CustErr> for T
 where
     Request: ClientReq<CustErr>,
-    T: Stream<Item = Bytes> + Send,
+    T: Stream<Item = Bytes> + Send + Sync + 'static,
 {
-    fn into_req(self, path: &str, accepts: &str) -> Result<Request, ServerFnError<CustErr>> {
-        Request::try_new_stream(path, ByteStream::CONTENT_TYPE, self)
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
+        Request::try_new_streaming(path, accepts, Streaming::CONTENT_TYPE, self)
     }
-} */
+}
 
-/* impl<CustErr, T, Request> FromReq<ByteStream, Request, CustErr> for T
+impl<CustErr, T, Request> FromReq<Streaming, Request, CustErr> for T
 where
     Request: Req<CustErr> + Send + 'static,
-    T: Stream<Item = Bytes> + Send,
+    T: From<ByteStream> + 'static,
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
-        req.try_into_stream().await
+        let data = req.try_into_stream()?;
+        let s = ByteStream::new(data);
+        Ok(s.into())
     }
-} */
+}
 
 /// A stream of bytes.
 ///
@@ -52,6 +59,24 @@ impl<CustErr> ByteStream<CustErr> {
         self,
     ) -> impl Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send {
         self.0
+    }
+}
+
+impl<CustErr> Debug for ByteStream<CustErr> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ByteStream").finish()
+    }
+}
+
+impl ByteStream {
+    /// Creates a new `ByteStream` from the given stream.
+    pub fn new<T>(
+        value: impl Stream<Item = Result<T, ServerFnError>> + Send + 'static,
+    ) -> Self
+    where
+        T: Into<Bytes>,
+    {
+        Self(Box::pin(value.map(|value| value.map(Into::into))))
     }
 }
 
@@ -103,6 +128,21 @@ pub struct TextStream<CustErr = NoCustomError>(
     Pin<Box<dyn Stream<Item = Result<String, ServerFnError<CustErr>>> + Send>>,
 );
 
+impl<CustErr> Debug for TextStream<CustErr> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("TextStream").finish()
+    }
+}
+
+impl TextStream {
+    /// Creates a new `ByteStream` from the given stream.
+    pub fn new(
+        value: impl Stream<Item = Result<String, ServerFnError>> + Send + 'static,
+    ) -> Self {
+        Self(Box::pin(value.map(|value| value.map(Into::into))))
+    }
+}
+
 impl<CustErr> TextStream<CustErr> {
     /// Consumes the wrapper, returning a stream of text.
     pub fn into_inner(
@@ -119,6 +159,43 @@ where
 {
     fn from(value: S) -> Self {
         Self(Box::pin(value.map(|data| Ok(data.into()))))
+    }
+}
+
+impl<CustErr, T, Request> IntoReq<StreamingText, Request, CustErr> for T
+where
+    Request: ClientReq<CustErr>,
+    T: Into<TextStream>,
+{
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<CustErr>> {
+        let data = self.into();
+        Request::try_new_streaming(
+            path,
+            accepts,
+            Streaming::CONTENT_TYPE,
+            data.0.map(|chunk| chunk.unwrap_or_default().into()),
+        )
+    }
+}
+
+impl<CustErr, T, Request> FromReq<StreamingText, Request, CustErr> for T
+where
+    Request: Req<CustErr> + Send + 'static,
+    T: From<TextStream> + 'static,
+{
+    async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
+        let data = req.try_into_stream()?;
+        let s = TextStream::new(data.map(|chunk| {
+            chunk.and_then(|bytes| {
+                String::from_utf8(bytes.to_vec())
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+            })
+        }));
+        Ok(s.into())
     }
 }
 

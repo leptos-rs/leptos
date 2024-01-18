@@ -351,7 +351,9 @@ pub fn server_macro_impl(
                 Clone, #server_fn_path::rkyv::Archive, #server_fn_path::rkyv::Serialize, #server_fn_path::rkyv::Deserialize
             },
         ),
-        Some("MultipartFormData") => (PathInfo::None, quote! {}),
+        Some("MultipartFormData")
+        | Some("Streaming")
+        | Some("StreamingText") => (PathInfo::None, quote! {}),
         Some("SerdeLite") => (
             PathInfo::Serde,
             quote! {

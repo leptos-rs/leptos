@@ -1,8 +1,15 @@
 use super::ClientReq;
-use crate::{client::get_server_url, error::ServerFnError};
+use crate::{
+    client::get_server_url,
+    error::{ServerFnError, ServerFnErrorErr},
+};
 use bytes::Bytes;
+use futures::{Stream, StreamExt};
 use once_cell::sync::Lazy;
-use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use reqwest::{
+    header::{ACCEPT, CONTENT_TYPE},
+    Body,
+};
 pub use reqwest::{multipart::Form, Client, Method, Request, Url};
 
 pub(crate) static CLIENT: Lazy<Client> = Lazy::new(Client::new);
@@ -87,5 +94,26 @@ impl<CustErr> ClientReq<CustErr> for Request {
             .multipart(body)
             .build()
             .map_err(|e| ServerFnError::Request(e.to_string()))
+    }
+
+    fn try_new_streaming(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: impl Stream<Item = Bytes> + 'static,
+    ) -> Result<Self, ServerFnError<CustErr>> {
+        todo!("Streaming requests are not yet implemented for reqwest.")
+        /*        let url = format!("{}{}", get_server_url(), path);
+            let body = Body::wrap_stream(
+                body.map(|chunk| Ok(chunk) as Result<Bytes, ServerFnErrorErr>),
+            );
+            CLIENT
+                .post(url)
+                .header(CONTENT_TYPE, content_type)
+                .header(ACCEPT, accepts)
+                .body(body)
+                .build()
+                .map_err(|e| ServerFnError::Request(e.to_string()))
+        }*/
     }
 }

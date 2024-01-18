@@ -1,9 +1,12 @@
 use super::ClientReq;
 use crate::{client::get_server_url, error::ServerFnError};
 use bytes::Bytes;
+use futures::{Stream, StreamExt};
 pub use gloo_net::http::Request;
 use js_sys::Uint8Array;
 use send_wrapper::SendWrapper;
+use wasm_bindgen::JsValue;
+use wasm_streams::ReadableStream;
 use web_sys::{FormData, UrlSearchParams};
 
 /// A `fetch` request made in the browser.
@@ -131,6 +134,26 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
                 .body(url_params)
+                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+        )))
+    }
+
+    fn try_new_streaming(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: impl Stream<Item = Bytes> + 'static,
+    ) -> Result<Self, ServerFnError<CustErr>> {
+        let stream = ReadableStream::from_stream(body.map(|bytes| {
+            let data = Uint8Array::from(bytes.as_ref());
+            let data = JsValue::from(data);
+            Ok(data) as Result<JsValue, JsValue>
+        }));
+        Ok(Self(SendWrapper::new(
+            Request::post(path)
+                .header("Content-Type", content_type)
+                .header("Accept", accepts)
+                .body(stream.into_raw())
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
         )))
     }

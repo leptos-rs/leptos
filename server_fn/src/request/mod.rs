@@ -62,6 +62,14 @@ where
         accepts: &str,
         body: Self::FormData,
     ) -> Result<Self, ServerFnError<CustErr>>;
+
+    /// Attempts to construct a new `POST` request with a streaming body.
+    fn try_new_streaming(
+        path: &str,
+        accepts: &str,
+        content_type: &str,
+        body: impl Stream<Item = Bytes> + Send + 'static,
+    ) -> Result<Self, ServerFnError<CustErr>>;
 }
 
 /// Represents the request as received by the server.
@@ -95,7 +103,7 @@ where
     fn try_into_stream(
         self,
     ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
         ServerFnError<CustErr>,
     >;
 }
@@ -104,7 +112,10 @@ where
 /// when compiling for the browser.
 pub struct BrowserMockReq;
 
-impl<CustErr> Req<CustErr> for BrowserMockReq {
+impl<CustErr> Req<CustErr> for BrowserMockReq
+where
+    CustErr: 'static,
+{
     fn as_query(&self) -> Option<&str> {
         unreachable!()
     }

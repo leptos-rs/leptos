@@ -8,7 +8,10 @@ use http::{
 use http_body_util::BodyExt;
 use std::borrow::Cow;
 
-impl<CustErr> Req<CustErr> for Request<Body> {
+impl<CustErr> Req<CustErr> for Request<Body>
+where
+    CustErr: 'static,
+{
     fn as_query(&self) -> Option<&str> {
         self.uri().query()
     }
@@ -49,7 +52,7 @@ impl<CustErr> Req<CustErr> for Request<Body> {
     fn try_into_stream(
         self,
     ) -> Result<
-        impl Stream<Item = Result<Bytes, ServerFnError>> + Send,
+        impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
         ServerFnError<CustErr>,
     > {
         Ok(self.into_body().into_data_stream().map(|chunk| {
