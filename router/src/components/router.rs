@@ -67,9 +67,7 @@ pub fn Router(
             }
         });
     }) as RedirectHook;
-    if server_fn::redirect::set_redirect_hook(router_hook).is_err() {
-        debug_warn!("Error setting <Router/> server function redirect hook.");
-    }
+    _ = server_fn::redirect::set_redirect_hook(router_hook);
 
     // provide ServerFnUrlError if it exists
     let location = use_location();
