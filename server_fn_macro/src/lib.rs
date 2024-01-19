@@ -35,6 +35,8 @@ pub fn server_macro_impl(
     body: TokenStream2,
     server_fn_path: Option<Path>,
     default_path: &str,
+    preset_req: Option<Type>,
+    preset_res: Option<Type>,
 ) -> Result<TokenStream2> {
     let mut body = syn::parse::<ServerFnBody>(body.into())?;
 
@@ -65,7 +67,12 @@ pub fn server_macro_impl(
         output,
         fn_path,
         builtin_encoding,
+        req_ty,
+        res_ty,
+        client,
+        custom_wrapper,
     } = args;
+    _ = custom_wrapper; // TODO: this should be used to enable custom encodings
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
     let input_ident = match &input {
@@ -380,9 +387,16 @@ pub fn server_macro_impl(
         PathInfo::None => quote! {},
     };
 
-    // TODO reqwest
-    let client = quote! {
-        #server_fn_path::client::browser::BrowserClient
+    let client = if let Some(client) = client {
+        client.to_token_stream()
+    } else if cfg!(feature = "reqwest") {
+        quote! {
+            #server_fn_path::client::reqwest::ReqwestClient
+        }
+    } else {
+        quote! {
+            #server_fn_path::client::browser::BrowserClient
+        }
     };
 
     let req = if !cfg!(feature = "ssr") {
@@ -397,11 +411,16 @@ pub fn server_macro_impl(
         quote! {
             #server_fn_path::request::actix::ActixRequest
         }
+    } else if let Some(req_ty) = req_ty {
+        req_ty.to_token_stream()
+    } else if let Some(req_ty) = preset_req {
+        req_ty.to_token_stream()
     } else {
         return Err(syn::Error::new(
             Span::call_site(),
             "If the `ssr` feature is enabled, either the `actix` or `axum` \
-             features should also be enabled.",
+             features should also be enabled, or the `req = ` argument should \
+             be provided to specify the request type.",
         ));
     };
     let res = if !cfg!(feature = "ssr") {
@@ -416,11 +435,16 @@ pub fn server_macro_impl(
         quote! {
             #server_fn_path::response::actix::ActixResponse
         }
+    } else if let Some(res_ty) = res_ty {
+        res_ty.to_token_stream()
+    } else if let Some(res_ty) = preset_res {
+        res_ty.to_token_stream()
     } else {
         return Err(syn::Error::new(
             Span::call_site(),
             "If the `ssr` feature is enabled, either the `actix` or `axum` \
-             features should also be enabled.",
+             features should also be enabled, or the `res = ` argument should \
+             be provided to specify the response type.",
         ));
     };
 
@@ -614,6 +638,10 @@ struct ServerFnArgs {
     input: Option<Type>,
     output: Option<Type>,
     fn_path: Option<Literal>,
+    req_ty: Option<Type>,
+    res_ty: Option<Type>,
+    client: Option<Type>,
+    custom_wrapper: Option<Type>,
     builtin_encoding: bool,
 }
 
@@ -628,6 +656,10 @@ impl Parse for ServerFnArgs {
         // new arguments: can only be keyed by name
         let mut input: Option<Type> = None;
         let mut output: Option<Type> = None;
+        let mut req_ty: Option<Type> = None;
+        let mut res_ty: Option<Type> = None;
+        let mut client: Option<Type> = None;
+        let mut custom_wrapper: Option<Type> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -703,6 +735,38 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         output = Some(stream.parse()?);
+                    } else if key == "req" {
+                        if req_ty.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `req`",
+                            ));
+                        }
+                        req_ty = Some(stream.parse()?);
+                    } else if key == "res" {
+                        if res_ty.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `res`",
+                            ));
+                        }
+                        res_ty = Some(stream.parse()?);
+                    } else if key == "client" {
+                        if client.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `client`",
+                            ));
+                        }
+                        client = Some(stream.parse()?);
+                    } else if key == "custom" {
+                        if custom_wrapper.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `custom`",
+                            ));
+                        }
+                        custom_wrapper = Some(stream.parse()?);
                     } else {
                         return Err(lookahead.error());
                     }
@@ -794,6 +858,10 @@ impl Parse for ServerFnArgs {
             output,
             fn_path,
             builtin_encoding,
+            req_ty,
+            res_ty,
+            client,
+            custom_wrapper,
         })
     }
 }

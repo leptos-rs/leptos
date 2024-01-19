@@ -871,12 +871,15 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   relative to the prefix (defaults to the function name followed by unique hash)
 /// - `input`: the encoding for the arguments (defaults to `PostUrl`)
 /// - `output`: the encoding for the response (defaults to `Json`)
+/// - `client`: a custom `Client` implementation that will be used for this server fn
 /// - `encoding`: (legacy, may be deprecated in future) specifies the encoding, which may be one
 ///   of the following (not case sensitive)
 ///     - `"Url"`: `POST` request with URL-encoded arguments and JSON response
 ///     - `"GetUrl"`: `GET` request with URL-encoded arguments and JSON response
 ///     - `"Cbor"`: `POST` request with CBOR-encoded arguments and response
 ///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response
+/// - `req` and `res` specify the HTTP request and response types to be used on the server (these
+///   should usually only be necessary if you are integrating with a server other than Actix/Axum)
 ///
 /// ```rust,ignore
 /// #[server(
@@ -949,6 +952,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
         "/api",
+        None,
+        None,
     ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),
