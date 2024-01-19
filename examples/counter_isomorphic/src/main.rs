@@ -8,6 +8,7 @@ use leptos_actix::{generate_route_list, LeptosRoutes};
 
 #[get("/api/events")]
 async fn counter_events() -> impl Responder {
+    use crate::counters::ssr_imports::*;
     use futures::StreamExt;
 
     let stream = futures::stream::once(async {

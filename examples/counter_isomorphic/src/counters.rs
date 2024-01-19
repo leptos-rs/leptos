@@ -5,7 +5,7 @@ use leptos_router::*;
 use tracing::instrument;
 
 #[cfg(feature = "ssr")]
-mod ssr_imports {
+pub mod ssr_imports {
     pub use broadcaster::BroadcastChannel;
     pub use once_cell::sync::OnceCell;
     pub use std::sync::atomic::{AtomicI32, Ordering};
