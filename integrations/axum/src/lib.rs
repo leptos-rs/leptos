@@ -1813,7 +1813,7 @@ where
                 .to_string(),
         )
     })?;
-    T::from_request_parts(&mut parts, &state)
+    T::from_request_parts(&mut parts, state)
         .await
         .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
