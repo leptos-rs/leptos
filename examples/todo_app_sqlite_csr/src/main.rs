@@ -34,7 +34,7 @@ async fn main() {
     let app = Router::new()
         // server function handlers are normally set up by .leptos_routes()
         // here, we're not actually doing server side rendering, so we set up a manual
-        // handler for the server fns 
+        // handler for the server fns
         // this should include a get() handler if you have any GetUrl-based server fns
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .fallback(file_or_index_handler)
