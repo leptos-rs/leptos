@@ -26,7 +26,7 @@ cfg_if::cfg_if! {
         use std::cell::Cell;
 
         thread_local! {
-            static IS_SPECIAL_ZONE: Cell<bool> = Cell::new(false);
+            static IS_SPECIAL_ZONE: Cell<bool> = const { Cell::new(false) };
         }
     }
 }

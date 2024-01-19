@@ -51,14 +51,7 @@ fn has_scheme(path: &str) -> bool {
 
 #[doc(hidden)]
 fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
-    let s = path.trim_start_matches('/');
-    let trim_end = s
-        .chars()
-        .rev()
-        .take_while(|c| *c == '/')
-        .count()
-        .saturating_sub(1);
-    let s = &s[0..s.len() - trim_end];
+    let s = path.trim_start_matches('/').trim_end_matches('/');
     if s.is_empty() || omit_slash || begins_with_query_or_hash(s) {
         s.into()
     } else {
@@ -77,10 +70,9 @@ fn begins_with_query_or_hash(text: &str) -> bool {
 }
 
 fn remove_wildcard(text: &str) -> String {
-    text.rsplit_once('*')
-        .map(|(prefix, _)| prefix)
+    text.split_once('*')
+        .map(|(prefix, _)| prefix.trim_end_matches('/'))
         .unwrap_or(text)
-        .trim_end_matches('/')
         .to_string()
 }
 
@@ -90,15 +82,5 @@ mod tests {
     #[test]
     fn normalize_query_string_with_opening_slash() {
         assert_eq!(normalize("/?foo=bar", false), "?foo=bar");
-    }
-
-    #[test]
-    fn normalize_retain_trailing_slash() {
-        assert_eq!(normalize("foo/bar/", false), "/foo/bar/");
-    }
-
-    #[test]
-    fn normalize_dedup_trailing_slashes() {
-        assert_eq!(normalize("foo/bar/////", false), "/foo/bar/");
     }
 }
