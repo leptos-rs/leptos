@@ -56,14 +56,14 @@ impl<CustErr> ClientReq<CustErr> for Request {
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: Bytes,
+        body: &[u8],
     ) -> Result<Self, ServerFnError<CustErr>> {
         let url = format!("{}{}", get_server_url(), path);
         CLIENT
             .post(url)
             .header(CONTENT_TYPE, content_type)
             .header(ACCEPT, accepts)
-            .body(body)
+            .body(body.to_owned())
             .build()
             .map_err(|e| ServerFnError::Request(e.to_string()))
     }
