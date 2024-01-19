@@ -5,6 +5,10 @@ test.describe("Test Router example", () => {
     await page.goto("/");
   });
 
+  test("Starts on correct home page", async({ page }) => {  
+       await expect(page.getByText("Select a contact.")).toBeVisible();
+  });
+
   const links = [
     { label: "Bill Smith", url: "/0" },
     { label: "Tim Jones", url: "/1" },
