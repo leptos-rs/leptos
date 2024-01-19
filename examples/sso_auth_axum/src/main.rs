@@ -69,8 +69,7 @@ if #[cfg(feature = "ssr")] {
             .with_security_mode(SecurityMode::PerSession);
 
         let auth_config = AuthConfig::<i64>::default();
-        let session_store = SessionStore::<SessionSqlitePool>::new(Some(pool.clone().into()), session_config);
-        session_store.initiate().await.unwrap();
+        let session_store = SessionStore::<SessionSqlitePool>::new(Some(pool.clone().into()), session_config).await.unwrap();
 
         sqlx::migrate!()
             .run(&pool)
