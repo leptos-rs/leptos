@@ -5,11 +5,12 @@ use crate::{
     response::{ClientRes, Res},
 };
 use bytes::Bytes;
+use futures::StreamExt;
 use http::Method;
 use rkyv::{
     de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-    validation::validators::DefaultValidator, Archive, CheckBytes, Deserialize,
-    Serialize,
+    validation::validators::DefaultValidator, AlignedVec, Archive, CheckBytes,
+    Deserialize, Serialize,
 };
 
 /// Pass arguments and receive responses using `rkyv` in a `POST` request.
@@ -49,8 +50,21 @@ where
         + Deserialize<T, SharedDeserializeMap>,
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
-        let body_bytes = req.try_into_bytes().await?;
-        rkyv::from_bytes::<T>(body_bytes.as_ref())
+        let mut aligned = AlignedVec::new();
+        let mut body_stream = Box::pin(req.try_into_stream()?);
+        while let Some(chunk) = body_stream.next().await {
+            match chunk {
+                Err(e) => {
+                    return Err(ServerFnError::Deserialization(e.to_string()))
+                }
+                Ok(bytes) => {
+                    for byte in bytes {
+                        aligned.push(byte);
+                    }
+                }
+            }
+        }
+        rkyv::from_bytes::<T>(aligned.as_ref())
             .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }

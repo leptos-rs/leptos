@@ -99,7 +99,7 @@ where
         self,
     ) -> impl Future<Output = Result<String, ServerFnError<CustErr>>> + Send;
 
-    /// Attempts to convert the body of the request into a string.
+    /// Attempts to convert the body of the request into a stream of bytes.
     fn try_into_stream(
         self,
     ) -> Result<
