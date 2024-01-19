@@ -94,7 +94,7 @@ browser = [
 ]
 json = []
 serde-lite = ["dep:serde-lite"]
-multipart = ["dep:multer"]
+multipart = ["browser", "dep:multer"]
 url = ["dep:serde_qs"]
 cbor = ["dep:ciborium"]
 rkyv = ["dep:rkyv"]
