@@ -32,7 +32,8 @@
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
-//! **Important**: Before calling a server function on a non-web platform, you must set the server URL by calling [`set_server_url`].
+//! **Important**: Before calling a server function on a non-web platform, you must set the server URL by calling
+//! [`set_server_url`](crate::client::set_server_url).
 //!
 //! ```rust,ignore
 //! #[server]
@@ -148,7 +149,7 @@ pub use xxhash_rust;
 /// Defines a function that runs only on the server, but can be called from the server or the client.
 ///
 /// The type for which `ServerFn` is implemented is actually the type of the arguments to the function,
-/// while the function body itself is implemented in [`run_body`].
+/// while the function body itself is implemented in [`run_body`](ServerFn::run_body).
 ///
 /// This means that `Self` here is usually a struct, in which each field is an argument to the function.
 /// In other words,

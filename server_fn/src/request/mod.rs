@@ -4,16 +4,16 @@ use futures::Stream;
 use std::{borrow::Cow, future::Future};
 
 /// Request types for Actix.
-#[cfg(any(feature = "actix", doc))]
+#[cfg(feature = "actix")]
 pub mod actix;
 /// Request types for Axum.
-#[cfg(any(feature = "axum", doc))]
+#[cfg(feature = "axum")]
 pub mod axum;
 /// Request types for the browser.
-#[cfg(any(feature = "browser", doc))]
+#[cfg(feature = "browser")]
 pub mod browser;
 /// Request types for [`reqwest`].
-#[cfg(any(feature = "reqwest", doc))]
+#[cfg(feature = "reqwest")]
 pub mod reqwest;
 
 /// Represents a request as made by the client.

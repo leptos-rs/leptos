@@ -33,7 +33,7 @@ pub trait Client<CustErr> {
     ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>> + Send;
 }
 
-#[cfg(any(feature = "browser", doc))]
+#[cfg(feature = "browser")]
 /// Implements [`Client`] for a `fetch` request in the browser.
 pub mod browser {
     use super::Client;
@@ -67,7 +67,7 @@ pub mod browser {
     }
 }
 
-#[cfg(any(feature = "reqwest", doc))]
+#[cfg(feature = "reqwest")]
 /// Implements [`Client`] for a request made by [`reqwest`].
 pub mod reqwest {
     use super::Client;

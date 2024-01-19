@@ -114,6 +114,11 @@ where
 /// An encoding that represents a stream of text.
 ///
 /// A server function that uses this as its output encoding should return [`TextStream`].
+///
+/// **Note**: Browser fetch requests do not currently support full request duplexing, which
+/// means that that they do begin handling responses until the full request has been sent.
+/// This means that if you use streaming text as an input encoding, the input stream needs to
+/// end before the output will begin.
 pub struct StreamingText;
 
 impl Encoding for StreamingText {
@@ -121,9 +126,14 @@ impl Encoding for StreamingText {
     const METHOD: Method = Method::POST;
 }
 
-/// A stream of bytes.
+/// A stream of text.
 ///
 /// A server function can return this type if its output encoding is [`StreamingText`].
+///
+/// **Note**: Browser fetch requests do not currently support full request duplexing, which
+/// means that that they do begin handling responses until the full request has been sent.
+/// This means that if you use streaming text as an input encoding, the input stream needs to
+/// end before the output will begin.
 pub struct TextStream<CustErr = NoCustomError>(
     Pin<Box<dyn Stream<Item = Result<String, ServerFnError<CustErr>>> + Send>>,
 );
