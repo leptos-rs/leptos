@@ -405,6 +405,16 @@ impl<Req, Res> ServerFnTraitObj<Req, Res> {
     pub fn method(&self) -> Method {
         self.method.clone()
     }
+
+    /// The handler for this server function.
+    pub fn handler(&self, req: Req) -> impl Future<Output = Res> + Send {
+        (self.handler)(req)
+    }
+
+    /// The set of middleware that should be applied to this function.
+    pub fn middleware(&self) -> MiddlewareSet<Req, Res> {
+        (self.middleware)()
+    }
 }
 
 impl<Req, Res> Service<Req, Res> for ServerFnTraitObj<Req, Res>
