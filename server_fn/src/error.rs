@@ -61,7 +61,18 @@ impl From<ServerFnError> for Error {
 
 /// An empty value indicating that there is no custom error type associated
 /// with this server function.
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+)]
 pub struct NoCustomError;
 
 // Implement `Display` for `NoCustomError`
