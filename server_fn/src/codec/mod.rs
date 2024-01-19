@@ -11,37 +11,37 @@
 //! Rather than a limited number of encodings, this crate allows you to define server functions that
 //! mix and match the input encoding and output encoding. To define a new encoding, you simply implement
 //! an input combination ([`IntoReq`] and [`FromReq`]) and/or an output encoding ([`IntoRes`] and [`FromRes`]).
-//! This genuinely is an and/or: while some encodings can be used for both input and output ([`Json`], [`Cbor`], [`Rkyv`]),
-//! others can only be used for input ([`GetUrl`], [`MultipartData`]) or only output ([`ByteStream`], [`StreamingText`]).
+//! This genuinely is an and/or: while some encodings can be used for both input and output (`Json`, `Cbor`, `Rkyv`),
+//! others can only be used for input (`GetUrl`, `MultipartData`).
 
 #[cfg(feature = "cbor")]
 mod cbor;
-#[cfg(any(feature = "cbor", doc))]
+#[cfg(feature = "cbor")]
 pub use cbor::*;
 
 #[cfg(feature = "json")]
 mod json;
-#[cfg(any(feature = "json", doc))]
+#[cfg(feature = "json")]
 pub use json::*;
 
 #[cfg(feature = "serde-lite")]
 mod serde_lite;
-#[cfg(any(feature = "serde-lite", doc))]
+#[cfg(feature = "serde-lite")]
 pub use serde_lite::*;
 
 #[cfg(feature = "rkyv")]
 mod rkyv;
-#[cfg(any(feature = "rkyv", doc))]
+#[cfg(feature = "rkyv")]
 pub use rkyv::*;
 
 #[cfg(feature = "url")]
 mod url;
-#[cfg(any(feature = "url", doc))]
+#[cfg(feature = "url")]
 pub use url::*;
 
 #[cfg(feature = "multipart")]
 mod multipart;
-#[cfg(any(feature = "multipart", doc))]
+#[cfg(feature = "multipart")]
 pub use multipart::*;
 
 mod stream;
@@ -52,7 +52,7 @@ pub use stream::*;
 
 /// Serializes a data type into an HTTP request, on the client.
 ///
-/// Implementations use the methods of the [`ClientReq`](crate::ClientReq) trait to
+/// Implementations use the methods of the [`ClientReq`](crate::request::ClientReq) trait to
 /// convert data into a request body. They are often quite short, usually consisting
 /// of just two steps:
 /// 1. Serializing the data into some [`String`], [`Bytes`](bytes::Bytes), or [`Stream`](futures::Stream).

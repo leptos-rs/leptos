@@ -1,14 +1,14 @@
 /// Response types for Actix.
-#[cfg(any(feature = "actix", doc))]
+#[cfg(feature = "actix")]
 pub mod actix;
 /// Response types for the browser.
-#[cfg(any(feature = "browser", doc))]
+#[cfg(feature = "browser")]
 pub mod browser;
 /// Response types for Axum.
-#[cfg(any(feature = "axum", doc))]
+#[cfg(feature = "axum")]
 pub mod http;
 /// Response types for [`reqwest`].
-#[cfg(any(feature = "reqwest", doc))]
+#[cfg(feature = "reqwest")]
 pub mod reqwest;
 
 use crate::error::ServerFnError;

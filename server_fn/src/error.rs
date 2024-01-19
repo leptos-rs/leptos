@@ -79,14 +79,13 @@ impl FromStr for NoCustomError {
     }
 }
 
-/// Wraps some error type, which may implement any of [`Error`], [`Clone`], or
+/// Wraps some error type, which may implement any of [`Error`](trait@std::error::Error), [`Clone`], or
 /// [`Display`].
 #[derive(Debug)]
 pub struct WrapError<T>(pub T);
 
-/// This helper macro lets you call the gnarly autoref-specialization call
-/// without having to worry about things like how many & you need.
-/// Mostly used when you impl From<ServerFnError> for YourError
+/// A helper macro to convert a variety of different types into `ServerFnError`.
+/// This should mostly be used if you are implementing `From<ServerFnError>` for `YourError`.
 #[macro_export]
 macro_rules! server_fn_error {
     () => {{
@@ -161,7 +160,7 @@ impl<E> ViaError<E> for WrapError<E> {
 
 /// Type for errors that can occur when using server functions.
 ///
-/// Unlike [`ServerFnErrorErr`], this does not implement [`Error`](std::error::Error).
+/// Unlike [`ServerFnErrorErr`], this does not implement [`Error`](trait@std::error::Error).
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
 #[derive(Debug, Clone, Serialize, Deserialize)]

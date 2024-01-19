@@ -102,3 +102,6 @@ default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls"]
 reqwest = ["dep:reqwest"]
 ssr = ["inventory"]
+
+[package.metadata.docs.rs]
+all-features = true
