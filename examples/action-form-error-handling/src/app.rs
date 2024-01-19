@@ -28,7 +28,9 @@ pub fn App() -> impl IntoView {
 }
 
 #[server]
-async fn do_something(should_error: Option<String>) -> Result<String, ServerFnError> {
+async fn do_something(
+    should_error: Option<String>,
+) -> Result<String, ServerFnError> {
     if should_error.is_none() {
         Ok(String::from("Successful submit"))
     } else {
@@ -42,7 +44,12 @@ async fn do_something(should_error: Option<String>) -> Result<String, ServerFnEr
 #[component]
 fn HomePage() -> impl IntoView {
     let do_something_action = Action::<DoSomething, _>::server();
-    let value = Signal::derive(move || do_something_action.value().get().unwrap_or_else(|| Ok(String::new())));
+    let value = Signal::derive(move || {
+        do_something_action
+            .value()
+            .get()
+            .unwrap_or_else(|| Ok(String::new()))
+    });
 
     Effect::new_isomorphic(move |_| {
         logging::log!("Got value = {:?}", value.get());

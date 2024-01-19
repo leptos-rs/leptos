@@ -118,9 +118,9 @@ pub fn Counters() -> impl IntoView {
 // This is the typical pattern for a CRUD app
 #[component]
 pub fn Counter() -> impl IntoView {
-    let dec = create_action(|_| adjust_server_count(-1, "decing".into()));
-    let inc = create_action(|_| adjust_server_count(1, "incing".into()));
-    let clear = create_action(|_| clear_server_count());
+    let dec = create_action(|_: &()| adjust_server_count(-1, "decing".into()));
+    let inc = create_action(|_: &()| adjust_server_count(1, "incing".into()));
+    let clear = create_action(|_: &()| clear_server_count());
     let counter = create_resource(
         move || {
             (
@@ -222,9 +222,10 @@ pub fn FormCounter() -> impl IntoView {
 #[component]
 pub fn MultiuserCounter() -> impl IntoView {
     let dec =
-        create_action(|_| adjust_server_count(-1, "dec dec goose".into()));
-    let inc = create_action(|_| adjust_server_count(1, "inc inc moose".into()));
-    let clear = create_action(|_| clear_server_count());
+        create_action(|_: &()| adjust_server_count(-1, "dec dec goose".into()));
+    let inc =
+        create_action(|_: &()| adjust_server_count(1, "inc inc moose".into()));
+    let clear = create_action(|_: &()| clear_server_count());
 
     #[cfg(not(feature = "ssr"))]
     let multiplayer_value = {
