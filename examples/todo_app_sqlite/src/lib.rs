@@ -1,3 +1,5 @@
+#[cfg(feature = "ssr")]
+pub mod middleware;
 pub mod todo;
 
 #[cfg(feature = "hydrate")]

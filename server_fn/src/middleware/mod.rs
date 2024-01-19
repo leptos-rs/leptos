@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin};
 
 /// An abstraction over a middleware layer, which can be used to add additional
 /// middleware layer to a [`Service`].
-pub trait Layer<Req, Res>: Send + Sync + 'static {
+pub trait Layer<Req, Res>: 'static {
     /// Adds this layer to the inner service.
     fn layer(&self, inner: BoxedService<Req, Res>) -> BoxedService<Req, Res>;
 }
@@ -104,17 +104,52 @@ mod axum {
 
 #[cfg(feature = "actix")]
 mod actix {
+    use super::BoxedService;
     use crate::{
         request::actix::ActixRequest,
         response::{actix::ActixResponse, Res},
         ServerFnError,
     };
-    use actix_web::{HttpRequest, HttpResponse};
+    use actix_web::{
+        dev::{Service, Transform},
+        HttpRequest, HttpResponse,
+    };
     use std::{
         fmt::{Debug, Display},
         future::Future,
         pin::Pin,
+        task::{Context, Poll},
     };
+
+    impl<T> super::Layer<HttpRequest, HttpResponse> for T
+    where
+        T: Transform<BoxedService<HttpRequest, HttpResponse>, HttpRequest>
+            + 'static, /*   + Send
+                       + Sync
+                       + 'static,*/
+    {
+        fn layer(
+            &self,
+            inner: BoxedService<HttpRequest, HttpResponse>,
+        ) -> BoxedService<HttpRequest, HttpResponse> {
+            todo!()
+        }
+    }
+
+    impl<T> super::Layer<ActixRequest, ActixResponse> for T
+    where
+        T: Transform<BoxedService<ActixRequest, ActixResponse>, HttpRequest>
+            //+ Send
+            //+ Sync
+            + 'static,
+    {
+        fn layer(
+            &self,
+            inner: BoxedService<ActixRequest, ActixResponse>,
+        ) -> BoxedService<ActixRequest, ActixResponse> {
+            todo!()
+        }
+    }
 
     impl<S> super::Service<HttpRequest, HttpResponse> for S
     where
@@ -155,6 +190,48 @@ mod actix {
                     ActixResponse::error_response(&path, &err).take()
                 }))
             })
+        }
+    }
+
+    impl<Req> Service<Req> for BoxedService<HttpRequest, HttpResponse> {
+        type Response = HttpResponse;
+        type Error = ServerFnError;
+        type Future = Pin<
+            Box<
+                dyn Future<Output = Result<Self::Response, Self::Error>> + Send,
+            >,
+        >;
+
+        fn poll_ready(
+            &self,
+            ctx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            todo!()
+        }
+
+        fn call(&self, req: Req) -> Self::Future {
+            todo!()
+        }
+    }
+
+    impl<Req> Service<Req> for BoxedService<ActixRequest, ActixResponse> {
+        type Response = HttpResponse;
+        type Error = ServerFnError;
+        type Future = Pin<
+            Box<
+                dyn Future<Output = Result<Self::Response, Self::Error>> + Send,
+            >,
+        >;
+
+        fn poll_ready(
+            &self,
+            ctx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            todo!()
+        }
+
+        fn call(&self, req: Req) -> Self::Future {
+            todo!()
         }
     }
 }

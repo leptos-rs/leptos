@@ -49,6 +49,7 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
 }
 
 #[server]
+#[middleware(crate::middleware::LoggingLayer)]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     use self::ssr::*;
 
