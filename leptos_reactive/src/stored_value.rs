@@ -242,7 +242,7 @@ impl<T> StoredValue<T> {
         with_runtime(|runtime| {
             let n = {
                 let values = runtime.stored_values.borrow();
-                values.get(self.id).map(Rc::clone)
+                values.get(self.id).cloned()
             };
 
             if let Some(n) = n {

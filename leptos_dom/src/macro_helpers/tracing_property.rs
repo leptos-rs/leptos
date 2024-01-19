@@ -117,13 +117,13 @@ fn match_primitive() {
     assert_eq!(prop, r#"{"name": "test", "value": -1}"#);
 
     // f64
-    let test = 3.14;
+    let test = 3.25;
     let prop = (&&Match {
         name: stringify! {test},
         value: std::cell::Cell::new(Some(&test)),
     })
         .spez();
-    assert_eq!(prop, r#"{"name": "test", "value": 3.14}"#);
+    assert_eq!(prop, r#"{"name": "test", "value": 3.25}"#);
 
     // bool
     let test = true;

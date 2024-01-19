@@ -201,8 +201,8 @@ pub fn AnimatedRoutes(
             let matches =
                 get_route_matches(router_id, &base, next_route.clone());
             let same_route = prev_matches
-                .and_then(|p| p.first().as_ref().map(|r| r.route.key.clone()))
-                == matches.first().as_ref().map(|r| r.route.key.clone());
+                .and_then(|p| p.first().map(|r| r.route.key.clone()))
+                == matches.first().map(|r| r.route.key.clone());
             if same_route {
                 (animation_state, next_route)
             } else {

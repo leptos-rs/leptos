@@ -14,7 +14,7 @@ use std::{
 };
 
 thread_local! {
-    static ROUTE_ID: Cell<usize> = Cell::new(0);
+    static ROUTE_ID: Cell<usize> = const { Cell::new(0) };
 }
 
 /// Represents an HTTP method that can be handled by this route.
