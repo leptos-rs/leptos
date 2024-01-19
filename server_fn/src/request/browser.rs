@@ -78,13 +78,12 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: Bytes,
+        body: &[u8],
     ) -> Result<Self, ServerFnError<CustErr>> {
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
         url.push_str(server_url);
         url.push_str(path);
-        let body: &[u8] = &body;
         let body = Uint8Array::from(body).buffer();
         Ok(Self(SendWrapper::new(
             Request::post(&url)
