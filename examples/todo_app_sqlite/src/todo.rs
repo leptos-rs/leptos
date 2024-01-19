@@ -22,9 +22,8 @@ pub mod ssr {
     }
 }
 
-// This is an example of leptos's server functions using an alternative CBOR encoding. Both the function arguments being sent
-// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
-#[server(encoding = "Cbor")]
+/// Server functions can be given doc comments.
+#[server(GetTodos, "/api")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     use self::ssr::*;
 

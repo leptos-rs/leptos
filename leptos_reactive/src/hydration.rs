@@ -332,7 +332,7 @@ impl Default for SharedContext {
 
 #[cfg(feature = "experimental-islands")]
 thread_local! {
-  pub static NO_HYDRATE: Cell<bool> = Cell::new(true);
+  pub static NO_HYDRATE: Cell<bool> = const { Cell::new(true) };
 }
 
 #[cfg(feature = "experimental-islands")]

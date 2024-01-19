@@ -53,7 +53,7 @@ mod hydrate_only {
         }
       });
 
-      pub static IS_HYDRATING: Cell<bool> = Cell::new(true);
+      pub static IS_HYDRATING: Cell<bool> = const { Cell::new(true) };
     }
 
     #[allow(unused)]
@@ -133,7 +133,7 @@ mod tests {
     }
 }
 
-thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { outlet: 0, fragment: 0, error: 0, id: 0 }));
+thread_local!(static ID: RefCell<HydrationKey> = const {RefCell::new(HydrationKey { outlet: 0, fragment: 0, error: 0, id: 0 })});
 
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
