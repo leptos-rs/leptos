@@ -163,7 +163,7 @@ impl<E> ViaError<E> for WrapError<E> {
 /// Unlike [`ServerFnErrorErr`], this does not implement [`Error`](trait@std::error::Error).
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ServerFnError<E = NoCustomError> {
     /// A user-defined custom error type, which defaults to [`NoCustomError`].
@@ -344,7 +344,7 @@ where
 ///
 /// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so
 /// it is easy to convert between the two types.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ServerFnErrorErr<E = NoCustomError> {
     /// A user-defined custom error type, which defaults to [`NoCustomError`].
     #[error("internal error: {0}")]
