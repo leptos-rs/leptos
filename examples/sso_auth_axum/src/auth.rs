@@ -1,13 +1,5 @@
-use cfg_if::cfg_if;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-
-cfg_if! {
-if #[cfg(feature = "ssr")] {
-    use sqlx::SqlitePool;
-    use axum_session_auth::{SessionSqlitePool, Authentication, HasPermission};
-    pub type AuthSession = axum_session_auth::AuthSession<User, i64, SessionSqlitePool, SqlitePool>;
-}}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct User {
@@ -28,36 +20,56 @@ impl Default for User {
     }
 }
 
-cfg_if! {
-if #[cfg(feature = "ssr")] {
+#[cfg(feature = "ssr")]
+pub mod ssr_imports {
+    use super::User;
+    pub use axum_session_auth::{
+        Authentication, HasPermission, SessionSqlitePool,
+    };
+    pub use sqlx::SqlitePool;
+    use std::collections::HashSet;
+    pub type AuthSession = axum_session_auth::AuthSession<
+        User,
+        i64,
+        SessionSqlitePool,
+        SqlitePool,
+    >;
+
     use async_trait::async_trait;
 
     impl User {
         pub async fn get(id: i64, pool: &SqlitePool) -> Option<Self> {
-            let sqluser = sqlx::query_as::<_, SqlUser>("SELECT * FROM users WHERE id = ?")
-                .bind(id)
-                .fetch_one(pool)
-                .await
-                .ok()?;
+            let sqluser = sqlx::query_as::<_, SqlUser>(
+                "SELECT * FROM users WHERE id = ?",
+            )
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .ok()?;
 
             //lets just get all the tokens the user can use, we will only use the full permissions if modifing them.
             let sql_user_perms = sqlx::query_as::<_, SqlPermissionTokens>(
                 "SELECT token FROM user_permissions WHERE user_id = ?;",
             )
-                .bind(id)
-                .fetch_all(pool)
-                .await
-                .ok()?;
+            .bind(id)
+            .fetch_all(pool)
+            .await
+            .ok()?;
 
             Some(sqluser.into_user(Some(sql_user_perms)))
         }
 
-        pub async fn get_from_email(email: &str, pool: &SqlitePool) -> Option<Self> {
-            let sqluser = sqlx::query_as::<_, SqlUser>("SELECT * FROM users WHERE email = ?")
-                .bind(email)
-                .fetch_one(pool)
-                .await
-                .ok()?;
+        pub async fn get_from_email(
+            email: &str,
+            pool: &SqlitePool,
+        ) -> Option<Self> {
+            let sqluser = sqlx::query_as::<_, SqlUser>(
+                "SELECT * FROM users WHERE email = ?",
+            )
+            .bind(email)
+            .fetch_one(pool)
+            .await
+            .ok()?;
 
             //lets just get all the tokens the user can use, we will only use the full permissions if modifing them.
             let sql_user_perms = sqlx::query_as::<_, SqlPermissionTokens>(
@@ -84,7 +96,10 @@ if #[cfg(feature = "ssr")] {
 
     #[async_trait]
     impl Authentication<User, i64, SqlitePool> for User {
-        async fn load_user(userid: i64, pool: Option<&SqlitePool>) -> Result<User, anyhow::Error> {
+        async fn load_user(
+            userid: i64,
+            pool: Option<&SqlitePool>,
+        ) -> Result<User, anyhow::Error> {
             let pool = pool.unwrap();
 
             User::get(userid, pool)
@@ -123,9 +138,11 @@ if #[cfg(feature = "ssr")] {
         pub secret: String,
     }
 
-
     impl SqlUser {
-        pub fn into_user(self, sql_user_perms: Option<Vec<SqlPermissionTokens>>) -> User {
+        pub fn into_user(
+            self,
+            sql_user_perms: Option<Vec<SqlPermissionTokens>>,
+        ) -> User {
             User {
                 id: self.id,
                 email: self.email,
@@ -140,5 +157,4 @@ if #[cfg(feature = "ssr")] {
             }
         }
     }
-}
 }
