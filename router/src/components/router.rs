@@ -7,7 +7,6 @@ use crate::{
 use crate::{unescape, Url};
 use cfg_if::cfg_if;
 use leptos::{
-    logging::debug_warn,
     server_fn::{
         error::{ServerFnErrorSerde, ServerFnUrlError},
         redirect::RedirectHook,
