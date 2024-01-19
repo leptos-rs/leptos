@@ -443,6 +443,17 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 type LazyServerFnMap<Req, Res> =
     Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
 
+#[cfg(feature = "ssr")]
+impl<Req: 'static, Res: 'static> inventory::Collect
+    for ServerFnTraitObj<Req, Res>
+{
+    #[inline]
+    fn registry() -> &'static inventory::Registry {
+        static REGISTRY: inventory::Registry = inventory::Registry::new();
+        &REGISTRY
+    }
+}
+
 /// Axum integration.
 #[cfg(feature = "axum")]
 pub mod axum {
@@ -452,8 +463,6 @@ pub mod axum {
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
-
-    inventory::collect!(ServerFnTraitObj<Request<Body>, Response<Body>>);
 
     static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
         Request<Body>,
@@ -538,8 +547,6 @@ pub mod actix {
     use http::Method;
     #[doc(hidden)]
     pub use send_wrapper::SendWrapper;
-
-    inventory::collect!(ServerFnTraitObj<ActixRequest, ActixResponse>);
 
     static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<
         ActixRequest,
