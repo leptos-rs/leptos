@@ -50,7 +50,6 @@ pub fn HomePage() -> impl IntoView {
         <RkyvExample/>
         <FileUpload/>
         <FileWatcher/>
-        <StreamingValues/>
     }
 }
 
@@ -505,49 +504,5 @@ pub fn CustomErrorTypes() -> impl IntoView {
         <p>
             {move || format!("{:?}", result.get())}
         </p>
-    }
-}
-
-#[component]
-pub fn StreamingValues() -> impl IntoView {
-    use futures::StreamExt;
-
-    /// You can create server functions that accept streaming values by using the encoding
-    /// `Streaming` (with type `ByteStream`) or encoding `StreamingText` (with type `TextStream`)
-    #[server(input = StreamingText, output = StreamingText)]
-    pub async fn streaming(input: TextStream) -> Result<TextStream, ServerFnError> {
-        println!("inside streaming() fn");
-        Ok(TextStream::from(input.into_inner().map(|text| format!("{}!!!", text.unwrap_or_else(|e| e.to_string())))))
-    }
-
-    let mut count = 0;
-    let (tx, rx) = futures::channel::mpsc::unbounded();
-    let (result, set_result) = create_signal("Click me...".to_string());
-
-
-    if cfg!(feature = "hydrate") {
-        spawn_local(async move {
-            logging::log!("calling streaming server fn");
-            match streaming(TextStream::new(rx)).await {
-                Ok(res) => {
-                logging::log!("after calling streaming()");
-                let mut stream = res.into_inner();
-                while let Some(chunk) = stream.next().await {
-                    set_result(chunk.unwrap_or_else(|e| e.to_string()));
-                }
-            }, Err(e) => logging::log!("{e}") }
-        })
-    }
-
-    view! {
-        <h3>Streaming arguments and responses</h3>
-        <button
-            on:click=move |_| {
-                count += 1;
-                tx.unbounded_send(Ok(count.to_string())).expect("couldn't send into channel");
-            }
-        >
-            {result}
-        </button>
     }
 }

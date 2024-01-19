@@ -3,11 +3,11 @@ use crate::{client::get_server_url, error::ServerFnError};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 pub use gloo_net::http::Request;
-use js_sys::Uint8Array;
+use js_sys::{Reflect, Uint8Array};
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsValue;
 use wasm_streams::ReadableStream;
-use web_sys::{FormData, UrlSearchParams};
+use web_sys::{FormData, Headers, RequestInit, UrlSearchParams};
 
 /// A `fetch` request made in the browser.
 #[derive(Debug)]
@@ -143,17 +143,36 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: impl Stream<Item = Bytes> + 'static,
     ) -> Result<Self, ServerFnError<CustErr>> {
-        let stream = ReadableStream::from_stream(body.map(|bytes| {
-            let data = Uint8Array::from(bytes.as_ref());
-            let data = JsValue::from(data);
-            Ok(data) as Result<JsValue, JsValue>
-        }));
-        Ok(Self(SendWrapper::new(
-            Request::post(path)
-                .header("Content-Type", content_type)
-                .header("Accept", accepts)
-                .body(stream.into_raw())
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        )))
+        let req = streaming_request(path, accepts, content_type, body)
+            .map_err(|e| ServerFnError::Request(format!("{e:?}")))?;
+        Ok(Self(SendWrapper::new(req)))
     }
+}
+
+fn streaming_request(
+    path: &str,
+    accepts: &str,
+    content_type: &str,
+    body: impl Stream<Item = Bytes> + 'static,
+) -> Result<Request, JsValue> {
+    let stream = ReadableStream::from_stream(body.map(|bytes| {
+        let data = Uint8Array::from(bytes.as_ref());
+        let data = JsValue::from(data);
+        Ok(data) as Result<JsValue, JsValue>
+    }))
+    .into_raw();
+    let headers = Headers::new()?;
+    headers.append("Content-Type", content_type)?;
+    headers.append("Accept", accepts)?;
+    let mut init = RequestInit::new();
+    init.headers(&headers).method("POST").body(Some(&stream));
+
+    // Chrome requires setting `duplex: "half"` on streaming requests
+    Reflect::set(
+        &init,
+        &JsValue::from_str("duplex"),
+        &JsValue::from_str("half"),
+    )?;
+    let req = web_sys::Request::new_with_str_and_init(path, &init)?;
+    Ok(Request::from(req))
 }

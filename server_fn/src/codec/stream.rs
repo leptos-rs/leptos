@@ -13,6 +13,15 @@ use std::{fmt::Debug, pin::Pin};
 /// An encoding that represents a stream of bytes.
 ///
 /// A server function that uses this as its output encoding should return [`ByteStream`].
+///
+/// ## Browser Support for Streaming Input
+///
+/// Browser fetch requests do not currently support full request duplexing, which
+/// means that that they do begin handling responses until the full request has been sent.
+/// This means that if you use a streaming input encoding, the input stream needs to
+/// end before the output will begin.
+///
+/// Streaming requests are only allowed over HTTP2 or HTTP3.
 pub struct Streaming;
 
 impl Encoding for Streaming {
@@ -49,6 +58,15 @@ where
 /// A stream of bytes.
 ///
 /// A server function can return this type if its output encoding is [`Streaming`].
+///
+/// ## Browser Support for Streaming Input
+///
+/// Browser fetch requests do not currently support full request duplexing, which
+/// means that that they do begin handling responses until the full request has been sent.
+/// This means that if you use a streaming input encoding, the input stream needs to
+/// end before the output will begin.
+///
+/// Streaming requests are only allowed over HTTP2 or HTTP3.
 pub struct ByteStream<CustErr = NoCustomError>(
     Pin<Box<dyn Stream<Item = Result<Bytes, ServerFnError<CustErr>>> + Send>>,
 );
@@ -115,10 +133,14 @@ where
 ///
 /// A server function that uses this as its output encoding should return [`TextStream`].
 ///
-/// **Note**: Browser fetch requests do not currently support full request duplexing, which
+/// ## Browser Support for Streaming Input
+///
+/// Browser fetch requests do not currently support full request duplexing, which
 /// means that that they do begin handling responses until the full request has been sent.
-/// This means that if you use streaming text as an input encoding, the input stream needs to
+/// This means that if you use a streaming input encoding, the input stream needs to
 /// end before the output will begin.
+///
+/// Streaming requests are only allowed over HTTP2 or HTTP3.
 pub struct StreamingText;
 
 impl Encoding for StreamingText {
@@ -130,10 +152,14 @@ impl Encoding for StreamingText {
 ///
 /// A server function can return this type if its output encoding is [`StreamingText`].
 ///
-/// **Note**: Browser fetch requests do not currently support full request duplexing, which
+/// ## Browser Support for Streaming Input
+///
+/// Browser fetch requests do not currently support full request duplexing, which
 /// means that that they do begin handling responses until the full request has been sent.
-/// This means that if you use streaming text as an input encoding, the input stream needs to
+/// This means that if you use a streaming input encoding, the input stream needs to
 /// end before the output will begin.
+///
+/// Streaming requests are only allowed over HTTP2 or HTTP3.
 pub struct TextStream<CustErr = NoCustomError>(
     Pin<Box<dyn Stream<Item = Result<String, ServerFnError<CustErr>>> + Send>>,
 );
