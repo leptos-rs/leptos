@@ -35,12 +35,8 @@ where
     ) -> Result<Request, ServerFnError<CustErr>> {
         let encoded = rkyv::to_bytes::<T, 1024>(&self)
             .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
-        Request::try_new_post_bytes(
-            path,
-            accepts,
-            Rkyv::CONTENT_TYPE,
-            encoded.as_ref(),
-        )
+        let bytes = Bytes::copy_from_slice(encoded.as_ref());
+        Request::try_new_post_bytes(path, accepts, Rkyv::CONTENT_TYPE, bytes)
     }
 }
 
@@ -54,7 +50,7 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
         let body_bytes = req.try_into_bytes().await?;
-        rkyv::from_bytes::<T>(&body_bytes)
+        rkyv::from_bytes::<T>(body_bytes.as_ref())
             .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }

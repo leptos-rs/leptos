@@ -45,7 +45,7 @@ where
         path: &str,
         content_type: &str,
         accepts: &str,
-        body: &[u8],
+        body: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>>;
 
     /// Attempts to construct a new `POST` request with form data as the body.
