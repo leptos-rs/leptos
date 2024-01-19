@@ -22,6 +22,7 @@ cfg_if! {
     }
 }
 
+/// Server functions can be given doc comments.
 #[server(GetTodos, "/api")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
