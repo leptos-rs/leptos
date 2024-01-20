@@ -52,7 +52,7 @@ mod ssr_imports {
     #[wasm_bindgen]
     impl Handler {
         pub async fn new() -> Self {
-            console_log::init_with_level(Level::Debug);
+            _ = console_log::init_with_level(Level::Debug);
             console_error_panic_hook::set_once();
 
             let leptos_options = LeptosOptions::builder()
