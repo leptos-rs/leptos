@@ -164,7 +164,7 @@ pub fn generate_request_and_parts(
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
-/// run the server function if found, and return the resulting [Response].
+/// run the server function if found, and return the resulting [`Response`].
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -224,7 +224,7 @@ macro_rules! spawn_task {
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
-/// run the server function if found, and return the resulting [Response].
+/// run the server function if found, and return the resulting [`Response`].
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -234,15 +234,16 @@ macro_rules! spawn_task {
 /// of one that should work much like this one.
 ///
 /// **NOTE**: If your server functions expect a context, make sure to provide it both in
-/// [`handle_server_fns_with_context`] **and** in [`leptos_routes_with_context`] (or whatever
+/// [`handle_server_fns_with_context`] **and** in
+/// [`leptos_routes_with_context`](LeptosRoutes::leptos_routes_with_context) (or whatever
 /// rendering method you are using). During SSR, server functions are called by the rendering
 /// method, while subsequent calls from the client are handled by the server function handler.
 /// The same context needs to be provided to both handlers.
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
+/// - [`Parts`]
+/// - [`ResponseOptions`]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -383,10 +384,10 @@ pub type PinnedHtmlStream =
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [RequestParts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
@@ -474,10 +475,10 @@ where
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
@@ -515,10 +516,10 @@ where
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
@@ -626,10 +627,10 @@ where
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
@@ -787,10 +788,10 @@ async fn forward_stream(
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
@@ -917,10 +918,10 @@ fn provide_contexts(
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
@@ -959,10 +960,10 @@ where
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_stream_with_context<IV>(
     options: LeptosOptions,
@@ -1088,10 +1089,10 @@ where
 ///
 /// ## Provided Context Types
 /// This function always provides context values including the following types:
-/// - [Parts]
-/// - [ResponseOptions]
-/// - [MetaContext](leptos_meta::MetaContext)
-/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+/// - [`Parts`]
+/// - [`ResponseOptions`]
+/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
@@ -1766,18 +1767,18 @@ fn get_leptos_pool() -> LocalPoolHandle {
 /// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::*;
-///     let Query(query) = extractor().await?;
+///     let Query(query) = extract().await?;
 ///
 ///     Ok(query)
 /// }
 /// ```
-pub async fn extractor<T, CustErr>() -> Result<T, ServerFnError>
+pub async fn extract<T, CustErr>() -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<()>,
     T::Rejection: Debug,
     CustErr: Error + 'static,
 {
-    extractor_with_state::<T, (), CustErr>(&()).await
+    extract_with_state::<T, (), CustErr>(&()).await
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This
@@ -1794,12 +1795,12 @@ where
 /// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::*;
-///     let Query(query) = extractor().await?;
+///     let Query(query) = extract().await?;
 ///
 ///     Ok(query)
 /// }
 /// ```
-pub async fn extractor_with_state<T, S, CustErr>(
+pub async fn extract_with_state<T, S, CustErr>(
     state: &S,
 ) -> Result<T, ServerFnError>
 where
