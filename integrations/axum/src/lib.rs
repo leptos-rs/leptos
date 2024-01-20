@@ -1943,6 +1943,52 @@ where
         .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
 
+/// A helper to make it easier to use Axum extractors in server functions, with a
+/// simpler API than [`extract_with_state`].
+///
+/// It is generic over some type `T` that implements [`FromRequestParts`] and can
+/// therefore be used in an extractor. The compiler can often infer this type.
+///
+/// Any error that occurs during extraction is converted to a [`ServerFnError`].
+///
+/// ```rust,ignore
+/// // AppState is some type that implements `Deserialize + Serialize`
+/// struct AppState {
+///     pub key: Key,
+/// }
+///
+/// impl FromRef<AppState> for Key {
+///     fn from_ref(state: &AppState) -> Self {
+///         state.key.clone()
+///     }
+/// }
+/// #[server]
+/// pub async fn cookie_extract() -> Result<SignedCookieJar, ServerFnError> {
+///     use axum_extra::extract::cookie::SignedCookieJar;
+///     use cookie::secure::Key;
+///     use leptos_axum::*;
+///     let state: AppState = use_context::<AppState>()?;
+///     let jar: SignedCookieJar<Key> = extractor_with_state(state).await?;
+///
+///     Ok(jar)
+/// }
+/// ```
+pub async fn extractor_with_state<T, S>(s: &S) -> Result<T, ServerFnError>
+where
+    T: Sized + FromRequestParts<S>,
+    T::Rejection: Debug,
+    S: Send + Sync,
+{
+    let ctx = use_context::<ExtractorHelper>().expect(
+        "should have had ExtractorHelper provided by the leptos_axum \
+         integration",
+    );
+    let mut parts = ctx.parts.lock().await;
+    T::from_request_parts(&mut parts, s)
+        .await
+        .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+}
+
 /// A helper to make it easier to use Axum extractors in server functions. This takes
 /// a handler function and state as its arguments. The handler rules similar to Axum
 /// [handlers](https://docs.rs/axum/latest/axum/extract/index.html#intro): it is an async function
