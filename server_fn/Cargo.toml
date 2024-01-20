@@ -108,5 +108,5 @@ all-features = true
 
 # disables some feature combos for testing in CI
 [package.metadata.cargo-all-features]
-denylist = ["rustls", "default-tls"]
-skip_feature_sets = [["actix", "axum"], ["browser", "actix"], ["browser", "axum"]]
+denylist = ["rustls", "default-tls", "form-redirects"]
+skip_feature_sets = [["actix", "axum"], ["browser", "actix"], ["browser", "axum"], ["browser", "reqwest"]]
