@@ -1369,8 +1369,7 @@ impl LeptosRoutes for &mut ServiceConfig {
     }
 }
 
-/// A helper to make it easier to use Axum extractors in server functions, with a
-/// simpler API than [`extract()`].
+/// A helper to make it easier to use Axum extractors in server functions.
 ///
 /// It is generic over some type `T` that implements [`FromRequest`] and can
 /// therefore be used in an extractor. The compiler can often infer this type.
@@ -1383,7 +1382,11 @@ impl LeptosRoutes for &mut ServiceConfig {
 /// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
 ///     use actix_web::web::Query;
 ///     use leptos_actix::*;
+///
 ///     let Query(data) = extract().await?;
+///
+///     // do something with the data
+///
 ///     Ok(data)
 /// }
 /// ```
