@@ -13,10 +13,14 @@ lto = true
 [dependencies]
 console_log = "1.0"
 console_error_panic_hook = "0.1"
-leptos = { path = "../../leptos", features = ["nightly"] }
-leptos_axum = { path = "../../integrations/axum", default-features = false, optional = true }
-leptos_meta = { path = "../../meta", features = ["nightly"] }
-leptos_router = { path = "../../router", features = ["nightly"] }
+#leptos = { version = "0.5",/leptos", features = ["nightly"] }
+#leptos_axum = { version = "0.5",/integrations/axum", default-features = false, optional = true }
+#leptos_meta = { version = "0.5",/meta", features = ["nightly"] }
+#leptos_router = { version = "0.5",/router", features = ["nightly"] }
+leptos = { version = "0.5", features = ["nightly"] }
+leptos_axum = { version = "0.5", default-features = false, optional = true }
+leptos_meta = { version = "0.5", features = ["nightly"] }
+leptos_router = { version = "0.5", features = ["nightly"] }
 log = "0.4"
 simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }

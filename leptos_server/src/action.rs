@@ -93,8 +93,8 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
-    pub fn dispatch(&self, input: impl Into<I>) {
-        self.0.with_value(|a| a.dispatch(input.into()))
+    pub fn dispatch(&self, input: I) {
+        self.0.with_value(|a| a.dispatch(input))
     }
 
     /// Create an [Action].

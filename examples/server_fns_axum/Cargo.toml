@@ -45,7 +45,6 @@ ssr = [
 	"dep:leptos_axum",
 	"dep:notify"
 ]
-notify = ["dep:notify"]
 
 [package.metadata.cargo-all-features]
 denylist = ["axum", "tower", "tower-http", "tokio", "leptos_axum"]

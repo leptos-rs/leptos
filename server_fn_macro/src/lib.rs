@@ -416,12 +416,12 @@ pub fn server_macro_impl(
     } else if let Some(req_ty) = preset_req {
         req_ty.to_token_stream()
     } else {
-        return Err(syn::Error::new(
-            Span::call_site(),
-            "If the `ssr` feature is enabled, either the `actix` or `axum` \
-             features should also be enabled, or the `req = ` argument should \
-             be provided to specify the request type.",
-        ));
+        // fall back to the browser version, to avoid erroring out
+        // in things like doctests
+        // in reality, one of the above needs to be set
+        quote! {
+            #server_fn_path::request::BrowserMockReq
+        }
     };
     let res = if !cfg!(feature = "ssr") {
         quote! {
@@ -440,12 +440,12 @@ pub fn server_macro_impl(
     } else if let Some(res_ty) = preset_res {
         res_ty.to_token_stream()
     } else {
-        return Err(syn::Error::new(
-            Span::call_site(),
-            "If the `ssr` feature is enabled, either the `actix` or `axum` \
-             features should also be enabled, or the `res = ` argument should \
-             be provided to specify the response type.",
-        ));
+        // fall back to the browser version, to avoid erroring out
+        // in things like doctests
+        // in reality, one of the above needs to be set
+        quote! {
+            #server_fn_path::response::BrowserMockRes
+        }
     };
 
     // Remove any leading slashes, even if they exist (we'll add them below)

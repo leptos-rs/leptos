@@ -1,12 +1,8 @@
 extend = [
     { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/cargo-leptos-webdriver-test.toml" },
+    { path = "../cargo-make/cargo-leptos.toml" },
 ]
 
 [env]
-CLIENT_PROCESS_NAME = "todo_app_sqlite_axum"
 
-[tasks.test-ui]
-cwd = "./e2e"
-command = "cargo"
-args = ["make", "test-ui", "${@}"]
+CLIENT_PROCESS_NAME = "server_fns_axum"

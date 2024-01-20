@@ -168,15 +168,12 @@ pub fn WithAnAction() -> impl IntoView {
         <button
             on:click=move |_| {
                 let text = input_ref.get().unwrap().value();
-                action.dispatch(text);
+                action.dispatch(text.into());
                 // note: technically, this `action` takes `AddRow` (the server fn type) as its
                 // argument
                 //
-                // however, `.dispatch()` takes `impl Into<I>`, and for any one-argument server
-                // functions, `From<_>` is implemented between the server function type and the
-                // type of this single argument
-                //
-                // so `action.dispatch(text)` means `action.dispatch(AddRow { text })`
+                // however, for any one-argument server functions, `From<_>` is implemented between
+                // the server function type and the type of this single argument
             }
         >
             Submit

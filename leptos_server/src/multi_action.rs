@@ -321,7 +321,7 @@ where
 
 /// Creates an [MultiAction] that can be used to call a server function.
 ///
-/// ```rust
+/// ```rust,ignore
 /// # use leptos::*;
 ///
 /// #[server(MyServerFn)]

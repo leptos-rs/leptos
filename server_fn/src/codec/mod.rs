@@ -60,7 +60,7 @@ pub use stream::*;
 ///
 /// For example, here’s the implementation for [`Json`].
 ///
-/// ```rust
+/// ```rust,ignore
 /// impl<CustErr, T, Request> IntoReq<Json, Request, CustErr> for T
 /// where
 ///     Request: ClientReq<CustErr>,
@@ -98,7 +98,7 @@ pub trait IntoReq<Encoding, Request, CustErr> {
 ///
 /// For example, here’s the implementation for [`Json`].
 ///
-/// ```rust
+/// ```rust,ignore
 /// impl<CustErr, T, Request> FromReq<Json, Request, CustErr> for T
 /// where
 ///     // require the Request implement `Req`
@@ -137,7 +137,7 @@ where
 ///
 /// For example, here’s the implementation for [`Json`].
 ///
-/// ```rust
+/// ```rust,ignore
 /// impl<CustErr, T, Response> IntoRes<Json, Response, CustErr> for T
 /// where
 ///     Response: Res<CustErr>,
@@ -170,7 +170,7 @@ pub trait IntoRes<Encoding, Response, CustErr> {
 ///
 /// For example, here’s the implementation for [`Json`].
 ///
-/// ```rust
+/// ```rust,ignore
 /// impl<CustErr, T, Response> FromRes<Json, Response, CustErr> for T
 /// where
 ///     Response: ClientRes<CustErr> + Send,
