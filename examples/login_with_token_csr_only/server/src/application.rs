@@ -1,38 +1,36 @@
 use mailparse::addrparse;
 use pwhash::bcrypt;
-use std::{collections::HashMap, str::FromStr, sync::RwLock};
+use std::{collections::HashMap, str::FromStr};
 use thiserror::Error;
 use uuid::Uuid;
 
 #[derive(Default)]
 pub struct AppState {
-    users: RwLock<HashMap<EmailAddress, Password>>,
-    tokens: RwLock<HashMap<Uuid, EmailAddress>>,
+    users: HashMap<EmailAddress, Password>,
+    tokens: HashMap<Uuid, EmailAddress>,
 }
 
 impl AppState {
     pub fn create_user(
-        &self,
+        &mut self,
         credentials: Credentials,
     ) -> Result<(), CreateUserError> {
         let Credentials { email, password } = credentials;
-        let user_exists = self.users.read().unwrap().get(&email).is_some();
+        let user_exists = self.users.get(&email).is_some();
         if user_exists {
             return Err(CreateUserError::UserExists);
         }
-        self.users.write().unwrap().insert(email, password);
+        self.users.insert(email, password);
         Ok(())
     }
 
     pub fn login(
-        &self,
+        &mut self,
         email: EmailAddress,
         password: &str,
     ) -> Result<Uuid, LoginError> {
         let valid_credentials = self
             .users
-            .read()
-            .unwrap()
             .get(&email)
             .map(|hashed_password| hashed_password.verify(password))
             .unwrap_or(false);
@@ -40,16 +38,16 @@ impl AppState {
             Err(LoginError::InvalidEmailOrPassword)
         } else {
             let token = Uuid::new_v4();
-            self.tokens.write().unwrap().insert(token, email);
+            self.tokens.insert(token, email);
             Ok(token)
         }
     }
 
-    pub fn logout(&self, token: &str) -> Result<(), LogoutError> {
+    pub fn logout(&mut self, token: &str) -> Result<(), LogoutError> {
         let token = token
             .parse::<Uuid>()
             .map_err(|_| LogoutError::NotLoggedIn)?;
-        self.tokens.write().unwrap().remove(&token);
+        self.tokens.remove(&token);
         Ok(())
     }
 
@@ -62,8 +60,6 @@ impl AppState {
             .map_err(|_| AuthError::NotAuthorized)
             .and_then(|token| {
                 self.tokens
-                    .read()
-                    .unwrap()
                     .get(&token)
                     .cloned()
                     .map(|email| CurrentUser { email, token })

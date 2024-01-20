@@ -1,27 +1,18 @@
-use cfg_if::cfg_if;
-
 pub mod auth;
 pub mod error_template;
 pub mod errors;
+#[cfg(feature = "ssr")]
 pub mod fallback;
+#[cfg(feature = "ssr")]
 pub mod state;
 pub mod todo;
 
-// Needs to be in lib.rs AFAIK because wasm-bindgen needs us to be compiling a lib. I may be wrong.
-cfg_if! {
-    if #[cfg(feature = "hydrate")] {
-        use wasm_bindgen::prelude::wasm_bindgen;
-        use crate::todo::*;
-        use leptos::view;
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn hydrate() {
+    use crate::todo::*;
+    _ = console_log::init_with_level(log::Level::Debug);
+    console_error_panic_hook::set_once();
 
-        #[wasm_bindgen]
-        pub fn hydrate() {
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
-
-            leptos::mount_to_body(|| {
-                view! { <TodoApp/> }
-            });
-        }
-    }
+    leptos::mount_to_body(TodoApp);
 }

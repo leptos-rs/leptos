@@ -15,7 +15,6 @@ console_log = "1.0.0"
 console_error_panic_hook = "0.1.7"
 serde = { version = "1.0.152", features = ["derive"] }
 futures = "0.3.25"
-cfg-if = "1.0.0"
 leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_meta = { path = "../../meta", features = ["nightly"] }

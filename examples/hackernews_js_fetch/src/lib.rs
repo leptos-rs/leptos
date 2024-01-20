@@ -1,9 +1,9 @@
-use cfg_if::cfg_if;
 use leptos::{component, view, IntoView};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
 pub mod error_template;
+#[cfg(feature = "ssr")]
 pub mod fallback;
 mod routes;
 use routes::{nav::*, stories::*, story::*, users::*};
@@ -29,25 +29,22 @@ pub fn App() -> impl IntoView {
     }
 }
 
-cfg_if! {
-    if #[cfg(feature = "hydrate")] {
-        #[wasm_bindgen]
-        pub fn hydrate() {
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
-            leptos::mount_to_body(move || {
-                view! { <App/> }
-            });
-        }
-    } else if #[cfg(feature = "ssr")] {
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen]
+pub fn hydrate() {
+    _ = console_log::init_with_level(log::Level::Debug);
+    console_error_panic_hook::set_once();
+    leptos::mount_to_body(App);
+}
 
-    use axum::{
-        Router,
-        routing::post
-    };
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+#[cfg(feature = "ssr")]
+mod ssr_imports {
+    use crate::App;
+    use axum::{routing::post, Router};
     use leptos::*;
+    use leptos_axum::{generate_route_list, LeptosRoutes};
     use log::{info, Level};
+    use wasm_bindgen::prelude::wasm_bindgen;
 
     #[wasm_bindgen]
     pub struct Handler(axum_js_fetch::App);
@@ -55,17 +52,20 @@ cfg_if! {
     #[wasm_bindgen]
     impl Handler {
         pub async fn new() -> Self {
-            console_log::init_with_level(Level::Debug);
+            _ = console_log::init_with_level(Level::Debug);
             console_error_panic_hook::set_once();
 
-            let leptos_options = LeptosOptions::builder().output_name("client").site_pkg_dir("pkg").build();
+            let leptos_options = LeptosOptions::builder()
+                .output_name("client")
+                .site_pkg_dir("pkg")
+                .build();
             let routes = generate_route_list(App);
 
             // build our application with a route
             let app: axum::Router<(), axum::body::Body> = Router::new()
-            .leptos_routes(&leptos_options, routes, || view! { <App/> } )
-            .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-            .with_state(leptos_options);
+                .leptos_routes(&leptos_options, routes, || view! { <App/> })
+                .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
+                .with_state(leptos_options);
 
             info!("creating handler instance");
 
@@ -76,5 +76,4 @@ cfg_if! {
             self.0.serve(req).await
         }
     }
-}
 }

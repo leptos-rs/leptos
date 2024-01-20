@@ -1,8 +1,8 @@
-use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
     create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
     spawn_local, store_value, untrack, ReadSignal, RwSignal, StoredValue,
 };
+use server_fn::{ServerFn, ServerFnError};
 use std::{future::Future, pin::Pin, rc::Rc};
 
 /// An action that synchronizes multiple imperative `async` calls to the reactive system,
@@ -133,13 +133,8 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
-        let prefix = T::prefix();
         self.0.update_value(|a| {
-            a.url = if prefix.is_empty() {
-                Some(T::url().to_string())
-            } else {
-                Some(prefix.to_string() + "/" + T::url())
-            };
+            a.url = Some(T::url().to_string());
         });
 
         self
@@ -326,7 +321,7 @@ where
 
 /// Creates an [MultiAction] that can be used to call a server function.
 ///
-/// ```rust
+/// ```rust,ignore
 /// # use leptos::*;
 ///
 /// #[server(MyServerFn)]
@@ -343,13 +338,13 @@ where
     tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn create_server_multi_action<S>(
-) -> MultiAction<S, Result<S::Output, ServerFnError>>
+) -> MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>
 where
     S: Clone + ServerFn,
 {
     #[cfg(feature = "ssr")]
-    let c = move |args: &S| S::call_fn(args.clone(), ());
+    let c = move |args: &S| S::run_body(args.clone());
     #[cfg(not(feature = "ssr"))]
-    let c = move |args: &S| S::call_fn_client(args.clone(), ());
+    let c = move |args: &S| S::run_on_client(args.clone());
     create_multi_action(c).using_server_fn::<S>()
 }

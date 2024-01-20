@@ -1,9 +1,9 @@
 use crate::error_template::ErrorTemplate;
-use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
+use server_fn::codec::SerdeLite;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
@@ -13,22 +13,24 @@ pub struct Todo {
     completed: bool,
 }
 
-cfg_if! {
-    if #[cfg(feature = "ssr")] {
-        use sqlx::{Connection, SqliteConnection};
-        // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+#[cfg(feature = "ssr")]
+pub mod ssr {
+    // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+    use leptos::ServerFnError;
+    use sqlx::{Connection, SqliteConnection};
 
-        pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-            Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
-        }
+    pub async fn db() -> Result<SqliteConnection, ServerFnError> {
+        Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
     }
 }
 
-#[server(GetTodos, "/api")]
+#[server]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
+    use self::ssr::*;
+    use http::request::Parts;
+
     // this is just an example of how to access server context injected in the handlers
-    // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>();
+    let req_parts = use_context::<Parts>();
 
     if let Some(req_parts) = req_parts {
         println!("Uri = {:?}", req_parts.uri);
@@ -45,25 +47,17 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
         todos.push(row);
     }
 
-    // Add a random header(because why not)
-    // let mut res_headers = HeaderMap::new();
-    // res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
-
-    // let res_parts = leptos_axum::ResponseParts {
-    //     headers: res_headers,
-    //     status: Some(StatusCode::IM_A_TEAPOT),
-    // };
-
-    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>();
-    // if let Some(res_options) = res_options_outer {
-    //     res_options.overwrite(res_parts).await;
-    // }
+    // Lines below show how to set status code and headers on the response
+    // let resp = expect_context::<ResponseOptions>();
+    // resp.set_status(StatusCode::IM_A_TEAPOT);
+    // resp.insert_header(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
 
     Ok(todos)
 }
 
-#[server(AddTodo, "/api")]
+#[server]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
+    use self::ssr::*;
     let mut conn = db().await?;
 
     // fake API delay
@@ -79,9 +73,9 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
-// The struct name and path prefix arguments are optional.
-#[server]
+#[server(output = SerdeLite)]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
+    use self::ssr::*;
     let mut conn = db().await?;
 
     Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
@@ -96,7 +90,6 @@ pub fn TodoApp() -> impl IntoView {
     //let id = use_context::<String>();
     provide_meta_context();
     view! {
-
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
         <Router>

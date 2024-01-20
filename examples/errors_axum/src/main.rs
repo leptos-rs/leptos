@@ -1,41 +1,39 @@
-use cfg_if::cfg_if;
-
-cfg_if! { if #[cfg(feature = "ssr")] {
-    use crate::fallback::file_and_error_handler;
-    use crate::landing::*;
-    use axum::body::Body as AxumBody;
-    use axum::{
-        extract::{State, Path},
+#[cfg(feature = "ssr")]
+mod ssr_imports {
+    pub use axum::{
+        body::Body as AxumBody,
+        extract::{Path, State},
         http::Request,
         response::{IntoResponse, Response},
-        routing::{get, post},
+        routing::get,
         Router,
     };
-    use errors_axum::*;
-    use leptos::{logging::log, *};
-    use leptos_axum::{generate_route_list, LeptosRoutes};
-}}
+    pub use errors_axum::{fallback::*, landing::App};
+    pub use leptos::{logging::log, *};
+    pub use leptos_axum::{generate_route_list, LeptosRoutes};
 
-//Define a handler to test extractor with state
-#[cfg(feature = "ssr")]
-async fn custom_handler(
-    Path(id): Path<String>,
-    State(options): State<LeptosOptions>,
-    req: Request<AxumBody>,
-) -> Response {
-    let handler = leptos_axum::render_app_to_stream_with_context(
-        options.clone(),
-        move || {
-            provide_context(id.clone());
-        },
-        App,
-    );
-    handler(req).await.into_response()
+    // This custom handler lets us provide Axum State via context
+    pub async fn custom_handler(
+        Path(id): Path<String>,
+        State(options): State<LeptosOptions>,
+        req: Request<AxumBody>,
+    ) -> Response {
+        let handler = leptos_axum::render_app_to_stream_with_context(
+            options.clone(),
+            move || {
+                provide_context(id.clone());
+            },
+            App,
+        );
+        handler(req).await.into_response()
+    }
 }
 
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
+    use ssr_imports::*;
+
     simple_logger::init_with_level(log::Level::Debug)
         .expect("couldn't initialize logging");
 
@@ -52,7 +50,6 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
         .leptos_routes(&leptos_options, routes, App)
         .fallback(file_and_error_handler)
@@ -61,8 +58,8 @@ async fn main() {
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
     log!("listening on http://{}", &addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }
@@ -71,5 +68,5 @@ async fn main() {
 #[cfg(not(feature = "ssr"))]
 pub fn main() {
     // This example cannot be built as a trunk standalone CSR-only app.
-    //  The server is needed to demonstrate the error statuses.
+    // The server is needed to demonstrate the error statuses.
 }

@@ -1,5 +1,5 @@
 [package]
-name = "todo_app_sqlite_viz"
+name = "server_fns_axum"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,48 +7,52 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-console_log = "1.0.0"
-console_error_panic_hook = "0.1.7"
-futures = "0.3.25"
-cfg-if = "1.0.0"
-leptos = { path = "../../leptos" }
-leptos_viz = { path = "../../integrations/viz", optional = true }
+console_log = "1.0"
+console_error_panic_hook = "0.1"
+futures = "0.3"
+http = "1.0"
+leptos = { path = "../../leptos", features = ["nightly"] }
+leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_router = { path = "../../router", features = ["nightly"] }
-leptos_reactive = { path = "../../leptos_reactive", features = ["nightly"] }
-log = "0.4.17"
-simple_logger = "4.0.0"
+server_fn = { path = "../../server_fn", features = ["serde-lite", "rkyv", "multipart" ]}
+log = "0.4"
+simple_logger = "4.0"
 serde = { version = "1", features = ["derive"] }
-viz = { version = "0.4.8", features = ["serve"], optional = true }
-tokio = { version = "1.25.0", features = ["full"], optional = true }
-http = { version = "0.2.11" }
-sqlx = { version = "0.6.2", features = [
-  "runtime-tokio-rustls",
-  "sqlite",
-], optional = true }
-thiserror = "1.0.38"
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs", "tracing", "trace"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+thiserror = "1.0"
 wasm-bindgen = "0.2"
+serde_toml = "0.0.1"
+toml = "0.8.8"
+web-sys = { version = "0.3.67", features = ["FileList", "File"] }
+strum = { version = "0.25.0", features = ["strum_macros", "derive"] }
+notify = { version = "6.1.1", optional = true }
+pin-project-lite = "0.2.13"
 
 [features]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-  "dep:viz",
-  "dep:tokio",
-  "dep:sqlx",
-  "leptos/ssr",
-  "leptos_meta/ssr",
-  "leptos_router/ssr",
-  "dep:leptos_viz",
+	"dep:axum",
+	"dep:tower",
+	"dep:tower-http",
+	"dep:tokio",
+	"leptos/ssr",
+	"leptos_meta/ssr",
+	"leptos_router/ssr",
+	"dep:leptos_axum",
+	"dep:notify"
 ]
 
 [package.metadata.cargo-all-features]
-denylist = ["viz", "tokio", "sqlx", "leptos_viz"]
+denylist = ["axum", "tower", "tower-http", "tokio", "leptos_axum"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
-output-name = "todo_app_sqlite_viz"
+output-name = "server_fns_axum"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
@@ -63,7 +67,8 @@ site-addr = "127.0.0.1:3000"
 # The port to use for automatic reload monitoring
 reload-port = 3001
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
-end2end-cmd = "npx playwright test"
+end2end-cmd = "cargo make test-ui"
+end2end-dir = "e2e"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
 # Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head

@@ -1,5 +1,4 @@
 use crate::errors::TodoAppError;
-use cfg_if::cfg_if;
 use leptos::{Errors, *};
 #[cfg(feature = "ssr")]
 use leptos_axum::ResponseOptions;
@@ -29,13 +28,12 @@ pub fn ErrorTemplate(
 
     // Only the response code for the first error is actually sent from the server
     // this may be customized by the specific application
-    cfg_if! {
-      if #[cfg(feature="ssr")]{
+    #[cfg(feature = "ssr")]
+    {
         let response = use_context::<ResponseOptions>();
-        if let Some(response) = response{
-          response.set_status(errors[0].status_code());
+        if let Some(response) = response {
+            response.set_status(errors[0].status_code());
         }
-      }
     }
 
     view! {

@@ -1,8 +1,8 @@
-#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
-//! This crate contains the default implementation of the #[macro@crate::server] macro without a context from the server. See the [server_fn_macro] crate for more information.
 #![forbid(unsafe_code)]
-// to prevent warnings from popping up when a nightly feature is stabilized
-#![allow(stable_features)]
+#![deny(missing_docs)]
+
+//! This crate contains the default implementation of the #[macro@crate::server] macro without additional context from the server.
+//! See the [server_fn_macro] crate for more information.
 
 use proc_macro::TokenStream;
 use server_fn_macro::server_macro_impl;
@@ -10,58 +10,72 @@ use syn::__private::ToTokens;
 
 /// Declares that a function is a [server function](https://docs.rs/server_fn/).
 /// This means that its body will only run on the server, i.e., when the `ssr`
-/// feature is enabled.
+/// feature is enabled on this crate.
 ///
-/// You can specify one, two, three, or four arguments to the server function:
-/// 1. **Required**: A type name that will be used to identify and register the server function
-///   (e.g., `MyServerFn`).
-/// 2. *Optional*: A URL prefix at which the function will be mounted when it’s registered
-///   (e.g., `"/api"`). Defaults to `"/"`.
-/// 3. *Optional*: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
-/// 4. *Optional*: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
-///
+/// ## Usage
 /// ```rust,ignore
-/// // will generate a server function at `/api-prefix/hello`
-/// #[server(MyServerFnType, "/api-prefix", "Url", "hello")]
-/// ```
-///
-/// The server function itself can take any number of arguments, each of which should be serializable
-/// and deserializable with `serde`.
-///
-/// ```ignore
-/// # use server_fn::*; use serde::{Serialize, Deserialize};
-/// # #[derive(Serialize, Deserialize)]
-/// # pub struct Post { }
-/// #[server(ReadPosts, "/api")]
-/// pub async fn read_posts(how_many: u8, query: String) -> Result<Vec<Post>, ServerFnError> {
-///   // do some work on the server to access the database
-///   todo!()
+/// #[server]
+/// pub async fn blog_posts(
+///     category: String,
+/// ) -> Result<Vec<BlogPost>, ServerFnError> {
+///     let posts = load_posts(&category).await?;
+///     // maybe do some other work
+///     Ok(posts)
 /// }
 /// ```
 ///
-/// Note the following:
-/// - **Server functions must be `async`.** Even if the work being done inside the function body
-///   can run synchronously on the server, from the client’s perspective it involves an asynchronous
-///   function call.
-/// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
-///   inside the function body can’t fail, the processes of serialization/deserialization and the
-///   network call are fallible.
-/// - **Return types must implement [Serialize](https://docs.rs/serde/latest/serde/trait.Serialize.html).**
-///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
-///   need to deserialize the result to return it to the client.
-/// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
-///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
-///   They are serialized as an `application/x-www-form-urlencoded`
-///   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
-///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
+/// ## Named Arguments
+///
+/// You can any combination of the following named arguments:
+/// - `name`: sets the identifier for the server function’s type, which is a struct created
+///    to hold the arguments (defaults to the function identifier in PascalCase)
+/// - `prefix`: a prefix at which the server function handler will be mounted (defaults to `/api`)
+/// - `endpoint`: specifies the exact path at which the server function handler will be mounted,
+///   relative to the prefix (defaults to the function name followed by unique hash)
+/// - `input`: the encoding for the arguments (defaults to `PostUrl`)
+/// - `output`: the encoding for the response (defaults to `Json`)
+/// - `client`: a custom `Client` implementation that will be used for this server fn
+/// - `encoding`: (legacy, may be deprecated in future) specifies the encoding, which may be one
+///   of the following (not case sensitive)
+///     - `"Url"`: `POST` request with URL-encoded arguments and JSON response
+///     - `"GetUrl"`: `GET` request with URL-encoded arguments and JSON response
+///     - `"Cbor"`: `POST` request with CBOR-encoded arguments and response
+///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response
+/// - `req` and `res` specify the HTTP request and response types to be used on the server (these
+///   should usually only be necessary if you are integrating with a server other than Actix/Axum)
+/// ```rust,ignore
+/// #[server(
+///   name = SomeStructName,
+///   prefix = "/my_api",
+///   endpoint = "my_fn",
+///   input = Cbor,
+///   output = Json
+/// )]
+/// pub async fn my_wacky_server_fn(input: Vec<String>) -> Result<usize, ServerFnError> {
+///   todo!()
+/// }
+///
+/// // expands to
+/// #[derive(Deserialize, Serialize)]
+/// struct SomeStructName {
+///   input: Vec<String>
+/// }
+///
+/// impl ServerFn for SomeStructName {
+///   const PATH: &'static str = "/my_api/my_fn";
+///
+///   // etc.
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
-        syn::parse_quote!(server_fn::default::DefaultServerFnTraitObj),
+        Some(syn::parse_quote!(server_fns)),
+        "/api",
         None,
-        Some(syn::parse_quote!(server_fn)),
+        None,
     ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),

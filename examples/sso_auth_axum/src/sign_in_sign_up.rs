@@ -1,23 +1,23 @@
 use super::*;
 
-cfg_if! {
-    if #[cfg(feature="ssr")]{
-        use oauth2::{
-            AuthorizationCode,
-            TokenResponse,
-            reqwest::async_http_client,
-            CsrfToken,
-            Scope,
-        };
-        use serde_json::Value;
-        use crate::{
-            auth::{User,SqlCsrfToken},
-            state::AppState
-        };
-    }
+#[cfg(feature = "ssr")]
+pub mod ssr_imports {
+    pub use crate::{
+        auth::{ssr_imports::SqlCsrfToken, User},
+        state::AppState,
+    };
+    pub use oauth2::{
+        reqwest::async_http_client, AuthorizationCode, CsrfToken, Scope,
+        TokenResponse,
+    };
+    pub use serde_json::Value;
 }
+
 #[server]
 pub async fn google_sso() -> Result<String, ServerFnError> {
+    use crate::ssr_imports::*;
+    use ssr_imports::*;
+
     let oauth_client = expect_context::<AppState>().client;
     let pool = pool()?;
 
@@ -80,6 +80,9 @@ pub async fn handle_g_auth_redirect(
     provided_csrf: String,
     code: String,
 ) -> Result<(String, u64), ServerFnError> {
+    use crate::ssr_imports::*;
+    use ssr_imports::*;
+
     let oauth_client = expect_context::<AppState>().client;
     let pool = pool()?;
     let auth_session = auth()?;
@@ -90,9 +93,7 @@ pub async fn handle_g_auth_redirect(
     .bind(provided_csrf)
     .fetch_one(&pool)
     .await
-    .map_err(|err| {
-        ServerFnError::ServerError(format!("CSRF_TOKEN error : {err:?}"))
-    })?;
+    .map_err(|err| ServerFnError::new(format!("CSRF_TOKEN error : {err:?}")))?;
 
     let token_response = oauth_client
         .exchange_code(AuthorizationCode::new(code.clone()))
@@ -118,7 +119,7 @@ pub async fn handle_g_auth_redirect(
             .expect("email to parse to string")
             .to_string()
     } else {
-        return Err(ServerFnError::ServerError(format!(
+        return Err(ServerFnError::new(format!(
             "Response from google has status of {}",
             response.status()
         )));
@@ -193,6 +194,8 @@ pub fn HandleGAuth() -> impl IntoView {
 
 #[server]
 pub async fn logout() -> Result<(), ServerFnError> {
+    use crate::ssr_imports::*;
+
     let auth = auth()?;
     auth.logout_user();
     leptos_axum::redirect("/");

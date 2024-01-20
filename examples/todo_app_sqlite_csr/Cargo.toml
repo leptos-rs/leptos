@@ -7,27 +7,27 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-console_log = "1.0.0"
-console_error_panic_hook = "0.1.7"
-futures = "0.3.25"
+console_log = "1.0"
+console_error_panic_hook = "0.1"
+futures = "0.3"
 leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_router = { path = "../../router", features = ["nightly"] }
 leptos_integration_utils = { path = "../../integrations/utils", optional = true }
-log = "0.4.17"
-simple_logger = "4.0.0"
+log = "0.4"
+simple_logger = "4.0"
 serde = { version = "1", features = ["derive"] }
-axum = { version = "0.6.1", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.4", features = ["fs"], optional = true }
-tokio = { version = "1.22.0", features = ["full"], optional = true }
-http = { version = "0.2.11" }
-sqlx = { version = "0.6.2", features = [
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+http = { version = "1.0" }
+sqlx = { version = "0.7", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
 ], optional = true }
-thiserror = "1.0.38"
+thiserror = "1.0"
 wasm-bindgen = "0.2"
 
 [features]
