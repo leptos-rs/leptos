@@ -1,7 +1,7 @@
 #[cfg(feature = "ssr")]
 use crate::{RouteListing, RouterIntegrationContext, ServerIntegration};
 #[cfg(feature = "ssr")]
-use leptos::{provide_context, IntoView, LeptosOptions};
+use leptos::{create_runtime, provide_context, IntoView, LeptosOptions};
 #[cfg(feature = "ssr")]
 use leptos_meta::MetaContext;
 use linear_map::LinearMap;
@@ -204,9 +204,8 @@ impl ResolvedStaticPath {
         IV: IntoView + 'static,
     {
         let html = self.build(options, app_fn, additional_context).await;
-        let path = Path::new(&options.site_root)
-            .join(format!("{}.static.html", self.0.trim_start_matches('/')));
-
+        let file_path = static_file_path(options, &self.0);
+        let path = Path::new(&file_path);
         if let Some(path) = path.parent() {
             std::fs::create_dir_all(path)?
         }
@@ -247,12 +246,15 @@ where
     IV: IntoView + 'static,
 {
     let mut static_data: HashMap<&str, StaticParamsMap> = HashMap::new();
+    let runtime = create_runtime();
+    additional_context();
     for (key, value) in static_data_map {
         match value {
             Some(value) => static_data.insert(key, value.as_ref()().await),
             None => static_data.insert(key, StaticParamsMap::default()),
         };
     }
+    runtime.dispose();
     let static_routes = routes
         .iter()
         .filter(|route| route.static_mode().is_some())
@@ -275,33 +277,6 @@ where
         }
     }
     Ok(())
-}
-
-#[doc(hidden)]
-#[cfg(feature = "ssr")]
-pub fn purge_dir_of_static_files(path: PathBuf) -> Result<(), std::io::Error> {
-    for entry in path.read_dir()? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            purge_dir_of_static_files(path)?;
-        } else if path.is_file() {
-            if let Some(name) = path.file_name().and_then(|i| i.to_str()) {
-                if name.ends_with(".static.html") {
-                    std::fs::remove_file(path)?;
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Purge all statically generated route files
-#[cfg(feature = "ssr")]
-pub fn purge_all_static_routes<IV>(
-    options: &LeptosOptions,
-) -> Result<(), std::io::Error> {
-    purge_dir_of_static_files(Path::new(&options.site_root).to_path_buf())
 }
 
 pub type StaticData = Arc<StaticDataFn>;
@@ -350,17 +325,20 @@ pub enum StaticResponse {
 #[inline(always)]
 #[cfg(feature = "ssr")]
 pub fn static_file_path(options: &LeptosOptions, path: &str) -> String {
-    format!("{}{}.static.html", options.site_root, path)
+    let trimmed_path = path.trim_start_matches('/');
+    let path = if trimmed_path.is_empty() {
+        "index"
+    } else {
+        trimmed_path
+    };
+    format!("{}/{}.html", options.site_root, path)
 }
 
 #[doc(hidden)]
 #[inline(always)]
 #[cfg(feature = "ssr")]
 pub fn not_found_path(options: &LeptosOptions) -> String {
-    format!(
-        "{}{}.static.html",
-        options.site_root, options.not_found_path
-    )
+    format!("{}{}.html", options.site_root, options.not_found_path)
 }
 
 #[doc(hidden)]
@@ -443,7 +421,6 @@ where
     let body = ResolvedStaticPath(path.into())
         .build(options, app_fn, additional_context)
         .await;
-    let path = Path::new(&options.site_root)
-        .join(format!("{}.static.html", path.trim_start_matches('/')));
+    let path = Path::new(&static_file_path(options, path)).into();
     StaticResponse::WriteFile { body, path }
 }
