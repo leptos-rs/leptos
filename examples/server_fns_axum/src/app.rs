@@ -1,10 +1,16 @@
 use futures::StreamExt;
+use http::Method;
 use leptos::{html::Input, *};
 use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
 use leptos_router::{ActionForm, Route, Router, Routes};
-use server_fn::codec::{
-    GetUrl, MultipartData, MultipartFormData, Rkyv, SerdeLite, StreamingText,
-    TextStream,
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use server_fn::{
+    codec::{
+        Encoding, FromReq, FromRes, GetUrl, IntoReq, IntoRes, MultipartData,
+        MultipartFormData, Rkyv, SerdeLite, StreamingText, TextStream,
+    },
+    request::{ClientReq, Req},
+    response::{ClientRes, Res},
 };
 #[cfg(feature = "ssr")]
 use std::sync::{
@@ -50,6 +56,7 @@ pub fn HomePage() -> impl IntoView {
         <RkyvExample/>
         <FileUpload/>
         <FileWatcher/>
+        <CustomEncoding/>
     }
 }
 
@@ -501,5 +508,127 @@ pub fn CustomErrorTypes() -> impl IntoView {
         <p>
             {move || format!("{:?}", result.get())}
         </p>
+    }
+}
+
+/// Server function encodings are just types that implement a few traits.
+/// This means that you can implement your own encodings, by implementing those traits!
+///
+/// Here, we'll create a custom encoding that serializes and deserializes the server fn
+/// using TOML. Why would you ever want to do this? I don't know, but you can!
+pub struct Toml;
+
+/// A newtype wrapper around server fn data that will be TOML-encoded.
+///
+/// This is needed because of Rust rules around implementing foreign traits for foreign types.
+/// It will be fed into the `custom = ` argument to the server fn below.
+#[derive(Serialize, Deserialize)]
+pub struct TomlEncoded<T>(T);
+
+impl Encoding for Toml {
+    const CONTENT_TYPE: &'static str = "application/toml";
+    const METHOD: Method = Method::POST;
+}
+
+impl<T, Request, Err> IntoReq<Toml, Request, Err> for TomlEncoded<T>
+where
+    Request: ClientReq<Err>,
+    T: Serialize,
+{
+    fn into_req(
+        self,
+        path: &str,
+        accepts: &str,
+    ) -> Result<Request, ServerFnError<Err>> {
+        let data = toml::to_string(&self.0)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+        Request::try_new_post(path, Toml::CONTENT_TYPE, accepts, data)
+    }
+}
+
+impl<T, Request, Err> FromReq<Toml, Request, Err> for TomlEncoded<T>
+where
+    Request: Req<Err> + Send,
+    T: DeserializeOwned,
+{
+    async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
+        let string_data = req.try_into_string().await?;
+        toml::from_str::<T>(&string_data)
+            .map(TomlEncoded)
+            .map_err(|e| ServerFnError::Args(e.to_string()))
+    }
+}
+
+impl<T, Response, Err> IntoRes<Toml, Response, Err> for TomlEncoded<T>
+where
+    Response: Res<Err>,
+    T: Serialize + Send,
+{
+    async fn into_res(self) -> Result<Response, ServerFnError<Err>> {
+        let data = toml::to_string(&self.0)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+        Response::try_from_string(Toml::CONTENT_TYPE, data)
+    }
+}
+
+impl<T, Response, Err> FromRes<Toml, Response, Err> for TomlEncoded<T>
+where
+    Response: ClientRes<Err> + Send,
+    T: DeserializeOwned,
+{
+    async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
+        let data = res.try_into_string().await?;
+        toml::from_str(&data)
+            .map(TomlEncoded)
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WhyNotResult {
+    original: String,
+    modified: String,
+}
+
+#[server(
+    input = Toml,
+    output = Toml,
+    custom = TomlEncoded
+)]
+pub async fn why_not(
+    original: String,
+    addition: String,
+) -> Result<TomlEncoded<WhyNotResult>, ServerFnError> {
+    // insert a simulated wait
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    Ok(TomlEncoded(WhyNotResult {
+        modified: format!("{original}{addition}"),
+        original,
+    }))
+}
+
+#[component]
+pub fn CustomEncoding() -> impl IntoView {
+    let input_ref = NodeRef::<Input>::new();
+    let (result, set_result) = create_signal("foo".to_string());
+
+    view! {
+        <h3>Custom encodings</h3>
+        <p>
+            "This example creates a custom encoding that sends server fn data using TOML. Why? Well... why not?"
+        </p>
+        <input node_ref=input_ref placeholder="Type something here."/>
+        <button
+            on:click=move |_| {
+                let value = input_ref.get().unwrap().value();
+                spawn_local(async move {
+                let new_value = why_not(value, ", but in TOML!!!".to_string()).await.unwrap();
+                    set_result(new_value.0.modified);
+                });
+            }
+        >
+            Submit
+        </button>
+        <p>{result}</p>
     }
 }
