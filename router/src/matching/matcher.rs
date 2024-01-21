@@ -45,14 +45,7 @@ impl Matcher {
     }
 
     #[doc(hidden)]
-    pub fn test(&self, mut location: &str) -> Option<PathMatch> {
-        // URL root paths "/" and "" are equivalent.
-        // Web servers (at least, Axum and Actix-Web) will send us a path of "/"
-        // even if we've routed "". Always treat these as equivalent:
-        if location == "/" && self.len == 0 {
-            location = ""
-        }
-
+    pub fn test(&self, location: &str) -> Option<PathMatch> {
         let loc_segments = get_segments(location);
 
         let loc_len = loc_segments.len();
@@ -112,6 +105,12 @@ impl Matcher {
 }
 
 fn get_segments(pattern: &str) -> Vec<&str> {
+    // URL root paths "/" and "" are equivalent.
+    // Web servers (at least, Axum and Actix-Web) will send us a path of "/"
+    // even if we've routed "". Always treat these as equivalent:
+    if pattern == "/" {
+        return vec![];
+    }
     pattern
         .split('/')
         .enumerate()

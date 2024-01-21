@@ -14,7 +14,7 @@ fn trailing_slashes_match_exactly() {
 
     let matcher = Matcher::new("/");
     assert_matches(&matcher, "/");
-    assert_no_match(&matcher, "");
+    assert_matches(&matcher, "");
 
     let matcher = Matcher::new("");
     assert_matches(&matcher, "");
