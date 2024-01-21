@@ -34,5 +34,5 @@ tokio = { version = "1", features = ["net"] }
 [features]
 nonce = ["leptos/nonce"]
 wasm = []
-default = ["tokio/full", "axum/macros"]
+default = ["tokio/fs", "tokio/sync"]
 experimental-islands = ["leptos_integration_utils/experimental-islands"]
