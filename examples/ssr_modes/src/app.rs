@@ -9,13 +9,12 @@ use thiserror::Error;
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
-    let fallback = || view! { "Page not found." }.into_view();
 
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
         <Title text="Welcome to Leptos"/>
 
-        <Router fallback>
+        <Router>
             <main>
                 <Routes>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>

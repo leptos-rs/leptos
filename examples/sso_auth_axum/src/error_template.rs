@@ -14,7 +14,6 @@ pub fn error_template(errors: RwSignal<Errors>) -> View {
           children= move | (_, error)| {
           let error_string = error.to_string();
             view! {
-
               <p>"Error: " {error_string}</p>
             }
           }

@@ -20,7 +20,7 @@ pub struct ConfFile {
 }
 
 /// This struct serves as a convenient place to store details used for configuring Leptos.
-/// It's used in our actix, axum, and viz integrations to generate the
+/// It's used in our actix and axum integrations to generate the
 /// correct path for WASM, JS, and Websockets, as well as other configuration tasks.
 /// It shares keys with cargo-leptos, to allow for easy interoperability
 #[derive(TypedBuilder, Debug, Clone, serde::Deserialize)]

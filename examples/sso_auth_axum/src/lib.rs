@@ -1,36 +1,30 @@
-use cfg_if::cfg_if;
-
 pub mod auth;
 pub mod error_template;
+#[cfg(feature = "ssr")]
 pub mod fallback;
 pub mod sign_in_sign_up;
+#[cfg(feature = "ssr")]
 pub mod state;
 use leptos::{leptos_dom::helpers::TimeoutHandle, *};
 use leptos_meta::*;
 use leptos_router::*;
 use sign_in_sign_up::*;
 
-cfg_if! {
-    if #[cfg(feature = "ssr")] {
-        use crate::{
-            state::AppState,
-            auth::{AuthSession,User,SqlRefreshToken}
-        };
-        use oauth2::{
-            reqwest::async_http_client,
-            TokenResponse
-        };
-        use sqlx::SqlitePool;
+#[cfg(feature = "ssr")]
+mod ssr_imports {
+    pub use crate::auth::ssr_imports::{AuthSession, SqlRefreshToken};
+    pub use leptos::{use_context, ServerFnError};
+    pub use oauth2::{reqwest::async_http_client, TokenResponse};
+    pub use sqlx::SqlitePool;
 
-        pub fn pool() -> Result<SqlitePool, ServerFnError> {
-           use_context::<SqlitePool>()
-                .ok_or_else(|| ServerFnError::ServerError("Pool missing.".into()))
-        }
+    pub fn pool() -> Result<SqlitePool, ServerFnError> {
+        use_context::<SqlitePool>()
+            .ok_or_else(|| ServerFnError::new("Pool missing."))
+    }
 
-        pub fn auth() -> Result<AuthSession, ServerFnError> {
-            use_context::<AuthSession>()
-                .ok_or_else(|| ServerFnError::ServerError("Auth session missing.".into()))
-        }
+    pub fn auth() -> Result<AuthSession, ServerFnError> {
+        use_context::<AuthSession>()
+            .ok_or_else(|| ServerFnError::new("Auth session missing."))
     }
 }
 
@@ -40,11 +34,14 @@ pub struct Email(RwSignal<Option<String>>);
 pub struct ExpiresIn(RwSignal<u64>);
 #[server]
 pub async fn refresh_token(email: String) -> Result<u64, ServerFnError> {
+    use crate::{auth::User, state::AppState};
+    use ssr_imports::*;
+
     let pool = pool()?;
     let oauth_client = expect_context::<AppState>().client;
     let user = User::get_from_email(&email, &pool)
         .await
-        .ok_or(ServerFnError::ServerError("User not found".to_string()))?;
+        .ok_or(ServerFnError::new("User not found"))?;
 
     let refresh_secret = sqlx::query_as::<_, SqlRefreshToken>(
         "SELECT secret FROM google_refresh_tokens WHERE user_id = ?",
@@ -77,6 +74,7 @@ pub async fn refresh_token(email: String) -> Result<u64, ServerFnError> {
     .await?;
     Ok(expires_in)
 }
+
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -143,20 +141,11 @@ pub fn App() -> impl IntoView {
     }
 }
 
-// Needs to be in lib.rs AFAIK because wasm-bindgen needs us to be compiling a lib. I may be wrong.
-cfg_if! {
-    if #[cfg(feature = "hydrate")] {
-        use wasm_bindgen::prelude::wasm_bindgen;
-        use leptos::view;
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn hydrate() {
+    _ = console_log::init_with_level(log::Level::Debug);
+    console_error_panic_hook::set_once();
 
-        #[wasm_bindgen]
-        pub fn hydrate() {
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
-
-            leptos::mount_to_body(|| {
-                view! {  <App/> }
-            });
-        }
-    }
+    leptos::mount_to_body(App);
 }

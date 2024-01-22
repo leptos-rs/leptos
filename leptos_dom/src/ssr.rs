@@ -363,6 +363,13 @@ fn fragments_to_chunks(
 
 impl View {
     /// Consumes the node and renders it into an HTML string.
+    ///
+    /// This is __NOT__ the same as [`render_to_string`]. This
+    /// functions differs in that it assumes a runtime is in scope.
+    /// [`render_to_string`] creates, and disposes of a runtime for you.
+    ///
+    /// # Panics
+    /// When called in a scope without a runtime. Use [`render_to_string`] instead.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)

@@ -22,7 +22,6 @@ jobs:
           [
             integrations/actix,
             integrations/axum,
-            integrations/viz,
             integrations/utils,
             leptos,
             leptos_config,

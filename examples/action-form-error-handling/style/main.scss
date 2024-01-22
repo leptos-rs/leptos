@@ -1,0 +1,15 @@
+body {
+	font-family: sans-serif;
+	text-align: center;
+}
+
+#app {
+	text-align: center;
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+}

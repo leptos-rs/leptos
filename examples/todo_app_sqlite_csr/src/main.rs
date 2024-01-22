@@ -32,6 +32,10 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
+        // server function handlers are normally set up by .leptos_routes()
+        // here, we're not actually doing server side rendering, so we set up a manual
+        // handler for the server fns
+        // this should include a get() handler if you have any GetUrl-based server fns
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .fallback(file_or_index_handler)
         .with_state(leptos_options);
@@ -39,8 +43,10 @@ async fn main() {
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
     logging::log!("listening on http://{}", &addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("couldn't bind to address");
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }

@@ -1,22 +1,23 @@
 [package]
 name = "server_fn_macro"
-version = { workspace = true }
+version = "0.6.0"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
 quote = "1"
 syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1"
-proc-macro-error = { version = "1", default-features = false }
 xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
 const_format = "0.2.30"
+convert_case = "0.6.0"
 
 [features]
 nightly = []
 ssr = []
+actix = []
+axum = []
+reqwest = []

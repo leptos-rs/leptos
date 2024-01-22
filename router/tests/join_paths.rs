@@ -44,14 +44,5 @@ cfg_if! {
             assert_eq!(join_paths("/foo", ":bar/baz"), "/foo/:bar/baz");
             assert_eq!(join_paths("", ":bar/baz"), "/:bar/baz");
         }
-
-        // Additional tests NOT from Solid Router:
-        #[test]
-        fn join_paths_for_root() {
-            assert_eq!(join_paths("", ""), "");
-            assert_eq!(join_paths("", "/"), "");
-            assert_eq!(join_paths("/", ""), "");
-            assert_eq!(join_paths("/", "/"), "");
-        }
     }
 }

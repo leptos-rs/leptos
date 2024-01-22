@@ -1,9 +1,6 @@
-mod test_extract_routes;
-
 use crate::{
-    provide_server_redirect, Branch, Method, RouterIntegrationContext,
-    ServerIntegration, SsrMode, StaticDataMap, StaticMode, StaticParamsMap,
-    StaticPath,
+    Branch, Method, RouterIntegrationContext, ServerIntegration, SsrMode,
+    StaticDataMap, StaticMode, StaticParamsMap, StaticPath,
 };
 use leptos::*;
 use std::{
@@ -45,9 +42,6 @@ impl RouteListing {
     }
 
     /// The path this route handles.
-    ///
-    /// This should be formatted for whichever web server integegration is being used. (ex: leptos-actix.)
-    /// When returned from leptos-router, it matches `self.leptos_path()`.  
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -106,12 +100,11 @@ impl RouteListing {
 }
 
 /// Generates a list of all routes this application could possibly serve. This returns the raw routes in the leptos_router
-/// format. Odds are you want `generate_route_list()` from either the [`actix`], [`axum`], or [`viz`] integrations if you want
+/// format. Odds are you want `generate_route_list()` from either the [`actix`] or [`axum`] integrations if you want
 /// to work with their router.
 ///
 /// [`actix`]: <https://docs.rs/actix/>
 /// [`axum`]: <https://docs.rs/axum/>
-/// [`viz`]: <https://docs.rs/viz/>
 pub fn generate_route_list_inner<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> (Vec<RouteListing>, StaticDataMap)
@@ -121,12 +114,11 @@ where
     generate_route_list_inner_with_context(app_fn, || {})
 }
 /// Generates a list of all routes this application could possibly serve. This returns the raw routes in the leptos_router
-/// format. Odds are you want `generate_route_list()` from either the [`actix`], [`axum`], or [`viz`] integrations if you want
+/// format. Odds are you want `generate_route_list()` from either the [`actix`] or [`axum`] integrations if you want
 /// to work with their router.
 ///
 /// [`actix`]: <https://docs.rs/actix/>
 /// [`axum`]: <https://docs.rs/axum/>
-/// [`viz`]: <https://docs.rs/viz/>
 pub fn generate_route_list_inner_with_context<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     additional_context: impl Fn() + 'static + Clone,
@@ -136,9 +128,21 @@ where
 {
     let runtime = create_runtime();
 
-    let branches = get_branches(app_fn, additional_context);
-    let branches = branches.0.borrow();
+    let integration = ServerIntegration {
+        path: "http://leptos.rs/".to_string(),
+    };
 
+    provide_context(RouterIntegrationContext::new(integration));
+    let branches = PossibleBranchContext::default();
+    provide_context(branches.clone());
+
+    additional_context();
+
+    leptos::suppress_resource_load(true);
+    _ = app_fn().into_view();
+    leptos::suppress_resource_load(false);
+
+    let branches = branches.0.borrow();
     let mut static_data_map: StaticDataMap = HashMap::new();
     let routes = branches
         .iter()
@@ -177,30 +181,4 @@ where
 
     runtime.dispose();
     (routes, static_data_map)
-}
-
-fn get_branches<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
-    additional_context: impl Fn() + 'static + Clone,
-) -> PossibleBranchContext
-where
-    IV: IntoView + 'static,
-{
-    let integration = ServerIntegration {
-        path: "http://leptos.rs/".to_string(),
-    };
-
-    provide_context(RouterIntegrationContext::new(integration));
-    let branches = PossibleBranchContext::default();
-    provide_context(branches.clone());
-    // Suppress startup warning about using <Redirect/> without ServerRedirectFunction:
-    provide_server_redirect(|_str| ());
-
-    additional_context();
-
-    leptos::suppress_resource_load(true);
-    _ = app_fn().into_view();
-    leptos::suppress_resource_load(false);
-
-    branches
 }

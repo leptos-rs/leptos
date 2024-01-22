@@ -6,19 +6,17 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::header::{HeaderName, HeaderValue};
+use actix_http::header::{HeaderName, HeaderValue, ACCEPT};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
     http::header,
-    web::{Bytes, ServiceConfig},
+    web::{Payload, ServiceConfig},
     *,
 };
 use futures::{Stream, StreamExt};
 use http::StatusCode;
 use leptos::{
-    leptos_server::{server_fn_by_path, Payload},
-    server_fn::Encoding,
     ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
@@ -27,6 +25,7 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
+use server_fn::{redirect::REDIRECT_HEADER, request::actix::ActixRequest};
 use std::{
     fmt::{Debug, Display},
     future::Future,
@@ -100,11 +99,57 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
+/// Provides an easy way to redirect the user from within a server function.
+///
+/// This sets the `Location` header to the URL given.
+///
+/// If the route or server function in which this is called is being accessed
+/// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
+/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
+/// header contains `text/html` as it does for an ordinary navigation.)
+///
+/// Otherwise, it sets a custom header that indicates to the client that it should redirect,
+/// without actually setting the status code. This means that the client will not follow the
+/// redirect, and can therefore return the value of the server function and then handle
+/// the redirect with client-side routing.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn redirect(path: &str) {
+    if let (Some(req), Some(res)) = (
+        use_context::<HttpRequest>(),
+        use_context::<ResponseOptions>(),
+    ) {
+        // insert the Location header in any case
+        res.insert_header(
+            header::LOCATION,
+            header::HeaderValue::from_str(path)
+                .expect("Failed to create HeaderValue"),
+        );
+
+        let accepts_html = req
+            .headers()
+            .get(ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("text/html"))
+            .unwrap_or(false);
+        if accepts_html {
+            // if the request accepts text/html, it's a plain form request and needs
+            // to have the 302 code set
+            res.set_status(StatusCode::FOUND);
+        } else {
+            // otherwise, we sent it from the server fn client and actually don't want
+            // to set a real redirect, as this will break the ability to return data
+            // instead, set the REDIRECT_HEADER to indicate that the client should redirect
+            res.insert_header(
+                HeaderName::from_static(REDIRECT_HEADER),
+                HeaderValue::from_str("").unwrap(),
+            );
+        }
+    } else {
+        tracing::warn!(
+            "Couldn't retrieve either Parts or ResponseOptions while trying \
+             to redirect()."
+        );
+    }
     if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
         response_options.insert_header(
@@ -179,139 +224,59 @@ pub fn handle_server_fns() -> Route {
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
 ) -> Route {
-    web::to(
-        move |req: HttpRequest, params: web::Path<String>, body: web::Bytes| {
+    web::to(move |req: HttpRequest, payload: Payload| {
+        let additional_context = additional_context.clone();
+        async move {
             let additional_context = additional_context.clone();
-            async move {
-                let additional_context = additional_context.clone();
 
-                let path = params.into_inner();
-                let accept_header = req
-                    .headers()
-                    .get("Accept")
-                    .and_then(|value| value.to_str().ok());
+            let path = req.path();
+            if let Some(mut service) =
+                server_fn::actix::get_server_fn_service(path)
+            {
+                let runtime = create_runtime();
 
-                if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-                    let body_ref: &[u8] = &body;
+                // Add additional info to the context of the server function
+                additional_context();
+                provide_context(req.clone());
+                let res_parts = ResponseOptions::default();
+                provide_context(res_parts.clone());
 
-                    let runtime = create_runtime();
+                let mut res = service
+                    .0
+                    .run(ActixRequest::from((req, payload)))
+                    .await
+                    .take();
 
-                    // Add additional info to the context of the server function
-                    additional_context();
-                    let res_options = ResponseOptions::default();
-
-                    // provide HttpRequest as context in server scope
-                    provide_context(req.clone());
-                    provide_context(res_options.clone());
-
-                    // we consume the body here (using the web::Bytes extractor), but it is required for things
-                    // like MultipartForm
-                    if req
-                        .headers()
-                        .get("Content-Type")
-                        .and_then(|value| value.to_str().ok())
-                        .map(|value| {
-                            value.starts_with("multipart/form-data; boundary=")
-                        })
-                        == Some(true)
-                    {
-                        provide_context(body.clone());
-                    }
-
-                    let query = req.query_string().as_bytes();
-
-                    let data = match &server_fn.encoding() {
-                        Encoding::Url | Encoding::Cbor => body_ref,
-                        Encoding::GetJSON | Encoding::GetCBOR => query,
-                    };
-
-                    let res = match server_fn.call((), data).await {
-                        Ok(serialized) => {
-                            let res_options =
-                                use_context::<ResponseOptions>().unwrap();
-
-                            let mut res: HttpResponseBuilder =
-                                HttpResponse::Ok();
-                            let res_parts = res_options.0.write();
-
-                            // if accept_header isn't set to one of these, it's a form submit
-                            // redirect back to the referrer if not redirect has been set
-                            if accept_header != Some("application/json")
-                                && accept_header
-                                    != Some("application/x-www-form-urlencoded")
-                                && accept_header != Some("application/cbor")
-                            {
-                                // Location will already be set if redirect() has been used
-                                let has_location_set =
-                                    res_parts.headers.get("Location").is_some();
-                                if !has_location_set {
-                                    let referer = req
-                                        .headers()
-                                        .get("Referer")
-                                        .and_then(|value| value.to_str().ok())
-                                        .unwrap_or("/");
-                                    res = HttpResponse::SeeOther();
-                                    res.insert_header(("Location", referer))
-                                        .content_type("application/json");
-                                }
-                            };
-                            // Override StatusCode if it was set in a Resource or Element
-                            if let Some(status) = res_parts.status {
-                                res.status(status);
-                            }
-
-                            // Use provided ResponseParts headers if they exist
-                            let _count = res_parts
-                                .headers
-                                .clone()
-                                .into_iter()
-                                .map(|(k, v)| {
-                                    res.append_header((k, v));
-                                })
-                                .count();
-
-                            match serialized {
-                                Payload::Binary(data) => {
-                                    res.content_type("application/cbor");
-                                    res.body(Bytes::from(data))
-                                }
-                                Payload::Url(data) => {
-                                    res.content_type(
-                                        "application/x-www-form-urlencoded",
-                                    );
-                                    res.body(data)
-                                }
-                                Payload::Json(data) => {
-                                    res.content_type("application/json");
-                                    res.body(data)
-                                }
-                            }
-                        }
-                        Err(e) => HttpResponse::InternalServerError().body(
-                            serde_json::to_string(&e)
-                                .unwrap_or_else(|_| e.to_string()),
-                        ),
-                    };
-                    // clean up the scope
-                    runtime.dispose();
-                    res
-                } else {
-                    HttpResponse::BadRequest().body(format!(
-                        "Could not find a server function at the route {:?}. \
-                         \n\nIt's likely that either
-                         1. The API prefix you specify in the `#[server]` \
-                         macro doesn't match the prefix at which your server \
-                         function handler is mounted, or \n2. You are on a \
-                         platform that doesn't support automatic server \
-                         function registration and you need to call \
-                         ServerFn::register_explicit() on the server function \
-                         type, somewhere in your `main` function.",
-                        req.path()
-                    ))
+                // Override StatusCode if it was set in a Resource or Element
+                if let Some(status) = res_parts.0.read().status {
+                    *res.status_mut() = status;
                 }
+
+                // Use provided ResponseParts headers if they exist
+                let headers = res.headers_mut();
+                for (k, v) in std::mem::take(&mut res_parts.0.write().headers) {
+                    headers.append(k.clone(), v.clone());
+                }
+
+                // clean up the scope
+                runtime.dispose();
+                res
+            } else {
+                HttpResponse::BadRequest().body(format!(
+                    "Could not find a server function at the route {:?}. \
+                     \n\nIt's likely that either
+                         1. The API prefix you specify in the `#[server]` \
+                     macro doesn't match the prefix at which your server \
+                     function handler is mounted, or \n2. You are on a \
+                     platform that doesn't support automatic server function \
+                     registration and you need to call \
+                     ServerFn::register_explicit() on the server function \
+                     type, somewhere in your `main` function.",
+                    req.path()
+                ))
             }
-        },
-    )
+        }
+    })
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -1309,6 +1274,14 @@ where
                 };
             }
         }
+
+        // register server functions
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = handle_server_fns_with_context(additional_context);
+            router = router.route(path, handler);
+        }
+
         router
     }
 }
@@ -1384,68 +1357,19 @@ impl LeptosRoutes for &mut ServiceConfig {
                 );
             }
         }
+
+        // register server functions
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = handle_server_fns_with_context(additional_context);
+            router = router.route(path, handler);
+        }
+
         router
     }
 }
 
-/// A helper to make it easier to use Actix extractors in server functions. This takes
-/// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler]: it is an async function that receives arguments that
-/// will be extracted from the request and returns some value.
-///
-/// ```rust,ignore
-/// use leptos::*;
-/// use serde::Deserialize;
-/// #[derive(Deserialize)]
-/// struct Search {
-///     q: String,
-/// }
-///
-/// #[server(ExtractoServerFn, "/api")]
-/// pub async fn extractor_server_fn() -> Result<String, ServerFnError> {
-///     use actix_web::dev::ConnectionInfo;
-///     use actix_web::web::{Data, Query};
-///
-///     extract(
-///         |data: Data<String>, search: Query<Search>, connection: ConnectionInfo| async move {
-///             format!(
-///                 "data = {}\nsearch = {}\nconnection = {:?}",
-///                 data.into_inner(),
-///                 search.q,
-///                 connection
-///             )
-///         },
-///     )
-///     .await
-/// }
-/// ```
-pub async fn extract<F, E>(
-    f: F,
-) -> Result<<<F as Extractor<E>>::Future as Future>::Output, ServerFnError>
-where
-    F: Extractor<E>,
-    E: actix_web::FromRequest,
-    <E as actix_web::FromRequest>::Error: Display,
-    <F as Extractor<E>>::Future: Future,
-{
-    let req = use_context::<actix_web::HttpRequest>()
-        .expect("HttpRequest should have been provided via context");
-
-    let input = if let Some(body) = use_context::<Bytes>() {
-        let (_, mut payload) = actix_http::h1::Payload::create(false);
-        payload.unread_data(body);
-        E::from_request(&req, &mut dev::Payload::from(payload))
-    } else {
-        E::extract(&req)
-    }
-    .await
-    .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
-
-    Ok(f.call(input).await)
-}
-
-/// A helper to make it easier to use Axum extractors in server functions, with a
-/// simpler API than [`extract()`].
+/// A helper to make it easier to use Axum extractors in server functions.
 ///
 /// It is generic over some type `T` that implements [`FromRequest`] and can
 /// therefore be used in an extractor. The compiler can often infer this type.
@@ -1458,82 +1382,26 @@ where
 /// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
 ///     use actix_web::web::Query;
 ///     use leptos_actix::*;
-///     let Query(data) = extractor().await?;
+///
+///     let Query(data) = extract().await?;
+///
+///     // do something with the data
+///
 ///     Ok(data)
 /// }
 /// ```
-pub async fn extractor<T>() -> Result<T, ServerFnError>
+pub async fn extract<T, CustErr>() -> Result<T, ServerFnError<CustErr>>
 where
     T: actix_web::FromRequest,
-    <T as FromRequest>::Error: Debug,
+    <T as FromRequest>::Error: Display,
 {
-    let req = use_context::<actix_web::HttpRequest>()
-        .expect("HttpRequest should have been provided via context");
+    let req = use_context::<HttpRequest>().ok_or_else(|| {
+        ServerFnError::ServerError(
+            "HttpRequest should have been provided via context".to_string(),
+        )
+    })?;
 
-    if let Some(body) = use_context::<Bytes>() {
-        let (_, mut payload) = actix_http::h1::Payload::create(false);
-        payload.unread_data(body);
-        T::from_request(&req, &mut dev::Payload::from(payload))
-    } else {
-        T::extract(&req)
-    }
-    .await
-    .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+    T::extract(&req)
+        .await
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))
 }
-
-/// A macro that makes it easier to use extractors in server functions. The macro
-/// takes a type or types, and extracts them from the request, returning from the
-/// server function with an `Err(_)` if there is an error during extraction.
-/// ```rust,ignore
-/// let info = extract!(ConnectionInfo);
-/// let Query(data) = extract!(Query<Search>);
-/// let (info, Query(data)) = extract!(ConnectionInfo, Query<Search>);
-/// ```
-#[macro_export]
-macro_rules! extract {
-    ($($x:ty),+) => {
-        $crate::extract(|fields: ($($x),+)| async move { fields }).await?
-    };
-}
-
-// Drawn from the Actix Handler implementation
-// https://github.com/actix/actix-web/blob/19c9d858f25e8262e14546f430d713addb397e96/actix-web/src/handler.rs#L124
-pub trait Extractor<T> {
-    type Future;
-
-    fn call(self, args: T) -> Self::Future;
-}
-
-macro_rules! factory_tuple ({ $($param:ident)* } => {
-    impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
-    where
-        Func: FnOnce($($param),*) -> Fut + Clone + 'static,
-        Fut: Future,
-    {
-        type Future = Fut;
-
-        #[inline]
-        #[allow(non_snake_case)]
-        fn call(self, ($($param,)*): ($($param,)*)) -> Self::Future {
-            (self)($($param,)*)
-        }
-    }
-});
-
-factory_tuple! {}
-factory_tuple! { A }
-factory_tuple! { A B }
-factory_tuple! { A B C }
-factory_tuple! { A B C D }
-factory_tuple! { A B C D E }
-factory_tuple! { A B C D E F }
-factory_tuple! { A B C D E F G }
-factory_tuple! { A B C D E F G H }
-factory_tuple! { A B C D E F G H I }
-factory_tuple! { A B C D E F G H I J }
-factory_tuple! { A B C D E F G H I J K }
-factory_tuple! { A B C D E F G H I J K L }
-factory_tuple! { A B C D E F G H I J K L M }
-factory_tuple! { A B C D E F G H I J K L M N }
-factory_tuple! { A B C D E F G H I J K L M N O }
-factory_tuple! { A B C D E F G H I J K L M N O P }

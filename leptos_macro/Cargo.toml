@@ -44,6 +44,8 @@ nightly = ["server_fn_macro/nightly"]
 tracing = []
 experimental-islands = []
 trace-component-props = []
+actix = ["server_fn_macro/actix"]
+axum = ["server_fn_macro/axum"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]

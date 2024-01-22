@@ -1518,7 +1518,7 @@ impl<S, T> UnserializableResource for ResourceState<S, T> {
 }
 
 thread_local! {
-    static SUPPRESS_RESOURCE_LOAD: Cell<bool> = Cell::new(false);
+    static SUPPRESS_RESOURCE_LOAD: Cell<bool> = const { Cell::new(false) };
 }
 
 #[doc(hidden)]
