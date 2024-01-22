@@ -1365,6 +1365,7 @@ where
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 impl<T> From<Signal<T>> for TextProp
 where
     T: Into<Self> + Clone,
@@ -1374,6 +1375,7 @@ where
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 impl<T> From<ReadSignal<T>> for TextProp
 where
     T: Into<Self> + Clone,
@@ -1383,6 +1385,7 @@ where
     }
 }
 
+#[cfg(not(feature = "nightly"))]
 impl<T> From<RwSignal<T>> for TextProp
 where
     T: Into<Self> + Clone,
