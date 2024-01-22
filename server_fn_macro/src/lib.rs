@@ -72,7 +72,6 @@ pub fn server_macro_impl(
         client,
         custom_wrapper,
     } = args;
-    _ = custom_wrapper; // TODO: this should be used to enable custom encodings
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
     let input_ident = match &input {
@@ -116,6 +115,19 @@ pub fn server_macro_impl(
             .convert(body.ident.to_string());
         Ident::new(&upper_camel_case_name, body.ident.span())
     });
+
+    // struct name, wrapped in any custom-encoding newtype wrapper
+    let wrapped_struct_name = if let Some(wrapper) = custom_wrapper.as_ref() {
+        quote! { #wrapper<#struct_name> }
+    } else {
+        quote! { #struct_name }
+    };
+    let wrapped_struct_name_turbofish =
+        if let Some(wrapper) = custom_wrapper.as_ref() {
+            quote! { #wrapper::<#struct_name> }
+        } else {
+            quote! { #struct_name }
+        };
 
     // build struct for type
     let mut body = body;
@@ -268,12 +280,12 @@ pub fn server_macro_impl(
             #server_fn_path::inventory::submit! {{
                 use #server_fn_path::{ServerFn, codec::Encoding};
                 #server_fn_path::ServerFnTraitObj::new(
-                    #struct_name::PATH,
-                    <#struct_name as ServerFn>::InputEncoding::METHOD,
+                    #wrapped_struct_name_turbofish::PATH,
+                    <#wrapped_struct_name as ServerFn>::InputEncoding::METHOD,
                     |req| {
-                        Box::pin(#struct_name::run_on_server(req))
+                        Box::pin(#wrapped_struct_name_turbofish::run_on_server(req))
                     },
-                    #struct_name::middlewares
+                    #wrapped_struct_name_turbofish::middlewares
                 )
             }}
         }
@@ -283,6 +295,16 @@ pub fn server_macro_impl(
 
     // run_body in the trait implementation
     let run_body = if cfg!(feature = "ssr") {
+        let destructure = if let Some(wrapper) = custom_wrapper.as_ref() {
+            quote! {
+                let #wrapper(#struct_name { #(#field_names),* }) = self;
+            }
+        } else {
+            quote! {
+                let #struct_name { #(#field_names),* } = self;
+            }
+        };
+
         // using the impl Future syntax here is thanks to Actix
         //
         // if we use Actix types inside the function, here, it becomes !Send
@@ -292,7 +314,7 @@ pub fn server_macro_impl(
         //
         // however, SendWrapper<Future<Output = T>> impls Future<Output = T>
         let body = quote! {
-            let #struct_name { #(#field_names),* } = self;
+            #destructure
             #dummy_name(#(#field_names),*).await
         };
         let body = if cfg!(feature = "actix") {
@@ -333,13 +355,23 @@ pub fn server_macro_impl(
             }
         }
     } else {
+        let restructure = if let Some(custom_wrapper) = custom_wrapper.as_ref()
+        {
+            quote! {
+                let data = #custom_wrapper(#struct_name { #(#field_names),* });
+            }
+        } else {
+            quote! {
+                let data = #struct_name { #(#field_names),* };
+            }
+        };
         quote! {
             #docs
             #(#attrs)*
             #[allow(unused_variables)]
             #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
                 use #server_fn_path::ServerFn;
-                let data = #struct_name { #(#field_names),* };
+                #restructure
                 data.run_on_client().await
             }
         }
@@ -509,7 +541,7 @@ pub fn server_macro_impl(
 
         #from_impl
 
-        impl #server_fn_path::ServerFn for #struct_name {
+        impl #server_fn_path::ServerFn for #wrapped_struct_name {
             const PATH: &'static str = #path;
 
             type Client = #client;
@@ -641,7 +673,7 @@ struct ServerFnArgs {
     req_ty: Option<Type>,
     res_ty: Option<Type>,
     client: Option<Type>,
-    custom_wrapper: Option<Type>,
+    custom_wrapper: Option<Path>,
     builtin_encoding: bool,
 }
 
@@ -659,7 +691,7 @@ impl Parse for ServerFnArgs {
         let mut req_ty: Option<Type> = None;
         let mut res_ty: Option<Type> = None;
         let mut client: Option<Type> = None;
-        let mut custom_wrapper: Option<Type> = None;
+        let mut custom_wrapper: Option<Path> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
