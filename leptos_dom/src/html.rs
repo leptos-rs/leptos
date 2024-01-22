@@ -276,6 +276,12 @@ impl ElementDescriptor for Custom {
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
+    /// Beginner's tip: 
+    /// HtmlElement<El> implements Deref where El implements Deref.
+    /// When El has a corresponding web_sys::HtmlElement -> El will implement Deref for it.
+    /// For instance leptos::HtmlElement<Div> impl Deref for web_sys::HtmlDivElement
+    /// Because of [Deref Coercion](https://doc.rust-lang.org/std/ops/trait.Deref.html#deref-coercion) you can call applicable web_sys::HtmlElement methods on HtmlElement<El> as if it were that type.
+    /// In other words leptos::HtmlElement<leptos::html::Div> is a [Smart Pointer](https://doc.rust-lang.org/book/ch15-00-smart-pointers.html) to [web_sys::HtmlDivElement](https://docs.rs/web-sys/latest/web_sys/struct.HtmlDivElement.html)
     #[must_use = "You are creating an HtmlElement<_> but not using it. An unused view can \
     cause your view to be rendered as () unexpectedly, and it can \
     also cause issues with client-side hydration."]
