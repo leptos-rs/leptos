@@ -8,8 +8,8 @@ use crate::{
     signal_prelude::format_signal_warning, spawn::spawn_local,
     suspense::LocalStatus, use_context, GlobalSuspenseContext, Memo,
     ReadSignal, ScopeProperty, Signal, SignalDispose, SignalGet,
-    SignalGetUntracked, SignalSet, SignalUpdate, SignalWith, SuspenseContext,
-    WriteSignal,
+    SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
+    SignalWithUntracked, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -1358,7 +1358,7 @@ where
         self.version.set(version);
         self.scheduled.set(false);
 
-        _ = self.source.try_with(|source| {
+        _ = self.source.try_with_untracked(|source| {
             let fut = (self.fetcher)(source.clone());
 
             // `scheduled` is true for the rest of this code only
