@@ -244,6 +244,7 @@ where
     create_isomorphic_effect({
         let r = Rc::clone(&r);
         move |_| {
+            source.track();
             load_resource(id, r.clone());
         }
     });
