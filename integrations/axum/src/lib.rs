@@ -7,7 +7,7 @@
 //! To run in this environment, you need to disable the default feature set and enable
 //! the `wasm` feature on `leptos_axum` in your `Cargo.toml`.
 //! ```toml
-//! leptos_axum = { version = "0.6.0-beta", default-features = false, features = ["wasm"] }
+//! leptos_axum = { version = "0.6.0-rc1", default-features = false, features = ["wasm"] }
 //! ```
 //!
 //! ## Features

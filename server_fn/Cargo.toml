@@ -9,7 +9,7 @@ description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
-server_fn_macro_default = { workspace = true}
+server_fn_macro_default = "0.6.0-rc1"
 # used for hashing paths in #[server] macro
 const_format = "0.2"
 xxhash-rust = { version = "0.8", features = ["const_xxh64"] }

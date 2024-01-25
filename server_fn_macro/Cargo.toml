@@ -1,6 +1,6 @@
 [package]
 name = "server_fn_macro"
-version = "0.6.0"
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
