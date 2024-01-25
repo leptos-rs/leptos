@@ -2,6 +2,9 @@
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
+// FIXME? every use of quote! {} is warning here -- false positive?
+#![allow(unknown_lints)]
+#![allow(private_macro_use)]
 
 #[macro_use]
 extern crate proc_macro_error;
