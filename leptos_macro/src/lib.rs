@@ -12,7 +12,7 @@ extern crate proc_macro_error;
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use rstml::{node::KeyedAttribute, parse};
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
