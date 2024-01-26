@@ -637,18 +637,20 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
                 else if let GenericArgument::Type(Type::Path(pat)) =
                     &args.args[1]
                 {
-                    if pat.path.segments[0].ident == "ServerFnError" {
-                        let args = &pat.path.segments[0].arguments;
-                        match args {
-                            // Result<T, ServerFnError>
-                            PathArguments::None => return Ok(None),
-                            // Result<T, ServerFnError<E>>
-                            PathArguments::AngleBracketed(args) => {
-                                if args.args.len() == 1 {
-                                    return Ok(Some(&args.args[0]));
+                    if let Some(segment) = pat.path.segments.last() {
+                        if segment.ident == "ServerFnError" {
+                            let args = &pat.path.segments[0].arguments;
+                            match args {
+                                // Result<T, ServerFnError>
+                                PathArguments::None => return Ok(None),
+                                // Result<T, ServerFnError<E>>
+                                PathArguments::AngleBracketed(args) => {
+                                    if args.args.len() == 1 {
+                                        return Ok(Some(&args.args[0]));
+                                    }
                                 }
+                                _ => {}
                             }
-                            _ => {}
                         }
                     }
                 }
