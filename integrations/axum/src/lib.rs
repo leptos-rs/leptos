@@ -55,10 +55,7 @@ use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use server_fn::redirect::REDIRECT_HEADER;
-use std::{
-    error::Error, fmt::Debug, io, pin::Pin, sync::Arc,
-    thread::available_parallelism,
-};
+use std::{fmt::Debug, io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
 
@@ -1772,13 +1769,12 @@ fn get_leptos_pool() -> LocalPoolHandle {
 ///     Ok(query)
 /// }
 /// ```
-pub async fn extract<T, CustErr>() -> Result<T, ServerFnError>
+pub async fn extract<T>() -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<()>,
     T::Rejection: Debug,
-    CustErr: Error + 'static,
 {
-    extract_with_state::<T, (), CustErr>(&()).await
+    extract_with_state::<T, ()>(&()).await
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This
@@ -1800,18 +1796,14 @@ where
 ///     Ok(query)
 /// }
 /// ```
-pub async fn extract_with_state<T, S, CustErr>(
-    state: &S,
-) -> Result<T, ServerFnError>
+pub async fn extract_with_state<T, S>(state: &S) -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<S>,
     T::Rejection: Debug,
-    CustErr: Error + 'static,
 {
     let mut parts = use_context::<Parts>().ok_or_else(|| {
-        ServerFnError::ServerError::<CustErr>(
-            "should have had Parts provided by the leptos_axum integration"
-                .to_string(),
+        ServerFnError::new(
+            "should have had Parts provided by the leptos_axum integration",
         )
     })?;
     T::from_request_parts(&mut parts, state)

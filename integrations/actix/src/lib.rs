@@ -1390,15 +1390,13 @@ impl LeptosRoutes for &mut ServiceConfig {
 ///     Ok(data)
 /// }
 /// ```
-pub async fn extract<T, CustErr>() -> Result<T, ServerFnError<CustErr>>
+pub async fn extract<T>() -> Result<T, ServerFnError>
 where
     T: actix_web::FromRequest,
     <T as FromRequest>::Error: Display,
 {
     let req = use_context::<HttpRequest>().ok_or_else(|| {
-        ServerFnError::ServerError(
-            "HttpRequest should have been provided via context".to_string(),
-        )
+        ServerFnError::new("HttpRequest should have been provided via context")
     })?;
 
     T::extract(&req)
