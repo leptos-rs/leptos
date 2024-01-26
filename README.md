@@ -40,6 +40,25 @@ pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
     }
 }
 
+// we also support a builder syntax rather than the JSX-like `view` macro
+#[component]
+pub fn SimpleCounterWithBuilder(initial_value: i32) -> impl IntoView {
+    use leptos::html::*;
+
+    let (value, set_value) = create_signal(initial_value);
+    let clear = move |_| set_value(0);
+    let decrement = move |_| set_value.update(|value| *value -= 1);
+    let increment = move |_| set_value.update(|value| *value += 1);
+
+    // the `view` macro above expands to this builder syntax
+    div().child((
+        button().on(ev::click, clear).child("Clear"),
+        button().on(ev::click, decrement).child("-1"),
+        span().child(("Value: ", value, "!")),
+        button().on(ev::click, increment).child("+1")
+    ))
+}
+
 // Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
 pub fn main() {
     mount_to_body(|| view! {
@@ -161,6 +180,6 @@ Like Leptos, Dioxus is a framework for building UIs using web technologies. Howe
 
 Sycamore and Leptos are both heavily influenced by SolidJS. At this point, Leptos has a larger community and ecosystem and is more actively developed. Other differences:
 
-- **Templating DSLs:** Sycamore uses a custom templating language for its views, while Leptos uses an HTML-like template.
+- **Templating DSLs:** Sycamore uses a custom templating language for its views, while Leptos uses a JSX-like template format.
 - **`'static` signals:** One of Leptos’s main innovations was the creation of `Copy + 'static` signals, which have excellent ergonomics. Sycamore is in the process of adopting the same pattern, but this is not yet released.
 - **Perseus vs. server functions:** The Perseus metaframework provides an opinionated way to build Sycamore apps that include server functionality. Leptos instead provides primitives like server functions in the core of the framework. 
