@@ -25,22 +25,22 @@ members = [
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.6.1"
+version = "0.6.2"
 
 [workspace.dependencies]
-leptos = { path = "./leptos", version = "0.6.1" }
-leptos_dom = { path = "./leptos_dom", version = "0.6.1" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.1" }
-leptos_macro = { path = "./leptos_macro", version = "0.6.1" }
-leptos_reactive = { path = "./leptos_reactive", version = "0.6.1" }
-leptos_server = { path = "./leptos_server", version = "0.6.1" }
-server_fn = { path = "./server_fn", version = "0.6.1" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.6.1" }
+leptos = { path = "./leptos", version = "0.6.2" }
+leptos_dom = { path = "./leptos_dom", version = "0.6.2" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.2" }
+leptos_macro = { path = "./leptos_macro", version = "0.6.2" }
+leptos_reactive = { path = "./leptos_reactive", version = "0.6.2" }
+leptos_server = { path = "./leptos_server", version = "0.6.2" }
+server_fn = { path = "./server_fn", version = "0.6.2" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.6.2" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
-leptos_config = { path = "./leptos_config", version = "0.6.1" }
-leptos_router = { path = "./router", version = "0.6.1" }
-leptos_meta = { path = "./meta", version = "0.6.1" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.6.1" }
+leptos_config = { path = "./leptos_config", version = "0.6.2" }
+leptos_router = { path = "./router", version = "0.6.2" }
+leptos_meta = { path = "./meta", version = "0.6.2" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.6.2" }
 
 [profile.release]
 codegen-units = 1

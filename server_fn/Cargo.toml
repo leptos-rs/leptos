@@ -9,7 +9,7 @@ description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
-server_fn_macro_default = "0.6.1"
+server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
 const_format = "0.2"
 xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
@@ -18,7 +18,7 @@ serde = { version = "1", features = ["derive"] }
 send_wrapper = { version = "0.6", features = ["futures"], optional = true }
 
 # registration system
-inventory = {version="0.3",optional=true}
+inventory = { version = "0.3", optional = true }
 dashmap = "5"
 once_cell = "1"
 
@@ -72,11 +72,11 @@ reqwest = { version = "0.11", default-features = false, optional = true, feature
 url = "2"
 
 [features]
-default = [ "json", "cbor"]
+default = ["json", "cbor"]
 form-redirects = []
 actix = ["ssr", "dep:actix-web", "dep:send_wrapper"]
 axum = [
-  "ssr", 
+  "ssr",
   "dep:axum",
   "dep:hyper",
   "dep:http-body-util",
@@ -109,4 +109,21 @@ all-features = true
 # disables some feature combos for testing in CI
 [package.metadata.cargo-all-features]
 denylist = ["rustls", "default-tls", "form-redirects"]
-skip_feature_sets = [["actix", "axum"], ["browser", "actix"], ["browser", "axum"], ["browser", "reqwest"]]
+skip_feature_sets = [
+  [
+    "actix",
+    "axum",
+  ],
+  [
+    "browser",
+    "actix",
+  ],
+  [
+    "browser",
+    "axum",
+  ],
+  [
+    "browser",
+    "reqwest",
+  ],
+]
