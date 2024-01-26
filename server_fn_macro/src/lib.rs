@@ -178,7 +178,6 @@ pub fn server_macro_impl(
         };
 
     // build struct for type
-    let mut body = body;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
