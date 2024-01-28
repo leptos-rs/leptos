@@ -385,7 +385,10 @@ where
     // client
     create_render_effect({
         let r = Rc::clone(&r);
-        move |_| r.load(false, id)
+        move |_| {
+            source.track();
+            r.load(false, id)
+        }
     });
 
     Resource {
