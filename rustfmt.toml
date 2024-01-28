@@ -1,3 +1,4 @@
+edition = "2021"
 imports_granularity = "Crate"
 max_width = 80
 format_strings = true
