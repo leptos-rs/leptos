@@ -31,6 +31,9 @@ web-sys = { version = "0.3.67", features = ["FileList", "File"] }
 strum = { version = "0.25.0", features = ["strum_macros", "derive"] }
 notify = { version = "6.1.1", optional = true }
 pin-project-lite = "0.2.13"
+dashmap = { version = "5.5.3", optional = true }
+once_cell = { version = "1.19.0", optional = true }
+async-broadcast = { version = "0.6.0", optional = true }
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
@@ -43,7 +46,10 @@ ssr = [
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 	"dep:leptos_axum",
-	"dep:notify"
+	"dep:notify",
+	"dep:dashmap",
+	"dep:once_cell",
+	"dep:async-broadcast"
 ]
 
 [package.metadata.cargo-all-features]
