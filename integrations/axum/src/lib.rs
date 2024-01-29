@@ -332,7 +332,9 @@ async fn handle_server_fns_inner(
     rx.await.unwrap_or_else(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ServerFnError::<NoCustomError>::ServerError(e.to_string()).ser(),
+            ServerFnError::<NoCustomError>::ServerError(e.to_string())
+                .ser()
+                .unwrap_or_default(),
         )
             .into_response()
     })
