@@ -281,7 +281,7 @@ impl Runtime {
                     let source_map = self.node_sources.borrow();
                     for effect in subs.borrow().iter() {
                         if let Some(effect_sources) = source_map.get(*effect) {
-                            effect_sources.borrow_mut().remove(&node);
+                            effect_sources.borrow_mut().swap_remove(&node);
                         }
                     }
                 }
@@ -308,7 +308,7 @@ impl Runtime {
             let subs = self.node_subscribers.borrow();
             for source in sources.borrow().iter() {
                 if let Some(source) = subs.get(*source) {
-                    source.borrow_mut().remove(&node_id);
+                    source.borrow_mut().swap_remove(&node_id);
                 }
             }
         }
