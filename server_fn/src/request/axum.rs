@@ -12,8 +12,8 @@ impl<CustErr> Req<CustErr> for Request<Body>
 where
     CustErr: 'static,
 {
-    fn as_query(&self) -> Option<&str> {
-        self.uri().query()
+    fn as_query(&self) -> Option<Cow<'_, str>> {
+        self.uri().query().map(|q| q.into())
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {

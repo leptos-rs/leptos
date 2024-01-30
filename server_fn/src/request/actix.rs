@@ -37,8 +37,8 @@ impl<CustErr> Req<CustErr> for ActixRequest
 where
     CustErr: 'static,
 {
-    fn as_query(&self) -> Option<&str> {
-        self.0 .0.uri().query()
+    fn as_query(&self) -> Option<Cow<'_, str>> {
+        self.0 .0.uri().query().map(|q| q.into())
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {

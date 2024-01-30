@@ -40,7 +40,7 @@ where
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<CustErr>> {
         let string_data = req.as_query().unwrap_or_default();
-        let args = serde_qs::from_str::<Self>(string_data)
+        let args = serde_qs::from_str::<Self>(&string_data)
             .map_err(|e| ServerFnError::Args(e.to_string()))?;
         Ok(args)
     }
