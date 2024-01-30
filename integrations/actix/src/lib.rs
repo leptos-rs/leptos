@@ -150,14 +150,6 @@ pub fn redirect(path: &str) {
              to redirect()."
         );
     }
-    if let Some(response_options) = use_context::<ResponseOptions>() {
-        response_options.set_status(StatusCode::FOUND);
-        response_options.insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path)
-                .expect("Failed to create HeaderValue"),
-        );
-    }
 }
 
 /// An Actix [struct@Route](actix_web::Route) that listens for a `POST` request with
