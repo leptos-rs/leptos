@@ -78,7 +78,7 @@ where
     Self: Sized,
 {
     /// Returns the query string of the request’s URL, starting after the `?`.
-    fn as_query(&self) -> Option<&str>;
+    fn as_query(&self) -> Option<Cow<'_, str>>;
 
     /// Returns the `Content-Type` header, if any.
     fn to_content_type(&self) -> Option<Cow<'_, str>>;
@@ -116,7 +116,7 @@ impl<CustErr> Req<CustErr> for BrowserMockReq
 where
     CustErr: 'static,
 {
-    fn as_query(&self) -> Option<&str> {
+    fn as_query(&self) -> Option<Cow<'_, str>> {
         unreachable!()
     }
 

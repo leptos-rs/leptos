@@ -441,6 +441,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 }
 
 #[allow(unused)] // used by server integrations
+/// A neat little type that stores our trait representations of your server functions
 type LazyServerFnMap<Req, Res> =
     Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
 
