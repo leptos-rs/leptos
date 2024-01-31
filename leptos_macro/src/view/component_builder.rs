@@ -6,7 +6,7 @@ use super::{
 };
 use crate::view::directive_call_from_attribute_node;
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -189,6 +189,10 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
+    let build = quote_spanned! { name.span() =>
+        .build()
+    };
+
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
         ::leptos::component_view(
@@ -197,7 +201,7 @@ pub(crate) fn component_to_tokens(
                 #(#props)*
                 #(#slots)*
                 #children
-                .build()
+                #build
                 #dyn_attrs
         )
     };
