@@ -81,9 +81,9 @@ pub(crate) fn component_to_tokens(
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
             let (event_type, handler) = event_from_attribute_node(attr, true);
-
+            let on = quote_spanned!(attr.key.span() => on);
             quote! {
-                .on(#event_type, #handler)
+                .#on(#event_type, #handler)
             }
         })
         .collect::<Vec<_>>();
