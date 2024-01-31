@@ -196,11 +196,14 @@ pub(crate) fn component_to_tokens(
     let build = quote_spanned! { name.span() =>
         .build()
     };
+    let component_props_builder = quote_spanned! { name.span() =>
+        ::leptos::component_props_builder(#name_ref #generics)
+    };
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
         {
-            let props = ::leptos::component_props_builder(#name_ref #generics)
+            let props = #component_props_builder
                 #(#props)*
                 #(#slots)*
                 #children
