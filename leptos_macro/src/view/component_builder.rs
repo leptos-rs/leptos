@@ -195,15 +195,17 @@ pub(crate) fn component_to_tokens(
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
-        ::leptos::component_view(
-            &#name,
-            ::leptos::component_props_builder(&#name #generics)
+        {
+            let props = ::leptos::component_props_builder(&#name #generics)
                 #(#props)*
                 #(#slots)*
                 #children
                 #build
-                #dyn_attrs
-        )
+                #dyn_attrs;
+
+            #[allow(unreachable_code)]
+            ::leptos::component_view(&#name, props)
+        }
     };
 
     // (Temporarily?) removed
