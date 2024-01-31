@@ -5,6 +5,7 @@ use futures::{Stream, StreamExt};
 pub use gloo_net::http::Request;
 use js_sys::{Reflect, Uint8Array};
 use send_wrapper::SendWrapper;
+use std::ops::{Deref, DerefMut};
 use wasm_bindgen::JsValue;
 use wasm_streams::ReadableStream;
 use web_sys::{FormData, Headers, RequestInit, UrlSearchParams};
@@ -16,6 +17,32 @@ pub struct BrowserRequest(pub(crate) SendWrapper<Request>);
 impl From<Request> for BrowserRequest {
     fn from(value: Request) -> Self {
         Self(SendWrapper::new(value))
+    }
+}
+
+impl From<BrowserRequest> for Request {
+    fn from(value: BrowserRequest) -> Self {
+        value.0.take()
+    }
+}
+
+impl From<BrowserRequest> for web_sys::Request {
+    fn from(value: BrowserRequest) -> Self {
+        value.0.take().into()
+    }
+}
+
+impl Deref for BrowserRequest {
+    type Target = Request;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl DerefMut for BrowserRequest {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.deref_mut()
     }
 }
 

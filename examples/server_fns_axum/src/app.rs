@@ -5,13 +5,15 @@ use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
 use leptos_router::{ActionForm, Route, Router, Routes};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use server_fn::{
+    client::{browser::BrowserClient, Client},
     codec::{
         Encoding, FromReq, FromRes, GetUrl, IntoReq, IntoRes, MultipartData,
         MultipartFormData, Rkyv, SerdeLite, StreamingText, TextStream,
     },
-    request::{ClientReq, Req},
-    response::{ClientRes, Res},
+    request::{browser::BrowserRequest, ClientReq, Req},
+    response::{browser::BrowserResponse, ClientRes, Res},
 };
+use std::future::Future;
 #[cfg(feature = "ssr")]
 use std::sync::{
     atomic::{AtomicU8, Ordering},
@@ -58,6 +60,7 @@ pub fn HomePage() -> impl IntoView {
         <FileUploadWithProgress/>
         <FileWatcher/>
         <CustomEncoding/>
+        <CustomClientExample/>
     }
 }
 
@@ -793,5 +796,57 @@ pub fn CustomEncoding() -> impl IntoView {
             Submit
         </button>
         <p>{result}</p>
+    }
+}
+
+/// Middleware lets you modify the request/response on the server.
+///
+/// On the client, you might also want to modify the request. For example, you may need to add a
+/// custom header for authentication on every request. You can do this by creating a "custom
+/// client."
+#[component]
+pub fn CustomClientExample() -> impl IntoView {
+    // Define a type for our client.
+    pub struct CustomClient;
+
+    // Implement the `Client` trait for it.
+    impl<CustErr> Client<CustErr> for CustomClient {
+        // BrowserRequest and BrowserResponse are the defaults used by other server functions.
+        // They are wrappers for the underlying Web Fetch API types.
+        type Request = BrowserRequest;
+        type Response = BrowserResponse;
+
+        // Our custom `send()` implementation does all the work.
+        fn send(
+            req: Self::Request,
+        ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
+               + Send {
+            // BrowserRequest derefs to the underlying Request type from gloo-net,
+            // so we can get access to the headers here
+            let headers = req.headers();
+            // modify the headers by appending one
+            headers.append("X-Custom-Header", "foobar");
+            // delegate back out to BrowserClient to send the modified request
+            BrowserClient::send(req)
+        }
+    }
+
+    // Specify our custom client with `client = `
+    #[server(client = CustomClient)]
+    pub async fn fn_with_custom_client() -> Result<(), ServerFnError> {
+        use http::header::HeaderMap;
+        use leptos_axum::extract;
+
+        let headers: HeaderMap = extract().await?;
+        let custom_header = headers.get("X-Custom-Header");
+        println!("X-Custom-Header = {custom_header:?}");
+        Ok(())
+    }
+
+    view! {
+        <h3>Custom clients</h3>
+        <p>You can define a custom server function client to do something like adding a header to every request.</p>
+        <p>Check the network request in your browser devtools to see how this client adds a custom header.</p>
+        <button on:click=|_| spawn_local(async { fn_with_custom_client().await.unwrap() })>Click me</button>
     }
 }
