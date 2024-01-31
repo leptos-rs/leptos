@@ -47,8 +47,12 @@ pub(crate) fn component_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            quote! {
-                .#name(#[allow(unused_braces)] {#value})
+            let value = quote_spanned! { value.span() =>
+                #[allow(unused_braces)] {#value}
+            };
+
+            quote_spanned! { attr.span() =>
+                .#name(#value)
             }
         });
 
