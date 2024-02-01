@@ -1,7 +1,7 @@
 use crate::{attribute_value, Mode};
 use convert_case::{Case::Snake, Casing};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{quote, quote_spanned};
 use rstml::node::{KeyedAttribute, Node, NodeElement, NodeName};
 use syn::{spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprPath, Lit};
 
@@ -534,12 +534,12 @@ pub(crate) fn directive_call_from_attribute_node(
     attr: &KeyedAttribute,
     directive_name: &str,
 ) -> TokenStream {
-    let handler = format_ident!("{directive_name}", span = attr.key.span());
+    let handler = syn::Ident::new(directive_name, attr.key.span());
 
     let param = if let Some(value) = attr.value() {
-        quote! { #value.into() }
+        quote! { ::std::convert::Into::into(#value) }
     } else {
-        quote! { () }
+        quote! { ().into() }
     };
 
     quote! { .directive(#handler, #param) }
