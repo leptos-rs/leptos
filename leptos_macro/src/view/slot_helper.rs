@@ -3,7 +3,7 @@ use super::{
     convert_to_snake_case, ident_from_tag_name,
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -61,8 +61,12 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            quote! {
-                .#name(#[allow(unused_braces)] {#value})
+            let value = quote_spanned! { value.span() =>
+                #[allow(unused_braces)] {#value}
+            };
+
+            quote_spanned! { attr.span() =>
+                .#name(#value)
             }
         });
 
