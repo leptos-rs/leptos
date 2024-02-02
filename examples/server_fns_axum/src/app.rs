@@ -320,7 +320,7 @@ pub fn RkyvExample() -> impl IntoView {
                 set_input(value);
             }
         >
-            Click to see length
+            Click to capitalize
         </button>
         <p>{input}</p>
         <Transition>
