@@ -144,6 +144,10 @@ pub(crate) fn slot_to_tokens(
     };
 
     let slots = slots.drain().map(|(slot, values)| {
+        let span = values
+            .last()
+            .expect("List of slots must not be empty")
+            .span();
         let slot = Ident::new(&slot, span);
         if values.len() > 1 {
             quote! {
