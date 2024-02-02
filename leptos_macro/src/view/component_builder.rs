@@ -210,7 +210,7 @@ pub(crate) fn component_to_tokens(
     };
 
     #[allow(unused_mut)] // used in debug
-    let mut component = quote! {
+    let mut component = quote_spanned! { node.span() =>
         {
             let props = #component_props_builder
                 #(#props)*
@@ -232,7 +232,7 @@ pub(crate) fn component_to_tokens(
     if events_and_directives.is_empty() {
         component
     } else {
-        quote! {
+        quote_spanned! { node.span() =>
             ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
             #(#events_and_directives)*
         }
