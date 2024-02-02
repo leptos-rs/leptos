@@ -172,22 +172,23 @@ pub(crate) fn component_to_tokens(
         }
     };
 
-    let slots = slots.drain().map(|(slot, values)| {
+    let slots = slots.drain().map(|(slot, mut values)| {
         let span = values
             .last()
             .expect("List of slots must not be empty")
             .span();
         let slot = Ident::new(&slot, span);
-        if values.len() > 1 {
-            quote! {
-                .#slot(::std::vec![
+        let value = if values.len() > 1 {
+            quote_spanned! { span =>
+                ::std::vec![
                     #(#values)*
-                ])
+                ]
             }
         } else {
-            let value = &values[0];
-            quote! { .#slot(#value) }
-        }
+            values.remove(0)
+        };
+
+        quote! { .#slot(#value) }
     });
 
     let generics = &node.open_tag.generics;
