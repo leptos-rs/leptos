@@ -38,6 +38,7 @@ pub(crate) fn fragment_to_tokens(
     let mut nodes = nodes
         .iter()
         .filter_map(|node| {
+            let span = node.span();
             let node = node_to_tokens(
                 node,
                 parent_type,
@@ -46,8 +47,12 @@ pub(crate) fn fragment_to_tokens(
                 None,
             )?;
 
+            let node = quote_spanned! { span =>
+                #[allow(unused_braces)] {#node}
+            };
+
             Some(quote! {
-                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
+                ::leptos::IntoView::into_view(#node)
             })
         })
         .peekable();

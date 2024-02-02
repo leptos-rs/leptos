@@ -12,7 +12,7 @@ use leptos_hot_reload::parsing::{
     block_to_primitive_expression, is_component_node, value_to_string,
 };
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::quote;
+use quote::{quote, quote_spanned};
 use rstml::node::{
     KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement,
 };
@@ -76,9 +76,14 @@ pub(crate) fn fragment_to_tokens_ssr(
         quote! {}
     };
     let nodes = nodes.iter().map(|node| {
+        let span = node.span();
         let node = root_node_to_tokens_ssr(node, global_class, None);
+        let node = quote_spanned! { span =>
+            #[allow(unused_braces)] {#node}
+        };
+
         quote! {
-            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
+            ::leptos::IntoView::into_view(#node)
         }
     });
     quote! {
