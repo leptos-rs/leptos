@@ -157,7 +157,7 @@ pub(crate) fn slot_to_tokens(
         }
     });
 
-    let slot = quote! {
+    let slot = quote_spanned! { node.span() =>
         #component_name::builder()
             #(#props)*
             #(#slots)*
