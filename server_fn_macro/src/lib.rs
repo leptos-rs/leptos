@@ -201,31 +201,6 @@ pub fn server_macro_impl(
         })
         .collect::<Vec<_>>();
 
-    // if there's exactly one field, impl From<T> for the struct
-    let first_field = body.inputs.iter().find_map(|f| match f {
-        FnArg::Receiver(_) => None,
-        FnArg::Typed(t) => Some((&t.pat, &t.ty)),
-    });
-    let from_impl =
-        (body.inputs.len() == 1 && first_field.is_some()).then(|| {
-            let field = first_field.unwrap();
-            let (name, ty) = field;
-            quote! {
-                impl From<#struct_name> for #ty {
-                    fn from(value: #struct_name) -> Self {
-                        let #struct_name { #name } = value;
-                        #name
-                    }
-                }
-
-                impl From<#ty> for #struct_name {
-                    fn from(#name: #ty) -> Self {
-                        #struct_name { #name }
-                    }
-                }
-            }
-        });
-
     // check output type
     let output_arrow = body.output_arrow;
     let return_ty = body.return_ty;
@@ -537,9 +512,7 @@ pub fn server_macro_impl(
         pub struct #struct_name {
             #(#fields),*
         }
-
-        #from_impl
-
+        
         impl #server_fn_path::ServerFn for #wrapped_struct_name {
             const PATH: &'static str = #path;
 
