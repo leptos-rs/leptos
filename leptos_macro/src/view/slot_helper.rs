@@ -163,12 +163,16 @@ pub(crate) fn slot_to_tokens(
     });
 
     let slot = quote_spanned! { node.span() =>
-        #component_name::builder()
-            #(#props)*
-            #(#slots)*
-            #children
-            .build()
-            .into(),
+        #[allow(unused_braces)] {
+            let slot = #component_name::builder()
+                #(#props)*
+                #(#slots)*
+                #children
+                .build();
+
+            #[allow(unreachable_code)]
+            slot.into()
+        },
     };
 
     parent_slots
