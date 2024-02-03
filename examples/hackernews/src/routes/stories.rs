@@ -62,16 +62,18 @@ pub fn Stories() -> impl IntoView {
                     }}
                 </span>
                 <span>"page " {page}</span>
-                <span class="page-link"
-                    class:disabled=hide_more_link
-                    aria-hidden=hide_more_link
-                >
-                    <a href=move || format!("/{}?page={}", story_type(), page() + 1)
-                        aria-label="Next Page"
+                <Suspense>
+                    <span class="page-link"
+                        class:disabled=hide_more_link
+                        aria-hidden=hide_more_link
                     >
-                        "more >"
-                    </a>
-                </span>
+                        <a href=move || format!("/{}?page={}", story_type(), page() + 1)
+                            aria-label="Next Page"
+                        >
+                            "more >"
+                        </a>
+                    </span>
+                </Suspense>
             </div>
             <main class="news-list">
                 <div>
