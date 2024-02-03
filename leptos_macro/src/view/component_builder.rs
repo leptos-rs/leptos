@@ -123,15 +123,6 @@ pub(crate) fn component_to_tokens(
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let marker = format!("<{component_name}/>-children");
-                let view_marker = quote! { .with_view_marker(#marker) };
-            } else {
-                let view_marker = quote! {};
-            }
-        }
-
         let children = fragment_to_tokens(
             span,
             &node.children,
@@ -141,6 +132,17 @@ pub(crate) fn component_to_tokens(
             global_class,
             None,
         );
+
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let marker = format!("<{component_name}/>-children");
+                // For some reason spanning for `.children` breaks, unless `#view_marker`
+                // is also covered by `children.span()`.
+                let view_marker = quote_spanned! { children.span() => .with_view_marker(#marker) };
+            } else {
+                let view_marker = quote! {};
+            }
+        }
 
         if let Some(children) = children {
             let bindables =
@@ -152,7 +154,7 @@ pub(crate) fn component_to_tokens(
             });
 
             if bindables.len() > 0 {
-                quote! {
+                quote_spanned! { children.span() =>
                     .children({
                         #(#clonables)*
 
@@ -160,7 +162,7 @@ pub(crate) fn component_to_tokens(
                     })
                 }
             } else {
-                quote! {
+                quote_spanned! { children.span() =>
                     .children({
                         #(#clonables)*
 
@@ -206,6 +208,7 @@ pub(crate) fn component_to_tokens(
     let build = quote_spanned! { name.span() =>
         .build()
     };
+
     let component_props_builder = quote_spanned! { name.span() =>
         ::leptos::component_props_builder(#name_ref #generics)
     };

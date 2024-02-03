@@ -70,11 +70,18 @@ pub(crate) fn fragment_to_tokens_ssr(
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> TokenStream {
+    let original_span = nodes
+        .first()
+        .zip(nodes.last())
+        .and_then(|(first, last)| first.span().join(last.span()))
+        .unwrap_or_else(Span::call_site);
+
     let view_marker = if let Some(marker) = view_marker {
         quote! { .with_view_marker(#marker) }
     } else {
         quote! {}
     };
+
     let nodes = nodes.iter().map(|node| {
         let span = node.span();
         let node = root_node_to_tokens_ssr(node, global_class, None);
@@ -86,7 +93,8 @@ pub(crate) fn fragment_to_tokens_ssr(
             ::leptos::IntoView::into_view(#node)
         }
     });
-    quote! {
+
+    quote_spanned! { original_span =>
         {
             ::leptos::Fragment::lazy(|| ::std::vec![
                 #(#nodes),*

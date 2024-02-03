@@ -35,6 +35,12 @@ pub(crate) fn fragment_to_tokens(
     let mut slots = HashMap::new();
     let has_slots = parent_slots.is_some();
 
+    let original_span = nodes
+        .first()
+        .zip(nodes.last())
+        .and_then(|(first, last)| first.span().join(last.span()))
+        .unwrap_or_else(Span::call_site);
+
     let mut nodes = nodes
         .iter()
         .filter_map(|node| {
@@ -77,7 +83,7 @@ pub(crate) fn fragment_to_tokens(
     };
 
     let tokens = if lazy {
-        quote! {
+        quote_spanned! { original_span =>
             {
                 ::leptos::Fragment::lazy(|| ::std::vec![
                     #(#nodes),*
@@ -86,7 +92,7 @@ pub(crate) fn fragment_to_tokens(
             }
         }
     } else {
-        quote! {
+        quote_spanned! { original_span =>
             {
                 ::leptos::Fragment::new(::std::vec![
                     #(#nodes),*
