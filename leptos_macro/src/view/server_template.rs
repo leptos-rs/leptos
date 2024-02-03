@@ -34,7 +34,6 @@ pub(crate) fn root_node_to_tokens_ssr(
 ) -> TokenStream {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens_ssr(
-            Span::call_site(),
             &fragment.children,
             global_class,
             view_marker,
@@ -65,7 +64,6 @@ pub(crate) fn root_node_to_tokens_ssr(
 }
 
 pub(crate) fn fragment_to_tokens_ssr(
-    _span: Span,
     nodes: &[Node],
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,

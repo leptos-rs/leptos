@@ -24,7 +24,6 @@ pub(crate) enum TagType {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn fragment_to_tokens(
-    _span: Span,
     nodes: &[Node],
     lazy: bool,
     parent_type: TagType,
@@ -123,7 +122,6 @@ pub(crate) fn node_to_tokens(
 ) -> Option<TokenStream> {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
-            Span::call_site(),
             &fragment.children,
             true,
             parent_type,
@@ -308,7 +306,6 @@ pub(crate) fn element_to_tokens(
             let (child, is_static) = match node {
                 Node::Fragment(fragment) => (
                     fragment_to_tokens(
-                        Span::call_site(),
                         &fragment.children,
                         true,
                         parent_type,

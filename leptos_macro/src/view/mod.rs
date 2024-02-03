@@ -38,7 +38,6 @@ pub(crate) fn render_view(
                 call_site,
             ),
             _ => server_template::fragment_to_tokens_ssr(
-                Span::call_site(),
                 nodes,
                 global_class,
                 call_site,
@@ -56,7 +55,6 @@ pub(crate) fn render_view(
             )
             .unwrap_or_default(),
             _ => client_builder::fragment_to_tokens(
-                Span::call_site(),
                 nodes,
                 true,
                 client_builder::TagType::Unknown,

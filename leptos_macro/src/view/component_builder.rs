@@ -18,7 +18,6 @@ pub(crate) fn component_to_tokens(
     let name = node.name();
     #[cfg(debug_assertions)]
     let component_name = ident_from_tag_name(node.name());
-    let span = node.name().span();
 
     let attrs = node.attributes().iter().filter_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
@@ -124,7 +123,6 @@ pub(crate) fn component_to_tokens(
         quote! {}
     } else {
         let children = fragment_to_tokens(
-            span,
             &node.children,
             true,
             TagType::Unknown,

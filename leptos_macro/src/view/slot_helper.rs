@@ -23,11 +23,10 @@ pub(crate) fn slot_to_tokens(
     });
 
     let component_name = ident_from_tag_name(node.name());
-    let span = node.name().span();
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error::emit_error!(
-            span,
+            node.name().span(),
             "slots cannot be used inside HTML elements"
         );
         return;
@@ -95,7 +94,6 @@ pub(crate) fn slot_to_tokens(
         quote! {}
     } else {
         let children = fragment_to_tokens(
-            span,
             &node.children,
             true,
             TagType::Unknown,
