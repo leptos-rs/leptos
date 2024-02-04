@@ -178,7 +178,7 @@ pub(crate) fn element_to_tokens(
         let name = if is_custom_element(&tag) {
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
-            let custom = Ident::new("custom", name.span());
+            let custom = Ident::new("custom", node.name().span());
             quote! { ::leptos::leptos_dom::html::#custom(::leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
@@ -283,14 +283,7 @@ pub(crate) fn element_to_tokens(
         });
         let global_class_expr = match global_class {
             None => quote! {},
-            Some(class) => {
-                quote! {
-                    .classes(
-                        #[allow(unused_braces)]
-                        {#class}
-                    )
-                }
-            }
+            Some(class) => quote! { .classes(#class) },
         };
 
         if is_self_closing(node) && !node.children.is_empty() {
@@ -459,7 +452,7 @@ pub(crate) fn attribute_to_tokens(
             prop.span()=> .prop
         };
         quote! {
-            #prop(#name, #[allow(unused_braces)] {#value})
+            #prop(#name, #value)
         }
     } else if let Some(name) = name.strip_prefix("class:") {
         let value = attribute_value(node);
@@ -471,7 +464,7 @@ pub(crate) fn attribute_to_tokens(
             class.span()=> .class
         };
         quote! {
-            #class(#name, #[allow(unused_braces)] {#value})
+            #class(#name, #value)
         }
     } else if let Some(name) = name.strip_prefix("style:") {
         let value = attribute_value(node);
@@ -483,7 +476,7 @@ pub(crate) fn attribute_to_tokens(
             style.span()=> .style
         };
         quote! {
-            #style(#name, #[allow(unused_braces)] {#value})
+            #style(#name, #value)
         }
     } else {
         let name = name.replacen("attr:", "", 1);
@@ -526,7 +519,7 @@ pub(crate) fn attribute_to_tokens(
             }
         };
         quote! {
-            #attr(#name, (#value))
+            #attr(#name, #value)
         }
     }
 }

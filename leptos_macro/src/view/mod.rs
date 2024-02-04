@@ -420,7 +420,7 @@ fn fancy_class_name<'a>(
                 let value = &tuple.elems[1];
                 return Some((
                     quote! {
-                        #class(#class_name, (#value))
+                        #class(#class_name, #value)
                     },
                     class_name,
                     value,
@@ -489,7 +489,7 @@ fn fancy_style_name<'a>(
                 let value = &tuple.elems[1];
                 return Some((
                     quote! {
-                        #style(#style_name, (#value))
+                        #style(#style_name, #value)
                     },
                     style_name,
                     value,
