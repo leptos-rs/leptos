@@ -1,12 +1,12 @@
 [package]
-name = "reactive-graph"
+name = "reactive_graph"
 edition = "2021"
 version.workspace = true
 
 [dependencies]
 or_poisoned = { workspace = true }
 futures = "0.3"
-glib = { version = "0.18", optional = true }
+glib = { version = "0.19", optional = true }
 pin-project-lite = "0.2.13"
 rustc-hash = "1.1.0"
 slotmap = "1"
@@ -19,6 +19,7 @@ wasm-bindgen-futures = { version = "0.4.40", optional = true }
 tokio = { version = "1", features = ["rt-multi-thread", "time", "macros"] }
 
 [features]
+nightly = []
 tracing = ["dep:tracing"]
 tokio = ["dep:tokio"]
 glib = ["dep:glib"]
