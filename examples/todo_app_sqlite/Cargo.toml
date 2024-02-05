@@ -67,7 +67,7 @@ end2end-cmd = "cargo make test-ui"
 end2end-dir = "e2e"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
-# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
 watch = false
 # The environment Leptos will run in, usually either "DEV" or "PROD"
 env = "DEV"

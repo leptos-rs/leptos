@@ -19,7 +19,7 @@ leptos_router = { path = "../../router", features = ["nightly"] }
 log = "0.4"
 simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }
-axum = { version = "0.7", optional = true, features=["macros"] }
+axum = { version = "0.7", optional = true, features = ["macros"] }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = ["fs"], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
@@ -83,7 +83,7 @@ reload-port = 3001
 end2end-cmd = "npx playwright test"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
-# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
 watch = false
 # The environment Leptos will run in, usually either "DEV" or "PROD"
 env = "DEV"
