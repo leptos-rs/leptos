@@ -281,7 +281,7 @@ cfg_if! {
     /// When `El` has a corresponding [`web_sys::HtmlElement`] -> `El` will implement [`std::ops::Deref`] for it.
     /// For instance [`leptos::HtmlElement<Div>`] implements [`std::ops::Deref`] for [`web_sys::HtmlDivElement`]
     /// Because of [Deref Coercion](https://doc.rust-lang.org/std/ops/trait.Deref.html#deref-coercion) you can call applicable [`web_sys::HtmlElement`] methods on `HtmlElement<El>` as if it were that type.
-    /// If both `HtmlElement<El>` and one of its derefs have a method with the same name, the dot syntax will call the method on the inherent impl (i.e. `HtmlElement<El>` or it's [`std::ops::Deref`] Target). 
+    /// If both `HtmlElement<El>` and one of its derefs have a method with the same name, the dot syntax will call the method on the inherent impl (i.e. `HtmlElement<El>` or it's [`std::ops::Deref`] Target).
     /// You may need to manually deref to access other methods, for example, `(*el).style()` to get the `CssStyleDeclaration` instead of calling [`leptos::HtmlElement::style`].
 
     #[must_use = "You are creating an HtmlElement<_> but not using it. An unused view can \
