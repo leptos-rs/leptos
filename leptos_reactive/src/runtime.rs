@@ -308,7 +308,18 @@ impl Runtime {
             let subs = self.node_subscribers.borrow();
             for source in sources.borrow().iter() {
                 if let Some(source) = subs.get(*source) {
-                    source.borrow_mut().swap_remove(&node_id);
+                    // Using `.shift_remove()` here guarantees that dependencies
+                    // of a signal are always triggered in the same order.
+                    // This is important for cases in which, for example, the first effect
+                    // conditionally checks that the signal value is `Some(_)`, and the
+                    // second one unwraps its value; if they maintain this order, then the check
+                    // will always run first, and will cancel the unwrap if it is None. But if the
+                    // order can be inverted (by using .swap_remove() here), the unwrap will
+                    // run first on a subsequent run.
+                    //
+                    // Maintaining execution order is the intention of using an IndexSet here anyway,
+                    // but using .swap_remove() would undermine that goal.
+                    source.borrow_mut().shift_remove(&node_id);
                 }
             }
         }
