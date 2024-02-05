@@ -246,7 +246,7 @@ pub(crate) fn element_to_tokens(
                             ..
                         }),
                         _,
-                    ) => Some(quote! { .attrs(#[allow(unused_brace)] {#end}) }),
+                    ) => Some(quote! { .attrs(#end) }),
                     _ => None,
                 }
             } else {
