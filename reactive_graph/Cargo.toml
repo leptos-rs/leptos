@@ -1,0 +1,29 @@
+[package]
+name = "reactive-graph"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+futures = "0.3"
+glib = { version = "0.18", optional = true }
+pin-project-lite = "0.2.13"
+rustc-hash = "1.1.0"
+slotmap = "1"
+thiserror = "1"
+tokio = { version = "1", optional = true, features = ["rt"] }
+tracing = { version = "0.1", optional = true }
+wasm-bindgen-futures = { version = "0.4.40", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "time", "macros"] }
+
+[features]
+tracing = ["dep:tracing"]
+tokio = ["dep:tokio"]
+glib = ["dep:glib"]
+wasm-bindgen = ["dep:wasm-bindgen-futures"]
+futures-executor = ["futures/thread-pool", "futures/executor"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
