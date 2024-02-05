@@ -1,5 +1,5 @@
 use super::OWNER;
-use crate::OrPoisoned;
+use or_poisoned::OrPoisoned;
 use slotmap::{new_key_type, SlotMap};
 use std::{
     any::Any,
