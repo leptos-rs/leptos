@@ -1,4 +1,5 @@
-use crate::{owner::Owner, OrPoisoned};
+use crate::owner::Owner;
+use or_poisoned::OrPoisoned;
 use std::any::{Any, TypeId};
 
 impl Owner {

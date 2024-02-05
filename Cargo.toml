@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+  # utils 
+  "or_poisoned",
+
   # core
   "leptos",
   "leptos_dom",
@@ -39,10 +42,11 @@ leptos_server = { path = "./leptos_server", version = "0.6.10" }
 server_fn = { path = "./server_fn", version = "0.6.10" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.6.10" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
-leptos_config = { path = "./leptos_config", version = "0.6.10" }
-leptos_router = { path = "./router", version = "0.6.10" }
-leptos_meta = { path = "./meta", version = "0.6.10" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.6.10" }
+leptos_config = { path = "./leptos_config", version = "0.6.9" }
+leptos_router = { path = "./router", version = "0.6.9" }
+leptos_meta = { path = "./meta", version = "0.6.9" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.6.9" }
+or_poisoned = { path = "./or_poisoned" }
 
 [profile.release]
 codegen-units = 1
