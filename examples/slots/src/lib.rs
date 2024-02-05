@@ -1,6 +1,6 @@
 use leptos::*;
 
-// Slots are created in simillar manner to components, except that they use the #[slot] macro.
+// Slots are created in similar manner to components, except that they use the #[slot] macro.
 #[slot]
 struct Then {
     children: ChildrenFn,
