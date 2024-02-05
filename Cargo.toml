@@ -3,6 +3,8 @@ resolver = "2"
 members = [
   # utilities
   "oco",
+  "const_str_slice_concat",
+  "next_tuple",
   "or_poisoned",
 
   # core
@@ -18,6 +20,7 @@ members = [
   "server_fn",
   "server_fn_macro",
   "server_fn/server_fn_macro_default",
+  "tachys",
 
   # integrations
   "integrations/actix",
@@ -35,20 +38,24 @@ version = "0.6.12"
 rust-version = "1.75"
 
 [workspace.dependencies]
-oco_ref = { path = "./oco", version = "0.1.0" }
-leptos = { path = "./leptos", version = "0.6.12" }
-leptos_dom = { path = "./leptos_dom", version = "0.6.12" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.12" }
-leptos_macro = { path = "./leptos_macro", version = "0.6.12" }
-leptos_reactive = { path = "./leptos_reactive", version = "0.6.12" }
-leptos_server = { path = "./leptos_server", version = "0.6.12" }
-server_fn = { path = "./server_fn", version = "0.6.12" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.6.12" }
+const_str_slice_concat = { path = "./const_str_slice_concat" }
+leptos = { path = "./leptos", version = "0.6.5" }
+leptos_config = { path = "./leptos_config", version = "0.6.5" }
+leptos_dom = { path = "./leptos_dom", version = "0.6.5" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.5" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.6.5" }
+leptos_macro = { path = "./leptos_macro", version = "0.6.5" }
+leptos_reactive = { path = "./leptos_reactive", version = "0.6.5" }
+leptos_router = { path = "./router", version = "0.6.5" }
+leptos_server = { path = "./leptos_server", version = "0.6.5" }
+leptos_meta = { path = "./meta", version = "0.6.5" }
+next_tuple = { path = "./next_tuple" }
+or_poisoned = { path = "./or_poisoned" }
+reactive_graph = { path = "./reactive_graph" }
+server_fn = { path = "./server_fn", version = "0.6.5" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.6.5" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
-leptos_config = { path = "./leptos_config", version = "0.6.12" }
-leptos_router = { path = "./router", version = "0.6.12" }
-leptos_meta = { path = "./meta", version = "0.6.12" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.6.12" }
+tachys = { path = "./tachys" }
 
 [profile.release]
 codegen-units = 1
