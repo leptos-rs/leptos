@@ -1,0 +1,18 @@
+[package]
+name = "hydration_context"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+or_poisoned = { workspace = true }
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[features]
+browser = ["dep:wasm-bindgen", "dep:js-sys"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
