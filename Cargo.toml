@@ -6,6 +6,7 @@ members = [
   "or_poisoned",
 
   # core
+  "hydration_context",
   "leptos",
   "leptos_dom",
   "leptos_config",
