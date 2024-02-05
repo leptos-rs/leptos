@@ -4,6 +4,7 @@ edition = "2021"
 version.workspace = true
 
 [dependencies]
+or_poisoned = { workspace = true }
 futures = "0.3"
 glib = { version = "0.18", optional = true }
 pin-project-lite = "0.2.13"
