@@ -295,57 +295,40 @@ pub(crate) fn element_to_tokens(
             );
         }
 
-        let children = node.children.iter().map(|node| {
-            let (child, is_static) = match node {
-                Node::Fragment(fragment) => (
-                    fragment_to_tokens(
-                        &fragment.children,
-                        true,
-                        parent_type,
-                        None,
-                        global_class,
-                        None,
-                    )
-                    .unwrap_or(quote_spanned! {
-                        Span::call_site()=> ::leptos::leptos_dom::Unit
-                    }),
-                    false,
-                ),
-                Node::Text(node) => (quote! { #node }, true),
+        let children = node
+            .children
+            .iter()
+            .map(|node| match node {
+                Node::Fragment(fragment) => fragment_to_tokens(
+                    &fragment.children,
+                    true,
+                    parent_type,
+                    None,
+                    global_class,
+                    None,
+                )
+                .unwrap_or(quote_spanned! {
+                    Span::call_site()=> ::leptos::leptos_dom::Unit
+                }),
+                Node::Text(node) => quote! { #node },
                 Node::RawText(node) => {
                     let text = node.to_string_best();
                     let text = syn::LitStr::new(&text, node.span());
-                    (quote! { #text }, true)
+                    quote! { #text }
                 }
-                Node::Block(node) => (
-                    quote! {
-                       #node
-                    },
-                    false,
-                ),
-                Node::Element(node) => (
-                    element_to_tokens(
-                        node,
-                        parent_type,
-                        None,
-                        global_class,
-                        None,
-                    )
-                    .unwrap_or_default(),
-                    false,
-                ),
-                Node::Comment(_) | Node::Doctype(_) => (quote! {}, false),
-            };
-            if is_static {
-                quote! {
-                    .child(#child)
-                }
-            } else {
-                quote! {
-                    .child((#child))
-                }
-            }
-        });
+                Node::Block(node) => quote! { #node },
+                Node::Element(node) => element_to_tokens(
+                    node,
+                    parent_type,
+                    None,
+                    global_class,
+                    None,
+                )
+                .unwrap_or_default(),
+                Node::Comment(_) | Node::Doctype(_) => quote! {},
+            })
+            .map(|node| quote!(.child(#node)));
+
         let view_marker = if let Some(marker) = view_marker {
             quote! { .with_view_marker(#marker) }
         } else {
