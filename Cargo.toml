@@ -9,6 +9,7 @@ members = [
   "leptos_macro",
   "leptos_reactive",
   "leptos_server",
+  "reactive_graph",
   "server_fn",
   "server_fn_macro",
   "server_fn/server_fn_macro_default",
