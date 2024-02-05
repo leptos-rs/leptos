@@ -60,11 +60,11 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned! { value.span() =>
+            let value = quote_spanned! {value.span()=>
                 #[allow(unused_braces)] {#value}
             };
 
-            quote_spanned! { attr.span() =>
+            quote_spanned! {attr.span()=>
                 .#name(#value)
             }
         });
@@ -107,7 +107,7 @@ pub(crate) fn slot_to_tokens(
                 let marker = format!("<{component_name}/>-children");
                 // For some reason spanning for `.children` breaks, unless `#view_marker`
                 // is also covered by `children.span()`.
-                let view_marker = quote_spanned! { children.span() => .with_view_marker(#marker) };
+                let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
             } else {
                 let view_marker = quote! {};
             }
@@ -118,12 +118,12 @@ pub(crate) fn slot_to_tokens(
                 items_to_bind.iter().map(|ident| quote! { #ident, });
 
             let clonables = items_to_clone.iter().map(|ident| {
-                let ident_ref = quote_spanned! { ident.span() => &#ident };
+                let ident_ref = quote_spanned!(ident.span()=> &#ident);
                 quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
             });
 
             if bindables.len() > 0 {
-                quote_spanned! { children.span() =>
+                quote_spanned! {children.span()=>
                     .children({
                         #(#clonables)*
 
@@ -131,7 +131,7 @@ pub(crate) fn slot_to_tokens(
                     })
                 }
             } else {
-                quote_spanned! { children.span() =>
+                quote_spanned! {children.span()=>
                     .children({
                         #(#clonables)*
 
@@ -151,7 +151,7 @@ pub(crate) fn slot_to_tokens(
             .span();
         let slot = Ident::new(&slot, span);
         let value = if values.len() > 1 {
-            quote_spanned! { span =>
+            quote_spanned! {span=>
                 ::std::vec![
                     #(#values)*
                 ]
@@ -163,11 +163,11 @@ pub(crate) fn slot_to_tokens(
         quote! { .#slot(#value) }
     });
 
-    let build = quote_spanned! { node.name().span() =>
+    let build = quote_spanned! {node.name().span()=>
         .build()
     };
 
-    let slot = quote_spanned! { node.span() =>
+    let slot = quote_spanned! {node.span()=>
         #[allow(unused_braces)] {
             let slot = #component_name::builder()
                 #(#props)*

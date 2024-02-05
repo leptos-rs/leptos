@@ -535,9 +535,9 @@ pub(crate) fn directive_call_from_attribute_node(
     let handler = syn::Ident::new(directive_name, attr.key.span());
 
     let param = if let Some(value) = attr.value() {
-        quote! { ::std::convert::Into::into(#value) }
+        quote!(::std::convert::Into::into(#value))
     } else {
-        quote_spanned! { attr.key.span() => ().into() }
+        quote_spanned!(attr.key.span()=> ().into())
     };
 
     quote! { .directive(#handler, #param) }

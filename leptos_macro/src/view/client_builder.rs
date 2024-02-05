@@ -52,7 +52,7 @@ pub(crate) fn fragment_to_tokens(
                 None,
             )?;
 
-            let node = quote_spanned! { span =>
+            let node = quote_spanned! {span=>
                 #[allow(unused_braces)] {#node}
             };
 
@@ -82,7 +82,7 @@ pub(crate) fn fragment_to_tokens(
     };
 
     let tokens = if lazy {
-        quote_spanned! { original_span =>
+        quote_spanned! {original_span=>
             {
                 ::leptos::Fragment::lazy(|| ::std::vec![
                     #(#nodes),*
@@ -91,7 +91,7 @@ pub(crate) fn fragment_to_tokens(
             }
         }
     } else {
-        quote_spanned! { original_span =>
+        quote_spanned! {original_span=>
             {
                 ::leptos::Fragment::new(::std::vec![
                     #(#nodes),*
@@ -335,7 +335,7 @@ pub(crate) fn element_to_tokens(
             quote! {}
         };
         let ide_helper_close_tag = ide_helper_close_tag.into_iter();
-        Some(quote_spanned! { node.span() =>
+        Some(quote_spanned! {node.span()=>
             #[allow(unused_braces)]
             {
             #(#ide_helper_close_tag)*
