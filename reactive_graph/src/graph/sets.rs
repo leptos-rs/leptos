@@ -75,6 +75,13 @@ impl SubscriberSet {
 
     pub fn unsubscribe(&mut self, subscriber: &AnySubscriber) {
         if let Some(pos) = self.0.iter().position(|s| s == subscriber) {
+            // note: do not use `.swap_remove()` here.
+            // using `.remove()` is slower because it shifts other items
+            // but it maintains the order of the subscribers, which is important
+            // to correctness when you're using this to drive something like a UI,
+            // which can have nested effects, where the inner one assumes the outer
+            // has already run (for example, an outer effect that checks .is_some(),
+            // and an inner effect that unwraps)
             self.0.remove(pos);
         }
     }
