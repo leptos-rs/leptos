@@ -6,9 +6,9 @@ use crate::{
     },
     signal::SignalReadGuard,
     traits::{DefinedAt, Readable},
-    OrPoisoned,
 };
 use core::fmt::Debug;
+use or_poisoned::OrPoisoned;
 use std::{
     panic::Location,
     sync::{Arc, RwLock, Weak},

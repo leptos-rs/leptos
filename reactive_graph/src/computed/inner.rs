@@ -4,8 +4,8 @@ use crate::{
         Source, SourceSet, Subscriber, SubscriberSet,
     },
     owner::Owner,
-    OrPoisoned,
 };
+use or_poisoned::OrPoisoned;
 use std::sync::{Arc, RwLock};
 
 pub struct MemoInner<T> {

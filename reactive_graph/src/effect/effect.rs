@@ -4,9 +4,9 @@ use crate::{
     executor::Executor,
     graph::{AnySubscriber, SourceSet, Subscriber, ToAnySubscriber},
     owner::Owner,
-    OrPoisoned,
 };
 use futures::StreamExt;
+use or_poisoned::OrPoisoned;
 use std::{
     mem,
     sync::{Arc, RwLock},

@@ -4,8 +4,8 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, SourceSet, Subscriber,
         ToAnySubscriber,
     },
-    OrPoisoned,
 };
+use or_poisoned::OrPoisoned;
 use std::sync::{Arc, RwLock, Weak};
 
 pub(crate) struct EffectInner {

@@ -5,8 +5,8 @@ use crate::{
         SubscriberSet,
     },
     owner::Owner,
-    OrPoisoned,
 };
+use or_poisoned::OrPoisoned;
 use std::sync::RwLock;
 
 pub(crate) struct ArcAsyncDerivedInner {
