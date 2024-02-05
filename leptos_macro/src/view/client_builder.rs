@@ -335,7 +335,8 @@ pub(crate) fn element_to_tokens(
             quote! {}
         };
         let ide_helper_close_tag = ide_helper_close_tag.into_iter();
-        Some(quote! {
+        Some(quote_spanned! { node.span() =>
+            #[allow(unused_braces)]
             {
             #(#ide_helper_close_tag)*
             #name
