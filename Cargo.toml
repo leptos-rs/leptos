@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   # utilities
   "oco",
+  "or_poisoned",
 
   # core
   "leptos",

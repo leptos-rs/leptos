@@ -2,8 +2,8 @@ use super::{ArcAsyncDerived, AsyncState};
 use crate::{
     graph::{AnySource, ToAnySource},
     traits::Track,
-    OrPoisoned,
 };
+use or_poisoned::OrPoisoned;
 use std::{
     future::{Future, IntoFuture},
     pin::Pin,
