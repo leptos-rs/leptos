@@ -357,7 +357,12 @@ impl<T> SignalWithUntracked for Memo<T> {
     #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(|runtime| {
-            self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
+            self.id
+                .try_with_no_subscription(runtime, |v: &Option<T>| {
+                    v.as_ref().map(f)
+                })
+                .ok()
+                .flatten()
         })
         .ok()
         .flatten()

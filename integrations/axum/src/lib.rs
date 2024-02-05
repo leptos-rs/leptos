@@ -7,7 +7,7 @@
 //! To run in this environment, you need to disable the default feature set and enable
 //! the `wasm` feature on `leptos_axum` in your `Cargo.toml`.
 //! ```toml
-//! leptos_axum = { version = "0.6.0-beta", default-features = false, features = ["wasm"] }
+//! leptos_axum = { version = "0.6.0", default-features = false, features = ["wasm"] }
 //! ```
 //!
 //! ## Features
@@ -54,11 +54,8 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use server_fn::redirect::REDIRECT_HEADER;
-use std::{
-    error::Error, fmt::Debug, io, pin::Pin, sync::Arc,
-    thread::available_parallelism,
-};
+use server_fn::{error::NoCustomError, redirect::REDIRECT_HEADER};
+use std::{fmt::Debug, io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
 
@@ -332,7 +329,15 @@ async fn handle_server_fns_inner(
         _ = tx.send(res);
     });
 
-    rx.await.unwrap()
+    rx.await.unwrap_or_else(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ServerFnError::<NoCustomError>::ServerError(e.to_string())
+                .ser()
+                .unwrap_or_default(),
+        )
+            .into_response()
+    })
 }
 
 pub type PinnedHtmlStream =
@@ -1589,6 +1594,14 @@ where
     where
         IV: IntoView + 'static,
     {
+        // S represents the router's finished state allowing us to provide
+        // it to the user's server functions.
+        let state = options.clone();
+        let cx_with_state = move || {
+            provide_context::<S>(state.clone());
+            additional_context();
+        };
+
         let mut router = self;
 
         // register router paths
@@ -1604,7 +1617,7 @@ where
                             path,
                             LeptosOptions::from_ref(options),
                             app_fn.clone(),
-                            additional_context.clone(),
+                            cx_with_state.clone(),
                             method,
                             static_mode,
                         )
@@ -1624,7 +1637,7 @@ where
                         SsrMode::OutOfOrder => {
                             let s = render_app_to_stream_with_context(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1638,7 +1651,7 @@ where
                         SsrMode::PartiallyBlocked => {
                             let s = render_app_to_stream_with_context_and_replace_blocks(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                                 true
                             );
@@ -1653,7 +1666,7 @@ where
                         SsrMode::InOrder => {
                             let s = render_app_to_stream_in_order_with_context(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1667,7 +1680,7 @@ where
                         SsrMode::Async => {
                             let s = render_app_async_with_context(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1686,9 +1699,9 @@ where
 
         // register server functions
         for (path, method) in server_fn::axum::server_fn_paths() {
-            let additional_context = additional_context.clone();
+            let cx_with_state = cx_with_state.clone();
             let handler = move |req: Request<Body>| async move {
-                handle_server_fns_with_context(additional_context, req).await
+                handle_server_fns_with_context(cx_with_state, req).await
             };
             router = router.route(
                 path,
@@ -1772,13 +1785,12 @@ fn get_leptos_pool() -> LocalPoolHandle {
 ///     Ok(query)
 /// }
 /// ```
-pub async fn extract<T, CustErr>() -> Result<T, ServerFnError>
+pub async fn extract<T>() -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<()>,
     T::Rejection: Debug,
-    CustErr: Error + 'static,
 {
-    extract_with_state::<T, (), CustErr>(&()).await
+    extract_with_state::<T, ()>(&()).await
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This
@@ -1800,18 +1812,14 @@ where
 ///     Ok(query)
 /// }
 /// ```
-pub async fn extract_with_state<T, S, CustErr>(
-    state: &S,
-) -> Result<T, ServerFnError>
+pub async fn extract_with_state<T, S>(state: &S) -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<S>,
     T::Rejection: Debug,
-    CustErr: Error + 'static,
 {
     let mut parts = use_context::<Parts>().ok_or_else(|| {
-        ServerFnError::ServerError::<CustErr>(
-            "should have had Parts provided by the leptos_axum integration"
-                .to_string(),
+        ServerFnError::new(
+            "should have had Parts provided by the leptos_axum integration",
         )
     })?;
     T::from_request_parts(&mut parts, state)

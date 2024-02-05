@@ -3,7 +3,7 @@ use crate::component::{
 };
 use attribute_derive::Attribute as AttributeDerive;
 use proc_macro2::{Ident, TokenStream};
-use quote::{ToTokens, TokenStreamExt};
+use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, Field, ItemStruct, LitStr, Meta, Type,
     Visibility,

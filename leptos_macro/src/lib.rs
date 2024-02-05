@@ -2,6 +2,9 @@
 #![forbid(unsafe_code)]
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
+// FIXME? every use of quote! {} is warning here -- false positive?
+#![allow(unknown_lints)]
+#![allow(private_macro_use)]
 
 #[macro_use]
 extern crate proc_macro_error;
@@ -9,7 +12,7 @@ extern crate proc_macro_error;
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use rstml::{node::KeyedAttribute, parse};
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
@@ -911,6 +914,16 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///
 /// Whatever encoding is provided to `input` should implement `IntoReq` and `FromReq`. Whatever encoding is provided
 /// to `output` should implement `IntoRes` and `FromRes`.
+///
+/// ## Default Values for Parameters
+///
+/// Individual function parameters can be annotated with `#[server(default)]`, which will pass
+/// through `#[serde(default)]`. This is useful for the empty values of arguments with some
+/// encodings. The URL encoding, for example, omits a field entirely if it is an empty `Vec<_>`,
+/// but this causes a deserialization error: the correct solution is to add `#[server(default)]`.
+/// ```rust,ignore
+/// pub async fn with_default_value(#[server(default)] values: Vec<u32>) /* etc. */
+/// ```
 ///
 /// ## Important Notes
 /// - **Server functions must be `async`.** Even if the work being done inside the function body

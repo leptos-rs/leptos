@@ -55,6 +55,53 @@ pub fn server_macro_impl(
         }
     });
 
+    let fields = body
+        .inputs
+        .iter_mut()
+        .map(|f| {
+            let typed_arg =
+                match f {
+                    FnArg::Receiver(_) => return Err(syn::Error::new(
+                        f.span(),
+                        "cannot use receiver types in server function macro",
+                    )),
+                    FnArg::Typed(t) => t,
+                };
+
+            // strip `mut`, which is allowed in fn args but not in struct fields
+            if let Pat::Ident(ident) = &mut *typed_arg.pat {
+                ident.mutability = None;
+            }
+
+            // allow #[server(default)] on fields
+            let mut default = false;
+            let mut other_attrs = Vec::new();
+            for attr in typed_arg.attrs.iter() {
+                if !attr.path().is_ident("server") {
+                    other_attrs.push(attr.clone());
+                    continue;
+                }
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("default") && meta.input.is_empty() {
+                        default = true;
+                        Ok(())
+                    } else {
+                        Err(meta.error(
+                            "Unrecognized #[server] attribute, expected \
+                             #[server(default)]",
+                        ))
+                    }
+                })?;
+            }
+            typed_arg.attrs = other_attrs;
+            if default {
+                Ok(quote! { #[serde(default)] pub #typed_arg })
+            } else {
+                Ok(quote! { pub #typed_arg })
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+
     let dummy = body.to_dummy_output();
     let dummy_name = body.to_dummy_ident();
     let args = syn::parse::<ServerFnArgs>(args.into())?;
@@ -130,59 +177,10 @@ pub fn server_macro_impl(
         };
 
     // build struct for type
-    let mut body = body;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
     let attrs = body.attrs;
-
-    let fields = body
-        .inputs
-        .iter_mut()
-        .map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => {
-                    return Err(syn::Error::new(
-                        f.span(),
-                        "cannot use receiver types in server function macro",
-                    ))
-                }
-                FnArg::Typed(t) => t,
-            };
-
-            // strip `mut`, which is allowed in fn args but not in struct fields
-            if let Pat::Ident(ident) = &mut *typed_arg.pat {
-                ident.mutability = None;
-            }
-
-            // allow #[server(default)] on fields — TODO is this documented?
-            let mut default = false;
-            let mut other_attrs = Vec::new();
-            for attr in typed_arg.attrs.iter() {
-                if !attr.path().is_ident("server") {
-                    other_attrs.push(attr.clone());
-                    continue;
-                }
-                attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("default") && meta.input.is_empty() {
-                        default = true;
-                        Ok(())
-                    } else {
-                        Err(meta.error(
-                            "Unrecognized #[server] attribute, expected \
-                             #[server(default)]",
-                        ))
-                    }
-                })?;
-            }
-            typed_arg.attrs = other_attrs;
-            if default {
-                Ok(quote! { #[serde(default)] pub #typed_arg })
-            } else {
-                Ok(quote! { pub #typed_arg })
-            }
-        })
-        .collect::<Result<Vec<_>>>()?;
 
     let fn_args = body
         .inputs
@@ -637,18 +635,20 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
                 else if let GenericArgument::Type(Type::Path(pat)) =
                     &args.args[1]
                 {
-                    if pat.path.segments[0].ident == "ServerFnError" {
-                        let args = &pat.path.segments[0].arguments;
-                        match args {
-                            // Result<T, ServerFnError>
-                            PathArguments::None => return Ok(None),
-                            // Result<T, ServerFnError<E>>
-                            PathArguments::AngleBracketed(args) => {
-                                if args.args.len() == 1 {
-                                    return Ok(Some(&args.args[0]));
+                    if let Some(segment) = pat.path.segments.last() {
+                        if segment.ident == "ServerFnError" {
+                            let args = &pat.path.segments[0].arguments;
+                            match args {
+                                // Result<T, ServerFnError>
+                                PathArguments::None => return Ok(None),
+                                // Result<T, ServerFnError<E>>
+                                PathArguments::AngleBracketed(args) => {
+                                    if args.args.len() == 1 {
+                                        return Ok(Some(&args.args[0]));
+                                    }
                                 }
+                                _ => {}
                             }
-                            _ => {}
                         }
                     }
                 }

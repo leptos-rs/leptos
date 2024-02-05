@@ -6,7 +6,7 @@ use convert_case::{
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned,
     AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,

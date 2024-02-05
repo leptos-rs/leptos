@@ -158,7 +158,7 @@ impl MetaTagsContext {
                     move || {
                         let head = document().head().unwrap_throw();
                         _ = head.remove_child(&el);
-                        els.borrow_mut().remove(&id);
+                        els.borrow_mut().swap_remove(&id);
                     }
                 });
 

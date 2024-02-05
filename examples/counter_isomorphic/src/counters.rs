@@ -132,15 +132,6 @@ pub fn Counter() -> impl IntoView {
         |_| get_server_count(),
     );
 
-    let value =
-        move || counter.get().map(|count| count.unwrap_or(0)).unwrap_or(0);
-    let error_msg = move || {
-        counter.get().and_then(|res| match res {
-            Ok(_) => None,
-            Err(e) => Some(e),
-        })
-    };
-
     view! {
         <div>
             <h2>"Simple Counter"</h2>
@@ -150,15 +141,21 @@ pub fn Counter() -> impl IntoView {
             <div>
                 <button on:click=move |_| clear.dispatch(())>"Clear"</button>
                 <button on:click=move |_| dec.dispatch(())>"-1"</button>
-                <span>"Value: " {value} "!"</span>
+                <Suspense fallback=move |_| view!{ <span>"Value: "</span>}>
+                  <span>"Value: " { counter.get().map(|count| count.unwrap_or(0)).unwrap_or(0);} "!"</span>
+                </Suspense>
                 <button on:click=move |_| inc.dispatch(())>"+1"</button>
             </div>
-            {move || {
-                error_msg()
-                    .map(|msg| {
-                        view! { <p>"Error: " {msg.to_string()}</p> }
-                    })
-            }}
+            <Suspense>
+              {move || {
+                counter.get().and_then(|res| match res {
+                  Ok(_) => None,
+                  Err(e) => Some(e),
+                }).map(|msg| {
+                  view! { <p>"Error: " {msg.to_string()}</p> }
+                })
+              }}
+            </Suspense>
         </div>
     }
 }
