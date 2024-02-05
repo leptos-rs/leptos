@@ -14,8 +14,9 @@ use crate::{
         ToAnySource,
     },
     traits::DefinedAt,
-    unwrap_signal, OrPoisoned,
+    unwrap_signal,
 };
+use or_poisoned::OrPoisoned;
 use std::{
     borrow::Borrow,
     sync::{Arc, RwLock, Weak},
