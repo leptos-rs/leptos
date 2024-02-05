@@ -12,10 +12,10 @@ use crate::{
     owner::Owner,
     signal::SignalReadGuard,
     traits::{DefinedAt, Readable},
-    OrPoisoned,
 };
 use core::fmt::Debug;
 use futures::{FutureExt, StreamExt};
+use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
     mem,

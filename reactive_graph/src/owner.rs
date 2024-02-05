@@ -1,4 +1,4 @@
-use crate::OrPoisoned;
+use or_poisoned::OrPoisoned;
 use rustc_hash::FxHashMap;
 use std::{
     any::{Any, TypeId},
