@@ -61,12 +61,11 @@
 //! [Reactively](https://github.com/modderme123/reactively), as described
 //! [in this article](https://dev.to/modderme123/super-charging-fine-grained-reactive-performance-47ph).
 
+#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
+#![cfg_attr(feature = "nightly", feature(fn_traits))]
+
 use futures::Stream;
-use std::{
-    future::Future,
-    pin::Pin,
-    sync::{PoisonError, RwLockReadGuard, RwLockWriteGuard},
-};
+use std::{future::Future, pin::Pin};
 
 pub(crate) mod channel;
 pub mod computed;
@@ -76,6 +75,9 @@ pub mod graph;
 pub mod owner;
 pub mod signal;
 pub mod traits;
+
+#[cfg(feature = "nightly")]
+mod nightly;
 
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
 pub type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
