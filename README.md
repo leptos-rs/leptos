@@ -150,7 +150,7 @@ There are several people in the community using Leptos right now for internal ap
 
 ### Can I use this for native GUI?
 
-Sure! Obviously the `view` macro is for generating DOM nodes but you can use the reactive system to drive native any GUI toolkit that uses the same kind of object-oriented, event-callback-based framework as the DOM pretty easily. The principles are the same:
+Sure! Obviously the `view` macro is for generating DOM nodes but you can use the reactive system to drive any native GUI toolkit that uses the same kind of object-oriented, event-callback-based framework as the DOM pretty easily. The principles are the same:
 
 - Use signals, derived signals, and memos to create your reactive system
 - Create GUI widgets
