@@ -7,15 +7,22 @@ ITALIC="\e[3m"
 YELLOW="\e[0;33m"
 RESET="\e[0m"
 
-function print_report {
+function web { #task: only include examples with web cargo-make configuration
     print_header
     print_crate_tags "$@"
     print_footer
 }
 
+function all { #task: includes all examples
+    print_header
+    print_crate_tags "all"
+    print_footer
+}
+
 function print_header {
+    echo -e "${YELLOW}Cargo Make Web Report${RESET}"
     echo
-    echo -e "${YELLOW}Web Test Technology${RESET}"
+    echo -e "${ITALIC}Show which crates are configured to run and test web examples with cargo-make${RESET}"
     echo
 }
 
@@ -120,5 +127,28 @@ function print_footer {
     echo
 }
 
+###################
+# HELP
+###################
+
+function list_help_for {
+    local task=$1
+    grep -E "^function.+ #$task" "$0" |
+        sed 's/function/ /' |
+        sed -e "s| { #$task: |~|g" |
+        column -s"~" -t |
+        sort
+}
+
+function help { #help: show task descriptions
+    echo -e "${BOLD}Usage:${RESET} ./$(basename "$0") <task> [options]"
+    echo
+    echo "Show the cargo-make configuration for web examples"
+    echo
+    echo -e "${BOLD}Tasks:${RESET}"
+    list_help_for task
+    echo
+}
+
 TIMEFORMAT="./web-report.sh completed in %3lR"
-time "${@:-print_report}" # Show the report by default
+time "${@:-web}" # Show the report by default
