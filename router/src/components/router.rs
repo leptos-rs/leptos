@@ -1,7 +1,7 @@
 use crate::{
-    create_location, matching::resolve_path, scroll_to_el, use_location,
-    use_navigate, Branch, History, Location, LocationChange, RouteContext,
-    RouterIntegrationContext, State,
+    create_location, matching::resolve_path, resolve_redirect_url,
+    scroll_to_el, use_location, use_navigate, Branch, History, Location,
+    LocationChange, RouteContext, RouterIntegrationContext, State,
 };
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
@@ -24,6 +24,7 @@ use std::{
 use thiserror::Error;
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
+use wasm_bindgen::UnwrapThrowExt;
 
 static GLOBAL_ROUTERS_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -56,15 +57,24 @@ pub fn Router(
     // set server function redirect hook
     let navigate = use_navigate();
     let navigate = SendWrapper::new(navigate);
-    let router_hook = Box::new(move |path: &str| {
-        let path = path.to_string();
-        // delay by a tick here, so that the Action updates *before* the redirect
-        request_animation_frame({
+    let router_hook = Box::new(move |loc: &str| {
+        let Some(url) = resolve_redirect_url(loc) else {
+            return; // resolve_redirect_url() already logs an error
+        };
+        let current_origin =
+            leptos_dom::helpers::location().origin().unwrap_throw();
+        if url.origin == current_origin {
             let navigate = navigate.clone();
-            move || {
-                navigate(&path, Default::default());
-            }
-        });
+            // delay by a tick here, so that the Action updates *before* the redirect
+            request_animation_frame(move || {
+                navigate(&url.pathname, Default::default());
+            });
+            // Use set_href() if the conditions for client-side navigation were not satisfied
+        } else if let Err(e) =
+            leptos_dom::helpers::location().set_href(&url.href())
+        {
+            leptos::logging::error!("Failed to redirect: {e:#?}");
+        }
     }) as RedirectHook;
     _ = server_fn::redirect::set_redirect_hook(router_hook);
 

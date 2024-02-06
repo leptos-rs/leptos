@@ -1,10 +1,10 @@
 use crate::{
     Location, NavigateOptions, Params, ParamsError, ParamsMap, RouteContext,
-    RouterContext,
+    RouterContext, Url,
 };
 use leptos::{
-    create_memo, request_animation_frame, signal_prelude::*, use_context, Memo,
-    Oco,
+    create_memo, request_animation_frame, signal_prelude::*, use_context,
+    window, Memo, Oco,
 };
 use std::{rc::Rc, str::FromStr};
 
@@ -215,4 +215,26 @@ pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
 pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
     let router = use_router();
     router.inner.is_back.read_only()
+}
+
+/// Resolves a redirect location to an (absolute) URL.
+pub(crate) fn resolve_redirect_url(loc: &str) -> Option<Url> {
+    let origin = match window().location().origin() {
+        Ok(origin) => origin,
+        Err(e) => {
+            leptos::logging::error!("Failed to get origin: {:#?}", e);
+            return None;
+        }
+    };
+
+    // TODO: Use server function's URL as base instead.
+    let base = origin;
+
+    match Url::new_with_base(loc, &base) {
+        Ok(url) => Some(url),
+        Err(e) => {
+            leptos::logging::error!("Invalid redirect location: {}", e);
+            None
+        }
+    }
 }

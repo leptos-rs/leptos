@@ -109,6 +109,14 @@ impl Url {
             hash: Default::default(),
         })
     }
+
+    pub fn href(&self) -> String {
+        let question_mark = if self.search.is_empty() { "" } else { "?" };
+        format!(
+            "{}{}{}{}{}",
+            self.origin, self.pathname, question_mark, self.search, self.hash
+        )
+    }
 }
 
 #[cfg(not(feature = "ssr"))]

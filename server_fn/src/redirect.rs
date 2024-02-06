@@ -25,9 +25,9 @@ pub fn set_redirect_hook(
     REDIRECT_HOOK.set(Box::new(hook))
 }
 
-/// Calls the hook that has been set by [`set_redirect_hook`] to redirect to `path`.
-pub fn call_redirect_hook(path: &str) {
+/// Calls the hook that has been set by [`set_redirect_hook`] to redirect to `loc`.
+pub fn call_redirect_hook(loc: &str) {
     if let Some(hook) = REDIRECT_HOOK.get() {
-        hook(path)
+        hook(loc)
     }
 }
