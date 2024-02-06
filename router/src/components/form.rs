@@ -421,7 +421,7 @@ fn current_window_origin() -> String {
 #[component]
 pub fn ActionForm<ServFn>(
     /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [`create_server_action`](l:eptos_server::create_server_action) or added
+    /// by default using [`create_server_action`](leptos_server::create_server_action) or added
     /// manually using [`using_server_fn`](leptos_server::Action::using_server_fn).
     action: Action<
         ServFn,

@@ -1361,7 +1361,7 @@ impl LeptosRoutes for &mut ServiceConfig {
     }
 }
 
-/// A helper to make it easier to use Axum extractors in server functions.
+/// A helper to make it easier to use Actix extractors in server functions.
 ///
 /// It is generic over some type `T` that implements [`FromRequest`] and can
 /// therefore be used in an extractor. The compiler can often infer this type.

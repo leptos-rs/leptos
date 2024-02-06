@@ -15,6 +15,14 @@ pub struct Url {
     pub hash: String,
 }
 
+#[cfg(feature = "ssr")]
+pub fn unescape(s: &str) -> String {
+    percent_encoding::percent_decode_str(s)
+        .decode_utf8()
+        .unwrap()
+        .to_string()
+}
+
 #[cfg(not(feature = "ssr"))]
 pub fn unescape(s: &str) -> String {
     js_sys::decode_uri(s).unwrap().into()

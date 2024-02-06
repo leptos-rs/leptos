@@ -54,7 +54,7 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use server_fn::redirect::REDIRECT_HEADER;
+use server_fn::{error::NoCustomError, redirect::REDIRECT_HEADER};
 use std::{fmt::Debug, io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
@@ -329,7 +329,15 @@ async fn handle_server_fns_inner(
         _ = tx.send(res);
     });
 
-    rx.await.unwrap()
+    rx.await.unwrap_or_else(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ServerFnError::<NoCustomError>::ServerError(e.to_string())
+                .ser()
+                .unwrap_or_default(),
+        )
+            .into_response()
+    })
 }
 
 pub type PinnedHtmlStream =
@@ -1586,6 +1594,14 @@ where
     where
         IV: IntoView + 'static,
     {
+        // S represents the router's finished state allowing us to provide
+        // it to the user's server functions.
+        let state = options.clone();
+        let cx_with_state = move || {
+            provide_context::<S>(state.clone());
+            additional_context();
+        };
+
         let mut router = self;
 
         // register router paths
@@ -1601,7 +1617,7 @@ where
                             path,
                             LeptosOptions::from_ref(options),
                             app_fn.clone(),
-                            additional_context.clone(),
+                            cx_with_state.clone(),
                             method,
                             static_mode,
                         )
@@ -1621,7 +1637,7 @@ where
                         SsrMode::OutOfOrder => {
                             let s = render_app_to_stream_with_context(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1635,7 +1651,7 @@ where
                         SsrMode::PartiallyBlocked => {
                             let s = render_app_to_stream_with_context_and_replace_blocks(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                                 true
                             );
@@ -1650,7 +1666,7 @@ where
                         SsrMode::InOrder => {
                             let s = render_app_to_stream_in_order_with_context(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1664,7 +1680,7 @@ where
                         SsrMode::Async => {
                             let s = render_app_async_with_context(
                                 LeptosOptions::from_ref(options),
-                                additional_context.clone(),
+                                cx_with_state.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1683,9 +1699,9 @@ where
 
         // register server functions
         for (path, method) in server_fn::axum::server_fn_paths() {
-            let additional_context = additional_context.clone();
+            let cx_with_state = cx_with_state.clone();
             let handler = move |req: Request<Body>| async move {
-                handle_server_fns_with_context(additional_context, req).await
+                handle_server_fns_with_context(cx_with_state, req).await
             };
             router = router.route(
                 path,
