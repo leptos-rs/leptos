@@ -26,7 +26,7 @@ pub trait Service<Request, Response> {
     ) -> Pin<Box<dyn Future<Output = Response> + Send>>;
 }
 
-#[cfg(feature = "axum")]
+#[cfg(feature = "axum-no-default")]
 mod axum {
     use super::{BoxedService, Service};
     use crate::{response::Res, ServerFnError};

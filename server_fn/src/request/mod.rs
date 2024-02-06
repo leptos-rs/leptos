@@ -7,7 +7,7 @@ use std::{borrow::Cow, future::Future};
 #[cfg(feature = "actix")]
 pub mod actix;
 /// Request types for Axum.
-#[cfg(feature = "axum")]
+#[cfg(feature = "axum-no-default")]
 pub mod axum;
 /// Request types for the browser.
 #[cfg(feature = "browser")]

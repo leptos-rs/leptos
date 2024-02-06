@@ -5,7 +5,7 @@ pub mod actix;
 #[cfg(feature = "browser")]
 pub mod browser;
 /// Response types for Axum.
-#[cfg(feature = "axum")]
+#[cfg(feature = "axum-no-default")]
 pub mod http;
 /// Response types for [`reqwest`].
 #[cfg(feature = "reqwest")]

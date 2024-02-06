@@ -117,7 +117,7 @@ pub mod response;
 #[cfg(feature = "actix")]
 #[doc(hidden)]
 pub use ::actix_web as actix_export;
-#[cfg(feature = "axum")]
+#[cfg(feature = "axum-no-default")]
 #[doc(hidden)]
 pub use ::axum as axum_export;
 use client::Client;
@@ -456,7 +456,7 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 }
 
 /// Axum integration.
-#[cfg(feature = "axum")]
+#[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
         middleware::{BoxedService, Service},
