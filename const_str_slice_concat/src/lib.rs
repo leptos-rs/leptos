@@ -1,8 +1,10 @@
+#![no_std]
+
 pub(crate) const MAX_TEMPLATE_SIZE: usize = 4096;
 
 /// Converts a zero-terminated buffer of bytes into a UTF-8 string.
 pub const fn str_from_buffer(buf: &[u8; MAX_TEMPLATE_SIZE]) -> &str {
-    match std::ffi::CStr::from_bytes_until_nul(buf) {
+    match core::ffi::CStr::from_bytes_until_nul(buf) {
         Ok(cstr) => match cstr.to_str() {
             Ok(str) => str,
             Err(_) => panic!("TEMPLATE FAILURE"),
