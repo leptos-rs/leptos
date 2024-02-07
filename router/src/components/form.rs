@@ -593,21 +593,38 @@ where
     action_form
 }
 
-fn form_from_event(ev: &SubmitEvent) -> Option<HtmlFormElement> {
-    let submitter = ev.unchecked_ref::<SubmitEvent>().submitter();
-    match &submitter {
+fn form_data_from_event(
+    ev: &SubmitEvent,
+) -> Result<FormData, FromFormDataError> {
+    let submitter = ev.submitter();
+    let mut submitter_name_value = None;
+    let opt_form = match &submitter {
         Some(el) => {
             if let Some(form) = el.dyn_ref::<HtmlFormElement>() {
                 Some(form.clone())
-            } else if el.is_instance_of::<HtmlInputElement>()
-                || el.is_instance_of::<HtmlButtonElement>()
-            {
+            } else if let Some(input) = el.dyn_ref::<HtmlInputElement>() {
+                submitter_name_value = Some((input.name(), input.value()));
+                Some(ev.target().unwrap().unchecked_into())
+            } else if let Some(button) = el.dyn_ref::<HtmlButtonElement>() {
+                submitter_name_value = Some((button.name(), button.value()));
                 Some(ev.target().unwrap().unchecked_into())
             } else {
                 None
             }
         }
         None => ev.target().map(|form| form.unchecked_into()),
+    };
+    match opt_form.as_ref().map(FormData::new_with_form) {
+        None => Err(FromFormDataError::MissingForm(ev.clone().into())),
+        Some(Err(e)) => Err(FromFormDataError::FormData(e)),
+        Some(Ok(form_data)) => {
+            if let Some((name, value)) = submitter_name_value {
+                form_data
+                    .append_with_str(&name, &value)
+                    .map_err(FromFormDataError::FormData)?;
+            }
+            Ok(form_data)
+        }
     }
 }
 
@@ -755,10 +772,8 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     fn from_event(ev: &Event) -> Result<Self, FromFormDataError> {
-        let form = form_from_event(ev.unchecked_ref())
-            .ok_or_else(|| FromFormDataError::MissingForm(ev.clone()))?;
-        let form_data = FormData::new_with_form(&form)
-            .map_err(FromFormDataError::FormData)?;
+        let submit_ev = ev.unchecked_ref();
+        let form_data = form_data_from_event(submit_ev)?;
         Self::from_form_data(&form_data)
             .map_err(FromFormDataError::Deserialization)
     }
