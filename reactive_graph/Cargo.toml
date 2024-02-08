@@ -11,7 +11,7 @@ pin-project-lite = "0.2.13"
 rustc-hash = "1.1.0"
 slotmap = "1"
 thiserror = "1"
-tokio = { version = "1", optional = true, features = ["rt"] }
+tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
 tracing = { version = "0.1", optional = true }
 wasm-bindgen-futures = { version = "0.4.40", optional = true }
 guardian = "1"
