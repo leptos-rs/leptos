@@ -385,14 +385,14 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                    ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
+                                    ::leptos::IntoView::into_view(#block)
                                 }));
                             }
                         }
                         // Keep invalid blocks for faster IDE diff (on user type)
                         Node::Block(block @ NodeBlock::Invalid { .. }) => {
                             chunks.push(SsrElementChunks::View(quote! {
-                                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
+                                ::leptos::IntoView::into_view(#block)
                             }));
                         }
                         Node::Fragment(_) => abort!(
@@ -473,7 +473,7 @@ fn attribute_to_tokens_ssr<'a>(
                 } else {
                     template.push_str("{}");
                     holes.push(quote! {
-                        &::leptos::IntoAttribute::into_attribute(#[allow(unused_braces)] {#value})
+                        &::leptos::IntoAttribute::into_attribute(#value)
                             .as_nameless_value_string()
                             .map(|a| ::std::format!(
                                 "{}=\"{}\"",
