@@ -54,6 +54,7 @@ fn update_arc_signal() {
 #[test]
 fn create_rw_signal() {
     let a = RwSignal::new(0);
+    assert_eq!(*a.read(), 0);
     assert_eq!(a.get(), 0);
     assert_eq!(a.with_untracked(|n| n + 1), 1);
     assert_eq!(a.with(|n| n + 1), 1);
@@ -62,6 +63,7 @@ fn create_rw_signal() {
 #[test]
 fn update_rw_signal() {
     let a = RwSignal::new(1);
+    assert_eq!(*a.read(), 1);
     assert_eq!(a.get(), 1);
     a.update(|n| *n += 1);
     assert_eq!(a.get(), 2);
@@ -74,6 +76,7 @@ fn update_rw_signal() {
 #[test]
 fn create_signal() {
     let (a, _) = signal(0);
+    assert_eq!(*a.read(), 0);
     assert_eq!(a.get(), 0);
     assert_eq!(a.get_untracked(), 0);
     assert_eq!(a.with_untracked(|n| n + 1), 1);
