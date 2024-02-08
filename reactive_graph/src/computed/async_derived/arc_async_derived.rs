@@ -221,12 +221,11 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T> Readable for ArcAsyncDerived<T> {
-    type Root = AsyncState<T>;
-    type Value = AsyncState<T>;
+impl<T: 'static> Readable for ArcAsyncDerived<T> {
+    type Value = SignalReadGuard<AsyncState<T>>;
 
-    fn try_read(&self) -> Option<SignalReadGuard<Self::Root, Self::Value>> {
-        self.value.read().ok().map(SignalReadGuard::new)
+    fn try_read(&self) -> Option<Self::Value> {
+        SignalReadGuard::try_new(Arc::clone(&self.value))
     }
 }
 

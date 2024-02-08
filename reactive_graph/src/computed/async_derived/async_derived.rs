@@ -7,7 +7,8 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     owner::{Stored, StoredData},
-    traits::{DefinedAt, WithUntracked},
+    signal::SignalReadGuard,
+    traits::{DefinedAt, Readable},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -145,15 +146,11 @@ impl<T: Send + Sync + Clone + 'static> IntoFuture for AsyncDerived<T> {
     }
 }
 
-impl<T: Send + Sync + Clone + 'static> WithUntracked for AsyncDerived<T> {
-    type Value = AsyncState<T>;
+impl<T: Send + Sync + 'static> Readable for AsyncDerived<T> {
+    type Value = SignalReadGuard<AsyncState<T>>;
 
-    fn try_with_untracked<U>(
-        &self,
-        fun: impl FnOnce(&Self::Value) -> U,
-    ) -> Option<U> {
-        self.get_value()
-            .and_then(|inner| inner.try_with_untracked(fun))
+    fn try_read(&self) -> Option<Self::Value> {
+        self.get_value().map(|inner| inner.read())
     }
 }
 

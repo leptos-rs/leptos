@@ -21,6 +21,9 @@ fn memo_calculates_value() {
     let c = RwSignal::new(3);
 
     let d = Memo::new(move |_| a.get() + b.get() + c.get());
+    assert_eq!(*d.read(), 6);
+    assert_eq!(d.with_untracked(|n| *n), 6);
+    assert_eq!(d.with(|n| *n), 6);
     assert_eq!(d.get(), 6);
 }
 

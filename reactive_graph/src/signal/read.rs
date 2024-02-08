@@ -1,8 +1,10 @@
-use super::{subscriber_traits::AsSubscriberSet, ArcReadSignal};
+use super::{
+    subscriber_traits::AsSubscriberSet, ArcReadSignal, SignalReadGuard,
+};
 use crate::{
     graph::SubscriberSet,
     owner::{Stored, StoredData},
-    traits::{DefinedAt, IsDisposed, WithUntracked},
+    traits::{DefinedAt, IsDisposed, Readable},
 };
 use core::fmt::Debug;
 use std::{
@@ -74,13 +76,10 @@ impl<T: Send + Sync + 'static> AsSubscriberSet for ReadSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> WithUntracked for ReadSignal<T> {
-    type Value = T;
+impl<T: Send + Sync + 'static> Readable for ReadSignal<T> {
+    type Value = SignalReadGuard<T>;
 
-    fn try_with_untracked<U>(
-        &self,
-        fun: impl FnOnce(&Self::Value) -> U,
-    ) -> Option<U> {
-        self.get_value().and_then(|n| n.try_with_untracked(fun))
+    fn try_read(&self) -> Option<Self::Value> {
+        self.get_value().map(|inner| inner.read())
     }
 }

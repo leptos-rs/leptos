@@ -1,40 +1,56 @@
 use crate::traits::Trigger;
+use core::fmt::Debug;
+use guardian::ArcRwLockReadGuardian;
 use std::{
     ops::{Deref, DerefMut},
-    sync::{RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockWriteGuard},
 };
 
-#[derive(Debug)]
-pub struct SignalReadGuard<'a, T, U> {
-    guard: RwLockReadGuard<'a, T>,
+pub struct SignalReadGuard<T: 'static> {
+    guard: ArcRwLockReadGuardian<T>,
+}
+
+impl<T: 'static> Debug for SignalReadGuard<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignalReadGuard").finish()
+    }
+}
+
+impl<T: 'static> SignalReadGuard<T> {
+    pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
+        ArcRwLockReadGuardian::take(inner)
+            .ok()
+            .map(|guard| SignalReadGuard { guard })
+    }
+}
+
+impl<T> Deref for SignalReadGuard<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.guard.deref()
+    }
+}
+
+pub struct MappedSignalReadGuard<T: 'static, U> {
+    guard: ArcRwLockReadGuardian<T>,
     map_fn: fn(&T) -> &U,
 }
 
-impl<'a, T> SignalReadGuard<'a, T, T> {
-    pub fn new(guard: RwLockReadGuard<'a, T>) -> Self {
-        SignalReadGuard {
-            guard,
-            map_fn: |t| t,
-        }
+impl<T: 'static, U> Debug for MappedSignalReadGuard<T, U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappedSignalReadGuard").finish()
     }
 }
 
-impl<'a, T, U> SignalReadGuard<'a, T, U> {
-    pub fn new_with_map_fn(
-        guard: RwLockReadGuard<'a, T>,
-        map_fn: fn(&T) -> &U,
-    ) -> Self {
-        SignalReadGuard { guard, map_fn }
+impl<T: 'static, U> MappedSignalReadGuard<T, U> {
+    pub fn new(inner: Arc<RwLock<T>>, map_fn: fn(&T) -> &U) -> Self {
+        let guard = ArcRwLockReadGuardian::take(inner).expect("lock poisoned");
+        MappedSignalReadGuard { guard, map_fn }
     }
 }
 
-impl<'a, T> From<RwLockReadGuard<'a, T>> for SignalReadGuard<'a, T, T> {
-    fn from(guard: RwLockReadGuard<'a, T>) -> Self {
-        SignalReadGuard::new(guard)
-    }
-}
-
-impl<'a, T, U> Deref for SignalReadGuard<'a, T, U> {
+impl<T, U> Deref for MappedSignalReadGuard<T, U> {
     type Target = U;
 
     fn deref(&self) -> &Self::Target {
