@@ -2,11 +2,11 @@ use crate::{
     html::{element::ElementType, node_ref::NodeRefContainer},
     renderer::{dom::Dom, Renderer},
 };
-use send_wrapper::SendWrapper;
-use tachy_reaccy::{
+use reactive_graph::{
     signal::RwSignal,
-    signal_traits::{DefinedAt, SignalSet, SignalWithUntracked, Track},
+    traits::{DefinedAt, Set, Track, WithUntracked},
 };
+use send_wrapper::SendWrapper;
 use wasm_bindgen::JsCast;
 
 #[derive(Debug)]
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<E> SignalWithUntracked for NodeRef<E>
+impl<E> WithUntracked for NodeRef<E>
 where
     E: ElementType,
     E::Output: JsCast + Clone + 'static,
