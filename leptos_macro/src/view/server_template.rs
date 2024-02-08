@@ -292,8 +292,10 @@ fn element_to_tokens_ssr(
                     // should basically be the resolved attributes, joined on spaces, placed into
                     // the template
                     template.push_str(" {}");
-                    holes.push(quote! {
-                        {#end}.into_iter().filter_map(|(name, attr)| {
+                    let end_into_iter =
+                        quote_spanned!(end.span()=> {#end}.into_iter());
+                    holes.push(quote_spanned! {block.span()=>
+                        #end_into_iter.filter_map(|(name, attr)| {
                            Some(::std::format!(
                                 "{}=\"{}\"",
                                 name,
