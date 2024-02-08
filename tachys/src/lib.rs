@@ -43,13 +43,8 @@ pub use wasm_bindgen;
 #[cfg(feature = "islands")]
 pub use web_sys;
 
-#[cfg(all(feature = "leptos", not(feature = "reaccy")))]
-mod leptos;
-
-#[cfg(feature = "reaccy")]
-mod tachy_reaccy;
-#[cfg(feature = "reaccy")]
-pub use tachy_reaccy::node_ref;
+#[cfg(feature = "reactive_graph")]
+pub mod reactive_graph;
 
 pub fn log(text: &str) {
     web_sys::console::log_1(&JsValue::from_str(text));
