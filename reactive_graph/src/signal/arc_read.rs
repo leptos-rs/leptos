@@ -82,11 +82,10 @@ impl<T> AsSubscriberSet for ArcReadSignal<T> {
     }
 }
 
-impl<T> Readable for ArcReadSignal<T> {
-    type Root = T;
-    type Value = T;
+impl<T: 'static> Readable for ArcReadSignal<T> {
+    type Value = SignalReadGuard<T>;
 
-    fn try_read(&self) -> Option<SignalReadGuard<'_, T, T>> {
-        self.value.read().ok().map(SignalReadGuard::from)
+    fn try_read(&self) -> Option<Self::Value> {
+        SignalReadGuard::try_new(Arc::clone(&self.value))
     }
 }

@@ -45,14 +45,14 @@
 //! For example, if you have a struct for which you can implement [`Readable`] and [`Track`], then
 //! [`WithUntracked`] and [`With`] will be implemented automatically (as will [`GetUntracked`] and
 //! [`Get`] for `Clone` types). But if you cannot implement [`Readable`] (because, for example,
-//! there isn't an `RwLock` you can wrap in a [`SignalReadGuard`]), but you can still implement
-//! [`WithUntracked`] and [`Track`], the same traits will still be implemented.
+//! there isn't an `RwLock` you can wrap in a [`SignalReadGuard`](crate::signal::SignalReadGuard),
+//! but you can still implement [`WithUntracked`] and [`Track`], the same traits will still be implemented.
 
 use crate::{
     graph::{Observer, Source, Subscriber, ToAnySource},
-    signal::{SignalReadGuard, SignalUntrackedWriteGuard, SignalWriteGuard},
+    signal::{SignalUntrackedWriteGuard, SignalWriteGuard},
 };
-use std::panic::Location;
+use std::{ops::Deref, panic::Location};
 
 #[macro_export]
 macro_rules! unwrap_signal {
@@ -96,14 +96,13 @@ impl<T: Source + ToAnySource> Track for T {
 }
 
 pub trait Readable: Sized + DefinedAt {
-    type Root;
-    type Value;
+    type Value: Deref;
 
     #[track_caller]
-    fn try_read(&self) -> Option<SignalReadGuard<Self::Root, Self::Value>>;
+    fn try_read(&self) -> Option<Self::Value>;
 
     #[track_caller]
-    fn read(&self) -> SignalReadGuard<Self::Root, Self::Value> {
+    fn read(&self) -> Self::Value {
         self.try_read().unwrap_or_else(unwrap_signal!(self))
     }
 }
@@ -128,7 +127,7 @@ pub trait Writeable: Sized + DefinedAt + Trigger {
 }
 
 pub trait WithUntracked: DefinedAt {
-    type Value;
+    type Value: ?Sized;
 
     #[track_caller]
     fn try_with_untracked<U>(
@@ -147,7 +146,7 @@ impl<T> WithUntracked for T
 where
     T: DefinedAt + Readable,
 {
-    type Value = <Self as Readable>::Value;
+    type Value = <<Self as Readable>::Value as Deref>::Target;
 
     fn try_with_untracked<U>(
         &self,
