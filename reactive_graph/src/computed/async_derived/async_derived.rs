@@ -7,7 +7,7 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     owner::{Stored, StoredData},
-    signal::SignalReadGuard,
+    signal::{MappedSignalReadGuard, SignalReadGuard},
     traits::{DefinedAt, Readable},
     unwrap_signal,
 };
@@ -136,7 +136,7 @@ impl<T: Send + Sync + 'static> DefinedAt for AsyncDerived<T> {
 }
 
 impl<T: Send + Sync + Clone + 'static> IntoFuture for AsyncDerived<T> {
-    type Output = T;
+    type Output = MappedSignalReadGuard<AsyncState<T>, T>;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     #[track_caller]

@@ -2,6 +2,7 @@ use crate::traits::Trigger;
 use core::fmt::Debug;
 use guardian::ArcRwLockReadGuardian;
 use std::{
+    fmt::Display,
     ops::{Deref, DerefMut},
     sync::{Arc, RwLock, RwLockWriteGuard},
 };
@@ -32,6 +33,24 @@ impl<T> Deref for SignalReadGuard<T> {
     }
 }
 
+impl<T: PartialEq> PartialEq for SignalReadGuard<T> {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<T: PartialEq> PartialEq<T> for SignalReadGuard<T> {
+    fn eq(&self, other: &T) -> bool {
+        **self == *other
+    }
+}
+
+impl<T: Display> Display for SignalReadGuard<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
+
 pub struct MappedSignalReadGuard<T: 'static, U> {
     guard: ArcRwLockReadGuardian<T>,
     map_fn: fn(&T) -> &U,
@@ -44,9 +63,13 @@ impl<T: 'static, U> Debug for MappedSignalReadGuard<T, U> {
 }
 
 impl<T: 'static, U> MappedSignalReadGuard<T, U> {
-    pub fn new(inner: Arc<RwLock<T>>, map_fn: fn(&T) -> &U) -> Self {
-        let guard = ArcRwLockReadGuardian::take(inner).expect("lock poisoned");
-        MappedSignalReadGuard { guard, map_fn }
+    pub fn try_new(
+        inner: Arc<RwLock<T>>,
+        map_fn: fn(&T) -> &U,
+    ) -> Option<Self> {
+        ArcRwLockReadGuardian::take(inner)
+            .ok()
+            .map(|guard| MappedSignalReadGuard { guard, map_fn })
     }
 }
 
@@ -55,6 +78,24 @@ impl<T, U> Deref for MappedSignalReadGuard<T, U> {
 
     fn deref(&self) -> &Self::Target {
         (self.map_fn)(self.guard.deref())
+    }
+}
+
+impl<T, U: PartialEq> PartialEq for MappedSignalReadGuard<T, U> {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<T, U: PartialEq> PartialEq<U> for MappedSignalReadGuard<T, U> {
+    fn eq(&self, other: &U) -> bool {
+        **self == *other
+    }
+}
+
+impl<T, U: Display> Display for MappedSignalReadGuard<T, U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
     }
 }
 

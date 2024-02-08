@@ -164,10 +164,10 @@ impl<T: Send + Sync + 'static> Readable for ArcMemo<T> {
     fn try_read(&self) -> Option<Self::Value> {
         self.update_if_necessary();
 
-        Some(MappedSignalReadGuard::new(Arc::clone(&self.inner), |t| {
+        MappedSignalReadGuard::try_new(Arc::clone(&self.inner), |t| {
             // safe to unwrap here because update_if_necessary
             // guarantees the value is Some
             t.value.as_ref().unwrap()
-        }))
+        })
     }
 }

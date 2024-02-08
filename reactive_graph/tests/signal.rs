@@ -9,11 +9,12 @@ use reactive_graph::{
 #[test]
 fn create_arc_rw_signal() {
     let a = ArcRwSignal::new(0);
-    assert_eq!(*a.read(), 0);
+    assert_eq!(a.read(), 0);
     assert_eq!(a.get(), 0);
     assert_eq!(a.get_untracked(), 0);
     assert_eq!(a.with_untracked(|n| n + 1), 1);
     assert_eq!(a.with(|n| n + 1), 1);
+    assert_eq!(format!("{}", a.read()), "0");
 }
 
 #[test]
@@ -32,7 +33,7 @@ fn update_arc_rw_signal() {
 #[test]
 fn create_arc_signal() {
     let (a, _) = arc_signal(0);
-    assert_eq!(*a.read(), 0);
+    assert_eq!(a.read(), 0);
     assert_eq!(a.get(), 0);
     assert_eq!(a.with_untracked(|n| n + 1), 1);
     assert_eq!(a.with(|n| n + 1), 1);
@@ -54,7 +55,7 @@ fn update_arc_signal() {
 #[test]
 fn create_rw_signal() {
     let a = RwSignal::new(0);
-    assert_eq!(*a.read(), 0);
+    assert_eq!(a.read(), 0);
     assert_eq!(a.get(), 0);
     assert_eq!(a.with_untracked(|n| n + 1), 1);
     assert_eq!(a.with(|n| n + 1), 1);
@@ -63,7 +64,7 @@ fn create_rw_signal() {
 #[test]
 fn update_rw_signal() {
     let a = RwSignal::new(1);
-    assert_eq!(*a.read(), 1);
+    assert_eq!(a.read(), 1);
     assert_eq!(a.get(), 1);
     a.update(|n| *n += 1);
     assert_eq!(a.get(), 2);
@@ -76,7 +77,7 @@ fn update_rw_signal() {
 #[test]
 fn create_signal() {
     let (a, _) = signal(0);
-    assert_eq!(*a.read(), 0);
+    assert_eq!(a.read(), 0);
     assert_eq!(a.get(), 0);
     assert_eq!(a.get_untracked(), 0);
     assert_eq!(a.with_untracked(|n| n + 1), 1);
