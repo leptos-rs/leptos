@@ -1,6 +1,6 @@
 use super::RenderEffectState;
 use crate::{html::class::IntoClass, renderer::DomRenderer};
-use tachy_reaccy::render_effect::RenderEffect;
+use reactive_graph::effect::RenderEffect;
 
 impl<F, C, R> IntoClass<R> for F
 where
