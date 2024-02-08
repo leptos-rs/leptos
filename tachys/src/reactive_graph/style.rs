@@ -1,7 +1,7 @@
 use super::RenderEffectState;
 use crate::{html::style::IntoStyle, renderer::DomRenderer};
+use reactive_graph::effect::RenderEffect;
 use std::borrow::Cow;
-use tachy_reaccy::render_effect::RenderEffect;
 
 impl<F, S, R> IntoStyle<R> for (&'static str, F)
 where
