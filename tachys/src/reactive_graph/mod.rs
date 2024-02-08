@@ -9,8 +9,8 @@ use crate::{
         Render, RenderHtml, ToTemplate,
     },
 };
+use reactive_graph::{computed::ScopedFuture, effect::RenderEffect};
 use std::mem;
-use tachy_reaccy::{async_signal::ScopedFuture, render_effect::RenderEffect};
 
 mod class;
 pub mod node_ref;
