@@ -692,12 +692,12 @@ fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
 }
 
 fn leptos_corrected_path(req: &HttpRequest) -> String {
-    let path = req.path();
+    let path = req.path().to_string();
     let query = req.query_string();
     if query.is_empty() {
-        "http://leptos".to_string() + path
+        path
     } else {
-        "http://leptos".to_string() + path + "?" + query
+        path + "?" + query
     }
 }
 #[tracing::instrument(level = "trace", fields(error), skip_all)]

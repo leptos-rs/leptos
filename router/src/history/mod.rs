@@ -158,7 +158,7 @@ pub(crate) fn scroll_to_el(loc_scroll: bool) {
 /// # use leptos::*;
 /// # let rt = create_runtime();
 /// let integration = ServerIntegration {
-///     path: "http://leptos.rs/".to_string(),
+///     path: "/".to_string(),
 /// };
 /// provide_context(RouterIntegrationContext::new(integration));
 /// # rt.dispose();
@@ -195,8 +195,7 @@ impl History for RouterIntegrationContext {
 /// # use leptos::*;
 /// # let rt = create_runtime();
 /// let integration = ServerIntegration {
-///     // Swap out with your URL if integrating manually.
-///     path: "http://leptos.rs/".to_string(),
+///     path: "/".to_string(),
 /// };
 /// provide_context(RouterIntegrationContext::new(integration));
 /// # rt.dispose();

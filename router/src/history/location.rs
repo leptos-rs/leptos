@@ -8,13 +8,24 @@ pub fn create_location(
     state: ReadSignal<State>,
 ) -> Location {
     let url = create_memo(move |prev: Option<&Url>| {
-        path.with(|path| match Url::try_from(path.as_str()) {
-            Ok(url) => url,
-            Err(e) => {
-                leptos::logging::error!(
-                    "[Leptos Router] Invalid path {path}\n\n{e:?}"
+        path.with(|path| {
+            let full_path = if path.starts_with("/") {
+                format!("http://leptos.dev{path}")
+            } else {
+                leptos::logging::warn!(
+                    "[Leptos Router] create_location() should be called with \
+                     a path instead of {path}"
                 );
-                prev.cloned().unwrap()
+                path.to_string()
+            };
+            match Url::try_from(full_path.as_str()) {
+                Ok(url) => url,
+                Err(e) => {
+                    leptos::logging::error!(
+                        "[Leptos Router] Invalid path {path}\n\n{e:?}"
+                    );
+                    prev.cloned().unwrap()
+                }
             }
         })
     });

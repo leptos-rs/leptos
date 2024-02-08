@@ -659,12 +659,11 @@ where
                     // Need to get the path and query string of the Request
                     // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
                     // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                    let path = req.uri().path_and_query().unwrap().as_str();
+                    let path = req.uri().path_and_query().unwrap().to_string();
 
-                    let full_path = format!("http://leptos.dev{path}");
                     let (_, req_parts) = generate_request_and_parts(req);
                     move || {
-                        provide_contexts(full_path, req_parts, default_res_options);
+                        provide_contexts(path, req_parts, default_res_options);
                         app_fn().into_view()
                     }
                 };
@@ -816,18 +815,15 @@ where
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
                 // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                let path = req.uri().path_and_query().unwrap().as_str();
-
-                let full_path = format!("http://leptos.dev{path}");
+                let path = req.uri().path_and_query().unwrap().to_string();
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
                 let current_span = tracing::Span::current();
                 spawn_task!(async move {
                     let app = {
-                        let full_path = full_path.clone();
                         let (parts, _) = req.into_parts();
                         move || {
-                            provide_contexts(full_path, parts, default_res_options);
+                            provide_contexts(path, parts, default_res_options);
                             app_fn().into_view()
                         }
                     };
@@ -988,18 +984,15 @@ where
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
                 // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                let path = req.uri().path_and_query().unwrap().as_str();
-
-                let full_path = format!("http://leptos.dev{path}");
+                let path = req.uri().path_and_query().unwrap().to_string();
 
                 let (tx, rx) = futures::channel::oneshot::channel();
                 spawn_task!(async move {
                     let app = {
-                        let full_path = full_path.clone();
                         let (_, req_parts) = generate_request_and_parts(req);
                         move || {
                             provide_contexts(
-                                full_path,
+                                path,
                                 req_parts,
                                 default_res_options,
                             );
@@ -1117,19 +1110,16 @@ where
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
                 // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                let path = req.uri().path_and_query().unwrap().as_str();
-
-                let full_path = format!("http://leptos.dev{path}");
+                let path = req.uri().path_and_query().unwrap().to_string();
 
                 let (tx, rx) = futures::channel::oneshot::channel();
 
                 spawn_task!(async move {
                     let app = {
-                        let full_path = full_path.clone();
                         let (_, req_parts) = generate_request_and_parts(req);
                         move || {
                             provide_contexts(
-                                full_path,
+                                path,
                                 req_parts,
                                 default_res_options,
                             );

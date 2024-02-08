@@ -177,12 +177,12 @@ impl ResolvedStaticPath {
     where
         IV: IntoView + 'static,
     {
-        let url = format!("http://leptos{}", self);
+        let path = self.to_string();
         let app = {
             let app_fn = app_fn.clone();
             move || {
                 provide_context(RouterIntegrationContext::new(
-                    ServerIntegration { path: url },
+                    ServerIntegration { path },
                 ));
                 provide_context(MetaContext::new());
                 (app_fn)().into_view()

@@ -129,7 +129,7 @@ where
     let runtime = create_runtime();
 
     let integration = ServerIntegration {
-        path: "http://leptos.rs/".to_string(),
+        path: "/".to_string(),
     };
 
     provide_context(RouterIntegrationContext::new(integration));
