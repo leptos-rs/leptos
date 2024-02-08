@@ -1,10 +1,11 @@
 use super::{
-    subscriber_traits::AsSubscriberSet, ArcRwSignal, ReadSignal, WriteSignal,
+    subscriber_traits::AsSubscriberSet, ArcRwSignal, ReadSignal,
+    SignalReadGuard, WriteSignal,
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     owner::{Stored, StoredData},
-    traits::{DefinedAt, IsDisposed, Trigger, UpdateUntracked, WithUntracked},
+    traits::{DefinedAt, IsDisposed, Readable, Trigger, UpdateUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -145,14 +146,11 @@ impl<T: Send + Sync + 'static> AsSubscriberSet for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> WithUntracked for RwSignal<T> {
-    type Value = T;
+impl<T: Send + Sync + 'static> Readable for RwSignal<T> {
+    type Value = SignalReadGuard<T>;
 
-    fn try_with_untracked<U>(
-        &self,
-        fun: impl FnOnce(&Self::Value) -> U,
-    ) -> Option<U> {
-        self.get_value().and_then(|n| n.try_with_untracked(fun))
+    fn try_read(&self) -> Option<Self::Value> {
+        self.get_value().map(|inner| inner.read())
     }
 }
 
