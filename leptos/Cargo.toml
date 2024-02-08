@@ -15,6 +15,7 @@ leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
+leptos_spin_macro = { git = "https://github.com/benwis/leptos-spin", optional = true}
 tracing = "0.1"
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
@@ -66,7 +67,10 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 nonce = ["leptos_dom/nonce"]
-spin = ["leptos_reactive/spin"]
+spin = [
+  "leptos_reactive/spin",
+  "leptos_spin"
+]
 experimental-islands = [
   "leptos_dom/experimental-islands",
   "leptos_macro/experimental-islands",
