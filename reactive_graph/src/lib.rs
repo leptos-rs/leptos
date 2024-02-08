@@ -13,17 +13,22 @@
 //! nodes, because they can listen to changes in other values.
 //!
 //! ```rust
-//! use reactive_graph::prelude::*;
+//! use reactive_graph::{
+//!     computed::ArcMemo,
+//!     effect::Effect,
+//!     prelude::{Readable, Set},
+//!     signal::ArcRwSignal,
+//! };
 //!
 //! let count = ArcRwSignal::new(1);
 //! let double_count = ArcMemo::new({
 //!     let count = count.clone();
-//!     move |_| count.get() * 2
+//!     move |_| *count.read() * 2
 //! });
 //!
 //! // the effect will run once initially
 //! Effect::new(move |_| {
-//!     println!("double_count = {}", double_count.get());
+//!     println!("double_count = {}", *double_count.read());
 //! });
 //!
 //! // updating `count` will propagate changes to the dependencies,
