@@ -1,5 +1,6 @@
 ---
 source: leptos_macro/src/view/tests.rs
+assertion_line: 101
 expression: result
 ---
 TokenStream [
@@ -1877,40 +1878,15 @@ TokenStream [
                                     Group {
                                         delimiter: Parenthesis,
                                         stream: TokenStream [
-                                            Punct {
-                                                char: '#',
-                                                spacing: Alone,
-                                            },
-                                            Group {
-                                                delimiter: Bracket,
-                                                stream: TokenStream [
-                                                    Ident {
-                                                        sym: allow,
-                                                    },
-                                                    Group {
-                                                        delimiter: Parenthesis,
-                                                        stream: TokenStream [
-                                                            Ident {
-                                                                sym: unused_braces,
-                                                            },
-                                                        ],
-                                                    },
-                                                ],
-                                            },
                                             Group {
                                                 delimiter: Brace,
                                                 stream: TokenStream [
-                                                    Group {
-                                                        delimiter: Brace,
-                                                        stream: TokenStream [
-                                                            Ident {
-                                                                sym: value,
-                                                                span: bytes(206..211),
-                                                            },
-                                                        ],
-                                                        span: bytes(205..212),
+                                                    Ident {
+                                                        sym: value,
+                                                        span: bytes(206..211),
                                                     },
                                                 ],
+                                                span: bytes(205..212),
                                             },
                                         ],
                                     },
