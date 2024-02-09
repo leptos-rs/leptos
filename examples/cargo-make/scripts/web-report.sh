@@ -80,6 +80,9 @@ function print_crate_tags {
                     crate_tags=$crate_tags"P"
                 fi
                 ;;
+            *"cargo-make/cargo-leptos.toml"*)
+                crate_tags=$crate_tags"L"
+                ;;
             esac
         done <"./Makefile.toml"
 
