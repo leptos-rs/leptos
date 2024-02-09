@@ -38,9 +38,7 @@ function print_crate_tags {
 
         local crate_tags=
 
-        local pw_count
-        pw_count=$(find . -name playwright.config.ts | wc -l)
-
+        # Add cargo tags
         while read -r line; do
             case $line in
             *"cucumber"*)
@@ -51,6 +49,11 @@ function print_crate_tags {
                 ;;
             esac
         done <"./Cargo.toml"
+
+        #Add makefile tags
+
+        local pw_count
+        pw_count=$(find . -name playwright.config.ts | wc -l)
 
         while read -r line; do
             case $line in
@@ -80,24 +83,18 @@ function print_crate_tags {
             esac
         done <"./Makefile.toml"
 
-        # Sort list of tools
+        # Sort tags
         local sorted_crate_symbols
         sorted_crate_symbols=$(echo "$crate_tags" | grep -o . | sort | tr -d "\n")
 
-        local formatted_crate_symbols
-        formatted_crate_symbols=" ➤ ${BOLD}${YELLOW}$sorted_crate_symbols${RESET}"
-
+        # Maybe print line
         local crate_line=$path
 
-        if [ "$#" -gt 0 ]; then
-            # Show all examples
-            if [ -n "$crate_tags" ]; then
-                crate_line=$crate_line$formatted_crate_symbols
-            fi
+        if [ -n "$crate_tags" ]; then
+            crate_line="$crate_line ➤ ${YELLOW}$sorted_crate_symbols${RESET}"
             echo -e "$crate_line"
-        elif [ -n "$crate_tags" ]; then
-            # Show configured examples
-            crate_line=$crate_line$formatted_crate_symbols
+        elif [ "$#" -gt 0 ]; then
+            crate_line="${BOLD}$crate_line${RESET}"
             echo -e "$crate_line"
         fi
 
