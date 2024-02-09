@@ -22,7 +22,7 @@ function all { #task: includes all examples
 function print_header {
     echo -e "${YELLOW}Cargo Make Web Report${RESET}"
     echo
-    echo -e "${ITALIC}Show which crates are configured to run and test web examples with cargo-make${RESET}"
+    echo -e "${ITALIC}Show how crates are configured to run and test web examples with cargo-make${RESET}"
     echo
 }
 
@@ -45,7 +45,7 @@ function print_crate_tags {
                 crate_tags=$crate_tags"C"
                 ;;
             *"fantoccini"*)
-                crate_tags=$crate_tags"D"
+                crate_tags=$crate_tags"F"
                 ;;
             esac
         done <"./Cargo.toml"
@@ -114,16 +114,16 @@ function find_makefile_lines {
 }
 
 function print_footer {
-    c="${BOLD}${YELLOW}C${RESET} = Cucumber"
-    d="${BOLD}${YELLOW}D${RESET} = WebDriver"
+    c="${BOLD}${YELLOW}C${RESET} = Cucumber Test Runner"
+    d="${BOLD}${YELLOW}F${RESET} = Fantoccini WebDriver"
     l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
     n="${BOLD}${YELLOW}N${RESET} = Node"
-    p="${BOLD}${YELLOW}P${RESET} = Playwright"
+    p="${BOLD}${YELLOW}P${RESET} = Playwright Test"
     t="${BOLD}${YELLOW}T${RESET} = Trunk"
-    w="${BOLD}${YELLOW}W${RESET} = WASM"
+    w="${BOLD}${YELLOW}W${RESET} = WASM Test"
 
     echo
-    echo -e "${ITALIC}Keys:${RESET} $c, $d, $l, $n, $p, $t, $w"
+    echo -e "${ITALIC}Technology Keys:${RESET}\n $c\n $d\n $l\n $n\n $p\n $t\n $w"
     echo
 }
 
