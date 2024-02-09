@@ -151,4 +151,4 @@ function help { #help: show task descriptions
 }
 
 TIMEFORMAT="./web-report.sh completed in %3lR"
-time "${@:-web}" # Show the report by default
+time "${@:-all}" # Show the report by default
