@@ -1,7 +1,8 @@
 //use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    batch, create_rw_signal, is_suppressing_resource_load, signal_prelude::*,
-    spawn_local, store_value, use_context, ReadSignal, RwSignal, StoredValue,
+    console_warn, create_rw_signal, is_suppressing_resource_load,
+    signal_prelude::*, spawn_local, store_value, try_batch, use_context,
+    ReadSignal, RwSignal, StoredValue,
 };
 use server_fn::{error::ServerFnUrlError, ServerFn, ServerFnError};
 use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
@@ -93,8 +94,18 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
+    #[track_caller]
     pub fn dispatch(&self, input: I) {
-        self.0.with_value(|a| a.dispatch(input))
+        #[cfg(debug_assertions)]
+        let loc = std::panic::Location::caller();
+
+        self.0.with_value(|a| {
+            a.dispatch(
+                input,
+                #[cfg(debug_assertions)]
+                loc,
+            )
+        })
     }
 
     /// Create an [Action].
@@ -366,7 +377,11 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
-    pub fn dispatch(&self, input: I) {
+    pub fn dispatch(
+        &self,
+        input: I,
+        #[cfg(debug_assertions)] loc: &'static std::panic::Location<'static>,
+    ) {
         if !is_suppressing_resource_load() {
             let fut = (self.action_fn)(&input);
             self.input.set(Some(input));
@@ -379,7 +394,7 @@ where
             pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
             spawn_local(async move {
                 let new_value = fut.await;
-                batch(move || {
+                let res = try_batch(move || {
                     value.set(Some(new_value));
                     input.set(None);
                     version.update(|n| *n += 1);
@@ -389,6 +404,18 @@ where
                         pending.set(false);
                     }
                 });
+
+                if res.is_err() {
+                    #[cfg(debug_assertions)]
+                    console_warn(&format!(
+                        "At {loc}, you are dispatching an action in a runtime \
+                         that has already been disposed. This may be because \
+                         you are calling `.dispatch()` in the body of a \
+                         component, during initial server-side rendering. If \
+                         that's the case, you should probably be using \
+                         `create_resource` instead of `create_action`."
+                    ));
+                }
             })
         }
     }

@@ -1397,12 +1397,30 @@ impl Drop for SetObserverOnDrop {
 ///
 /// # Panics
 /// Panics if the runtime has already been disposed.
+///
+/// To avoid panicking under any circumstances, use [`try_batch`].
 #[cfg_attr(
     any(debug_assertions, features = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)]
 pub fn batch<T>(f: impl FnOnce() -> T) -> T {
+    try_batch(f).expect(
+        "tried to run a batched update in a runtime that has been disposed",
+    )
+}
+
+/// Attempts to batch any reactive updates, preventing effects from running until the whole
+/// function has run. This allows you to prevent rerunning effects if multiple
+/// signal updates might cause the same effect to run.
+///
+/// Unlike [`batch`], this will not panic if the runtime has been disposed.
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    instrument(level = "trace", skip_all,)
+)]
+#[inline(always)]
+pub fn try_batch<T>(f: impl FnOnce() -> T) -> Result<T, ReactiveSystemError> {
     with_runtime(move |runtime| {
         let batching = SetBatchingOnDrop(runtime.batching.get());
         runtime.batching.set(true);
@@ -1415,7 +1433,6 @@ pub fn batch<T>(f: impl FnOnce() -> T) -> T {
         runtime.run_effects();
         val
     })
-    .expect("tried to run a batched update in a runtime that has been disposed")
 }
 
 struct SetBatchingOnDrop(bool);
