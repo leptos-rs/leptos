@@ -55,7 +55,9 @@ pub fn html_parts_separated(
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
 ) -> (String, &'static str) {
-    let pkg_path = &options.site_pkg_dir;
+    let pkg_path = option_env!("CDN_PKG_PATH")
+        .map(String::from)
+        .unwrap_or(format!("/{}", options.site_pkg_dir));
     let output_name = &options.output_name;
     let nonce = use_nonce();
     let nonce = nonce
@@ -107,8 +109,8 @@ pub fn html_parts_separated(
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     {head}
-                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js"{nonce}>
-                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
+                    <link rel="modulepreload" href="{pkg_path}/{output_name}.js"{nonce}>
+                    <link rel="preload" href="{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
                     <script type="module"{nonce}>
                         function idle(c) {{
                             if ("requestIdleCallback" in window) {{
@@ -118,9 +120,9 @@ pub fn html_parts_separated(
                             }}
                         }}
                         idle(() => {{
-                            import('/{pkg_path}/{output_name}.js')
+                            import('{pkg_path}/{output_name}.js')
                                 .then(mod => {{
-                                    mod.default('/{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
+                                    mod.default('{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
                                 }})
                         }});
                     </script>
