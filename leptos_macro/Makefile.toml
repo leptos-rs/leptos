@@ -11,13 +11,13 @@ dependencies = [
 [tasks.test-leptos_macro-example]
 description = "Tests the leptos_macro/example to check if macro handles doc comments correctly"
 command = "cargo"
-args = ["+nightly", "test", "--doc"]
+args = ["+nightly-2024-01-29", "test", "--doc"]
 cwd = "example"
 install_crate = false
 
 [tasks.doc-leptos_macro-example]
 description = "Docs the leptos_macro/example to check if macro handles doc comments correctly"
 command = "cargo"
-args = ["+nightly", "doc"]
+args = ["+nightly-2024-01-29", "doc"]
 cwd = "example"
 install_crate = false

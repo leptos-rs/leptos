@@ -15,13 +15,13 @@ clear = true
 dependencies = ["check-debug", "check-release"]
 
 [tasks.check-debug]
-toolchain = "nightly"
+toolchain = "nightly-2024-01-29"
 command = "cargo"
 args = ["check-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check-release]
-toolchain = "nightly"
+toolchain = "nightly-2024-01-29"
 command = "cargo"
 args = ["check-all-features", "--release"]
 install_crate = "cargo-all-features"
