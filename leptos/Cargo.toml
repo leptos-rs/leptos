@@ -18,6 +18,8 @@ leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.2", optional = true }
 tracing = "0.1"
+reactive_graph = { workspace = true }
+tachys = { workspace = true, features = ["reactive_graph"] }
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
 serde = { version = "1", optional = true }
@@ -66,6 +68,7 @@ nightly = [
   "leptos_macro/nightly",
   "leptos_reactive/nightly",
   "leptos_server/nightly",
+  "tachys/nightly",
 ]
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
