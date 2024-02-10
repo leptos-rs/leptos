@@ -58,13 +58,25 @@ pub fn Router(
     let navigate = SendWrapper::new(navigate);
     let router_hook = Box::new(move |path: &str| {
         let path = path.to_string();
+        let Ok(origin) = window().location().origin() else {
+            return;
+        };
+        let Ok(to_url) = web_sys::Url::new_with_base(&path, &origin) else {
+            logging::error!("could not parse url {path:?}");
+            return;
+        };
+        let to_origin = to_url.origin();
         // delay by a tick here, so that the Action updates *before* the redirect
-        request_animation_frame({
-            let navigate = navigate.clone();
-            move || {
-                navigate(&path, Default::default());
-            }
-        });
+        if to_origin != origin {
+            _ = window().location().set_href(&path);
+        } else {
+            request_animation_frame({
+                let navigate = navigate.clone();
+                move || {
+                    navigate(&path, Default::default());
+                }
+            });
+        }
     }) as RedirectHook;
     _ = server_fn::redirect::set_redirect_hook(router_hook);
 
