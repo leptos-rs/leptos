@@ -11,146 +11,27 @@ rust-version.workspace = true
 [dependencies]
 tachys = { workspace = true }
 reactive_graph = { workspace = true }
+hydration_context = { workspace = true }
+or_poisoned = { workspace = true }
+base64 = { version = "0.21", optional = true }
+getrandom = { version = "0.2", optional = true }
+js-sys = "0.3"
+rand = { version = "0.8", optional = true }
+tracing = "0.1"
+wasm-bindgen = "0.2"
 
 [dev-dependencies]
 leptos = { path = "../leptos" }
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-  "DocumentFragment",
-  "Element",
-  "HtmlTemplateElement",
-  "NodeList",
-  "Window",
-  "console",
-  "Comment",
-  "Document",
-  "DomTokenList",
-  "CssStyleDeclaration",
-  "Location",
-  "Range",
-  "Text",
-  "HtmlCollection",
-  "ShadowRoot",
-  "TreeWalker",
-
-  # Events we cast to in leptos_macro -- added here so we don't force users to import them
-  "AddEventListenerOptions",
-  "AnimationEvent",
-  "BeforeUnloadEvent",
-  "ClipboardEvent",
-  "CompositionEvent",
-  "CustomEvent",
-  "DeviceMotionEvent",
-  "DeviceOrientationEvent",
-  "DomStringMap",
-  "DragEvent",
-  "ErrorEvent",
-  "Event",
-  "FocusEvent",
-  "GamepadEvent",
-  "HashChangeEvent",
-  "InputEvent",
-  "KeyboardEvent",
-  "MessageEvent",
-  "MouseEvent",
-  "PageTransitionEvent",
-  "PointerEvent",
-  "PopStateEvent",
-  "ProgressEvent",
-  "PromiseRejectionEvent",
-  "SecurityPolicyViolationEvent",
-  "StorageEvent",
-  "SubmitEvent",
-  "TouchEvent",
-  "TransitionEvent",
-  "UiEvent",
-  "WheelEvent",
-
-  # HTML Element Types
-  "HtmlHtmlElement",
-  "HtmlBaseElement",
-  "HtmlHeadElement",
-  "HtmlLinkElement",
-  "HtmlMetaElement",
-  "HtmlStyleElement",
-  "HtmlTitleElement",
-  "HtmlBodyElement",
-  "HtmlHeadingElement",
-  "HtmlQuoteElement",
-  "HtmlDivElement",
-  "HtmlDListElement",
-  "HtmlHrElement",
-  "HtmlLiElement",
-  "HtmlOListElement",
-  "HtmlParagraphElement",
-  "HtmlPreElement",
-  "HtmlUListElement",
-  "HtmlAnchorElement",
-  "HtmlBrElement",
-  "HtmlDataElement",
-  "HtmlQuoteElement",
-  "HtmlSpanElement",
-  "HtmlTimeElement",
-  "HtmlAreaElement",
-  "HtmlAudioElement",
-  "HtmlImageElement",
-  "HtmlMapElement",
-  "HtmlTrackElement",
-  "HtmlVideoElement",
-  "HtmlEmbedElement",
-  "HtmlIFrameElement",
-  "HtmlObjectElement",
-  "HtmlParamElement",
-  "HtmlPictureElement",
-  "HtmlSourceElement",
-  "SvgElement",
-  "HtmlCanvasElement",
-  "HtmlScriptElement",
-  "HtmlModElement",
-  "HtmlTableCaptionElement",
-  "HtmlTableColElement",
-  "HtmlTableColElement",
-  "HtmlTableElement",
-  "HtmlTableSectionElement",
-  "HtmlTableCellElement",
-  "HtmlTableSectionElement",
-  "HtmlTableCellElement",
-  "HtmlTableSectionElement",
-  "HtmlTableRowElement",
-  "HtmlButtonElement",
-  "HtmlDataListElement",
-  "HtmlFieldSetElement",
-  "HtmlFormElement",
-  "HtmlInputElement",
-  "HtmlLabelElement",
-  "HtmlLegendElement",
-  "HtmlMeterElement",
-  "HtmlOptGroupElement",
-  "HtmlOutputElement",
-  "HtmlProgressElement",
-  "HtmlSelectElement",
-  "HtmlTextAreaElement",
-  "HtmlDetailsElement",
-  "HtmlDialogElement",
-  "HtmlMenuElement",
-  "HtmlSlotElement",
-  "HtmlTemplateElement",
-  "HtmlOptionElement",
-]
+features = ["Location"]
 
 [features]
 default = []
-web = []
-csr = ["leptos_reactive/csr", "web"]
-hydrate = ["leptos_reactive/hydrate", "web"]
-ssr = ["leptos_reactive/ssr"]
-nightly = ["leptos_reactive/nightly"]
+nightly = ["reactive_graph/nightly"]
+# TODO implement nonces
 nonce = ["dep:base64", "dep:getrandom", "dep:rand"]
-experimental-islands = ["leptos_reactive/experimental-islands"]
-trace-component-props = []
-
-[package.metadata.cargo-all-features]
-denylist = ["nightly", "trace-component-props"]
-skip_feature_sets = [["web", "ssr"]]
+experimental-islands = []
+trace-component-props = ["tracing"]
+tracing = []

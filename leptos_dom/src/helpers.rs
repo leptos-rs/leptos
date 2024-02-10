@@ -1,9 +1,36 @@
 //! A variety of DOM utility functions.
 
-use crate::{events::typed as ev, is_server, window};
-use leptos_reactive::on_cleanup;
+use or_poisoned::OrPoisoned;
+#[cfg(debug_assertions)]
+use reactive_graph::diagnostics::SpecialNonReactiveZone;
+use reactive_graph::owner::Owner;
 use std::time::Duration;
+use tachys::html::event::EventDescriptor;
+#[cfg(feature = "tracing")]
+use tracing::instrument;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
+
+thread_local! {
+    pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
+
+    pub(crate) static DOCUMENT: web_sys::Document = web_sys::window().unwrap_throw().document().unwrap_throw();
+}
+
+/// Returns the [`Window`](https://developer.mozilla.org/en-US/docs/Web/API/Window).
+///
+/// This is cached as a thread-local variable, so calling `window()` multiple times
+/// requires only one call out to JavaScript.
+pub fn window() -> web_sys::Window {
+    WINDOW.with(Clone::clone)
+}
+
+/// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
+///
+/// This is cached as a thread-local variable, so calling `document()` multiple times
+/// requires only one call out to JavaScript.
+pub fn document() -> web_sys::Document {
+    DOCUMENT.with(Clone::clone)
+}
 
 /// Sets a property on a DOM element.
 pub fn set_property(
@@ -36,17 +63,18 @@ pub fn location() -> web_sys::Location {
 /// Current [`window.location.hash`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location)
 /// without the beginning #.
 pub fn location_hash() -> Option<String> {
-    if is_server() {
+    // TODO use shared context for is_server
+    /*if is_server() {
         None
-    } else {
-        location()
-            .hash()
-            .ok()
-            .map(|hash| match hash.chars().next() {
-                Some('#') => hash[1..].to_string(),
-                _ => hash,
-            })
-    }
+    } else {*/
+    location()
+        .hash()
+        .ok()
+        .map(|hash| match hash.chars().next() {
+            Some('#') => hash[1..].to_string(),
+            _ => hash,
+        })
+    //}
 }
 
 /// Current [`window.location.pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
@@ -103,7 +131,7 @@ impl AnimationFrameRequestHandle {
 
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame).
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
     _ = request_animation_frame_with_handle(cb);
@@ -131,20 +159,18 @@ fn closure_once(cb: impl FnOnce() + 'static) -> JsValue {
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame),
 /// returning a cancelable handle.
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_animation_frame_with_handle(
     cb: impl FnOnce() + 'static,
 ) -> Result<AnimationFrameRequestHandle, JsValue> {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-          let _guard = span.enter();
-          cb();
-        };
-      }
-    }
+    #[cfg(feature = "tracing")]
+    let span = ::tracing::Span::current();
+    #[cfg(feature = "tracing")]
+    let cb = move || {
+        let _guard = span.enter();
+        cb();
+    };
 
     #[inline(never)]
     fn raf(cb: JsValue) -> Result<AnimationFrameRequestHandle, JsValue> {
@@ -171,7 +197,7 @@ impl IdleCallbackHandle {
 
 /// Queues the given function during an idle period using
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback).
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_idle_callback(cb: impl Fn() + 'static) {
     _ = request_idle_callback_with_handle(cb);
@@ -180,19 +206,18 @@ pub fn request_idle_callback(cb: impl Fn() + 'static) {
 /// Queues the given function during an idle period using
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback),
 /// returning a cancelable handle.
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(feature = "tracing", instrument(level = "trace", skip_all))]
 #[inline(always)]
 pub fn request_idle_callback_with_handle(
     cb: impl Fn() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
+    #[cfg(feature = "tracing")]
+    {
         let span = ::tracing::Span::current();
         let cb = move || {
-          let _guard = span.enter();
-          cb();
+            let _guard = span.enter();
+            cb();
         };
-      }
     }
 
     #[inline(never)]
@@ -222,7 +247,7 @@ impl TimeoutHandle {
 /// Executes the given function after the given duration of time has passed.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  any(debug_assertions, feature = "ssr"),
+  any(feature = "tracing", feature = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
@@ -232,7 +257,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// Executes the given function after the given duration of time has passed, returning a cancelable handle.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  any(debug_assertions, feature = "ssr"),
+  any(feature = "tracing", feature = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -240,17 +265,19 @@ pub fn set_timeout_with_handle(
     cb: impl FnOnce() + 'static,
     duration: Duration,
 ) -> Result<TimeoutHandle, JsValue> {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb();
-          leptos_reactive::SpecialNonReactiveZone::exit(prev);
-        };
-      }
-    }
+    #[cfg(debug_assertions)]
+    let cb = || {
+        let _z = SpecialNonReactiveZone::enter();
+        cb();
+    };
+
+    #[cfg(feature = "tracing")]
+    let span = ::tracing::Span::current();
+    #[cfg(feature = "tracing")]
+    let cb = move || {
+        let _guard = span.enter();
+        cb();
+    };
 
     #[inline(never)]
     fn st(cb: JsValue, duration: Duration) -> Result<TimeoutHandle, JsValue> {
@@ -287,53 +314,53 @@ pub fn set_timeout_with_handle(
 /// ```
 pub fn debounce<T: 'static>(
     delay: Duration,
-    #[cfg(debug_assertions)] mut cb: impl FnMut(T) + 'static,
-    #[cfg(not(debug_assertions))] cb: impl FnMut(T) + 'static,
+    mut cb: impl FnMut(T) + 'static,
 ) -> impl FnMut(T) {
-    use std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
+    use std::sync::{Arc, RwLock};
+
+    #[cfg(debug_assertions)]
+    #[allow(unused_mut)]
+    let mut cb = move |value| {
+        let _z = SpecialNonReactiveZone::enter();
+        cb(value);
     };
 
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move |value| {
-          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb(value);
-          leptos_reactive::SpecialNonReactiveZone::exit(prev);
-        };
-      }
-    }
-    let cb = Rc::new(RefCell::new(cb));
+    #[cfg(feature = "tracing")]
+    let span = ::tracing::Span::current();
+    #[cfg(feature = "tracing")]
+    #[allow(unused_mut)]
+    let mut cb = move |value| {
+        let _guard = span.enter();
+        cb(value);
+    };
 
-    let timer = Rc::new(Cell::new(None::<TimeoutHandle>));
+    let cb = Arc::new(RwLock::new(cb));
+    let timer = Arc::new(RwLock::new(None::<TimeoutHandle>));
 
-    on_cleanup({
-        let timer = Rc::clone(&timer);
+    Owner::on_cleanup({
+        let timer = Arc::clone(&timer);
         move || {
-            if let Some(timer) = timer.take() {
+            if let Some(timer) = timer.write().or_poisoned().take() {
                 timer.clear();
             }
         }
     });
 
     move |arg| {
-        if let Some(timer) = timer.take() {
+        if let Some(timer) = timer.write().unwrap().take() {
             timer.clear();
         }
         let handle = set_timeout_with_handle(
             {
-                let cb = Rc::clone(&cb);
+                let cb = Arc::clone(&cb);
                 move || {
-                    cb.borrow_mut()(arg);
+                    cb.write().unwrap()(arg);
                 }
             },
             delay,
         );
         if let Ok(handle) = handle {
-            timer.set(Some(handle));
+            *timer.write().or_poisoned() = Some(handle);
         }
     }
 }
@@ -354,7 +381,7 @@ impl IntervalHandle {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  any(debug_assertions, feature = "ssr"),
+  any(feature = "tracing", feature = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_interval(cb: impl Fn() + 'static, duration: Duration) {
@@ -365,7 +392,7 @@ pub fn set_interval(cb: impl Fn() + 'static, duration: Duration) {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  any(debug_assertions, feature = "ssr"),
+  any(feature = "tracing", feature = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -373,17 +400,18 @@ pub fn set_interval_with_handle(
     cb: impl Fn() + 'static,
     duration: Duration,
 ) -> Result<IntervalHandle, JsValue> {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb();
-          leptos_reactive::SpecialNonReactiveZone::exit(prev);
-        };
-      }
-    }
+    #[cfg(debug_assertions)]
+    let cb = move || {
+        let _z = SpecialNonReactiveZone::enter();
+        cb();
+    };
+    #[cfg(feature = "tracing")]
+    let span = ::tracing::Span::current();
+    #[cfg(feature = "tracing")]
+    let cb = move || {
+        let _guard = span.enter();
+        cb();
+    };
 
     #[inline(never)]
     fn si(
@@ -406,7 +434,7 @@ pub fn set_interval_with_handle(
 /// Adds an event listener to the `Window`, typed as a generic `Event`,
 /// returning a cancelable handle.
 #[cfg_attr(
-  debug_assertions,
+  feature = "tracing",
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
 )]
 #[inline(always)]
@@ -414,19 +442,22 @@ pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
 ) -> WindowListenerHandle {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move |e| {
-          let prev = leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb(e);
-          leptos_reactive::SpecialNonReactiveZone::exit(prev);
-        };
-      }
-    }
+    #[cfg(debug_assertions)]
+    let cb = move |e| {
+        let _z = SpecialNonReactiveZone::enter();
+        cb(e);
+    };
+    #[cfg(feature = "tracing")]
+    let span = ::tracing::Span::current();
+    #[cfg(feature = "tracing")]
+    let cb = move |e| {
+        let _guard = span.enter();
+        cb(e);
+    };
 
-    if !is_server() {
+    // TODO use shared context for is_server
+    if true {
+        // !is_server() {
         #[inline(never)]
         fn wel(
             cb: Box<dyn FnMut(web_sys::Event)>,
@@ -468,7 +499,7 @@ pub fn window_event_listener_untyped(
 ///     on_cleanup(move || handle.remove());
 /// }
 /// ```
-pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
+pub fn window_event_listener<E: EventDescriptor + 'static>(
     event: E,
     cb: impl Fn(E::EventType) + 'static,
 ) -> WindowListenerHandle
@@ -494,14 +525,4 @@ impl WindowListenerHandle {
     pub fn remove(self) {
         (self.0)()
     }
-}
-
-#[doc(hidden)]
-/// This exists only to enable type inference on event listeners when in SSR mode.
-pub fn ssr_event_listener<E: crate::ev::EventDescriptor + 'static>(
-    event: E,
-    event_handler: impl FnMut(E::EventType) + 'static,
-) {
-    _ = event;
-    _ = event_handler;
 }
