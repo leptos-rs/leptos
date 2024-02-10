@@ -1,19 +1,15 @@
-# Leptos Todo App Sqlite
+# Leptos Todo App Without SSR
 
-This example creates a basic todo app with an Actix backend that uses Leptos' server functions to call sqlx from the client and seamlessly run it on the server.
+This is a minimal example of how to use Leptos' server functions without using Server Side Rendering or cargo-leptos.
 
-## Getting Started
+To run the app, first start the server.
 
-See the [Examples README](../README.md) for setup and run instructions.
+```
+cargo run --features=server
+```
 
-## E2E Testing
+Then use [Trunk](https://trunkrs.dev/) to build and serve the web assets:
 
-See the [E2E README](./e2e/README.md) for more information about the testing strategy.
-
-## Rendering
-
-See the [SSR Notes](../SSR_NOTES.md) for more information about Server Side Rendering.
-
-## Quick Start
-
-Run `cargo leptos watch` to run this example.
+```
+trunk serve
+```

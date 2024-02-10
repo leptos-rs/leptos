@@ -12,7 +12,7 @@ pub struct Todo {
 }
 
 #[cfg(feature = "server")]
-pub mod ssr {
+pub mod server {
     pub use actix_web::HttpRequest;
     pub use leptos::ServerFnError;
     pub use sqlx::{Connection, SqliteConnection};
@@ -26,7 +26,7 @@ pub mod ssr {
 /// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
 #[server(encoding = "Cbor")]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
-    use self::ssr::*;
+    use self::server::*;
 
     // this is just an example of how to access server context injected in the handlers
     let req = use_context::<HttpRequest>();
@@ -50,7 +50,7 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
 
 #[server]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
-    use self::ssr::*;
+    use self::server::*;
 
     let mut conn = db().await?;
 
@@ -70,7 +70,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 // The struct name and path prefix arguments are optional.
 #[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
-    use self::ssr::*;
+    use self::server::*;
 
     let mut conn = db().await?;
 

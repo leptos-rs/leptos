@@ -7,7 +7,7 @@ use fantoccini::{
     error::NewSessionError, wd::Capabilities, Client, ClientBuilder,
 };
 
-pub const HOST: &str = "http://127.0.0.1:3000";
+pub const HOST: &str = "http://127.0.0.1:9000";
 
 #[derive(Debug, World)]
 #[world(init = Self::new)]
