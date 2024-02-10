@@ -165,7 +165,10 @@ pub use typed_builder;
 pub use typed_builder_macro;
 mod into_view;
 pub use into_view::IntoView;
+pub use tachys;
 
+mod mount;
+pub use mount::*;
 /*mod additional_attributes;
 pub use additional_attributes::*;
 mod await_;
