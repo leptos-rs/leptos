@@ -30,17 +30,14 @@ wasm-bindgen = "0.2"
 tokio = { version = "1", features = ["rt", "time"], optional = true }
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = [
+server = [
 	"dep:actix-files",
 	"dep:actix-web",
 	"dep:sqlx",
-	"leptos/ssr",
 	"leptos_actix",
-	"leptos_meta/ssr",
-	"leptos_router/ssr",
 	"dep:tokio",
 ]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix", "sqlx"]
@@ -48,7 +45,7 @@ skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
-output-name = "todo_app_sqlite"
+output-name = "server"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
@@ -73,8 +70,6 @@ watch = false
 env = "DEV"
 # The features to use when compiling the bin target
 #
-# Optional. Can be over-ridden with the command line parameter --bin-features
-bin-features = ["ssr"]
 
 # If the --no-default-features flag should be used when compiling the bin target
 #

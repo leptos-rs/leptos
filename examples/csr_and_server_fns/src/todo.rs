@@ -4,14 +4,14 @@ use leptos_router::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+#[cfg_attr(feature = "server", derive(sqlx::FromRow))]
 pub struct Todo {
     id: u16,
     title: String,
     completed: bool,
 }
 
-#[cfg(feature = "ssr")]
+#[cfg(feature = "server")]
 pub mod ssr {
     pub use actix_web::HttpRequest;
     pub use leptos::ServerFnError;

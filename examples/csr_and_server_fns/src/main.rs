@@ -1,6 +1,6 @@
 mod todo;
 
-#[cfg(feature = "ssr")]
+#[cfg(feature = "server")]
 mod ssr {
     pub use crate::todo::*;
     pub use actix_files::Files;
@@ -14,7 +14,7 @@ mod ssr {
     }
 }
 
-#[cfg(feature = "ssr")]
+#[cfg(feature = "server")]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     use self::{ssr::*, todo::ssr::*};
@@ -25,20 +25,15 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("could not run SQLx migrations");
 
-    // Explicit server function registration is no longer required
-    // on the main branch. On 0.3.0 and earlier, uncomment the lines
-    // below to register the server functions.
-    // _ = GetTodos::register();
-    // _ = AddTodo::register();
-    // _ = DeleteTodo::register();
-
     // Setting this to None means we'll be using cargo-leptos and its env vars.
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
 
     let addr = conf.leptos_options.site_addr;
+    println!("Server functions available at http://{}", &addr);
 
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(TodoApp);
+    println!("routes: {:?}", routes);
 
     HttpServer::new(move || {
         let leptos_options = &conf.leptos_options;
@@ -53,9 +48,17 @@ async fn main() -> std::io::Result<()> {
                 TodoApp,
             )
             .service(Files::new("/", site_root))
-        //.wrap(middleware::Compress::default())
     })
     .bind(addr)?
     .run()
     .await
+}
+ 
+#[cfg(feature = "csr")]
+pub fn main() {
+    use crate::todo::*;
+    console_error_panic_hook::set_once();
+    _ = console_log::init_with_level(log::Level::Debug);
+
+    leptos::mount_to_body(TodoApp);
 }
