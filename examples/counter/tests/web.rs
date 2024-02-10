@@ -161,5 +161,3 @@ fn inc() {
 
     runtime.dispose();
 }
-
-// TODO: remove simulated change
