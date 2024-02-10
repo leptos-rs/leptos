@@ -1,0 +1,50 @@
+error[E0277]: the trait bound `i32: From<()>` is not satisfied
+  --> tests/ui/view/directives.rs:13:20
+   |
+13 |         <Component use:highlight />
+   |                    ^^^^^^^^^^^^^ the trait `From<()>` is not implemented for `i32`
+   |
+   = help: the following other types implement trait `From<T>`:
+             <i32 as From<bool>>
+             <i32 as From<i8>>
+             <i32 as From<i16>>
+             <i32 as From<u8>>
+             <i32 as From<u16>>
+             <i32 as From<NonZeroI32>>
+   = note: required for `()` to implement `Into<i32>`
+
+error[E0277]: the trait bound `i32: From<&str>` is not satisfied
+  --> tests/ui/view/directives.rs:17:34
+   |
+16 | /     view! {
+17 | |         <Component use:highlight="asd" />
+   | |                                  ^^^^^ the trait `From<&str>` is not implemented for `i32`
+18 | |     };
+   | |_____- required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `From<T>`:
+             <i32 as From<bool>>
+             <i32 as From<i8>>
+             <i32 as From<i16>>
+             <i32 as From<u8>>
+             <i32 as From<u16>>
+             <i32 as From<NonZeroI32>>
+   = note: required for `&str` to implement `Into<i32>`
+
+error[E0277]: the trait bound `i32: From<&str>` is not satisfied
+  --> tests/ui/view/directives.rs:21:34
+   |
+20 | /     view! {
+21 | |         <Component use:highlight=data />
+   | |                                  ^^^^ the trait `From<&str>` is not implemented for `i32`
+22 | |     };
+   | |_____- required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `From<T>`:
+             <i32 as From<bool>>
+             <i32 as From<i8>>
+             <i32 as From<i16>>
+             <i32 as From<u8>>
+             <i32 as From<u16>>
+             <i32 as From<NonZeroI32>>
+   = note: required for `&str` to implement `Into<i32>`

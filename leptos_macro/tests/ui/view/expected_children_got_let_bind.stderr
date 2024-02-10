@@ -1,0 +1,8 @@
+error[E0308]: mismatched types
+  --> tests/ui/view/expected_children_got_let_bind.rs:11:13
+   |
+11 |             <p />
+   |             ^^^^^ expected `Box<dyn FnOnce() -> Fragment>`, found closure
+   |
+   = note: expected struct `Box<(dyn FnOnce() -> Fragment + 'static)>`
+             found closure `{closure@$DIR/tests/ui/view/expected_children_got_let_bind.rs:11:13: 11:18}`

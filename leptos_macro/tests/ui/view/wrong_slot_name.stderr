@@ -1,0 +1,15 @@
+error[E0277]: the trait bound `Then: From<ElseIf>` is not satisfied
+  --> tests/ui/view/wrong_slot_name.rs:22:13
+   |
+22 |             <ElseIf slot:then />
+   |             ^^^^^^^^^^^^^^^^^^^^ the trait `From<ElseIf>` is not implemented for `Then`
+   |
+   = note: required for `ElseIf` to implement `Into<Then>`
+
+error[E0277]: the trait bound `Then: From<ElseIf>` is not satisfied
+  --> tests/ui/view/wrong_slot_name.rs:28:13
+   |
+28 |             <ElseIf slot:then />
+   |             ^^^^^^^^^^^^^^^^^^^^ the trait `From<ElseIf>` is not implemented for `Then`
+   |
+   = note: required for `ElseIf` to implement `Into<Then>`

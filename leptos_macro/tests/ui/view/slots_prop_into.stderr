@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `leptos::MaybeSignal<bool>: From<{closure@$DIR/tests/ui/view/slots_prop_into.rs:29:19: 29:26}>` is not satisfied
+  --> tests/ui/view/slots_prop_into.rs:34:31
+   |
+34 |             <ElseIf slot cond=is_div5>"divisible by 5"</ElseIf>
+   |                          ---- ^^^^^^^ the trait `From<{closure@$DIR/tests/ui/view/slots_prop_into.rs:29:19: 29:26}>` is not implemented for `leptos::MaybeSignal<bool>`
+   |                          |
+   |                          required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `From<T>`:
+             <leptos::MaybeSignal<std::string::String> as From<&str>>
+             <leptos::MaybeSignal<T> as From<ReadSignal<T>>>
+             <leptos::MaybeSignal<T> as From<RwSignal<T>>>
+             <leptos::MaybeSignal<T> as From<Memo<T>>>
+             <leptos::MaybeSignal<T> as From<Signal<T>>>
+             <leptos::MaybeSignal<T> as From<T>>
+   = note: required for `{closure@$DIR/tests/ui/view/slots_prop_into.rs:29:19: 29:26}` to implement `Into<leptos::MaybeSignal<bool>>`
+note: required by a bound in `ElseIfBuilder::<((), __children)>::cond`
+  --> tests/ui/view/slots_prop_into.rs:8:1
+   |
+8  | #[slot]
+   | ^^^^^^^ required by this bound in `ElseIfBuilder::<((), __children)>::cond`
+...
+11 |     cond: MaybeSignal<bool>,
+   |     ---- required by a bound in this associated function
+   = note: this error originates in the derive macro `::leptos::typed_builder_macro::TypedBuilder` (in Nightly builds, run with -Z macro-backtrace for more info)

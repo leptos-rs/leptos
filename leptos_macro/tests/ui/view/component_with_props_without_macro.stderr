@@ -1,0 +1,28 @@
+error[E0277]: the trait bound `fn(i32) -> impl leptos::IntoView {Component}: leptos::Component<_>` is not satisfied
+  --> tests/ui/view/component_with_props_without_macro.rs:10:10
+   |
+10 |         <Component />
+   |          ^^^^^^^^^ the trait `leptos::Component<_>` is not implemented for fn item `fn(i32) -> impl leptos::IntoView {Component}`
+   |
+note: required by a bound in `component_props_builder`
+  --> $WORKSPACE/leptos/src/lib.rs
+   |
+   | pub fn component_props_builder<P: PropsOrNoPropsBuilder>(
+   |        ----------------------- required by a bound in this function
+   |     _f: &impl Component<P>,
+   |               ^^^^^^^^^^^^ required by this bound in `component_props_builder`
+
+error[E0277]: the trait bound `&fn(i32) -> impl leptos::IntoView {Component}: ComponentConstructor<_>` is not satisfied
+  --> tests/ui/view/component_with_props_without_macro.rs:10:10
+   |
+10 |         <Component />
+   |         -^^^^^^^^^---
+   |         ||
+   |         |the trait `ComponentConstructor<_>` is not implemented for `&fn(i32) -> impl leptos::IntoView {Component}`
+   |         required by a bound introduced by this call
+   |
+note: required by a bound in `component_view`
+  --> $WORKSPACE/leptos/src/lib.rs
+   |
+   | pub fn component_view<P>(f: impl ComponentConstructor<P>, props: P) -> View {
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `component_view`
