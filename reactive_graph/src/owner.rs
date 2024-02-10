@@ -15,6 +15,7 @@ pub use arena::{Stored, StoredData};
 pub use context::*;
 
 #[derive(Debug, Clone, Default)]
+#[must_use]
 pub struct Owner {
     pub(crate) inner: Arc<RwLock<OwnerInner>>,
 }

@@ -7,7 +7,7 @@ use tachys::{
 
 pub struct View<T>(T);
 
-pub trait IntoView: Sized {
+pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> {
     fn into_view(self) -> View<Self>;
 }
 

@@ -45,6 +45,10 @@ impl Debug for HydrateSharedContext {
 }
 
 impl SharedContext for HydrateSharedContext {
+    fn is_browser(&self) -> bool {
+        true
+    }
+
     fn next_id(&self) -> SerializedDataId {
         let id = self.id.fetch_add(1, Ordering::Relaxed);
         SerializedDataId(id)

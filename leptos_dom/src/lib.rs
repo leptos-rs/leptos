@@ -1,16 +1,18 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
-pub use tachys::*;
-use web_sys::HtmlElement;
+//! The DOM implementation for `leptos`.
 
-pub fn mount_to<F, N>(parent: HtmlElement, f: F)
-where
-    F: FnOnce() -> N + 'static,
-    N: IntoView,
-{
-    mount_to_with_stop_hydrating(parent, true, f)
-}
+use reactive_graph::owner::Owner;
+use tachys::{
+    dom::body,
+    renderer::dom::Dom,
+    view::{Mountable, Render},
+};
+use web_sys::HtmlElement;
+pub mod helpers;
+pub use tachys::html::event as events;
+
 
 /*#![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]

@@ -74,6 +74,7 @@ use std::{future::Future, pin::Pin};
 
 pub(crate) mod channel;
 pub mod computed;
+pub mod diagnostics;
 pub mod effect;
 pub mod executor;
 pub mod graph;
