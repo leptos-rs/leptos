@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+//#![deny(missing_docs)] // TODO restore
 #![forbid(unsafe_code)]
 //! # About Leptos
 //!
@@ -139,7 +139,34 @@
 //! # }
 //! ```
 
-mod additional_attributes;
+extern crate self as leptos;
+
+pub mod prelude {
+    pub use reactive_graph::prelude::*;
+    pub use tachys::prelude::*;
+}
+
+pub mod children;
+pub mod component;
+mod for_loop;
+mod hydration_scripts;
+mod show;
+pub use for_loop::*;
+pub use hydration_scripts::*;
+pub use leptos_macro::*;
+pub use reactive_graph::{
+    self,
+    signal::{arc_signal, create_signal, signal},
+};
+pub use show::*;
+#[doc(hidden)]
+pub use typed_builder;
+#[doc(hidden)]
+pub use typed_builder_macro;
+mod into_view;
+pub use into_view::IntoView;
+
+/*mod additional_attributes;
 pub use additional_attributes::*;
 mod await_;
 pub use await_::*;
@@ -209,10 +236,9 @@ pub use serde;
 #[cfg(feature = "experimental-islands")]
 pub use serde_json;
 pub use show::*;
-pub use suspense_component::*;
-mod suspense_component;
-mod transition;
-
+//pub use suspense_component::*;
+//mod suspense_component;
+//mod transition;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
@@ -373,4 +399,4 @@ where
     fn construct(self, props: P) -> View {
         (self)(props).into_view()
     }
-}
+}*/
