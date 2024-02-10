@@ -79,7 +79,7 @@ bin-default-features = false
 # The features to use when compiling the lib target
 #
 # Optional. Can be over-ridden with the command line parameter --lib-features
-lib-features = ["hydrate"]
+# lib-features = ["hydrate"]
 
 # If the --no-default-features flag should be used when compiling the lib target
 #

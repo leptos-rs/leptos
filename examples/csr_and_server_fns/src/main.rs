@@ -29,7 +29,7 @@ async fn main() -> std::io::Result<()> {
     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
 
     let addr = conf.leptos_options.site_addr;
-    println!("Server functions available at http://{}", &addr);
+     println!("Server functions available at http://{}", &addr);
 
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(TodoApp);
@@ -42,11 +42,7 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .service(css)
-            .leptos_routes(
-                leptos_options.to_owned(),
-                routes.to_owned(),
-                TodoApp,
-            )
+            .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
             .service(Files::new("/", site_root))
     })
     .bind(addr)?
