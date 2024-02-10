@@ -8,10 +8,15 @@ fn view() {
             #[allow(unused_braces)]
             {
                 {
-                    let props = ::leptos::component_props_builder(&ExternalComponent)
-                        .build();
+                    let props = ::leptos::component_props_builder(&ExternalComponent);
+                    #[allow(clippy::let_unit_value, clippy::unit_arg)]
+                    let props = props.build();
                     #[allow(unreachable_code)]
-                    ::leptos::component_view(&ExternalComponent, props)
+                    ::leptos::component_view(
+                        #[allow(clippy::needless_borrows_for_generic_args)]
+                        &ExternalComponent,
+                        props,
+                    )
                 }
             },
         )
