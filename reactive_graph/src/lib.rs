@@ -81,6 +81,8 @@ pub mod owner;
 pub mod signal;
 pub mod traits;
 
+pub use graph::untrack;
+
 #[cfg(feature = "nightly")]
 mod nightly;
 
