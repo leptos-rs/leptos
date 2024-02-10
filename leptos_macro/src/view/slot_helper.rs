@@ -175,7 +175,7 @@ pub(crate) fn slot_to_tokens(
                 #children
                 #build;
 
-            #[allow(unreachable_code)]
+            #[allow(unreachable_code, clippy::useless_conversion)]
             slot.into()
         },
     };

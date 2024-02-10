@@ -540,5 +540,5 @@ pub(crate) fn directive_call_from_attribute_node(
         quote_spanned!(attr.key.span()=> ().into())
     };
 
-    quote! { .directive(#handler, #param) }
+    quote! { .directive(#handler, #[allow(clippy::useless_conversion)] #param) }
 }

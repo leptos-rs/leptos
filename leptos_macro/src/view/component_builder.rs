@@ -217,12 +217,19 @@ pub(crate) fn component_to_tokens(
             let props = #component_props_builder
                 #(#props)*
                 #(#slots)*
-                #children
+                #children;
+
+            #[allow(clippy::let_unit_value, clippy::unit_arg)]
+            let props = props
                 #build
                 #dyn_attrs;
 
             #[allow(unreachable_code)]
-            ::leptos::component_view(#name_ref, props)
+            ::leptos::component_view(
+                #[allow(clippy::needless_borrows_for_generic_args)]
+                #name_ref,
+                props
+            )
         }
     };
 
