@@ -1,6 +1,18 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-#![cfg_attr(feature = "nightly", feature(fn_traits))]
+
+pub use tachys::*;
+use web_sys::HtmlElement;
+
+pub fn mount_to<F, N>(parent: HtmlElement, f: F)
+where
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    mount_to_with_stop_hydrating(parent, true, f)
+}
+
+/*#![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 // to prevent warnings from popping up when a nightly feature is stabilized
 #![allow(stable_features)]
@@ -1311,4 +1323,4 @@ cfg_if! {
         std::backtrace::Backtrace
     }
   }
-}
+}*/

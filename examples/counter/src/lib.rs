@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::{component, create_signal, prelude::*, view, IntoView};
 
 /// A simple counter component.
 ///
