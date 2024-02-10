@@ -13,7 +13,7 @@ use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, ToTokens};
-use rstml::{node::KeyedAttribute, parse};
+use rstml::node::KeyedAttribute;
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -38,7 +38,6 @@ impl Default for Mode {
 mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
-use view::{client_template::render_template, render_view};
 mod component;
 mod slice;
 mod slot;
@@ -361,12 +360,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let parser = rstml::Parser::new(config);
     let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
-    let nodes_output = render_view(
-        &nodes,
-        Mode::default(),
-        global_class.as_ref(),
-        normalized_call_site(proc_macro::Span::call_site()),
-    );
+    let nodes_output = view::render_view(&nodes, global_class.as_ref(), None);
     quote! {
         {
             #(#errors;)*
@@ -374,38 +368,6 @@ pub fn view(tokens: TokenStream) -> TokenStream {
         }
     }
     .into()
-}
-
-fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
-    cfg_if::cfg_if! {
-        if #[cfg(all(debug_assertions, feature = "nightly"))] {
-            Some(leptos_hot_reload::span_to_stable_id(
-                site.source_file().path(),
-                site.start().line()
-            ))
-        } else {
-            _ = site;
-            None
-        }
-    }
-}
-
-/// An optimized, cached template for client-side rendering. Follows the same
-/// syntax as the [view!] macro. In hydration or server-side rendering mode,
-/// behaves exactly as the `view` macro. In client-side rendering mode, uses a `<template>`
-/// node to efficiently render the element. Should only be used with a single root element.
-#[proc_macro_error::proc_macro_error]
-#[proc_macro]
-pub fn template(tokens: TokenStream) -> TokenStream {
-    if cfg!(feature = "csr") {
-        match parse(tokens) {
-            Ok(nodes) => render_template(&nodes),
-            Err(error) => error.to_compile_error(),
-        }
-        .into()
-    } else {
-        view(tokens)
-    }
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
@@ -588,47 +550,11 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
-pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let is_transparent = if !args.is_empty() {
-        let transparent = parse_macro_input!(args as syn::Ident);
-
-        if transparent != "transparent" {
-            abort!(
-                transparent,
-                "only `transparent` is supported";
-                help = "try `#[component(transparent)]` or `#[component]`"
-            );
-        }
-
-        true
-    } else {
-        false
-    };
-
-    let Ok(mut dummy) = syn::parse::<DummyModel>(s.clone()) else {
-        return s;
-    };
-    let parse_result = syn::parse::<component::Model>(s);
-
-    if let (ref mut unexpanded, Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_transparent(is_transparent).into_token_stream();
-        unexpanded.sig.ident =
-            unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
-        quote! {
-            #expanded
-            #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
-            #unexpanded
-        }
-    } else {
-        dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
-        quote! {
-            #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
-            #dummy
-        }
-    }
-    .into()
+pub fn component(
+    _args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> TokenStream {
+    component_macro(s, false)
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -705,13 +631,15 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let Ok(mut dummy) = syn::parse::<DummyModel>(s.clone()) else {
-        return s;
-    };
+    component_macro(s, true)
+}
+
+fn component_macro(s: TokenStream, island: bool) -> TokenStream {
+    let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (ref mut unexpanded, Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_island().into_token_stream();
+    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+        let expanded = model.is_island(island).into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),
@@ -721,17 +649,20 @@ pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
             unmodified_fn_name_from_fn_name(&unexpanded.sig.ident);
         quote! {
             #expanded
+
             #[doc(hidden)]
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
             #unexpanded
         }
-    } else {
+    } else if let Ok(mut dummy) = dummy {
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
             #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
             #dummy
         }
+    } else {
+        quote! {}
     }
     .into()
 }
@@ -989,13 +920,6 @@ pub fn params_derive(
     match syn::parse(input) {
         Ok(ast) => params::params_impl(&ast),
         Err(err) => err.to_compile_error().into(),
-    }
-}
-
-pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
-    match attr.value() {
-        Some(value) => value,
-        None => abort!(attr.key, "attribute should have value"),
     }
 }
 

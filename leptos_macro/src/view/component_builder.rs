@@ -1,13 +1,7 @@
-#[cfg(debug_assertions)]
-use super::ident_from_tag_name;
-use super::{
-    client_builder::{fragment_to_tokens, TagType},
-    event_from_attribute_node,
-};
-use crate::view::directive_call_from_attribute_node;
+use super::{fragment_to_tokens, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{NodeAttribute, NodeElement};
+use rstml::node::{NodeAttribute, NodeElement, NodeName};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 
@@ -99,7 +93,8 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
-    let events = attrs
+    // TODO events and directives
+    /*     let events = attrs
         .clone()
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
@@ -122,7 +117,7 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let events_and_directives =
-        events.into_iter().chain(directives).collect::<Vec<_>>();
+        events.into_iter().chain(directives).collect::<Vec<_>>(); */
 
     let dyn_attrs = attrs
         .filter(|attr| attr.key.to_string().starts_with("attr:"))
@@ -132,7 +127,7 @@ pub(crate) fn component_to_tokens(
             let value = attr.value().map(|v| {
                 quote! { #v }
             })?;
-            Some(quote! { (#name, ::leptos::IntoAttribute::into_attribute(#value)) })
+            Some(quote! { (#name, #value.into_attribute()) })
         })
         .collect::<Vec<_>>();
 
@@ -148,7 +143,6 @@ pub(crate) fn component_to_tokens(
     } else {
         let children = fragment_to_tokens(
             &node.children,
-            true,
             TagType::Unknown,
             Some(&mut slots),
             global_class,
@@ -180,7 +174,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        move |#(#bindables)*| #children #view_marker
+                        move |#(#bindables)*| #children
                     })
                 }
             } else {
@@ -188,7 +182,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        ::leptos::ToChildren::to_children(move || #children #view_marker)
+                        ::leptos::children::ToChildren::to_children(move || #children)
                     })
                 }
             }
@@ -232,7 +226,7 @@ pub(crate) fn component_to_tokens(
     };
 
     let component_props_builder = quote_spanned! {name.span()=>
-        ::leptos::component_props_builder(#name_ref #generics)
+        ::leptos::component::component_props_builder(#name_ref #generics)
     };
 
     #[allow(unused_mut)] // used in debug
@@ -245,9 +239,15 @@ pub(crate) fn component_to_tokens(
                 #(#slots)*
                 #children
                 #build
-                #dyn_attrs
-                #(#spread_bindings)*
-        )
+                #dyn_attrs;
+
+            #[allow(unreachable_code)]
+            ::leptos::component::component_view(
+                #[allow(clippy::needless_borrows_for_generic_args)]
+                #name_ref,
+                props
+            )
+        }
     };
 
     // (Temporarily?) removed
@@ -255,12 +255,39 @@ pub(crate) fn component_to_tokens(
     /* #[cfg(debug_assertions)]
     IdeTagHelper::add_component_completion(&mut component, node); */
 
-    if events_and_directives.is_empty() {
+    // TODO events and directives
+    /* if events_and_directives.is_empty() {
         component
     } else {
         quote_spanned! {node.span()=>
-            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
+            #component.into_view()
             #(#events_and_directives)*
         }
+    } */
+    component
+}
+
+#[cfg(debug_assertions)]
+fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
+    match tag_name {
+        NodeName::Path(path) => path
+            .path
+            .segments
+            .iter()
+            .last()
+            .map(|segment| segment.ident.clone())
+            .expect("element needs to have a name"),
+        NodeName::Block(_) => {
+            let span = tag_name.span();
+            proc_macro_error::emit_error!(
+                span,
+                "blocks not allowed in tag-name position"
+            );
+            Ident::new("", span)
+        }
+        _ => Ident::new(
+            &tag_name.to_string().replace(['-', ':'], "_"),
+            tag_name.span(),
+        ),
     }
 }
