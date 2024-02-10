@@ -5,14 +5,14 @@ use crate::{
     renderer::{DomRenderer, Renderer},
     ssr::StreamBuilder,
     view::{
-        FallibleRender, InfallibleRender, Mountable, Position, PositionState,
-        Render, RenderHtml, ToTemplate,
+        InfallibleRender, Mountable, Position, PositionState, Render,
+        RenderHtml, ToTemplate,
     },
 };
 use reactive_graph::{computed::ScopedFuture, effect::RenderEffect};
-use std::mem;
 
 mod class;
+mod guards;
 pub mod node_ref;
 mod style;
 
