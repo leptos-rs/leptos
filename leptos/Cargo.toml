@@ -18,7 +18,7 @@ leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
 tracing = "0.1"
-reactive_graph = { workspace = true }
+reactive_graph = { workspace = true, features = ["wasm-bindgen"] }
 tachys = { workspace = true, features = ["reactive_graph"] }
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
@@ -39,16 +39,13 @@ wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
 default = ["serde"]
-template_macro = ["leptos_dom/web", "dep:wasm-bindgen"]
 csr = [
-  "leptos_dom/csr",
   "leptos_macro/csr",
   "leptos_reactive/csr",
   "leptos_server/csr",
   "dep:wasm-bindgen",
 ]
 hydrate = [
-  "leptos_dom/hydrate",
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
@@ -57,7 +54,6 @@ hydrate = [
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
-  "leptos_dom/ssr",
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
   "leptos_server/ssr",
@@ -74,7 +70,7 @@ serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
-tracing = ["leptos_macro/tracing"]
+tracing = ["leptos_macro/tracing", "leptos_dom/tracing"]
 nonce = ["leptos_dom/nonce"]
 spin = ["leptos_reactive/spin", "leptos-spin-macro"]
 experimental-islands = [

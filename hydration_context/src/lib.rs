@@ -13,14 +13,19 @@
 
 #[cfg(feature = "browser")]
 #[cfg_attr(docsrs, doc(cfg(feature = "browser")))]
+mod csr;
+#[cfg(feature = "browser")]
+#[cfg_attr(docsrs, doc(cfg(feature = "browser")))]
 mod hydrate;
 mod ssr;
+#[cfg(feature = "browser")]
+pub use csr::*;
 use futures::Stream;
 #[cfg(feature = "browser")]
 pub use hydrate::*;
 use serde::{Deserialize, Serialize};
 pub use ssr::*;
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{fmt::Debug, future::Future, pin::Pin, sync::OnceLock};
 
 /// Type alias for a boxed [`Future`].
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
@@ -39,6 +44,9 @@ pub struct SerializedDataId(usize);
 
 /// Information that will be shared between the server and the client.
 pub trait SharedContext: Debug {
+    /// Whether the application is running in the browser.
+    fn is_browser(&self) -> bool;
+
     /// Returns the next in a series of IDs that is unique to a particular request and response.
     ///
     /// This should not be used as a global unique ID mechanism. It is specific to the process

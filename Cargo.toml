@@ -38,6 +38,7 @@ rust-version = "1.75"
 
 [workspace.dependencies]
 const_str_slice_concat = { path = "./const_str_slice_concat" }
+hydration_context = { path = "./hydration_context" }
 leptos = { path = "./leptos", version = "0.6.5" }
 leptos_config = { path = "./leptos_config", version = "0.6.5" }
 leptos_dom = { path = "./leptos_dom", version = "0.6.5" }
