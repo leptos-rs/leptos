@@ -2,6 +2,7 @@ use futures::{Stream, StreamExt};
 use leptos::{nonce::use_nonce, use_context, RuntimeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
+use std::borrow::Cow;
 
 extern crate tracing;
 
@@ -56,8 +57,8 @@ pub fn html_parts_separated(
     meta: Option<&MetaContext>,
 ) -> (String, &'static str) {
     let pkg_path = option_env!("CDN_PKG_PATH")
-        .map(String::from)
-        .unwrap_or(format!("/{}", options.site_pkg_dir));
+        .map(Cow::from)
+        .unwrap_or_else(|| format!("/{}", options.site_pkg_dir).into());
     let output_name = &options.output_name;
     let nonce = use_nonce();
     let nonce = nonce
