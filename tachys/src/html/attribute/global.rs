@@ -3,7 +3,8 @@ use crate::{
     html::{
         attribute::*,
         class::{class, Class, IntoClass},
-        event::{on, EventDescriptor, On},
+        element::ElementType,
+        event::{on, EventDescriptor, On, TargetedEvent},
         property::{property, IntoProperty, Property},
         style::{style, IntoStyle, Style},
     },
@@ -299,10 +300,12 @@ where
 
 pub trait OnAttribute<E, F, Rndr>
 where
+    Self: ElementType,
     E: EventDescriptor + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
-    F: FnMut(E::EventType) + 'static,
+    F: FnMut(TargetedEvent<E::EventType, <Self as ElementType>::Output, Rndr>)
+        + 'static,
     Rndr: DomRenderer,
     Self: Sized + AddAttribute<On<Rndr>, Rndr>,
 {
@@ -378,11 +381,13 @@ where
 
 impl<T, E, F, Rndr> OnAttribute<E, F, Rndr> for T
 where
+    Self: ElementType,
     T: AddAttribute<On<Rndr>, Rndr>,
     E: EventDescriptor + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
-    F: FnMut(E::EventType) + 'static,
+    F: FnMut(TargetedEvent<E::EventType, <Self as ElementType>::Output, Rndr>)
+        + 'static,
     Rndr: DomRenderer,
 {
 }
