@@ -8,7 +8,7 @@ use crate::{
     },
     owner::{Stored, StoredData},
     signal::{MappedSignalReadGuard, SignalReadGuard},
-    traits::{DefinedAt, Readable},
+    traits::{DefinedAt, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -146,11 +146,11 @@ impl<T: Send + Sync + Clone + 'static> IntoFuture for AsyncDerived<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Readable for AsyncDerived<T> {
+impl<T: Send + Sync + 'static> ReadUntracked for AsyncDerived<T> {
     type Value = SignalReadGuard<AsyncState<T>>;
 
-    fn try_read(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read())
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        self.get_value().map(|inner| inner.read_untracked())
     }
 }
 
