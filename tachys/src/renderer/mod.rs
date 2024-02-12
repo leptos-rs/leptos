@@ -122,6 +122,11 @@ pub trait DomRenderer: Renderer {
         cb: Box<dyn FnMut(Self::Event)>,
     ) -> Box<dyn FnOnce(&Self::Element)>;
 
+    /// Return the `event.target`, cast to the given type.
+    fn event_target<T>(ev: &Self::Event) -> T
+    where
+        T: CastFrom<Self::Element>;
+
     /// The list of CSS classes for an element.
     fn class_list(el: &Self::Element) -> Self::ClassList;
 

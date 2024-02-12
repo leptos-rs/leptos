@@ -1,12 +1,44 @@
 use crate::{
     html::attribute::Attribute,
-    renderer::DomRenderer,
+    renderer::{CastFrom, DomRenderer},
     view::{Position, ToTemplate},
 };
 use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
 
-pub fn on<E, R>(event: E, mut cb: impl FnMut(E::EventType) + 'static) -> On<R>
+pub struct TargetedEvent<E, T, R> {
+    event: E,
+    el_ty: PhantomData<T>,
+    rndr: PhantomData<R>,
+}
+
+impl<E, T, R> TargetedEvent<E, T, R> {
+    pub fn target(&self) -> T
+    where
+        T: CastFrom<R::Element>,
+        R: DomRenderer,
+        R::Event: From<E>,
+        E: Clone,
+    {
+        let ev = R::Event::from(self.event.clone());
+        R::event_target(&ev)
+    }
+}
+
+impl<E, T, R> From<E> for TargetedEvent<E, T, R> {
+    fn from(event: E) -> Self {
+        TargetedEvent {
+            event,
+            el_ty: PhantomData,
+            rndr: PhantomData,
+        }
+    }
+}
+
+pub fn on<E, T, R>(
+    event: E,
+    mut cb: impl FnMut(TargetedEvent<E::EventType, T, R>) + 'static,
+) -> On<R>
 where
     E: EventDescriptor + 'static,
     E::EventType: 'static,
@@ -17,8 +49,9 @@ where
         name: event.name(),
         setup: Box::new(move |el| {
             let cb = Box::new(move |ev: R::Event| {
-                let specific_event = ev.into();
-                cb(specific_event);
+                let ev = E::EventType::from(ev);
+                let targeted_event = TargetedEvent::<_, T, R>::from(ev);
+                cb(targeted_event);
             }) as Box<dyn FnMut(R::Event)>;
 
             if E::BUBBLES && cfg!(feature = "delegation") {
@@ -35,6 +68,7 @@ where
         ty: PhantomData,
     }
 }
+
 pub struct On<R: DomRenderer> {
     name: Cow<'static, str>,
     #[allow(clippy::type_complexity)]
