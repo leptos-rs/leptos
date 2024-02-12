@@ -16,6 +16,7 @@ use std::{
     },
 };
 
+// any changes here should also be made in src/reactive_graph/guards.rs
 macro_rules! render_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(

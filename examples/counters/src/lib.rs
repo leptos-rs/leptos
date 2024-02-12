@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 
 const MANY_COUNTERS: usize = 1000;
 
@@ -77,39 +77,23 @@ pub fn Counters() -> impl IntoView {
 }
 
 #[component]
-fn Counter(
-    id: usize,
-    value: ReadSignal<i32>,
-    set_value: WriteSignal<i32>,
-) -> impl IntoView {
+fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
+    let value = RwSignal::from(value);
     let CounterUpdater { set_counters } = use_context().unwrap();
 
     let input = move |ev| {
-        set_value
-            .set(event_target_value(&ev).parse::<i32>().unwrap_or_default())
+        value.set(event_target_value(&ev).parse::<i32>().unwrap_or_default())
     };
-
-    // this will run when the scope is disposed, i.e., when this row is deleted
-    // because the signal was created in the parent scope, it won't be disposed
-    // of until the parent scope is. but we no longer need it, so we'll dispose of
-    // it when this row is deleted, instead. if we don't dispose of it here,
-    // this memory will "leak," i.e., the signal will continue to exist until the
-    // parent component is removed. in the case of this component, where it's the
-    // root, that's the lifetime of the program.
-    on_cleanup(move || {
-        log::debug!("deleted a row");
-        value.dispose();
-    });
 
     view! {
         <li>
-            <button on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
+            <button on:click=move |_| value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
                 prop:value={value}
                 on:input=input
             />
             <span>{value}</span>
-            <button on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
+            <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>
     }
