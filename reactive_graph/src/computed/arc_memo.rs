@@ -5,7 +5,7 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     signal::MappedSignalReadGuard,
-    traits::{DefinedAt, Readable},
+    traits::{DefinedAt, ReadUntracked},
 };
 use core::fmt::Debug;
 use or_poisoned::OrPoisoned;
@@ -158,10 +158,10 @@ impl<T: Send + Sync + 'static> Subscriber for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Readable for ArcMemo<T> {
+impl<T: Send + Sync + 'static> ReadUntracked for ArcMemo<T> {
     type Value = MappedSignalReadGuard<MemoInner<T>, T>;
 
-    fn try_read(&self) -> Option<Self::Value> {
+    fn try_read_untracked(&self) -> Option<Self::Value> {
         self.update_if_necessary();
 
         MappedSignalReadGuard::try_new(Arc::clone(&self.inner), |t| {

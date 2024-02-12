@@ -5,7 +5,7 @@ use super::{
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Trigger},
-    traits::{DefinedAt, Readable, Writeable},
+    traits::{DefinedAt, ReadUntracked, Writeable},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -112,10 +112,10 @@ impl<T> AsSubscriberSet for ArcRwSignal<T> {
     }
 }
 
-impl<T: 'static> Readable for ArcRwSignal<T> {
+impl<T: 'static> ReadUntracked for ArcRwSignal<T> {
     type Value = SignalReadGuard<T>;
 
-    fn try_read(&self) -> Option<Self::Value> {
+    fn try_read_untracked(&self) -> Option<Self::Value> {
         SignalReadGuard::try_new(Arc::clone(&self.value))
     }
 }

@@ -2,7 +2,7 @@ use reactive_graph::{
     computed::{ArcAsyncDerived, AsyncDerived, AsyncState},
     executor::Executor,
     signal::RwSignal,
-    traits::{Get, Readable, Set, With, WithUntracked},
+    traits::{Get, Read, Set, With, WithUntracked},
 };
 
 #[cfg(feature = "tokio")]

@@ -1,7 +1,7 @@
 use reactive_graph::{
     signal::{arc_signal, signal, ArcRwSignal, RwSignal},
     traits::{
-        Get, GetUntracked, Readable, Set, Update, UpdateUntracked, With,
+        Get, GetUntracked, Read, Set, Update, UpdateUntracked, With,
         WithUntracked, Writeable,
     },
 };
