@@ -1,8 +1,18 @@
-use leptos::prelude::*;
+use leptos::{
+    component,
+    prelude::*,
+    reactive_graph::{
+        owner::{provide_context, use_context},
+        signal::{
+            create_signal, ArcRwSignal, ReadSignal, RwSignal, WriteSignal,
+        },
+    },
+    view, For, IntoView,
+};
 
 const MANY_COUNTERS: usize = 1000;
 
-type CounterHolder = Vec<(usize, (ReadSignal<i32>, WriteSignal<i32>))>;
+type CounterHolder = Vec<(usize, ArcRwSignal<i32>)>;
 
 #[derive(Copy, Clone)]
 struct CounterUpdater {
@@ -17,15 +27,15 @@ pub fn Counters() -> impl IntoView {
 
     let add_counter = move |_| {
         let id = next_counter_id.get();
-        let sig = create_signal(0);
-        set_counters.update(move |counters| counters.push((id, sig)));
+        let sig = ArcRwSignal::new(0);
+        set_counters.update(move |counters| counters.push((*id, sig)));
         set_next_counter_id.update(|id| *id += 1);
     };
 
     let add_many_counters = move |_| {
         let next_id = next_counter_id.get();
         let new_counters = (next_id..next_id + MANY_COUNTERS).map(|id| {
-            let signal = create_signal(0);
+            let signal = ArcRwSignal::new(0);
             (id, signal)
         });
 
@@ -65,9 +75,9 @@ pub fn Counters() -> impl IntoView {
                 <For
                     each=move || counters.get()
                     key=|counter| counter.0
-                    children=move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
+                    children=move |(id, value)| {
                         view! {
-                            <Counter id value set_value/>
+                            <Counter id value/>
                         }
                     }
                 />
@@ -81,16 +91,14 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
     let value = RwSignal::from(value);
     let CounterUpdater { set_counters } = use_context().unwrap();
 
-    let input = move |ev| {
-        value.set(event_target_value(&ev).parse::<i32>().unwrap_or_default())
-    };
-
     view! {
         <li>
             <button on:click=move |_| value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
-                prop:value={value}
-                on:input=input
+                prop:value={move || *value()}
+                on:input=move |ev| {
+                    value.set(ev.target().value().parse::<i32>().unwrap_or_default())
+                }
             />
             <span>{value}</span>
             <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>
