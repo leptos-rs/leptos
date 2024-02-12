@@ -2,7 +2,7 @@ use super::{inner::MemoInner, ArcMemo};
 use crate::{
     owner::{Stored, StoredData},
     signal::MappedSignalReadGuard,
-    traits::{DefinedAt, Readable, Track},
+    traits::{DefinedAt, ReadUntracked, Track},
 };
 use std::{fmt::Debug, panic::Location};
 
@@ -80,10 +80,10 @@ impl<T: Send + Sync + 'static> Track for Memo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Readable for Memo<T> {
+impl<T: Send + Sync + 'static> ReadUntracked for Memo<T> {
     type Value = MappedSignalReadGuard<MemoInner<T>, T>;
 
-    fn try_read(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read())
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        self.get_value().map(|inner| inner.read_untracked())
     }
 }

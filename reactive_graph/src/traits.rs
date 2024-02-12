@@ -13,20 +13,20 @@
 //! - [`IsDisposed`] checks whether a signal is currently accessible.
 //!
 //! ## Base Traits
-//! | Trait        | Mode  | Description                                                                           |
-//! |--------------|-------|---------------------------------------------------------------------------------------|
-//! | [`Track`]    | —     | Tracks changes to this value, adding it as a source of the current reactive observer. |
-//! | [`Trigger`]  | —     | Notifies subscribers that this value has changed.                                     |
-//! | [`Readable`] | Guard | Gives immutable access to the value of this signal.                                   |
-//! | [`Writeable`]| Guard | Gives mutable access to the value of this signal.
+//! | Trait             | Mode  | Description                                                                           |
+//! |-------------------|-------|---------------------------------------------------------------------------------------|
+//! | [`Track`]         | —     | Tracks changes to this value, adding it as a source of the current reactive observer. |
+//! | [`Trigger`]       | —     | Notifies subscribers that this value has changed.                                     |
+//! | [`ReadUntracked`] | Guard | Gives immutable access to the value of this signal.                                   |
+//! | [`Writeable`]     | Guard | Gives mutable access to the value of this signal.
 //!
 //! ## Derived Traits
 //!
 //! ### Access
 //! | Trait             | Mode          | Composition                   | Description
 //! |-------------------|---------------|-------------------------------|------------
-//! | [`WithUntracked`] | `fn(&T) -> U` | [`Readable`]                  | Applies closure to the current value of the signal and returns result.
-//! | [`With`]          | `fn(&T) -> U` | [`Readable`] + [`Track`]      | Applies closure to the current value of the signal and returns result, with reactive tracking.
+//! | [`WithUntracked`] | `fn(&T) -> U` | [`ReadUntracked`]                  | Applies closure to the current value of the signal and returns result.
+//! | [`With`]          | `fn(&T) -> U` | [`ReadUntracked`] + [`Track`]      | Applies closure to the current value of the signal and returns result, with reactive tracking.
 //! | [`GetUntracked`]  | `T`           | [`WithUntracked`] + [`Clone`] | Clones the current value of the signal.
 //! | [`Get`]           | `T`           | [`GetUntracked`] + [`Track`]  | Clones the current value of the signal, with reactive tracking.
 //!
@@ -42,9 +42,9 @@
 //! These traits are designed so that you can implement as few as possible, and the rest will be
 //! implemented automatically.
 //!
-//! For example, if you have a struct for which you can implement [`Readable`] and [`Track`], then
+//! For example, if you have a struct for which you can implement [`ReadUntracked`] and [`Track`], then
 //! [`WithUntracked`] and [`With`] will be implemented automatically (as will [`GetUntracked`] and
-//! [`Get`] for `Clone` types). But if you cannot implement [`Readable`] (because, for example,
+//! [`Get`] for `Clone` types). But if you cannot implement [`ReadUntracked`] (because, for example,
 //! there isn't an `RwLock` you can wrap in a [`SignalReadGuard`](crate::signal::SignalReadGuard),
 //! but you can still implement [`WithUntracked`] and [`Track`], the same traits will still be implemented.
 
@@ -95,15 +95,43 @@ impl<T: Source + ToAnySource> Track for T {
     }
 }
 
-pub trait Readable: Sized + DefinedAt {
+pub trait ReadUntracked: Sized + DefinedAt {
+    type Value: Deref;
+
+    #[track_caller]
+    fn try_read_untracked(&self) -> Option<Self::Value>;
+
+    #[track_caller]
+    fn read_untracked(&self) -> Self::Value {
+        self.try_read_untracked()
+            .unwrap_or_else(unwrap_signal!(self))
+    }
+}
+
+pub trait Read {
     type Value: Deref;
 
     #[track_caller]
     fn try_read(&self) -> Option<Self::Value>;
 
     #[track_caller]
+    fn read(&self) -> Self::Value;
+}
+
+impl<T> Read for T
+where
+    T: Track + ReadUntracked,
+{
+    type Value = T::Value;
+
+    fn try_read(&self) -> Option<Self::Value> {
+        self.track();
+        self.try_read_untracked()
+    }
+
     fn read(&self) -> Self::Value {
-        self.try_read().unwrap_or_else(unwrap_signal!(self))
+        self.track();
+        self.read_untracked()
     }
 }
 
@@ -144,15 +172,15 @@ pub trait WithUntracked: DefinedAt {
 
 impl<T> WithUntracked for T
 where
-    T: DefinedAt + Readable,
+    T: DefinedAt + ReadUntracked,
 {
-    type Value = <<Self as Readable>::Value as Deref>::Target;
+    type Value = <<Self as ReadUntracked>::Value as Deref>::Target;
 
     fn try_with_untracked<U>(
         &self,
         fun: impl FnOnce(&Self::Value) -> U,
     ) -> Option<U> {
-        self.try_read().map(|value| fun(&value))
+        self.try_read_untracked().map(|value| fun(&value))
     }
 }
 

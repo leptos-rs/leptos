@@ -1,7 +1,7 @@
 use super::{subscriber_traits::AsSubscriberSet, SignalReadGuard};
 use crate::{
     graph::SubscriberSet,
-    traits::{DefinedAt, IsDisposed, Readable},
+    traits::{DefinedAt, IsDisposed, ReadUntracked},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -82,10 +82,10 @@ impl<T> AsSubscriberSet for ArcReadSignal<T> {
     }
 }
 
-impl<T: 'static> Readable for ArcReadSignal<T> {
+impl<T: 'static> ReadUntracked for ArcReadSignal<T> {
     type Value = SignalReadGuard<T>;
 
-    fn try_read(&self) -> Option<Self::Value> {
+    fn try_read_untracked(&self) -> Option<Self::Value> {
         SignalReadGuard::try_new(Arc::clone(&self.value))
     }
 }

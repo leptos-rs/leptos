@@ -11,7 +11,7 @@ use crate::{
     },
     owner::Owner,
     signal::SignalReadGuard,
-    traits::{DefinedAt, Readable},
+    traits::{DefinedAt, ReadUntracked},
 };
 use core::fmt::Debug;
 use futures::{FutureExt, StreamExt};
@@ -221,10 +221,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> Readable for ArcAsyncDerived<T> {
+impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
     type Value = SignalReadGuard<AsyncState<T>>;
 
-    fn try_read(&self) -> Option<Self::Value> {
+    fn try_read_untracked(&self) -> Option<Self::Value> {
         SignalReadGuard::try_new(Arc::clone(&self.value))
     }
 }
