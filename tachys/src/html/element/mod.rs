@@ -35,6 +35,24 @@ where
     pub(crate) children: Ch,
 }
 
+impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
+where
+    E: ElementType,
+    At: Attribute<Rndr>,
+    Ch: Render<Rndr>,
+    Rndr: Renderer,
+{
+    type Output = E::Output;
+
+    const TAG: &'static str = E::TAG;
+
+    const SELF_CLOSING: bool = E::SELF_CLOSING;
+
+    fn tag(&self) -> &str {
+        Self::TAG
+    }
+}
+
 impl<E, At, Ch, Rndr> HtmlElement<E, At, Ch, Rndr>
 where
     At: Attribute<Rndr>,

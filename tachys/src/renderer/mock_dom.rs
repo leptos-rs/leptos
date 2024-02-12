@@ -262,6 +262,13 @@ impl DomRenderer for MockDom {
     fn set_inner_html(el: &Self::Element, html: &str) {
         todo!()
     }
+
+    fn event_target<T>(ev: &Self::Event) -> T
+    where
+        T: CastFrom<Self::Element>,
+    {
+        todo!()
+    }
 }
 
 impl Default for Document {
