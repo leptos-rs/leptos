@@ -5,7 +5,7 @@ use super::{
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     owner::{Stored, StoredData},
-    traits::{DefinedAt, IsDisposed, Readable, Trigger, UpdateUntracked},
+    traits::{DefinedAt, IsDisposed, ReadUntracked, Trigger, UpdateUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -146,11 +146,11 @@ impl<T: Send + Sync + 'static> AsSubscriberSet for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Readable for RwSignal<T> {
+impl<T: Send + Sync + 'static> ReadUntracked for RwSignal<T> {
     type Value = SignalReadGuard<T>;
 
-    fn try_read(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read())
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        self.get_value().map(|inner| inner.read_untracked())
     }
 }
 
@@ -168,5 +168,23 @@ impl<T: Send + Sync + 'static> UpdateUntracked for RwSignal<T> {
         fun: impl FnOnce(&mut Self::Value) -> U,
     ) -> Option<U> {
         self.get_value().and_then(|n| n.try_update_untracked(fun))
+    }
+}
+
+impl<T: Send + Sync + 'static> From<ArcRwSignal<T>> for RwSignal<T> {
+    #[track_caller]
+    fn from(value: ArcRwSignal<T>) -> Self {
+        RwSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: Stored::new(value),
+        }
+    }
+}
+
+impl<T: Send + Sync + 'static> From<RwSignal<T>> for ArcRwSignal<T> {
+    #[track_caller]
+    fn from(value: RwSignal<T>) -> Self {
+        value.get_value().unwrap_or_else(unwrap_signal!(value))
     }
 }
