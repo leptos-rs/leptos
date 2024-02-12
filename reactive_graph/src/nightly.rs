@@ -4,7 +4,7 @@ use crate::{
         ArcReadSignal, ArcRwSignal, ArcWriteSignal, ReadSignal, RwSignal,
         WriteSignal,
     },
-    traits::{Readable, Set},
+    traits::{Read, Set},
 };
 
 macro_rules! impl_get_fn_traits {
@@ -12,7 +12,7 @@ macro_rules! impl_get_fn_traits {
         $(
             #[cfg(feature = "nightly")]
             impl<T: 'static> FnOnce<()> for $ty<T> {
-                type Output = <Self as Readable>::Value;
+                type Output = <Self as Read>::Value;
 
                 #[inline(always)]
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
@@ -88,7 +88,7 @@ macro_rules! impl_get_fn_traits_send {
         $(
             #[cfg(feature = "nightly")]
             impl<T: Send + Sync + 'static> FnOnce<()> for $ty<T> {
-                type Output = <Self as Readable>::Value;
+                type Output = <Self as Read>::Value;
 
                 #[inline(always)]
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {

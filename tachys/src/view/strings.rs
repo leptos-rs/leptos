@@ -6,7 +6,7 @@ use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
 };
-use std::{rc::Rc, sync::Arc};
+use std::{borrow::Cow, rc::Rc, sync::Arc};
 
 pub struct StrState<'a, R: Renderer> {
     pub node: R::Text,
@@ -121,6 +121,7 @@ where
         true
     }
 }
+
 pub struct StringState<R: Renderer> {
     node: R::Text,
     str: String,
@@ -359,6 +360,93 @@ impl ToTemplate for Arc<str> {
 }
 
 impl<R: Renderer> Mountable<R> for ArcStrState<R> {
+    fn unmount(&mut self) {
+        self.node.unmount()
+    }
+
+    fn mount(
+        &mut self,
+        parent: &<R as Renderer>::Element,
+        marker: Option<&<R as Renderer>::Node>,
+    ) {
+        R::insert_node(parent, self.node.as_ref(), marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<R as Renderer>::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        child.mount(parent, Some(self.node.as_ref()));
+        true
+    }
+}
+
+pub struct CowStrState<'a, R: Renderer> {
+    node: R::Text,
+    str: Cow<'a, str>,
+}
+
+impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
+    type State = CowStrState<'a, R>;
+
+    fn build(self) -> Self::State {
+        let node = R::create_text_node(&self);
+        CowStrState { node, str: self }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let CowStrState { node, str } = state;
+        if self != *str {
+            R::set_text(node, &self);
+            *str = self;
+        }
+    }
+}
+
+impl<'a> InfallibleRender for Cow<'a, str> {}
+
+impl<'a, R> RenderHtml<R> for Cow<'a, str>
+where
+    R: Renderer,
+    R::Node: Clone,
+    R::Element: Clone,
+{
+    const MIN_LENGTH: usize = 0;
+
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<R>,
+        position: &PositionState,
+    ) -> Self::State {
+        let this: &str = self.as_ref();
+        let StrState { node, .. } =
+            this.hydrate::<FROM_SERVER>(cursor, position);
+        CowStrState { node, str: self }
+    }
+}
+
+impl<'a> ToTemplate for Cow<'a, str> {
+    const TEMPLATE: &'static str = <&str as ToTemplate>::TEMPLATE;
+
+    fn to_template(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        <&str as ToTemplate>::to_template(
+            buf, class, style, inner_html, position,
+        )
+    }
+}
+
+impl<'a, R: Renderer> Mountable<R> for CowStrState<'a, R> {
     fn unmount(&mut self) {
         self.node.unmount()
     }
