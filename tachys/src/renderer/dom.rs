@@ -11,7 +11,7 @@ use std::{borrow::Cow, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{
     Comment, CssStyleDeclaration, DocumentFragment, DomTokenList, Element,
-    HtmlElement, Node, Text,
+    Event, HtmlElement, Node, Text,
 };
 
 pub struct Dom;
@@ -141,6 +141,18 @@ impl DomRenderer for Dom {
                 )
             }
         })
+    }
+
+    fn event_target<T>(ev: &Self::Event) -> T
+    where
+        T: CastFrom<Self::Element>,
+    {
+        let el = ev
+            .unchecked_ref::<Event>()
+            .target()
+            .expect("event.target not found")
+            .unchecked_into::<Element>();
+        T::cast_from(el).expect("incorrect element type")
     }
 
     fn add_event_listener_delegated(
@@ -388,6 +400,24 @@ impl CastFrom<Node> for Element {
     }
 }
 
+impl<T> CastFrom<JsValue> for T
+where
+    T: JsCast,
+{
+    fn cast_from(source: JsValue) -> Option<Self> {
+        source.dyn_into::<T>().ok()
+    }
+}
+
+impl<T> CastFrom<Element> for T
+where
+    T: JsCast,
+{
+    fn cast_from(source: Element) -> Option<Self> {
+        source.dyn_into::<T>().ok()
+    }
+}
+
 #[cfg(feature = "web")]
 impl SpawningRenderer for Dom {
     type Spawn = crate::spawner::wasm::Wasm;
@@ -397,5 +427,3 @@ impl SpawningRenderer for Dom {
 impl SpawningRenderer for Dom {
     type Spawn = crate::spawner::tokio::Tokio;
 }
-
-/* Event Delegation */
