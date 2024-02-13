@@ -61,7 +61,6 @@ macro_rules! render_primitive {
 				fn rebuild(self, state: &mut Self::State) {
 					let [<SignalReadGuard $child_type:camel State>](node, this) = state;
 					if &self != this {
-                        crate::log(&format!("not equal"));
 						R::set_text(node, &self.to_string());
 						*this = *self;
 					}
