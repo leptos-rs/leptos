@@ -112,9 +112,8 @@ impl Drop for OwnerInner {
             cleanup();
         }
 
-        #[cfg(feature = "arena")]
         for node in mem::take(&mut self.nodes) {
-            _ = arena::map().write().remove(node);
+            _ = arena::map().write().or_poisoned().remove(node);
         }
     }
 }

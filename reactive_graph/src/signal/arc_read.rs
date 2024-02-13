@@ -85,6 +85,7 @@ impl<T> AsSubscriberSet for ArcReadSignal<T> {
 impl<T: 'static> ReadUntracked for ArcReadSignal<T> {
     type Value = SignalReadGuard<T>;
 
+    #[track_caller]
     fn try_read_untracked(&self) -> Option<Self::Value> {
         SignalReadGuard::try_new(Arc::clone(&self.value))
     }
