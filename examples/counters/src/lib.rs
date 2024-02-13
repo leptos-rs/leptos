@@ -95,12 +95,13 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
         <li>
             <button on:click=move |_| value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
-                prop:value={move || *value()}
-                on:input=move |ev| {
-                    value.set(ev.target().value().parse::<i32>().unwrap_or_default())
+                prop:value={
+                    // TODO: implement attribute/prop types for guards
+                    move || *value()
                 }
+                on:input=move |ev| { value.set(ev.target().value().parse::<i32>().unwrap_or_default()) }
             />
-            <span>{value}</span>
+            <span>{value.clone()}</span>
             <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>
