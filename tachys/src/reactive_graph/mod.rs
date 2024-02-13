@@ -14,7 +14,9 @@ use reactive_graph::{computed::ScopedFuture, effect::RenderEffect};
 mod class;
 mod guards;
 pub mod node_ref;
+mod owned;
 mod style;
+pub use owned::*;
 
 impl<F, V> ToTemplate for F
 where
