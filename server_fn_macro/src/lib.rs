@@ -434,7 +434,7 @@ pub fn server_macro_impl(
         quote! {
             #server_fn_path::request::BrowserMockReq
         }
-    } else if cfg!(feature = "axum-no-default") {
+    } else if cfg!(feature = "axum") {
         quote! {
             #server_fn_path::axum_export::http::Request<#server_fn_path::axum_export::body::Body>
         }
@@ -458,7 +458,7 @@ pub fn server_macro_impl(
         quote! {
             #server_fn_path::response::BrowserMockRes
         }
-    } else if cfg!(feature = "axum-no-default") {
+    } else if cfg!(feature = "axum") {
         quote! {
             #server_fn_path::axum_export::http::Response<#server_fn_path::axum_export::body::Body>
         }

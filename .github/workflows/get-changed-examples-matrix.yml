@@ -31,7 +31,7 @@ jobs:
           dir_names: true
           dir_names_max_depth: "2"
           files: |
-            examples
+            examples/**
             !examples/cargo-make
             !examples/gtk
             !examples/hackernews_js_fetch

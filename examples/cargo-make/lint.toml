@@ -1,5 +1,5 @@
 [tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings" }
+env = { CARGO_MAKE_CLIPPY_ARGS = "--no-deps --all-targets --all-features -- -D warnings" }
 
 [tasks.check-style]
 dependencies = ["check-format-flow", "clippy-flow"]

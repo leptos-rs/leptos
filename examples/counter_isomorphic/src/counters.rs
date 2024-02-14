@@ -141,9 +141,12 @@ pub fn Counter() -> impl IntoView {
             <div>
                 <button on:click=move |_| clear.dispatch(())>"Clear"</button>
                 <button on:click=move |_| dec.dispatch(())>"-1"</button>
-                <Suspense fallback=move |_| view!{ <span>"Value: "</span>}>
-                  <span>"Value: " { counter.get().map(|count| count.unwrap_or(0)).unwrap_or(0);} "!"</span>
-                </Suspense>
+                <span>
+                    "Value: "
+                    <Suspense>
+                        {move || counter.and_then(|count| *count)} "!"
+                    </Suspense>
+                </span>
                 <button on:click=move |_| inc.dispatch(())>"+1"</button>
             </div>
             <Suspense>
@@ -201,7 +204,7 @@ pub fn FormCounter() -> impl IntoView {
                     <input type="hidden" name="msg" value="form value down"/>
                     <input type="submit" value="-1"/>
                 </ActionForm>
-                <span>"Value: " {move || value().to_string()} "!"</span>
+                <span>"Value: " <Suspense>{move || value().to_string()} "!"</Suspense></span>
                 <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="1"/>
                     <input type="hidden" name="msg" value="form value up"/>
