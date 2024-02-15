@@ -25,8 +25,8 @@ jobs:
         with:
           files: |
             examples/**
-            !examples/cargo-make
-            !examples/gtk
+            !examples/cargo-make/**
+            !examples/gtk/**
             !examples/Makefile.toml
             !examples/*.md
 

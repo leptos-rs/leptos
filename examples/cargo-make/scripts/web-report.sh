@@ -4,7 +4,8 @@ set -emu
 
 BOLD="\e[1m"
 ITALIC="\e[3m"
-YELLOW="\e[0;33m"
+YELLOW="\e[1;33m"
+RED="\e[1;36m"
 RESET="\e[0m"
 
 function web { #task: only include examples with web cargo-make configuration
@@ -46,6 +47,9 @@ function print_crate_tags {
                 ;;
             *"fantoccini"*)
                 crate_tags=$crate_tags"F"
+                ;;
+            *"package.metadata.leptos"*)
+                crate_tags=$crate_tags"M"
                 ;;
             esac
         done <"./Cargo.toml"
@@ -90,11 +94,21 @@ function print_crate_tags {
         local sorted_crate_symbols
         sorted_crate_symbols=$(echo "$crate_tags" | grep -o . | sort | tr -d "\n")
 
+        # Find leptos projects that are not configured to build with cargo-leptos
+        sorted_crate_symbols=${sorted_crate_symbols//"LM"/"L"}
+
         # Maybe print line
         local crate_line=$path
 
         if [ -n "$crate_tags" ]; then
-            crate_line="$crate_line ➤ ${YELLOW}$sorted_crate_symbols${RESET}"
+            local color=$YELLOW
+            case $sorted_crate_symbols in
+            *"M"*)
+                color=$RED
+                ;;
+            esac
+
+            crate_line="$crate_line ➤ ${color}$sorted_crate_symbols${RESET}"
             echo -e "$crate_line"
         elif [ "$#" -gt 0 ]; then
             crate_line="${BOLD}$crate_line${RESET}"
@@ -117,13 +131,14 @@ function print_footer {
     c="${BOLD}${YELLOW}C${RESET} = Cucumber Test Runner"
     d="${BOLD}${YELLOW}F${RESET} = Fantoccini WebDriver"
     l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
+    m="${BOLD}${RED}M${RESET} = Cargo Leptos Medata Only (${ITALIC}ci is not configured to build with cargo-leptos${RESET})"
     n="${BOLD}${YELLOW}N${RESET} = Node"
     p="${BOLD}${YELLOW}P${RESET} = Playwright Test"
     t="${BOLD}${YELLOW}T${RESET} = Trunk"
     w="${BOLD}${YELLOW}W${RESET} = WASM Test"
 
     echo
-    echo -e "${ITALIC}Technology Keys:${RESET}\n $c\n $d\n $l\n $n\n $p\n $t\n $w"
+    echo -e "${ITALIC}Report Keys:${RESET}\n $c\n $d\n $l\n $m\n $n\n $p\n $t\n $w"
     echo
 }
 

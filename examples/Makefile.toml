@@ -51,5 +51,5 @@ echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
 
 [tasks.test-report]
 workspace = false
-description = "show the cargo-make configuration for web examples"
+description = "show the cargo-make configuration for web examples [web|all|help]"
 script = { file = "./cargo-make/scripts/web-report.sh" }
