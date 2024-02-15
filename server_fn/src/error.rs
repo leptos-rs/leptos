@@ -54,7 +54,7 @@ where
 }
 
 impl<Err> From<ServerFnError<Err>> for Error {
-    fn from(e: ServerFnError<String>) -> Self {
+    fn from(e: ServerFnError<Err>) -> Self {
         Error(Arc::new(ServerFnErrorErr::from(e)))
     }
 }
