@@ -79,6 +79,7 @@ pub mod effect;
 pub mod executor;
 pub mod graph;
 pub mod owner;
+pub mod selector;
 pub mod signal;
 pub mod traits;
 
