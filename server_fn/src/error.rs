@@ -53,8 +53,8 @@ where
     }
 }
 
-impl From<ServerFnError> for Error {
-    fn from(e: ServerFnError) -> Self {
+impl<Err> From<ServerFnError<Err>> for Error {
+    fn from(e: ServerFnError<String>) -> Self {
         Error(Arc::new(ServerFnErrorErr::from(e)))
     }
 }
