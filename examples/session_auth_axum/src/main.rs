@@ -70,7 +70,7 @@ async fn main() {
         SessionConfig::default().with_table_name("axum_sessions");
     let auth_config = AuthConfig::<i64>::default();
     let session_store = SessionStore::<SessionSqlitePool>::new(
-        Some(pool.clone().into()),
+        Some(SessionSqlitePool::from(pool.clone())),
         session_config,
     )
     .await
