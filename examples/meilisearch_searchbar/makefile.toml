@@ -5,4 +5,4 @@ extend = [
 
 [env]
 
-CLIENT_PROCESS_NAME = "action_form_error_handling"
+CLIENT_PROCESS_NAME = "meilisearch_searchbar"
