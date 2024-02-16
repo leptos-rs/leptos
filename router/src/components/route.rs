@@ -385,6 +385,10 @@ impl RouteContext {
     pub fn outlet(&self) -> impl IntoView {
         (self.inner.outlet)()
     }
+
+    pub fn method(&self) -> Method {
+        use_context().unwrap_or_default()
+    }
 }
 
 pub(crate) struct RouteContextInner {
