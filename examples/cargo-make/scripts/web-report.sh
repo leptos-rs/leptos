@@ -131,7 +131,7 @@ function print_footer {
     c="${BOLD}${YELLOW}C${RESET} = Cucumber Test Runner"
     d="${BOLD}${YELLOW}F${RESET} = Fantoccini WebDriver"
     l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
-    m="${BOLD}${RED}M${RESET} = Cargo Leptos Medata Only (${ITALIC}ci is not configured to build with cargo-leptos${RESET})"
+    m="${BOLD}${RED}M${RESET} = Cargo Leptos Metadata Only (${ITALIC}ci is not configured to build with cargo-leptos${RESET})"
     n="${BOLD}${YELLOW}N${RESET} = Node"
     p="${BOLD}${YELLOW}P${RESET} = Playwright Test"
     t="${BOLD}${YELLOW}T${RESET} = Trunk"
