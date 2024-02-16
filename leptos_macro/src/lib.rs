@@ -900,17 +900,17 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ## Server Function Encodings
 ///
 /// Server functions are designed to allow a flexible combination of `input` and `output` encodings, the set
-/// of which can be found in the [`server_fn::codec`] module.
+/// of which can be found in the [`server_fn::codec`](../server_fn/codec/index.html) module.
 ///
 /// The serialization/deserialization process for server functions consists of a series of steps,
 /// each of which is represented by a different trait:
-/// 1. [`IntoReq`]: The client serializes the [`ServerFn`] argument type into an HTTP request.
-/// 2. The [`Client`] sends the request to the server.
-/// 3. [`FromReq`]: The server deserializes the HTTP request back into the [`ServerFn`] type.
-/// 4. The server calls calls [`ServerFn::run_body`] on the data.
-/// 5. [`IntoRes`]: The server serializes the [`ServerFn::Output`] type into an HTTP response.
-/// 6. The server integration applies any middleware from [`ServerFn::middlewares`] and responds to the request.
-/// 7. [`FromRes`]: The client deserializes the response back into the [`ServerFn::Output`] type.
+/// 1. [`IntoReq`](../server_fn/codec/trait.IntoReq.html): The client serializes the [`ServerFn`](../server_fn/trait.ServerFn.html) argument type into an HTTP request.
+/// 2. The [`Client`](../server_fn/client/trait.Client.html) sends the request to the server.
+/// 3. [`FromReq`](../server_fn/codec/trait.FromReq.html): The server deserializes the HTTP request back into the [`ServerFn`](../server_fn/client/trait.Client.html) type.
+/// 4. The server calls calls [`ServerFn::run_body`](../server_fn/trait.ServerFn.html#tymethod.run_body) on the data.
+/// 5. [`IntoRes`](../server_fn/codec/trait.IntoRes.html): The server serializes the [`ServerFn::Output`](../server_fn/trait.ServerFn.html#associatedtype.Output) type into an HTTP response.
+/// 6. The server integration applies any middleware from [`ServerFn::middleware`](../server_fn/middleware/index.html) and responds to the request.
+/// 7. [`FromRes`](../server_fn/codec/trait.FromRes.html): The client deserializes the response back into the [`ServerFn::Output`](../server_fn/trait.ServerFn.html#associatedtype.Output) type.
 ///
 /// Whatever encoding is provided to `input` should implement `IntoReq` and `FromReq`. Whatever encoding is provided
 /// to `output` should implement `IntoRes` and `FromRes`.
@@ -932,8 +932,8 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 ///   inside the function body can’t fail, the processes of serialization/deserialization and the
 ///   network call are fallible.
-///     - [`ServerFnError`] can be generic over some custom error type. If so, that type should implement
-///       [`FromStr`] and [`Display`], but does not need to implement [`Error`]. This is so the value
+///     - [`ServerFnError`](../server_fn/error/enum.ServerFnError.html) can be generic over some custom error type. If so, that type should implement
+///       [`FromStr`](std::str::FromStr) and [`Display`](std::fmt::Display), but does not need to implement [`Error`](std::error::Error). This is so the value
 ///       can be easily serialized and deserialized along with the result.
 /// - **Server functions are part of the public API of your application.** A server function is an
 ///   ad hoc HTTP API endpoint, not a magic formula. Any server function can be accessed by any HTTP

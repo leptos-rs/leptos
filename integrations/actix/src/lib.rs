@@ -203,7 +203,7 @@ pub fn handle_server_fns() -> Route {
 /// context, allowing you to pass in info about the route or user from Actix, or other info.
 ///
 /// **NOTE**: If your server functions expect a context, make sure to provide it both in
-/// [`handle_server_fns_with_context`] **and** in [`leptos_routes_with_context`] (or whatever
+/// [`handle_server_fns_with_context`] **and** in [`LeptosRoutes::leptos_routes_with_context`] (or whatever
 /// rendering method you are using). During SSR, server functions are called by the rendering
 /// method, while subsequent calls from the client are handled by the server function handler.
 /// The same context needs to be provided to both handlers.

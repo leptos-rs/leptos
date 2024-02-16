@@ -113,7 +113,7 @@ where
     /// Create an [Action].
     ///
     /// [Action] is a type of [Signal] which represent imperative calls to
-    /// an asynchronous function. Where a [Resource] is driven as a function
+    /// an asynchronous function. Where a [Resource](leptos_reactive::Resource) is driven as a function
     /// of a [Signal], [Action]s are [Action::dispatch]ed by events or handlers.
     ///
     /// ```rust
@@ -242,7 +242,7 @@ impl<I> Action<I, Result<I::Output, ServerFnError<I::Error>>>
 where
     I: ServerFn + 'static,
 {
-    /// Create an [Action] to imperatively call a [server_fn::server] function.
+    /// Create an [Action] to imperatively call a [server](leptos_macro::server) function.
     ///
     /// The struct representing your server function's arguments should be
     /// provided to the [Action]. Unless specified as an argument to the server
