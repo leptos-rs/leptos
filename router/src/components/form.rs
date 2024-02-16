@@ -478,6 +478,7 @@ where
                     action.dispatch(new_input);
                 }
                 Err(err) => {
+                    error!("Error converting form field into server function arguments: {err:?}");
                     batch(move || {
                         value.set(Some(Err(ServerFnError::Serialization(
                             err.to_string(),
