@@ -16,7 +16,7 @@ You can also run any of the examples using [`cargo-make`](https://github.com/sag
 
 Follow these steps to get any example up and running.
 
-1. `cd` to the example root directory
+1. `cd` to the example you want to run
 2. Run `cargo make ci` to setup and test the example
 3. Run `cargo make start` to run the example
 4. Open the client URL in the console output (<http://127.0.0.1:8080> or <http://127.0.0.1:3000> by default)
