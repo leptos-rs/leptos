@@ -155,7 +155,9 @@ fn is_first_run(
     first_run: RwSignal<bool>,
     suspense_context: &SuspenseContext,
 ) -> bool {
-    if cfg!(feature = "csr") {
+    if cfg!(feature = "csr")
+        || (cfg!(feature = "hydrate") && !HydrationCtx::is_hydrating())
+    {
         false
     } else {
         match (
