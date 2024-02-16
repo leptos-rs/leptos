@@ -92,7 +92,7 @@
 //! 6. The server integration applies any middleware from [`ServerFn::middlewares`] and responds to the request.
 //! 7. [`FromRes`]: The client deserializes the response back into the [`ServerFn::Output`] type.
 //!
-//! [server]: <https://docs.rs/server_fn/latest/server_fn/attr.server.html>
+//! [server]: ../leptos/attr.server.html
 //! [`serde_qs`]: <https://docs.rs/serde_qs/latest/serde_qs/>
 //! [`cbor`]: <https://docs.rs/cbor/latest/cbor/>
 
