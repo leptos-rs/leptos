@@ -159,4 +159,32 @@ skip_feature_sets = [
     "axum-no-default",
     "browser",
   ],
+  [
+    "rkyv",
+    "json",
+  ],
+  [
+    "rkyv",
+    "cbor",
+  ],
+  [
+    "rkyv",
+    "url",
+  ],
+  [
+    "rkyv",
+    "serde-lite",
+  ],
+  [
+    "url",
+    "json",
+  ],
+  [
+    "url",
+    "cbor",
+  ],
+  [
+    "url",
+    "serde-lite",
+  ],
 ]
