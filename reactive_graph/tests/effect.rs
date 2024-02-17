@@ -1,6 +1,6 @@
+use any_spawner::Executor;
 use reactive_graph::{
     effect::{Effect, RenderEffect},
-    executor::Executor,
     prelude::*,
     signal::RwSignal,
 };

@@ -10,6 +10,7 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
+any_spawner = { workspace = true, features = ["wasm-bindgen"] }
 cfg-if = "1"
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
@@ -18,7 +19,7 @@ leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
 tracing = "0.1"
-reactive_graph = { workspace = true, features = ["wasm-bindgen"] }
+reactive_graph = { workspace = true }
 tachys = { workspace = true, features = ["reactive_graph"] }
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
