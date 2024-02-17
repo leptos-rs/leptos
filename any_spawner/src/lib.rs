@@ -1,25 +1,65 @@
-//! Sets and uses a global `async` executor, which is used for scheduling effects.
+//! This crate makes it easier to write asynchronous code that is executor-agnostic, by providing a
+//! utility that can be used to spawn tasks in a variety of executors.
 //!
-//! The executor must be set exactly once in a program.
+//! It only supports single executor per program, but that executor can be set at runtime, anywhere
+//! in your crate (or an application that depends on it).
+//!
+//! This can be extended to support any executor or runtime that supports spawning [`Future`]s.
+//!
+//! This is a least common denominator implementation in many ways. Limitations include:
+//! - setting an executor is a one-time, global action
+//! - no "join handle" or other result is returned from the spawn
+//! - the `Future` must output `()`
+//!
+//! ```rust
+//! use any_spawner::Executor;
+//!
+//! Executor::init_futures_executor()
+//!     .expect("executor should only be initialized once");
+//!
+//! // spawn a thread-safe Future
+//! Executor::spawn(async { /* ... */ });
+//!
+//! // spawn a Future that is !Send
+//! Executor::spawn_local(async { /* ... */ });
+//! ```
 
-use crate::{PinnedFuture, PinnedLocalFuture};
-use std::{future::Future, sync::OnceLock};
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+
+use std::{future::Future, pin::Pin, sync::OnceLock};
 use thiserror::Error;
+
+pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+pub(crate) type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 static SPAWN: OnceLock<fn(PinnedFuture<()>)> = OnceLock::new();
 static SPAWN_LOCAL: OnceLock<fn(PinnedLocalFuture<()>)> = OnceLock::new();
 
+/// Errors that can occur when using the executor.
 #[derive(Error, Debug)]
 pub enum ExecutorError {
+    /// The executor has already been set.
     #[error("Executor has already been set.")]
     AlreadySet,
 }
 
+/// A global async executor that can spawn tasks.
 pub struct Executor;
 
 impl Executor {
+    /// Spawns a thread-safe [`Future`].
+    /// ```rust
+    /// use any_spawner::Executor;
+    ///
+    /// Executor::init_futures_executor()
+    ///     .expect("executor should only be initialized once");
+    ///
+    /// // spawn a thread-safe Future
+    /// Executor::spawn(async { /* ... */ });
+    /// ```
     #[track_caller]
-    pub fn spawn(fut: impl Future<Output = ()> + Send + Sync + 'static) {
+    pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
         if let Some(spawner) = SPAWN.get() {
             spawner(Box::pin(fut))
         } else {
@@ -38,6 +78,16 @@ impl Executor {
         }
     }
 
+    /// Spawns a [`Future`] that cannot be sent across threads.
+    /// ```rust
+    /// use any_spawner::Executor;
+    ///
+    /// Executor::init_futures_executor()
+    ///     .expect("executor should only be initialized once");
+    ///
+    /// // spawn a thread-safe Future
+    /// Executor::spawn(async { /* ... */ });
+    /// ```
     #[track_caller]
     pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
         if let Some(spawner) = SPAWN_LOCAL.get() {
@@ -60,6 +110,11 @@ impl Executor {
 }
 
 impl Executor {
+    /// Globally sets the [`tokio`] runtime as the executor used to spawn tasks.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    ///
+    /// Requires the `tokio` feature to be activated on this crate.
     #[cfg(feature = "tokio")]
     #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
     pub fn init_tokio() -> Result<(), ExecutorError> {
@@ -76,6 +131,11 @@ impl Executor {
         Ok(())
     }
 
+    /// Globally sets the [`wasm-bindgen-futures`] runtime as the executor used to spawn tasks.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    ///
+    /// Requires the `wasm-bindgen` feature to be activated on this crate.
     #[cfg(feature = "wasm-bindgen")]
     #[cfg_attr(docsrs, doc(cfg(feature = "wasm-bindgen")))]
     pub fn init_wasm_bindgen() -> Result<(), ExecutorError> {
@@ -92,6 +152,11 @@ impl Executor {
         Ok(())
     }
 
+    /// Globally sets the [`glib`] runtime as the executor used to spawn tasks.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    ///
+    /// Requires the `glib` feature to be activated on this crate.
     #[cfg(feature = "glib")]
     #[cfg_attr(docsrs, doc(cfg(feature = "glib")))]
     pub fn init_glib() -> Result<(), ExecutorError> {
@@ -110,6 +175,12 @@ impl Executor {
         Ok(())
     }
 
+    /// Globally sets the [`futures`] executor as the executor used to spawn tasks,
+    /// lazily creating a thread pool to spawn tasks into.
+    ///
+    /// Returns `Err(_)` if an executor has already been set.
+    ///
+    /// Requires the `futures-executor` feature to be activated on this crate.
     #[cfg(feature = "futures-executor")]
     #[cfg_attr(docsrs, doc(cfg(feature = "futures-executor")))]
     pub fn init_futures_executor() -> Result<(), ExecutorError> {
@@ -146,5 +217,22 @@ impl Executor {
             })
             .map_err(|_| ExecutorError::AlreadySet)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Executor;
+    use std::rc::Rc;
+
+    #[cfg(feature = "futures-executor")]
+    #[test]
+    fn can_spawn_local_future() {
+        Executor::init_futures_executor().expect("couldn't set executor");
+        let rc = Rc::new(());
+        Executor::spawn_local(async {
+            _ = rc;
+        });
+        Executor::spawn(async {});
     }
 }
