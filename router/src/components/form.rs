@@ -1,6 +1,6 @@
 use crate::{
-    hooks::has_router, use_navigate, use_resolved_path, NavigateOptions,
-    ToHref, Url,
+    hooks::has_router, resolve_redirect_url, use_navigate, use_resolved_path,
+    NavigateOptions, ToHref, Url,
 };
 use leptos::{
     html::form,
@@ -447,8 +447,10 @@ where
 {
     let has_router = has_router();
     if !has_router {
-        _ = server_fn::redirect::set_redirect_hook(|path: &str| {
-            _ = window().location().set_href(path);
+        _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
+            if let Some(url) = resolve_redirect_url(loc) {
+                _ = window().location().set_href(&url.href());
+            }
         });
     }
     let action_url = if let Some(url) = action.url() {
@@ -545,8 +547,10 @@ where
 {
     let has_router = has_router();
     if !has_router {
-        _ = server_fn::redirect::set_redirect_hook(|path: &str| {
-            _ = window().location().set_href(path);
+        _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
+            if let Some(url) = resolve_redirect_url(loc) {
+                _ = window().location().set_href(&url.href());
+            }
         });
     }
     let action_url = if let Some(url) = action.url() {
