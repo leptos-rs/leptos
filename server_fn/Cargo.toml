@@ -27,7 +27,9 @@ once_cell = "1"
 actix-web = { version = "4", optional = true }
 
 # axum
-axum = { version = "0.7", optional = true, default-features = false, features = ["multipart"] }
+axum = { version = "0.7", optional = true, default-features = false, features = [
+  "multipart",
+] }
 tower = { version = "0.4", optional = true }
 tower-layer = { version = "0.3", optional = true }
 
@@ -73,8 +75,6 @@ url = "2"
 
 [features]
 default = ["json", "cbor"]
-form-redirects = []
-actix = ["ssr", "dep:actix-web", "dep:send_wrapper"]
 axum-no-default = [
   "ssr",
   "dep:axum",
@@ -83,10 +83,9 @@ axum-no-default = [
   "dep:tower",
   "dep:tower-layer",
 ]
-axum = [
-  "axum/default",
-  "axum-no-default",
-]
+form-redirects = []
+actix = ["ssr", "dep:actix-web", "dep:send_wrapper"]
+axum = ["axum/default", "axum-no-default"]
 browser = [
   "dep:gloo-net",
   "dep:js-sys",
@@ -112,7 +111,21 @@ all-features = true
 
 # disables some feature combos for testing in CI
 [package.metadata.cargo-all-features]
-denylist = ["rustls", "default-tls", "form-redirects"]
+denylist = [
+  "rustls",
+  "default-tls",
+  "form-redirects",
+  "gloo-net",
+  "js-sys",
+  "wasm-bindgen",
+  "web-sys",
+  "tower",
+  "tower-layer",
+  "send_wrapper",
+  "ciborium",
+  "hyper",
+  "inventory",
+]
 skip_feature_sets = [
   [
     "actix",
@@ -129,5 +142,49 @@ skip_feature_sets = [
   [
     "browser",
     "reqwest",
+  ],
+  [
+    "default-tls",
+    "rustls",
+  ],
+  [
+    "browser",
+    "ssr",
+  ],
+  [
+    "axum-no-default",
+    "actix",
+  ],
+  [
+    "axum-no-default",
+    "browser",
+  ],
+  [
+    "rkyv",
+    "json",
+  ],
+  [
+    "rkyv",
+    "cbor",
+  ],
+  [
+    "rkyv",
+    "url",
+  ],
+  [
+    "rkyv",
+    "serde-lite",
+  ],
+  [
+    "url",
+    "json",
+  ],
+  [
+    "url",
+    "cbor",
+  ],
+  [
+    "url",
+    "serde-lite",
   ],
 ]
