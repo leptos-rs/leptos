@@ -135,8 +135,11 @@ impl<T: Send + Sync + 'static> DefinedAt for AsyncDerived<T> {
     }
 }
 
-impl<T: Send + Sync + Clone + 'static> IntoFuture for AsyncDerived<T> {
-    type Output = ReadGuard<T, Mapped<Plain<AsyncState<T>>, T>>;
+impl<T: Send + Sync + Clone + 'static> IntoFuture for AsyncDerived<T>
+where
+    T: Clone,
+{
+    type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     #[track_caller]
