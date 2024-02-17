@@ -119,6 +119,7 @@ pub fn server_macro_impl(
         res_ty,
         client,
         custom_wrapper,
+        impl_from: impl_into,
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
@@ -206,8 +207,11 @@ pub fn server_macro_impl(
         FnArg::Receiver(_) => None,
         FnArg::Typed(t) => Some((&t.pat, &t.ty)),
     });
-    let from_impl =
-        (body.inputs.len() == 1 && first_field.is_some()).then(|| {
+    let impl_into = impl_into.map(|v| v.value).unwrap_or(true);
+    let from_impl = (body.inputs.len() == 1
+        && first_field.is_some()
+        && impl_into)
+        .then(|| {
             let field = first_field.unwrap();
             let (name, ty) = field;
             quote! {
@@ -638,7 +642,7 @@ fn err_type(return_ty: &Type) -> Result<Option<&GenericArgument>> {
                 {
                     if let Some(segment) = pat.path.segments.last() {
                         if segment.ident == "ServerFnError" {
-                            let args = &segment.arguments;
+                            let args = &pat.path.segments[0].arguments;
                             match args {
                                 // Result<T, ServerFnError>
                                 PathArguments::None => return Ok(None),
@@ -676,6 +680,7 @@ struct ServerFnArgs {
     client: Option<Type>,
     custom_wrapper: Option<Path>,
     builtin_encoding: bool,
+    impl_from: Option<LitBool>,
 }
 
 impl Parse for ServerFnArgs {
@@ -693,6 +698,7 @@ impl Parse for ServerFnArgs {
         let mut res_ty: Option<Type> = None;
         let mut client: Option<Type> = None;
         let mut custom_wrapper: Option<Path> = None;
+        let mut impl_into: Option<LitBool> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -800,6 +806,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         custom_wrapper = Some(stream.parse()?);
+                    } else if key == "impl_into" {
+                        if impl_into.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `impl_into`",
+                            ));
+                        }
+                        impl_into = Some(stream.parse()?);
                     } else {
                         return Err(lookahead.error());
                     }
@@ -895,6 +909,7 @@ impl Parse for ServerFnArgs {
             res_ty,
             client,
             custom_wrapper,
+            impl_from: impl_into,
         })
     }
 }
