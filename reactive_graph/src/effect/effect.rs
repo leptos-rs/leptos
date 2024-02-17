@@ -1,10 +1,10 @@
 use crate::{
     channel::{channel, Receiver},
     effect::inner::EffectInner,
-    executor::Executor,
     graph::{AnySubscriber, SourceSet, Subscriber, ToAnySubscriber},
     owner::Owner,
 };
+use any_spawner::Executor;
 use futures::StreamExt;
 use or_poisoned::OrPoisoned;
 use std::{

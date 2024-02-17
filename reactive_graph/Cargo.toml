@@ -4,16 +4,14 @@ edition = "2021"
 version.workspace = true
 
 [dependencies]
+any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
 futures = "0.3"
-glib = { version = "0.19", optional = true }
 pin-project-lite = "0.2"
 rustc-hash = "1.1.0"
 slotmap = "1"
 thiserror = "1"
-tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
 tracing = { version = "0.1", optional = true }
-wasm-bindgen-futures = { version = "0.4", optional = true }
 guardian = "1"
 
 [dev-dependencies]
@@ -22,10 +20,6 @@ tokio = { version = "1", features = ["rt-multi-thread", "time", "macros"] }
 [features]
 nightly = []
 tracing = ["dep:tracing"]
-tokio = ["dep:tokio"]
-glib = ["dep:glib"]
-wasm-bindgen = ["dep:wasm-bindgen-futures"]
-futures-executor = ["futures/thread-pool", "futures/executor"]
 
 [package.metadata.docs.rs]
 all-features = true

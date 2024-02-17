@@ -4,7 +4,6 @@ use super::{
 };
 use crate::{
     channel::channel,
-    executor::Executor,
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet, ToAnySource, ToAnySubscriber,
@@ -13,6 +12,7 @@ use crate::{
     signal::SignalReadGuard,
     traits::{DefinedAt, ReadUntracked},
 };
+use any_spawner::Executor;
 use core::fmt::Debug;
 use futures::{FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
