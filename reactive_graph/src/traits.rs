@@ -50,7 +50,7 @@
 
 use crate::{
     graph::{Observer, Source, Subscriber, ToAnySource},
-    signal::{SignalUntrackedWriteGuard, SignalWriteGuard},
+    signal::guards::{UntrackedWriteGuard, WriteGuard},
 };
 use std::{ops::Deref, panic::Location};
 
@@ -138,17 +138,17 @@ where
 pub trait Writeable: Sized + DefinedAt + Trigger {
     type Value: Sized;
 
-    fn try_write(&self) -> Option<SignalWriteGuard<'_, Self, Self::Value>>;
+    fn try_write(&self) -> Option<WriteGuard<'_, Self, Self::Value>>;
 
     fn try_write_untracked(
         &self,
-    ) -> Option<SignalUntrackedWriteGuard<'_, Self::Value>>;
+    ) -> Option<UntrackedWriteGuard<'_, Self::Value>>;
 
-    fn write(&self) -> SignalWriteGuard<'_, Self, Self::Value> {
+    fn write(&self) -> WriteGuard<'_, Self, Self::Value> {
         self.try_write().unwrap_or_else(unwrap_signal!(self))
     }
 
-    fn write_untracked(&self) -> SignalUntrackedWriteGuard<'_, Self::Value> {
+    fn write_untracked(&self) -> UntrackedWriteGuard<'_, Self::Value> {
         self.try_write_untracked()
             .unwrap_or_else(unwrap_signal!(self))
     }

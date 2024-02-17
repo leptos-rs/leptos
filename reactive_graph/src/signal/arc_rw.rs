@@ -1,6 +1,7 @@
 use super::{
-    subscriber_traits::AsSubscriberSet, ArcReadSignal, ArcWriteSignal,
-    SignalReadGuard, SignalUntrackedWriteGuard, SignalWriteGuard,
+    guards::{Plain, ReadGuard, UntrackedWriteGuard, WriteGuard},
+    subscriber_traits::AsSubscriberSet,
+    ArcReadSignal, ArcWriteSignal,
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
@@ -113,10 +114,10 @@ impl<T> AsSubscriberSet for ArcRwSignal<T> {
 }
 
 impl<T: 'static> ReadUntracked for ArcRwSignal<T> {
-    type Value = SignalReadGuard<T>;
+    type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        SignalReadGuard::try_new(Arc::clone(&self.value))
+        Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }
 }
 
@@ -129,16 +130,16 @@ impl<T> Trigger for ArcRwSignal<T> {
 impl<T> Writeable for ArcRwSignal<T> {
     type Value = T;
 
-    fn try_write(&self) -> Option<SignalWriteGuard<'_, Self, Self::Value>> {
+    fn try_write(&self) -> Option<WriteGuard<'_, Self, Self::Value>> {
         self.value
             .write()
             .ok()
-            .map(|guard| SignalWriteGuard::new(self, guard))
+            .map(|guard| WriteGuard::new(self, guard))
     }
 
     fn try_write_untracked(
         &self,
-    ) -> Option<SignalUntrackedWriteGuard<'_, Self::Value>> {
-        self.value.write().ok().map(SignalUntrackedWriteGuard::from)
+    ) -> Option<UntrackedWriteGuard<'_, Self::Value>> {
+        self.value.write().ok().map(UntrackedWriteGuard::from)
     }
 }

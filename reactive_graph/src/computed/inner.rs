@@ -6,7 +6,10 @@ use crate::{
     owner::Owner,
 };
 use or_poisoned::OrPoisoned;
-use std::sync::{Arc, RwLock};
+use std::{
+    fmt::Debug,
+    sync::{Arc, RwLock},
+};
 
 pub struct MemoInner<T> {
     pub(crate) value: Option<T>,
@@ -18,6 +21,12 @@ pub struct MemoInner<T> {
     pub(crate) sources: SourceSet,
     pub(crate) subscribers: SubscriberSet,
     pub(crate) any_subscriber: AnySubscriber,
+}
+
+impl<T> Debug for MemoInner<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoInner").finish_non_exhaustive()
+    }
 }
 
 impl<T: Send + Sync + 'static> MemoInner<T> {

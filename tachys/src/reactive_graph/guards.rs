@@ -9,7 +9,7 @@ use crate::{
         PositionState, Render, ToTemplate,
     },
 };
-use reactive_graph::signal::SignalReadGuard;
+use reactive_graph::signal::guards::ReadGuard;
 use std::{
     fmt::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -18,6 +18,7 @@ use std::{
         NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
         NonZeroU8, NonZeroUsize,
     },
+    ops::Deref,
 };
 
 // any changes here should also be made in src/view/primitives.rs
@@ -26,9 +27,9 @@ macro_rules! render_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
 		paste::paste! {
-			pub struct [<SignalReadGuard $child_type:camel State>]<R>(R::Text, $child_type) where R: Renderer;
+			pub struct [<ReadGuard $child_type:camel State>]<R>(R::Text, $child_type) where R: Renderer;
 
-			impl<'a, R: Renderer> Mountable<R> for [<SignalReadGuard $child_type:camel State>]<R> {
+			impl<'a, R: Renderer> Mountable<R> for [<ReadGuard $child_type:camel State>]<R> {
 					fn unmount(&mut self) {
 						self.0.unmount()
 					}
@@ -51,16 +52,18 @@ macro_rules! render_primitive {
 					}
 			}
 
-			impl<'a, R: Renderer> Render<R> for SignalReadGuard<$child_type> {
-				type State = [<SignalReadGuard $child_type:camel State>]<R>;
+			impl<'a, G, R: Renderer> Render<R> for ReadGuard<$child_type, G>
+            where G: Deref<Target = $child_type>
+            {
+				type State = [<ReadGuard $child_type:camel State>]<R>;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
-					[<SignalReadGuard $child_type:camel State>](node, *self)
+					[<ReadGuard $child_type:camel State>](node, *self)
 				}
 
 				fn rebuild(self, state: &mut Self::State) {
-					let [<SignalReadGuard $child_type:camel State>](node, this) = state;
+					let [<ReadGuard $child_type:camel State>](node, this) = state;
 					if &self != this {
 						R::set_text(node, &self.to_string());
 						*this = *self;
@@ -68,13 +71,14 @@ macro_rules! render_primitive {
 				}
 			}
 
-			impl<'a> InfallibleRender for SignalReadGuard<$child_type> {}
+			impl<'a, G> InfallibleRender for ReadGuard<$child_type, G> {}
 
-			impl<'a, R> RenderHtml<R> for SignalReadGuard<$child_type>
+			impl<'a, G, R> RenderHtml<R> for ReadGuard<$child_type, G>
 			where
 				R: Renderer,
 				R::Node: Clone,
 				R::Element: Clone,
+                G: Deref<Target = $child_type>
 			{
 				const MIN_LENGTH: usize = 0;
 
@@ -112,11 +116,12 @@ macro_rules! render_primitive {
 					}
 					position.set(Position::NextChildAfterText);
 
-					[<SignalReadGuard $child_type:camel State>](node, *self)
+					[<ReadGuard $child_type:camel State>](node, *self)
 				}
 			}
 
-			impl<'a> ToTemplate for SignalReadGuard<$child_type> {
+		    impl<'a, G> ToTemplate for ReadGuard<$child_type, G>
+            {
 				const TEMPLATE: &'static str = " <!>";
 
 				fn to_template(
@@ -176,24 +181,27 @@ render_primitive![
 ];
 
 // strings
-pub struct SignalReadGuardStringState<R: Renderer> {
+pub struct ReadGuardStringState<R: Renderer> {
     node: R::Text,
     str: String,
 }
 
-impl<R: Renderer> Render<R> for SignalReadGuard<String> {
-    type State = SignalReadGuardStringState<R>;
+impl<G, R: Renderer> Render<R> for ReadGuard<String, G>
+where
+    G: Deref<Target = String>,
+{
+    type State = ReadGuardStringState<R>;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
-        SignalReadGuardStringState {
+        ReadGuardStringState {
             node,
             str: self.to_string(),
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let SignalReadGuardStringState { node, str } = state;
+        let ReadGuardStringState { node, str } = state;
         if *self != *str {
             R::set_text(node, &self);
             str.clear();
@@ -202,13 +210,14 @@ impl<R: Renderer> Render<R> for SignalReadGuard<String> {
     }
 }
 
-impl InfallibleRender for SignalReadGuard<String> {}
+impl<G> InfallibleRender for ReadGuard<String, G> {}
 
-impl<R> RenderHtml<R> for SignalReadGuard<String>
+impl<G, R> RenderHtml<R> for ReadGuard<String, G>
 where
     R: Renderer,
     R::Node: Clone,
     R::Element: Clone,
+    G: Deref<Target = String>,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -224,14 +233,14 @@ where
         let this: &str = self.as_ref();
         let StrState { node, .. } =
             this.hydrate::<FROM_SERVER>(cursor, position);
-        SignalReadGuardStringState {
+        ReadGuardStringState {
             node,
             str: self.to_string(),
         }
     }
 }
 
-impl ToTemplate for SignalReadGuard<String> {
+impl<G> ToTemplate for ReadGuard<String, G> {
     const TEMPLATE: &'static str = <&str as ToTemplate>::TEMPLATE;
 
     fn to_template(
@@ -247,7 +256,7 @@ impl ToTemplate for SignalReadGuard<String> {
     }
 }
 
-impl<R: Renderer> Mountable<R> for SignalReadGuardStringState<R> {
+impl<R: Renderer> Mountable<R> for ReadGuardStringState<R> {
     fn unmount(&mut self) {
         self.node.unmount()
     }

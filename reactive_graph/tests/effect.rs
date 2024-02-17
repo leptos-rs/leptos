@@ -13,10 +13,9 @@ pub async fn tick() {
     tokio::time::sleep(std::time::Duration::from_micros(1)).await;
 }
 
-#[cfg(feature = "futures-executor")]
-#[test]
-fn render_effect_runs() {
-    _ = Executor::init_futures_executor();
+#[tokio::test]
+async fn render_effect_runs() {
+    _ = Executor::init_tokio();
 
     Executor::spawn(async {
         let a = RwSignal::new(-1);
@@ -45,10 +44,9 @@ fn render_effect_runs() {
     });
 }
 
-#[cfg(feature = "futures-executor")]
-#[test]
-fn effect_runs() {
-    _ = Executor::init_futures_executor();
+#[tokio::test]
+async fn effect_runs() {
+    _ = Executor::init_tokio();
 
     Executor::spawn(async {
         let a = RwSignal::new(-1);
@@ -74,10 +72,10 @@ fn effect_runs() {
         assert_eq!(b.read().unwrap().as_str(), "Value is 1");
     });
 }
-#[cfg(feature = "futures-executor")]
-#[test]
-fn dynamic_dependencies() {
-    _ = Executor::init_futures_executor();
+
+#[tokio::test]
+async fn dynamic_dependencies() {
+    _ = Executor::init_tokio();
 
     Executor::spawn(async {
         let first = RwSignal::new("Greg");
@@ -137,20 +135,3 @@ fn dynamic_dependencies() {
         assert_eq!(*combined_count.read().unwrap(), 5);
     });
 }
-
-/*
-#[cfg(feature = "futures-executor")]
-#[test]
-fn effect_runs() {
-    _ = Executor::init_futures_executor();
-
-    Executor::spawn(async {});
-}
-
-#[cfg(feature = "futures-executor")]
-#[test]
-fn effect_runs() {
-    _ = Executor::init_futures_executor();
-
-    Executor::spawn(async {});
-}*/

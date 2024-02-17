@@ -1,5 +1,7 @@
 use super::{
-    subscriber_traits::AsSubscriberSet, ArcReadSignal, SignalReadGuard,
+    guards::{Plain, ReadGuard},
+    subscriber_traits::AsSubscriberSet,
+    ArcReadSignal,
 };
 use crate::{
     graph::SubscriberSet,
@@ -78,7 +80,7 @@ impl<T: Send + Sync + 'static> AsSubscriberSet for ReadSignal<T> {
 }
 
 impl<T: Send + Sync + 'static> ReadUntracked for ReadSignal<T> {
-    type Value = SignalReadGuard<T>;
+    type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.get_value().map(|inner| inner.read_untracked())
