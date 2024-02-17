@@ -1,7 +1,7 @@
+use any_spawner::Executor;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
     effect::Effect,
-    executor::Executor,
     prelude::*,
     signal::RwSignal,
 };

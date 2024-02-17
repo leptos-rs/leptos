@@ -1,13 +1,13 @@
 use crate::{
     hydration::Cursor,
-    renderer::{Renderer, SpawningRenderer},
-    spawner::Spawner,
+    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         either::{Either, EitherState},
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
+use any_spawner::Executor;
 use futures::FutureExt;
 use parking_lot::RwLock;
 use std::{fmt::Debug, future::Future, sync::Arc};
@@ -61,7 +61,7 @@ where
     Fal: Render<Rndr> + 'static,
     Fut: Future + 'static,
     Fut::Output: Render<Rndr>,
-    Rndr: SpawningRenderer + 'static,
+    Rndr: Renderer + 'static,
 {
     type State = Arc<RwLock<EitherState<Fal, Fut::Output, Rndr>>>;
 
@@ -86,7 +86,7 @@ where
         // spawning immediately means that our now_or_never poll result isn't lost
         // if it wasn't pending at first, we don't need to poll the Future again
         if initially_pending {
-            Rndr::Spawn::spawn_local({
+            Executor::spawn_local({
                 let state = Arc::clone(&state);
                 async move {
                     let value = fut.as_mut().await;
@@ -105,7 +105,7 @@ where
         }
 
         // spawn the future, and rebuild the state when it resolves
-        Rndr::Spawn::spawn_local({
+        Executor::spawn_local({
             let state = Arc::clone(state);
             async move {
                 let value = self.fut.await;
@@ -121,7 +121,7 @@ where
     Fal: RenderHtml<Rndr> + Send + Sync + 'static,
     Fut: Future + Send + Sync + 'static,
     Fut::Output: RenderHtml<Rndr>,
-    Rndr: SpawningRenderer + 'static,
+    Rndr: Renderer + 'static,
     Rndr::Node: Clone,
     Rndr::Element: Clone,
 {
@@ -207,7 +207,7 @@ where
         // spawning immediately means that our now_or_never poll result isn't lost
         // if it wasn't pending at first, we don't need to poll the Future again
         if initially_pending {
-            Rndr::Spawn::spawn_local({
+            Executor::spawn_local({
                 let state = Arc::clone(&state);
                 async move {
                     let value = fut.as_mut().await;
