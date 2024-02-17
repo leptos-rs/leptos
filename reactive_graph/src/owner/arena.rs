@@ -62,11 +62,22 @@ where
         m.and_then(|n| n.downcast_ref::<T>()).map(fun)
     }
 
+    pub fn update_value<U>(&self, fun: impl FnOnce(&mut T) -> U) -> Option<U> {
+        let mut m = map().write().or_poisoned();
+        let m = m.get_mut(self.node);
+
+        m.and_then(|n| n.downcast_mut::<T>()).map(fun)
+    }
+
     pub fn get(&self) -> Option<T>
     where
         T: Clone,
     {
         self.with_value(T::clone)
+    }
+
+    pub fn set_value(&self, value: T) {
+        self.update_value(|n| *n = value);
     }
 
     pub fn exists(&self) -> bool
