@@ -1,0 +1,24 @@
+[package]
+name = "fetch"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[dependencies]
+leptos = { path = "../../leptos", features = ["csr", "nightly"] }
+tachys = { path = "../../tachys", features = ["web"] }
+reqwasm = "0.5"
+serde = { version = "1", features = ["derive"] }
+log = "0.4"
+console_log = "1"
+console_error_panic_hook = "0.1"
+thiserror = "1"
+send_wrapper = { version = "0.6.0", features = ["futures"] }
+gloo-timers = { version = "0.3.0", features = ["futures"] }
+futures = "0.3.30"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
