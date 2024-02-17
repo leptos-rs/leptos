@@ -16,7 +16,7 @@
 //! use reactive_graph::{
 //!     computed::ArcMemo,
 //!     effect::Effect,
-//!     prelude::{Readable, Set},
+//!     prelude::{Read, Set},
 //!     signal::ArcRwSignal,
 //! };
 //!

@@ -30,7 +30,7 @@ pub fn async_example() -> impl IntoView {
 
     let times = move || {
         trigger.track();
-        async move { (a2.await.to_string(), "test") } //{ (a2.await.to_string(), " and ", b2.await.to_string()) }
+        async move { (b2.await, a2.await, " and ") }
             .suspend()
             .with_fallback("Loading...")
             .track()
