@@ -7,8 +7,7 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-
-        <Stylesheet id="leptos" href="/pkg/tailwind_axum.css"/>
+        <Stylesheet id="leptos" href="/pkg/leptos_tailwind.css"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Router>
             <Routes>
