@@ -119,6 +119,7 @@ pub fn server_macro_impl(
         res_ty,
         client,
         custom_wrapper,
+        impl_from: impl_into,
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
@@ -200,6 +201,34 @@ pub fn server_macro_impl(
             FnArg::Typed(t) => Some(&t.pat),
         })
         .collect::<Vec<_>>();
+
+    // if there's exactly one field, impl From<T> for the struct
+    let first_field = body.inputs.iter().find_map(|f| match f {
+        FnArg::Receiver(_) => None,
+        FnArg::Typed(t) => Some((&t.pat, &t.ty)),
+    });
+    let impl_into = impl_into.map(|v| v.value).unwrap_or(true);
+    let from_impl = (body.inputs.len() == 1
+        && first_field.is_some()
+        && impl_into)
+        .then(|| {
+            let field = first_field.unwrap();
+            let (name, ty) = field;
+            quote! {
+                impl From<#struct_name> for #ty {
+                    fn from(value: #struct_name) -> Self {
+                        let #struct_name { #name } = value;
+                        #name
+                    }
+                }
+
+                impl From<#ty> for #struct_name {
+                    fn from(#name: #ty) -> Self {
+                        #struct_name { #name }
+                    }
+                }
+            }
+        });
 
     // check output type
     let output_arrow = body.output_arrow;
@@ -512,7 +541,9 @@ pub fn server_macro_impl(
         pub struct #struct_name {
             #(#fields),*
         }
-        
+
+        #from_impl
+
         impl #server_fn_path::ServerFn for #wrapped_struct_name {
             const PATH: &'static str = #path;
 
@@ -649,6 +680,7 @@ struct ServerFnArgs {
     client: Option<Type>,
     custom_wrapper: Option<Path>,
     builtin_encoding: bool,
+    impl_from: Option<LitBool>,
 }
 
 impl Parse for ServerFnArgs {
@@ -666,6 +698,7 @@ impl Parse for ServerFnArgs {
         let mut res_ty: Option<Type> = None;
         let mut client: Option<Type> = None;
         let mut custom_wrapper: Option<Path> = None;
+        let mut impl_into: Option<LitBool> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -773,6 +806,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         custom_wrapper = Some(stream.parse()?);
+                    } else if key == "impl_into" {
+                        if impl_into.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `impl_into`",
+                            ));
+                        }
+                        impl_into = Some(stream.parse()?);
                     } else {
                         return Err(lookahead.error());
                     }
@@ -868,6 +909,7 @@ impl Parse for ServerFnArgs {
             res_ty,
             client,
             custom_wrapper,
+            impl_from: impl_into,
         })
     }
 }
