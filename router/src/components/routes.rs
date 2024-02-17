@@ -372,9 +372,7 @@ fn inherit_settings(children: &mut [RouteDefinition], router: &RouterContext) {
     route_def_inherit(
         children,
         InheritProps {
-            trailing_slash: router
-                .trailing_slash()
-                .or(Some(TrailingSlash::default())),
+            trailing_slash: Some(router.trailing_slash()),
         },
     );
 }

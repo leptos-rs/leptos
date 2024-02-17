@@ -42,8 +42,8 @@ pub fn Router(
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     /// How trailing slashes should be handled in [`Route`] paths.
-    #[prop(optional)]
-    trailing_slash: Option<TrailingSlash>,
+    #[prop(default = TrailingSlash::default())]
+    trailing_slash: TrailingSlash,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
     /// to define and display [`Route`](crate::Route)s.
@@ -106,7 +106,7 @@ pub(crate) struct RouterContextInner {
     id: usize,
     pub location: Location,
     pub base: RouteContext,
-    trailing_slash: Option<TrailingSlash>,
+    trailing_slash: TrailingSlash,
     pub possible_routes: RefCell<Option<Vec<Branch>>>,
     #[allow(unused)] // used in CSR/hydrate
     base_path: String,
@@ -143,7 +143,7 @@ impl RouterContext {
     pub(crate) fn new(
         base: Option<&'static str>,
         fallback: Option<fn() -> View>,
-        trailing_slash: Option<TrailingSlash>,
+        trailing_slash: TrailingSlash,
     ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -264,7 +264,7 @@ impl RouterContext {
         self.inner.id
     }
 
-    pub(crate) fn trailing_slash(&self) -> Option<TrailingSlash> {
+    pub(crate) fn trailing_slash(&self) -> TrailingSlash {
         self.inner.trailing_slash.clone()
     }
 
