@@ -6,57 +6,53 @@ use gloo_timers::{
 use leptos::{
     prelude::*,
     reactive_graph::{computed::AsyncDerived, owner::Stored, signal::RwSignal},
+    tachys::log,
     view, Executor, IntoView,
 };
 use send_wrapper::SendWrapper;
-use std::{cell::RefCell, future::Future};
+use std::future::Future;
 
-fn wait(seconds: u8, output: char) -> impl Future<Output = char> + Send + Sync {
+fn wait(
+    id: char,
+    seconds: u8,
+    value: u32,
+) -> impl Future<Output = u32> + Send + Sync {
     SendWrapper::new(async move {
+        log(&format!("loading data for {id}"));
         TimeoutFuture::new(seconds as u32 * 1000).await;
-        output
+        value + 1
     })
 }
 
 pub fn async_example() -> impl IntoView {
-    let trigger = RwSignal::new(());
-    let count = RwSignal::new(0);
+    let a = RwSignal::new(0);
+    let b = RwSignal::new(1);
 
-    let a = || wait(1, 'A');
-    let b = || wait(2, 'B');
-
-    let a2 = AsyncDerived::new(|| wait(1, 'A'));
-    let b2 = AsyncDerived::new(|| wait(2, 'B'));
+    let a2 = AsyncDerived::new(move || wait('A', 1, a.get()));
+    let b2 = AsyncDerived::new(move || wait('B', 3, b.get()));
+    let c = AsyncDerived::new(move || async move { a2.await + b2.await });
 
     let times = move || {
-        trigger.track();
-        async move { (b2.await, a2.await, " and ") }
+        //let a2 = wait('A', 1, a.get());
+        //let b2 = wait('B', 3, b.get());
+        async move { (a2.await, " + ", b2.await) }
+            //async move { (a2.await, " + ", b2.await, " = ", c.await) }
             .suspend()
             .with_fallback("Loading...")
             .track()
     };
 
-    let on_click = move |_| {
-        let mut ticks = 0;
-        let mut timer = IntervalStream::new(1000);
-        Executor::spawn_local(async move {
-            while timer.next().await.is_some() {
-                ticks += 1;
-                if ticks >= 3 {
-                    break;
-                }
-                count.update(|n| *n += 1);
-            }
-        });
-        count.set(1);
-        trigger.set(());
-    };
-
     view! {
-        <button on:click=on_click>
-            +1
+        <button on:click=move |_| {
+            a.update(|n| *n += 1);
+        }>
+            {a}
         </button>
-        <p>{move || count.get()}</p>
+        <button on:click=move |_| {
+            b.update(|n| *n += 1);
+        }>
+            {b}
+        </button>
         <p>
             {times}
         </p>
