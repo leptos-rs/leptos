@@ -16,6 +16,7 @@ guardian = "1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "time", "macros"] }
+any_spawner = { workspace = true, features = ["tokio"] }
 
 [features]
 nightly = []
