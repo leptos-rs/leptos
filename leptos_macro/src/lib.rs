@@ -884,8 +884,8 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - `req` and `res` specify the HTTP request and response types to be used on the server (these
 ///   should usually only be necessary if you are integrating with a server other than Actix/Axum)
 /// - `impl_into`: specifies whether to implement trait Into for server function's argument or not,
-///   given that there is only one argument. On making server action dispatch, this allows to call `.into()` on the
-///   server function argument, eliminating the need to fill server function’s type by manually (defaults to `true`)
+///   given that there is only one argument; on making server action dispatch, this allows to call `.into()` on the
+///   server function argument, eliminating the need to fill server function’s type manually (defaults to `true`)
 ///
 /// ```rust,ignore
 /// #[server(
