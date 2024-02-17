@@ -9,7 +9,7 @@ use crate::{
         SubscriberSet, ToAnySource, ToAnySubscriber,
     },
     owner::Owner,
-    signal::SignalReadGuard,
+    signal::guards::{Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
 };
 use any_spawner::Executor;
@@ -222,10 +222,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
 }
 
 impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
-    type Value = SignalReadGuard<AsyncState<T>>;
+    type Value = ReadGuard<AsyncState<T>, Plain<AsyncState<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        SignalReadGuard::try_new(Arc::clone(&self.value))
+        Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }
 }
 

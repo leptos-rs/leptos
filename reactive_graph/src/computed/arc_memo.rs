@@ -4,7 +4,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    signal::MappedSignalReadGuard,
+    signal::guards::{Mapped, Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
 };
 use core::fmt::Debug;
@@ -159,15 +159,16 @@ impl<T: Send + Sync + 'static> Subscriber for ArcMemo<T> {
 }
 
 impl<T: Send + Sync + 'static> ReadUntracked for ArcMemo<T> {
-    type Value = MappedSignalReadGuard<MemoInner<T>, T>;
+    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.update_if_necessary();
 
-        MappedSignalReadGuard::try_new(Arc::clone(&self.inner), |t| {
+        Mapped::try_new(Arc::clone(&self.inner), |t| {
             // safe to unwrap here because update_if_necessary
             // guarantees the value is Some
             t.value.as_ref().unwrap()
         })
+        .map(ReadGuard::new)
     }
 }

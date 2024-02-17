@@ -1,7 +1,7 @@
 mod arc_read;
 mod arc_rw;
 mod arc_write;
-mod guards;
+pub mod guards;
 mod read;
 mod rw;
 mod subscriber_traits;
@@ -10,7 +10,6 @@ mod write;
 pub use arc_read::*;
 pub use arc_rw::*;
 pub use arc_write::*;
-pub use guards::*;
 pub use read::*;
 pub use rw::*;
 pub use write::*;

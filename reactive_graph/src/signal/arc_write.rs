@@ -1,4 +1,4 @@
-use super::{SignalUntrackedWriteGuard, SignalWriteGuard};
+use super::guards::{UntrackedWriteGuard, WriteGuard};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Trigger},
@@ -83,16 +83,16 @@ impl<T> Trigger for ArcWriteSignal<T> {
 impl<T> Writeable for ArcWriteSignal<T> {
     type Value = T;
 
-    fn try_write(&self) -> Option<SignalWriteGuard<'_, Self, Self::Value>> {
+    fn try_write(&self) -> Option<WriteGuard<'_, Self, Self::Value>> {
         self.value
             .write()
             .ok()
-            .map(|guard| SignalWriteGuard::new(self, guard))
+            .map(|guard| WriteGuard::new(self, guard))
     }
 
     fn try_write_untracked(
         &self,
-    ) -> Option<SignalUntrackedWriteGuard<'_, Self::Value>> {
-        self.value.write().ok().map(SignalUntrackedWriteGuard::from)
+    ) -> Option<UntrackedWriteGuard<'_, Self::Value>> {
+        self.value.write().ok().map(UntrackedWriteGuard::from)
     }
 }
