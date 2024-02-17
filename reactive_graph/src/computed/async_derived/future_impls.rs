@@ -44,8 +44,11 @@ pub struct AsyncDerivedFuture<T> {
     wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
-impl<T: 'static> IntoFuture for ArcAsyncDerived<T> {
-    type Output = ReadGuard<T, Mapped<Plain<AsyncState<T>>, T>>;
+impl<T> IntoFuture for ArcAsyncDerived<T>
+where
+    T: Clone + 'static,
+{
+    type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -57,8 +60,13 @@ impl<T: 'static> IntoFuture for ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> Future for AsyncDerivedFuture<T> {
-    type Output = ReadGuard<T, Mapped<Plain<AsyncState<T>>, T>>;
+// this is implemented to output T by cloning it because read guards should not be held across
+// .await points, and it's way too easy to trip up by doing that!
+impl<T> Future for AsyncDerivedFuture<T>
+where
+    T: Clone + 'static,
+{
+    type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let waker = cx.waker();
@@ -70,15 +78,7 @@ impl<T: 'static> Future for AsyncDerivedFuture<T> {
                 self.wakers.write().or_poisoned().push(waker.clone());
                 Poll::Pending
             }
-            AsyncState::Complete(_) => {
-                Poll::Ready(ReadGuard::new(Mapped::new(value, |inner| {
-                    match inner {
-                        AsyncState::Complete(value) => value,
-                        // we've just checked this value is Complete
-                        _ => unreachable!(),
-                    }
-                })))
-            }
+            AsyncState::Complete(value) => Poll::Ready(value.clone()),
         }
     }
 }
