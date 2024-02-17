@@ -5,7 +5,6 @@ use reactive_graph::{
     traits::{Get, Read, Set, With, WithUntracked},
 };
 
-#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn arc_async_derived_calculates_eagerly() {
     use std::time::Duration;
@@ -22,7 +21,6 @@ async fn arc_async_derived_calculates_eagerly() {
     std::mem::forget(value);
 }
 
-#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn arc_async_derived_tracks_signal_change() {
     use std::time::Duration;
@@ -46,7 +44,6 @@ async fn arc_async_derived_tracks_signal_change() {
     std::mem::forget(value);
 }
 
-#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn async_derived_calculates_eagerly() {
     use std::time::Duration;
@@ -62,7 +59,6 @@ async fn async_derived_calculates_eagerly() {
     assert_eq!(*value.await, 42);
 }
 
-#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn async_derived_tracks_signal_change() {
     use std::time::Duration;
@@ -85,8 +81,10 @@ async fn async_derived_tracks_signal_change() {
     assert_eq!(value.await, 50);
 }
 
-#[test]
-fn read_signal_traits_on_arc() {
+#[tokio::test]
+async fn read_signal_traits_on_arc() {
+    _ = Executor::init_tokio();
+
     let value = ArcAsyncDerived::new(move || async {});
     assert_eq!(value.read(), AsyncState::Loading);
     assert_eq!(value.with_untracked(|n| *n), AsyncState::Loading);
@@ -94,8 +92,10 @@ fn read_signal_traits_on_arc() {
     assert_eq!(value.get(), AsyncState::Loading);
 }
 
-#[test]
-fn read_signal_traits_on_arena() {
+#[tokio::test]
+async fn read_signal_traits_on_arena() {
+    _ = Executor::init_tokio();
+
     let value = AsyncDerived::new(move || async {});
     println!("{:?}", value.read());
     assert_eq!(value.read(), AsyncState::Loading);

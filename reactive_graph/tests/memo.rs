@@ -169,10 +169,9 @@ fn diamond_problem() {
     assert_eq!(*combined_count.read().unwrap(), 1);
 }
 
-#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn dynamic_dependencies() {
-    _ = Executor::init_futures_executor();
+    _ = Executor::init_tokio();
 
     let first = RwSignal::new("Greg");
     let last = RwSignal::new("Johnston");
