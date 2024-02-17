@@ -30,16 +30,10 @@ pub fn async_example() -> impl IntoView {
 
     let times = move || {
         trigger.track();
-        async move {
-            view! {
-                {a2.await}
-                " and "
-                {b2.await}
-            }
-        }
-        .suspend()
-        .with_fallback("Loading...")
-        .track()
+        async move { (a2.await.to_string(), "test") } //{ (a2.await.to_string(), " and ", b2.await.to_string()) }
+            .suspend()
+            .with_fallback("Loading...")
+            .track()
     };
 
     let on_click = move |_| {
@@ -64,7 +58,7 @@ pub fn async_example() -> impl IntoView {
         </button>
         <p>{move || count.get()}</p>
         <p>
-            //{times}
+            {times}
         </p>
     }
 }
