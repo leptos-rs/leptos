@@ -1,4 +1,4 @@
-use fetch::async_example;
+use async_demo::async_example;
 use leptos::*;
 
 pub fn main() {
