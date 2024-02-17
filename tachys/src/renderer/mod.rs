@@ -1,4 +1,4 @@
-use crate::{html::element::CreateElement, spawner::Spawner, view::Mountable};
+use crate::{html::element::CreateElement, view::Mountable};
 use std::borrow::Cow;
 use wasm_bindgen::JsValue;
 
@@ -148,11 +148,6 @@ pub trait DomRenderer: Renderer {
 
     /// Sets the `innerHTML` of a DOM element, without escaping any values.
     fn set_inner_html(el: &Self::Element, html: &str);
-}
-
-/// A renderer that is able to spawn async tasks during rendering.
-pub trait SpawningRenderer: Renderer {
-    type Spawn: Spawner;
 }
 
 /// Attempts to cast from one type to another.

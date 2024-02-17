@@ -16,7 +16,7 @@ pub mod prelude {
             element::{ElementChild, InnerHtmlAttribute},
             node_ref::NodeRefAttribute,
         },
-        renderer::{dom::Dom, Renderer, SpawningRenderer},
+        renderer::{dom::Dom, Renderer},
         view::{
             error_boundary::TryCatchBoundary, Mountable, Render, RenderHtml,
         },
@@ -33,7 +33,6 @@ pub mod html;
 pub mod hydration;
 pub mod mathml;
 pub mod renderer;
-pub mod spawner;
 pub mod ssr;
 pub mod svg;
 pub mod view;
