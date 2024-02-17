@@ -5,11 +5,8 @@ use gloo_timers::{
 };
 use leptos::{
     prelude::*,
-    reactive_graph::{
-        computed::AsyncDerived, executor::Executor, owner::Stored,
-        signal::RwSignal,
-    },
-    view, IntoView,
+    reactive_graph::{computed::AsyncDerived, owner::Stored, signal::RwSignal},
+    view, Executor, IntoView,
 };
 use send_wrapper::SendWrapper;
 use std::{cell::RefCell, future::Future};
@@ -67,7 +64,7 @@ pub fn async_example() -> impl IntoView {
         </button>
         <p>{move || count.get()}</p>
         <p>
-            {times}
+            //{times}
         </p>
     }
 }
