@@ -1,7 +1,7 @@
 use super::{ArcAsyncDerived, AsyncState};
 use crate::{
     graph::{AnySource, ToAnySource},
-    signal::{MappedSignalReadGuard, SignalReadGuard},
+    signal::guards::{Mapped, Plain, ReadGuard},
     traits::Track,
 };
 use or_poisoned::OrPoisoned;
@@ -45,7 +45,7 @@ pub struct AsyncDerivedFuture<T> {
 }
 
 impl<T: 'static> IntoFuture for ArcAsyncDerived<T> {
-    type Output = MappedSignalReadGuard<AsyncState<T>, T>;
+    type Output = ReadGuard<T, Mapped<Plain<AsyncState<T>>, T>>;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -58,29 +58,27 @@ impl<T: 'static> IntoFuture for ArcAsyncDerived<T> {
 }
 
 impl<T: 'static> Future for AsyncDerivedFuture<T> {
-    type Output = MappedSignalReadGuard<AsyncState<T>, T>;
+    type Output = ReadGuard<T, Mapped<Plain<AsyncState<T>>, T>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let waker = cx.waker();
         self.source.track();
-        let value = SignalReadGuard::try_new(Arc::clone(&self.value))
-            .expect("lock poisoned");
+        let value =
+            Plain::try_new(Arc::clone(&self.value)).expect("lock poisoned");
         match &*value {
             AsyncState::Loading | AsyncState::Reloading(_) => {
                 self.wakers.write().or_poisoned().push(waker.clone());
                 Poll::Pending
             }
-            AsyncState::Complete(_) => Poll::Ready(
-                MappedSignalReadGuard::try_new(
-                    Arc::clone(&self.value),
-                    |inner| match inner {
+            AsyncState::Complete(_) => {
+                Poll::Ready(ReadGuard::new(Mapped::new(value, |inner| {
+                    match inner {
                         AsyncState::Complete(value) => value,
                         // we've just checked this value is Complete
                         _ => unreachable!(),
-                    },
-                )
-                .expect("lock poisoned"),
-            ),
+                    }
+                })))
+            }
         }
     }
 }
