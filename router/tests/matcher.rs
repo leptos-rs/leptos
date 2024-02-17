@@ -43,6 +43,21 @@ cfg_if! {
         }
 
         #[test]
+        fn create_matcher_should_build_params_collection_and_decode() {
+            let matcher = Matcher::new("/foo/:id");
+            let matched = matcher.test("/foo/%E2%89%A1abc%20123");
+            assert_eq!(
+                matched,
+                Some(PathMatch {
+                    path: "/foo/%E2%89%A1abc%20123".into(),
+                    params: params_map!(
+                        "id" => "≡abc 123"
+                    )
+                })
+            );
+        }
+
+        #[test]
         fn create_matcher_should_match_past_end_when_ending_in_asterisk() {
             let matcher = Matcher::new("/foo/bar/*");
             let matched = matcher.test("/foo/bar/baz");

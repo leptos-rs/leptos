@@ -8,7 +8,6 @@ crate-type = ["cdylib", "rlib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
 [dependencies]
 leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
@@ -17,12 +16,12 @@ leptos_router = { path = "../../router", features = ["nightly"] }
 gloo-net = { version = "0.2", features = ["http"] }
 log = "0.4"
 
-# dependecies for client (enable when csr or hydrate set)
+# dependencies for client (enable when csr or hydrate set)
 wasm-bindgen = { version = "0.2", optional = true }
 console_log = { version = "1", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
-# dependecies for server (enable when ssr set)
+# dependencies for server (enable when ssr set)
 actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", features = ["macros"], optional = true }
 futures = { version = "0.3", optional = true }
@@ -97,7 +96,7 @@ end2end-cmd = "npx playwright test"
 end2end-dir = "end2end"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
-# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
 watch = false
 # The environment Leptos will run in, usually either "DEV" or "PROD"
 env = "DEV"
