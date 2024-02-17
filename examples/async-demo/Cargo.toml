@@ -1,5 +1,5 @@
 [package]
-name = "fetch"
+name = "async-demo"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,6 @@ lto = true
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr", "nightly"] }
-tachys = { path = "../../tachys", features = ["web"] }
 reqwasm = "0.5"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"

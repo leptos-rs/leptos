@@ -1,5 +1,6 @@
 use crate::IntoView;
-use reactive_graph::{executor::Executor, owner::Owner};
+use any_spawner::Executor;
+use reactive_graph::owner::Owner;
 use std::marker::PhantomData;
 use tachys::{
     dom::body,
