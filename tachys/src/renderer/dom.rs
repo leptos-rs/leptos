@@ -1,5 +1,3 @@
-#[cfg(any(feature = "tokio", feature = "web"))]
-use super::SpawningRenderer;
 use super::{CastFrom, DomRenderer, Renderer};
 use crate::{
     dom::{document, window},
@@ -416,14 +414,4 @@ where
     fn cast_from(source: Element) -> Option<Self> {
         source.dyn_into::<T>().ok()
     }
-}
-
-#[cfg(feature = "web")]
-impl SpawningRenderer for Dom {
-    type Spawn = crate::spawner::wasm::Wasm;
-}
-
-#[cfg(all(feature = "tokio", not(feature = "web")))]
-impl SpawningRenderer for Dom {
-    type Spawn = crate::spawner::tokio::Tokio;
 }
