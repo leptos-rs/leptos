@@ -21,6 +21,7 @@ use std::{
 };
 
 // any changes here should also be made in src/view/primitives.rs
+// TODO should also apply to mapped signal read guards
 macro_rules! render_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
