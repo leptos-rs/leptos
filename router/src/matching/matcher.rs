@@ -31,10 +31,7 @@ impl Matcher {
             Some((p, s)) => (p, Some(s.to_string())),
             None => (path, None),
         };
-        let segments = get_segments(pattern)
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
+        let segments: Vec<String> = get_segments(pattern);
         let len = segments.len();
         Self {
             splat,
@@ -46,7 +43,7 @@ impl Matcher {
 
     #[doc(hidden)]
     pub fn test(&self, location: &str) -> Option<PathMatch> {
-        let loc_segments = get_segments(location);
+        let loc_segments: Vec<&str> = get_segments(location);
 
         let loc_len = loc_segments.len();
         let len_diff: i32 = loc_len as i32 - self.len as i32;
@@ -104,18 +101,17 @@ impl Matcher {
     }
 }
 
-fn get_segments(pattern: &str) -> Vec<&str> {
-    // URL root paths "/" and "" are equivalent.
-    // Web servers (at least, Axum and Actix-Web) will send us a path of "/"
-    // even if we've routed "". Always treat these as equivalent:
-    if pattern == "/" {
-        return vec![];
-    }
-    pattern
+fn get_segments<'a, S: From<&'a str>>(pattern: &'a str) -> Vec<S> {
+    // URL root paths ("/" and "") are equivalent and treated as 0-segment paths.
+    // non-root paths with trailing slashes get extra empty segment at the end.
+    // This makes sure that segment matching is trailing-slash sensitive.
+    let mut segments: Vec<S> = pattern
         .split('/')
-        .enumerate()
-        // Only remove a leading slash, not trailing slashes:
-        .skip_while(|(i, part)| *i == 0 && part.is_empty())
-        .map(|(_, part)| part)
-        .collect()
+        .filter(|p| !p.is_empty())
+        .map(Into::into)
+        .collect();
+    if segments.len() > 0 && pattern.ends_with('/') {
+        segments.push("".into());
+    }
+    segments
 }

@@ -133,7 +133,7 @@ cfg_if! {
                 Some(PathMatch {
                     path: "".into(),
                     params: params_map!(
-                        "any" => "///"
+                        "any" => ""
                     )
                 })
             );
@@ -148,7 +148,7 @@ cfg_if! {
                 Some(PathMatch {
                     path: "/foo/bar".into(),
                     params: params_map!(
-                        "any" => "///"
+                        "any" => ""
                     )
                 })
             );

@@ -751,9 +751,7 @@ fn redirect_route_for(route: &RouteDefinition) -> Option<RouteDefinition> {
 
     let new_pattern = if add_slash {
         // If we need to add a slash, we need to match on the path w/o it:
-        let mut path = route.path.clone();
-        path.pop();
-        path
+        route.path.trim_end_matches('/').to_string()
     } else {
         format!("{}/", route.path)
     };
@@ -779,9 +777,7 @@ fn FixTrailingSlash(add_slash: bool) -> impl IntoView {
     let path = if add_slash {
         format!("{}/", route.path())
     } else {
-        let mut path = route.path().to_string();
-        path.pop();
-        path
+        route.path().trim_end_matches('/').to_string()
     };
     let options = NavigateOptions {
         replace: true,
