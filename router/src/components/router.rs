@@ -42,7 +42,7 @@ pub fn Router(
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     /// How trailing slashes should be handled in [`Route`] paths.
-    #[prop(default = TrailingSlash::default())]
+    #[prop(optional)]
     trailing_slash: TrailingSlash,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
@@ -528,13 +528,14 @@ impl Default for NavigateOptions {
 
 /// Declares how you would like to handle trailing slashes in Route paths. This
 /// can be set on [`Router`] and overridden in [`crate::components::Route`]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub enum TrailingSlash {
     /// This is the default behavior as of Leptos 0.5.  Trailing slashes in your
     /// `Route` path are stripped. i.e.: the following two route declarations
     /// are equivalent:
     ///  * `<Route path="/foo">`
     ///  * `<Route path="/foo/">`
+    #[default]
     Drop,
 
     /// This mode will respect your path as it is written. Ex:
@@ -556,14 +557,6 @@ pub enum TrailingSlash {
     ///  * Visiting `/foo` serves a redirect to `/foo/`
     ///  * Visiting `/foo/` is valid.
     Redirect,
-}
-
-impl Default for TrailingSlash {
-    fn default() -> Self {
-        // This is the behavior in 0.5. Keeping it the default for backward compatibility.
-        // TODO: Change to `Redirect` in 0.6?
-        Self::Drop
-    }
 }
 
 impl TrailingSlash {
