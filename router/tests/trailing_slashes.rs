@@ -1,6 +1,6 @@
 //! Some extra tests for Matcher NOT based on SolidJS's tests cases (as in matcher.rs)
 
-use leptos_router::{params_map, Matcher};
+use leptos_router::*;
 
 #[test]
 fn trailing_slashes_match_exactly() {
