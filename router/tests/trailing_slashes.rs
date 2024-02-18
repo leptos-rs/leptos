@@ -24,8 +24,9 @@ fn trailing_slashes_match_exactly() {
     assert_matches(&matcher, "/");
 }
 
+#[cfg(feature = "ssr")]
 #[test]
-fn trailng_slashes_params_match_exactly() {
+fn trailing_slashes_params_match_exactly() {
     let matcher = Matcher::new("/foo/:bar/");
     assert_matches(&matcher, "/foo/bar/");
     assert_matches(&matcher, "/foo/42/");
