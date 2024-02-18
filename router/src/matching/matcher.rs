@@ -114,7 +114,7 @@ fn get_segments<'a, S: From<&'a str>>(pattern: &'a str) -> Vec<S> {
         .filter(|p| !p.is_empty())
         .map(Into::into)
         .collect();
-    if segments.len() > 0 && pattern.ends_with('/') {
+    if !segments.is_empty() && pattern.ends_with('/') {
         segments.push("".into());
     }
     segments
