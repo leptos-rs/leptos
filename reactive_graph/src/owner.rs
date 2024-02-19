@@ -11,7 +11,7 @@ use std::{
 mod arena;
 mod context;
 use arena::NodeId;
-pub use arena::{Stored, StoredData};
+pub use arena::{StoredData, StoredValue};
 pub use context::*;
 
 #[derive(Debug, Clone, Default)]
