@@ -1,3 +1,5 @@
 extend = [
     { path = "../cargo-make/main.toml" }
 ] 
+
+[tasks.ci]
