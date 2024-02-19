@@ -1,4 +1,4 @@
-use super::either::Either;
+use super::{either::Either, RenderHtml};
 use crate::view::{FallibleRender, Mountable, Render, Renderer};
 use std::marker::PhantomData;
 
@@ -132,6 +132,45 @@ where
                 }
             },
         }
+    }
+}
+
+// TODO RenderHtml implementation for ErrorBoundary
+impl<T, Fal, FalFn, Rndr> RenderHtml<Rndr> for Try<T, Fal, FalFn, Rndr>
+where
+    T: FallibleRender<Rndr>,
+    Fal: RenderHtml<Rndr>,
+    FalFn: FnMut(T::Error) -> Fal,
+    Rndr: Renderer,
+    Rndr::Element: Clone,
+    Rndr::Node: Clone,
+{
+    const MIN_LENGTH: usize = Fal::MIN_LENGTH;
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut super::Position,
+    ) {
+        todo!()
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut crate::ssr::StreamBuilder,
+        position: &mut super::Position,
+    ) where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &crate::hydration::Cursor<Rndr>,
+        position: &super::PositionState,
+    ) -> Self::State {
+        todo!()
     }
 }
 
