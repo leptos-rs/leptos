@@ -4,7 +4,7 @@ use crate::{
         attribute::*,
         class::{class, Class, IntoClass},
         element::ElementType,
-        event::{on, EventDescriptor, On, TargetedEvent},
+        event::{on, on_target, EventDescriptor, On, Targeted},
         property::{property, IntoProperty, Property},
         style::{style, IntoStyle, Style},
     },
@@ -304,8 +304,7 @@ where
     E: EventDescriptor + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
-    F: FnMut(TargetedEvent<E::EventType, <Self as ElementType>::Output, Rndr>)
-        + 'static,
+    F: FnMut(E::EventType) + 'static,
     Rndr: DomRenderer,
     Self: Sized + AddAttribute<On<Rndr>, Rndr>,
 {
@@ -316,6 +315,27 @@ where
     ) -> <Self as AddAttribute<On<Rndr>, Rndr>>::Output
 where {
         self.add_attr(on(event, cb))
+    }
+}
+
+pub trait OnTargetAttribute<E, F, T, Rndr>
+where
+    Self: ElementType,
+    E: EventDescriptor + 'static,
+    E::EventType: 'static,
+    E::EventType: From<Rndr::Event>,
+    F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)
+        + 'static,
+    Rndr: DomRenderer,
+    Self: Sized + AddAttribute<On<Rndr>, Rndr>,
+{
+    fn on_target(
+        self,
+        event: E,
+        cb: F,
+    ) -> <Self as AddAttribute<On<Rndr>, Rndr>>::Output
+where {
+        self.add_attr(on_target(event, cb))
     }
 }
 
@@ -386,7 +406,19 @@ where
     E: EventDescriptor + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
-    F: FnMut(TargetedEvent<E::EventType, <Self as ElementType>::Output, Rndr>)
+    F: FnMut(E::EventType) + 'static,
+    Rndr: DomRenderer,
+{
+}
+
+impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
+where
+    Self: ElementType,
+    T: AddAttribute<On<Rndr>, Rndr>,
+    E: EventDescriptor + 'static,
+    E::EventType: 'static,
+    E::EventType: From<Rndr::Event>,
+    F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)
         + 'static,
     Rndr: DomRenderer,
 {

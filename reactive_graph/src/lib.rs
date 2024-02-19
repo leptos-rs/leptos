@@ -79,6 +79,8 @@ pub mod effect;
 pub mod graph;
 pub mod owner;
 pub mod selector;
+#[cfg(feature = "serde")]
+mod serde;
 pub mod signal;
 pub mod traits;
 
@@ -92,5 +94,5 @@ pub type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 
 pub mod prelude {
-    pub use crate::traits::*;
+    pub use crate::{owner::StoredData, traits::*};
 }

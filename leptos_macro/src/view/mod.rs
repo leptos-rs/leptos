@@ -366,7 +366,8 @@ fn attribute_to_tokens(
 fn event_to_tokens(name: &str, node: &KeyedAttribute) -> TokenStream {
     let handler = attribute_value(node);
 
-    let (event_type, is_custom, is_force_undelegated) = parse_event_name(name);
+    let (event_type, is_custom, is_force_undelegated, is_targeted) =
+        parse_event_name(name);
 
     let event_name_ident = match &node.key {
         NodeName::Punctuated(parts) => {
@@ -379,18 +380,19 @@ fn event_to_tokens(name: &str, node: &KeyedAttribute) -> TokenStream {
         _ => unreachable!(),
     };
     let undelegated_ident = match &node.key {
-        NodeName::Punctuated(parts) => parts.last().and_then(|last| {
-            if last.to_string() == "undelegated" {
-                Some(last)
-            } else {
-                None
-            }
-        }),
+        NodeName::Punctuated(parts) => {
+            parts.iter().find(|part| part.to_string() == "undelegated")
+        }
         _ => unreachable!(),
     };
     let on = match &node.key {
         NodeName::Punctuated(parts) => &parts[0],
         _ => unreachable!(),
+    };
+    let on = if is_targeted {
+        Ident::new("on_target", on.span()).to_token_stream()
+    } else {
+        on.to_token_stream()
     };
     let event_type = if is_custom {
         event_type
@@ -597,12 +599,13 @@ fn is_ambiguous_element(tag: &str) -> bool {
     tag == "a" || tag == "script" || tag == "title"
 }
 
-fn parse_event(event_name: &str) -> (&str, bool) {
-    if let Some(event_name) = event_name.strip_suffix(":undelegated") {
-        (event_name, true)
-    } else {
-        (event_name, false)
-    }
+fn parse_event(event_name: &str) -> (String, bool, bool) {
+    let is_undelegated = event_name.contains(":undelegated");
+    let is_targeted = event_name.contains(":target");
+    let event_name = event_name
+        .replace(":undelegated", "")
+        .replace(":target", "");
+    (event_name, is_undelegated, is_targeted)
 }
 
 /// Escapes Rust keywords that are also HTML attribute names
@@ -768,12 +771,12 @@ const TYPED_EVENTS: [&str; 126] = [
 
 const CUSTOM_EVENT: &str = "Custom";
 
-pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
-    let (name, is_force_undelegated) = parse_event(name);
+pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool, bool) {
+    let (name, is_force_undelegated, is_targeted) = parse_event(name);
 
     let (event_type, is_custom) = TYPED_EVENTS
-        .binary_search(&name)
-        .map(|_| (name, false))
+        .binary_search(&name.as_str())
+        .map(|_| (name.as_str(), false))
         .unwrap_or((CUSTOM_EVENT, true));
 
     let Ok(event_type) = event_type.parse::<TokenStream>() else {
@@ -785,7 +788,7 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
     } else {
         event_type
     };
-    (event_type, is_custom, is_force_undelegated)
+    (event_type, is_custom, is_force_undelegated, is_targeted)
 }
 
 fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {

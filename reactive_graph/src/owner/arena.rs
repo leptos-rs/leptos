@@ -3,6 +3,7 @@ use or_poisoned::OrPoisoned;
 use slotmap::{new_key_type, SlotMap};
 use std::{
     any::Any,
+    hash::Hash,
     marker::PhantomData,
     sync::{OnceLock, RwLock},
 };
@@ -18,20 +19,35 @@ pub(crate) fn map(
 }
 
 #[derive(Debug)]
-pub struct Stored<T> {
+pub struct StoredValue<T> {
     node: NodeId,
     ty: PhantomData<T>,
 }
 
-impl<T> Copy for Stored<T> {}
+impl<T> Copy for StoredValue<T> {}
 
-impl<T> Clone for Stored<T> {
+impl<T> Clone for StoredValue<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Stored<T>
+impl<T> PartialEq for StoredValue<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node == other.node && self.ty == other.ty
+    }
+}
+
+impl<T> Eq for StoredValue<T> {}
+
+impl<T> Hash for StoredValue<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.node.hash(state);
+        self.ty.hash(state);
+    }
+}
+
+impl<T> StoredValue<T>
 where
     T: Send + Sync + 'static,
 {

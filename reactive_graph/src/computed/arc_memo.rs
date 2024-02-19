@@ -10,6 +10,7 @@ use crate::{
 use core::fmt::Debug;
 use or_poisoned::OrPoisoned;
 use std::{
+    hash::Hash,
     panic::Location,
     sync::{Arc, RwLock, Weak},
 };
@@ -91,6 +92,20 @@ impl<T> Debug for ArcMemo<T> {
             .field("type", &std::any::type_name::<T>())
             .field("data", &Arc::as_ptr(&self.inner))
             .finish()
+    }
+}
+
+impl<T> PartialEq for ArcMemo<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+impl<T> Eq for ArcMemo<T> {}
+
+impl<T> Hash for ArcMemo<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(&Arc::as_ptr(&self.inner), state);
     }
 }
 
