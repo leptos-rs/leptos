@@ -18,33 +18,23 @@ pub mod tuples;
 ///
 /// It is generic over the renderer itself, as long as that implements the [`Renderer`]
 /// trait.
-pub trait Render<R: Renderer> {
+pub trait Render<R: Renderer>: Sized {
     /// The “view state” for this type, which can be retained between updates.
     ///
     /// For example, for a text node, `State` might be the actual DOM text node
     /// and the previous string, to allow for diffing between updates.
     type State: Mountable<R>;
+    type FallibleState: Mountable<R>;
+    type Error;
 
     /// Creates the view for the first time, without hydrating from existing HTML.
     fn build(self) -> Self::State;
 
     /// Updates the view with new data.
     fn rebuild(self, state: &mut Self::State);
-}
 
-pub trait InfallibleRender {}
-
-pub trait FallibleRender<R>: Sized + Render<R>
-where
-    R: Renderer,
-{
-    type FallibleState: Mountable<R>;
-    type Error;
-
-    /// Creates the view fallibly, handling any [`Result`] by propagating its `Err`.
     fn try_build(self) -> Result<Self::FallibleState, Self::Error>;
 
-    /// Updates the view with new data fallibly, handling any [`Result`] by propagating its `Err`.
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
@@ -61,27 +51,6 @@ impl core::fmt::Display for NeverError {
 }
 
 impl std::error::Error for NeverError {}
-
-impl<T, R> FallibleRender<R> for T
-where
-    T: Render<R> + InfallibleRender,
-    R: Renderer,
-{
-    type FallibleState = Self::State;
-    type Error = NeverError;
-
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
-        self.rebuild(state);
-        Ok(())
-    }
-}
 
 /// The `RenderHtml` trait allows rendering something to HTML, and transforming
 /// that HTML into an interactive interface.
