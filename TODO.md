@@ -12,7 +12,6 @@
 - ErrorBoundary
 - ssr examples
 - reactivity 
-    - Effects need to be stored (and not mem::forget)
     - Signal wrappers
     - SignalDispose implementations on all Copy types
     - untracked access warnings
