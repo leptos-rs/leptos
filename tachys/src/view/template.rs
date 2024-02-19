@@ -61,6 +61,9 @@ where
     V::State: Mountable<Dom>,
 {
     type State = V::State;
+    type FallibleState = V::FallibleState;
+    type Error = V::Error;
+    // TODO try_build/try_rebuild()
 
     fn build(self) -> Self::State {
         let tpl = Self::to_template();
@@ -73,6 +76,17 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(state)
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 

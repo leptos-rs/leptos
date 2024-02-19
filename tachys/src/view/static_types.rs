@@ -1,5 +1,5 @@
 use super::{
-    InfallibleRender, Mountable, Position, PositionState, Render, RenderHtml,
+    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
     ToTemplate,
 };
 use crate::{
@@ -114,6 +114,8 @@ where
     R::Text: Mountable<R>,
 {
     type State = Option<R::Text>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         // a view state has to be returned so it can be mounted
@@ -122,9 +124,18 @@ where
 
     // This type is specified as static, so no rebuilding is done.
     fn rebuild(self, _state: &mut Self::State) {}
-}
 
-impl<const V: &'static str> InfallibleRender for Static<V> {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(Render::<R>::build(self))
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(Render::<R>::rebuild(self, state))
+    }
+}
 
 impl<const V: &'static str, R> RenderHtml<R> for Static<V>
 where

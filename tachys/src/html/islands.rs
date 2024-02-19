@@ -3,7 +3,7 @@ use crate::{
     prelude::{Render, RenderHtml},
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{Position, PositionState},
+    view::{NeverError, Position, PositionState},
 };
 use std::marker::PhantomData;
 
@@ -48,6 +48,8 @@ where
     Rndr: Renderer,
 {
     type State = View::State;
+    type FallibleState = View::FallibleState;
+    type Error = View::Error;
 
     fn build(self) -> Self::State {
         self.view.build()
@@ -55,6 +57,17 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(state);
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        self.view.try_build()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        self.view.try_rebuild(state)
     }
 }
 
@@ -141,10 +154,23 @@ where
     Rndr: Renderer,
 {
     type State = ();
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, state: &mut Self::State) {}
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 impl<Rndr, View> RenderHtml<Rndr> for IslandChildren<Rndr, View>
