@@ -883,9 +883,11 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response
 /// - `req` and `res` specify the HTTP request and response types to be used on the server (these
 ///   should usually only be necessary if you are integrating with a server other than Actix/Axum)
-/// - `impl_into`: specifies whether to implement trait Into for server function's argument or not,
-///   given that there is only one argument; on making server action dispatch, this allows to call `.into()` on the
-///   server function argument, eliminating the need to fill server function’s type manually (defaults to `true`)
+/// - `impl_from`: specifies whether to implement trait `From` for server function's type or not.
+///   By default, if a server function only has one argument, the macro automatically implements the `From` trait
+///   to convert from the argument type to the server function type, and vice versa, allowing you to convert
+///   between them easily. Setting `impl_from` to `false` disables this, which can be necessary for argument types
+///   for which this would create a conflicting implementation. (defaults to `true`)
 ///
 /// ```rust,ignore
 /// #[server(

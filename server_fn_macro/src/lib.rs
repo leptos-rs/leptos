@@ -119,7 +119,7 @@ pub fn server_macro_impl(
         res_ty,
         client,
         custom_wrapper,
-        impl_from: impl_into,
+        impl_from,
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
@@ -207,10 +207,10 @@ pub fn server_macro_impl(
         FnArg::Receiver(_) => None,
         FnArg::Typed(t) => Some((&t.pat, &t.ty)),
     });
-    let impl_into = impl_into.map(|v| v.value).unwrap_or(true);
+    let impl_from = impl_from.map(|v| v.value).unwrap_or(true);
     let from_impl = (body.inputs.len() == 1
         && first_field.is_some()
-        && impl_into)
+        && impl_from)
         .then(|| {
             let field = first_field.unwrap();
             let (name, ty) = field;
@@ -698,7 +698,7 @@ impl Parse for ServerFnArgs {
         let mut res_ty: Option<Type> = None;
         let mut client: Option<Type> = None;
         let mut custom_wrapper: Option<Path> = None;
-        let mut impl_into: Option<LitBool> = None;
+        let mut impl_from: Option<LitBool> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -806,14 +806,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         custom_wrapper = Some(stream.parse()?);
-                    } else if key == "impl_into" {
-                        if impl_into.is_some() {
+                    } else if key == "impl_from" {
+                        if impl_from.is_some() {
                             return Err(syn::Error::new(
                                 key.span(),
-                                "keyword argument repeated: `impl_into`",
+                                "keyword argument repeated: `impl_from`",
                             ));
                         }
-                        impl_into = Some(stream.parse()?);
+                        impl_from = Some(stream.parse()?);
                     } else {
                         return Err(lookahead.error());
                     }
@@ -909,7 +909,7 @@ impl Parse for ServerFnArgs {
             res_ty,
             client,
             custom_wrapper,
-            impl_from: impl_into,
+            impl_from,
         })
     }
 }
