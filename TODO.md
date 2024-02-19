@@ -2,6 +2,7 @@
     - [x] counter
     - [x] counters
     - [x] fetch
+        - [ ] ErrorBoundary
     - [x] todomvc 
     - [ ] parent\_child
     - [ ] router
@@ -17,7 +18,6 @@
     - untracked access warnings
 - callbacks
     - unsync StoredValue
-        - use this to store Effects
 - SSR
     - escaping HTML correctly (attributes + text nodes)
 - router
