@@ -3,7 +3,7 @@ use crate::{
     prelude::Mountable,
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{Position, PositionState, Render, RenderHtml},
+    view::{NeverError, Position, PositionState, Render, RenderHtml},
 };
 use reactive_graph::owner::Owner;
 use std::marker::PhantomData;
@@ -39,21 +39,21 @@ impl<T, R> OwnedView<T, R> {
 #[derive(Debug, Clone)]
 pub struct OwnedViewState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
 {
     owner: Owner,
-    state: T::State,
+    state: T,
     rndr: PhantomData<R>,
 }
 
 impl<T, R> OwnedViewState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
 {
     /// Wraps a state with the given owner.
-    fn new(state: T::State, owner: Owner) -> Self {
+    fn new(state: T, owner: Owner) -> Self {
         Self {
             owner,
             state,
@@ -67,7 +67,9 @@ where
     T: Render<R>,
     R: Renderer,
 {
-    type State = OwnedViewState<T, R>;
+    type State = OwnedViewState<T::State, R>;
+    type FallibleState = OwnedViewState<T::FallibleState, R>;
+    type Error = T::Error;
 
     fn build(self) -> Self::State {
         let state = self.owner.with(|| self.view.build());
@@ -78,6 +80,17 @@ where
         let OwnedView { owner, view, .. } = self;
         owner.with(|| view.rebuild(&mut state.state));
         state.owner = owner;
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 
@@ -126,7 +139,7 @@ where
 
 impl<T, R> Mountable<R> for OwnedViewState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
 {
     fn unmount(&mut self) {

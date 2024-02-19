@@ -6,7 +6,7 @@ thread_local! {
     static OBSERVER: RefCell<Option<AnySubscriber>> = const { RefCell::new(None) };
 }
 
-pub(crate) struct Observer;
+pub struct Observer;
 
 impl Observer {
     pub fn get() -> Option<AnySubscriber> {

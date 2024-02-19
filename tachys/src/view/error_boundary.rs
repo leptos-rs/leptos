@@ -1,5 +1,9 @@
-use super::{either::Either, RenderHtml};
-use crate::view::{FallibleRender, Mountable, Render, Renderer};
+use super::{either::Either, NeverError, Position, PositionState, RenderHtml};
+use crate::{
+    hydration::Cursor,
+    ssr::StreamBuilder,
+    view::{Mountable, Render, Renderer},
+};
 use std::marker::PhantomData;
 
 impl<R, T, E> Render<R> for Result<T, E>
@@ -8,6 +12,8 @@ where
     R: Renderer,
 {
     type State = <Option<T> as Render<R>>::State;
+    type FallibleState = T::State;
+    type Error = E;
 
     fn build(self) -> Self::State {
         self.ok().build()
@@ -16,15 +22,6 @@ where
     fn rebuild(self, state: &mut Self::State) {
         self.ok().rebuild(state);
     }
-}
-
-impl<R, T, E> FallibleRender<R> for Result<T, E>
-where
-    T: Render<R>,
-    R: Renderer,
-{
-    type FallibleState = T::State;
-    type Error = E;
 
     fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
         let inner = self?;
@@ -42,9 +39,49 @@ where
     }
 }
 
+impl<R, T, E> RenderHtml<R> for Result<T, E>
+where
+    T: RenderHtml<R>,
+    R: Renderer,
+    R::Element: Clone,
+    R::Node: Clone,
+{
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut super::Position,
+    ) {
+        if let Ok(inner) = self {
+            inner.to_html_with_buf(buf, position);
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+    ) where
+        Self: Sized,
+    {
+        if let Ok(inner) = self {
+            inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<R>,
+        position: &PositionState,
+    ) -> Self::State {
+        self.ok().hydrate::<FROM_SERVER>(cursor, position)
+    }
+}
+
 pub trait TryCatchBoundary<Fal, FalFn, Rndr>
 where
-    Self: Sized + FallibleRender<Rndr>,
+    Self: Sized + Render<Rndr>,
     Fal: Render<Rndr>,
     FalFn: FnMut(Self::Error) -> Fal,
     Rndr: Renderer,
@@ -54,7 +91,7 @@ where
 
 impl<T, Fal, FalFn, Rndr> TryCatchBoundary<Fal, FalFn, Rndr> for T
 where
-    T: Sized + FallibleRender<Rndr>,
+    T: Sized + Render<Rndr>,
     Fal: Render<Rndr>,
     FalFn: FnMut(Self::Error) -> Fal,
     Rndr: Renderer,
@@ -66,7 +103,7 @@ where
 
 pub struct Try<T, Fal, FalFn, Rndr>
 where
-    T: FallibleRender<Rndr>,
+    T: Render<Rndr>,
     Fal: Render<Rndr>,
     FalFn: FnMut(T::Error) -> Fal,
     Rndr: Renderer,
@@ -78,7 +115,7 @@ where
 
 impl<T, Fal, FalFn, Rndr> Try<T, Fal, FalFn, Rndr>
 where
-    T: FallibleRender<Rndr>,
+    T: Render<Rndr>,
     Fal: Render<Rndr>,
     FalFn: FnMut(T::Error) -> Fal,
     Rndr: Renderer,
@@ -94,12 +131,14 @@ where
 
 impl<T, Fal, FalFn, Rndr> Render<Rndr> for Try<T, Fal, FalFn, Rndr>
 where
-    T: FallibleRender<Rndr>,
+    T: Render<Rndr>,
     Fal: Render<Rndr>,
     FalFn: FnMut(T::Error) -> Fal,
     Rndr: Renderer,
 {
     type State = TryState<T, Fal, Rndr>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(mut self) -> Self::State {
         let state = match self.child.try_build() {
@@ -133,12 +172,23 @@ where
             },
         }
     }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
 }
 
 // TODO RenderHtml implementation for ErrorBoundary
 impl<T, Fal, FalFn, Rndr> RenderHtml<Rndr> for Try<T, Fal, FalFn, Rndr>
 where
-    T: FallibleRender<Rndr>,
+    T: Render<Rndr>,
     Fal: RenderHtml<Rndr>,
     FalFn: FnMut(T::Error) -> Fal,
     Rndr: Renderer,
@@ -176,7 +226,7 @@ where
 
 pub struct TryState<T, Fal, Rndr>
 where
-    T: FallibleRender<Rndr>,
+    T: Render<Rndr>,
     Fal: Render<Rndr>,
     Rndr: Renderer,
 {
@@ -186,7 +236,7 @@ where
 
 impl<T, Fal, Rndr> Mountable<Rndr> for TryState<T, Fal, Rndr>
 where
-    T: FallibleRender<Rndr>,
+    T: Render<Rndr>,
     Fal: Render<Rndr>,
     Rndr: Renderer,
 {

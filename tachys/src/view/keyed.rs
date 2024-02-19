@@ -3,6 +3,7 @@ use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
+    view::NeverError,
 };
 use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 use indexmap::IndexSet;
@@ -73,6 +74,9 @@ where
     Rndr::Element: Clone,
 {
     type State = KeyedState<K, V, Rndr>;
+    // TODO fallible state and try_build()/try_rebuild() here
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let items = self.items.into_iter();
@@ -125,6 +129,17 @@ where
         );
 
         *hashed_items = new_hashed_items;
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 

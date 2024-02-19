@@ -1,11 +1,8 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, Renderer,
-    ToTemplate,
+    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
+    Renderer, ToTemplate,
 };
-use crate::{
-    hydration::Cursor,
-    view::{FallibleRender, InfallibleRender, StreamBuilder},
-};
+use crate::{error::AnyError, hydration::Cursor, view::StreamBuilder};
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
 };
@@ -13,13 +10,24 @@ use std::error::Error;
 
 impl<R: Renderer> Render<R> for () {
     type State = ();
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
-}
 
-impl InfallibleRender for () {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
 
 impl<R> RenderHtml<R> for ()
 where
@@ -68,6 +76,8 @@ impl ToTemplate for () {
 
 impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
     type State = A::State;
+    type FallibleState = A::FallibleState;
+    type Error = A::Error;
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -76,11 +86,6 @@ impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
     fn rebuild(self, state: &mut Self::State) {
         self.0.rebuild(state)
     }
-}
-
-impl<A: FallibleRender<R>, R: Renderer> FallibleRender<R> for (A,) {
-    type Error = A::Error;
-    type FallibleState = A::FallibleState;
 
     fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
         self.0.try_build()
@@ -148,18 +153,20 @@ macro_rules! impl_view_for_tuples {
 		where
 			$first: Render<Rndr>,
 			$($ty: Render<Rndr>),*,
+			$first::Error: Error + Sized + 'static,
+			$($ty::Error: Error + Sized + 'static),*,
 			Rndr: Renderer
 		{
 			type State = ($first::State, $($ty::State,)*);
+			type Error = AnyError;
+			type FallibleState = ($first::FallibleState, $($ty::FallibleState,)*);
 
 			fn build(self) -> Self::State {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					(
-						[<$first:lower>].build(),
-						$([<$ty:lower>].build()),*
-					)
-				}
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.build(),
+                    $($ty.build()),*
+                )
 			}
 
 			fn rebuild(self, state: &mut Self::State) {
@@ -170,25 +177,13 @@ macro_rules! impl_view_for_tuples {
 					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
 				}
 			}
-		}
-
- 		impl<$first, $($ty),*, Rndr> FallibleRender<Rndr> for ($first, $($ty,)*)
-		where
-			$first: FallibleRender<Rndr>,
-			$($ty: FallibleRender<Rndr>),*,
-			$first::Error: Error + 'static,
-			$($ty::Error: Error + 'static),*,
-			Rndr: Renderer
-		{
-			type Error = (); /* Box<dyn Error>; */
-			type FallibleState = ($first::FallibleState, $($ty::FallibleState,)*);
 
 			fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
 				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
+					let ($first, $($ty,)*) = self;
 					Ok((
-						[<$first:lower>].try_build().map_err(|_| ())?,
-						$([<$ty:lower>].try_build().map_err(|_| ())?),*
+						$first.try_build().map_err(AnyError::new)?,
+						$($ty.try_build().map_err(AnyError::new)?),*
 					))
 				}
 			}
@@ -197,8 +192,8 @@ macro_rules! impl_view_for_tuples {
 				paste::paste! {
 					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
 					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
-					[<$first:lower>].try_rebuild([<view_ $first:lower>]).map_err(|_| ())?;
-					$([<$ty:lower>].try_rebuild([<view_ $ty:lower>]).map_err(|_| ())?);*
+					[<$first:lower>].try_rebuild([<view_ $first:lower>]).map_err(AnyError::new)?;
+					$([<$ty:lower>].try_rebuild([<view_ $ty:lower>]).map_err(AnyError::new)?);*
 				}
 				Ok(())
 			}
@@ -208,6 +203,8 @@ macro_rules! impl_view_for_tuples {
 		where
 			$first: RenderHtml<Rndr>,
 			$($ty: RenderHtml<Rndr>),*,
+			$first::Error: Error + Sized + 'static,
+			$($ty::Error: Error + Sized + 'static),*,
 			Rndr: Renderer,
 			Rndr::Node: Clone,
 			Rndr::Element: Clone

@@ -1,6 +1,6 @@
 use crate::{
     renderer::Renderer,
-    view::{Position, Render, RenderHtml},
+    view::{NeverError, Position, Render, RenderHtml},
 };
 use std::marker::PhantomData;
 
@@ -27,10 +27,23 @@ pub fn doctype<R: Renderer>(value: &'static str) -> Doctype<R> {
 
 impl<R: Renderer> Render<R> for Doctype<R> {
     type State = ();
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 impl<R> RenderHtml<R> for Doctype<R>
