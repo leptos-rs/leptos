@@ -5,13 +5,18 @@ use tachys::{
     view::{Mountable, Position, PositionState, Render, RenderHtml},
 };
 
-pub struct View<T>(T);
+pub struct View<T>(T)
+where
+    T: Sized;
 
 pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> {
     fn into_view(self) -> View<Self>;
 }
 
-impl<T: Render<Dom> + RenderHtml<Dom>> IntoView for T {
+impl<T: Render<Dom> + RenderHtml<Dom>> IntoView for T
+where
+    T: Sized,
+{
     fn into_view(self) -> View<Self> {
         View(self)
     }
@@ -19,6 +24,8 @@ impl<T: Render<Dom> + RenderHtml<Dom>> IntoView for T {
 
 impl<T: Render<Dom>> Render<Dom> for View<T> {
     type State = T::State;
+    type FallibleState = T::FallibleState;
+    type Error = T::Error;
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -26,6 +33,17 @@ impl<T: Render<Dom>> Render<Dom> for View<T> {
 
     fn rebuild(self, state: &mut Self::State) {
         self.0.rebuild(state)
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        self.0.try_build()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        self.0.try_rebuild(state)
     }
 }
 

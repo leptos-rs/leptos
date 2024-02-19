@@ -5,11 +5,15 @@ use crate::{
     renderer::{DomRenderer, Renderer},
     ssr::StreamBuilder,
     view::{
-        InfallibleRender, Mountable, Position, PositionState, Render,
-        RenderHtml, ToTemplate,
+        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
     },
 };
-use reactive_graph::{computed::ScopedFuture, effect::RenderEffect};
+use reactive_graph::{
+    computed::ScopedFuture,
+    effect::RenderEffect,
+    graph::{Observer, ReactiveNode},
+    untrack,
+};
 
 mod class;
 mod guards;
@@ -42,9 +46,14 @@ where
     F: FnMut() -> V + 'static,
     V: Render<R>,
     V::State: 'static,
+    V::FallibleState: 'static,
+    V::Error: 'static,
     R: Renderer,
 {
     type State = RenderEffectState<V::State>;
+    type FallibleState =
+        RenderEffectState<Result<V::FallibleState, Option<V::Error>>>;
+    type Error = V::Error;
 
     #[track_caller]
     fn build(mut self) -> Self::State {
@@ -58,6 +67,45 @@ where
             }
         })
         .into()
+    }
+
+    fn try_build(mut self) -> Result<Self::FallibleState, Self::Error> {
+        let initial = untrack(|| self().try_build())?;
+        let parent = Observer::get();
+        let effect = RenderEffect::new_with_value(
+            {
+                move |prev| {
+                    let value = self();
+                    if let Some(mut state) = prev {
+                        match state {
+                            Ok(ref mut state) => {
+                                if let Err(e) = value.try_rebuild(state) {
+                                    if let Some(parent) = &parent {
+                                        crate::log(
+                                            "telling parent to check itself",
+                                        );
+                                        parent.mark_check();
+                                    }
+                                    return Err(Some(e));
+                                }
+                            }
+                            Err(e) => {
+                                //if let Some(parent) = parent {
+                                crate::log("need to tell parent to rerender");
+                                //}
+                                return Err(e);
+                            }
+                        }
+                        state
+                    } else {
+                        unreachable!()
+                    }
+                }
+            },
+            Some(Ok(initial)),
+        );
+
+        Ok(effect.into())
     }
 
     #[track_caller]
@@ -79,6 +127,22 @@ where
             prev_value,
         )
         .into(); */
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        if let Some(inner) = &mut state.0 {
+            inner
+                .with_value_mut(|value| match value {
+                    Err(e) if e.is_some() => Err(e.take().unwrap()),
+                    _ => Ok(()),
+                })
+                .unwrap_or(Ok(()))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -120,35 +184,51 @@ where
     }
 }
 
-impl<F, V> InfallibleRender for F where F: FnMut() -> V + 'static {}
-
-/* impl<F, V, R> FallibleRender<R> for F
+pub struct RenderEffectFallibleState<T, E>
 where
-    F: FnMut() -> V + 'static,
-    V: FallibleRender<R>,
-    V::State: 'static,
+    T: 'static,
+    E: 'static,
+{
+    effect: Option<RenderEffect<Result<T, E>>>,
+}
+
+impl<T, E, R> Mountable<R> for RenderEffectFallibleState<T, E>
+where
+    T: Mountable<R>,
     R: Renderer,
 {
-    type FallibleState = V::FallibleState;
-    type Error = V::Error;
-
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
-        todo!()
+    fn unmount(&mut self) {
+        if let Some(ref mut inner) = self.effect {
+            inner.unmount();
+        }
     }
 
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
-        todo!()
+    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+        if let Some(ref mut inner) = self.effect {
+            inner.mount(parent, marker);
+        }
     }
-} */
+
+    fn insert_before_this(
+        &self,
+        parent: &R::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        if let Some(inner) = &self.effect {
+            inner.insert_before_this(parent, child)
+        } else {
+            false
+        }
+    }
+}
 
 impl<F, V, R> RenderHtml<R> for F
 where
     F: FnMut() -> V + 'static,
     V: RenderHtml<R>,
     V::State: 'static,
+    V::FallibleState: 'static,
+    V::Error: 'static,
     R: Renderer + 'static,
     R::Node: Clone,
     R::Element: Clone,
@@ -217,6 +297,40 @@ where
     ) -> bool {
         self.with_value_mut(|value| value.insert_before_this(parent, child))
             .unwrap_or(false)
+    }
+}
+
+impl<M, E, R> Mountable<R> for Result<M, E>
+where
+    M: Mountable<R>,
+    R: Renderer,
+{
+    fn unmount(&mut self) {
+        if let Ok(ref mut inner) = self {
+            inner.unmount();
+        }
+    }
+
+    fn mount(
+        &mut self,
+        parent: &<R as Renderer>::Element,
+        marker: Option<&<R as Renderer>::Node>,
+    ) {
+        if let Ok(ref mut inner) = self {
+            inner.mount(parent, marker);
+        }
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<R as Renderer>::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        if let Ok(inner) = &self {
+            inner.insert_before_this(parent, child)
+        } else {
+            false
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use super::{
-    InfallibleRender, Mountable, Position, PositionState, Render, RenderHtml,
+    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
     ToTemplate,
 };
 use crate::{
@@ -15,6 +15,8 @@ pub struct StrState<'a, R: Renderer> {
 
 impl<'a, R: Renderer> Render<R> for &'a str {
     type State = StrState<'a, R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(self);
@@ -28,9 +30,18 @@ impl<'a, R: Renderer> Render<R> for &'a str {
             *str = self;
         }
     }
-}
 
-impl<'a> InfallibleRender for &'a str {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
+}
 
 impl<'a, R> RenderHtml<R> for &'a str
 where
@@ -129,6 +140,8 @@ pub struct StringState<R: Renderer> {
 
 impl<R: Renderer> Render<R> for String {
     type State = StringState<R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -142,9 +155,18 @@ impl<R: Renderer> Render<R> for String {
             *str = self;
         }
     }
-}
 
-impl InfallibleRender for String {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
+}
 
 impl<R> RenderHtml<R> for String
 where
@@ -215,6 +237,8 @@ pub struct RcStrState<R: Renderer> {
 
 impl<R: Renderer> Render<R> for Rc<str> {
     type State = RcStrState<R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -228,9 +252,18 @@ impl<R: Renderer> Render<R> for Rc<str> {
             *str = self;
         }
     }
-}
 
-impl InfallibleRender for Rc<str> {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
+}
 
 impl<R> RenderHtml<R> for Rc<str>
 where
@@ -302,6 +335,8 @@ pub struct ArcStrState<R: Renderer> {
 
 impl<R: Renderer> Render<R> for Arc<str> {
     type State = ArcStrState<R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -315,9 +350,18 @@ impl<R: Renderer> Render<R> for Arc<str> {
             *str = self;
         }
     }
-}
 
-impl InfallibleRender for Arc<str> {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
+}
 
 impl<R> RenderHtml<R> for Arc<str>
 where
@@ -389,6 +433,8 @@ pub struct CowStrState<'a, R: Renderer> {
 
 impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
     type State = CowStrState<'a, R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -402,9 +448,18 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
             *str = self;
         }
     }
-}
 
-impl<'a> InfallibleRender for Cow<'a, str> {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
+}
 
 impl<'a, R> RenderHtml<R> for Cow<'a, str>
 where

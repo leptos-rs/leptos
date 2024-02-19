@@ -1,22 +1,49 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
+use super::{
+    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
+};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
 };
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+};
 
+#[derive(Debug)]
 pub enum Either<A, B> {
     Left(A),
     Right(B),
 }
 
+impl<A, B> Display for Either<A, B>
+where
+    A: Error,
+    B: Error,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Either::Left(v) => std::fmt::Display::fmt(&v, f),
+            Either::Right(v) => std::fmt::Display::fmt(&v, f),
+        }
+    }
+}
+
+impl<A, B> Error for Either<A, B>
+where
+    A: Error,
+    B: Error,
+{
+}
+
 pub struct EitherState<A, B, Rndr>
 where
-    A: Render<Rndr>,
-    B: Render<Rndr>,
+    A: Mountable<Rndr>,
+    B: Mountable<Rndr>,
     Rndr: Renderer,
 {
-    state: Either<A::State, B::State>,
+    state: Either<A, B>,
     marker: Rndr::Placeholder,
 }
 
@@ -26,7 +53,9 @@ where
     B: Render<Rndr>,
     Rndr: Renderer,
 {
-    type State = EitherState<A, B, Rndr>;
+    type State = EitherState<A::State, B::State, Rndr>;
+    type FallibleState = EitherState<A::FallibleState, B::FallibleState, Rndr>;
+    type Error = Either<A::Error, B::Error>;
 
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
@@ -42,7 +71,6 @@ where
         }
     }
 
-    // TODO hold onto old states to avoid rerendering them?
     fn rebuild(self, state: &mut Self::State) {
         let marker = state.marker.as_ref();
         match (self, &mut state.state) {
@@ -62,12 +90,23 @@ where
             }
         }
     }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
 }
 
 impl<A, B, Rndr> Mountable<Rndr> for EitherState<A, B, Rndr>
 where
-    A: Render<Rndr>,
-    B: Render<Rndr>,
+    A: Mountable<Rndr>,
+    B: Mountable<Rndr>,
     Rndr: Renderer,
 {
     fn unmount(&mut self) {
@@ -181,8 +220,26 @@ const fn min_usize(vals: &[usize]) -> usize {
 macro_rules! tuples {
     ($num:literal => $($ty:ident),*) => {
         paste::paste! {
+            #[derive(Debug)]
             pub enum [<EitherOf $num>]<$($ty,)*> {
                 $($ty ($ty),)*
+            }
+
+            impl<$($ty,)*> Display for [<EitherOf $num>]<$($ty,)*>
+            where
+                $($ty: Display,)*
+            {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        $([<EitherOf $num>]::$ty(this) => this.fmt(f),)*
+                    }
+                }
+            }
+
+            impl<$($ty,)*> Error for [<EitherOf $num>]<$($ty,)*>
+            where
+                $($ty: Error,)*
+            {
             }
 
             pub struct [<EitherOf $num State>]<$($ty,)* Rndr>
@@ -234,6 +291,8 @@ macro_rules! tuples {
                 Rndr: Renderer
             {
                 type State = [<EitherOf $num State>]<$($ty,)* Rndr>;
+                type FallibleState = [<EitherOf $num State>]<$($ty,)* Rndr>;
+                type Error = Box<dyn Error>;
 
                 fn build(self) -> Self::State {
                     let marker = Rndr::create_placeholder();
@@ -263,6 +322,17 @@ macro_rules! tuples {
 
                     // and store the new state
                     state.state = new_state;
+                }
+
+                fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+                    todo!()
+                }
+
+                fn try_rebuild(
+                    self,
+                    state: &mut Self::FallibleState,
+                    ) -> Result<(), Self::Error> {
+                    todo!()
                 }
             }
 

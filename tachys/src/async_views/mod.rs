@@ -4,7 +4,7 @@ use crate::{
     ssr::StreamBuilder,
     view::{
         either::{Either, EitherState},
-        Mountable, Position, PositionState, Render, RenderHtml,
+        Mountable, NeverError, Position, PositionState, Render, RenderHtml,
     },
 };
 use any_spawner::Executor;
@@ -63,7 +63,14 @@ where
     Fut::Output: Render<Rndr>,
     Rndr: Renderer + 'static,
 {
-    type State = Arc<RwLock<EitherState<Fal, Fut::Output, Rndr>>>;
+    type State = Arc<
+        RwLock<
+            EitherState<Fal::State, <Fut::Output as Render<Rndr>>::State, Rndr>,
+        >,
+    >;
+    // TODO fallible state/error
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         // poll the future once immediately
@@ -90,7 +97,8 @@ where
                 let state = Arc::clone(&state);
                 async move {
                     let value = fut.as_mut().await;
-                    Either::Right(value).rebuild(&mut *state.write());
+                    Either::<Fal, Fut::Output>::Right(value)
+                        .rebuild(&mut *state.write());
                 }
             });
         }
@@ -101,7 +109,8 @@ where
     fn rebuild(self, state: &mut Self::State) {
         if !TRANSITION {
             // fall back to fallback state
-            Either::Left(self.fallback).rebuild(&mut *state.write());
+            Either::<Fal, Fut::Output>::Left(self.fallback)
+                .rebuild(&mut *state.write());
         }
 
         // spawn the future, and rebuild the state when it resolves
@@ -109,9 +118,21 @@ where
             let state = Arc::clone(state);
             async move {
                 let value = self.fut.await;
-                Either::Right(value).rebuild(&mut *state.write());
+                Either::<Fal, Fut::Output>::Right(value)
+                    .rebuild(&mut *state.write());
             }
         });
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 
@@ -211,7 +232,8 @@ where
                 let state = Arc::clone(&state);
                 async move {
                     let value = fut.as_mut().await;
-                    Either::Right(value).rebuild(&mut *state.write());
+                    Either::<Fal, Fut::Output>::Right(value)
+                        .rebuild(&mut *state.write());
                 }
             });
         }
@@ -223,10 +245,8 @@ where
 impl<Rndr, Fal, Output> Mountable<Rndr>
     for Arc<RwLock<EitherState<Fal, Output, Rndr>>>
 where
-    Fal: Render<Rndr>,
-    Fal::State: Mountable<Rndr>,
-    Output: Render<Rndr>,
-    Output::State: Mountable<Rndr>,
+    Fal: Mountable<Rndr>,
+    Output: Mountable<Rndr>,
     Rndr: Renderer,
 {
     fn unmount(&mut self) {

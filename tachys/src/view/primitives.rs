@@ -1,10 +1,8 @@
-use super::{
-    InfallibleRender, Mountable, Position, PositionState, Render, RenderHtml,
-};
+use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
-    view::ToTemplate,
+    view::{NeverError, ToTemplate},
 };
 use std::{
     fmt::Write,
@@ -48,6 +46,8 @@ macro_rules! render_primitive {
 
 			impl<'a, R: Renderer> Render<R> for $child_type {
 				type State = [<$child_type:camel State>]<R>;
+                type FallibleState = Self::State;
+                type Error = NeverError;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -61,9 +61,15 @@ macro_rules! render_primitive {
 						*this = self;
 					}
 				}
-			}
 
-			impl<'a> InfallibleRender for $child_type {}
+                fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+                    Ok(self.build())
+                }
+
+                fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<(), Self::Error> {
+                    Ok(self.rebuild(state))
+                }
+			}
 
 			impl<'a, R> RenderHtml<R> for $child_type
 			where

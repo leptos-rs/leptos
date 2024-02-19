@@ -3,51 +3,6 @@ use leptos_dom::{Errors, HydrationCtx, IntoView};
 use leptos_macro::{component, view};
 use leptos_reactive::{provide_context, run_as_child, signal_prelude::*};
 
-/// When you render a `Result<_, _>` in your view, in the `Err` case it will
-/// render nothing, and search up through the view tree for an `<ErrorBoundary/>`.
-/// This component lets you define a fallback that should be rendered in that
-/// error case, allowing you to handle errors within a section of the interface.
-///
-/// ```
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*; use leptos::*;
-/// # let runtime = create_runtime();
-/// # if false {
-/// let (value, set_value) = create_signal(Ok(0));
-/// let on_input =
-///     move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
-///
-/// view! {
-///   <input type="text" on:input=on_input/>
-///   <ErrorBoundary
-///     fallback=move |_| view! { <p class="error">"Enter a valid number."</p>}
-///   >
-///     <p>"Value is: " {move || value.get()}</p>
-///   </ErrorBoundary>
-/// }
-/// # ;
-/// # }
-/// # runtime.dispose();
-/// ```
-///
-/// ## Interaction with `<Suspense/>`
-/// If you use this with a `<Suspense/>` or `<Transition/>` component, note that the
-/// `<ErrorBoundary/>` should go inside the `<Suspense/>`, not the other way around,
-/// if there’s a chance that the `<ErrorBoundary/>` will begin in the error state.
-/// This is a limitation of the current design of the two components and the way they
-/// hydrate. Placing the `<ErrorBoundary/>` outside the `<Suspense/>` means that
-/// it is rendered on the server without any knowledge of the suspended view, so it
-/// will always be rendered on the server as if there were no errors, but might need
-/// to be hydrated with errors, depending on the actual result.
-///
-/// ```rust,ignore
-/// view! {
-///   <Suspense fallback=move || view! { <p>"Loading..."</p> }>
-///     <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors=errors/>}>
-///       {move || {
-///   /* etc. */
-/// ```
 ///
 /// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::error::Error.
 /// `ErrorBoundary` requires your `Result<T,E>` to implement [IntoView](https://docs.rs/leptos/latest/leptos/trait.IntoView.html).
@@ -72,13 +27,13 @@ use leptos_reactive::{provide_context, run_as_child, signal_prelude::*};
 /// [thiserror](https://docs.rs/thiserror/latest/thiserror/)
 #[component]
 pub fn ErrorBoundary<F, IV>(
-    /// The components inside the tag which will get rendered
+    /// The elements that will be rendered, which may include one or more `Result<_>` types.
     children: Children,
     /// A fallback that will be shown if an error occurs.
     fallback: F,
 ) -> impl IntoView
 where
-    F: Fn(RwSignal<Errors>) -> IV + 'static,
+    F: Fn(Error) -> IV + 'static,
     IV: IntoView,
 {
     run_as_child(move || {

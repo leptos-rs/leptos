@@ -4,8 +4,7 @@ use crate::{
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
     view::{
-        FallibleRender, Mountable, Position, PositionState, Render, RenderHtml,
-        ToTemplate,
+        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
     },
 };
 use const_str_slice_concat::{
@@ -167,6 +166,8 @@ where
     Rndr: Renderer,
 {
     type State = ElementState<At::State, Ch::State, Rndr>;
+    type FallibleState = ElementState<At::State, Ch::FallibleState, Rndr>;
+    type Error = Ch::Error;
 
     fn rebuild(self, state: &mut Self::State) {
         let ElementState {
@@ -188,17 +189,6 @@ where
             rndr: PhantomData,
         }
     }
-}
-
-impl<E, At, Ch, Rndr> FallibleRender<Rndr> for HtmlElement<E, At, Ch, Rndr>
-where
-    E: CreateElement<Rndr>,
-    At: Attribute<Rndr>,
-    Ch: FallibleRender<Rndr>,
-    Rndr: Renderer,
-{
-    type Error = Ch::Error;
-    type FallibleState = ElementState<At::State, Ch::FallibleState, Rndr>;
 
     fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
         let el = Rndr::create_element(self.tag);
