@@ -896,7 +896,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   endpoint = "my_fn",
 ///   input = Cbor,
 ///   output = Json
-///   impl_into = true
+///   impl_from = true
 /// )]
 /// pub async fn my_wacky_server_fn(input: Vec<String>) -> Result<usize, ServerFnError> {
 ///   todo!()
