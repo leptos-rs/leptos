@@ -207,9 +207,7 @@ pub fn TodoMVC() -> impl IntoView {
     // this is the main point of effects: to synchronize reactive state
     // with something outside the reactive system (like localStorage)
 
-    // TODO: should be a stored value instead of leaked
-    std::mem::forget(Effect::new(move |_| {
-        leptos::tachys::log("saving todos to localStorage...");
+    Effect::new(move |_| {
         if let Ok(Some(storage)) = window().local_storage() {
             let json = serde_json::to_string(&todos)
                 .expect("couldn't serialize Todos");
@@ -217,16 +215,14 @@ pub fn TodoMVC() -> impl IntoView {
                 log::error!("error while trying to set item in localStorage");
             }
         }
-    }));
+    });
 
     // focus the main input on load
-    // TODO: should be a stored value instead of leaked
-    std::mem::forget(Effect::new(move |_| {
-        leptos::tachys::log("focusing...");
+    Effect::new(move |_| {
         if let Some(input) = input_ref.get() {
             let _ = input.focus();
         }
-    }));
+    });
 
     view! {
         <main>
