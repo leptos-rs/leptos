@@ -1,6 +1,20 @@
-use leptos::{html::Input, leptos_dom::helpers::location_hash, *};
+use leptos::{
+    leptos_dom::{
+        events,
+        helpers::{location_hash, window, window_event_listener},
+    },
+    prelude::*,
+    reactive_graph::{
+        effect::Effect,
+        owner::{provide_context, use_context},
+        signal::{RwSignal, WriteSignal},
+    },
+    tachys::{html::element::Input, reactive_graph::node_ref::NodeRef},
+    *,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use web_sys::KeyboardEvent;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Todos(pub Vec<Todo>);
@@ -107,11 +121,9 @@ impl Todo {
     ) -> Self {
         // RwSignal combines the getter and setter in one struct, rather than separating
         // the getter from the setter. This makes it more convenient in some cases, such
-        // as when we're putting the signals into a struct and passing it around. There's
-        // no real difference: you could use `create_signal` here, or use `create_rw_signal`
-        // everywhere.
-        let title = create_rw_signal(title);
-        let completed = create_rw_signal(completed);
+        // as when we're putting the signals into a struct and passing it around.
+        let title = RwSignal::new(title);
+        let completed = RwSignal::new(completed);
         Self {
             id,
             title,
@@ -132,7 +144,7 @@ const ENTER_KEY: u32 = 13;
 #[component]
 pub fn TodoMVC() -> impl IntoView {
     // The `todos` are a signal, since we need to reactively update the list
-    let (todos, set_todos) = create_signal(Todos::default());
+    let (todos, set_todos) = signal(Todos::default());
 
     // We provide a context that each <Todo/> component can use to update the list
     // Here, I'm just passing the `WriteSignal`; a <Todo/> doesn't need to read the whole list
@@ -142,16 +154,17 @@ pub fn TodoMVC() -> impl IntoView {
     provide_context(set_todos);
 
     // Handle the three filter modes: All, Active, and Completed
-    let (mode, set_mode) = create_signal(Mode::All);
-    window_event_listener(ev::hashchange, move |_| {
+    let (mode, set_mode) = signal(Mode::All);
+
+    window_event_listener(events::hashchange, move |_| {
         let new_mode =
             location_hash().map(|hash| route(&hash)).unwrap_or_default();
         set_mode.set(new_mode);
     });
 
     // Callback to add a todo on pressing the `Enter` key, if the field isn't empty
-    let input_ref = create_node_ref::<Input>();
-    let add_todo = move |ev: web_sys::KeyboardEvent| {
+    let input_ref = NodeRef::<Input>::new();
+    let add_todo = move |ev: KeyboardEvent| {
         let input = input_ref.get().unwrap();
         ev.stop_propagation();
         let key_code = ev.key_code();
@@ -191,9 +204,12 @@ pub fn TodoMVC() -> impl IntoView {
     // the effect reads the `todos` signal, and each `Todo`'s title and completed
     // status,  so it will automatically re-run on any change to the list of tasks
     //
-    // this is the main point of `create_effect`: to synchronize reactive state
+    // this is the main point of effects: to synchronize reactive state
     // with something outside the reactive system (like localStorage)
-    create_effect(move |_| {
+
+    // TODO: should be a stored value instead of leaked
+    std::mem::forget(Effect::new(move |_| {
+        leptos::tachys::log("saving todos to localStorage...");
         if let Ok(Some(storage)) = window().local_storage() {
             let json = serde_json::to_string(&todos)
                 .expect("couldn't serialize Todos");
@@ -201,14 +217,16 @@ pub fn TodoMVC() -> impl IntoView {
                 log::error!("error while trying to set item in localStorage");
             }
         }
-    });
+    }));
 
     // focus the main input on load
-    create_effect(move |_| {
+    // TODO: should be a stored value instead of leaked
+    std::mem::forget(Effect::new(move |_| {
+        leptos::tachys::log("focusing...");
         if let Some(input) = input_ref.get() {
             let _ = input.focus();
         }
-    });
+    }));
 
     view! {
         <main>
@@ -280,13 +298,14 @@ pub fn TodoMVC() -> impl IntoView {
 
 #[component]
 pub fn Todo(todo: Todo) -> impl IntoView {
-    let (editing, set_editing) = create_signal(false);
+    let (editing, set_editing) = signal(false);
     let set_todos = use_context::<WriteSignal<Todos>>().unwrap();
 
     // this will be filled by node_ref=input below
-    let todo_input = create_node_ref::<Input>();
+    let todo_input = NodeRef::<Input>::new();
 
     let save = move |value: &str| {
+        leptos::tachys::log("saving...");
         let value = value.trim();
         if value.is_empty() {
             set_todos.update(|t| t.remove(todo.id));
@@ -299,18 +318,18 @@ pub fn Todo(todo: Todo) -> impl IntoView {
     view! {
         <li
             class="todo"
-            class:editing={editing}
-            class:completed={todo.completed}
+            // TODO
+            //class:editing={editing}
+            //class:completed={move || todo.completed.get()}
         >
             <div class="view">
                 <input
                     node_ref=todo_input
                     class="toggle"
                     type="checkbox"
-                    prop:checked={todo.completed}
-                    on:input={move |ev| {
-                        let checked = event_target_checked(&ev);
-                        todo.completed.set(checked);
+                    prop:checked={move || todo.completed.get()}
+                    on:input:target={move |ev| {
+                        todo.completed.set(ev.target().checked());
                     }}
                 />
                 <label on:dblclick=move |_| {
@@ -328,12 +347,12 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                 <input
                     class="edit"
                     class:hidden={move || !editing.get()}
-                    prop:value=todo.title
-                    on:focusout=move |ev: web_sys::FocusEvent| save(&event_target_value(&ev))
-                    on:keyup={move |ev: web_sys::KeyboardEvent| {
+                    prop:value={move || todo.title.get()}
+                    on:focusout:target=move |ev| save(&ev.target().value())
+                    on:keyup:target={move |ev| {
                         let key_code = ev.key_code();
                         if key_code == ENTER_KEY {
-                            save(&event_target_value(&ev));
+                            save(&ev.target().value());
                         } else if key_code == ESCAPE_KEY {
                             set_editing.set(false);
                         }
