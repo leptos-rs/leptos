@@ -49,7 +49,6 @@ impl<T: Send + Sync + 'static> Eq for ReadSignal<T> {}
 
 impl<T: Send + Sync + 'static> Hash for ReadSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.defined_at.hash(state);
         self.inner.hash(state);
     }
 }
