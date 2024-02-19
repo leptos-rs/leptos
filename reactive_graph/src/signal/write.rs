@@ -1,15 +1,15 @@
 use super::ArcWriteSignal;
 use crate::{
-    owner::{Stored, StoredData},
+    owner::{StoredData, StoredValue},
     traits::{DefinedAt, IsDisposed, Trigger, UpdateUntracked},
 };
 use core::fmt::Debug;
-use std::panic::Location;
+use std::{hash::Hash, panic::Location};
 
 pub struct WriteSignal<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: Stored<ArcWriteSignal<T>>,
+    pub(crate) inner: StoredValue<ArcWriteSignal<T>>,
 }
 
 impl<T: Send + Sync + 'static> Copy for WriteSignal<T> {}
@@ -26,6 +26,20 @@ impl<T: Send + Sync + 'static> Debug for WriteSignal<T> {
             .field("type", &std::any::type_name::<T>())
             .field("store", &self.inner)
             .finish()
+    }
+}
+
+impl<T: Send + Sync + 'static> PartialEq for WriteSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T: Send + Sync + 'static> Eq for WriteSignal<T> {}
+
+impl<T: Send + Sync + 'static> Hash for WriteSignal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
     }
 }
 

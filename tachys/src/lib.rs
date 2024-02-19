@@ -10,7 +10,7 @@ pub mod prelude {
                 custom::CustomAttribute,
                 global::{
                     ClassAttribute, GlobalAttributes, OnAttribute,
-                    PropAttribute, StyleAttribute,
+                    OnTargetAttribute, PropAttribute, StyleAttribute,
                 },
             },
             element::{ElementChild, InnerHtmlAttribute},

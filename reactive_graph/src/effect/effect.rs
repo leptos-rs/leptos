@@ -78,6 +78,7 @@ where
                 }
             }
         });
+
         Self { value, inner }
     }
 }

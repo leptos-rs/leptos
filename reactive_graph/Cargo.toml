@@ -9,6 +9,7 @@ or_poisoned = { workspace = true }
 futures = "0.3"
 pin-project-lite = "0.2"
 rustc-hash = "1.1.0"
+serde = { version = "1", features = ["derive"], optional = true }
 slotmap = "1"
 thiserror = "1"
 tracing = { version = "0.1", optional = true }
@@ -20,6 +21,7 @@ any_spawner = { workspace = true, features = ["tokio"] }
 
 [features]
 nightly = []
+serde = ["dep:serde"]
 tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]

@@ -3,16 +3,25 @@ use crate::{
     renderer::{CastFrom, DomRenderer},
     view::{Position, ToTemplate},
 };
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{
+    borrow::Cow,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 use wasm_bindgen::convert::FromWasmAbi;
 
-pub struct TargetedEvent<E, T, R> {
+pub struct Targeted<E, T, R> {
     event: E,
     el_ty: PhantomData<T>,
     rndr: PhantomData<R>,
 }
 
-impl<E, T, R> TargetedEvent<E, T, R> {
+impl<E, T, R> Targeted<E, T, R> {
+    pub fn into_inner(self) -> E {
+        self.event
+    }
+
     pub fn target(&self) -> T
     where
         T: CastFrom<R::Element>,
@@ -25,9 +34,23 @@ impl<E, T, R> TargetedEvent<E, T, R> {
     }
 }
 
-impl<E, T, R> From<E> for TargetedEvent<E, T, R> {
+impl<E, T, R> Deref for Targeted<E, T, R> {
+    type Target = E;
+
+    fn deref(&self) -> &Self::Target {
+        &self.event
+    }
+}
+
+impl<E, T, R> DerefMut for Targeted<E, T, R> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.event
+    }
+}
+
+impl<E, T, R> From<E> for Targeted<E, T, R> {
     fn from(event: E) -> Self {
-        TargetedEvent {
+        Targeted {
             event,
             el_ty: PhantomData,
             rndr: PhantomData,
@@ -35,10 +58,7 @@ impl<E, T, R> From<E> for TargetedEvent<E, T, R> {
     }
 }
 
-pub fn on<E, T, R>(
-    event: E,
-    mut cb: impl FnMut(TargetedEvent<E::EventType, T, R>) + 'static,
-) -> On<R>
+pub fn on<E, R>(event: E, mut cb: impl FnMut(E::EventType) + 'static) -> On<R>
 where
     E: EventDescriptor + 'static,
     E::EventType: 'static,
@@ -50,8 +70,7 @@ where
         setup: Box::new(move |el| {
             let cb = Box::new(move |ev: R::Event| {
                 let ev = E::EventType::from(ev);
-                let targeted_event = TargetedEvent::<_, T, R>::from(ev);
-                cb(targeted_event);
+                cb(ev);
             }) as Box<dyn FnMut(R::Event)>;
 
             if E::BUBBLES && cfg!(feature = "delegation") {
@@ -67,6 +86,19 @@ where
         }),
         ty: PhantomData,
     }
+}
+
+pub fn on_target<E, T, R>(
+    event: E,
+    mut cb: impl FnMut(Targeted<E::EventType, T, R>) + 'static,
+) -> On<R>
+where
+    E: EventDescriptor + 'static,
+    E::EventType: 'static,
+    R: DomRenderer,
+    E::EventType: From<R::Event>,
+{
+    on(event, move |ev| cb(ev.into()))
 }
 
 pub struct On<R: DomRenderer> {
