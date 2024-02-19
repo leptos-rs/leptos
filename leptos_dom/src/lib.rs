@@ -13,7 +13,6 @@ use web_sys::HtmlElement;
 pub mod helpers;
 pub use tachys::html::event as events;
 
-
 /*#![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 // to prevent warnings from popping up when a nightly feature is stabilized

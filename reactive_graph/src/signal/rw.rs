@@ -5,12 +5,13 @@ use super::{
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    owner::{Stored, StoredData},
+    owner::{StoredData, StoredValue},
     traits::{DefinedAt, IsDisposed, ReadUntracked, Trigger, UpdateUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
 use std::{
+    hash::Hash,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -18,7 +19,7 @@ use std::{
 pub struct RwSignal<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: Stored<ArcRwSignal<T>>,
+    inner: StoredValue<ArcRwSignal<T>>,
 }
 
 impl<T: Send + Sync + 'static> RwSignal<T> {
@@ -30,7 +31,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(ArcRwSignal::new(value)),
+            inner: StoredValue::new(ArcRwSignal::new(value)),
         }
     }
 
@@ -39,7 +40,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(
+            inner: StoredValue::new(
                 self.get_value()
                     .map(|inner| inner.read_only())
                     .unwrap_or_else(unwrap_signal!(self)),
@@ -52,7 +53,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
         WriteSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(
+            inner: StoredValue::new(
                 self.get_value()
                     .map(|inner| inner.write_only())
                     .unwrap_or_else(unwrap_signal!(self)),
@@ -73,7 +74,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
                     Some(Self {
                         #[cfg(debug_assertions)]
                         defined_at: Location::caller(),
-                        inner: Stored::new(ArcRwSignal {
+                        inner: StoredValue::new(ArcRwSignal {
                             #[cfg(debug_assertions)]
                             defined_at: Location::caller(),
                             value: Arc::clone(&read.value),
@@ -103,6 +104,20 @@ impl<T: Send + Sync + 'static> Debug for RwSignal<T> {
             .field("type", &std::any::type_name::<T>())
             .field("store", &self.inner)
             .finish()
+    }
+}
+
+impl<T: Send + Sync + 'static> PartialEq for RwSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T: Send + Sync + 'static> Eq for RwSignal<T> {}
+
+impl<T: Send + Sync + 'static> Hash for RwSignal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
     }
 }
 
@@ -178,7 +193,7 @@ impl<T: Send + Sync + 'static> From<ArcRwSignal<T>> for RwSignal<T> {
         RwSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(value),
+            inner: StoredValue::new(value),
         }
     }
 }

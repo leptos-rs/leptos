@@ -18,9 +18,10 @@ leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
-tracing = "0.1"
-reactive_graph = { workspace = true }
+paste = "1"
+reactive_graph = { workspace = true, features = ["serde"] }
 tachys = { workspace = true, features = ["reactive_graph"] }
+tracing = "0.1"
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
 serde = { version = "1", optional = true }

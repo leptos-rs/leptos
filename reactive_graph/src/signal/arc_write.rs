@@ -6,6 +6,7 @@ use crate::{
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
+    hash::Hash,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -35,6 +36,20 @@ impl<T> Debug for ArcWriteSignal<T> {
             .field("type", &std::any::type_name::<T>())
             .field("value", &Arc::as_ptr(&self.value))
             .finish()
+    }
+}
+
+impl<T> PartialEq for ArcWriteSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.value, &other.value)
+    }
+}
+
+impl<T> Eq for ArcWriteSignal<T> {}
+
+impl<T> Hash for ArcWriteSignal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(&Arc::as_ptr(&self.value), state);
     }
 }
 
