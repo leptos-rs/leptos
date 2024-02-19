@@ -99,7 +99,7 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
                     // TODO: implement attribute/prop types for guards
                     move || *value()
                 }
-                on:input=move |ev| { value.set(ev.target().value().parse::<i32>().unwrap_or_default()) }
+                on:input:target=move |ev| { value.set(ev.target().value().parse::<i32>().unwrap_or_default()) }
             />
             <span>{value.clone()}</span>
             <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>

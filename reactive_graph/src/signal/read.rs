@@ -5,12 +5,13 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    owner::{Stored, StoredData},
+    owner::{StoredData, StoredValue},
     traits::{DefinedAt, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
 use std::{
+    hash::Hash,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -18,7 +19,7 @@ use std::{
 pub struct ReadSignal<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: Stored<ArcReadSignal<T>>,
+    pub(crate) inner: StoredValue<ArcReadSignal<T>>,
 }
 
 impl<T: Send + Sync + 'static> Copy for ReadSignal<T> {}
@@ -35,6 +36,21 @@ impl<T: Send + Sync + 'static> Debug for ReadSignal<T> {
             .field("type", &std::any::type_name::<T>())
             .field("store", &self.inner)
             .finish()
+    }
+}
+
+impl<T: Send + Sync + 'static> PartialEq for ReadSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T: Send + Sync + 'static> Eq for ReadSignal<T> {}
+
+impl<T: Send + Sync + 'static> Hash for ReadSignal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.defined_at.hash(state);
+        self.inner.hash(state);
     }
 }
 
@@ -93,7 +109,7 @@ impl<T: Send + Sync + 'static> From<ArcReadSignal<T>> for ReadSignal<T> {
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(value),
+            inner: StoredValue::new(value),
         }
     }
 }
