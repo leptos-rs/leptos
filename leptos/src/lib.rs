@@ -164,6 +164,7 @@ pub use reactive_graph::{
     self,
     signal::{arc_signal, create_signal, signal},
 };
+pub use server_fn::error;
 pub use show::*;
 #[doc(hidden)]
 pub use typed_builder;
