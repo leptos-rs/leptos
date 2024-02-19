@@ -5,8 +5,8 @@ use crate::{
     prelude::RenderHtml,
     renderer::{CastFrom, Renderer},
     view::{
-        strings::StrState, InfallibleRender, Mountable, Position,
-        PositionState, Render, ToTemplate,
+        strings::StrState, Mountable, NeverError, Position, PositionState,
+        Render, ToTemplate,
     },
 };
 use reactive_graph::signal::guards::ReadGuard;
@@ -56,6 +56,8 @@ macro_rules! render_primitive {
             where G: Deref<Target = $child_type>
             {
 				type State = [<ReadGuard $child_type:camel State>]<R>;
+                type FallibleState = Self::State;
+                type Error = NeverError;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -69,9 +71,15 @@ macro_rules! render_primitive {
 						*this = *self;
 					}
 				}
-			}
 
-			impl<'a, G> InfallibleRender for ReadGuard<$child_type, G> {}
+                fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+                    Ok(self.build())
+                }
+
+                fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<(), Self::Error> {
+                    Ok(self.rebuild(state))
+                }
+			}
 
 			impl<'a, G, R> RenderHtml<R> for ReadGuard<$child_type, G>
 			where
@@ -191,6 +199,8 @@ where
     G: Deref<Target = String>,
 {
     type State = ReadGuardStringState<R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -208,9 +218,18 @@ where
             str.push_str(&self);
         }
     }
-}
 
-impl<G> InfallibleRender for ReadGuard<String, G> {}
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        Ok(self.build())
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        Ok(self.rebuild(state))
+    }
+}
 
 impl<G, R> RenderHtml<R> for ReadGuard<String, G>
 where

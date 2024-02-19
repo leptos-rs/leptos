@@ -1,4 +1,6 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
+use super::{
+    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
+};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
@@ -198,6 +200,8 @@ where
     R: Renderer + 'static,
 {
     type State = AnyViewState<R>;
+    type FallibleState = Self::State;
+    type Error = NeverError;
 
     fn build(self) -> Self::State {
         (self.build)(self.value)
@@ -205,6 +209,17 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         (self.rebuild)(self.type_id, self.value, state)
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 
