@@ -15,7 +15,7 @@ leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
-leptos-spin-macro = { git = "https://github.com/fermyon/leptos-spin", optional = true}
+leptos-spin-macro = { version="0.1", optional = true}
 tracing = "0.1"
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
