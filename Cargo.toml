@@ -25,7 +25,7 @@ members = [
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.6.5"
+version = "0.6.6"
 
 [workspace.dependencies]
 leptos = { path = "./leptos", version = "0.6.5" }
