@@ -1,6 +1,10 @@
 use leptos::{
+    error::Result,
     prelude::*,
-    reactive_graph::{computed::AsyncDerived, signal::signal},
+    reactive_graph::{
+        computed::AsyncDerived,
+        signal::{signal, RwSignal},
+    },
     view, IntoView,
 };
 use serde::{Deserialize, Serialize};
@@ -19,28 +23,25 @@ pub enum CatError {
 
 type CatCount = usize;
 
-// TODO: leptos::Result
-async fn fetch_cats(count: CatCount) -> Option<Vec<String>> {
+async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
     if count > 0 {
         // make the request
         let res = reqwasm::http::Request::get(&format!(
             "https://api.thecatapi.com/v1/images/search?limit={count}",
         ))
         .send()
-        .await
-        .ok()?
+        .await?
         // convert it to JSON
         .json::<Vec<Cat>>()
-        .await
-        .ok()?
+        .await?
         // extract the URL field for each cat
         .into_iter()
         .take(count)
         .map(|cat| cat.url)
         .collect::<Vec<_>>();
-        Some(res)
+        Ok(res)
     } else {
-        None
+        Err(CatError::NonZeroCats)?
     }
 }
 
@@ -75,10 +76,12 @@ pub fn fetch_example() -> impl IntoView {
     let cats_view = move || {
         async move {
             cats.await
-                .into_iter()
-                .flatten()
-                .map(|s| view! { <p><img src={s}/></p> })
-                .collect::<Vec<_>>()
+                .map(|cats| {
+                    cats.into_iter()
+                        .map(|s| view! { <p><img src={s}/></p> })
+                        .collect::<Vec<_>>()
+                })
+                .catch(|err| view! { <p class="error">{err.to_string()}</p> })
         }
         .suspend()
         .transition()
@@ -93,7 +96,7 @@ pub fn fetch_example() -> impl IntoView {
                 <input
                     type="number"
                     prop:value=move || cat_count.get().to_string()
-                    on:input=move |ev| {
+                    on:input:target=move |ev| {
                         let val = ev.target().value().parse::<CatCount>().unwrap_or(0);
                         set_cat_count.set(val);
                     }
