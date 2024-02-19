@@ -1,15 +1,15 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::{Stored, StoredData},
+    owner::{StoredData, StoredValue},
     signal::guards::{Mapped, Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked, Track},
 };
-use std::{fmt::Debug, panic::Location};
+use std::{fmt::Debug, hash::Hash, panic::Location};
 
 pub struct Memo<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: Stored<ArcMemo<T>>,
+    inner: StoredValue<ArcMemo<T>>,
 }
 
 impl<T: Send + Sync + 'static> Memo<T> {
@@ -25,7 +25,7 @@ impl<T: Send + Sync + 'static> Memo<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(ArcMemo::new(fun)),
+            inner: StoredValue::new(ArcMemo::new(fun)),
         }
     }
 }
@@ -44,6 +44,20 @@ impl<T: Send + Sync + 'static> Debug for Memo<T> {
             .field("type", &std::any::type_name::<T>())
             .field("store", &self.inner)
             .finish()
+    }
+}
+
+impl<T: Send + Sync + 'static> PartialEq for Memo<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T: Send + Sync + 'static> Eq for Memo<T> {}
+
+impl<T: Send + Sync + 'static> Hash for Memo<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
     }
 }
 

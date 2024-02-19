@@ -1,4 +1,13 @@
-use leptos::*;
+use leptos::{
+    callback::{Callback, UnsyncCallback},
+    component,
+    prelude::*,
+    reactive_graph::{
+        owner::{provide_context, use_context},
+        signal::{signal, WriteSignal},
+    },
+    view, IntoView,
+};
 use web_sys::MouseEvent;
 
 // This highlights four different ways that child components can communicate
@@ -16,10 +25,10 @@ struct SmallcapsContext(WriteSignal<bool>);
 #[component]
 pub fn App() -> impl IntoView {
     // just some signals to toggle three classes on our <p>
-    let (red, set_red) = create_signal(false);
-    let (right, set_right) = create_signal(false);
-    let (italics, set_italics) = create_signal(false);
-    let (smallcaps, set_smallcaps) = create_signal(false);
+    let (red, set_red) = signal(false);
+    let (right, set_right) = signal(false);
+    let (italics, set_italics) = signal(false);
+    let (smallcaps, set_smallcaps) = signal(false);
 
     // the newtype pattern isn't *necessary* here but is a good practice
     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
@@ -27,7 +36,6 @@ pub fn App() -> impl IntoView {
     provide_context(SmallcapsContext(set_smallcaps));
 
     view! {
-
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
@@ -45,10 +53,11 @@ pub fn App() -> impl IntoView {
             // Button B: pass a closure
             <ButtonB on_click=move |_| set_right.update(|value| *value = !*value)/>
 
+            // TODO -- on:click on components
             // Button C: use a regular event listener
             // setting an event listener on a component like this applies it
             // to each of the top-level elements the component returns
-            <ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
+            //<ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
 
             // Button D gets its setter from context rather than props
             <ButtonD/>
@@ -74,15 +83,17 @@ pub fn ButtonA(
 
 /// Button B receives a closure
 #[component]
-pub fn ButtonB(
+pub fn ButtonB<F>(
     /// Callback that will be invoked when the button is clicked.
     #[prop(into)]
-    on_click: Callback<MouseEvent>,
-) -> impl IntoView {
+    mut on_click: F,
+) -> impl IntoView
+where
+    F: FnMut(MouseEvent) + 'static,
+{
     view! {
-
         <button
-            on:click=move|ev|on_click.call(ev)
+            on:click=on_click
         >
             "Toggle Right"
         </button>
@@ -94,7 +105,6 @@ pub fn ButtonB(
 #[component]
 pub fn ButtonC() -> impl IntoView {
     view! {
-
         <button>
             "Toggle Italics"
         </button>
@@ -108,7 +118,6 @@ pub fn ButtonD() -> impl IntoView {
     let setter = use_context::<SmallcapsContext>().unwrap().0;
 
     view! {
-
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >

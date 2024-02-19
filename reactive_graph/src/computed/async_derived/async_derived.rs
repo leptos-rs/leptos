@@ -6,7 +6,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{Stored, StoredData},
+    owner::{StoredData, StoredValue},
     signal::guards::{Mapped, Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
     unwrap_signal,
@@ -20,7 +20,7 @@ use std::{
 pub struct AsyncDerived<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: Stored<ArcAsyncDerived<T>>,
+    inner: StoredValue<ArcAsyncDerived<T>>,
 }
 
 impl<T: Send + Sync + 'static> StoredData for AsyncDerived<T> {
@@ -45,7 +45,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(ArcAsyncDerived::new(fun)),
+            inner: StoredValue::new(ArcAsyncDerived::new(fun)),
         }
     }
 
@@ -60,7 +60,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(ArcAsyncDerived::new_with_initial(
+            inner: StoredValue::new(ArcAsyncDerived::new_with_initial(
                 initial_value,
                 fun,
             )),
@@ -75,7 +75,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(ArcAsyncDerived::new_unsync(fun)),
+            inner: StoredValue::new(ArcAsyncDerived::new_unsync(fun)),
         }
     }
 
@@ -90,7 +90,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Stored::new(ArcAsyncDerived::new_unsync_with_initial(
+            inner: StoredValue::new(ArcAsyncDerived::new_unsync_with_initial(
                 initial_value,
                 fun,
             )),
