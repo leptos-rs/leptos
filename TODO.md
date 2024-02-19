@@ -10,12 +10,15 @@
     - [ ] hackernews
     - [ ] counter\_isomorphic
     - [ ] todo\_app\_sqlite
-- ErrorBoundary
 - ssr examples
 - reactivity 
     - Signal wrappers
     - SignalDispose implementations on all Copy types
     - untracked access warnings
+- ErrorBoundary
+    - [ ] RenderHtml implementation 
+    - [ ] Separate component?
+- Suspense/Transition components?
 - callbacks
     - unsync StoredValue
 - SSR
