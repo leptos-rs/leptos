@@ -1,17 +1,22 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
+use super::{
+    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
+};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
 };
 use itertools::Itertools;
+use std::error::Error;
 
 impl<T, R> Render<R> for Option<T>
 where
     T: Render<R>,
     R: Renderer,
 {
-    type State = OptionState<T, R>;
+    type State = OptionState<T::State, R>;
+    type FallibleState = OptionState<T::FallibleState, R>;
+    type Error = T::Error;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -40,6 +45,35 @@ where
                 state.state = Some(new_state);
             }
         }
+    }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        match self {
+            None => {
+                let placeholder = R::create_placeholder();
+                Ok(OptionState {
+                    placeholder,
+                    state: None,
+                })
+            }
+            Some(inner) => match inner.try_build() {
+                Err(e) => return Err(e),
+                Ok(inner) => {
+                    let placeholder = R::create_placeholder();
+                    Ok(OptionState {
+                        placeholder,
+                        state: Some(inner),
+                    })
+                }
+            },
+        }
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 
@@ -101,18 +135,18 @@ where
 /// View state for an optional view.
 pub struct OptionState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
 {
     /// Marks the location of this view.
     placeholder: R::Placeholder,
     /// The view state.
-    state: Option<T::State>,
+    state: Option<T>,
 }
 
 impl<T, R> Mountable<R> for OptionState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
 {
     fn unmount(&mut self) {
@@ -154,7 +188,9 @@ where
     R::Element: Clone,
     R::Node: Clone,
 {
-    type State = VecState<T, R>;
+    type State = VecState<T::State, R>;
+    type FallibleState = VecState<T::FallibleState, R>;
+    type Error = T::Error;
 
     fn build(self) -> Self::State {
         VecState {
@@ -211,21 +247,40 @@ where
             old.append(&mut adds);
         }
     }
+
+    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+        let states = self
+            .into_iter()
+            .map(T::try_build)
+            .collect::<Result<_, _>>()?;
+        Ok(VecState {
+            states,
+            parent: None,
+            marker: None,
+        })
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
 }
 
 pub struct VecState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
 {
-    states: Vec<T::State>,
+    states: Vec<T>,
     parent: Option<R::Element>,
     marker: Option<R::Node>,
 }
 
 impl<T, R> Mountable<R> for VecState<T, R>
 where
-    T: Render<R>,
+    T: Mountable<R>,
     R: Renderer,
     R::Element: Clone,
     R::Node: Clone,
