@@ -1,0 +1,24 @@
+[tasks.build]
+clear = true
+command = "deno"
+args = ["task", "build"]
+
+[tasks.start-client]
+command = "deno"
+args = ["task", "start"]
+
+[tasks.check]
+clear = true
+dependencies = ["check-debug", "check-release"]
+
+[tasks.check-debug]
+toolchain = "nightly-2024-01-29"
+command = "cargo"
+args = ["check-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.check-release]
+toolchain = "nightly-2024-01-29"
+command = "cargo"
+args = ["check-all-features", "--release"]
+install_crate = "cargo-all-features"

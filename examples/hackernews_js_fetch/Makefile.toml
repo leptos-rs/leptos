@@ -1,1 +1,8 @@
-extend = [{ path = "../cargo-make/main.toml" }]
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/deno-build.toml" },
+]
+
+[env]
+
+CLIENT_PROCESS_NAME = "deno"
