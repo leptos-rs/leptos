@@ -3,32 +3,36 @@
 [tasks.stop-client]
 condition = { env_set = ["CLIENT_PROCESS_NAME"] }
 script = '''
-  if [ ! -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
+  if pidof -q ${CLIENT_PROCESS_NAME}; then
+    echo "  Stopping ${CLIENT_PROCESS_NAME}"
     pkill -ef ${CLIENT_PROCESS_NAME}
+  else
+    echo "  ${CLIENT_PROCESS_NAME} is already stopped"
   fi
 '''
 
 [tasks.client-status]
 condition = { env_set = ["CLIENT_PROCESS_NAME"] }
 script = '''
-  if [ -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
-    echo "  ${CLIENT_PROCESS_NAME} is not running"
-  else
+  if pidof -q ${CLIENT_PROCESS_NAME}; then
     echo "  ${CLIENT_PROCESS_NAME} is up"
+  else
+    echo "  ${CLIENT_PROCESS_NAME} is not running"
   fi
 '''
 
 [tasks.maybe-start-client]
 condition = { env_set = ["CLIENT_PROCESS_NAME"] }
 script = '''
-  if [ -z $(pidof ${CLIENT_PROCESS_NAME}) ]; then
+  if pidof -q ${CLIENT_PROCESS_NAME}; then
+    echo "  ${CLIENT_PROCESS_NAME} is already started"
+  else
     echo "  Starting ${CLIENT_PROCESS_NAME}"
-    if [ -z ${SPAWN_CLIENT_PROCESS} ];then
+    if [ -n "${SPAWN_CLIENT_PROCESS}" ];then
+      echo "Spawning process..."
       cargo make start-client ${@} &
     else
       cargo make start-client ${@}
     fi
-  else
-    echo "  ${CLIENT_PROCESS_NAME} is already started"
   fi
 '''
