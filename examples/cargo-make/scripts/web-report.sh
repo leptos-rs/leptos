@@ -5,7 +5,7 @@ set -emu
 BOLD="\e[1m"
 ITALIC="\e[3m"
 YELLOW="\e[1;33m"
-RED="\e[1;36m"
+BLUE="\e[1;36m"
 RESET="\e[0m"
 
 function web { #task: only include examples with web cargo-make configuration
@@ -87,28 +87,34 @@ function print_crate_tags {
             *"cargo-make/cargo-leptos.toml"*)
                 crate_tags=$crate_tags"L"
                 ;;
+            *"cargo-make/deno-build.toml"*)
+                crate_tags=$crate_tags"D"
+                ;;
             esac
         done <"./Makefile.toml"
 
         # Sort tags
-        local sorted_crate_symbols
-        sorted_crate_symbols=$(echo "$crate_tags" | grep -o . | sort | tr -d "\n")
+        local keys
+        keys=$(echo "$crate_tags" | grep -o . | sort | tr -d "\n")
 
         # Find leptos projects that are not configured to build with cargo-leptos
-        sorted_crate_symbols=${sorted_crate_symbols//"LM"/"L"}
+        keys=${keys//"LM"/"L"}
+
+        # Find leptos projects that are not configured to build with deno
+        keys=${keys//"DM"/"D"}
 
         # Maybe print line
         local crate_line=$path
 
         if [ -n "$crate_tags" ]; then
             local color=$YELLOW
-            case $sorted_crate_symbols in
+            case $keys in
             *"M"*)
-                color=$RED
+                color=$BLUE
                 ;;
             esac
 
-            crate_line="$crate_line ➤ ${color}$sorted_crate_symbols${RESET}"
+            crate_line="$crate_line ➤ ${color}$keys${RESET}"
             echo -e "$crate_line"
         elif [ "$#" -gt 0 ]; then
             crate_line="${BOLD}$crate_line${RESET}"
@@ -129,16 +135,17 @@ function find_makefile_lines {
 
 function print_footer {
     c="${BOLD}${YELLOW}C${RESET} = Cucumber Test Runner"
-    d="${BOLD}${YELLOW}F${RESET} = Fantoccini WebDriver"
+    d="${BOLD}${YELLOW}D${RESET} = Deno"
+    f="${BOLD}${YELLOW}F${RESET} = Fantoccini WebDriver"
     l="${BOLD}${YELLOW}L${RESET} = Cargo Leptos"
-    m="${BOLD}${RED}M${RESET} = Cargo Leptos Metadata Only (${ITALIC}ci is not configured to build with cargo-leptos${RESET})"
+    m="${BOLD}${BLUE}M${RESET} = Cargo Leptos Metadata Only (${ITALIC}ci is not configured to build with cargo-leptos or deno${RESET})"
     n="${BOLD}${YELLOW}N${RESET} = Node"
     p="${BOLD}${YELLOW}P${RESET} = Playwright Test"
     t="${BOLD}${YELLOW}T${RESET} = Trunk"
     w="${BOLD}${YELLOW}W${RESET} = WASM Test"
 
     echo
-    echo -e "${ITALIC}Report Keys:${RESET}\n $c\n $d\n $l\n $m\n $n\n $p\n $t\n $w"
+    echo -e "${ITALIC}Report Keys:${RESET}\n $c\n $d\n $f\n $l\n $m\n $n\n $p\n $t\n $w"
     echo
 }
 
