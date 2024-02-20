@@ -2,7 +2,7 @@ use leptos::{component, create_signal, prelude::*, view, IntoView};
 
 #[component]
 pub fn App() -> impl IntoView {
-    let (value, set_value) = create_signal(Ok(0)); //"foo".parse::<i32>());
+    let (value, set_value) = create_signal(Ok(0));//"".parse::<i32>());
     let guard = value.read();
 
     view! {
