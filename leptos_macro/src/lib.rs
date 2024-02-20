@@ -883,6 +883,11 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///     - `"GetCbor"`: `GET` request with URL-encoded arguments and CBOR response
 /// - `req` and `res` specify the HTTP request and response types to be used on the server (these
 ///   should usually only be necessary if you are integrating with a server other than Actix/Axum)
+/// - `impl_from`: specifies whether to implement trait `From` for server function's type or not.
+///   By default, if a server function only has one argument, the macro automatically implements the `From` trait
+///   to convert from the argument type to the server function type, and vice versa, allowing you to convert
+///   between them easily. Setting `impl_from` to `false` disables this, which can be necessary for argument types
+///   for which this would create a conflicting implementation. (defaults to `true`)
 ///
 /// ```rust,ignore
 /// #[server(
@@ -891,6 +896,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   endpoint = "my_fn",
 ///   input = Cbor,
 ///   output = Json
+///   impl_from = true
 /// )]
 /// pub async fn my_wacky_server_fn(input: Vec<String>) -> Result<usize, ServerFnError> {
 ///   todo!()

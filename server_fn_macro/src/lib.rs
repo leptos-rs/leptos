@@ -119,6 +119,7 @@ pub fn server_macro_impl(
         res_ty,
         client,
         custom_wrapper,
+        impl_from,
     } = args;
     let prefix = prefix.unwrap_or_else(|| Literal::string(default_path));
     let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
@@ -206,8 +207,11 @@ pub fn server_macro_impl(
         FnArg::Receiver(_) => None,
         FnArg::Typed(t) => Some((&t.pat, &t.ty)),
     });
-    let from_impl =
-        (body.inputs.len() == 1 && first_field.is_some()).then(|| {
+    let impl_from = impl_from.map(|v| v.value).unwrap_or(true);
+    let from_impl = (body.inputs.len() == 1
+        && first_field.is_some()
+        && impl_from)
+        .then(|| {
             let field = first_field.unwrap();
             let (name, ty) = field;
             quote! {
@@ -676,6 +680,7 @@ struct ServerFnArgs {
     client: Option<Type>,
     custom_wrapper: Option<Path>,
     builtin_encoding: bool,
+    impl_from: Option<LitBool>,
 }
 
 impl Parse for ServerFnArgs {
@@ -693,6 +698,7 @@ impl Parse for ServerFnArgs {
         let mut res_ty: Option<Type> = None;
         let mut client: Option<Type> = None;
         let mut custom_wrapper: Option<Path> = None;
+        let mut impl_from: Option<LitBool> = None;
 
         let mut use_key_and_value = false;
         let mut arg_pos = 0;
@@ -800,6 +806,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         custom_wrapper = Some(stream.parse()?);
+                    } else if key == "impl_from" {
+                        if impl_from.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `impl_from`",
+                            ));
+                        }
+                        impl_from = Some(stream.parse()?);
                     } else {
                         return Err(lookahead.error());
                     }
@@ -895,6 +909,7 @@ impl Parse for ServerFnArgs {
             res_ty,
             client,
             custom_wrapper,
+            impl_from,
         })
     }
 }
