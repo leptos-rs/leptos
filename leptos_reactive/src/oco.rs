@@ -440,8 +440,9 @@ impl<'a> From<Oco<'a, str>> for Oco<'a, [u8]> {
     }
 }
 
-#[deprecated(
-    note="This error was intended for a `TryFrom` implementation for `Oco`. `Oco` will likely move to its own crate after 0.7 so this type will be removed in the future")]
+#[deprecated(note = "This error was intended for a `TryFrom` implementation \
+                     for `Oco`. `Oco` will likely move to its own crate \
+                     after 0.7 so this type will be removed in the future")]
 /// Error returned from `Oco::try_from` for unsuccessful
 /// conversion from `Oco<'_, [u8]>` to `Oco<'_, str>`.
 #[derive(Debug, Clone, thiserror::Error)]
