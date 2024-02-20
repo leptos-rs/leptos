@@ -107,6 +107,11 @@ jobs:
             fi
           done
 
+      - name: Install Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
       # Run Cargo Make Task
       - name: ${{ inputs.cargo_make_task }}
         run: |
