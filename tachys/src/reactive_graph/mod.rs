@@ -70,42 +70,41 @@ where
     }
 
     fn try_build(mut self) -> Result<Self::FallibleState, Self::Error> {
-        let initial = untrack(|| self().try_build())?;
         let parent = Observer::get();
-        let effect = RenderEffect::new_with_value(
-            {
-                move |prev| {
-                    let value = self();
-                    if let Some(mut state) = prev {
-                        match state {
-                            Ok(ref mut state) => {
-                                if let Err(e) = value.try_rebuild(state) {
-                                    if let Some(parent) = &parent {
-                                        crate::log(
-                                            "telling parent to check itself",
-                                        );
-                                        parent.mark_check();
-                                    }
-                                    return Err(Some(e));
+        let effect = RenderEffect::new({
+            move |prev| {
+                let value = self();
+                if let Some(mut state) = prev {
+                    match state {
+                        Ok(ref mut state) => {
+                            if let Err(e) = value.try_rebuild(state) {
+                                if let Some(parent) = &parent {
+                                    parent.mark_check();
                                 }
-                            }
-                            Err(e) => {
-                                //if let Some(parent) = parent {
-                                crate::log("need to tell parent to rerender");
-                                //}
-                                return Err(e);
+                                return Err(Some(e));
                             }
                         }
-                        state
-                    } else {
-                        unreachable!()
+                        Err(_) => {
+                            if let Some(parent) = &parent {
+                                parent.mark_check();
+                            }
+                            crate::log("HERE");
+                            return value.try_build().map_err(Some);
+                        }
                     }
+                    state
+                } else {
+                    value.try_build().map_err(Some)
                 }
-            },
-            Some(Ok(initial)),
-        );
-
-        Ok(effect.into())
+            }
+        });
+        effect
+            .with_value_mut(|inner| match inner {
+                Err(e) if e.is_some() => Err(e.take().unwrap()),
+                _ => Ok(()),
+            })
+            .expect("RenderEffect should run once synchronously")
+            .map(|_| effect.into())
     }
 
     #[track_caller]
