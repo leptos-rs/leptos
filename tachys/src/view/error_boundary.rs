@@ -141,35 +141,70 @@ where
     type Error = NeverError;
 
     fn build(mut self) -> Self::State {
-        let state = match self.child.try_build() {
-            Ok(inner) => Either::Left(inner),
-            Err(e) => Either::Right((self.fal)(e).build()),
+        let inner = match self.child.try_build() {
+            Ok(inner) => TryStateState::Success(Some(inner)),
+            Err(e) => TryStateState::InitialFail((self.fal)(e).build()),
         };
         let marker = Rndr::create_placeholder();
-        TryState { state, marker }
+        TryState { inner, marker }
     }
 
     fn rebuild(mut self, state: &mut Self::State) {
         let marker = state.marker.as_ref();
-        match &mut state.state {
-            Either::Left(ref mut old) => {
-                if let Err(e) = self.child.try_rebuild(old) {
-                    old.unmount();
+        let res = match &mut state.inner {
+            TryStateState::Success(old) => {
+                let old_unwrapped =
+                    old.as_mut().expect("children removed before expected");
+                crate::log("rebuilding successful version");
+                if let Err(e) = self.child.try_rebuild(old_unwrapped) {
+                    old_unwrapped.unmount();
+                    drop(old_unwrapped);
                     let mut new_state = (self.fal)(e).build();
                     Rndr::mount_before(&mut new_state, marker);
-                    state.state = Either::Right(new_state);
+                    Some(Err((old.take(), new_state)))
+                } else {
+                    None
                 }
             }
-            Either::Right(old) => match self.child.try_build() {
+            TryStateState::InitialFail(old) => match self.child.try_build() {
+                Err(e) => {
+                    (self.fal)(e).rebuild(old);
+                    None
+                }
                 Ok(mut new_state) => {
                     old.unmount();
                     Rndr::mount_before(&mut new_state, marker);
-                    state.state = Either::Left(new_state);
-                }
-                Err(e) => {
-                    (self.fal)(e).rebuild(old);
+                    Some(Ok(new_state))
                 }
             },
+            TryStateState::SubsequentFail {
+                ref mut children,
+                fallback,
+            } => match self.child.try_rebuild(
+                children.as_mut().expect("children removed before expected"),
+            ) {
+                Err(e) => {
+                    (self.fal)(e).rebuild(fallback);
+                    None
+                }
+                Ok(()) => {
+                    fallback.unmount();
+                    Rndr::mount_before(children, marker);
+                    Some(Ok(children
+                        .take()
+                        .expect("children removed before expected")))
+                }
+            },
+        };
+        match res {
+            Some(Ok(new_children)) => {
+                state.inner = TryStateState::Success(Some(new_children))
+            }
+            Some(Err((children, fallback))) => {
+                state.inner =
+                    TryStateState::SubsequentFail { children, fallback }
+            }
+            None => {}
         }
     }
 
@@ -230,8 +265,22 @@ where
     Fal: Render<Rndr>,
     Rndr: Renderer,
 {
-    state: Either<T::FallibleState, Fal::State>,
+    inner: TryStateState<T, Fal, Rndr>,
     marker: Rndr::Placeholder,
+}
+
+enum TryStateState<T, Fal, Rndr>
+where
+    T: Render<Rndr>,
+    Fal: Render<Rndr>,
+    Rndr: Renderer,
+{
+    Success(Option<T::FallibleState>),
+    InitialFail(Fal::State),
+    SubsequentFail {
+        children: Option<T::FallibleState>,
+        fallback: Fal::State,
+    },
 }
 
 impl<T, Fal, Rndr> Mountable<Rndr> for TryState<T, Fal, Rndr>
@@ -241,9 +290,15 @@ where
     Rndr: Renderer,
 {
     fn unmount(&mut self) {
-        match &mut self.state {
-            Either::Left(left) => left.unmount(),
-            Either::Right(right) => right.unmount(),
+        match &mut self.inner {
+            TryStateState::Success(m) => m
+                .as_mut()
+                .expect("children removed before expected")
+                .unmount(),
+            TryStateState::InitialFail(m) => m.unmount(),
+            TryStateState::SubsequentFail { fallback, .. } => {
+                fallback.unmount()
+            }
         }
         self.marker.unmount();
     }
@@ -254,12 +309,16 @@ where
         marker: Option<&<Rndr as Renderer>::Node>,
     ) {
         self.marker.mount(parent, marker);
-        match &mut self.state {
-            Either::Left(left) => {
-                left.mount(parent, Some(self.marker.as_ref()))
+        match &mut self.inner {
+            TryStateState::Success(m) => m
+                .as_mut()
+                .expect("children removed before expected")
+                .mount(parent, Some(self.marker.as_ref())),
+            TryStateState::InitialFail(m) => {
+                m.mount(parent, Some(self.marker.as_ref()))
             }
-            Either::Right(right) => {
-                right.mount(parent, Some(self.marker.as_ref()))
+            TryStateState::SubsequentFail { fallback, .. } => {
+                fallback.mount(parent, Some(self.marker.as_ref()))
             }
         }
     }
@@ -269,9 +328,17 @@ where
         parent: &<Rndr as Renderer>::Element,
         child: &mut dyn Mountable<Rndr>,
     ) -> bool {
-        match &self.state {
-            Either::Left(left) => left.insert_before_this(parent, child),
-            Either::Right(right) => right.insert_before_this(parent, child),
+        match &self.inner {
+            TryStateState::Success(m) => m
+                .as_ref()
+                .expect("children removed before expected")
+                .insert_before_this(parent, child),
+            TryStateState::InitialFail(m) => {
+                m.insert_before_this(parent, child)
+            }
+            TryStateState::SubsequentFail { fallback, .. } => {
+                fallback.insert_before_this(parent, child)
+            }
         }
     }
 }
