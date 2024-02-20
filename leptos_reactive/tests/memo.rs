@@ -212,3 +212,84 @@ fn dynamic_dependencies() {
 
     runtime.dispose();
 }
+
+#[test]
+fn owning_memo_slice() {
+    use std::rc::Rc;
+    let runtime = create_runtime();
+
+    // this could be serialized to and from localstorage with miniserde
+    pub struct State {
+        name: String,
+        token: String,
+    }
+
+    let state = create_rw_signal(State {
+        name: "Alice".to_owned(),
+        token: "is this a token????".to_owned(),
+    });
+
+    // We can allocate only when `state.name` changes
+    let name = create_owning_memo(move |old_name| {
+        state.with(move |state| {
+            if let Some(name) =
+                old_name.filter(|old_name| old_name == &state.name)
+            {
+                (name, false)
+            } else {
+                (state.name.clone(), true)
+            }
+        })
+    });
+    let set_name = move |name| state.update(|state| state.name = name);
+
+    // We can also re-use the last token allocation, which may be even better if the tokens are
+    // always of the same length
+    let token = create_owning_memo(move |old_token| {
+        state.with(move |state| {
+            let is_different = old_token.as_ref() != Some(&state.token);
+            let mut token = old_token.unwrap_or_else(String::new);
+
+            if is_different {
+                token.clone_from(&state.token);
+            }
+            (token, is_different)
+        })
+    });
+    let set_token =
+        move |new_token| state.update(|state| state.token = new_token);
+
+    let count_name_updates = Rc::new(std::cell::Cell::new(0));
+    assert_eq!(count_name_updates.get(), 0);
+    create_isomorphic_effect({
+        let count_name_updates = Rc::clone(&count_name_updates);
+        move |_| {
+            name.track();
+            count_name_updates.set(count_name_updates.get() + 1);
+        }
+    });
+    assert_eq!(count_name_updates.get(), 1);
+
+    let count_token_updates = Rc::new(std::cell::Cell::new(0));
+    assert_eq!(count_token_updates.get(), 0);
+    create_isomorphic_effect({
+        let count_token_updates = Rc::clone(&count_token_updates);
+        move |_| {
+            token.track();
+            count_token_updates.set(count_token_updates.get() + 1);
+        }
+    });
+    assert_eq!(count_token_updates.get(), 1);
+
+    set_name("Bob".to_owned());
+    name.with(|name| assert_eq!(name, "Bob"));
+    assert_eq!(count_name_updates.get(), 2);
+    assert_eq!(count_token_updates.get(), 1);
+
+    set_token("this is not a token!".to_owned());
+    token.with(|token| assert_eq!(token, "this is not a token!"));
+    assert_eq!(count_name_updates.get(), 2);
+    assert_eq!(count_token_updates.get(), 2);
+
+    runtime.dispose();
+}

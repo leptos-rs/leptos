@@ -86,7 +86,88 @@ pub fn create_memo<T>(f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + 'static,
 {
-    Runtime::current().create_memo(f)
+    Runtime::current().create_owning_memo(move |current_value| {
+        let new_value = f(current_value.as_ref());
+        let is_different = current_value.as_ref() != Some(&new_value);
+        (new_value, is_different)
+    })
+}
+
+/// Like [`create_memo`], `create_owning_memo` creates an efficient derived reactive value based on
+/// other reactive values, but with two differences:
+/// 1. The argument to the memo function is owned instead of borrowed.
+/// 2. The function must also return whether the value has changed, as the first element of the tuple.
+///
+/// All of the other caveats and guarantees are the same as the usual "borrowing" memos.
+///
+/// This type of memo is useful for memos which can avoid computation by re-using the last value,
+/// especially slices that need to allocate.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # fn really_expensive_computation(value: i32) -> i32 { value };
+/// # let runtime = create_runtime();
+/// pub struct State {
+///     name: String,
+///     token: String,
+/// }
+///
+/// let state = create_rw_signal(State {
+///     name: "Alice".to_owned(),
+///     token: "abcdef".to_owned(),
+/// });
+///
+/// // If we used `create_memo`, we'd need to allocate every time the state changes, but by using
+/// // `create_owning_memo` we can allocate only when `state.name` changes.
+/// let name = create_owning_memo(move |old_name| {
+///     state.with(move |state| {
+///         if let Some(name) =
+///             old_name.filter(|old_name| old_name == &state.name)
+///         {
+///             (name, false)
+///         } else {
+///             (state.name.clone(), true)
+///         }
+///     })
+/// });
+/// let set_name = move |name| state.update(|state| state.name = name);
+///
+/// // We can also re-use the last allocation even when the value changes, which is usually faster,
+/// // but may have some caveats (e.g. if the value size is drastically reduced, the memory will
+/// // still be used for the life of the memo).
+/// let token = create_owning_memo(move |old_token| {
+///     state.with(move |state| {
+///         let is_different = old_token.as_ref() != Some(&state.token);
+///         let mut token = old_token.unwrap_or_else(String::new);
+///
+///         if is_different {
+///             token.clone_from(&state.token);
+///         }
+///         (token, is_different)
+///     })
+/// });
+/// let set_token = move |new_token| state.update(|state| state.token = new_token);
+/// # runtime.dispose();
+/// ```
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
+#[inline(always)]
+pub fn create_owning_memo<T>(
+    f: impl Fn(Option<T>) -> (T, bool) + 'static,
+) -> Memo<T>
+where
+    T: PartialEq + 'static,
+{
+    Runtime::current().create_owning_memo(f)
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -215,6 +296,65 @@ impl<T> Memo<T> {
         T: PartialEq + 'static,
     {
         create_memo(f)
+    }
+
+    /// Creates a new owning memo from the given function.
+    ///
+    /// This is identical to [`create_owning_memo`].
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # fn really_expensive_computation(value: i32) -> i32 { value };
+    /// # let runtime = create_runtime();
+    /// pub struct State {
+    ///     name: String,
+    ///     token: String,
+    /// }
+    ///
+    /// let state = RwSignal::new(State {
+    ///     name: "Alice".to_owned(),
+    ///     token: "abcdef".to_owned(),
+    /// });
+    ///
+    /// // If we used `Memo::new`, we'd need to allocate every time the state changes, but by using
+    /// // `Memo::new_owning` we can allocate only when `state.name` changes.
+    /// let name = Memo::new_owning(move |old_name| {
+    ///     state.with(move |state| {
+    ///         if let Some(name) =
+    ///             old_name.filter(|old_name| old_name == &state.name)
+    ///         {
+    ///             (name, false)
+    ///         } else {
+    ///             (state.name.clone(), true)
+    ///         }
+    ///     })
+    /// });
+    /// let set_name = move |name| state.update(|state| state.name = name);
+    ///
+    /// // We can also re-use the last allocation even when the value changes, which is usually faster,
+    /// // but may have some caveats (e.g. if the value size is drastically reduced, the memory will
+    /// // still be used for the life of the memo).
+    /// let token = Memo::new_owning(move |old_token| {
+    ///     state.with(move |state| {
+    ///         let is_different = old_token.as_ref() != Some(&state.token);
+    ///         let mut token = old_token.unwrap_or_else(String::new);
+    ///
+    ///         if is_different {
+    ///             token.clone_from(&state.token);
+    ///         }
+    ///         (token, is_different)
+    ///     })
+    /// });
+    /// let set_token = move |new_token| state.update(|state| state.token = new_token);
+    /// # runtime.dispose();
+    /// ```
+    #[inline(always)]
+    #[track_caller]
+    pub fn new_owning(f: impl Fn(Option<T>) -> (T, bool) + 'static) -> Memo<T>
+    where
+        T: PartialEq + 'static,
+    {
+        create_owning_memo(f)
     }
 }
 
@@ -524,8 +664,8 @@ impl_get_fn_traits![Memo];
 
 pub(crate) struct MemoState<T, F>
 where
-    T: PartialEq + 'static,
-    F: Fn(Option<&T>) -> T,
+    T: 'static,
+    F: Fn(Option<T>) -> (T, bool),
 {
     pub f: F,
     pub t: PhantomData<T>,
@@ -535,8 +675,8 @@ where
 
 impl<T, F> AnyComputation for MemoState<T, F>
 where
-    T: PartialEq + 'static,
-    F: Fn(Option<&T>) -> T,
+    T: 'static,
+    F: Fn(Option<T>) -> (T, bool),
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -551,24 +691,16 @@ where
         )
     )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
-        let (new_value, is_different) = {
-            let value = value.borrow();
-            let curr_value = value
-                .downcast_ref::<Option<T>>()
-                .expect("to downcast memo value");
+        let mut value = value.borrow_mut();
+        let curr_value = value
+            .downcast_mut::<Option<T>>()
+            .expect("to downcast memo value");
 
-            // run the effect
-            let new_value = (self.f)(curr_value.as_ref());
-            let is_different = curr_value.as_ref() != Some(&new_value);
-            (new_value, is_different)
-        };
-        if is_different {
-            let mut value = value.borrow_mut();
-            let curr_value = value
-                .downcast_mut::<Option<T>>()
-                .expect("to downcast memo value");
-            *curr_value = Some(new_value);
-        }
+        // run the memo
+        let (new_value, is_different) = (self.f)(curr_value.take());
+
+        // set new value
+        *curr_value = Some(new_value);
 
         is_different
     }
