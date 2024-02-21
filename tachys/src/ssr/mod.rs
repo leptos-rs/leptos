@@ -89,8 +89,6 @@ impl StreamBuilder {
     ) where
         View: RenderHtml<Rndr>,
         Rndr: Renderer,
-        Rndr::Node: Clone,
-        Rndr::Element: Clone,
     {
         self.write_chunk_marker(true);
         fallback.to_html_with_buf(&mut self.sync_buf, position);
@@ -139,8 +137,6 @@ impl StreamBuilder {
     ) where
         View: RenderHtml<Rndr>,
         Rndr: Renderer,
-        Rndr::Node: Clone,
-        Rndr::Element: Clone,
     {
         let id = self.clone_id();
         // copy so it's not updated by additional iterations

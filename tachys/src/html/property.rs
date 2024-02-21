@@ -97,7 +97,6 @@ macro_rules! prop_type {
         impl<R> IntoProperty<R> for $prop_type
         where
             R: DomRenderer,
-            R::Element: Clone,
         {
             type State = (R::Element, JsValue);
 

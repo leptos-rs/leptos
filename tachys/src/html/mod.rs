@@ -48,8 +48,6 @@ impl<R: Renderer> Render<R> for Doctype<R> {
 impl<R> RenderHtml<R> for Doctype<R>
 where
     R: Renderer,
-    R::Element: Clone,
-    R::Node: Clone,
 {
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
 

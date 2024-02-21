@@ -68,7 +68,6 @@ impl<K, const V: &'static str, R> Attribute<R> for StaticAttr<K, V>
 where
     K: AttributeKey,
     R: Renderer,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = K::KEY.len() + 3 + V.len(); // K::KEY + ="..." + V
     type State = ();
@@ -139,8 +138,7 @@ where
 impl<const V: &'static str, R> RenderHtml<R> for Static<V>
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
+
     R::Text: Mountable<R>,
 {
     const MIN_LENGTH: usize = V.len();

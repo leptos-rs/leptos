@@ -97,8 +97,6 @@ impl<T, R> RenderHtml<R> for OwnedView<T, R>
 where
     T: RenderHtml<R>,
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
