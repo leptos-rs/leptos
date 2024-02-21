@@ -36,7 +36,7 @@ use std::rc::Rc;
 ///   <div>
 ///     <Suspense fallback=move || view! { <p>"Loading (Suspense Fallback)..."</p> }>
 ///       {move || {
-///           cats.read().map(|data| match data {
+///           cats.get().map(|data| match data {
 ///             None => view! {  <pre>"Error"</pre> }.into_view(),
 ///             Some(cats) => cats
 ///                 .iter()
