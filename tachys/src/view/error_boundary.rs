@@ -45,8 +45,6 @@ where
     T: RenderHtml<R>,
     R: Renderer,
     E: Error + 'static,
-    R::Element: Clone,
-    R::Node: Clone,
 {
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -221,8 +219,6 @@ where
     Fal: RenderHtml<Rndr>,
     FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
-    Rndr::Element: Clone,
-    Rndr::Node: Clone,
 {
     const MIN_LENGTH: usize = Fal::MIN_LENGTH;
 

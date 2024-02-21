@@ -9,8 +9,6 @@ where
     C: IntoClass<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
-    R::ClassList: 'static,
-    R::Element: Clone + 'static,
 {
     type State = RenderEffectState<C::State>;
 
@@ -79,8 +77,6 @@ where
     F: FnMut() -> T + 'static,
     T: Borrow<bool>,
     R: DomRenderer,
-    R::ClassList: Clone + 'static,
-    R::Element: Clone,
 {
     type State = RenderEffectState<(R::ClassList, bool)>;
 
@@ -171,7 +167,6 @@ impl<G, R> IntoClass<R> for ReadGuard<String, G>
 where
     G: Deref<Target = String>,
     R: DomRenderer,
-    R::Element: Clone,
 {
     type State = <String as IntoClass<R>>::State;
 
@@ -202,7 +197,6 @@ impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
 where
     G: Deref<Target = bool>,
     R: DomRenderer,
-    R::Element: Clone,
 {
     type State = <(&'static str, bool) as IntoClass<R>>::State;
 

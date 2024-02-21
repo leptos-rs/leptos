@@ -149,8 +149,6 @@ where
     A: RenderHtml<Rndr>,
     B: RenderHtml<Rndr>,
     Rndr: Renderer,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     const MIN_LENGTH: usize = min_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
 
@@ -339,8 +337,8 @@ macro_rules! tuples {
             where
                 $($ty: RenderHtml<Rndr>,)*
                 Rndr: Renderer,
-                Rndr::Node: Clone,
-                Rndr::Element: Clone,
+
+
             {
                 const MIN_LENGTH: usize = min_usize(&[$($ty ::MIN_LENGTH,)*]);
 

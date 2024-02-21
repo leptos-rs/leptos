@@ -45,8 +45,6 @@ impl<'a, R: Renderer> Render<R> for &'a str {
 impl<'a, R> RenderHtml<R> for &'a str
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -169,8 +167,6 @@ impl<R: Renderer> Render<R> for String {
 impl<R> RenderHtml<R> for String
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -265,8 +261,6 @@ impl<R: Renderer> Render<R> for Rc<str> {
 impl<R> RenderHtml<R> for Rc<str>
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -362,8 +356,6 @@ impl<R: Renderer> Render<R> for Arc<str> {
 impl<R> RenderHtml<R> for Arc<str>
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -459,8 +451,6 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
 impl<'a, R> RenderHtml<R> for Cow<'a, str>
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 

@@ -30,8 +30,6 @@ impl<R: Renderer> Render<R> for () {
 impl<R> RenderHtml<R> for ()
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -100,8 +98,6 @@ impl<A, R> RenderHtml<R> for (A,)
 where
     A: RenderHtml<R>,
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
@@ -199,8 +195,6 @@ macro_rules! impl_view_for_tuples {
 			$first: RenderHtml<Rndr>,
 			$($ty: RenderHtml<Rndr>),*,
 			Rndr: Renderer,
-			Rndr::Node: Clone,
-			Rndr::Element: Clone
 		{
 			const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 

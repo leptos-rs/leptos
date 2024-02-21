@@ -71,7 +71,6 @@ where
     V: Render<Rndr>,
     VF: Fn(T) -> V,
     Rndr: Renderer,
-    Rndr::Element: Clone,
 {
     type State = KeyedState<K, V, Rndr>;
     // TODO fallible state and try_build()/try_rebuild() here
@@ -151,8 +150,6 @@ where
     V: RenderHtml<Rndr>,
     VF: Fn(T) -> V,
     Rndr: Renderer,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -218,7 +215,6 @@ where
     K: Eq + Hash + 'static,
     V: Render<Rndr>,
     Rndr: Renderer,
-    Rndr::Element: Clone,
 {
     fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
         self.parent = Some(parent.clone());
