@@ -2,7 +2,7 @@ use leptos::{component, create_signal, prelude::*, view, IntoView};
 
 #[component]
 pub fn App() -> impl IntoView {
-    let (value, set_value) = create_signal(Ok(0));//"".parse::<i32>());
+    let (value, set_value) = create_signal(Ok(0)); //"".parse::<i32>());
     let guard = value.read();
 
     view! {
@@ -44,7 +44,8 @@ pub fn App() -> impl IntoView {
                             // and render nothing and trigger the error boundary
                             // if it is `Err`. It's a signal, so this will dynamically
                             // update when `value` changes
-                            <strong>{move || value.get()}</strong>
+                            {move || value.get()}
+                            //<strong>{move || value.get()}</strong>
                         </p>}
                         .catch(|e| view! {
                             <p class="error">{e.to_string()}</p>
