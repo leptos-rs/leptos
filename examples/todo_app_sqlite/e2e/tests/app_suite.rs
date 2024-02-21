@@ -12,5 +12,3 @@ async fn main() -> Result<()> {
         .await;
     Ok(())
 }
-
-// TODO: remove simulated change
