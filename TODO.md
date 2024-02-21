@@ -2,15 +2,17 @@
     - [x] counter
     - [x] counters
     - [x] fetch
-        - [ ] ErrorBoundary
     - [x] todomvc 
-    - [ ] parent\_child
+    - [x] error_boundary
+    - [x] parent\_child
+        - [ ] on: on components
     - [ ] router
     - [ ] slots 
     - [ ] hackernews
     - [ ] counter\_isomorphic
     - [ ] todo\_app\_sqlite
-- ssr examples
+- other ssr examples
+    - [ ] error boundary SSR
 - reactivity 
     - Signal wrappers
     - SignalDispose implementations on all Copy types
