@@ -201,7 +201,6 @@ where
 {
     type State = AnyViewState<R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         (self.build)(self.value)
@@ -211,14 +210,14 @@ where
         (self.rebuild)(self.type_id, self.value, state)
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         todo!()
     }
 }

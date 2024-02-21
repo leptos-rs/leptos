@@ -16,7 +16,6 @@ where
 {
     type State = OptionState<T::State, R>;
     type FallibleState = OptionState<T::FallibleState, R>;
-    type Error = T::Error;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -47,7 +46,7 @@ where
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         match self {
             None => {
                 let placeholder = R::create_placeholder();
@@ -72,7 +71,7 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         todo!()
     }
 }
@@ -190,7 +189,6 @@ where
 {
     type State = VecState<T::State, R>;
     type FallibleState = VecState<T::FallibleState, R>;
-    type Error = T::Error;
 
     fn build(self) -> Self::State {
         VecState {
@@ -248,7 +246,7 @@ where
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         let states = self
             .into_iter()
             .map(T::try_build)
@@ -263,7 +261,7 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         todo!()
     }
 }
