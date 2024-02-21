@@ -107,7 +107,6 @@ pub trait StylePropertyValue<R: DomRenderer> {
 impl<'a, R> IntoStyle<R> for &'a str
 where
     R: DomRenderer,
-    R::Element: Clone,
 {
     type State = (R::Element, &'a str);
 
@@ -137,7 +136,6 @@ where
 impl<R> IntoStyle<R> for String
 where
     R: DomRenderer,
-    R::Element: Clone,
 {
     type State = (R::Element, String);
 

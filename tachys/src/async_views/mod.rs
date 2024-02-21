@@ -142,8 +142,6 @@ where
     Fut: Future + Send + Sync + 'static,
     Fut::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     const MIN_LENGTH: usize = Fal::MIN_LENGTH;
 

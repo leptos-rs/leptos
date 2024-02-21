@@ -8,7 +8,6 @@ where
     F: FnMut() -> S + 'static,
     S: Into<Cow<'static, str>>,
     R: DomRenderer,
-    R::CssStyleDeclaration: Clone + 'static,
 {
     type State = RenderEffectState<(R::CssStyleDeclaration, Cow<'static, str>)>;
 
@@ -105,8 +104,6 @@ where
     C: IntoStyle<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
-    R::Element: Clone + 'static,
-    R::CssStyleDeclaration: Clone + 'static,
 {
     type State = RenderEffect<C::State>;
 

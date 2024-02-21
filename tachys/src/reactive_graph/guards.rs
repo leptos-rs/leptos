@@ -84,8 +84,8 @@ macro_rules! render_primitive {
 			impl<'a, G, R> RenderHtml<R> for ReadGuard<$child_type, G>
 			where
 				R: Renderer,
-				R::Node: Clone,
-				R::Element: Clone,
+
+
                 G: Deref<Target = $child_type>
 			{
 				const MIN_LENGTH: usize = 0;
@@ -233,8 +233,7 @@ where
 impl<G, R> RenderHtml<R> for ReadGuard<String, G>
 where
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
+
     G: Deref<Target = String>,
 {
     const MIN_LENGTH: usize = 0;

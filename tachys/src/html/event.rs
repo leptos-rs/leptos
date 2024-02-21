@@ -120,7 +120,6 @@ where
 impl<R> Attribute<R> for On<R>
 where
     R: DomRenderer,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
     // a function that can be called once to remove the event listener

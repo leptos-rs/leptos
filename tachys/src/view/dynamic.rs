@@ -50,8 +50,6 @@ where
     V: RenderHtml<R>,
     V::State: 'static,
     R: Renderer + 'static,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     fn to_html(self, buf: &mut String, position: &PositionState) {
         let value = self();
