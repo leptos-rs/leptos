@@ -80,8 +80,6 @@ impl<T, R> RenderHtml<R> for Option<T>
 where
     T: RenderHtml<R>,
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -184,8 +182,6 @@ impl<T, R> Render<R> for Vec<T>
 where
     T: Render<R>,
     R: Renderer,
-    R::Element: Clone,
-    R::Node: Clone,
 {
     type State = VecState<T::State, R>;
     type FallibleState = VecState<T::FallibleState, R>;
@@ -280,8 +276,6 @@ impl<T, R> Mountable<R> for VecState<T, R>
 where
     T: Mountable<R>,
     R: Renderer,
-    R::Element: Clone,
-    R::Node: Clone,
 {
     fn unmount(&mut self) {
         for state in self.states.iter_mut() {
@@ -320,8 +314,6 @@ impl<T, R> RenderHtml<R> for Vec<T>
 where
     T: RenderHtml<R>,
     R: Renderer,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -426,7 +418,7 @@ where
     I: Iterator<Item = V>,
     V: RenderHtml<R>,
     R: Renderer,
-    R::Node: Clone,
+
 {
     fn to_html(self, buf: &mut String, position: &PositionState) {
         for mut next in self.0.by_ref() {

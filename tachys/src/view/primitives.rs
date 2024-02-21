@@ -74,8 +74,8 @@ macro_rules! render_primitive {
 			impl<'a, R> RenderHtml<R> for $child_type
 			where
 				R: Renderer,
-				R::Node: Clone,
-				R::Element: Clone,
+
+
 			{
 				const MIN_LENGTH: usize = 0;
 
