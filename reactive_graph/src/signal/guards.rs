@@ -2,6 +2,7 @@ use crate::traits::Trigger;
 use core::fmt::Debug;
 use guardian::ArcRwLockReadGuardian;
 use std::{
+    borrow::Borrow,
     fmt::Display,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -31,6 +32,15 @@ where
 
     fn deref(&self) -> &Self::Target {
         self.inner.deref()
+    }
+}
+
+impl<T, Inner> Borrow<T> for ReadGuard<T, Inner>
+where
+    Inner: Deref<Target = T>,
+{
+    fn borrow(&self) -> &T {
+        self.deref()
     }
 }
 
