@@ -57,7 +57,7 @@ macro_rules! render_primitive {
             {
 				type State = [<ReadGuard $child_type:camel State>]<R>;
                 type FallibleState = Self::State;
-                type Error = NeverError;
+
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -72,11 +72,11 @@ macro_rules! render_primitive {
 					}
 				}
 
-                fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+                fn try_build(self) -> crate::error::Result<Self::FallibleState> {
                     Ok(self.build())
                 }
 
-                fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<(), Self::Error> {
+                fn try_rebuild(self, state: &mut Self::FallibleState) -> crate::error::Result<()> {
                     Ok(self.rebuild(state))
                 }
 			}
@@ -200,7 +200,6 @@ where
 {
     type State = ReadGuardStringState<R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -219,14 +218,14 @@ where
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }

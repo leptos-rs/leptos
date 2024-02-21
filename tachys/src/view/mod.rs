@@ -25,7 +25,6 @@ pub trait Render<R: Renderer>: Sized {
     /// and the previous string, to allow for diffing between updates.
     type State: Mountable<R>;
     type FallibleState: Mountable<R>;
-    type Error;
 
     /// Creates the view for the first time, without hydrating from existing HTML.
     fn build(self) -> Self::State;
@@ -33,12 +32,12 @@ pub trait Render<R: Renderer>: Sized {
     /// Updates the view with new data.
     fn rebuild(self, state: &mut Self::State);
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error>;
+    fn try_build(self) -> crate::error::Result<Self::FallibleState>;
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error>;
+    ) -> crate::error::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy)]
