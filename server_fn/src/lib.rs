@@ -472,7 +472,7 @@ pub mod axum {
 
     /// Explicitly register a server function. This is only necessary if you are
     /// running the server in a WASM environment (or a rare environment that the
-    /// `inventory`).
+    /// `inventory` crate won't work in.).
     pub fn register_explicit<T>()
     where
         T: ServerFn<
@@ -556,7 +556,7 @@ pub mod actix {
 
     /// Explicitly register a server function. This is only necessary if you are
     /// running the server in a WASM environment (or a rare environment that the
-    /// `inventory`).
+    /// `inventory` crate won't work in.).
     pub fn register_explicit<T>()
     where
         T: ServerFn<
