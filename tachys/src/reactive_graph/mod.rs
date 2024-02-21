@@ -88,7 +88,6 @@ where
                             if let Some(parent) = &parent {
                                 parent.mark_check();
                             }
-                            crate::log("HERE");
                             return value.try_build().map_err(Some);
                         }
                     }
@@ -132,6 +131,7 @@ where
         self,
         state: &mut Self::FallibleState,
     ) -> Result<(), Self::Error> {
+        crate::log("RenderEffect::try_rebuild");
         if let Some(inner) = &mut state.0 {
             inner
                 .with_value_mut(|value| match value {

@@ -155,10 +155,8 @@ where
             TryStateState::Success(old) => {
                 let old_unwrapped =
                     old.as_mut().expect("children removed before expected");
-                crate::log("rebuilding successful version");
                 if let Err(e) = self.child.try_rebuild(old_unwrapped) {
                     old_unwrapped.unmount();
-                    drop(old_unwrapped);
                     let mut new_state = (self.fal)(e).build();
                     Rndr::mount_before(&mut new_state, marker);
                     Some(Err((old.take(), new_state)))
@@ -177,24 +175,19 @@ where
                     Some(Ok(new_state))
                 }
             },
-            TryStateState::SubsequentFail {
-                ref mut children,
-                fallback,
-            } => match self.child.try_rebuild(
-                children.as_mut().expect("children removed before expected"),
-            ) {
-                Err(e) => {
-                    (self.fal)(e).rebuild(fallback);
-                    None
+            TryStateState::SubsequentFail { fallback, .. } => {
+                match self.child.try_build() {
+                    Err(e) => {
+                        (self.fal)(e).rebuild(fallback);
+                        None
+                    }
+                    Ok(mut new_children) => {
+                        fallback.unmount();
+                        Rndr::mount_before(&mut new_children, marker);
+                        Some(Ok(new_children))
+                    }
                 }
-                Ok(()) => {
-                    fallback.unmount();
-                    Rndr::mount_before(children, marker);
-                    Some(Ok(children
-                        .take()
-                        .expect("children removed before expected")))
-                }
-            },
+            }
         };
         match res {
             Some(Ok(new_children)) => {
