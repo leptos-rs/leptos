@@ -74,8 +74,6 @@ impl<Rndr, View> RenderHtml<Rndr> for Island<Rndr, View>
 where
     View: RenderHtml<Rndr>,
     Rndr: Renderer,
-    Rndr::Element: Clone,
-    Rndr::Node: Clone,
 {
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
@@ -175,8 +173,6 @@ impl<Rndr, View> RenderHtml<Rndr> for IslandChildren<Rndr, View>
 where
     View: RenderHtml<Rndr>,
     Rndr: Renderer,
-    Rndr::Element: Clone,
-    Rndr::Node: Clone,
 {
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()

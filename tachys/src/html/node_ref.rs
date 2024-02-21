@@ -42,7 +42,7 @@ where
     E: ElementType,
     C: NodeRefContainer<E, Rndr>,
     Rndr: Renderer,
-    Rndr::Element: Clone + PartialEq,
+    Rndr::Element: PartialEq,
 {
     const MIN_LENGTH: usize = 0;
     type State = ();

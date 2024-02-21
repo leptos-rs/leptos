@@ -24,8 +24,6 @@ where
     K: Eq + Hash + 'static,
     T: 'static,
     Rndr: Renderer + 'static,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     move || keyed(each(), key.clone(), children.clone())
 }

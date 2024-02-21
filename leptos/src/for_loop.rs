@@ -26,8 +26,6 @@ where
     K: Eq + Hash + 'static,
     T: 'static,
     Rndr: Renderer + 'static,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     // this takes the owner of the For itself
     // this will end up with N + 1 children
@@ -65,8 +63,6 @@ where
     K: Eq + Hash + 'static,
     T: 'static,
     Rndr: Renderer + 'static,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     move || keyed(each(), key.clone(), children.clone())
 }

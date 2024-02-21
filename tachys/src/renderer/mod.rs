@@ -12,17 +12,26 @@ pub mod mock_dom;
 /// the library to render any tree-based UI.
 pub trait Renderer: Sized {
     /// The basic type of node in the view tree.
-    type Node: Mountable<Self>;
+    type Node: Mountable<Self> + Clone + 'static;
     /// A visible element in the view tree.
-    type Element: AsRef<Self::Node> + CastFrom<Self::Node> + Mountable<Self>;
+    type Element: AsRef<Self::Node>
+        + CastFrom<Self::Node>
+        + Mountable<Self>
+        + Clone
+        + 'static;
     /// A text node in the view tree.
-    type Text: AsRef<Self::Node> + CastFrom<Self::Node> + Mountable<Self>;
+    type Text: AsRef<Self::Node>
+        + CastFrom<Self::Node>
+        + Mountable<Self>
+        + Clone
+        + 'static;
     /// A placeholder node, which can be inserted into the tree but does not
     /// appear (e.g., a comment node in the DOM).
     type Placeholder: AsRef<Self::Node>
         + CastFrom<Self::Node>
         + Mountable<Self>
-        + Clone;
+        + Clone
+        + 'static;
 
     /// Creates a new element node.
     fn create_element<E: CreateElement<Self>>(tag: E) -> Self::Element {
@@ -96,9 +105,9 @@ pub trait DomRenderer: Renderer {
     /// Generic event type, from which any specific event can be converted.
     type Event;
     /// The list of CSS classes for an element.
-    type ClassList;
+    type ClassList: Clone + 'static;
     /// The CSS styles for an element.
-    type CssStyleDeclaration;
+    type CssStyleDeclaration: Clone + 'static;
 
     /// Sets a JavaScript object property on a DOM element.
     fn set_property(el: &Self::Element, key: &str, value: &JsValue);

@@ -32,7 +32,6 @@ impl<T, R> Attribute<R> for InnerHtml<T, R>
 where
     T: AsRef<str> + PartialEq,
     R: DomRenderer,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 

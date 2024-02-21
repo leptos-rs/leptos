@@ -221,8 +221,6 @@ where
     At: Attribute<Rndr>,
     Ch: RenderHtml<Rndr>,
     Rndr: Renderer,
-    Rndr::Node: Clone,
-    Rndr::Element: Clone,
 {
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />

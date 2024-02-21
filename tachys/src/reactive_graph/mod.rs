@@ -227,8 +227,6 @@ where
     V::State: 'static,
     V::FallibleState: 'static,
     R: Renderer + 'static,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize = 0;
 
@@ -349,7 +347,6 @@ where
     V: AttributeValue<R>,
     V::State: 'static,
     R: Renderer,
-    R::Element: Clone + 'static,
 {
     type State = RenderEffectState<V::State>;
 
@@ -453,7 +450,6 @@ where
     V: IntoProperty<R>,
     V::State: 'static,
     R: DomRenderer,
-    R::Element: Clone + 'static,
 {
     type State = RenderEffectState<V::State>;
 
