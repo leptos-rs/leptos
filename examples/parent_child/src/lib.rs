@@ -85,8 +85,7 @@ pub fn ButtonA(
 #[component]
 pub fn ButtonB<F>(
     /// Callback that will be invoked when the button is clicked.
-    #[prop(into)]
-    mut on_click: F,
+    on_click: F,
 ) -> impl IntoView
 where
     F: FnMut(MouseEvent) + 'static,
