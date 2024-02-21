@@ -95,8 +95,6 @@ where
     T: RenderHtml<R> + 'static,
     T::State: 'static,
     R: Renderer + 'static,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     // inlining allows the compiler to remove the unused functions
     // i.e., doesn't ship HTML-generating code that isn't used
@@ -225,8 +223,6 @@ where
 impl<R> RenderHtml<R> for AnyView<R>
 where
     R: Renderer + 'static,
-    R::Element: Clone,
-    R::Node: Clone,
 {
     const MIN_LENGTH: usize = 0;
 

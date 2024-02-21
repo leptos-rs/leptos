@@ -13,7 +13,7 @@ impl<R: Renderer> Clone for Cursor<R> {
 impl<R> Cursor<R>
 where
     R: Renderer,
-    R::Node: Clone,
+
     R::Element: AsRef<R::Node>,
 {
     pub fn new(root: R::Element) -> Self {
