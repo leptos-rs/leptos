@@ -115,7 +115,6 @@ where
 {
     type State = Option<R::Text>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         // a view state has to be returned so it can be mounted
@@ -125,14 +124,14 @@ where
     // This type is specified as static, so no rebuilding is done.
     fn rebuild(self, _state: &mut Self::State) {}
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(Render::<R>::build(self))
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(Render::<R>::rebuild(self, state))
     }
 }
