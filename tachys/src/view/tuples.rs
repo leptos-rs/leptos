@@ -1,30 +1,28 @@
 use super::{
-    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
-    Renderer, ToTemplate,
+    Mountable, Position, PositionState, Render, RenderHtml, Renderer,
+    ToTemplate,
 };
-use crate::{error::AnyError, hydration::Cursor, view::StreamBuilder};
+use crate::{hydration::Cursor, view::StreamBuilder};
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
 };
-use std::error::Error;
 
 impl<R: Renderer> Render<R> for () {
     type State = ();
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(())
     }
 }
@@ -77,7 +75,6 @@ impl ToTemplate for () {
 impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
     type State = A::State;
     type FallibleState = A::FallibleState;
-    type Error = A::Error;
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -87,14 +84,14 @@ impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
         self.0.rebuild(state)
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         self.0.try_build()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         self.0.try_rebuild(state)
     }
 }
@@ -153,12 +150,10 @@ macro_rules! impl_view_for_tuples {
 		where
 			$first: Render<Rndr>,
 			$($ty: Render<Rndr>),*,
-			$first::Error: Error + Sized + 'static,
-			$($ty::Error: Error + Sized + 'static),*,
 			Rndr: Renderer
 		{
 			type State = ($first::State, $($ty::State,)*);
-			type Error = AnyError;
+
 			type FallibleState = ($first::FallibleState, $($ty::FallibleState,)*);
 
 			fn build(self) -> Self::State {
@@ -178,22 +173,22 @@ macro_rules! impl_view_for_tuples {
 				}
 			}
 
-			fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+			fn try_build(self) -> crate::error::Result<Self::FallibleState> {
 				paste::paste! {
 					let ($first, $($ty,)*) = self;
 					Ok((
-						$first.try_build().map_err(AnyError::new)?,
-						$($ty.try_build().map_err(AnyError::new)?),*
+						$first.try_build()?,
+						$($ty.try_build()?),*
 					))
 				}
 			}
 
-			fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<(), Self::Error> {
+			fn try_rebuild(self, state: &mut Self::FallibleState) -> crate::error::Result<()> {
 				paste::paste! {
 					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
 					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
-					[<$first:lower>].try_rebuild([<view_ $first:lower>]).map_err(AnyError::new)?;
-					$([<$ty:lower>].try_rebuild([<view_ $ty:lower>]).map_err(AnyError::new)?);*
+					[<$first:lower>].try_rebuild([<view_ $first:lower>])?;
+					$([<$ty:lower>].try_rebuild([<view_ $ty:lower>])?);*
 				}
 				Ok(())
 			}
@@ -203,8 +198,6 @@ macro_rules! impl_view_for_tuples {
 		where
 			$first: RenderHtml<Rndr>,
 			$($ty: RenderHtml<Rndr>),*,
-			$first::Error: Error + Sized + 'static,
-			$($ty::Error: Error + Sized + 'static),*,
 			Rndr: Renderer,
 			Rndr::Node: Clone,
 			Rndr::Element: Clone

@@ -55,7 +55,6 @@ where
 {
     type State = EitherState<A::State, B::State, Rndr>;
     type FallibleState = EitherState<A::FallibleState, B::FallibleState, Rndr>;
-    type Error = Either<A::Error, B::Error>;
 
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
@@ -91,14 +90,14 @@ where
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         todo!()
     }
 }
@@ -292,7 +291,7 @@ macro_rules! tuples {
             {
                 type State = [<EitherOf $num State>]<$($ty,)* Rndr>;
                 type FallibleState = [<EitherOf $num State>]<$($ty,)* Rndr>;
-                type Error = Box<dyn Error>;
+
 
                 fn build(self) -> Self::State {
                     let marker = Rndr::create_placeholder();
@@ -324,14 +323,14 @@ macro_rules! tuples {
                     state.state = new_state;
                 }
 
-                fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+                fn try_build(self) -> crate::error::Result<Self::FallibleState> {
                     todo!()
                 }
 
                 fn try_rebuild(
                     self,
                     state: &mut Self::FallibleState,
-                    ) -> Result<(), Self::Error> {
+                    ) -> crate::error::Result<()> {
                     todo!()
                 }
             }

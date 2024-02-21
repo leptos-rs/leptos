@@ -16,7 +16,6 @@ pub struct StrState<'a, R: Renderer> {
 impl<'a, R: Renderer> Render<R> for &'a str {
     type State = StrState<'a, R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(self);
@@ -31,14 +30,14 @@ impl<'a, R: Renderer> Render<R> for &'a str {
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }
@@ -141,7 +140,6 @@ pub struct StringState<R: Renderer> {
 impl<R: Renderer> Render<R> for String {
     type State = StringState<R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -156,14 +154,14 @@ impl<R: Renderer> Render<R> for String {
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }
@@ -238,7 +236,6 @@ pub struct RcStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Rc<str> {
     type State = RcStrState<R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -253,14 +250,14 @@ impl<R: Renderer> Render<R> for Rc<str> {
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }
@@ -336,7 +333,6 @@ pub struct ArcStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Arc<str> {
     type State = ArcStrState<R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -351,14 +347,14 @@ impl<R: Renderer> Render<R> for Arc<str> {
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }
@@ -434,7 +430,6 @@ pub struct CowStrState<'a, R: Renderer> {
 impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
     type State = CowStrState<'a, R>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -449,14 +444,14 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }

@@ -76,7 +76,6 @@ where
     type State = KeyedState<K, V, Rndr>;
     // TODO fallible state and try_build()/try_rebuild() here
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {
         let items = self.items.into_iter();
@@ -131,14 +130,14 @@ where
         *hashed_items = new_hashed_items;
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         todo!()
     }
 }

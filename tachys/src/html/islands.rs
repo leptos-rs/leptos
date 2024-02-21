@@ -49,7 +49,6 @@ where
 {
     type State = View::State;
     type FallibleState = View::FallibleState;
-    type Error = View::Error;
 
     fn build(self) -> Self::State {
         self.view.build()
@@ -59,14 +58,14 @@ where
         self.view.rebuild(state);
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         self.view.try_build()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         self.view.try_rebuild(state)
     }
 }
@@ -155,20 +154,19 @@ where
 {
     type State = ();
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, state: &mut Self::State) {}
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(())
     }
 }

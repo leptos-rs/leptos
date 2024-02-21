@@ -25,7 +25,6 @@ where
 impl<T: Render<Dom>> Render<Dom> for View<T> {
     type State = T::State;
     type FallibleState = T::FallibleState;
-    type Error = T::Error;
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -35,14 +34,14 @@ impl<T: Render<Dom>> Render<Dom> for View<T> {
         self.0.rebuild(state)
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
         self.0.try_build()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> tachys::error::Result<()> {
         self.0.try_rebuild(state)
     }
 }

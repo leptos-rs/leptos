@@ -28,20 +28,19 @@ pub fn doctype<R: Renderer>(value: &'static str) -> Doctype<R> {
 impl<R: Renderer> Render<R> for Doctype<R> {
     type State = ();
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(())
     }
 }
