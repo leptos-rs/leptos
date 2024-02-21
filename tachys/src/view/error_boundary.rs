@@ -1,19 +1,20 @@
 use super::{either::Either, NeverError, Position, PositionState, RenderHtml};
 use crate::{
+    error::AnyError,
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{Mountable, Render, Renderer},
 };
-use std::marker::PhantomData;
+use std::{error::Error, marker::PhantomData};
 
 impl<R, T, E> Render<R> for Result<T, E>
 where
     T: Render<R>,
     R: Renderer,
+    E: Error + 'static,
 {
     type State = <Option<T> as Render<R>>::State;
     type FallibleState = T::State;
-    type Error = E;
 
     fn build(self) -> Self::State {
         self.ok().build()
@@ -23,8 +24,8 @@ where
         self.ok().rebuild(state);
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
-        let inner = self?;
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+        let inner = self.map_err(AnyError::new)?;
         let state = inner.build();
         Ok(state)
     }
@@ -32,8 +33,8 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
-        let inner = self?;
+    ) -> crate::error::Result<()> {
+        let inner = self.map_err(AnyError::new)?;
         inner.rebuild(state);
         Ok(())
     }
@@ -43,6 +44,7 @@ impl<R, T, E> RenderHtml<R> for Result<T, E>
 where
     T: RenderHtml<R>,
     R: Renderer,
+    E: Error + 'static,
     R::Element: Clone,
     R::Node: Clone,
 {
@@ -83,7 +85,7 @@ pub trait TryCatchBoundary<Fal, FalFn, Rndr>
 where
     Self: Sized + Render<Rndr>,
     Fal: Render<Rndr>,
-    FalFn: FnMut(Self::Error) -> Fal,
+    FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
 {
     fn catch(self, fallback: FalFn) -> Try<Self, Fal, FalFn, Rndr>;
@@ -93,7 +95,7 @@ impl<T, Fal, FalFn, Rndr> TryCatchBoundary<Fal, FalFn, Rndr> for T
 where
     T: Sized + Render<Rndr>,
     Fal: Render<Rndr>,
-    FalFn: FnMut(Self::Error) -> Fal,
+    FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
 {
     fn catch(self, fallback: FalFn) -> Try<Self, Fal, FalFn, Rndr> {
@@ -105,7 +107,7 @@ pub struct Try<T, Fal, FalFn, Rndr>
 where
     T: Render<Rndr>,
     Fal: Render<Rndr>,
-    FalFn: FnMut(T::Error) -> Fal,
+    FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
 {
     child: T,
@@ -117,7 +119,7 @@ impl<T, Fal, FalFn, Rndr> Try<T, Fal, FalFn, Rndr>
 where
     T: Render<Rndr>,
     Fal: Render<Rndr>,
-    FalFn: FnMut(T::Error) -> Fal,
+    FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
 {
     pub fn new(fallback: FalFn, child: T) -> Self {
@@ -133,12 +135,11 @@ impl<T, Fal, FalFn, Rndr> Render<Rndr> for Try<T, Fal, FalFn, Rndr>
 where
     T: Render<Rndr>,
     Fal: Render<Rndr>,
-    FalFn: FnMut(T::Error) -> Fal,
+    FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
 {
     type State = TryState<T, Fal, Rndr>;
     type FallibleState = Self::State;
-    type Error = NeverError;
 
     fn build(mut self) -> Self::State {
         let inner = match self.child.try_build() {
@@ -201,14 +202,14 @@ where
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         Ok(self.rebuild(state))
     }
 }
@@ -218,7 +219,7 @@ impl<T, Fal, FalFn, Rndr> RenderHtml<Rndr> for Try<T, Fal, FalFn, Rndr>
 where
     T: Render<Rndr>,
     Fal: RenderHtml<Rndr>,
-    FalFn: FnMut(T::Error) -> Fal,
+    FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
     Rndr::Element: Clone,
     Rndr::Node: Clone,
