@@ -167,7 +167,6 @@ where
 {
     type State = ElementState<At::State, Ch::State, Rndr>;
     type FallibleState = ElementState<At::State, Ch::FallibleState, Rndr>;
-    type Error = Ch::Error;
 
     fn rebuild(self, state: &mut Self::State) {
         let ElementState {
@@ -190,7 +189,7 @@ where
         }
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         let el = Rndr::create_element(self.tag);
         let attrs = self.attributes.build(&el);
         let mut children = self.children.try_build()?;
@@ -206,7 +205,7 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         let ElementState {
             attrs, children, ..
         } = state;

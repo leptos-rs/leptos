@@ -69,7 +69,6 @@ where
 {
     type State = OwnedViewState<T::State, R>;
     type FallibleState = OwnedViewState<T::FallibleState, R>;
-    type Error = T::Error;
 
     fn build(self) -> Self::State {
         let state = self.owner.with(|| self.view.build());
@@ -82,14 +81,14 @@ where
         state.owner = owner;
     }
 
-    fn try_build(self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         todo!()
     }
 }

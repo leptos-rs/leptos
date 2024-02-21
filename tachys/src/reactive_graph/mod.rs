@@ -1,5 +1,6 @@
 use crate::{
     async_views::Suspend,
+    error::AnyError,
     html::{attribute::AttributeValue, property::IntoProperty},
     hydration::Cursor,
     renderer::{DomRenderer, Renderer},
@@ -47,13 +48,11 @@ where
     V: Render<R>,
     V::State: 'static,
     V::FallibleState: 'static,
-    V::Error: 'static,
     R: Renderer,
 {
     type State = RenderEffectState<V::State>;
     type FallibleState =
-        RenderEffectState<Result<V::FallibleState, Option<V::Error>>>;
-    type Error = V::Error;
+        RenderEffectState<Result<V::FallibleState, Option<AnyError>>>;
 
     #[track_caller]
     fn build(mut self) -> Self::State {
@@ -69,7 +68,7 @@ where
         .into()
     }
 
-    fn try_build(mut self) -> Result<Self::FallibleState, Self::Error> {
+    fn try_build(mut self) -> crate::error::Result<Self::FallibleState> {
         let parent = Observer::get();
         let effect = RenderEffect::new({
             move |prev| {
@@ -130,7 +129,7 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> Result<(), Self::Error> {
+    ) -> crate::error::Result<()> {
         crate::log("RenderEffect::try_rebuild");
         if let Some(inner) = &mut state.0 {
             inner
@@ -227,7 +226,6 @@ where
     V: RenderHtml<R>,
     V::State: 'static,
     V::FallibleState: 'static,
-    V::Error: 'static,
     R: Renderer + 'static,
     R::Node: Clone,
     R::Element: Clone,
