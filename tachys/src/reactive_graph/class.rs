@@ -1,6 +1,7 @@
 use super::RenderEffectState;
 use crate::{html::class::IntoClass, renderer::DomRenderer};
-use reactive_graph::effect::RenderEffect;
+use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
+use std::{borrow::Borrow, ops::Deref};
 
 impl<F, C, R> IntoClass<R> for F
 where
@@ -73,9 +74,10 @@ where
     }
 }
 
-impl<F, R> IntoClass<R> for (&'static str, F)
+impl<F, T, R> IntoClass<R> for (&'static str, F)
 where
-    F: FnMut() -> bool + 'static,
+    F: FnMut() -> T + 'static,
+    T: Borrow<bool>,
     R: DomRenderer,
     R::ClassList: Clone + 'static,
     R::Element: Clone,
@@ -84,7 +86,7 @@ where
 
     fn to_html(self, class: &mut String) {
         let (name, mut f) = self;
-        let include = f();
+        let include = *f().borrow();
         if include {
             <&str as IntoClass<R>>::to_html(name, class);
         }
@@ -95,7 +97,7 @@ where
         let (name, mut f) = self;
         let class_list = R::class_list(el);
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = f();
+            let include = *f().borrow();
             if let Some((class_list, prev)) = prev {
                 if include {
                     if !prev {
@@ -114,7 +116,7 @@ where
         let (name, mut f) = self;
         let class_list = R::class_list(el);
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = f();
+            let include = *f().borrow();
             match prev {
                 Some((class_list, prev)) => {
                     if include {
@@ -162,5 +164,76 @@ where
             prev_value,
         )
         .into(); */
+    }
+}
+
+impl<G, R> IntoClass<R> for ReadGuard<String, G>
+where
+    G: Deref<Target = String>,
+    R: DomRenderer,
+    R::Element: Clone,
+{
+    type State = <String as IntoClass<R>>::State;
+
+    fn to_html(self, class: &mut String) {
+        <&str as IntoClass<R>>::to_html(self.deref().as_str(), class);
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R>::Element,
+    ) -> Self::State {
+        <String as IntoClass<R>>::hydrate::<FROM_SERVER>(
+            self.deref().to_owned(),
+            el,
+        )
+    }
+
+    fn build(self, el: &<R>::Element) -> Self::State {
+        <String as IntoClass<R>>::build(self.deref().to_owned(), el)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        <String as IntoClass<R>>::rebuild(self.deref().to_owned(), state)
+    }
+}
+
+impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
+where
+    G: Deref<Target = bool>,
+    R: DomRenderer,
+    R::Element: Clone,
+{
+    type State = <(&'static str, bool) as IntoClass<R>>::State;
+
+    fn to_html(self, class: &mut String) {
+        <(&'static str, bool) as IntoClass<R>>::to_html(
+            (self.0, *self.1.deref()),
+            class,
+        );
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R>::Element,
+    ) -> Self::State {
+        <(&'static str, bool) as IntoClass<R>>::hydrate::<FROM_SERVER>(
+            (self.0, *self.1.deref()),
+            el,
+        )
+    }
+
+    fn build(self, el: &<R>::Element) -> Self::State {
+        <(&'static str, bool) as IntoClass<R>>::build(
+            (self.0, *self.1.deref()),
+            el,
+        )
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        <(&'static str, bool) as IntoClass<R>>::rebuild(
+            (self.0, *self.1.deref()),
+            state,
+        )
     }
 }
