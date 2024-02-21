@@ -66,8 +66,6 @@ impl std::error::Error for NeverError {}
 pub trait RenderHtml<R: Renderer>
 where
     Self: Render<R>,
-    R::Node: Clone,
-    R::Element: Clone,
 {
     const MIN_LENGTH: usize;
 

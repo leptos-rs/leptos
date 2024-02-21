@@ -38,7 +38,6 @@ where
 impl<'a, R> AttributeValue<R> for &'a str
 where
     R: Renderer,
-    R::Element: Clone,
 {
     type State = (R::Element, &'a str);
 
@@ -83,7 +82,6 @@ where
 impl<R, const V: &'static str> AttributeValue<R>
     for crate::view::static_types::Static<V>
 where
-    R::Element: Clone,
     R: Renderer,
 {
     type State = ();
@@ -117,7 +115,6 @@ where
 impl<'a, R> AttributeValue<R> for &'a String
 where
     R: Renderer,
-    R::Element: Clone,
 {
     type State = (R::Element, &'a String);
 
@@ -157,7 +154,6 @@ where
 impl<R> AttributeValue<R> for String
 where
     R: Renderer,
-    R::Element: Clone,
 {
     type State = (R::Element, String);
 
@@ -197,7 +193,6 @@ where
 impl<R> AttributeValue<R> for bool
 where
     R: Renderer,
-    R::Element: Clone,
 {
     type State = (R::Element, bool);
 
@@ -247,7 +242,6 @@ impl<V, R> AttributeValue<R> for Option<V>
 where
     V: AttributeValue<R>,
     R: Renderer,
-    R::Element: Clone,
 {
     type State = (R::Element, Option<V::State>);
 
