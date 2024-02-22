@@ -86,7 +86,7 @@ use std::any::{Any, TypeId};
 ///
 /// ### Solution
 ///
-/// If you are using the full Leptos framework, you can use the [`Provider`](leptos::Provider)
+/// If you are using the full Leptos framework, you can use the [`Provider`](../leptos/fn.Provider.html)
 /// component to solve this issue.
 ///
 /// ```rust
