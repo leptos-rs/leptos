@@ -39,7 +39,22 @@ pub(crate) fn root_node_to_tokens_ssr(
             global_class,
             view_marker,
         ),
-        Node::Comment(_) | Node::Doctype(_) => quote! {},
+        Node::Comment(_) => {
+            proc_macro_error::emit_error!(
+                node,
+                "comment tags do not show up in rendered output\nsupport for \
+                 this is coming in leptos 0.7"
+            );
+            quote! {}
+        }
+        Node::Doctype(_) => {
+            proc_macro_error::emit_error!(
+                node,
+                "doctype tags do not show up in rendered output\nsupport for \
+                 this is coming in leptos 0.7"
+            );
+            quote! {}
+        }
         Node::Text(node) => {
             quote! {
                 ::leptos::leptos_dom::html::text(#node)
@@ -386,7 +401,22 @@ fn element_to_tokens_ssr(
                             Span::call_site(),
                             "You can't nest a fragment inside an element."
                         ),
-                        Node::Comment(_) | Node::Doctype(_) => {}
+                        Node::Comment(_) => {
+                            proc_macro_error::emit_error!(
+                                child,
+                                "comment tags do not show up in rendered \
+                                 output\nsupport for this is coming in leptos \
+                                 0.7"
+                            );
+                        }
+                        Node::Doctype(_) => {
+                            proc_macro_error::emit_error!(
+                                child,
+                                "doctype tags do not show up in rendered \
+                                 output\nsupport for this is coming in leptos \
+                                 0.7"
+                            );
+                        }
                     }
                 }
             }

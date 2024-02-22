@@ -120,7 +120,22 @@ pub(crate) fn node_to_tokens(
             global_class,
             view_marker,
         ),
-        Node::Comment(_) | Node::Doctype(_) => Some(quote! {}),
+        Node::Comment(_) => {
+            proc_macro_error::emit_error!(
+                node,
+                "comment tags do not show up in rendered output\nsupport for \
+                 this is coming in leptos 0.7"
+            );
+            Some(quote! {})
+        }
+        Node::Doctype(_) => {
+            proc_macro_error::emit_error!(
+                node,
+                "doctype tags do not show up in rendered output\nsupport for \
+                 this is coming in leptos 0.7"
+            );
+            Some(quote! {})
+        }
         Node::Text(node) => Some(quote! {
             ::leptos::leptos_dom::html::text(#node)
         }),
@@ -333,7 +348,22 @@ pub(crate) fn element_to_tokens(
                     .unwrap_or_default(),
                     false,
                 ),
-                Node::Comment(_) | Node::Doctype(_) => (quote! {}, false),
+                Node::Comment(_) => {
+                    proc_macro_error::emit_error!(
+                        node,
+                        "comment tags do not show up in rendered \
+                         output\nsupport for this is coming in leptos 0.7"
+                    );
+                    (quote! {}, false)
+                }
+                Node::Doctype(_) => {
+                    proc_macro_error::emit_error!(
+                        node,
+                        "doctype tags do not show up in rendered \
+                         output\nsupport for this is coming in leptos 0.7"
+                    );
+                    (quote! {}, false)
+                }
             };
             if is_static {
                 quote! {
