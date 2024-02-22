@@ -4,10 +4,6 @@
 #![allow(stable_features)]
 // FIXME? every use of quote! {} is warning here -- false positive?
 #![allow(unknown_lints)]
-#![allow(private_macro_use)]
-
-#[macro_use]
-extern crate proc_macro_error;
 
 use component::DummyModel;
 use proc_macro::TokenStream;
@@ -339,7 +335,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     third.clone()
                 }
                 _ => {
-                    abort!(
+                    proc_macro_error::abort!(
                         second, "To create a scope class with the view! macro you must put a comma `,` after the value";
                         help = r#"e.g., view!{ class="my-class", <div>...</div>}"#
                     )
@@ -593,7 +589,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         let transparent = parse_macro_input!(args as syn::Ident);
 
         if transparent != "transparent" {
-            abort!(
+            proc_macro_error::abort!(
                 transparent,
                 "only `transparent` is supported";
                 help = "try `#[component(transparent)]` or `#[component]`"
@@ -846,7 +842,7 @@ pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     if !args.is_empty() {
-        abort!(
+        proc_macro_error::abort!(
             Span::call_site(),
             "no arguments are supported";
             help = "try just `#[slot]`"
@@ -869,7 +865,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// You can provide any combination of the following named arguments:
 /// - `name`: sets the identifier for the server function’s type, which is a struct created
 ///    to hold the arguments (defaults to the function identifier in PascalCase)
-/// - `prefix`: a prefix at which the server function handler will be mounted (defaults to `/api`) 
+/// - `prefix`: a prefix at which the server function handler will be mounted (defaults to `/api`)
 ///    your prefix must begin with `/`. Otherwise your function won't be found.
 /// - `endpoint`: specifies the exact path at which the server function handler will be mounted,
 ///   relative to the prefix (defaults to the function name followed by unique hash)
@@ -965,7 +961,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   are unique. You cannot define two server functions with the same URL prefix and endpoint path,
 ///   even if they have different URL encodings, e.g. a POST method at `/api/foo` and a GET method at `/api/foo`.
 #[proc_macro_attribute]
-#[proc_macro_error]
+#[proc_macro_error::proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_fn_macro::server_macro_impl(
         args.into(),
@@ -995,7 +991,9 @@ pub fn params_derive(
 pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
     match attr.value() {
         Some(value) => value,
-        None => abort!(attr.key, "attribute should have value"),
+        None => {
+            proc_macro_error::abort!(attr.key, "attribute should have value")
+        }
     }
 }
 

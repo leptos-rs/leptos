@@ -382,7 +382,7 @@ fn element_to_tokens_ssr(
                                 ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
                             }));
                         }
-                        Node::Fragment(_) => abort!(
+                        Node::Fragment(_) => proc_macro_error::abort!(
                             Span::call_site(),
                             "You can't nest a fragment inside an element."
                         ),

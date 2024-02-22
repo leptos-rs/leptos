@@ -210,7 +210,7 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
         .unwrap_or((CUSTOM_EVENT, true));
 
     let Ok(event_type) = event_type.parse::<TokenStream>() else {
-        abort!(event_type, "couldn't parse event name");
+        proc_macro_error::abort!(event_type, "couldn't parse event name");
     };
 
     let event_type = if is_custom {

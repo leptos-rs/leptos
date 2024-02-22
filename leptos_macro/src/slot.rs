@@ -108,13 +108,13 @@ impl Prop {
         let prop_opts =
             PropOpt::from_attributes(&arg.attrs).unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
-                abort!(e.span(), e.to_string());
+                proc_macro_error::abort!(e.span(), e.to_string());
             });
 
         let name = if let Some(i) = arg.ident {
             i
         } else {
-            abort!(
+            proc_macro_error::abort!(
                 arg.ident,
                 "only `prop: bool` style types are allowed within the \
                  `#[slot]` macro"

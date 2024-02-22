@@ -58,7 +58,7 @@ impl Parse for Model {
 
         // Make sure return type is correct
         if !is_valid_into_view_return_type(&item.sig.output) {
-            abort!(
+            proc_macro_error::abort!(
                 item.sig,
                 "return type is incorrect";
                 help = "return signature must be `-> impl IntoView`"
@@ -628,19 +628,19 @@ impl Prop {
         let typed = if let FnArg::Typed(ty) = arg {
             ty
         } else {
-            abort!(arg, "receiver not allowed in `fn`");
+            proc_macro_error::abort!(arg, "receiver not allowed in `fn`");
         };
 
         let prop_opts =
             PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {
                 // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
-                abort!(e.span(), e.to_string());
+                proc_macro_error::abort!(e.span(), e.to_string());
             });
 
         let name = if let Pat::Ident(i) = *typed.pat {
             i
         } else {
-            abort!(
+            proc_macro_error::abort!(
                 typed.pat,
                 "only `prop: bool` style types are allowed within the \
                  `#[component]` macro"
@@ -756,7 +756,7 @@ impl Docs {
                 }
 
                 let Some(val) = value_to_string(&attr.value) else {
-                    abort!(
+                    proc_macro_error::abort!(
                         attr,
                         "expected string literal in value of doc comment"
                     );
@@ -1075,7 +1075,7 @@ pub fn unwrap_option(ty: &Type) -> Type {
         }
     }
 
-    abort!(
+    proc_macro_error::abort!(
         ty,
         "`Option` must be `std::option::Option`";
         help = STD_OPTION_MSG
