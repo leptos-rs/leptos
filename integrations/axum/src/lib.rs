@@ -257,7 +257,13 @@ async fn handle_server_fns_inner(
 
     let (tx, rx) = futures::channel::oneshot::channel();
 
+    // capture current span to enable trace context propagation
+    let current_span = tracing::Span::current();
+
     spawn_task!(async move {
+        // enter captured span for trace context propagation in spawned task
+        let _guard = current_span.enter();
+
         let path = req.uri().path().to_string();
         let (req, parts) = generate_request_and_parts(req);
 
