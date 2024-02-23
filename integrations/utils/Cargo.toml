@@ -6,6 +6,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Utilities to help build server integrations for the Leptos web framework."
+rust-version.workspace = true
 
 [dependencies]
 futures = "0.3"

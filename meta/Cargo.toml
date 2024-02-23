@@ -6,6 +6,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Tools to set HTML metadata in the Leptos web framework."
+rust-version.workspace = true
 
 [dependencies]
 cfg-if = "1"

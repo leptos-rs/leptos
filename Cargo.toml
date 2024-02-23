@@ -26,6 +26,7 @@ exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.6.6"
+rust-version = "1.75"
 
 [workspace.dependencies]
 leptos = { path = "./leptos", version = "0.6.5" }

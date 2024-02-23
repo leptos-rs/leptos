@@ -6,6 +6,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Actix integrations for the Leptos web framework."
+rust-version.workspace = true
 
 [dependencies]
 actix-http = "3"
