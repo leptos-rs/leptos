@@ -1,23 +1,28 @@
-use leptos_dom::events::EventDescriptor;
+use leptos_dom::events::{on, EventDescriptor, On};
 use tachys::{
-    html::attribute::global::OnAttribute,
+    html::attribute::{global::OnAttribute, Attribute},
     hydration::Cursor,
-    renderer::{dom::Dom, Renderer},
+    renderer::{dom::Dom, DomRenderer, Renderer},
     ssr::StreamBuilder,
-    view::{Mountable, Position, PositionState, Render, RenderHtml},
+    view::{
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml,
+    },
 };
 
 pub struct View<T>(T)
 where
     T: Sized;
 
-pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> {
+pub trait IntoView:
+    Sized + Render<Dom> + RenderHtml<Dom> + AddAnyAttr<Dom>
+{
     fn into_view(self) -> View<Self>;
 }
 
-impl<T: Render<Dom> + RenderHtml<Dom>> IntoView for T
+impl<T> IntoView for T
 where
-    T: Sized,
+    T: Sized + Render<Dom> + RenderHtml<Dom> + AddAnyAttr<Dom>,
 {
     fn into_view(self) -> View<Self> {
         View(self)
@@ -74,66 +79,27 @@ impl<T: RenderHtml<Dom>> RenderHtml<Dom> for View<T> {
     }
 }
 
-/*pub trait IntoView {
-    const MIN_HTML_LENGTH: usize;
+impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
+    type Output<SomeNewAttr: Attribute<Dom>> =
+        <T as AddAnyAttr<Dom>>::Output<SomeNewAttr>;
 
-    type State: Mountable<Dom>;
-
-    fn build(self) -> Self::State;
-
-    fn rebuild(self, state: &mut Self::State);
-
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position);
-
-    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+    fn add_any_attr<NewAttr: Attribute<Dom>>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    );
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
-    ) -> Self::State;
-}
-
-impl<T: RenderHtml<Dom>> IntoView for T {}
-
-impl<T: IntoView> Render<Dom> for T {
-    type State = <Self as IntoView>::State;
-
-    fn build(self) -> Self::State {
-        IntoView::build(self)
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        IntoView::rebuild(self, state);
-    }
-}
-
-impl<T: IntoView> RenderHtml<Dom> for T {
-    const MIN_LENGTH: usize = T::MIN_HTML_LENGTH;
-
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        IntoView::to_html_with_buf(self, buf, position);
-    }
-
-    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-        self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
-        Self: Sized,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
     {
-        IntoView::to_html_async_with_buf::<OUT_OF_ORDER>(self, buf, position);
+        self.0.add_any_attr(attr)
     }
 
-    fn hydrate<const FROM_SERVER: bool>(
+    fn add_any_attr_by_ref<NewAttr: Attribute<Dom>>(
         self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
-    ) -> Self::State {
-        IntoView::hydrate::<FROM_SERVER>(self, cursor, position)
+        attr: &NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
+    {
+        self.0.add_any_attr_by_ref(attr)
     }
-}*/
+}
