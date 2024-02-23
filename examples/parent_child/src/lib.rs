@@ -57,7 +57,7 @@ pub fn App() -> impl IntoView {
             // Button C: use a regular event listener
             // setting an event listener on a component like this applies it
             // to each of the top-level elements the component returns
-            //<ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
+            <ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
 
             // Button D gets its setter from context rather than props
             <ButtonD/>

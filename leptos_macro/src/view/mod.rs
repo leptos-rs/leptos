@@ -363,7 +363,10 @@ fn attribute_to_tokens(
     }
 }
 
-fn event_to_tokens(name: &str, node: &KeyedAttribute) -> TokenStream {
+pub(crate) fn event_to_tokens(
+    name: &str,
+    node: &KeyedAttribute,
+) -> TokenStream {
     let handler = attribute_value(node);
 
     let (event_type, is_custom, is_force_undelegated, is_targeted) =
