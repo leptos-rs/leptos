@@ -1,8 +1,7 @@
-use super::global::AddAttribute;
 use crate::{
     html::attribute::{Attribute, AttributeValue},
     renderer::DomRenderer,
-    view::{Position, ToTemplate},
+    view::{AddAttribute, Position, ToTemplate},
 };
 use std::{borrow::Cow, marker::PhantomData, rc::Rc, sync::Arc};
 
