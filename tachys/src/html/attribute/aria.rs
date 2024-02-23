@@ -1,4 +1,7 @@
-use crate::html::attribute::{global::AddAttribute, Attr, *};
+use crate::{
+    html::attribute::{Attr, *},
+    view::AddAttribute,
+};
 pub trait AriaAttributes<Rndr, V>
 where
     Self: Sized

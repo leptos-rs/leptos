@@ -1,8 +1,8 @@
-use super::{
-    attribute::{global::AddAttribute, Attribute},
-    element::ElementType,
+use super::{attribute::Attribute, element::ElementType};
+use crate::{
+    html::element::HtmlElement, prelude::Render, renderer::Renderer,
+    view::AddAttribute,
 };
-use crate::{html::element::HtmlElement, prelude::Render, renderer::Renderer};
 use std::marker::PhantomData;
 
 pub trait NodeRefContainer<E, Rndr>
