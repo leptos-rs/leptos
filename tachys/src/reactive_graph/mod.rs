@@ -13,7 +13,6 @@ use reactive_graph::{
     computed::ScopedFuture,
     effect::RenderEffect,
     graph::{Observer, ReactiveNode},
-    untrack,
 };
 
 mod class;
@@ -106,8 +105,10 @@ where
     }
 
     #[track_caller]
-    fn rebuild(mut self, state: &mut Self::State) {
-        // TODO
+    fn rebuild(self, _state: &mut Self::State) {
+        // TODO — knowing how and whether to rebuild effects like this is tricky
+        // it's the one place I've run into "stale values" when experimenting with this model
+
         /* let prev_effect = mem::take(&mut state.0);
         let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
         drop(prev_effect);
@@ -395,7 +396,10 @@ where
         .into()
     }
 
-    fn rebuild(mut self, key: &str, state: &mut Self::State) {
+    fn rebuild(self, _key: &str, _state: &mut Self::State) {
+        // TODO — knowing how and whether to rebuild effects like this is tricky
+        // it's the one place I've run into "stale values" when experimenting with this model
+
         // TODO
         /* let prev_effect = mem::take(&mut state.0);
         let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
@@ -491,8 +495,10 @@ where
         .into()
     }
 
-    fn rebuild(mut self, state: &mut Self::State, key: &str) {
-        // TODO
+    fn rebuild(self, _state: &mut Self::State, _key: &str) {
+        // TODO — knowing how and whether to rebuild effects like this is tricky
+        // it's the one place I've run into "stale values" when experimenting with this model
+
         /* let prev_effect = mem::take(&mut state.0);
         let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
         drop(prev_effect);

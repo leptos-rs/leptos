@@ -72,8 +72,10 @@ where
         .into()
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        // TODO
+    fn rebuild(self, _state: &mut Self::State) {
+        // TODO — knowing how and whether to rebuild effects like this is tricky
+        // it's the one place I've run into "stale values" when experimenting with this model
+
         /* let (name, mut f) = self;
         let prev_effect = std::mem::take(&mut state.0);
         let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
@@ -129,9 +131,9 @@ where
         })
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(self, _el: &R::Element) -> Self::State {
         todo!()
     }
 
-    fn rebuild(self, state: &mut Self::State) {}
+    fn rebuild(self, _state: &mut Self::State) {}
 }
