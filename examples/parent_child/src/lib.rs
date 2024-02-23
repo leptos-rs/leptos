@@ -53,7 +53,6 @@ pub fn App() -> impl IntoView {
             // Button B: pass a closure
             <ButtonB on_click=move |_| set_right.update(|value| *value = !*value)/>
 
-            // TODO -- on:click on components
             // Button C: use a regular event listener
             // setting an event listener on a component like this applies it
             // to each of the top-level elements the component returns
@@ -99,10 +98,12 @@ where
     }
 }
 
+use leptos::tachys::view::add_attr::AddAnyAttr;
+
 /// Button C is a dummy: it renders a button but doesn't handle
 /// its click. Instead, the parent component adds an event listener.
 #[component]
-pub fn ButtonC() -> impl IntoView {
+pub fn ButtonC() -> impl IntoView + AddAnyAttr<Dom> {
     view! {
         <button>
             "Toggle Italics"
