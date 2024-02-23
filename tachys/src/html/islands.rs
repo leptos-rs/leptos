@@ -3,7 +3,7 @@ use crate::{
     prelude::{Render, RenderHtml},
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{NeverError, Position, PositionState},
+    view::{Position, PositionState},
 };
 use std::marker::PhantomData;
 
@@ -13,8 +13,8 @@ pub struct Island<Rndr, View> {
     view: View,
     rndr: PhantomData<Rndr>,
 }
-const ISLAND_TAG: &'static str = "leptos-island";
-const ISLAND_CHILDREN_TAG: &'static str = "leptos-children";
+const ISLAND_TAG: &str = "leptos-island";
+const ISLAND_CHILDREN_TAG: &str = "leptos-children";
 
 impl<Rndr, View> Island<Rndr, View> {
     pub fn new(component: &'static str, view: View) -> Self {
@@ -155,7 +155,7 @@ where
 
     fn build(self) -> Self::State {}
 
-    fn rebuild(self, state: &mut Self::State) {}
+    fn rebuild(self, _state: &mut Self::State) {}
 
     fn try_build(self) -> crate::error::Result<Self::FallibleState> {
         Ok(())
@@ -163,7 +163,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         Ok(())
     }

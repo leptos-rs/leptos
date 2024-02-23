@@ -1,6 +1,6 @@
 use crate::{
     renderer::Renderer,
-    view::{NeverError, Position, Render, RenderHtml},
+    view::{Position, Render, RenderHtml},
 };
 use std::marker::PhantomData;
 
@@ -39,7 +39,7 @@ impl<R: Renderer> Render<R> for Doctype<R> {
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         Ok(())
     }

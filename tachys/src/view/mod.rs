@@ -45,7 +45,7 @@ pub trait Render<R: Renderer>: Sized {
 pub struct NeverError;
 
 impl core::fmt::Display for NeverError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Ok(())
     }
 }

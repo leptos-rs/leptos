@@ -1,7 +1,6 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
     html::attribute::{Attribute, NextAttribute},
-    prelude::Render,
     renderer::{DomRenderer, Renderer},
     view::add_attr::AddAnyAttr,
 };

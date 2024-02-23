@@ -3,7 +3,6 @@ use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
-    view::NeverError,
 };
 use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 use indexmap::IndexSet;
@@ -135,7 +134,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }
@@ -235,7 +234,7 @@ where
         child: &mut dyn Mountable<Rndr>,
     ) -> bool {
         self.rendered_items
-            .get(0)
+            .first()
             .map(|n| n.insert_before_this(parent, child))
             .unwrap_or(false)
     }
