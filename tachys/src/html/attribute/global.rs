@@ -9,7 +9,7 @@ use crate::{
         style::{style, IntoStyle, Style},
     },
     renderer::DomRenderer,
-    view::AddAttribute,
+    view::add_attr::AddAnyAttr,
 };
 use core::convert::From;
 
@@ -25,14 +25,14 @@ where
 
 impl<T, C, Rndr> ClassAttribute<C, Rndr> for T
 where
-    T: AddAttribute<Class<C, Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     C: IntoClass<Rndr>,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAttribute<Class<C, Rndr>, Rndr>>::Output;
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<Class<C, Rndr>>;
 
     fn class(self, value: C) -> Self::Output {
-        self.add_attr(class(value))
+        self.add_any_attr(class(value))
     }
 }
 
@@ -48,14 +48,14 @@ where
 
 impl<T, K, P, Rndr> PropAttribute<K, P, Rndr> for T
 where
-    T: AddAttribute<Property<K, P, Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     K: AsRef<str>,
     P: IntoProperty<Rndr>,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAttribute<Property<K, P, Rndr>, Rndr>>::Output;
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<Property<K, P, Rndr>>;
     fn prop(self, key: K, value: P) -> Self::Output {
-        self.add_attr(property(key, value))
+        self.add_any_attr(property(key, value))
     }
 }
 
@@ -71,14 +71,14 @@ where
 
 impl<T, S, Rndr> StyleAttribute<S, Rndr> for T
 where
-    T: AddAttribute<Style<S, Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     S: IntoStyle<Rndr>,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAttribute<Style<S, Rndr>, Rndr>>::Output;
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<Style<S, Rndr>>;
 
     fn style(self, value: S) -> Self::Output {
-        self.add_attr(style(value))
+        self.add_any_attr(style(value))
     }
 }
 
@@ -90,17 +90,17 @@ pub trait OnAttribute<E, F, Rndr> {
 
 impl<T, E, F, Rndr> OnAttribute<E, F, Rndr> for T
 where
-    T: AddAttribute<On<Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     E: EventDescriptor + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
     F: FnMut(E::EventType) + 'static,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAttribute<On<Rndr>, Rndr>>::Output;
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<On<Rndr>>;
 
     fn on(self, event: E, cb: F) -> Self::Output {
-        self.add_attr(on(event, cb))
+        self.add_any_attr(on(event, cb))
     }
 }
 
@@ -113,7 +113,7 @@ pub trait OnTargetAttribute<E, F, T, Rndr> {
 impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
 where
     Self: ElementType,
-    T: AddAttribute<On<Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     E: EventDescriptor + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
@@ -121,276 +121,221 @@ where
         + 'static,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAttribute<On<Rndr>, Rndr>>::Output;
-    fn on_target(self, event: E, cb: F) -> Self::Output
-where {
-        self.add_attr(on_target(event, cb))
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<On<Rndr>>;
+
+    fn on_target(self, event: E, cb: F) -> Self::Output {
+        self.add_any_attr(on_target(event, cb))
     }
 }
 
 pub trait GlobalAttributes<Rndr, V>
 where
-    Self: Sized
-        + AddAttribute<Attr<Accesskey, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Autocapitalize, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Autofocus, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Contenteditable, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Dir, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Draggable, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Enterkeyhint, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Hidden, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Id, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Inert, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Inputmode, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Is, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemid, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemprop, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemref, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemscope, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemtype, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Lang, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Nonce, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Part, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Popover, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Role, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Slot, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Spellcheck, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Tabindex, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Title, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Translate, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Virtualkeyboardpolicy, V, Rndr>, Rndr>,
+    Self: Sized + AddAnyAttr<Rndr>,
     V: AttributeValue<Rndr>,
     Rndr: Renderer,
 {
     fn accesskey(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Accesskey, V, Rndr>, Rndr>>::Output {
-        self.add_attr(accesskey(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Accesskey, V, Rndr>> {
+        self.add_any_attr(accesskey(value))
     }
 
     fn autocapitalize(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Autocapitalize, V, Rndr>, Rndr>>::Output
-    {
-        self.add_attr(autocapitalize(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Autocapitalize, V, Rndr>> {
+        self.add_any_attr(autocapitalize(value))
     }
 
     fn autofocus(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Autofocus, V, Rndr>, Rndr>>::Output {
-        self.add_attr(autofocus(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Autofocus, V, Rndr>> {
+        self.add_any_attr(autofocus(value))
     }
 
     fn contenteditable(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Contenteditable, V, Rndr>, Rndr>>::Output
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Contenteditable, V, Rndr>>
     {
-        self.add_attr(contenteditable(value))
+        self.add_any_attr(contenteditable(value))
     }
 
     fn dir(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Dir, V, Rndr>, Rndr>>::Output {
-        self.add_attr(dir(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Dir, V, Rndr>> {
+        self.add_any_attr(dir(value))
     }
 
     fn draggable(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Draggable, V, Rndr>, Rndr>>::Output {
-        self.add_attr(draggable(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Draggable, V, Rndr>> {
+        self.add_any_attr(draggable(value))
     }
 
     fn enterkeyhint(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Enterkeyhint, V, Rndr>, Rndr>>::Output {
-        self.add_attr(enterkeyhint(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Enterkeyhint, V, Rndr>> {
+        self.add_any_attr(enterkeyhint(value))
     }
 
     fn hidden(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Hidden, V, Rndr>, Rndr>>::Output {
-        self.add_attr(hidden(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Hidden, V, Rndr>> {
+        self.add_any_attr(hidden(value))
     }
 
     fn id(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Id, V, Rndr>, Rndr>>::Output {
-        self.add_attr(id(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Id, V, Rndr>> {
+        self.add_any_attr(id(value))
     }
 
     fn inert(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Inert, V, Rndr>, Rndr>>::Output {
-        self.add_attr(inert(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Inert, V, Rndr>> {
+        self.add_any_attr(inert(value))
     }
 
     fn inputmode(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Inputmode, V, Rndr>, Rndr>>::Output {
-        self.add_attr(inputmode(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Inputmode, V, Rndr>> {
+        self.add_any_attr(inputmode(value))
     }
 
     fn is(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Is, V, Rndr>, Rndr>>::Output {
-        self.add_attr(is(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Is, V, Rndr>> {
+        self.add_any_attr(is(value))
     }
 
     fn itemid(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Itemid, V, Rndr>, Rndr>>::Output {
-        self.add_attr(itemid(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemid, V, Rndr>> {
+        self.add_any_attr(itemid(value))
     }
 
     fn itemprop(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Itemprop, V, Rndr>, Rndr>>::Output {
-        self.add_attr(itemprop(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemprop, V, Rndr>> {
+        self.add_any_attr(itemprop(value))
     }
 
     fn itemref(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Itemref, V, Rndr>, Rndr>>::Output {
-        self.add_attr(itemref(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemref, V, Rndr>> {
+        self.add_any_attr(itemref(value))
     }
 
     fn itemscope(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Itemscope, V, Rndr>, Rndr>>::Output {
-        self.add_attr(itemscope(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemscope, V, Rndr>> {
+        self.add_any_attr(itemscope(value))
     }
 
     fn itemtype(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Itemtype, V, Rndr>, Rndr>>::Output {
-        self.add_attr(itemtype(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Itemtype, V, Rndr>> {
+        self.add_any_attr(itemtype(value))
     }
 
     fn lang(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Lang, V, Rndr>, Rndr>>::Output {
-        self.add_attr(lang(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Lang, V, Rndr>> {
+        self.add_any_attr(lang(value))
     }
 
     fn nonce(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Nonce, V, Rndr>, Rndr>>::Output {
-        self.add_attr(nonce(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Nonce, V, Rndr>> {
+        self.add_any_attr(nonce(value))
     }
 
     fn part(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Part, V, Rndr>, Rndr>>::Output {
-        self.add_attr(part(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Part, V, Rndr>> {
+        self.add_any_attr(part(value))
     }
 
     fn popover(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Popover, V, Rndr>, Rndr>>::Output {
-        self.add_attr(popover(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Popover, V, Rndr>> {
+        self.add_any_attr(popover(value))
     }
 
     fn role(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Role, V, Rndr>, Rndr>>::Output {
-        self.add_attr(role(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Role, V, Rndr>> {
+        self.add_any_attr(role(value))
     }
 
     fn slot(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Slot, V, Rndr>, Rndr>>::Output {
-        self.add_attr(slot(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Slot, V, Rndr>> {
+        self.add_any_attr(slot(value))
     }
 
     fn spellcheck(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Spellcheck, V, Rndr>, Rndr>>::Output {
-        self.add_attr(spellcheck(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Spellcheck, V, Rndr>> {
+        self.add_any_attr(spellcheck(value))
     }
 
     fn tabindex(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Tabindex, V, Rndr>, Rndr>>::Output {
-        self.add_attr(tabindex(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Tabindex, V, Rndr>> {
+        self.add_any_attr(tabindex(value))
     }
 
     fn title(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Title, V, Rndr>, Rndr>>::Output {
-        self.add_attr(title(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Title, V, Rndr>> {
+        self.add_any_attr(title(value))
     }
 
     fn translate(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Translate, V, Rndr>, Rndr>>::Output {
-        self.add_attr(translate(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Translate, V, Rndr>> {
+        self.add_any_attr(translate(value))
     }
 
     fn virtualkeyboardpolicy(
         self,
         value: V,
-    ) -> <Self as AddAttribute<Attr<Virtualkeyboardpolicy, V, Rndr>, Rndr>>::Output{
-        self.add_attr(virtualkeyboardpolicy(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<Attr<Virtualkeyboardpolicy, V, Rndr>>
+    {
+        self.add_any_attr(virtualkeyboardpolicy(value))
     }
 }
 
 impl<T, Rndr, V> GlobalAttributes<Rndr, V> for T
 where
-    T: AddAttribute<Attr<Accesskey, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Autocapitalize, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Autofocus, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Contenteditable, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Dir, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Draggable, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Enterkeyhint, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Hidden, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Id, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Inert, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Inputmode, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Is, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemid, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemprop, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemref, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemscope, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Itemtype, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Lang, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Nonce, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Part, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Popover, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Role, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Slot, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Spellcheck, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Tabindex, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Title, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Translate, V, Rndr>, Rndr>
-        + AddAttribute<Attr<Virtualkeyboardpolicy, V, Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     V: AttributeValue<Rndr>,
     Rndr: Renderer,
 {
