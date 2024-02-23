@@ -1,13 +1,10 @@
-use super::{
-    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
-};
+use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
 };
 use itertools::Itertools;
-use std::error::Error;
 
 impl<T, R> Render<R> for Option<T>
 where
@@ -56,7 +53,7 @@ where
                 })
             }
             Some(inner) => match inner.try_build() {
-                Err(e) => return Err(e),
+                Err(e) => Err(e),
                 Ok(inner) => {
                     let placeholder = R::create_placeholder();
                     Ok(OptionState {
@@ -70,7 +67,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }
@@ -256,7 +253,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }
@@ -302,7 +299,7 @@ where
         parent: &<R as Renderer>::Element,
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        if let Some(first) = self.states.get(0) {
+        if let Some(first) = self.states.first() {
             first.insert_before_this(parent, child)
         } else {
             false
