@@ -6,25 +6,33 @@ script = '''
   RESET="\e[0m"
 
   if command -v chromedriver; then
-    if [ -z $(pidof chromedriver) ]; then
+    if pidof -q chromedriver; then
+      echo "  chromedriver is already started"
+    else
+      echo "Starting chomedriver"
       chromedriver --port=4444 &
     fi
   else
-    echo "${RED}${BOLD}ERROR${RESET} - chromedriver is required by this task"
+    echo "${RED}${BOLD}ERROR${RESET} - chromedriver not found"
     exit 1
   fi
 '''
 
 [tasks.stop-webdriver]
 script = '''
-  pkill -f "chromedriver"
+  if pidof -q chromedriver; then
+    echo "  Stopping chromedriver"
+    pkill -ef "chromedriver"
+  else
+    echo "  chromedriver is already stopped"
+  fi
 '''
 
 [tasks.webdriver-status]
 script = '''
-  if [ -z $(pidof chromedriver) ]; then
-    echo chromedriver is not running
-  else
+  if pidof -q chromedriver; then
     echo chromedriver is up
+  else
+    echo chromedriver is not running
   fi
 '''

@@ -1,8 +1,0 @@
-[env]
-VERIFY_GTK = false
-
-[tasks.verify-flow]
-condition = { env_set = ["VERIFY_GTK"] }
-
-[tasks.verify]
-condition = { env_set = ["VERIFY_GTK"] }
