@@ -51,6 +51,32 @@ impl core::fmt::Display for NeverError {
 
 impl std::error::Error for NeverError {}
 
+/// The `AddAttr` trait allows adding a new attribute to some type, before it is rendered.
+/// This takes place at compile time as part of the builder syntax for creating a statically typed
+/// view tree.
+///
+/// Normally, this is used to add an attribute to an HTML element. But it is required to be
+/// implemented for all types that implement [`RenderHtml`], so that attributes can be spread onto
+/// other structures like the return type of a component.
+pub trait AddAttribute<NewAttr, Rndr>: Sized
+where
+    Rndr: Renderer,
+{
+    /// The type of the modified view after the attribute has been added.
+    type Output;
+
+    /// Adds an owned attribute to the view.
+    fn add_attr(self, attr: NewAttr) -> Self::Output;
+
+    /// Adds the attribute to the view by reference.
+    fn add_attr_by_ref(self, attr: &NewAttr) -> Self::Output
+    where
+        NewAttr: Sized + Clone,
+    {
+        self.add_attr(attr.clone())
+    }
+}
+
 /// The `RenderHtml` trait allows rendering something to HTML, and transforming
 /// that HTML into an interactive interface.
 ///

@@ -4,7 +4,8 @@ use crate::{
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
     view::{
-        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+        AddAttribute, Mountable, Position, PositionState, Render, RenderHtml,
+        ToTemplate,
     },
 };
 use const_str_slice_concat::{
@@ -16,7 +17,6 @@ use std::marker::PhantomData;
 mod custom;
 mod elements;
 mod inner_html;
-use super::attribute::global::AddAttribute;
 pub use custom::*;
 pub use elements::*;
 pub use inner_html::*;
