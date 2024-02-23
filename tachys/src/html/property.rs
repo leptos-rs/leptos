@@ -1,4 +1,4 @@
-use super::attribute::Attribute;
+use super::attribute::{Attribute, NextAttribute};
 use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
@@ -59,6 +59,22 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.value.rebuild(state, self.key.as_ref())
+    }
+}
+
+impl<K, P, R> NextAttribute<R> for Property<K, P, R>
+where
+    K: AsRef<str>,
+    P: IntoProperty<R>,
+    R: DomRenderer,
+{
+    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        (self, new_attr)
     }
 }
 

@@ -4,8 +4,8 @@ use crate::{
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
     view::{
-        AddAttribute, Mountable, Position, PositionState, Render, RenderHtml,
-        ToTemplate,
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml, ToTemplate,
     },
 };
 use const_str_slice_concat::{
@@ -17,17 +17,13 @@ use std::marker::PhantomData;
 mod custom;
 mod elements;
 mod inner_html;
+use super::attribute::NextAttribute;
 pub use custom::*;
 pub use elements::*;
 pub use inner_html::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct HtmlElement<E, At, Ch, Rndr>
-where
-    At: Attribute<Rndr>,
-    Ch: Render<Rndr>,
-    Rndr: Renderer,
-{
+pub struct HtmlElement<E, At, Ch, Rndr> {
     pub(crate) tag: E,
     pub(crate) rndr: PhantomData<Rndr>,
     pub(crate) attributes: At,
@@ -37,9 +33,6 @@ where
 impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
 where
     E: ElementType,
-    At: Attribute<Rndr>,
-    Ch: Render<Rndr>,
-    Rndr: Renderer,
 {
     type Output = E::Output;
 
@@ -52,12 +45,7 @@ where
     }
 }
 
-impl<E, At, Ch, Rndr> HtmlElement<E, At, Ch, Rndr>
-where
-    At: Attribute<Rndr>,
-    Ch: Render<Rndr>,
-    Rndr: Renderer,
-{
+impl<E, At, Ch, Rndr> HtmlElement<E, At, Ch, Rndr> {
     pub fn children(&self) -> &Ch {
         &self.children
     }
@@ -79,14 +67,13 @@ impl<E, At, Ch, NewChild, Rndr> ElementChild<Rndr, NewChild>
     for HtmlElement<E, At, Ch, Rndr>
 where
     E: ElementWithChildren,
-    At: Attribute<Rndr>,
-    Ch: Render<Rndr> + TupleBuilder<NewChild>,
-    <Ch as TupleBuilder<NewChild>>::Output: Render<Rndr>,
+    Ch: Render<Rndr> + TupleBuilder,
+    <Ch as TupleBuilder>::Output<NewChild>: Render<Rndr>,
     Rndr: Renderer,
     NewChild: Render<Rndr>,
 {
     type Output =
-        HtmlElement<E, At, <Ch as TupleBuilder<NewChild>>::Output, Rndr>;
+        HtmlElement<E, At, <Ch as TupleBuilder>::Output<NewChild>, Rndr>;
 
     fn child(self, child: NewChild) -> Self::Output {
         let HtmlElement {
@@ -104,19 +91,25 @@ where
     }
 }
 
-impl<E, At, Ch, Rndr, NewAttr> AddAttribute<NewAttr, Rndr>
-    for HtmlElement<E, At, Ch, Rndr>
+impl<E, At, Ch, Rndr> AddAnyAttr<Rndr> for HtmlElement<E, At, Ch, Rndr>
 where
-    E: ElementType,
-    At: Attribute<Rndr> + TupleBuilder<NewAttr>,
-    <At as TupleBuilder<NewAttr>>::Output: Attribute<Rndr>,
-    Ch: Render<Rndr>,
+    E: ElementType + CreateElement<Rndr>,
+    Ch: RenderHtml<Rndr>,
+    Rndr: Renderer,
+    At: Attribute<Rndr>,
     Rndr: Renderer,
 {
-    type Output =
-        HtmlElement<E, <At as TupleBuilder<NewAttr>>::Output, Ch, Rndr>;
+    type Output<SomeNewAttr: Attribute<Rndr>> = HtmlElement<
+        E,
+        <At as NextAttribute<Rndr>>::Output<SomeNewAttr>,
+        Ch,
+        Rndr,
+    >;
 
-    fn add_attr(self, attr: NewAttr) -> Self::Output {
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
         let HtmlElement {
             tag,
             attributes,
@@ -125,10 +118,17 @@ where
         } = self;
         HtmlElement {
             tag,
-            attributes: attributes.next_tuple(attr),
+            attributes: attributes.add_any_attr(attr),
             children,
             rndr,
         }
+    }
+
+    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: &NewAttr,
+    ) -> Self::Output<NewAttr> {
+        todo!()
     }
 }
 

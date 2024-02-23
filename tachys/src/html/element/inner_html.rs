@@ -1,8 +1,9 @@
 use super::{ElementWithChildren, HtmlElement};
 use crate::{
-    html::{attribute::Attribute, element::AddAttribute},
+    html::attribute::{Attribute, NextAttribute},
     prelude::Render,
     renderer::{DomRenderer, Renderer},
+    view::add_attr::AddAnyAttr,
 };
 use std::marker::PhantomData;
 
@@ -68,33 +69,48 @@ where
     }
 }
 
+impl<T, R> NextAttribute<R> for InnerHtml<T, R>
+where
+    T: AsRef<str> + PartialEq,
+    R: DomRenderer,
+{
+    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        (self, new_attr)
+    }
+}
+
 pub trait InnerHtmlAttribute<T, Rndr>
 where
-    T: AsRef<str>,
+    T: AsRef<str> + PartialEq,
     Rndr: DomRenderer,
-    Self: Sized + AddAttribute<InnerHtml<T, Rndr>, Rndr>,
+    Self: Sized + AddAnyAttr<Rndr>,
 {
     fn inner_html(
         self,
         value: T,
-    ) -> <Self as AddAttribute<InnerHtml<T, Rndr>, Rndr>>::Output {
-        self.add_attr(inner_html(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<InnerHtml<T, Rndr>> {
+        self.add_any_attr(inner_html(value))
     }
 }
 
 impl<T, E, At, Rndr> InnerHtmlAttribute<T, Rndr>
     for HtmlElement<E, At, (), Rndr>
 where
-    Self: AddAttribute<InnerHtml<T, Rndr>, Rndr>,
+    Self: AddAnyAttr<Rndr>,
     E: ElementWithChildren,
     At: Attribute<Rndr>,
-    T: AsRef<str>,
+    T: AsRef<str> + PartialEq,
     Rndr: DomRenderer,
 {
     fn inner_html(
         self,
         value: T,
-    ) -> <Self as AddAttribute<InnerHtml<T, Rndr>, Rndr>>::Output {
-        self.add_attr(inner_html(value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<InnerHtml<T, Rndr>> {
+        self.add_any_attr(inner_html(value))
     }
 }

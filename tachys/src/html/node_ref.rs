@@ -1,7 +1,10 @@
-use super::{attribute::Attribute, element::ElementType};
+use super::{
+    attribute::{Attribute, NextAttribute},
+    element::ElementType,
+};
 use crate::{
     html::element::HtmlElement, prelude::Render, renderer::Renderer,
-    view::AddAttribute,
+    view::add_attr::AddAnyAttr,
 };
 use std::marker::PhantomData;
 
@@ -70,22 +73,40 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 }
 
+impl<E, C, Rndr> NextAttribute<Rndr> for NodeRefAttr<E, C, Rndr>
+where
+    E: ElementType,
+    C: NodeRefContainer<E, Rndr>,
+    Rndr: Renderer,
+    Rndr::Element: PartialEq,
+{
+    type Output<NewAttr: Attribute<Rndr>> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        (self, new_attr)
+    }
+}
+
 pub trait NodeRefAttribute<E, C, Rndr>
 where
     E: ElementType,
     C: NodeRefContainer<E, Rndr>,
     Rndr: Renderer,
+    Rndr::Element: PartialEq,
 {
     fn node_ref(
         self,
         container: C,
-    ) -> <Self as AddAttribute<NodeRefAttr<E, C, Rndr>, Rndr>>::Output
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<NodeRefAttr<E, C, Rndr>>
     where
-        Self: Sized + AddAttribute<NodeRefAttr<E, C, Rndr>, Rndr>,
-        <Self as AddAttribute<NodeRefAttr<E, C, Rndr>, Rndr>>::Output:
+        Self: Sized + AddAnyAttr<Rndr>,
+        <Self as AddAnyAttr<Rndr>>::Output<NodeRefAttr<E, C, Rndr>>:
             Render<Rndr>,
     {
-        self.add_attr(node_ref(container))
+        self.add_any_attr(node_ref(container))
     }
 }
 
@@ -97,5 +118,6 @@ where
     Ch: Render<Rndr>,
     C: NodeRefContainer<E, Rndr>,
     Rndr: Renderer,
+    Rndr::Element: PartialEq,
 {
 }

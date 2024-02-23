@@ -5,7 +5,7 @@
     - [x] todomvc 
     - [x] error_boundary
     - [x] parent\_child
-        - [ ] on: on components
+        - [x] on: on components
     - [ ] router
     - [ ] slots 
     - [ ] hackernews
