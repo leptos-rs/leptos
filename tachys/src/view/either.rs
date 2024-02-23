@@ -1,6 +1,4 @@
-use super::{
-    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
-};
+use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
@@ -96,7 +94,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }
@@ -327,7 +325,7 @@ macro_rules! tuples {
 
                 fn try_rebuild(
                     self,
-                    state: &mut Self::FallibleState,
+                    _state: &mut Self::FallibleState,
                     ) -> crate::error::Result<()> {
                     todo!()
                 }

@@ -3,7 +3,7 @@ use crate::{
     prelude::Mountable,
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{NeverError, Position, PositionState, Render, RenderHtml},
+    view::{Position, PositionState, Render, RenderHtml},
 };
 use reactive_graph::owner::Owner;
 use std::marker::PhantomData;
@@ -87,7 +87,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }

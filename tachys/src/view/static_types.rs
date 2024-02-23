@@ -1,15 +1,10 @@
 use super::{
-    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
-    ToTemplate,
+    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
-    html::{
-        attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
-        class::IntoClass,
-        style::IntoStyle,
-    },
+    html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
     hydration::Cursor,
-    renderer::{DomRenderer, Renderer},
+    renderer::Renderer,
 };
 use std::marker::PhantomData;
 
@@ -146,7 +141,8 @@ where
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(Render::<R>::rebuild(self, state))
+        Render::<R>::rebuild(self, state);
+        Ok(())
     }
 }
 
