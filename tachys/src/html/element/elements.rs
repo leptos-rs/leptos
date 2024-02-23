@@ -49,13 +49,13 @@ macro_rules! html_elements {
                         #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
+                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
                             Ch, Rndr
                         >
                         where
                             V: AttributeValue<Rndr>,
-                            At: TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
+                            At: TupleBuilder,
+                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
                         {
                             let HtmlElement { tag, rndr, children, attributes } = self;
                             HtmlElement {
@@ -135,14 +135,15 @@ macro_rules! html_self_closing_elements {
                         #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
                         pub fn $attr<V>(self, value: V) -> HtmlElement<
                             [<$tag:camel>],
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
+                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
                             (),
                             Rndr
                         >
                         where
                             V: AttributeValue<Rndr>,
-                            At: TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
+                            At: TupleBuilder,
+                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+
                         {
                             let HtmlElement { tag, rndr, children, attributes } = self;
                             HtmlElement {
