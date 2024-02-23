@@ -1,4 +1,4 @@
-use super::{fragment_to_tokens, TagType};
+use super::{event_to_tokens, fragment_to_tokens, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{NodeAttribute, NodeElement, NodeName};
@@ -92,19 +92,17 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     // TODO events and directives
-    /*     let events = attrs
+    let events = attrs
         .clone()
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
-            let (event_type, handler) = event_from_attribute_node(attr, true);
-            let on = quote_spanned!(attr.key.span()=> on);
-            quote! {
-                .#on(#event_type, #handler)
-            }
+            let name = attr.key.to_string();
+            let name = name.strip_prefix("on:").unwrap_or_default();
+            event_to_tokens(&name, attr)
         })
         .collect::<Vec<_>>();
 
-    let directives = attrs
+    /*let directives = attrs
         .clone()
         .filter_map(|attr| {
             attr.key
@@ -116,6 +114,7 @@ pub(crate) fn component_to_tokens(
 
     let events_and_directives =
         events.into_iter().chain(directives).collect::<Vec<_>>(); */
+    let events_and_directives = events;
 
     let dyn_attrs = attrs
         .filter(|attr| attr.key.to_string().starts_with("attr:"))
@@ -254,15 +253,14 @@ pub(crate) fn component_to_tokens(
     IdeTagHelper::add_component_completion(&mut component, node); */
 
     // TODO events and directives
-    /* if events_and_directives.is_empty() {
+    if events_and_directives.is_empty() {
         component
     } else {
         quote_spanned! {node.span()=>
             #component.into_view()
             #(#events_and_directives)*
         }
-    } */
-    component
+    }
 }
 
 #[cfg(debug_assertions)]
