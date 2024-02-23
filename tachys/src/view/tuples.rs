@@ -25,7 +25,7 @@ impl<R: Renderer> Render<R> for () {
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         Ok(())
     }
@@ -55,7 +55,7 @@ where
 
     fn add_any_attr<NewAttr: Attribute<Rndr>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
@@ -64,7 +64,7 @@ where
 
     fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
         self,
-        attr: &NewAttr,
+        _attr: &NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
