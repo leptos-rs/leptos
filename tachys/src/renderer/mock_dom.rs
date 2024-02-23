@@ -496,7 +496,7 @@ impl Renderer for MockDom {
     fn first_child(node: &Self::Node) -> Option<Self::Node> {
         Document::with_node(node.0, |node| match &node.ty {
             NodeType::Text(_) => None,
-            NodeType::Element { children, .. } => children.get(0).cloned(),
+            NodeType::Element { children, .. } => children.first().cloned(),
             NodeType::Placeholder => None,
         })
         .flatten()

@@ -4,7 +4,7 @@ use crate::{
     ssr::StreamBuilder,
     view::{
         either::{Either, EitherState},
-        Mountable, NeverError, Position, PositionState, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 use any_spawner::Executor;
@@ -129,7 +129,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }

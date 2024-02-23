@@ -1,4 +1,4 @@
-use super::{either::Either, NeverError, Position, PositionState, RenderHtml};
+use super::{Position, PositionState, RenderHtml};
 use crate::{
     error::AnyError,
     hydration::Cursor,
@@ -192,9 +192,11 @@ where
             Some(Ok(new_children)) => {
                 state.inner = TryStateState::Success(Some(new_children))
             }
-            Some(Err((children, fallback))) => {
-                state.inner =
-                    TryStateState::SubsequentFail { children, fallback }
+            Some(Err((_children, fallback))) => {
+                state.inner = TryStateState::SubsequentFail {
+                    _children,
+                    fallback,
+                }
             }
             None => {}
         }
@@ -208,7 +210,8 @@ where
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(self.rebuild(state))
+        self.rebuild(state);
+        Ok(())
     }
 }
 
@@ -224,16 +227,16 @@ where
 
     fn to_html_with_buf(
         self,
-        buf: &mut String,
-        position: &mut super::Position,
+        _buf: &mut String,
+        _position: &mut super::Position,
     ) {
         todo!()
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut crate::ssr::StreamBuilder,
-        position: &mut super::Position,
+        _buf: &mut crate::ssr::StreamBuilder,
+        _position: &mut super::Position,
     ) where
         Self: Sized,
     {
@@ -242,8 +245,8 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &crate::hydration::Cursor<Rndr>,
-        position: &super::PositionState,
+        _cursor: &crate::hydration::Cursor<Rndr>,
+        _position: &super::PositionState,
     ) -> Self::State {
         todo!()
     }
@@ -268,7 +271,10 @@ where
     Success(Option<T::FallibleState>),
     InitialFail(Fal::State),
     SubsequentFail {
-        children: Option<T::FallibleState>,
+        // they exist here only to be kept alive
+        // this is important if the children are holding some reactive state that
+        // caused the error boundary to be triggered in the first place
+        _children: Option<T::FallibleState>,
         fallback: Fal::State,
     },
 }

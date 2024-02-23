@@ -1,6 +1,6 @@
 use crate::{
     renderer::Renderer,
-    view::{Position, PositionState, RenderHtml},
+    view::{Position, RenderHtml},
 };
 use futures::Stream;
 use std::{

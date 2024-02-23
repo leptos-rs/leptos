@@ -1,10 +1,5 @@
-use super::{
-    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
-};
-use crate::{
-    hydration::Cursor,
-    renderer::{CastFrom, Renderer},
-};
+use super::{Mountable, Position, PositionState, Render, RenderHtml};
+use crate::{hydration::Cursor, renderer::Renderer};
 use std::{
     any::{Any, TypeId},
     marker::PhantomData,
@@ -173,7 +168,7 @@ where
                     .expect("AnyView::rebuild couldn't downcast state");
                 value.rebuild(state);
             } else {
-                let mut new = value.into_any().build();
+                let new = value.into_any().build();
 
                 // TODO mount new state
                 /*R::mount_before(&mut new, state.placeholder.as_ref());*/
@@ -214,7 +209,7 @@ where
 
     fn try_rebuild(
         self,
-        state: &mut Self::FallibleState,
+        _state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
         todo!()
     }

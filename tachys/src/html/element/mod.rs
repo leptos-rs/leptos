@@ -523,8 +523,7 @@ mod tests {
     use super::{main, p, HtmlElement};
     use crate::{
         html::{
-            attribute::{global::GlobalAttributes, id, src},
-            class::class,
+            attribute::global::GlobalAttributes,
             element::{em, ElementChild, Main},
         },
         renderer::mock_dom::MockDom,

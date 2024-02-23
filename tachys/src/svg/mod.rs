@@ -1,6 +1,6 @@
 use crate::{
     html::{
-        attribute::{Attr, Attribute, AttributeValue},
+        attribute::Attribute,
         element::{
             CreateElement, ElementType, ElementWithChildren, HtmlElement,
         },
@@ -8,34 +8,8 @@ use crate::{
     renderer::{dom::Dom, Renderer},
     view::Render,
 };
-use next_tuple::TupleBuilder;
 use once_cell::unsync::Lazy;
 use std::{fmt::Debug, marker::PhantomData};
-
-macro_rules! svg_global_attr {
-	($tag:ty, $attr:ty) => {
-		paste::paste! {
-			pub fn $attr<V>(self, value: V) -> HtmlElement <
-				[<$tag:camel>],
-				<At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
-				Ch, Rndr
-			>
-			where
-				V: AttributeValue<Rndr>,
-				At: TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-				<At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
-			{
-				let HtmlElement { tag, rndr, children, attributes } = self;
-				HtmlElement {
-					tag,
-					rndr,
-					children,
-					attributes: attributes.next_tuple($crate::html::attribute::$attr(value))
-				}
-			}
-		}
-	}
-}
 
 macro_rules! svg_elements {
 	($($tag:ident  [$($attr:ty),*]),* $(,)?) => {

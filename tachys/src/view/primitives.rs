@@ -2,7 +2,7 @@ use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
-    view::{NeverError, ToTemplate},
+    view::ToTemplate,
 };
 use std::{
     fmt::Write,
@@ -67,7 +67,8 @@ macro_rules! render_primitive {
                 }
 
                 fn try_rebuild(self, state: &mut Self::FallibleState) -> crate::error::Result<()> {
-                    Ok(self.rebuild(state))
+                    self.rebuild(state);
+Ok(())
                 }
 			}
 
@@ -84,7 +85,12 @@ macro_rules! render_primitive {
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")
 					}
-					write!(buf, "{}", self);
+					if let Err(e) = write!(buf, "{}", self) {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!(e);
+                        #[cfg(not(feature = "tracing"))]
+                        { _ = e;}
+                    }
 					*position = Position::NextChildAfterText;
 				}
 

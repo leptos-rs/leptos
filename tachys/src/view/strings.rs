@@ -1,6 +1,5 @@
 use super::{
-    Mountable, NeverError, Position, PositionState, Render, RenderHtml,
-    ToTemplate,
+    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
 use crate::{
     hydration::Cursor,
@@ -38,7 +37,8 @@ impl<'a, R: Renderer> Render<R> for &'a str {
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(self.rebuild(state))
+        self.rebuild(state);
+        Ok(())
     }
 }
 
@@ -160,7 +160,8 @@ impl<R: Renderer> Render<R> for String {
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(self.rebuild(state))
+        self.rebuild(state);
+        Ok(())
     }
 }
 
@@ -254,7 +255,8 @@ impl<R: Renderer> Render<R> for Rc<str> {
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(self.rebuild(state))
+        self.rebuild(state);
+        Ok(())
     }
 }
 
@@ -349,7 +351,8 @@ impl<R: Renderer> Render<R> for Arc<str> {
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(self.rebuild(state))
+        self.rebuild(state);
+        Ok(())
     }
 }
 
@@ -444,7 +447,8 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
         self,
         state: &mut Self::FallibleState,
     ) -> crate::error::Result<()> {
-        Ok(self.rebuild(state))
+        self.rebuild(state);
+        Ok(())
     }
 }
 
