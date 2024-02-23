@@ -3,8 +3,9 @@ use super::{
     ToTemplate,
 };
 use crate::{
+    html::attribute::Attribute,
     hydration::Cursor,
-    view::{AddAttribute, StreamBuilder},
+    view::{add_attr::AddAnyAttr, StreamBuilder},
 };
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
@@ -43,6 +44,31 @@ where
         _cursor: &Cursor<R>,
         _position: &PositionState,
     ) -> Self::State {
+    }
+}
+
+impl<Rndr> AddAnyAttr<Rndr> for ()
+where
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = ();
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+    }
+
+    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: &NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
     }
 }
 
@@ -140,6 +166,34 @@ impl<A: ToTemplate> ToTemplate for (A,) {
         position: &mut Position,
     ) {
         A::to_template(buf, class, style, inner_html, position)
+    }
+}
+
+impl<A, Rndr> AddAnyAttr<Rndr> for (A,)
+where
+    A: AddAnyAttr<Rndr>,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = (A::Output<SomeNewAttr>,);
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        (self.0.add_any_attr(attr),)
+    }
+
+    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: &NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        (self.0.add_any_attr_by_ref(attr),)
     }
 }
 
@@ -295,25 +349,36 @@ macro_rules! impl_view_for_tuples {
 			}
 		}
 
-		impl<NewAttr, $first, $($ty),*, Rndr> AddAttribute<NewAttr, Rndr> for ($first, $($ty,)*)
-		where
-			$first: AddAttribute<NewAttr, Rndr>,
-			$($ty: AddAttribute<NewAttr, Rndr>),*,
-            NewAttr: Sized + Clone,
-			Rndr: Renderer
+        impl<$first, $($ty,)* Rndr> AddAnyAttr<Rndr> for ($first, $($ty,)*)
+        where
+			$first: AddAnyAttr<Rndr>,
+			$($ty: AddAnyAttr<Rndr>),*,
+            Rndr: Renderer,
         {
-            type Output = (<$first as AddAttribute<NewAttr, Rndr>>::Output, $(<$ty as AddAttribute<NewAttr, Rndr>>::Output,)*);
+            type Output<SomeNewAttr: Attribute<Rndr>> = ($first::Output<SomeNewAttr>, $($ty::Output<SomeNewAttr>,)*);
 
-            fn add_attr(self, attr: NewAttr) -> Self::Output {
-                self.add_attr_by_ref(&attr)
+            fn add_any_attr<NewAttr: Attribute<Rndr>>(
+                self,
+                attr: NewAttr,
+            ) -> Self::Output<NewAttr>
+            where
+                Self::Output<NewAttr>: RenderHtml<Rndr>,
+            {
+                self.add_any_attr_by_ref(&attr)
             }
 
-            fn add_attr_by_ref(self, attr: &NewAttr) -> Self::Output where NewAttr: Sized + Clone {
+            fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
+                self,
+                attr: &NewAttr,
+            ) -> Self::Output<NewAttr>
+            where
+                Self::Output<NewAttr>: RenderHtml<Rndr>,
+            {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
-                    $first.add_attr_by_ref(attr),
-                    $($ty.add_attr_by_ref(attr)),*
+                    $first.add_any_attr_by_ref(&attr),
+                    $($ty.add_any_attr_by_ref(&attr)),*
                 )
             }
         }

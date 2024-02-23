@@ -157,6 +157,20 @@ where
     }
 }
 
+impl<R> NextAttribute<R> for On<R>
+where
+    R: DomRenderer,
+{
+    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        (self, new_attr)
+    }
+}
+
 impl<R> ToTemplate for On<R>
 where
     R: DomRenderer,
@@ -441,6 +455,7 @@ generate_event_types! {
 }
 
 // Export `web_sys` event types
+use super::attribute::NextAttribute;
 pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
     DeviceMotionEvent, DeviceOrientationEvent, DragEvent, ErrorEvent, Event,

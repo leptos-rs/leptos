@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     html::{
-        attribute::{Attribute, AttributeKey, AttributeValue},
+        attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
         class::IntoClass,
         style::IntoStyle,
     },
@@ -90,6 +90,21 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+}
+
+impl<K, const V: &'static str, R> NextAttribute<R> for StaticAttr<K, V>
+where
+    K: AttributeKey,
+    R: Renderer,
+{
+    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        (StaticAttr::<K, V> { ty: PhantomData }, new_attr)
+    }
 }
 
 #[derive(Debug)]
