@@ -100,6 +100,8 @@ pub trait Renderer: Sized {
     fn log_node(node: &Self::Node);
 }
 
+/// A function that can be called to remove an event handler from an element after it has been added.
+pub type RemoveEventHandler<T> = Box<dyn FnOnce(&T)>;
 /// Additional rendering behavior that applies only to DOM nodes.
 pub trait DomRenderer: Renderer {
     /// Generic event type, from which any specific event can be converted.
@@ -119,7 +121,7 @@ pub trait DomRenderer: Renderer {
         el: &Self::Element,
         name: &str,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element)>;
+    ) -> RemoveEventHandler<Self::Element>;
 
     /// Adds an event listener to an element, delegated to the window if possible.
     ///
@@ -129,7 +131,7 @@ pub trait DomRenderer: Renderer {
         name: Cow<'static, str>,
         delegation_key: Cow<'static, str>,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element)>;
+    ) -> RemoveEventHandler<Self::Element>;
 
     /// Return the `event.target`, cast to the given type.
     fn event_target<T>(ev: &Self::Event) -> T
