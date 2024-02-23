@@ -1,7 +1,8 @@
+use super::NextAttribute;
 use crate::{
     html::attribute::{Attribute, AttributeValue},
     renderer::DomRenderer,
-    view::{AddAttribute, Position, ToTemplate},
+    view::{add_attr::AddAnyAttr, Position, ToTemplate},
 };
 use std::{borrow::Cow, marker::PhantomData, rc::Rc, sync::Arc};
 
@@ -66,6 +67,22 @@ where
     }
 }
 
+impl<K, V, R> NextAttribute<R> for CustomAttr<K, V, R>
+where
+    K: CustomAttributeKey,
+    V: AttributeValue<R>,
+    R: DomRenderer,
+{
+    type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        new_attr: NewAttr,
+    ) -> Self::Output<NewAttr> {
+        (self, new_attr)
+    }
+}
+
 impl<K, V, R> ToTemplate for CustomAttr<K, V, R>
 where
     K: CustomAttributeKey,
@@ -125,20 +142,20 @@ where
     K: CustomAttributeKey,
     V: AttributeValue<Rndr>,
     Rndr: DomRenderer,
-    Self: Sized + AddAttribute<CustomAttr<K, V, Rndr>, Rndr>,
+    Self: Sized + AddAnyAttr<Rndr>,
 {
     fn attr(
         self,
         key: K,
         value: V,
-    ) -> <Self as AddAttribute<CustomAttr<K, V, Rndr>, Rndr>>::Output {
-        self.add_attr(custom_attribute(key, value))
+    ) -> <Self as AddAnyAttr<Rndr>>::Output<CustomAttr<K, V, Rndr>> {
+        self.add_any_attr(custom_attribute(key, value))
     }
 }
 
 impl<T, K, V, Rndr> CustomAttribute<K, V, Rndr> for T
 where
-    T: AddAttribute<CustomAttr<K, V, Rndr>, Rndr>,
+    T: AddAnyAttr<Rndr>,
     K: CustomAttributeKey,
     V: AttributeValue<Rndr>,
     Rndr: DomRenderer,

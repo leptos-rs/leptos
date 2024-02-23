@@ -17,13 +17,13 @@ macro_rules! mathml_global {
 		paste::paste! {
 			pub fn $attr<V>(self, value: V) -> HtmlElement <
 				[<$tag:camel>],
-				<At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
+				<At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
 				Ch, Rndr
 			>
 			where
 				V: AttributeValue<Rndr>,
-				At: TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-				<At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
+				At: TupleBuilder,
+				<At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
 			{
 				let HtmlElement { tag, rndr, children, attributes } = self;
 				HtmlElement {
@@ -75,13 +75,13 @@ macro_rules! mathml_elements {
 					$(
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
+                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
                             Ch, Rndr
                         >
                         where
                             V: AttributeValue<Rndr>,
-                            At: TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
+                            At: TupleBuilder,
+                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
                         {
                             let HtmlElement { tag, rndr, children, attributes } = self;
                             HtmlElement {
