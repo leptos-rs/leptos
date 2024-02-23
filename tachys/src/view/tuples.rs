@@ -2,7 +2,10 @@ use super::{
     Mountable, Position, PositionState, Render, RenderHtml, Renderer,
     ToTemplate,
 };
-use crate::{hydration::Cursor, view::StreamBuilder};
+use crate::{
+    hydration::Cursor,
+    view::{AddAttribute, StreamBuilder},
+};
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
 };
@@ -153,6 +156,7 @@ macro_rules! impl_view_for_tuples {
 			type FallibleState = ($first::FallibleState, $($ty::FallibleState,)*);
 
 			fn build(self) -> Self::State {
+                #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
                     $first.build(),
@@ -170,13 +174,12 @@ macro_rules! impl_view_for_tuples {
 			}
 
 			fn try_build(self) -> crate::error::Result<Self::FallibleState> {
-				paste::paste! {
-					let ($first, $($ty,)*) = self;
-					Ok((
-						$first.try_build()?,
-						$($ty.try_build()?),*
-					))
-				}
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                Ok((
+                    $first.try_build()?,
+                    $($ty.try_build()?),*
+                ))
 			}
 
 			fn try_rebuild(self, state: &mut Self::FallibleState) -> crate::error::Result<()> {
@@ -291,6 +294,29 @@ macro_rules! impl_view_for_tuples {
 				}
 			}
 		}
+
+		impl<NewAttr, $first, $($ty),*, Rndr> AddAttribute<NewAttr, Rndr> for ($first, $($ty,)*)
+		where
+			$first: AddAttribute<NewAttr, Rndr>,
+			$($ty: AddAttribute<NewAttr, Rndr>),*,
+            NewAttr: Sized + Clone,
+			Rndr: Renderer
+        {
+            type Output = (<$first as AddAttribute<NewAttr, Rndr>>::Output, $(<$ty as AddAttribute<NewAttr, Rndr>>::Output,)*);
+
+            fn add_attr(self, attr: NewAttr) -> Self::Output {
+                self.add_attr_by_ref(&attr)
+            }
+
+            fn add_attr_by_ref(self, attr: &NewAttr) -> Self::Output where NewAttr: Sized + Clone {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.add_attr_by_ref(attr),
+                    $($ty.add_attr_by_ref(attr)),*
+                )
+            }
+        }
 	};
 }
 

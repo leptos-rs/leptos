@@ -1,6 +1,8 @@
+use leptos_dom::events::EventDescriptor;
 use tachys::{
+    html::attribute::global::OnAttribute,
     hydration::Cursor,
-    renderer::dom::Dom,
+    renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
     view::{Mountable, Position, PositionState, Render, RenderHtml},
 };
