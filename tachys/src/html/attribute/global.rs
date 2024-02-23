@@ -9,16 +9,123 @@ use crate::{
         style::{style, IntoStyle, Style},
     },
     renderer::DomRenderer,
+    view::AddAttribute,
 };
 use core::convert::From;
 
-pub trait AddAttribute<NewAttr, Rndr>
+pub trait ClassAttribute<C, Rndr>
 where
-    Rndr: Renderer,
+    C: IntoClass<Rndr>,
+    Rndr: DomRenderer,
 {
     type Output;
 
-    fn add_attr(self, attr: NewAttr) -> Self::Output;
+    fn class(self, value: C) -> Self::Output;
+}
+
+impl<T, C, Rndr> ClassAttribute<C, Rndr> for T
+where
+    T: AddAttribute<Class<C, Rndr>, Rndr>,
+    C: IntoClass<Rndr>,
+    Rndr: DomRenderer,
+{
+    type Output = <Self as AddAttribute<Class<C, Rndr>, Rndr>>::Output;
+
+    fn class(self, value: C) -> Self::Output {
+        self.add_attr(class(value))
+    }
+}
+
+pub trait PropAttribute<K, P, Rndr>
+where
+    P: IntoProperty<Rndr>,
+    Rndr: DomRenderer,
+{
+    type Output;
+
+    fn prop(self, key: K, value: P) -> Self::Output;
+}
+
+impl<T, K, P, Rndr> PropAttribute<K, P, Rndr> for T
+where
+    T: AddAttribute<Property<K, P, Rndr>, Rndr>,
+    K: AsRef<str>,
+    P: IntoProperty<Rndr>,
+    Rndr: DomRenderer,
+{
+    type Output = <Self as AddAttribute<Property<K, P, Rndr>, Rndr>>::Output;
+    fn prop(self, key: K, value: P) -> Self::Output {
+        self.add_attr(property(key, value))
+    }
+}
+
+pub trait StyleAttribute<S, Rndr>
+where
+    S: IntoStyle<Rndr>,
+    Rndr: DomRenderer,
+{
+    type Output;
+
+    fn style(self, value: S) -> Self::Output;
+}
+
+impl<T, S, Rndr> StyleAttribute<S, Rndr> for T
+where
+    T: AddAttribute<Style<S, Rndr>, Rndr>,
+    S: IntoStyle<Rndr>,
+    Rndr: DomRenderer,
+{
+    type Output = <Self as AddAttribute<Style<S, Rndr>, Rndr>>::Output;
+
+    fn style(self, value: S) -> Self::Output {
+        self.add_attr(style(value))
+    }
+}
+
+pub trait OnAttribute<E, F, Rndr> {
+    type Output;
+
+    fn on(self, event: E, cb: F) -> Self::Output;
+}
+
+impl<T, E, F, Rndr> OnAttribute<E, F, Rndr> for T
+where
+    T: AddAttribute<On<Rndr>, Rndr>,
+    E: EventDescriptor + 'static,
+    E::EventType: 'static,
+    E::EventType: From<Rndr::Event>,
+    F: FnMut(E::EventType) + 'static,
+    Rndr: DomRenderer,
+{
+    type Output = <Self as AddAttribute<On<Rndr>, Rndr>>::Output;
+
+    fn on(self, event: E, cb: F) -> Self::Output {
+        self.add_attr(on(event, cb))
+    }
+}
+
+pub trait OnTargetAttribute<E, F, T, Rndr> {
+    type Output;
+
+    fn on_target(self, event: E, cb: F) -> Self::Output;
+}
+
+impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
+where
+    Self: ElementType,
+    T: AddAttribute<On<Rndr>, Rndr>,
+    E: EventDescriptor + 'static,
+    E::EventType: 'static,
+    E::EventType: From<Rndr::Event>,
+    F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)
+        + 'static,
+    Rndr: DomRenderer,
+{
+    type Output = <Self as AddAttribute<On<Rndr>, Rndr>>::Output;
+    fn on_target(self, event: E, cb: F) -> Self::Output
+where {
+        self.add_attr(on_target(event, cb))
+    }
 }
 
 pub trait GlobalAttributes<Rndr, V>
@@ -254,91 +361,6 @@ where
     }
 }
 
-pub trait ClassAttribute<C, Rndr>
-where
-    C: IntoClass<Rndr>,
-    Rndr: DomRenderer,
-    Self: Sized + AddAttribute<Class<C, Rndr>, Rndr>,
-{
-    fn class(
-        self,
-        value: C,
-    ) -> <Self as AddAttribute<Class<C, Rndr>, Rndr>>::Output {
-        self.add_attr(class(value))
-    }
-}
-
-pub trait PropAttribute<K, P, Rndr>
-where
-    K: AsRef<str>,
-    P: IntoProperty<Rndr>,
-    Rndr: DomRenderer,
-    Self: Sized + AddAttribute<Property<K, P, Rndr>, Rndr>,
-{
-    fn prop(
-        self,
-        key: K,
-        value: P,
-    ) -> <Self as AddAttribute<Property<K, P, Rndr>, Rndr>>::Output {
-        self.add_attr(property(key, value))
-    }
-}
-
-pub trait StyleAttribute<S, Rndr>
-where
-    S: IntoStyle<Rndr>,
-    Rndr: DomRenderer,
-    Self: Sized + AddAttribute<Style<S, Rndr>, Rndr>,
-{
-    fn style(
-        self,
-        value: S,
-    ) -> <Self as AddAttribute<Style<S, Rndr>, Rndr>>::Output {
-        self.add_attr(style(value))
-    }
-}
-
-pub trait OnAttribute<E, F, Rndr>
-where
-    Self: ElementType,
-    E: EventDescriptor + 'static,
-    E::EventType: 'static,
-    E::EventType: From<Rndr::Event>,
-    F: FnMut(E::EventType) + 'static,
-    Rndr: DomRenderer,
-    Self: Sized + AddAttribute<On<Rndr>, Rndr>,
-{
-    fn on(
-        self,
-        event: E,
-        cb: F,
-    ) -> <Self as AddAttribute<On<Rndr>, Rndr>>::Output
-where {
-        self.add_attr(on(event, cb))
-    }
-}
-
-pub trait OnTargetAttribute<E, F, T, Rndr>
-where
-    Self: ElementType,
-    E: EventDescriptor + 'static,
-    E::EventType: 'static,
-    E::EventType: From<Rndr::Event>,
-    F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)
-        + 'static,
-    Rndr: DomRenderer,
-    Self: Sized + AddAttribute<On<Rndr>, Rndr>,
-{
-    fn on_target(
-        self,
-        event: E,
-        cb: F,
-    ) -> <Self as AddAttribute<On<Rndr>, Rndr>>::Output
-where {
-        self.add_attr(on_target(event, cb))
-    }
-}
-
 impl<T, Rndr, V> GlobalAttributes<Rndr, V> for T
 where
     T: AddAttribute<Attr<Accesskey, V, Rndr>, Rndr>
@@ -371,55 +393,5 @@ where
         + AddAttribute<Attr<Virtualkeyboardpolicy, V, Rndr>, Rndr>,
     V: AttributeValue<Rndr>,
     Rndr: Renderer,
-{
-}
-
-impl<T, C, Rndr> ClassAttribute<C, Rndr> for T
-where
-    T: AddAttribute<Class<C, Rndr>, Rndr>,
-    C: IntoClass<Rndr>,
-    Rndr: DomRenderer,
-{
-}
-
-impl<T, K, P, Rndr> PropAttribute<K, P, Rndr> for T
-where
-    T: AddAttribute<Property<K, P, Rndr>, Rndr>,
-    K: AsRef<str>,
-    P: IntoProperty<Rndr>,
-    Rndr: DomRenderer,
-{
-}
-
-impl<T, S, Rndr> StyleAttribute<S, Rndr> for T
-where
-    T: AddAttribute<Style<S, Rndr>, Rndr>,
-    S: IntoStyle<Rndr>,
-    Rndr: DomRenderer,
-{
-}
-
-impl<T, E, F, Rndr> OnAttribute<E, F, Rndr> for T
-where
-    Self: ElementType,
-    T: AddAttribute<On<Rndr>, Rndr>,
-    E: EventDescriptor + 'static,
-    E::EventType: 'static,
-    E::EventType: From<Rndr::Event>,
-    F: FnMut(E::EventType) + 'static,
-    Rndr: DomRenderer,
-{
-}
-
-impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
-where
-    Self: ElementType,
-    T: AddAttribute<On<Rndr>, Rndr>,
-    E: EventDescriptor + 'static,
-    E::EventType: 'static,
-    E::EventType: From<Rndr::Event>,
-    F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)
-        + 'static,
-    Rndr: DomRenderer,
 {
 }
