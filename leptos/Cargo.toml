@@ -91,7 +91,9 @@ denylist = [
   "rustls",
   "default-tls",
   "wasm-bindgen",
-  "trace-component-props"
+  "trace-component-props",
+  "spin",
+  "experimental-islands"
 ]
 skip_feature_sets = [
   [
