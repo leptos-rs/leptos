@@ -1,15 +1,14 @@
 use super::{Location, LocationChange, Url};
+use alloc::string::{String, ToString};
+use core::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RequestUrl(String);
 
 impl RequestUrl {
-    /// Creates a server-side request URL from a path, with an optional initial slash.
-    pub fn from_path(path: impl AsRef<str>) -> Self {
-        let path = path.as_ref().trim_start_matches('/');
-        let mut string = String::with_capacity(path.len());
-        string.push_str(path);
-        Self(string)
+    /// Creates a server-side request URL from a path.
+    pub fn new(path: impl Display) -> Self {
+        Self(path.to_string())
     }
 }
 
@@ -24,25 +23,27 @@ impl Location for RequestUrl {
 
     fn init(&self) {}
 
-    fn try_to_url_with_base(&self, base: &str) -> Result<Url, Self::Error> {
-        let url = String::with_capacity(self.0.len() + 1 + base);
-        let url = url::Url::parse(&self.0)?;
+    fn set_navigation_hook(&mut self, _cb: impl FnMut(Url) + 'static) {}
+
+    fn navigate(&self, _loc: &LocationChange) {}
+
+    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
+        let base = url::Url::parse(base)?;
+        let url = url::Url::options().base_url(Some(&base)).parse(&url)?;
+
         let search_params = url
             .query_pairs()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
+
         Ok(Url {
             origin: url.origin().unicode_serialization(),
-            pathname: url.path().to_string(),
+            path: url.path().to_string(),
             search: url.query().unwrap_or_default().to_string(),
             search_params,
             hash: Default::default(),
         })
     }
-
-    fn set_navigation_hook(&mut self, _cb: impl FnMut(Url) + 'static) {}
-
-    fn navigate(&self, _loc: &LocationChange) {}
 }
 
 #[cfg(test)]
@@ -50,8 +51,22 @@ mod tests {
     use super::RequestUrl;
     use crate::location::Location;
 
+    #[test]
     pub fn should_parse_url_without_origin() {
-        let req = RequestUrl::from_path("/foo/bar");
-        let url = req.try_to_url().expect("could not parse URL");
+        let url = RequestUrl::parse("/foo/bar").unwrap();
+        assert_eq!(url.path(), "/foo/bar");
+    }
+
+    #[test]
+    pub fn should_not_parse_url_without_slash() {
+        let url = RequestUrl::parse("foo/bar").unwrap();
+        assert_eq!(url.path(), "/foo/bar");
+    }
+
+    #[test]
+    pub fn should_parse_with_base() {
+        let url = RequestUrl::parse("https://www.example.com/foo/bar").unwrap();
+        assert_eq!(url.origin(), "https://www.example.com");
+        assert_eq!(url.path(), "/foo/bar");
     }
 }
