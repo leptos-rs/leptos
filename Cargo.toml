@@ -17,6 +17,7 @@ members = [
   "leptos_reactive",
   "leptos_server",
   "reactive_graph",
+  "routing",
   "server_fn",
   "server_fn_macro",
   "server_fn/server_fn_macro_default",
@@ -54,6 +55,7 @@ leptos_meta = { path = "./meta", version = "0.6.5" }
 next_tuple = { path = "./next_tuple" }
 or_poisoned = { path = "./or_poisoned" }
 reactive_graph = { path = "./reactive_graph" }
+routing = { path = "./routing" }
 server_fn = { path = "./server_fn", version = "0.6.5" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.6.5" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
