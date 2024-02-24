@@ -1,6 +1,5 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use alloc::{string::String, vec::Vec};
-use core::str::Chars;
 
 macro_rules! tuples {
     ($($ty:ident),*) => {
@@ -8,11 +7,12 @@ macro_rules! tuples {
         where
 			$($ty: PossibleRouteMatch),*,
         {
-            fn matches_iter(&self, path: &mut Chars) -> bool
+            fn matches<'a>(&self, path: &'a str) -> Option<&'a str>
             {
                 #[allow(non_snake_case)]
                 let ($($ty,)*) = &self;
-                $($ty.matches_iter(path) &&)* true
+                $(let path = $ty.matches(path)?;)*
+                Some(path)
             }
 
             fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>>
