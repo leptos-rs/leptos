@@ -27,6 +27,7 @@
     - escaping HTML correctly (attributes + text nodes)
 - router
     - nested routes
+    - trailing slashes
 - \_meta package (and use in hackernews)
 - integrations
 - update tests

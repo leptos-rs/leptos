@@ -1,19 +1,44 @@
 use crate::params::Params;
-use std::fmt::Debug;
+use alloc::string::String;
+use core::fmt::Debug;
 use wasm_bindgen::JsValue;
 
+mod browser;
 mod server;
+pub use browser::*;
 pub use server::*;
 
 pub(crate) const BASE: &str = "https://leptos.dev";
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Url {
-    pub origin: String,
-    pub pathname: String,
-    pub search: String,
-    pub search_params: Params<String>,
-    pub hash: String,
+    origin: String,
+    path: String,
+    search: String,
+    search_params: Params<String>,
+    hash: String,
+}
+
+impl Url {
+    pub fn origin(&self) -> &str {
+        &self.origin
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn search(&self) -> &str {
+        &self.search
+    }
+
+    pub fn search_params(&self) -> &Params<String> {
+        &self.search_params
+    }
+
+    pub fn hash(&self) -> &str {
+        &self.hash
+    }
 }
 
 /// A description of a navigation.
@@ -47,13 +72,16 @@ pub trait Location {
     /// Sets up any global event listeners or other initialization needed.
     fn init(&self);
 
-    /// Returns the current URL.
-    fn try_to_url(&self) -> Result<Url, Self::Error>;
-
     fn set_navigation_hook(&mut self, cb: impl Fn(Url) + 'static);
 
     /// Navigate to a new location.
     fn navigate(&self, loc: &LocationChange);
+
+    fn parse(url: &str) -> Result<Url, Self::Error> {
+        Self::parse_with_base(url, BASE)
+    }
+
+    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
