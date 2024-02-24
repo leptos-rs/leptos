@@ -29,7 +29,7 @@ impl Location for RequestUrl {
 
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
         let base = url::Url::parse(base)?;
-        let url = url::Url::options().base_url(Some(&base)).parse(&url)?;
+        let url = url::Url::options().base_url(Some(&base)).parse(url)?;
 
         let search_params = url
             .query_pairs()
