@@ -1,7 +1,10 @@
 use gloo_timers::future::TimeoutFuture;
 use leptos::{
     prelude::*,
-    reactive_graph::{computed::AsyncDerived, signal::RwSignal},
+    reactive_graph::{
+        computed::{AsyncDerived, AsyncState},
+        signal::RwSignal,
+    },
     tachys::log,
     view, IntoView,
 };
@@ -30,21 +33,16 @@ pub fn async_example() -> impl IntoView {
     let a = RwSignal::new(0);
     let b = RwSignal::new(1);
 
-    let a2 = create_resource(a, |a| wait('A', 1, a));
-    let b2 = create_resource(b, |a| wait('A', 1, b));
+    let a2 = || wait('A', 1, 1);
+    let b2 = || wait('B', 3, 3);
+
+    //let a2 = create_resource(a, |a| wait('A', 1, a));
+    //let b2 = create_resource(b, |a| wait('A', 1, b));
 
     view! {
-        <button on:click=move |_| {
-            a.update(|n| *n += 1);
-        }>
-            {a}
-        </button>
-        <button on:click=move |_| {
-            b.update(|n| *n += 1);
-        }>
-            {b}
-        </button>
-        <Suspense>
+        <button on:click=move |_| a.update(|n| *n += 1)> {a} </button> " "
+        <button on:click=move |_| b.update(|n| *n += 1)> {b} </button>
+        /*<Suspense>
             {move || a2().map(move |a2| {
                 b2().map(move |b2| {
                     view! {
@@ -52,7 +50,7 @@ pub fn async_example() -> impl IntoView {
                     }
                 })
             })}
-        </Suspense>
+        </Suspense>*/
         <p>
             //{times}
         </p>
