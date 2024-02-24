@@ -18,6 +18,9 @@ tracing = { version = "0.1", optional = true }
 [dependencies.web-sys]
 version = "0.3"
 features = [
+	"Document",
+	"Window",
+	"console",
 	# History/Routing
 	"History",
 	"HtmlAnchorElement",
@@ -38,7 +41,6 @@ features = [
 	"RequestInit",
 	"RequestMode",
 	"Response",
-	"Window",
 ]
 
 [features]
