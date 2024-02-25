@@ -79,17 +79,10 @@ help: consider giving `props` an explicit type, where the placeholders `_` are s
    |                     ++++++++++++++++++++++++++++
 
 error[E0283]: type annotations needed for `ComponentProps<i32, C, RC>`
-  --> tests/ui/view/expected_one_let_bind_got_none.rs:34:9
+  --> tests/ui/view/expected_one_let_bind_got_none.rs:34:10
    |
-34 |           <Component
-   |           ^--------- required by a bound introduced by this call
-   |  _________|
-   | |
-35 | |             data=0
-36 | |         >
-37 | |             <p/>
-38 | |         </Component>
-   | |____________________^
+34 |         <Component
+   |          ^^^^^^^^^
    |
    = note: multiple `impl`s satisfying `_: Fn(i32)` found in the following crates: `alloc`, `core`:
            - impl<A, F> std::ops::Fn<A> for &F
@@ -104,42 +97,6 @@ note: required by a bound in `ComponentPropsBuilder::<T, C, RC, ((T,), (C,))>::b
 ...
 25 |     C: Fn(T) -> RC,
    |        ^^^^^^^^^^^ required by this bound in `ComponentPropsBuilder::<T, C, RC, ((T,), (C,))>::build`
-help: consider giving `props` an explicit type, where the type for type parameter `C` is specified
-   |
-38 |         </Component>: ComponentProps<i32, C, RC>
-   |                     ++++++++++++++++++++++++++++
-
-error[E0283]: type annotations needed for `ComponentProps<i32, C, RC>`
-  --> tests/ui/view/expected_one_let_bind_got_none.rs:34:9
-   |
-34 | /         <Component
-35 | |             data=0
-36 | |         >
-37 | |             <p/>
-38 | |         </Component>
-   | |____________________^
-   |
-   = note: multiple `impl`s satisfying `_: Fn(i32)` found in the following crates: `alloc`, `core`:
-           - impl<A, F> std::ops::Fn<A> for &F
-             where A: Tuple, F: std::ops::Fn<A>, F: ?Sized;
-           - impl<Args, F, A> std::ops::Fn<Args> for Box<F, A>
-             where Args: Tuple, F: std::ops::Fn<Args>, A: Allocator, F: ?Sized;
-note: required for `ComponentProps<i32, _, _>` to implement `leptos::Props`
-  --> tests/ui/view/expected_one_let_bind_got_none.rs:22:1
-   |
-22 | #[component]
-   | ^^^^^^^^^^^^
-...
-25 |     C: Fn(T) -> RC,
-   |        ----------- unsatisfied trait bound introduced here
-   = note: required for `ComponentProps<i32, _, _>` to implement `PropsOrNoPropsBuilder`
-   = note: required for `&fn(ComponentProps<i32, _, _>) -> impl leptos::IntoView {Component::<i32, _, _>}` to implement `ComponentConstructor<ComponentProps<i32, _, _>>`
-note: required by a bound in `component_view`
-  --> $WORKSPACE/leptos/src/lib.rs
-   |
-   | pub fn component_view<P>(f: impl ComponentConstructor<P>, props: P) -> View {
-   |                                  ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `component_view`
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 help: consider giving `props` an explicit type, where the type for type parameter `C` is specified
    |
 38 |         </Component>: ComponentProps<i32, C, RC>
@@ -314,46 +271,6 @@ note: required by a bound in `SlotPropsBuilder::<T, C, RC, ((Then<T, C, RC>,),)>
 ...
 16 |     C: Fn(T) -> RC,
    |        ^^^^^^^^^^^ required by this bound in `SlotPropsBuilder::<T, C, RC, ((Then<T, C, RC>,),)>::build`
-help: consider giving `slot` an explicit type, where the type for type parameter `C` is specified
-   |
-48 |             </Then>: Then<i32, C, RC>
-   |                    ++++++++++++++++++
-
-error[E0283]: type annotations needed for `Then<i32, C, RC>`
-  --> tests/ui/view/expected_one_let_bind_got_none.rs:43:13
-   |
-42 | /          <Slot>
-43 | |/             <Then
-44 | ||                 slot
-45 | ||                 data=0
-46 | ||             >
-47 | ||                 <p/>
-48 | ||             </Then>
-   | ||___________________^
-49 | |          </Slot>
-   | |________________- required by a bound introduced by this call
-   |
-   = note: multiple `impl`s satisfying `_: Fn(i32)` found in the following crates: `alloc`, `core`:
-           - impl<A, F> std::ops::Fn<A> for &F
-             where A: Tuple, F: std::ops::Fn<A>, F: ?Sized;
-           - impl<Args, F, A> std::ops::Fn<Args> for Box<F, A>
-             where Args: Tuple, F: std::ops::Fn<Args>, A: Allocator, F: ?Sized;
-note: required for `SlotProps<i32, _, _>` to implement `leptos::Props`
-  --> tests/ui/view/expected_one_let_bind_got_none.rs:13:1
-   |
-13 | #[component]
-   | ^^^^^^^^^^^^
-...
-16 |     C: Fn(T) -> RC,
-   |        ----------- unsatisfied trait bound introduced here
-   = note: required for `SlotProps<i32, _, _>` to implement `PropsOrNoPropsBuilder`
-   = note: required for `&fn(SlotProps<i32, _, _>) -> impl leptos::IntoView {Slot::<i32, _, _>}` to implement `ComponentConstructor<SlotProps<i32, _, _>>`
-note: required by a bound in `component_view`
-  --> $WORKSPACE/leptos/src/lib.rs
-   |
-   | pub fn component_view<P>(f: impl ComponentConstructor<P>, props: P) -> View {
-   |                                  ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `component_view`
-   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 help: consider giving `slot` an explicit type, where the type for type parameter `C` is specified
    |
 48 |             </Then>: Then<i32, C, RC>
