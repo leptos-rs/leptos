@@ -18,22 +18,22 @@ macro_rules! tuples {
             fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>>
             {
 				let mut full_params = Vec::new();
-				let mut full_matched = String::new();
+                let mut matched_len = 0;
                 #[allow(non_snake_case)]
                 let ($($ty,)*) = &self;
+                let remaining = path;
                 $(
                     let PartialPathMatch {
                         remaining,
                         matched,
                         params
-                    } = $ty.test(path)?;
-                    let path = remaining;
-                    full_matched.push_str(&matched);
+                    } = $ty.test(remaining)?;
+                    matched_len += matched.len();
                     full_params.extend(params);
                 )*
                 Some(PartialPathMatch {
-                    remaining: path,
-                    matched: full_matched,
+                    remaining,
+                    matched: &path[0..matched_len],
                     params: full_params
                 })
             }
