@@ -1,7 +1,6 @@
 use super::{PartialPathMatch, PossibleRouteMatch};
 use crate::PathSegment;
-use alloc::{string::String, vec::Vec};
-use core::str::Chars;
+use alloc::vec::Vec;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParamSegment(pub &'static str);
@@ -12,6 +11,7 @@ impl PossibleRouteMatch for ParamSegment {
         let mut test = path.chars().peekable();
         // match an initial /
         if test.peek() == Some(&'/') {
+            matched_len += 1;
             test.next();
         }
         for char in test {
@@ -21,17 +21,19 @@ impl PossibleRouteMatch for ParamSegment {
             }
             matched_len += char.len_utf8();
         }
-        Some(&path[matched_len..])
+        Some(&path[0..matched_len])
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched = String::new();
-        let mut param_value = String::new();
+        let mut matched_len = 0;
+        let mut param_offset = 0;
+        let mut param_len = 0;
         let mut test = path.chars();
 
         // match an initial /
         if let Some('/') = test.next() {
-            matched.push('/');
+            matched_len += 1;
+            param_offset = 1;
         }
         for char in test {
             // when we get a closing /, stop matching
@@ -40,17 +42,15 @@ impl PossibleRouteMatch for ParamSegment {
             }
             // otherwise, push into the matched param
             else {
-                matched.push(char);
-                param_value.push(char);
+                matched_len += char.len_utf8();
+                param_len += char.len_utf8();
             }
         }
 
-        let next_index = matched.len();
-        Some(PartialPathMatch::new(
-            &path[next_index..],
-            vec![(self.0, param_value)],
-            matched,
-        ))
+        let (matched, remaining) = path.split_at(matched_len);
+        let param_value =
+            vec![(self.0, &path[param_offset..param_len + param_offset])];
+        Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
@@ -67,25 +67,25 @@ impl PossibleRouteMatch for WildcardSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched = String::new();
-        let mut param_value = String::new();
+        let mut matched_len = 0;
+        let mut param_offset = 0;
+        let mut param_len = 0;
         let mut test = path.chars();
 
         // match an initial /
         if let Some('/') = test.next() {
-            matched.push('/');
+            matched_len += 1;
+            param_offset += 1;
         }
         for char in test {
-            matched.push(char);
-            param_value.push(char);
+            matched_len += char.len_utf8();
+            param_len += char.len_utf8();
         }
 
-        let next_index = matched.len();
-        Some(PartialPathMatch::new(
-            &path[next_index..],
-            vec![(self.0, param_value)],
-            matched,
-        ))
+        let (matched, remaining) = path.split_at(matched_len);
+        let param_value =
+            vec![(self.0, &path[param_offset..param_len + param_offset])];
+        Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
@@ -97,7 +97,6 @@ impl PossibleRouteMatch for WildcardSegment {
 mod tests {
     use super::PossibleRouteMatch;
     use crate::matching::{ParamSegment, StaticSegment, WildcardSegment};
-    use alloc::string::ToString;
 
     #[test]
     fn single_param_match() {
@@ -107,7 +106,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "");
-        assert_eq!(matched.params()[0], ("a", "foo".to_string()));
+        assert_eq!(matched.params()[0], ("a", "foo"));
     }
 
     #[test]
@@ -118,7 +117,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
-        assert_eq!(matched.params()[0], ("a", "foo".to_string()));
+        assert_eq!(matched.params()[0], ("a", "foo"));
     }
 
     #[test]
@@ -129,8 +128,8 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
-        assert_eq!(matched.params()[0], ("a", "foo".to_string()));
-        assert_eq!(matched.params()[1], ("b", "bar".to_string()));
+        assert_eq!(matched.params()[0], ("a", "foo"));
+        assert_eq!(matched.params()[1], ("b", "bar"));
     }
 
     #[test]
@@ -145,6 +144,6 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar/////");
         assert_eq!(matched.remaining(), "");
-        assert_eq!(matched.params()[0], ("rest", "////".to_string()));
+        assert_eq!(matched.params()[0], ("rest", "////"));
     }
 }
