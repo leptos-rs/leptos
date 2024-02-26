@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 any_spawner = { workspace = true }
 const_str_slice_concat = { workspace = true }
+either_of = { workspace = true } 
 next_tuple = { path = "../next_tuple" }
 reactive_graph = { workspace = true, optional = true }
 slotmap = { version = "1", optional = true }

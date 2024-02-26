@@ -3,11 +3,12 @@ use crate::{
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
-        either::{Either, EitherState},
-        Mountable, Position, PositionState, Render, RenderHtml,
+        either::EitherState, Mountable, Position, PositionState, Render,
+        RenderHtml,
     },
 };
 use any_spawner::Executor;
+use either_of::Either;
 use futures::FutureExt;
 use parking_lot::RwLock;
 use std::{fmt::Debug, future::Future, sync::Arc};
