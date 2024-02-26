@@ -1,7 +1,6 @@
 mod horizontal;
 mod vertical;
-use crate::params::Params;
-use alloc::{borrow::Cow, string::String, vec::Vec};
+use alloc::{borrow::Cow, vec::Vec};
 pub use horizontal::*;
 use std::fmt::Debug;
 pub use vertical::*;
@@ -34,7 +33,10 @@ impl<Children> Routes<Children>
 where
     Children: MatchNestedRoutes,
 {
-    pub fn match_route<'a>(&self, path: &'a str) -> Option<RouteMatch<'a>> {
+    pub fn match_route<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<Children::Match<'a>> {
         let path = match &self.base {
             None => path,
             Some(base) if base.starts_with('/') => {
@@ -45,18 +47,12 @@ where
                 .trim_start_matches(base.as_ref()),
         };
 
-        let mut matched_nested_routes = Vec::with_capacity(Children::DEPTH);
-        let remaining = self
-            .children
-            .match_nested_routes(path, &mut matched_nested_routes);
+        let (matched, remaining) = self.children.match_nested(path);
 
-        if matched_nested_routes.is_empty() || !remaining.is_empty() {
+        if !remaining.is_empty() {
             None
         } else {
-            Some(RouteMatch {
-                path,
-                matched_nested_routes,
-            })
+            Some(matched)
         }
     }
 }
@@ -78,6 +74,16 @@ impl<'a> RouteMatch<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct NestedMatch<'a, Child> {
+    /// The portion of the full path matched only by this nested route.
+    matched: &'a str,
+    /// The map of params matched only by this nested route.
+    params: Vec<(&'a str, &'a str)>,
+    /// The nested route.
+    child: Child,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct NestedRouteMatch<'a> {
     /// The portion of the full path matched only by this nested route.
     matched_path: &'a str,
@@ -96,6 +102,9 @@ impl<'a> NestedRouteMatch<'a> {
 }
 
 pub trait MatchNestedRoutes {
+    type Data;
+    type Match<'a>;
+
     const DEPTH: usize;
 
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str>;
@@ -105,15 +114,22 @@ pub trait MatchNestedRoutes {
         path: &'a str,
         matches: &mut Vec<NestedRouteMatch<'a>>,
     ) -> &'a str;
+
+    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct NestedRoute<Segments, Children> {
+pub struct NestedRoute<Segments, Children, Data, View> {
     pub segments: Segments,
     pub children: Children,
+    pub data: Data,
+    pub view: View,
 }
 
 impl MatchNestedRoutes for () {
+    type Data = ();
+    type Match<'a> = ();
+
     const DEPTH: usize = 0;
 
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
@@ -127,14 +143,22 @@ impl MatchNestedRoutes for () {
     ) -> &'a str {
         path
     }
+
+    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str) {
+        ((), path)
+    }
 }
 
-impl<Segments, Children> MatchNestedRoutes for NestedRoute<Segments, Children>
+impl<Segments, Children, Data, View> MatchNestedRoutes
+    for NestedRoute<Segments, Children, Data, View>
 where
     Self: Debug,
     Segments: PossibleRouteMatch + Debug,
     Children: MatchNestedRoutes,
 {
+    type Data = Data;
+    type Match<'a> = Option<NestedMatch<'a, Children::Match<'a>>>;
+
     const DEPTH: usize = Children::DEPTH;
 
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
@@ -169,12 +193,49 @@ where
         // otherwise, just return the path as the remainder
         path
     }
+
+    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str) {
+        self.segments
+            .test(path)
+            .map(
+                |PartialPathMatch {
+                     remaining,
+                     params,
+                     matched,
+                 }| {
+                    let (inner, remaining) =
+                        self.children.match_nested(remaining);
+
+                    (
+                        Some(NestedMatch {
+                            matched,
+                            params,
+                            child: inner,
+                        }),
+                        remaining,
+                    )
+                },
+            )
+            .unwrap_or((None, path))
+        /*path = remaining;
+        NestedMatch {
+            matched_path: matched,
+            params,
+        };
+        return self.children.match_nested_routes(path, matches);
+
+        // otherwise, just return the path as the remainder
+        path*/
+    }
 }
 
 impl<A> MatchNestedRoutes for (A,)
 where
     A: MatchNestedRoutes,
 {
+    type Data = A::Data;
+    type Match<'a> = A::Match<'a>;
+
     const DEPTH: usize = A::DEPTH;
 
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
@@ -188,12 +249,16 @@ where
     ) -> &'a str {
         self.0.match_nested_routes(path, matches)
     }
+
+    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str) {
+        self.0.match_nested(path)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{NestedRoute, Routes};
-    use crate::matching::StaticSegment;
+    use crate::matching::{NestedMatch, StaticSegment};
 
     /* #[test]
     pub fn matches_single_root_route() {
@@ -214,12 +279,17 @@ mod tests {
             children: NestedRoute {
                 segments: (StaticSegment("author"), StaticSegment("contact")),
                 children: (),
+                data: (),
+                view: "Contact Me",
             },
+            data: (),
+            view: "Home",
         });
-        let matched = routes.match_route("/author/contact").unwrap();
-        assert_eq!(matched.matches().len(), 2);
+        let matched = routes.match_route("/author/contact");
+        panic!("{matched:#?}");
+        /*assert_eq!(matched.matches().len(), 2);
         assert_eq!(matched.matches()[0].matched_path, "");
-        assert_eq!(matched.matches()[1].matched_path, "/author/contact");
+        assert_eq!(matched.matches()[1].matched_path, "/author/contact");*/
     }
 
     /*#[test]
