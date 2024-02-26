@@ -1,14 +1,14 @@
 use super::{PartialPathMatch, PossibleRouteMatch};
 use crate::PathSegment;
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 
 impl PossibleRouteMatch for () {
-    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        Some(PartialPathMatch::new(path, [], ""))
-    }
-
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
         Some(path)
+    }
+
+    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+        Some(PartialPathMatch::new(path, [], ""))
     }
 
     fn generate_path(&self, _path: &mut Vec<PathSegment>) {}
@@ -30,18 +30,20 @@ impl PossibleRouteMatch for StaticSegment {
         // unless this segment is empty, we start by
         // assuming that it has not actually matched
         let mut has_matched = self.0.is_empty() || self.0 == "/";
-        for char in test {
-            // when we get a closing /, stop matching
-            if char == '/' {
-                break;
-            }
-            // if the next character in the path doesn't match the
-            // next character in the segment, we don't match
-            else if this.next() != Some(char) {
-                return None;
-            } else {
-                matched_len += char.len_utf8();
-                has_matched = true;
+        if !self.0.is_empty() {
+            for char in test {
+                // when we get a closing /, stop matching
+                if char == '/' {
+                    break;
+                }
+                // if the next character in the path doesn't match the
+                // next character in the segment, we don't match
+                else if this.next() != Some(char) {
+                    return None;
+                } else {
+                    matched_len += char.len_utf8();
+                    has_matched = true;
+                }
             }
         }
 
@@ -49,23 +51,26 @@ impl PossibleRouteMatch for StaticSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched = String::new();
+        let mut matched_len = 0;
         let mut test = path.chars();
         let mut this = self.0.chars();
 
         // match an initial /
         if let Some('/') = test.next() {
-            matched.push('/');
+            if !self.0.is_empty() {
+                matched_len += 1;
+            }
         }
         for char in test {
+            let n = this.next();
             // when we get a closing /, stop matching
-            if char == '/' {
+            if char == '/' || n.is_none() {
                 break;
             }
             // if the next character in the path matches the
             // next character in the segment, add it to the match
-            else if Some(char) == this.next() {
-                matched.push(char);
+            else if Some(char) == n {
+                matched_len += char.len_utf8();
             }
             // otherwise, this route doesn't match and we should
             // return None
@@ -77,12 +82,8 @@ impl PossibleRouteMatch for StaticSegment {
         // build the match object
         // the remaining is built from the path in, with the slice moved
         // by the length of this match
-        let next_index = matched.len();
-        Some(PartialPathMatch::new(
-            &path[next_index..],
-            Vec::new(),
-            matched,
-        ))
+        let (matched, remaining) = path.split_at(matched_len);
+        Some(PartialPathMatch::new(remaining, [], matched))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
