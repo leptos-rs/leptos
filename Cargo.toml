@@ -6,6 +6,7 @@ members = [
   "next_tuple",
   "or_poisoned",
   "any_spawner",
+  "either_of",
 
   # core
   "hydration_context",
@@ -30,7 +31,7 @@ members = [
 
   # libraries
   "meta",
-  "router",
+  "router", "either_of",
 ]
 exclude = ["benchmarks", "examples"]
 
@@ -41,6 +42,7 @@ rust-version = "1.75"
 [workspace.dependencies]
 any_spawner = { path = "./any_spawner/" }
 const_str_slice_concat = { path = "./const_str_slice_concat" }
+either_of = { path = "./either_of/" }
 hydration_context = { path = "./hydration_context" }
 leptos = { path = "./leptos", version = "0.6.5" }
 leptos_config = { path = "./leptos_config", version = "0.6.5" }
