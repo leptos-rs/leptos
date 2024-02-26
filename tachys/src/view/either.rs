@@ -4,36 +4,11 @@ use crate::{
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
 };
+use either_of::*;
 use std::{
     error::Error,
     fmt::{Debug, Display},
 };
-
-#[derive(Debug)]
-pub enum Either<A, B> {
-    Left(A),
-    Right(B),
-}
-
-impl<A, B> Display for Either<A, B>
-where
-    A: Error,
-    B: Error,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Either::Left(v) => std::fmt::Display::fmt(&v, f),
-            Either::Right(v) => std::fmt::Display::fmt(&v, f),
-        }
-    }
-}
-
-impl<A, B> Error for Either<A, B>
-where
-    A: Error,
-    B: Error,
-{
-}
 
 pub struct EitherState<A, B, Rndr>
 where
@@ -215,28 +190,6 @@ const fn min_usize(vals: &[usize]) -> usize {
 macro_rules! tuples {
     ($num:literal => $($ty:ident),*) => {
         paste::paste! {
-            #[derive(Debug)]
-            pub enum [<EitherOf $num>]<$($ty,)*> {
-                $($ty ($ty),)*
-            }
-
-            impl<$($ty,)*> Display for [<EitherOf $num>]<$($ty,)*>
-            where
-                $($ty: Display,)*
-            {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    match self {
-                        $([<EitherOf $num>]::$ty(this) => this.fmt(f),)*
-                    }
-                }
-            }
-
-            impl<$($ty,)*> Error for [<EitherOf $num>]<$($ty,)*>
-            where
-                $($ty: Error,)*
-            {
-            }
-
             pub struct [<EitherOf $num State>]<$($ty,)* Rndr>
             where
                 $($ty: Render<Rndr>,)*
