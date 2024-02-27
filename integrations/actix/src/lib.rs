@@ -1215,13 +1215,18 @@ where
             let mode = listing.mode();
 
             for method in listing.methods() {
+                let additional_context = additional_context.clone();
+                let additional_context_and_method = move || {
+                    provide_context(method);
+                    additional_context();
+                };
                 router = if let Some(static_mode) = listing.static_mode() {
                     router.route(
                         path,
                         static_route(
                             options.clone(),
                             app_fn.clone(),
-                            additional_context.clone(),
+                            additional_context_and_method.clone(),
                             method,
                             static_mode,
                         ),
@@ -1233,7 +1238,7 @@ where
                         SsrMode::OutOfOrder => {
                             render_app_to_stream_with_context(
                                 options.clone(),
-                                additional_context.clone(),
+                                additional_context_and_method.clone(),
                                 app_fn.clone(),
                                 method,
                             )
@@ -1241,7 +1246,7 @@ where
                         SsrMode::PartiallyBlocked => {
                             render_app_to_stream_with_context_and_replace_blocks(
                                 options.clone(),
-                                additional_context.clone(),
+                                additional_context_and_method.clone(),
                                 app_fn.clone(),
                                 method,
                                 true,
@@ -1250,14 +1255,14 @@ where
                         SsrMode::InOrder => {
                             render_app_to_stream_in_order_with_context(
                                 options.clone(),
-                                additional_context.clone(),
+                                additional_context_and_method.clone(),
                                 app_fn.clone(),
                                 method,
                             )
                         }
                         SsrMode::Async => render_app_async_with_context(
                             options.clone(),
-                            additional_context.clone(),
+                            additional_context_and_method.clone(),
                             app_fn.clone(),
                             method,
                         ),

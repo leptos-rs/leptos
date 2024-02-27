@@ -1615,6 +1615,11 @@ where
             let path = listing.path();
 
             for method in listing.methods() {
+                let cx_with_state = cx_with_state.clone();
+                let cx_with_state_and_method = move || {
+                    provide_context(method);
+                    cx_with_state();
+                };
                 router = if let Some(static_mode) = listing.static_mode() {
                     #[cfg(feature = "default")]
                     {
@@ -1623,7 +1628,7 @@ where
                             path,
                             LeptosOptions::from_ref(options),
                             app_fn.clone(),
-                            cx_with_state.clone(),
+                            cx_with_state_and_method.clone(),
                             method,
                             static_mode,
                         )
@@ -1643,7 +1648,7 @@ where
                         SsrMode::OutOfOrder => {
                             let s = render_app_to_stream_with_context(
                                 LeptosOptions::from_ref(options),
-                                cx_with_state.clone(),
+                                cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1657,7 +1662,7 @@ where
                         SsrMode::PartiallyBlocked => {
                             let s = render_app_to_stream_with_context_and_replace_blocks(
                                 LeptosOptions::from_ref(options),
-                                cx_with_state.clone(),
+                                cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                                 true
                             );
@@ -1672,7 +1677,7 @@ where
                         SsrMode::InOrder => {
                             let s = render_app_to_stream_in_order_with_context(
                                 LeptosOptions::from_ref(options),
-                                cx_with_state.clone(),
+                                cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
                             match method {
@@ -1686,7 +1691,7 @@ where
                         SsrMode::Async => {
                             let s = render_app_async_with_context(
                                 LeptosOptions::from_ref(options),
-                                cx_with_state.clone(),
+                                cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
                             match method {

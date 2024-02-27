@@ -410,6 +410,11 @@ impl RouteContext {
     pub fn outlet(&self) -> impl IntoView {
         (self.inner.outlet)()
     }
+
+    /// The http method used to navigate to this route. Defaults to [`Method::Get`] when unavailable like in client side routing
+    pub fn method(&self) -> Method {
+        use_context().unwrap_or_default()
+    }
 }
 
 pub(crate) struct RouteContextInner {
