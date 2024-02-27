@@ -1,8 +1,0 @@
-error[E0593]: closure is expected to take 1 argument, but it takes 2 arguments
-  --> tests/ui/view/expected_one_let_bind_got_more.rs:18:13
-   |
-18 |             <p>{item}</p>
-   |             ^^^^^^^^^^^^^
-   |             |
-   |             expected closure that takes 1 argument
-   |             takes 2 arguments
