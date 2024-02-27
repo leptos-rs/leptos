@@ -74,6 +74,11 @@ pub struct LeptosOptions {
     #[builder(default = default_hash_file_name())]
     #[serde(default = "default_hash_file_name")]
     pub hash_file: String,
+    /// If true, hashes will be generated for all files in the site_root and added to their file names.
+    /// Defaults to `true`.
+    #[builder(default = default_frontend_files_content_hashes())]
+    #[serde(default = "default_frontend_files_content_hashes")]
+    pub frontend_files_content_hashes: bool,
 }
 
 impl LeptosOptions {
@@ -113,6 +118,14 @@ impl LeptosOptions {
             )?,
             not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?,
             hash_file: env_w_default("LEPTOS_HASH_FILE_NAME", "hash.txt")?,
+            frontend_files_content_hashes: env_w_default(
+                "LEPTOS_FRONTEND_FILES_CONTENT_HASHES",
+                "ON",
+            )?
+            .to_uppercase()
+            .replace("ON", "true")
+            .replace("OFF", "false")
+            .parse()?,
         })
     }
 }
@@ -153,6 +166,10 @@ fn default_not_found_path() -> String {
 
 fn default_hash_file_name() -> String {
     "hash.txt".to_string()
+}
+
+fn default_frontend_files_content_hashes() -> bool {
+    true
 }
 
 fn env_wo_default(key: &str) -> Result<Option<String>, LeptosConfigError> {

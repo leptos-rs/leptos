@@ -143,26 +143,33 @@ pub fn html_parts_separated(
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
-fn get_hashes(options: &&LeptosOptions) -> (String, String, String) {
+fn get_hashes(options: &LeptosOptions) -> (String, String, String) {
     let mut ext_to_hash = HashMap::from([
         ("js".to_string(), "".to_string()),
         ("wasm".to_string(), "".to_string()),
         ("css".to_string(), "".to_string()),
     ]);
-    let hash_path = env::current_exe()
-        .map(|path| path.parent().map(|p| p.to_path_buf()).unwrap_or_default())
-        .unwrap_or_default()
-        .join(&options.hash_file);
 
-    if hash_path.exists() {
-        let hashes =
-            fs::read_to_string(&hash_path).expect("failed to read hash file");
-        for line in hashes.lines() {
-            let line = line.trim();
-            if !line.is_empty() {
-                if let Some((k, v)) = line.split_once(':') {
-                    ext_to_hash
-                        .insert(k.trim().to_string(), format!(".{}", v.trim()));
+    if options.frontend_files_content_hashes {
+        let hash_path = env::current_exe()
+            .map(|path| {
+                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
+            })
+            .unwrap_or_default()
+            .join(&options.hash_file);
+
+        if hash_path.exists() {
+            let hashes = fs::read_to_string(&hash_path)
+                .expect("failed to read hash file");
+            for line in hashes.lines() {
+                let line = line.trim();
+                if !line.is_empty() {
+                    if let Some((k, v)) = line.split_once(':') {
+                        ext_to_hash.insert(
+                            k.trim().to_string(),
+                            format!(".{}", v.trim()),
+                        );
+                    }
                 }
             }
         }
