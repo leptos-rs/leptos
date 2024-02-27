@@ -2,7 +2,7 @@ use futures::{Stream, StreamExt};
 use leptos::{nonce::use_nonce, use_context, RuntimeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap, env, fs};
 
 extern crate tracing;
 
@@ -103,6 +103,14 @@ pub fn html_parts_separated(
     } else {
         "() => mod.hydrate()"
     };
+
+    let (js_hash, wasm_hash, css_hash) = get_hashes(&options);
+
+    let head = head.replace(
+        &format!("{output_name}.css"),
+        &format!("{output_name}{css_hash}.css"),
+    );
+
     let head = format!(
         r#"<!DOCTYPE html>
             <html{html_metadata}>
@@ -110,8 +118,8 @@ pub fn html_parts_separated(
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     {head}
-                    <link rel="modulepreload" href="{pkg_path}/{output_name}.js"{nonce}>
-                    <link rel="preload" href="{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
+                    <link rel="modulepreload" href="{pkg_path}/{output_name}{js_hash}.js"{nonce}>
+                    <link rel="preload" href="{pkg_path}/{wasm_output_name}{wasm_hash}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
                     <script type="module"{nonce}>
                         function idle(c) {{
                             if ("requestIdleCallback" in window) {{
@@ -121,9 +129,9 @@ pub fn html_parts_separated(
                             }}
                         }}
                         idle(() => {{
-                            import('{pkg_path}/{output_name}.js')
+                            import('{pkg_path}/{output_name}{js_hash}.js')
                                 .then(mod => {{
-                                    mod.default('{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
+                                    mod.default('{pkg_path}/{wasm_output_name}{wasm_hash}.wasm').then({import_callback});
                                 }})
                         }});
                     </script>
@@ -132,6 +140,39 @@ pub fn html_parts_separated(
     );
     let tail = "</body></html>";
     (head, tail)
+}
+
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+fn get_hashes(options: &&LeptosOptions) -> (String, String, String) {
+    let mut ext_to_hash = HashMap::from([
+        ("js".to_string(), "".to_string()),
+        ("wasm".to_string(), "".to_string()),
+        ("css".to_string(), "".to_string()),
+    ]);
+    let hash_path = env::current_exe()
+        .map(|path| path.parent().map(|p| p.to_path_buf()).unwrap_or_default())
+        .unwrap_or_default()
+        .join(&options.hash_file);
+
+    if hash_path.exists() {
+        let hashes =
+            fs::read_to_string(&hash_path).expect("failed to read hash file");
+        for line in hashes.lines() {
+            let line = line.trim();
+            if !line.is_empty() {
+                if let Some((k, v)) = line.split_once(':') {
+                    ext_to_hash
+                        .insert(k.trim().to_string(), format!(".{}", v.trim()));
+                }
+            }
+        }
+    }
+
+    (
+        ext_to_hash["js"].clone(),
+        ext_to_hash["wasm"].clone(),
+        ext_to_hash["css"].clone(),
+    )
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
