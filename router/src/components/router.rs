@@ -70,7 +70,7 @@ pub fn Router(
             let navigate = navigate.clone();
             // delay by a tick here, so that the Action updates *before* the redirect
             request_animation_frame(move || {
-                navigate(&url.pathname(), Default::default());
+                navigate(&url.href(), Default::default());
             });
             // Use set_href() if the conditions for client-side navigation were not satisfied
         } else if let Err(e) =
