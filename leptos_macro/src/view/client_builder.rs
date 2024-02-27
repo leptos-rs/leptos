@@ -121,7 +121,7 @@ pub(crate) fn node_to_tokens(
             view_marker,
         ),
         Node::Comment(_) => {
-            proc_macro_error::emit_error!(
+            proc_macro_error::emit_warning!(
                 node,
                 "comment tags do not show up in rendered output\nsupport for \
                  this is coming in leptos 0.7"
@@ -129,7 +129,7 @@ pub(crate) fn node_to_tokens(
             Some(quote! {})
         }
         Node::Doctype(_) => {
-            proc_macro_error::emit_error!(
+            proc_macro_error::emit_warning!(
                 node,
                 "doctype tags do not show up in rendered output\nsupport for \
                  this is coming in leptos 0.7"
@@ -349,7 +349,7 @@ pub(crate) fn element_to_tokens(
                     false,
                 ),
                 Node::Comment(_) => {
-                    proc_macro_error::emit_error!(
+                    proc_macro_error::emit_warning!(
                         node,
                         "comment tags do not show up in rendered \
                          output\nsupport for this is coming in leptos 0.7"
@@ -357,7 +357,7 @@ pub(crate) fn element_to_tokens(
                     (quote! {}, false)
                 }
                 Node::Doctype(_) => {
-                    proc_macro_error::emit_error!(
+                    proc_macro_error::emit_warning!(
                         node,
                         "doctype tags do not show up in rendered \
                          output\nsupport for this is coming in leptos 0.7"
