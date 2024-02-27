@@ -1003,11 +1003,11 @@ where
     /// // when we read the signal, it contains either
     /// // 1) None (if the Future isn't ready yet) or
     /// // 2) Some(T) (if the future's already resolved)
-    /// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
+    /// assert_eq!(cats.get(), Some(vec!["1".to_string()]));
     ///
     /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
     /// set_how_many_cats.set(2);
-    /// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
+    /// assert_eq!(cats.get(), Some(vec!["2".to_string()]));
     /// # }
     /// # runtime.dispose();
     /// ```
