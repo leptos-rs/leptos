@@ -6,6 +6,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "DOM operations for the Leptos web framework."
+rust-version.workspace = true
 
 [dependencies]
 async-recursion = "1"
