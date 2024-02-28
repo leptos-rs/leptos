@@ -1,4 +1,4 @@
-use std::{net::AddrParseError, num::ParseIntError};
+use std::{net::AddrParseError, num::ParseIntError, str::ParseBoolError};
 use thiserror::Error;
 
 #[derive(Debug, Error, Clone)]
@@ -28,6 +28,12 @@ impl From<ParseIntError> for LeptosConfigError {
 
 impl From<AddrParseError> for LeptosConfigError {
     fn from(e: AddrParseError) -> Self {
+        Self::ConfigError(e.to_string())
+    }
+}
+
+impl From<ParseBoolError> for LeptosConfigError {
+    fn from(e: ParseBoolError) -> Self {
         Self::ConfigError(e.to_string())
     }
 }
