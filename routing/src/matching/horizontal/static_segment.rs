@@ -46,6 +46,7 @@ impl PossibleRouteMatch for StaticSegment {
                 }
             }
         }
+        println!("matching on {self:?}, has_matched = {has_matched}");
 
         has_matched.then(|| &path[matched_len..])
     }
@@ -54,6 +55,7 @@ impl PossibleRouteMatch for StaticSegment {
         let mut matched_len = 0;
         let mut test = path.chars();
         let mut this = self.0.chars();
+        let mut has_matched = self.0.is_empty() || self.0 == "/";
 
         // match an initial /
         if let Some('/') = test.next() {
@@ -70,6 +72,7 @@ impl PossibleRouteMatch for StaticSegment {
             // if the next character in the path matches the
             // next character in the segment, add it to the match
             else if Some(char) == n {
+                has_matched = true;
                 matched_len += char.len_utf8();
             }
             // otherwise, this route doesn't match and we should
@@ -83,7 +86,7 @@ impl PossibleRouteMatch for StaticSegment {
         // the remaining is built from the path in, with the slice moved
         // by the length of this match
         let (matched, remaining) = path.split_at(matched_len);
-        Some(PartialPathMatch::new(remaining, [], matched))
+        has_matched.then(|| PartialPathMatch::new(remaining, [], matched))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {

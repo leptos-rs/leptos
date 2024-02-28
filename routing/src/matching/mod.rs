@@ -48,28 +48,14 @@ where
         };
 
         let (matched, remaining) = self.children.match_nested(path);
+        let matched = matched?;
+        println!("remaining = {remaining:?}");
 
         if !remaining.is_empty() {
             None
         } else {
             Some(matched)
         }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct RouteMatch<'a> {
-    path: &'a str,
-    matched_nested_routes: Vec<NestedRouteMatch<'a>>,
-}
-
-impl<'a> RouteMatch<'a> {
-    pub fn path(&self) -> &'a str {
-        self.path
-    }
-
-    pub fn matches(&self) -> &[NestedRouteMatch<'a>] {
-        &self.matched_nested_routes
     }
 }
 
@@ -83,17 +69,9 @@ pub struct NestedMatch<'a, Child> {
     child: Child,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct NestedRouteMatch<'a> {
-    /// The portion of the full path matched only by this nested route.
-    matched_path: &'a str,
-    /// The map of params matched only by this nested route.
-    params: Vec<(&'a str, &'a str)>,
-}
-
-impl<'a> NestedRouteMatch<'a> {
-    pub fn matched_path(&self) -> &'a str {
-        self.matched_path
+impl<'a, Child> NestedMatch<'a, Child> {
+    pub fn matched(&self) -> &'a str {
+        self.matched
     }
 
     pub fn matched_params(&self) -> &[(&'a str, &'a str)] {
@@ -109,13 +87,10 @@ pub trait MatchNestedRoutes {
 
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str>;
 
-    fn match_nested_routes<'a>(
+    fn match_nested<'a>(
         &self,
         path: &'a str,
-        matches: &mut Vec<NestedRouteMatch<'a>>,
-    ) -> &'a str;
-
-    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str);
+    ) -> (Option<Self::Match<'a>>, &'a str);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -136,16 +111,11 @@ impl MatchNestedRoutes for () {
         Some(path)
     }
 
-    fn match_nested_routes<'a>(
+    fn match_nested<'a>(
         &self,
         path: &'a str,
-        _matches: &mut Vec<NestedRouteMatch<'a>>,
-    ) -> &'a str {
-        path
-    }
-
-    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str) {
-        ((), path)
+    ) -> (Option<Self::Match<'a>>, &'a str) {
+        (Some(()), path)
     }
 }
 
@@ -157,7 +127,7 @@ where
     Children: MatchNestedRoutes,
 {
     type Data = Data;
-    type Match<'a> = Option<NestedMatch<'a, Children::Match<'a>>>;
+    type Match<'a> = NestedMatch<'a, Children::Match<'a>>;
 
     const DEPTH: usize = Children::DEPTH;
 
@@ -169,35 +139,13 @@ where
         }
     }
 
-    fn match_nested_routes<'a>(
+    fn match_nested<'a>(
         &self,
-        mut path: &'a str,
-        matches: &mut Vec<NestedRouteMatch<'a>>,
-    ) -> &'a str {
-        if self.segments.matches(path).is_some() {
-            if let Some(PartialPathMatch {
-                params,
-                matched,
-                remaining,
-            }) = self.segments.test(path)
-            {
-                path = remaining;
-                matches.push(NestedRouteMatch {
-                    matched_path: matched,
-                    params,
-                });
-            }
-            return self.children.match_nested_routes(path, matches);
-        }
-
-        // otherwise, just return the path as the remainder
-        path
-    }
-
-    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str) {
+        path: &'a str,
+    ) -> (Option<Self::Match<'a>>, &'a str) {
         self.segments
             .test(path)
-            .map(
+            .and_then(
                 |PartialPathMatch {
                      remaining,
                      params,
@@ -205,15 +153,16 @@ where
                  }| {
                     let (inner, remaining) =
                         self.children.match_nested(remaining);
+                    let inner = inner?;
 
-                    (
+                    Some((
                         Some(NestedMatch {
                             matched,
                             params,
                             child: inner,
                         }),
                         remaining,
-                    )
+                    ))
                 },
             )
             .unwrap_or((None, path))
@@ -242,15 +191,10 @@ where
         self.0.matches(path)
     }
 
-    fn match_nested_routes<'a>(
+    fn match_nested<'a>(
         &self,
         path: &'a str,
-        matches: &mut Vec<NestedRouteMatch<'a>>,
-    ) -> &'a str {
-        self.0.match_nested_routes(path, matches)
-    }
-
-    fn match_nested<'a>(&self, path: &'a str) -> (Self::Match<'a>, &'a str) {
+    ) -> (Option<Self::Match<'a>>, &'a str) {
         self.0.match_nested(path)
     }
 }
@@ -285,11 +229,26 @@ mod tests {
             data: (),
             view: "Home",
         });
-        let matched = routes.match_route("/author/contact");
-        panic!("{matched:#?}");
-        /*assert_eq!(matched.matches().len(), 2);
-        assert_eq!(matched.matches()[0].matched_path, "");
-        assert_eq!(matched.matches()[1].matched_path, "/author/contact");*/
+        let matched = routes.match_route("/author/contact").unwrap();
+        assert_eq!(matched.matched, "");
+        assert_eq!(matched.child.matched, "/author/contact");
+    }
+
+    #[test]
+    pub fn does_not_match_incomplete_route() {
+        let routes = Routes::new(NestedRoute {
+            segments: StaticSegment(""),
+            children: NestedRoute {
+                segments: (StaticSegment("author"), StaticSegment("contact")),
+                children: (),
+                data: (),
+                view: "Contact Me",
+            },
+            data: (),
+            view: "Home",
+        });
+        let matched = routes.match_route("/");
+        assert_eq!(matched, None);
     }
 
     /*#[test]
