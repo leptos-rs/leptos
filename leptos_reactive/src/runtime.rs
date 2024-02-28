@@ -1550,7 +1550,7 @@ pub fn untrack_with_diagnostics<T>(f: impl FnOnce() -> T) -> T {
 pub struct ScopedFuture<Fut: Future> {
     owner: Owner,
     #[pin]
-    future: Fut,
+    future: futures::future::Abortable<Fut>,
 }
 
 /// Errors that can occur when trying to spawn a [`ScopedFuture`].
@@ -1573,7 +1573,8 @@ impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
 
         if let Ok(poll) = try_with_owner(*this.owner, || this.future.poll(cx)) {
             match poll {
-                Poll::Ready(res) => Poll::Ready(Some(res)),
+                Poll::Ready(Ok(res)) => Poll::Ready(Some(res)),
+                Poll::Ready(Err(futures::future::Aborted)) => Poll::Ready(None),
                 Poll::Pending => Poll::Pending,
             }
         } else {
@@ -1585,16 +1586,29 @@ impl<Fut: Future + 'static> Future for ScopedFuture<Fut> {
 impl<Fut: Future> ScopedFuture<Fut> {
     /// Creates a new future that will have access to the `[Owner]`'s
     /// scope context.
-    pub fn new(owner: Owner, fut: Fut) -> Self {
-        Self { owner, future: fut }
+    pub fn new(owner: Owner, fut: Fut) -> Result<Self, ReactiveSystemError> {
+        try_with_owner(owner, move || Self::new_inner(owner, fut))
     }
 
     /// Runs the future in the current [`Owner`]'s scope context.
     #[track_caller]
     pub fn new_current(fut: Fut) -> Result<Self, ScopedFutureError> {
         Owner::current()
-            .map(|owner| Self { owner, future: fut })
+            .map(|owner| Self::new_inner(owner, fut))
             .ok_or(ScopedFutureError::NoCurrentOwner)
+    }
+
+    /// Internal creation function
+    ///
+    /// This function assumes we are running with a current owner, so
+    /// we can add a cleanup handler to abort the future.
+    fn new_inner(owner: Owner, fut: Fut) -> Self {
+        let (handle, registration) = futures::future::AbortHandle::new_pair();
+        let future = futures::future::Abortable::new(fut, registration);
+        on_cleanup(move || {
+            handle.abort();
+        });
+        Self { owner, future }
     }
 }
 
@@ -1604,8 +1618,8 @@ impl<Fut: Future> ScopedFuture<Fut> {
 pub fn spawn_local_with_owner(
     owner: Owner,
     fut: impl Future<Output = ()> + 'static,
-) {
-    let scoped_future = ScopedFuture::new(owner, fut);
+) -> Result<(), ReactiveSystemError> {
+    let scoped_future = ScopedFuture::new(owner, fut)?;
     #[cfg(debug_assertions)]
     let loc = std::panic::Location::caller();
 
@@ -1617,6 +1631,8 @@ pub fn spawn_local_with_owner(
             );
         }
     });
+
+    Ok(())
 }
 
 /// Runs a future that has access to the provided [`Owner`]'s
@@ -1657,14 +1673,16 @@ pub fn try_spawn_local_with_owner(
     owner: Owner,
     fut: impl Future<Output = ()> + 'static,
     on_cancelled: impl FnOnce() + 'static,
-) {
-    let scoped_future = ScopedFuture::new(owner, fut);
+) -> Result<(), ReactiveSystemError> {
+    let scoped_future = ScopedFuture::new(owner, fut)?;
 
     crate::spawn_local(async move {
         if scoped_future.await.is_none() {
             on_cancelled();
         }
     });
+
+    Ok(())
 }
 
 /// Runs a future that has access to the provided [`Owner`]'s
