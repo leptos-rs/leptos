@@ -71,10 +71,8 @@ use leptos_reactive::{
 ///    ... more notes here ...
 /// ```
 ///
-/// For more information about how to easily implement Errors see
+/// For more information about how to easily implement `Error` see
 /// [thiserror](https://docs.rs/thiserror/latest/thiserror/)
-/// and [anyhow](https://docs.rs/anyhow/latest/anyhow/)
-/// 
 #[component]
 pub fn ErrorBoundary<F, IV>(
     /// The components inside the tag which will get rendered
