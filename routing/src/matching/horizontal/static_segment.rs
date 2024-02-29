@@ -1,14 +1,20 @@
 use super::{PartialPathMatch, PossibleRouteMatch};
 use crate::PathSegment;
 use alloc::vec::Vec;
+use core::iter;
 
 impl PossibleRouteMatch for () {
+    type ParamsIter<'a> = iter::Empty<(&'a str, &'a str)>;
+
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
         Some(path)
     }
 
-    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        Some(PartialPathMatch::new(path, [], ""))
+    fn test<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
+        Some(PartialPathMatch::new(path, iter::empty(), ""))
     }
 
     fn generate_path(&self, _path: &mut Vec<PathSegment>) {}
@@ -18,6 +24,8 @@ impl PossibleRouteMatch for () {
 pub struct StaticSegment(pub &'static str);
 
 impl PossibleRouteMatch for StaticSegment {
+    type ParamsIter<'a> = iter::Empty<(&'a str, &'a str)>;
+
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
         let mut matched_len = 0;
         let mut this = self.0.chars();
@@ -46,12 +54,14 @@ impl PossibleRouteMatch for StaticSegment {
                 }
             }
         }
-        println!("matching on {self:?}, has_matched = {has_matched}");
 
         has_matched.then(|| &path[matched_len..])
     }
 
-    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+    fn test<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
         let mut matched_len = 0;
         let mut test = path.chars();
         let mut this = self.0.chars();
@@ -86,7 +96,8 @@ impl PossibleRouteMatch for StaticSegment {
         // the remaining is built from the path in, with the slice moved
         // by the length of this match
         let (matched, remaining) = path.split_at(matched_len);
-        has_matched.then(|| PartialPathMatch::new(remaining, [], matched))
+        has_matched
+            .then(|| PartialPathMatch::new(remaining, iter::empty(), matched))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
@@ -105,7 +116,8 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "");
-        assert!(matched.params().is_empty());
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
     }
 
     #[test]
@@ -123,7 +135,8 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
-        assert!(matched.params().is_empty());
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
     }
 
     #[test]
@@ -134,7 +147,8 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
-        assert!(matched.params().is_empty());
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
     }
 
     #[test]
@@ -160,6 +174,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
-        assert!(matched.params().is_empty());
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
     }
 }
