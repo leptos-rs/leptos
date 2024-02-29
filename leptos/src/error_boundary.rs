@@ -51,6 +51,30 @@ use leptos_reactive::{
 ///       {move || {
 ///   /* etc. */
 /// ```
+///
+/// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::core::Error.
+/// ErrorBoundary requires your `Result<T,E>` to implement `IntoView`.
+/// `Result<T,E>` only implements `IntoView` if E implements `std::core::Error`.
+/// So, for instance, if you pass a Result<T,String> where T implements IntoView
+/// and attempt to render the error for the purposes of `ErrorBoundary` you'll get a compiler error like this.
+///
+/// ```rust,ignore
+/// error[E0599]: the method `into_view` exists for enum `Result<ViewableLoginFlow, String>`, but its trait bounds were not satisfied
+///    --> src/login.rs:229:32
+///     |
+/// 229 |                     err => err.into_view(),
+///     |                                ^^^^^^^^^ method cannot be called on `Result<ViewableLoginFlow, String>` due to unsatisfied trait bounds
+///     |
+///     = note: the following trait bounds were not satisfied:
+///             `<&Result<ViewableLoginFlow, std::string::String> as FnOnce<()>>::Output = _`
+///             which is required by `&Result<ViewableLoginFlow, std::string::String>: leptos::IntoView`
+///    ... more notes here ...
+/// ```
+///
+/// For more information about how to easily implement Errors see
+/// [thiserror](https://docs.rs/thiserror/latest/thiserror/)
+/// and [anyhow](https://docs.rs/anyhow/latest/anyhow/)
+/// 
 #[component]
 pub fn ErrorBoundary<F, IV>(
     /// The components inside the tag which will get rendered
