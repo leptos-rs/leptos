@@ -1,11 +1,14 @@
 use super::{PartialPathMatch, PossibleRouteMatch};
 use crate::PathSegment;
 use alloc::vec::Vec;
+use core::iter;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for ParamSegment {
+    type ParamsIter<'a> = iter::Once<(&'a str, &'a str)>;
+
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
         let mut matched_len = 0;
         let mut test = path.chars().peekable();
@@ -24,7 +27,10 @@ impl PossibleRouteMatch for ParamSegment {
         Some(&path[0..matched_len])
     }
 
-    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+    fn test<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
         let mut param_len = 0;
@@ -49,7 +55,7 @@ impl PossibleRouteMatch for ParamSegment {
 
         let (matched, remaining) = path.split_at(matched_len);
         let param_value =
-            vec![(self.0, &path[param_offset..param_len + param_offset])];
+            iter::once((self.0, &path[param_offset..param_len + param_offset]));
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
@@ -62,11 +68,16 @@ impl PossibleRouteMatch for ParamSegment {
 pub struct WildcardSegment(pub &'static str);
 
 impl PossibleRouteMatch for WildcardSegment {
+    type ParamsIter<'a> = iter::Once<(&'a str, &'a str)>;
+
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
         Some(path)
     }
 
-    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
+    fn test<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
         let mut param_len = 0;
@@ -84,7 +95,7 @@ impl PossibleRouteMatch for WildcardSegment {
 
         let (matched, remaining) = path.split_at(matched_len);
         let param_value =
-            vec![(self.0, &path[param_offset..param_len + param_offset])];
+            iter::once((self.0, &path[param_offset..param_len + param_offset]));
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
@@ -106,7 +117,8 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "");
-        assert_eq!(matched.params()[0], ("a", "foo"));
+        let params = matched.params().collect::<Vec<_>>();
+        assert_eq!(params[0], ("a", "foo"));
     }
 
     #[test]
@@ -117,7 +129,8 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
-        assert_eq!(matched.params()[0], ("a", "foo"));
+        let params = matched.params().collect::<Vec<_>>();
+        assert_eq!(params[0], ("a", "foo"));
     }
 
     #[test]
@@ -128,8 +141,9 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
-        assert_eq!(matched.params()[0], ("a", "foo"));
-        assert_eq!(matched.params()[1], ("b", "bar"));
+        let params = matched.params().collect::<Vec<_>>();
+        assert_eq!(params[0], ("a", "foo"));
+        assert_eq!(params[1], ("b", "bar"));
     }
 
     #[test]
@@ -144,6 +158,7 @@ mod tests {
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar/////");
         assert_eq!(matched.remaining(), "");
-        assert_eq!(matched.params()[0], ("rest", "////"));
+        let params = matched.params().collect::<Vec<_>>();
+        assert_eq!(params[0], ("rest", "////"));
     }
 }

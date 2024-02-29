@@ -15,9 +15,14 @@ pub use static_segment::*;
 /// as subsequent segments of the URL and tries to match them all. For a "vertical"
 /// matching that sees a tuple as alternatives to one another, see [`RouteChild`](super::RouteChild).
 pub trait PossibleRouteMatch {
+    type ParamsIter<'a>: IntoIterator<Item = (&'a str, &'a str)>;
+
     fn matches<'a>(&self, path: &'a str) -> Option<&'a str>;
 
-    fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>>;
+    fn test<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>>;
 
     fn generate_path(&self, path: &mut Vec<PathSegment>);
 }

@@ -1,8 +1,8 @@
 mod horizontal;
 mod vertical;
 use alloc::{borrow::Cow, vec::Vec};
+use core::iter;
 pub use horizontal::*;
-use std::fmt::Debug;
 pub use vertical::*;
 
 pub struct Routes<Children> {
@@ -29,14 +29,11 @@ impl<Children> Routes<Children> {
     }
 }
 
-impl<Children> Routes<Children>
+impl<'a, Children> Routes<Children>
 where
-    Children: MatchNestedRoutes,
+    Children: MatchNestedRoutes<'a>,
 {
-    pub fn match_route<'a>(
-        &self,
-        path: &'a str,
-    ) -> Option<Children::Match<'a>> {
+    pub fn match_route(&self, path: &'a str) -> Option<Children::Match> {
         let path = match &self.base {
             None => path,
             Some(base) if base.starts_with('/') => {
@@ -49,7 +46,6 @@ where
 
         let (matched, remaining) = self.children.match_nested(path);
         let matched = matched?;
-        println!("remaining = {remaining:?}");
 
         if !remaining.is_empty() {
             None
@@ -59,38 +55,50 @@ where
     }
 }
 
+pub trait IntoParams<'a> {
+    type IntoParams: IntoIterator<Item = (&'a str, &'a str)>;
+
+    fn to_params(&self) -> Self::IntoParams;
+}
+
+pub trait MatchNestedRoutes<'a> {
+    type Data;
+    type ParamsIter: IntoIterator<Item = (&'a str, &'a str)> + Clone;
+    type Match: IntoParams<'a>;
+
+    const DEPTH: usize;
+
+    fn matches(&self, path: &'a str) -> Option<&'a str>;
+
+    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str);
+}
+
 #[derive(Debug, PartialEq, Eq)]
-pub struct NestedMatch<'a, Child> {
+pub struct NestedMatch<'a, ParamsIter, Child> {
     /// The portion of the full path matched only by this nested route.
     matched: &'a str,
     /// The map of params matched only by this nested route.
-    params: Vec<(&'a str, &'a str)>,
+    params: ParamsIter,
     /// The nested route.
     child: Child,
 }
 
-impl<'a, Child> NestedMatch<'a, Child> {
-    pub fn matched(&self) -> &'a str {
-        self.matched
-    }
+impl<'a, ParamsIter, Child> IntoParams<'a>
+    for NestedMatch<'a, ParamsIter, Child>
+where
+    ParamsIter: IntoIterator<Item = (&'a str, &'a str)> + Clone,
+{
+    type IntoParams = ParamsIter;
 
-    pub fn matched_params(&self) -> &[(&'a str, &'a str)] {
-        &self.params
+    fn to_params(&self) -> Self::IntoParams {
+        self.params.clone()
     }
 }
 
-pub trait MatchNestedRoutes {
-    type Data;
-    type Match<'a>;
-
-    const DEPTH: usize;
-
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str>;
-
-    fn match_nested<'a>(
-        &self,
-        path: &'a str,
-    ) -> (Option<Self::Match<'a>>, &'a str);
+impl<'a, ParamsIter, Child> NestedMatch<'a, ParamsIter, Child> {
+    pub fn matched(&self) -> &'a str {
+        self.matched
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -101,37 +109,49 @@ pub struct NestedRoute<Segments, Children, Data, View> {
     pub view: View,
 }
 
-impl MatchNestedRoutes for () {
+impl<'a> MatchNestedRoutes<'a> for () {
     type Data = ();
-    type Match<'a> = ();
+    type ParamsIter = iter::Empty<(&'a str, &'a str)>;
+    type Match = ();
 
     const DEPTH: usize = 0;
 
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
+    fn matches(&self, path: &'a str) -> Option<&'a str> {
         Some(path)
     }
 
-    fn match_nested<'a>(
-        &self,
-        path: &'a str,
-    ) -> (Option<Self::Match<'a>>, &'a str) {
+    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         (Some(()), path)
     }
 }
 
-impl<Segments, Children, Data, View> MatchNestedRoutes
+impl<'a> IntoParams<'a> for () {
+    type IntoParams = iter::Empty<(&'a str, &'a str)>;
+
+    fn to_params(&self) -> Self::IntoParams {
+        iter::empty()
+    }
+}
+
+impl<'a, Segments, Children, Data, View> MatchNestedRoutes<'a>
     for NestedRoute<Segments, Children, Data, View>
 where
-    Self: Debug,
-    Segments: PossibleRouteMatch + Debug,
-    Children: MatchNestedRoutes,
+    Segments: PossibleRouteMatch,
+    Children: MatchNestedRoutes<'a>,
+    <Segments::ParamsIter<'a> as IntoIterator>::IntoIter: Clone,
+    <<Children::Match as IntoParams<'a>>::IntoParams as IntoIterator>::IntoIter:
+        Clone,
 {
     type Data = Data;
-    type Match<'a> = NestedMatch<'a, Children::Match<'a>>;
+    type ParamsIter = iter::Chain<
+        <Segments::ParamsIter<'a> as IntoIterator>::IntoIter,
+        <<Children::Match as IntoParams<'a>>::IntoParams as IntoIterator>::IntoIter,
+    >;
+    type Match = NestedMatch<'a, Self::ParamsIter, Children::Match>;
 
     const DEPTH: usize = Children::DEPTH;
 
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
+    fn matches(&self, path: &'a str) -> Option<&'a str> {
         if let Some(remaining) = self.segments.matches(path) {
             self.children.matches(remaining)
         } else {
@@ -139,10 +159,7 @@ where
         }
     }
 
-    fn match_nested<'a>(
-        &self,
-        path: &'a str,
-    ) -> (Option<Self::Match<'a>>, &'a str) {
+    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         self.segments
             .test(path)
             .and_then(
@@ -154,11 +171,12 @@ where
                     let (inner, remaining) =
                         self.children.match_nested(remaining);
                     let inner = inner?;
+                    let params = params.into_iter();
 
                     Some((
                         Some(NestedMatch {
                             matched,
-                            params,
+                            params: params.chain(inner.to_params()),
                             child: inner,
                         }),
                         remaining,
@@ -166,35 +184,24 @@ where
                 },
             )
             .unwrap_or((None, path))
-        /*path = remaining;
-        NestedMatch {
-            matched_path: matched,
-            params,
-        };
-        return self.children.match_nested_routes(path, matches);
-
-        // otherwise, just return the path as the remainder
-        path*/
     }
 }
 
-impl<A> MatchNestedRoutes for (A,)
+impl<'a, A> MatchNestedRoutes<'a> for (A,)
 where
-    A: MatchNestedRoutes,
+    A: MatchNestedRoutes<'a>,
 {
     type Data = A::Data;
-    type Match<'a> = A::Match<'a>;
+    type ParamsIter = A::ParamsIter;
+    type Match = A::Match;
 
     const DEPTH: usize = A::DEPTH;
 
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
+    fn matches(&self, path: &'a str) -> Option<&'a str> {
         self.0.matches(path)
     }
 
-    fn match_nested<'a>(
-        &self,
-        path: &'a str,
-    ) -> (Option<Self::Match<'a>>, &'a str) {
+    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         self.0.match_nested(path)
     }
 }
@@ -202,19 +209,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::{NestedRoute, Routes};
-    use crate::matching::{NestedMatch, StaticSegment};
+    use crate::matching::StaticSegment;
 
-    /* #[test]
+    #[test]
     pub fn matches_single_root_route() {
         let routes = Routes::new(NestedRoute {
             segments: StaticSegment("/"),
             children: (),
+            data: (),
+            view: (),
         });
         let matched = routes.match_route("/");
         assert!(matched.is_some());
         let matched = routes.match_route("");
         assert!(matched.is_some())
-    }*/
+    }
 
     #[test]
     pub fn matches_nested_route() {
@@ -248,7 +257,7 @@ mod tests {
             view: "Home",
         });
         let matched = routes.match_route("/");
-        assert_eq!(matched, None);
+        assert!(matched.is_none());
     }
 
     /*#[test]
@@ -272,21 +281,21 @@ mod tests {
 }
 
 #[derive(Debug)]
-pub struct PartialPathMatch<'a> {
+pub struct PartialPathMatch<'a, ParamsIter> {
     pub(crate) remaining: &'a str,
-    pub(crate) params: Vec<(&'a str, &'a str)>,
+    pub(crate) params: ParamsIter,
     pub(crate) matched: &'a str,
 }
 
-impl<'a> PartialPathMatch<'a> {
+impl<'a, ParamsIter> PartialPathMatch<'a, ParamsIter> {
     pub fn new(
         remaining: &'a str,
-        params: impl Into<Vec<(&'a str, &'a str)>>,
+        params: ParamsIter,
         matched: &'a str,
     ) -> Self {
         Self {
             remaining,
-            params: params.into(),
+            params,
             matched,
         }
     }
@@ -299,8 +308,8 @@ impl<'a> PartialPathMatch<'a> {
         self.remaining
     }
 
-    pub fn params(&self) -> &[(&'a str, &'a str)] {
-        &self.params
+    pub fn params(self) -> ParamsIter {
+        self.params
     }
 
     pub fn matched(&self) -> &str {
