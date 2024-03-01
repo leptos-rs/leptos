@@ -87,9 +87,9 @@ impl ResponseParts {
 ///
 /// If you provide your own handler, you will need to provide `ResponseOptions` via context
 /// yourself if you want to access it via context.
-/// ```rust
+/// ```rust,ignore
 /// #[server]
-/// pub async fn get_opts() -> Result<(),ServerFnError> {
+/// pub async fn get_opts() -> Result<(), ServerFnError> {
 ///     let opts = expect_context::<leptos_axum::ResponseOptions>();
 ///     Ok(())
 /// }
