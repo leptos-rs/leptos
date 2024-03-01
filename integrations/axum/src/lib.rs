@@ -79,6 +79,20 @@ impl ResponseParts {
 }
 
 /// Allows you to override details of the HTTP response like the status code and add Headers/Cookies.
+///
+/// `ResponseOptions` is provided via context when you use most of the handlers provided in this
+/// crate, including [`.leptos_routes`](LeptosRoutes::leptos_routes),
+/// [`.leptos_routes_with_context`](LeptosRoutes::leptos_routes_with_context), [`handle_server_fns`], etc.
+/// You can find the full set of provided context types in each handler function.
+///
+/// If you provide your own handler, you will need to provide `ResponseOptions` via context
+/// yourself if you want to access it via context.
+/// ```rust
+/// #[server]
+/// pub async fn get_opts() -> Result<(),ServerFnError> {
+///     let opts = expect_context::<leptos_axum::ResponseOptions>();
+///     Ok(())
+/// }
 #[derive(Debug, Clone, Default)]
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
