@@ -165,7 +165,7 @@ pub fn create_owning_memo<T>(
     f: impl Fn(Option<T>) -> (T, bool) + 'static,
 ) -> Memo<T>
 where
-    T: PartialEq + 'static,
+    T: 'static,
 {
     Runtime::current().create_owning_memo(f)
 }
@@ -352,7 +352,7 @@ impl<T> Memo<T> {
     #[track_caller]
     pub fn new_owning(f: impl Fn(Option<T>) -> (T, bool) + 'static) -> Memo<T>
     where
-        T: PartialEq + 'static,
+        T: 'static,
     {
         create_owning_memo(f)
     }
