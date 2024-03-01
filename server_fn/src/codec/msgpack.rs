@@ -43,8 +43,8 @@ where
     T: DeserializeOwned,
 {
     async fn from_req(req: Request) -> Result<Self, ServerFnError<Err>> {
-        let string_data = req.try_into_string().await?;
-        rmp_serde::from_slice::<T>(string_data.as_bytes())
+        let data = req.try_into_bytes().await?;
+        rmp_serde::from_slice::<T>(&data)
             .map_err(|e| ServerFnError::Args(e.to_string()))
     }
 }
@@ -67,8 +67,8 @@ where
     T: DeserializeOwned,
 {
     async fn from_res(res: Response) -> Result<Self, ServerFnError<Err>> {
-        let data = res.try_into_string().await?;
-        rmp_serde::from_slice(data.as_bytes())
+        let data = res.try_into_bytes().await?;
+        rmp_serde::from_slice(&data)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
 }
