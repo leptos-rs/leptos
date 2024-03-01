@@ -6,9 +6,17 @@ extend = [
 [tasks.integration-test]
 description = "Run integration test with automated start and stop of processes"
 env = { SPAWN_CLIENT_PROCESS = "1" }
-dependencies = ["start", "wait-one", "test-playwright", "stop"]
+run_task = { name = ["start", "wait-test-stop"], parallel = true }
 
-[tasks.wait-one]
+[tasks.wait-test-stop]
+private = true
+dependencies = ["wait-server", "test-playwright", "stop"]
+
+[tasks.wait-server]
 script = '''
-sleep 1
+for run in {1..6}; do
+    echo "Waiting to ensure server is started..."
+    sleep 10
+done
+echo "Times up, running tests"
 '''

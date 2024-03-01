@@ -2,7 +2,3 @@ extend = [
     { path = "../cargo-make/main.toml" },
     { path = "../cargo-make/playwright-trunk-test.toml" },
 ]
-
-[env]
-
-CLIENT_PROCESS_NAME = "error_boundary"
