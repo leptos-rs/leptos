@@ -14,7 +14,7 @@ dependencies = ["wait-server", "test-playwright", "stop"]
 
 [tasks.wait-server]
 script = '''
-for run in {1..6}; do
+for run in {1..12}; do
     echo "Waiting to ensure server is started..."
     sleep 10
 done
