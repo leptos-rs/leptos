@@ -104,7 +104,7 @@ pub fn html_parts_separated(
         "() => mod.hydrate()"
     };
 
-    let (js_hash, wasm_hash, css_hash) = get_hashes(&options);
+    let (js_hash, wasm_hash, css_hash) = get_hashes(options);
 
     let head = head.replace(
         &format!("{output_name}.css"),
