@@ -23,19 +23,11 @@ macro_rules! tuples {
     ($first:ident => $($ty:ident),*) => {
         impl<$first, $($ty),*> PossibleRouteMatch for ($first, $($ty,)*)
         where
+            Self: core::fmt::Debug,
             $first: PossibleRouteMatch,
 			$($ty: PossibleRouteMatch),*,
         {
             type ParamsIter<'a> = chain_types!(<<$first>::ParamsIter<'a> as IntoIterator>::IntoIter, $($ty,)*);
-
-            fn matches<'a>(&self, path: &'a str) -> Option<&'a str>
-            {
-                #[allow(non_snake_case)]
-                let ($first, $($ty,)*) = &self;
-                let path = $first.matches(path)?;
-                $(let path = $ty.matches(path)?;)*
-                Some(path)
-            }
 
             fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
                 let mut matched_len = 0;
