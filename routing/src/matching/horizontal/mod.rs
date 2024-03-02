@@ -17,8 +17,6 @@ pub use static_segment::*;
 pub trait PossibleRouteMatch {
     type ParamsIter<'a>: IntoIterator<Item = (&'a str, &'a str)>;
 
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str>;
-
     fn test<'a>(
         &self,
         path: &'a str,
