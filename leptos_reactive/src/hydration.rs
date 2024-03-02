@@ -339,11 +339,13 @@ thread_local! {
 impl SharedContext {
     /// Whether the renderer should currently add hydration IDs.
     pub fn no_hydrate() -> bool {
+        println!("no_hydrate == {}", NO_HYDRATE.with(Cell::get));
         NO_HYDRATE.with(Cell::get)
     }
 
     /// Sets whether the renderer should not add hydration IDs.
     pub fn set_no_hydrate(hydrate: bool) {
+        println!("set_no_hydrate == {}", hydrate);
         NO_HYDRATE.with(|cell| cell.set(hydrate));
     }
 

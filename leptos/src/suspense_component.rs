@@ -174,13 +174,16 @@ where
                                     );
 
                                     #[cfg(feature = "experimental-islands")]
+                                    let prev_no_hydrate =
+                                        SharedContext::no_hydrate();
+                                    #[cfg(feature = "experimental-islands")]
                                     {
                                         SharedContext::set_no_hydrate(
                                             no_hydrate,
                                         );
                                     }
 
-                                    with_owner(owner, {
+                                    let rendered = with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
                                                 current_id,
@@ -194,7 +197,15 @@ where
                                             .render_to_string()
                                             .to_string()
                                         }
-                                    })
+                                    });
+
+                                    #[cfg(feature = "experimental-islands")]
+                                    SharedContext::set_no_hydrate(
+                                        prev_no_hydrate,
+                                    );
+
+                                    #[allow(clippy::let_and_return)]
+                                    rendered
                                 }
                             },
                             // in-order streaming
@@ -206,13 +217,16 @@ where
                                     );
 
                                     #[cfg(feature = "experimental-islands")]
+                                    let prev_no_hydrate =
+                                        SharedContext::no_hydrate();
+                                    #[cfg(feature = "experimental-islands")]
                                     {
                                         SharedContext::set_no_hydrate(
                                             no_hydrate,
                                         );
                                     }
 
-                                    with_owner(owner, {
+                                    let rendered = with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
                                                 current_id,
@@ -225,7 +239,15 @@ where
                                             .into_view()
                                             .into_stream_chunks()
                                         }
-                                    })
+                                    });
+
+                                    #[cfg(feature = "experimental-islands")]
+                                    SharedContext::set_no_hydrate(
+                                        prev_no_hydrate,
+                                    );
+
+                                    #[allow(clippy::let_and_return)]
+                                    rendered
                                 }
                             },
                         );
