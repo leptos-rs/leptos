@@ -204,6 +204,7 @@ where
                                         prev_no_hydrate,
                                     );
 
+                                    #[allow(clippy::let_and_return)]
                                     rendered
                                 }
                             },
@@ -245,6 +246,7 @@ where
                                         prev_no_hydrate,
                                     );
 
+                                    #[allow(clippy::let_and_return)]
                                     rendered
                                 }
                             },
