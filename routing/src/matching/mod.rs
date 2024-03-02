@@ -1,7 +1,9 @@
 mod horizontal;
 mod vertical;
-use alloc::{borrow::Cow, vec::Vec};
+use crate::PathSegment;
+use alloc::borrow::Cow;
 use core::iter;
+use either_of::*;
 pub use horizontal::*;
 pub use vertical::*;
 
@@ -53,6 +55,15 @@ where
             Some(matched)
         }
     }
+
+    pub fn generate_routes(
+        &'a self,
+    ) -> (
+        Option<&str>,
+        impl IntoIterator<Item = Vec<PathSegment>> + 'a,
+    ) {
+        (self.base.as_deref(), self.children.generate_routes())
+    }
 }
 
 pub trait IntoParams<'a> {
@@ -66,11 +77,13 @@ pub trait MatchNestedRoutes<'a> {
     type ParamsIter: IntoIterator<Item = (&'a str, &'a str)> + Clone;
     type Match: IntoParams<'a>;
 
-    const DEPTH: usize;
-
     fn matches(&self, path: &'a str) -> Option<&'a str>;
 
     fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str);
+
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_;
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -114,14 +127,18 @@ impl<'a> MatchNestedRoutes<'a> for () {
     type ParamsIter = iter::Empty<(&'a str, &'a str)>;
     type Match = ();
 
-    const DEPTH: usize = 0;
-
     fn matches(&self, path: &'a str) -> Option<&'a str> {
         Some(path)
     }
 
     fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         (Some(()), path)
+    }
+
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+        iter::once(vec![PathSegment::Unit])
     }
 }
 
@@ -148,8 +165,6 @@ where
         <<Children::Match as IntoParams<'a>>::IntoParams as IntoIterator>::IntoIter,
     >;
     type Match = NestedMatch<'a, Self::ParamsIter, Children::Match>;
-
-    const DEPTH: usize = Children::DEPTH;
 
     fn matches(&self, path: &'a str) -> Option<&'a str> {
         if let Some(remaining) = self.segments.matches(path) {
@@ -185,6 +200,22 @@ where
             )
             .unwrap_or((None, path))
     }
+
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+        let mut segment_routes = Vec::new();
+        self.segments.generate_path(&mut segment_routes);
+        let segment_routes = segment_routes.into_iter();
+        let children_routes = self.children.generate_routes().into_iter();
+        children_routes.map(move |child_routes| {
+            segment_routes
+                .clone()
+                .chain(child_routes)
+                .filter(|seg| seg != &PathSegment::Unit)
+                .collect()
+        })
+    }
 }
 
 impl<'a, A> MatchNestedRoutes<'a> for (A,)
@@ -195,8 +226,6 @@ where
     type ParamsIter = A::ParamsIter;
     type Match = A::Match;
 
-    const DEPTH: usize = A::DEPTH;
-
     fn matches(&self, path: &'a str) -> Option<&'a str> {
         self.0.matches(path)
     }
@@ -204,12 +233,18 @@ where
     fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         self.0.match_nested(path)
     }
+
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+        self.0.generate_routes()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NestedRoute, Routes};
-    use crate::matching::StaticSegment;
+    use super::{NestedRoute, ParamSegment, Routes};
+    use crate::{matching::StaticSegment, PathSegment};
 
     #[test]
     pub fn matches_single_root_route() {
@@ -222,7 +257,11 @@ mod tests {
         let matched = routes.match_route("/");
         assert!(matched.is_some());
         let matched = routes.match_route("");
-        assert!(matched.is_some())
+        assert!(matched.is_some());
+        let (base, paths) = routes.generate_routes();
+        assert_eq!(base, None);
+        let paths = paths.into_iter().collect::<Vec<_>>();
+        assert_eq!(paths, vec![vec![PathSegment::Static("/".into())]]);
     }
 
     #[test]
@@ -241,6 +280,17 @@ mod tests {
         let matched = routes.match_route("/author/contact").unwrap();
         assert_eq!(matched.matched, "");
         assert_eq!(matched.child.matched, "/author/contact");
+        let (base, paths) = routes.generate_routes();
+        assert_eq!(base, None);
+        let paths = paths.into_iter().collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![vec![
+                PathSegment::Static("".into()),
+                PathSegment::Static("author".into()),
+                PathSegment::Static("contact".into())
+            ]]
+        );
     }
 
     #[test]
@@ -258,6 +308,79 @@ mod tests {
         });
         let matched = routes.match_route("/");
         assert!(matched.is_none());
+    }
+
+    #[test]
+    pub fn chooses_between_nested_routes() {
+        let routes = Routes::new((
+            NestedRoute {
+                segments: StaticSegment("/"),
+                children: (
+                    NestedRoute {
+                        segments: StaticSegment(""),
+                        children: (),
+                        data: (),
+                        view: (),
+                    },
+                    NestedRoute {
+                        segments: StaticSegment("about"),
+                        children: (),
+                        data: (),
+                        view: (),
+                    },
+                ),
+                data: (),
+                view: (),
+            },
+            NestedRoute {
+                segments: StaticSegment("/blog"),
+                children: (
+                    NestedRoute {
+                        segments: StaticSegment(""),
+                        children: (),
+                        data: (),
+                        view: (),
+                    },
+                    NestedRoute {
+                        segments: (StaticSegment("post"), ParamSegment("id")),
+                        children: (),
+                        data: (),
+                        view: (),
+                    },
+                ),
+                data: (),
+                view: (),
+            },
+        ));
+
+        // generates routes correctly
+        let (base, paths) = routes.generate_routes();
+        assert_eq!(base, None);
+        let paths = paths.into_iter().collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![
+                vec![
+                    PathSegment::Static("/".into()),
+                    PathSegment::Static("".into()),
+                ],
+                vec![
+                    PathSegment::Static("/".into()),
+                    PathSegment::Static("about".into())
+                ],
+                vec![
+                    PathSegment::Static("/blog".into()),
+                    PathSegment::Static("".into()),
+                ],
+                vec![
+                    PathSegment::Static("/blog".into()),
+                    PathSegment::Static("post".into()),
+                    PathSegment::Param("id".into())
+                ]
+            ]
+        );
+
+        let matched = routes.match_route("/about");
     }
 
     /*#[test]
@@ -317,13 +440,90 @@ impl<'a, ParamsIter> PartialPathMatch<'a, ParamsIter> {
     }
 }
 
+macro_rules! chain_generated {
+    ($first:ident, $second:ident, ) => {
+        $first.chain($second)
+    };
+    ($first:ident, $second:ident, $($rest:ident,)+) => {
+        chain_generated!(
+            $firsts.chain($second)
+            $($rest,)+
+        )
+    }
+}
+
+impl<'a, A, B> IntoParams<'a> for Either<A, B>
+where
+    A: IntoParams<'a>,
+    B: IntoParams<'a>,
+{
+    type IntoParams = Either<
+        <A::IntoParams as IntoIterator>::IntoIter,
+        <B::IntoParams as IntoIterator>::IntoIter,
+    >;
+
+    fn to_params(&self) -> Self::IntoParams {
+        todo!()
+    }
+}
+
+impl<'a, A, B> MatchNestedRoutes<'a> for (A, B)
+where
+    A: MatchNestedRoutes<'a>,
+    B: MatchNestedRoutes<'a>,
+{
+    type Data = (A::Data, B::Data);
+    type ParamsIter = core::iter::Empty<(&'a str, &'a str)>;
+    type Match = Either<A::Match, B::Match>;
+
+    fn matches(&self, path: &'a str) -> Option<&'a str> {
+        todo!()
+    }
+    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
+        todo!()
+    }
+    fn generate_routes(
+        &self,
+    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+        #[allow(non_snake_case)]
+        let (A, B) = &self;
+        #[allow(non_snake_case)]
+        let A = A.generate_routes().into_iter();
+        #[allow(non_snake_case)]
+        let B = B.generate_routes().into_iter();
+        A.chain(B)
+    }
+}
+
 macro_rules! tuples {
-    ($($ty:ident),*) => {
-        impl<$($ty),*> PossibleRouteMatch for ($($ty,)*)
+    ($either:ty => $($ty:ident),*) => {
+        impl<'a, $($ty),*> MatchNestedRoutes<'a> for ($($ty,)*)
         where
-			$($ty: PossibleRouteMatch),*,
+			$($ty: MatchNestedRoutes<'a>),*,
         {
-            fn matches_iter(&self, path: &mut Chars) -> bool
+            type Data = ($($ty::Data,)*);
+            type ParamsIter = core::iter::Empty<(&'a str, &'a str)>; // TODO
+            type Match = $either<$($ty,)*>;
+
+            fn matches(&self, path: &'a str) -> Option<&'a str> {
+                todo!()
+            }
+
+            fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
+                todo!()
+            }
+
+            fn generate_routes(
+                &self,
+            ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+                #[allow(non_snake_case)]
+                let ($($ty,)*) = &self;
+                $(let $ty = $ty.generate_routes().into_iter();)*
+                chain_generated!($($ty,)*)
+            }
+        }
+
+            /*fn matches_iter(&self, path: &mut Chars) -> bool
             {
                 #[allow(non_snake_case)]
                 let ($($ty,)*) = &self;
@@ -360,11 +560,11 @@ macro_rules! tuples {
                     $ty.generate_path(path);
                 )*
             }
-        }
+        }*/
 	};
 }
 
-//tuples!(A, B);
+//tuples!(Either => A, B);
 /*tuples!(A, B, C);
 tuples!(A, B, C, D);
 tuples!(A, B, C, D, E);
