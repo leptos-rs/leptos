@@ -6,10 +6,6 @@ use core::iter;
 impl PossibleRouteMatch for () {
     type ParamsIter<'a> = iter::Empty<(&'a str, &'a str)>;
 
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
-        Some(path)
-    }
-
     fn test<'a>(
         &self,
         path: &'a str,
@@ -26,53 +22,27 @@ pub struct StaticSegment(pub &'static str);
 impl PossibleRouteMatch for StaticSegment {
     type ParamsIter<'a> = iter::Empty<(&'a str, &'a str)>;
 
-    fn matches<'a>(&self, path: &'a str) -> Option<&'a str> {
-        let mut matched_len = 0;
-        let mut this = self.0.chars();
-        let mut test = path.chars().peekable();
-        if test.peek() == Some(&'/') {
-            matched_len += '/'.len_utf8();
-            test.next();
-        }
-
-        // unless this segment is empty, we start by
-        // assuming that it has not actually matched
-        let mut has_matched = self.0.is_empty() || self.0 == "/";
-        if !self.0.is_empty() {
-            for char in test {
-                // when we get a closing /, stop matching
-                if char == '/' {
-                    break;
-                }
-                // if the next character in the path doesn't match the
-                // next character in the segment, we don't match
-                else if this.next() != Some(char) {
-                    return None;
-                } else {
-                    matched_len += char.len_utf8();
-                    has_matched = true;
-                }
-            }
-        }
-
-        has_matched.then(|| &path[matched_len..])
-    }
-
     fn test<'a>(
         &self,
         path: &'a str,
     ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
         let mut matched_len = 0;
-        let mut test = path.chars();
+        let mut test = path.chars().peekable();
         let mut this = self.0.chars();
         let mut has_matched = self.0.is_empty() || self.0 == "/";
 
         // match an initial /
-        if let Some('/') = test.next() {
+        if let Some('/') = test.peek() {
+            test.next();
+
             if !self.0.is_empty() {
                 matched_len += 1;
             }
+            if self.0.starts_with('/') || self.0.is_empty() {
+                this.next();
+            }
         }
+
         for char in test {
             let n = this.next();
             // when we get a closing /, stop matching
@@ -131,7 +101,6 @@ mod tests {
     fn single_static_match_with_trailing_slash() {
         let path = "/foo/";
         let def = StaticSegment("foo");
-        assert!(def.matches(path).is_some());
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
@@ -143,7 +112,6 @@ mod tests {
     fn tuple_of_static_matches() {
         let path = "/foo/bar";
         let def = (StaticSegment("foo"), StaticSegment("bar"));
-        assert!(def.matches(path).is_some());
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
@@ -155,7 +123,6 @@ mod tests {
     fn tuple_static_mismatch() {
         let path = "/foo/baz";
         let def = (StaticSegment("foo"), StaticSegment("bar"));
-        assert!(def.matches(path).is_none());
         assert!(def.test(path).is_none());
     }
 
@@ -170,7 +137,6 @@ mod tests {
             StaticSegment("bar"),
             (),
         );
-        assert!(def.matches(path).is_some());
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
