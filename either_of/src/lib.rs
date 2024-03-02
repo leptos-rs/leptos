@@ -8,6 +8,21 @@ pub enum Either<A, B> {
     Right(B),
 }
 
+impl<Item, A, B> Iterator for Either<A, B>
+where
+    A: Iterator<Item = Item>,
+    B: Iterator<Item = Item>,
+{
+    type Item = Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Either::Left(i) => i.next(),
+            Either::Right(i) => i.next(),
+        }
+    }
+}
+
 macro_rules! tuples {
     ($name:ident => $($ty:ident),*) => {
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -25,6 +40,17 @@ macro_rules! tuples {
                 }
             }
         }
+
+        /*impl<$($ty,)*> Iterator for $name<$($ty,)*>
+        where
+            $($ty: Iterator,)*
+        {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                match self {
+                    $($name::$ty(this) => this.fmt(f),)*
+                }
+            }
+        }*/
     }
 }
 
