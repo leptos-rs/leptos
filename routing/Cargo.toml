@@ -5,6 +5,7 @@ version.workspace = true
 
 [dependencies]
 const_str_slice_concat = { workspace = true }
+either_of = { workspace = true }
 next_tuple = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
 #paste = "1"
