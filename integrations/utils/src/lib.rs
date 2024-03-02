@@ -150,7 +150,7 @@ fn get_hashes(options: &LeptosOptions) -> (String, String, String) {
         ("css".to_string(), "".to_string()),
     ]);
 
-    if options.frontend_files_content_hashes {
+    if options.hash_files {
         let hash_path = env::current_exe()
             .map(|path| {
                 path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
