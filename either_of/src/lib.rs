@@ -2,7 +2,7 @@
 
 use core::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Either<A, B> {
     Left(A),
     Right(B),
@@ -37,6 +37,19 @@ macro_rules! tuples {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 match self {
                     $($name::$ty(this) => this.fmt(f),)*
+                }
+            }
+        }
+
+        impl<Item, $($ty,)*> Iterator for $name<$($ty,)*>
+        where
+            $($ty: Iterator<Item = Item>,)*
+        {
+            type Item = Item;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self {
+                    $($name::$ty(i) => i.next(),)*
                 }
             }
         }
