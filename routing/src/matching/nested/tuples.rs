@@ -1,21 +1,26 @@
 use crate::{
-    matching::{IntoParams, MatchNestedRoutes},
+    matching::{MatchInterface, MatchNestedRoutes},
     PathSegment,
 };
 use core::iter;
 use either_of::*;
 
-impl<'a> IntoParams<'a> for () {
-    type IntoParams = iter::Empty<(&'a str, &'a str)>;
+impl<'a> MatchInterface<'a> for () {
+    type Params = iter::Empty<(&'a str, &'a str)>;
+    type Child = ();
+    type View = ();
 
-    fn to_params(&self) -> Self::IntoParams {
+    fn to_params(&self) -> Self::Params {
         iter::empty()
     }
+
+    fn to_child(&self) -> Self::Child {}
+
+    fn to_view(&self) -> Self::View {}
 }
 
 impl<'a> MatchNestedRoutes<'a> for () {
     type Data = ();
-    //type ParamsIter = iter::Empty<(&'a str, &'a str)>;
     type Match = ();
 
     fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
@@ -29,14 +34,24 @@ impl<'a> MatchNestedRoutes<'a> for () {
     }
 }
 
-impl<'a, A> IntoParams<'a> for (A,)
+impl<'a, A> MatchInterface<'a> for (A,)
 where
-    A: IntoParams<'a>,
+    A: MatchInterface<'a>,
 {
-    type IntoParams = A::IntoParams;
+    type Params = A::Params;
+    type Child = A::Child;
+    type View = A::View;
 
-    fn to_params(&self) -> Self::IntoParams {
+    fn to_params(&self) -> Self::Params {
         self.0.to_params()
+    }
+
+    fn to_child(&'a self) -> Self::Child {
+        self.0.to_child()
+    }
+
+    fn to_view(&self) -> Self::View {
+        self.0.to_view()
     }
 }
 
@@ -47,7 +62,7 @@ where
     type Data = A::Data;
     type Match = A::Match;
 
-    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
+    fn match_nested(&'a self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         self.0.match_nested(path)
     }
 
@@ -58,20 +73,36 @@ where
     }
 }
 
-impl<'a, A, B> IntoParams<'a> for Either<A, B>
+impl<'a, A, B> MatchInterface<'a> for Either<A, B>
 where
-    A: IntoParams<'a>,
-    B: IntoParams<'a>,
+    A: MatchInterface<'a>,
+    B: MatchInterface<'a>,
 {
-    type IntoParams = Either<
-        <A::IntoParams as IntoIterator>::IntoIter,
-        <B::IntoParams as IntoIterator>::IntoIter,
+    type Params = Either<
+        <A::Params as IntoIterator>::IntoIter,
+        <B::Params as IntoIterator>::IntoIter,
     >;
+    type Child = Either<A::Child, B::Child>;
+    type View = Either<A::View, B::View>;
 
-    fn to_params(&self) -> Self::IntoParams {
+    fn to_params(&self) -> Self::Params {
         match self {
             Either::Left(i) => Either::Left(i.to_params().into_iter()),
             Either::Right(i) => Either::Right(i.to_params().into_iter()),
+        }
+    }
+
+    fn to_child(&'a self) -> Self::Child {
+        match self {
+            Either::Left(i) => Either::Left(i.to_child()),
+            Either::Right(i) => Either::Right(i.to_child()),
+        }
+    }
+
+    fn to_view(&self) -> Self::View {
+        match self {
+            Either::Left(i) => Either::Left(i.to_view()),
+            Either::Right(i) => Either::Right(i.to_view()),
         }
     }
 }
@@ -84,7 +115,7 @@ where
     type Data = (A::Data, B::Data);
     type Match = Either<A::Match, B::Match>;
 
-    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
+    fn match_nested(&'a self, path: &'a str) -> (Option<Self::Match>, &'a str) {
         #[allow(non_snake_case)]
         let (A, B) = &self;
         if let (Some(matched), remaining) = A.match_nested(path) {
@@ -124,17 +155,33 @@ macro_rules! chain_generated {
 
 macro_rules! tuples {
     ($either:ident => $($ty:ident),*) => {
-        impl<'a, $($ty,)*> IntoParams<'a> for $either <$($ty,)*>
+        impl<'a, $($ty,)*> MatchInterface<'a> for $either <$($ty,)*>
         where
-			$($ty: IntoParams<'a>),*,
+			$($ty: MatchInterface<'a>),*,
+			$($ty::Child: 'a),*,
+			$($ty::View: 'a),*,
         {
-            type IntoParams = $either<$(
-                <$ty::IntoParams as IntoIterator>::IntoIter,
+            type Params = $either<$(
+                <$ty::Params as IntoIterator>::IntoIter,
             )*>;
+            type Child = $either<$($ty::Child,)*>;
+            type View = $either<$($ty::View,)*>;
 
-            fn to_params(&self) -> Self::IntoParams {
+            fn to_params(&self) -> Self::Params {
                 match self {
                     $($either::$ty(i) => $either::$ty(i.to_params().into_iter()),)*
+                }
+            }
+
+            fn to_child(&'a self) -> Self::Child {
+                match self {
+                    $($either::$ty(i) => $either::$ty(i.to_child()),)*
+                }
+            }
+
+            fn to_view(&self) -> Self::View {
+                match self {
+                    $($either::$ty(i) => $either::$ty(i.to_view()),)*
                 }
             }
         }
@@ -142,11 +189,12 @@ macro_rules! tuples {
         impl<'a, $($ty),*> MatchNestedRoutes<'a> for ($($ty,)*)
         where
 			$($ty: MatchNestedRoutes<'a>),*,
+			$($ty::Match: 'a),*,
         {
             type Data = ($($ty::Data,)*);
             type Match = $either<$($ty::Match,)*>;
 
-            fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str) {
+            fn match_nested(&'a self, path: &'a str) -> (Option<Self::Match>, &'a str) {
                 #[allow(non_snake_case)]
 
                 let ($($ty,)*) = &self;
