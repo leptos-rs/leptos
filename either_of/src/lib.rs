@@ -23,6 +23,19 @@ where
     }
 }
 
+impl<A, B> Either<A, B> {
+    pub fn map<T, U>(
+        &self,
+        left: impl FnOnce(&A) -> T,
+        right: impl FnOnce(&B) -> U,
+    ) -> Either<T, U> {
+        match self {
+            Either::Left(i) => Either::Left(left(i)),
+            Either::Right(i) => Either::Right(right(i)),
+        }
+    }
+}
+
 macro_rules! tuples {
     ($name:ident => $($ty:ident),*) => {
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -53,17 +66,6 @@ macro_rules! tuples {
                 }
             }
         }
-
-        /*impl<$($ty,)*> Iterator for $name<$($ty,)*>
-        where
-            $($ty: Iterator,)*
-        {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                match self {
-                    $($name::$ty(this) => this.fmt(f),)*
-                }
-            }
-        }*/
     }
 }
 
