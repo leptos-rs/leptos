@@ -44,6 +44,11 @@ mod multipart;
 #[cfg(feature = "multipart")]
 pub use multipart::*;
 
+#[cfg(feature = "msgpack")]
+mod msgpack;
+#[cfg(feature = "msgpack")]
+pub use msgpack::*;
+
 mod stream;
 use crate::error::ServerFnError;
 use futures::Future;
