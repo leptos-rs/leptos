@@ -36,7 +36,7 @@ impl<'a, Children> Routes<Children>
 where
     Children: MatchNestedRoutes<'a>,
 {
-    pub fn match_route(&self, path: &'a str) -> Option<Children::Match> {
+    pub fn match_route(&'a self, path: &'a str) -> Option<Children::Match> {
         let path = match &self.base {
             None => path,
             Some(base) => {
@@ -72,18 +72,23 @@ where
     }
 }
 
-pub trait IntoParams<'a> {
-    type IntoParams: IntoIterator<Item = (&'a str, &'a str)>;
+pub trait MatchInterface<'a> {
+    type Params: IntoIterator<Item = (&'a str, &'a str)>;
+    type Child;
+    type View;
 
-    fn to_params(&self) -> Self::IntoParams;
+    fn to_params(&self) -> Self::Params;
+
+    fn to_child(&'a self) -> Self::Child;
+
+    fn to_view(&self) -> Self::View;
 }
 
 pub trait MatchNestedRoutes<'a> {
     type Data;
-    //type ParamsIter: IntoIterator<Item = (&'a str, &'a str)> + Clone;
-    type Match: IntoParams<'a>;
+    type Match: MatchInterface<'a>;
 
-    fn match_nested(&self, path: &'a str) -> (Option<Self::Match>, &'a str);
+    fn match_nested(&'a self, path: &'a str) -> (Option<Self::Match>, &'a str);
 
     fn generate_routes(
         &self,
@@ -94,7 +99,7 @@ pub trait MatchNestedRoutes<'a> {
 mod tests {
     use super::{NestedRoute, ParamSegment, Routes};
     use crate::{
-        matching::{IntoParams, StaticSegment, WildcardSegment},
+        matching::{MatchInterface, StaticSegment, WildcardSegment},
         PathSegment,
     };
 
@@ -104,7 +109,7 @@ mod tests {
             segments: StaticSegment("/"),
             children: (),
             data: (),
-            view: (),
+            view: || (),
         });
         let matched = routes.match_route("/");
         assert!(matched.is_some());
@@ -129,9 +134,8 @@ mod tests {
             data: (),
             view: "Home",
         });
-        let matched = routes.match_route("/author/contact").unwrap();
-        assert_eq!(matched.matched(), "");
-        assert_eq!(matched.child().matched(), "/author/contact");
+
+        // route generation
         let (base, paths) = routes.generate_routes();
         assert_eq!(base, None);
         let paths = paths.into_iter().collect::<Vec<_>>();
@@ -143,6 +147,14 @@ mod tests {
                 PathSegment::Static("contact".into())
             ]]
         );
+
+        let matched = routes.match_route("/author/contact").unwrap();
+        assert_eq!(matched.matched(), "");
+        assert_eq!(matched.to_child().matched(), "/author/contact");
+
+        let view = matched.to_view();
+        assert_eq!(*view, "Home");
+        assert_eq!(*matched.to_child().to_view(), "Contact Me");
     }
 
     #[test]
@@ -172,17 +184,17 @@ mod tests {
                         segments: StaticSegment(""),
                         children: (),
                         data: (),
-                        view: (),
+                        view: || (),
                     },
                     NestedRoute {
                         segments: StaticSegment("about"),
                         children: (),
                         data: (),
-                        view: (),
+                        view: || (),
                     },
                 ),
                 data: (),
-                view: (),
+                view: || (),
             },
             NestedRoute {
                 segments: StaticSegment("/blog"),
@@ -191,17 +203,17 @@ mod tests {
                         segments: StaticSegment(""),
                         children: (),
                         data: (),
-                        view: (),
+                        view: || (),
                     },
                     NestedRoute {
                         segments: (StaticSegment("post"), ParamSegment("id")),
                         children: (),
                         data: (),
-                        view: (),
+                        view: || (),
                     },
                 ),
                 data: (),
-                view: (),
+                view: || (),
             },
         ));
 
@@ -254,17 +266,17 @@ mod tests {
                             segments: StaticSegment("/"),
                             children: (),
                             data: (),
-                            view: (),
+                            view: || (),
                         },
                         NestedRoute {
                             segments: StaticSegment("about"),
                             children: (),
                             data: (),
-                            view: (),
+                            view: || (),
                         },
                     ),
                     data: (),
-                    view: (),
+                    view: || (),
                 },
                 NestedRoute {
                     segments: StaticSegment("/blog"),
@@ -273,13 +285,13 @@ mod tests {
                             segments: StaticSegment(""),
                             children: (),
                             data: (),
-                            view: (),
+                            view: || (),
                         },
                         NestedRoute {
                             segments: StaticSegment("category"),
                             children: (),
                             data: (),
-                            view: (),
+                            view: || (),
                         },
                         NestedRoute {
                             segments: (
@@ -288,11 +300,11 @@ mod tests {
                             ),
                             children: (),
                             data: (),
-                            view: (),
+                            view: || (),
                         },
                     ),
                     data: (),
-                    view: (),
+                    view: || (),
                 },
                 NestedRoute {
                     segments: (
@@ -301,7 +313,7 @@ mod tests {
                     ),
                     children: (),
                     data: (),
-                    view: (),
+                    view: || (),
                 },
             ),
             "/portfolio",
