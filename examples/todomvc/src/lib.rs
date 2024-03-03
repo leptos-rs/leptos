@@ -7,9 +7,8 @@ pub struct Todos(pub Vec<Todo>);
 
 const STORAGE_KEY: &str = "todos-leptos";
 
-// Basic operations to manipulate the todo list: nothing really interesting here
-impl Todos {
-    pub fn new() -> Self {
+impl Default for Todos {
+    fn default() -> Self {
         let starting_todos =
             window()
                 .local_storage()
@@ -23,7 +22,10 @@ impl Todos {
                 .unwrap_or_default();
         Self(starting_todos)
     }
+}
 
+// Basic operations to manipulate the todo list: nothing really interesting here
+impl Todos {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -86,12 +88,6 @@ impl Todos {
     }
 }
 
-impl Default for Todos {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Todo {
     pub id: Uuid,
@@ -136,7 +132,7 @@ const ENTER_KEY: u32 = 13;
 #[component]
 pub fn TodoMVC() -> impl IntoView {
     // The `todos` are a signal, since we need to reactively update the list
-    let (todos, set_todos) = create_signal(Todos::new());
+    let (todos, set_todos) = create_signal(Todos::default());
 
     // We provide a context that each <Todo/> component can use to update the list
     // Here, I'm just passing the `WriteSignal`; a <Todo/> doesn't need to read the whole list
