@@ -2,11 +2,12 @@
 resolver = "2"
 members = [
   # utils 
+  "any_spawner",
   "const_str_slice_concat",
+  "either_of",
   "next_tuple",
   "or_poisoned",
-  "any_spawner",
-  "either_of",
+  "routing_utils",
 
   # core
   "hydration_context",
@@ -18,7 +19,6 @@ members = [
   "leptos_reactive",
   "leptos_server",
   "reactive_graph",
-  "routing",
   "server_fn",
   "server_fn_macro",
   "server_fn/server_fn_macro_default",
@@ -31,7 +31,7 @@ members = [
 
   # libraries
   "meta",
-  "router", "either_of",
+  "router"
 ]
 exclude = ["benchmarks", "examples"]
 
