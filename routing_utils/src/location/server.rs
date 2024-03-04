@@ -21,6 +21,10 @@ impl Default for RequestUrl {
 impl Location for RequestUrl {
     type Error = url::ParseError;
 
+    fn current(&self) -> Result<Url, Self::Error> {
+        Self::parse(&self.0)
+    }
+
     fn init(&self) {}
 
     fn set_navigation_hook(&mut self, _cb: impl FnMut(Url) + 'static) {}
