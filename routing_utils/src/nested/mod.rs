@@ -2,7 +2,8 @@ use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PossibleRouteMatch,
 };
 use crate::PathSegment;
-use core::iter;
+use alloc::vec::Vec;
+use core::{fmt, iter};
 
 mod tuples;
 
@@ -14,7 +15,7 @@ pub struct NestedRoute<Segments, Children, Data, View> {
     pub view: View,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct NestedMatch<'a, ParamsIter, Child, View> {
     /// The portion of the full path matched only by this nested route.
     matched: &'a str,
@@ -23,6 +24,21 @@ pub struct NestedMatch<'a, ParamsIter, Child, View> {
     /// The nested route.
     child: Child,
     view: &'a View,
+}
+
+impl<'a, ParamsIter, Child, View> fmt::Debug
+    for NestedMatch<'a, ParamsIter, Child, View>
+where
+    ParamsIter: fmt::Debug,
+    Child: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NestedMatch")
+            .field("matched", &self.matched)
+            .field("params", &self.params)
+            .field("child", &self.child)
+            .finish()
+    }
 }
 
 impl<'a, ParamsIter, Child, View> MatchInterface<'a>
