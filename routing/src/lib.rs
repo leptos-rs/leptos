@@ -8,5 +8,6 @@ mod static_route;
 pub use generate_route_list::*;
 pub use method::*;
 pub use router::*;
+pub use routing_utils::*;
 pub use ssr_mode::*;
 pub use static_route::*;

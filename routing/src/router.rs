@@ -3,21 +3,25 @@ use core::marker::PhantomData;
 use either_of::Either;
 use routing_utils::{
     location::Location,
-    matching::{MatchNestedRoutes, PossibleRouteMatch, Routes},
+    matching::{MatchInterface, MatchNestedRoutes, PossibleRouteMatch, Routes},
 };
 use std::borrow::Cow;
 use tachys::{
+    html::attribute::Attribute,
     hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{either::EitherState, Position, PositionState, Render, RenderHtml},
+    view::{
+        add_attr::AddAnyAttr, either::EitherState, Position, PositionState,
+        Render, RenderHtml,
+    },
 };
 
 #[derive(Debug)]
 pub struct Router<Rndr, Loc, Children, FallbackFn> {
     base: Option<Cow<'static, str>>,
     location: Loc,
-    routes: Routes<Children>,
+    pub routes: Routes<Children>,
     fallback: FallbackFn,
     rndr: PhantomData<Rndr>,
 }
@@ -74,21 +78,52 @@ where
     }
 }
 
-impl<Rndr, Loc, FallbackFn, Fallback, Children> Render<Rndr>
+trait ChooseView {
+    type Output;
+
+    fn choose(self) -> Self::Output;
+}
+
+impl<F, View> ChooseView for F
+where
+    F: Fn() -> View,
+{
+    type Output = View;
+
+    fn choose(self) -> Self::Output {
+        self()
+    }
+}
+
+impl<A, FnA, B, FnB> ChooseView for Either<FnA, FnB>
+where
+    FnA: Fn() -> A,
+    FnB: Fn() -> B,
+{
+    type Output = Either<A, B>;
+
+    fn choose(self) -> Self::Output {
+        match self {
+            Either::Left(f) => Either::Left(f()),
+            Either::Right(f) => Either::Right(f()),
+        }
+    }
+}
+
+impl<Rndr, Loc, FallbackFn, Fallback, Children, View> Render<Rndr>
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
     FallbackFn: Fn() -> Fallback,
     Fallback: Render<Rndr>,
     for<'a> Children: MatchNestedRoutes<'a>,
-    for<'a> <Children as MatchNestedRoutes<'a>>::Match: core::fmt::Debug,
+    for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
+        ChooseView<Output = View>,
+    View: Render<Rndr>,
     Rndr: Renderer,
 {
-    type State = EitherState<
-        <String as Render<Rndr>>::State,
-        <Fallback as Render<Rndr>>::State,
-        Rndr,
-    >;
+    type State =
+        EitherState<View::State, <Fallback as Render<Rndr>>::State, Rndr>;
     type FallibleState = ();
 
     fn build(self) -> Self::State {
@@ -98,14 +133,31 @@ where
             .as_ref()
             .map(|url| self.routes.match_route(url.path()))
         {
-            Ok(Some(matched)) => Either::Left(format!("{matched:#?}")),
+            Ok(Some(matched)) => {
+                let view = matched.to_view();
+                let view = view.choose();
+                Either::Left(view)
+            }
             _ => Either::Right((self.fallback)()),
         }
         .build()
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        todo!()
+        let new = match self
+            .location
+            .current()
+            .as_ref()
+            .map(|url| self.routes.match_route(url.path()))
+        {
+            Ok(Some(matched)) => {
+                let view = matched.to_view();
+                let view = view.choose();
+                Either::Left(view)
+            }
+            _ => Either::Right((self.fallback)()),
+        };
+        new.rebuild(state);
     }
 
     fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
@@ -117,6 +169,69 @@ where
         state: &mut Self::FallibleState,
     ) -> tachys::error::Result<()> {
         todo!()
+    }
+}
+
+impl<Rndr, Loc, FallbackFn, Fallback, Children, View> RenderHtml<Rndr>
+    for Router<Rndr, Loc, Children, FallbackFn>
+where
+    Loc: Location,
+    FallbackFn: Fn() -> Fallback,
+    Fallback: RenderHtml<Rndr>,
+    for<'a> Children: MatchNestedRoutes<'a>,
+    for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
+        ChooseView<Output = View>,
+    View: Render<Rndr>,
+    Rndr: Renderer,
+{
+    // TODO probably pick a max length here
+    const MIN_LENGTH: usize = Fallback::MIN_LENGTH;
+
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        todo!()
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        todo!()
+    }
+}
+
+impl<Rndr, Loc, FallbackFn, Fallback, Children, View> AddAnyAttr<Rndr>
+    for Router<Rndr, Loc, Children, FallbackFn>
+where
+    Loc: Location,
+    FallbackFn: Fn() -> Fallback,
+    Fallback: Render<Rndr>,
+    for<'a> Children: MatchNestedRoutes<'a>,
+    for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
+        ChooseView<Output = View>,
+    Rndr: Renderer,
+    Router<Rndr, Loc, Children, FallbackFn>: RenderHtml<Rndr>,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = Self;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        self
+    }
+
+    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: &NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        self
     }
 }
 /*

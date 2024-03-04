@@ -78,6 +78,7 @@ impl PossibleRouteMatch for StaticSegment {
 #[cfg(test)]
 mod tests {
     use super::{PossibleRouteMatch, StaticSegment};
+    use alloc::vec::Vec;
 
     #[test]
     fn single_static_match() {

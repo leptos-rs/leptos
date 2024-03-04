@@ -1,4 +1,5 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
+use alloc::vec::Vec;
 use core::iter::Chain;
 
 macro_rules! chain_types {
