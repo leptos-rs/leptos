@@ -1,5 +1,5 @@
 [package]
-name = "router"
+name = "routing_utils"
 edition = "2021"
 version.workspace = true
 
@@ -8,9 +8,6 @@ const_str_slice_concat = { workspace = true }
 either_of = { workspace = true }
 next_tuple = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
-#paste = "1"
-#thiserror = "1"
-#tuplestructops = "0.3"
 url = "2"
 js-sys = { version = "0.3" }
 wasm-bindgen = { version = "0.2" }
