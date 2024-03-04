@@ -1,7 +1,5 @@
-use crate::{
-    matching::{MatchInterface, MatchNestedRoutes},
-    PathSegment,
-};
+use crate::{MatchInterface, MatchNestedRoutes, PathSegment};
+use alloc::vec::Vec;
 use core::iter;
 use either_of::*;
 
