@@ -69,6 +69,8 @@ impl Default for LocationChange {
 pub trait Location {
     type Error: Debug;
 
+    fn current(&self) -> Result<Url, Self::Error>;
+
     /// Sets up any global event listeners or other initialization needed.
     fn init(&self);
 

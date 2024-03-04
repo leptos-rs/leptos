@@ -3,11 +3,11 @@ mod nested;
 mod vertical;
 use crate::PathSegment;
 use alloc::borrow::Cow;
-use core::iter;
 pub use horizontal::*;
 pub use nested::*;
 pub use vertical::*;
 
+#[derive(Debug)]
 pub struct Routes<Children> {
     base: Option<Cow<'static, str>>,
     children: Children,
