@@ -32,7 +32,7 @@ members = [
   # libraries
   "meta",
   "router"
-]
+, "routing"]
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
@@ -58,6 +58,7 @@ next_tuple = { path = "./next_tuple" }
 or_poisoned = { path = "./or_poisoned" }
 reactive_graph = { path = "./reactive_graph" }
 routing = { path = "./routing" }
+routing_utils = { path = "./routing_utils" }
 server_fn = { path = "./server_fn", version = "0.6.5" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.6.5" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
