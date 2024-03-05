@@ -844,8 +844,12 @@ impl TypedBuilderOpts {
 impl TypedBuilderOpts {
     fn to_serde_tokens(&self) -> TokenStream {
         let default = if let Some(v) = &self.default_with_value {
-            let v = v.to_token_stream().to_string();
-            quote! { default=#v, }
+            let mut v = v.to_token_stream();
+            if self.into {
+                v.append_all(quote!{.into()} );
+            } 
+            let v = v.to_string();
+            quote! { default_code=#v, }
         } else if self.default {
             quote! { default, }
         } else {
@@ -863,7 +867,11 @@ impl TypedBuilderOpts {
 impl ToTokens for TypedBuilderOpts {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let default = if let Some(v) = &self.default_with_value {
-            let v = v.to_token_stream().to_string();
+            let mut v = v.to_token_stream();
+            if self.into {
+                v.append_all(quote!{.into()} );
+            } 
+            let v = v.to_string();
             quote! { default_code=#v, }
         } else if self.default {
             quote! { default, }
