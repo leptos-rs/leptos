@@ -50,6 +50,7 @@ pub(crate) fn slot_to_tokens(
         .filter(|attr| {
             !attr.key.to_string().starts_with("let:")
                 && !attr.key.to_string().starts_with("clone:")
+                && !attr.key.to_string().starts_with("attr:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -85,6 +86,24 @@ pub(crate) fn slot_to_tokens(
                 .map(|ident| format_ident!("{ident}", span = attr.key.span()))
         })
         .collect::<Vec<_>>();
+
+    let dyn_attrs = attrs
+        .filter(|attr| attr.key.to_string().starts_with("attr:"))
+        .filter_map(|attr| {
+            let name = &attr.key.to_string();
+            let name = name.strip_prefix("attr:");
+            let value = attr.value().map(|v| {
+                quote! { #v }
+            })?;
+            Some(quote! { (#name, ::leptos::IntoAttribute::into_attribute(#value)) })
+        })
+        .collect::<Vec<_>>();
+
+    let dyn_attrs = if dyn_attrs.is_empty() {
+        quote! {}
+    } else {
+        quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) }
+    };
 
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
@@ -159,6 +178,7 @@ pub(crate) fn slot_to_tokens(
             #(#slots)*
             #children
             .build()
+            #dyn_attrs
             .into(),
     };
 
