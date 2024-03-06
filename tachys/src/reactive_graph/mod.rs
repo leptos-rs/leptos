@@ -1,12 +1,16 @@
 use crate::{
     async_views::Suspend,
     error::AnyError,
-    html::{attribute::AttributeValue, property::IntoProperty},
+    html::{
+        attribute::{Attribute, AttributeValue},
+        property::IntoProperty,
+    },
     hydration::Cursor,
     renderer::{DomRenderer, Renderer},
     ssr::StreamBuilder,
     view::{
-        Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml, ToTemplate,
     },
 };
 use reactive_graph::{
@@ -264,6 +268,37 @@ where
             }
         })
         .into()
+    }
+}
+
+impl<F, V, R> AddAnyAttr<R> for F
+where
+    F: FnMut() -> V + 'static,
+    V: RenderHtml<R>,
+    V::State: 'static,
+    V::FallibleState: 'static,
+    R: Renderer + 'static,
+{
+    type Output<SomeNewAttr: Attribute<R>> = Self;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        self
+    }
+
+    fn add_any_attr_by_ref<NewAttr: Attribute<R>>(
+        self,
+        attr: &NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        self
     }
 }
 
