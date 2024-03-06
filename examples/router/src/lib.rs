@@ -12,7 +12,7 @@ use leptos::{
 use log::{debug, info};
 use routing::{
     location::{BrowserUrl, Location},
-    NestedRoute, Router, Routes, StaticSegment,
+    NestedRoute, ParamSegment, Router, Routes, StaticSegment,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -28,6 +28,25 @@ pub fn RouterExample() -> impl IntoView {
     let router = Router::new(
         BrowserUrl::new().unwrap(),
         Routes::new((
+            NestedRoute {
+                segments: StaticSegment(""),
+                children: (
+                    NestedRoute {
+                        segments: ParamSegment("id"),
+                        children: (),
+                        data: (),
+                        view: Contact,
+                    },
+                    NestedRoute {
+                        segments: StaticSegment(""),
+                        children: (),
+                        data: (),
+                        view: || "Select a contact.",
+                    },
+                ),
+                data: (),
+                view: ContactList,
+            },
             NestedRoute {
                 segments: StaticSegment("settings"),
                 children: (),
@@ -122,19 +141,28 @@ pub fn ContactRoutes() -> impl IntoView {
         </Route>
     }
 }*/
-/*
+
 #[component]
 pub fn ContactList() -> impl IntoView {
-    log::debug!("rendering <ContactList/>");
+    info!("rendering <ContactList/>");
 
     // contexts are passed down through the route tree
     provide_context(ExampleContext(42));
 
-    on_cleanup(|| {
+    Owner::on_cleanup(|| {
         info!("cleaning up <ContactList/>");
     });
 
-    let location = use_location();
+    view! {
+        <div class="contact-list">
+            <h1>"Contacts"</h1>
+            <li><a href="/1">1</a></li>
+            <li><a href="/2">2</a></li>
+            <li><a href="/3">3</a></li>
+        </div>
+    }
+
+    /*let location = use_location();
     let contacts = create_resource(move || location.search.get(), get_contacts);
     let contacts = move || {
         contacts.get().map(|contacts| {
@@ -162,14 +190,14 @@ pub fn ContactList() -> impl IntoView {
                 intro="fadeIn"
             />
         </div>
-    }
-}*/
+    }*/
+}
 /*
 #[derive(Params, PartialEq, Clone, Debug)]
 pub struct ContactParams {
     // Params isn't implemented for usize, only Option<usize>
     id: Option<usize>,
-}
+}*/
 
 #[component]
 pub fn Contact() -> impl IntoView {
@@ -180,11 +208,17 @@ pub fn Contact() -> impl IntoView {
         use_context::<ExampleContext>()
     );
 
-    on_cleanup(|| {
+    Owner::on_cleanup(|| {
         info!("cleaning up <Contact/>");
     });
 
-    let params = use_params::<ContactParams>();
+    view! {
+        <div class="contact">
+            <h2>"Contact"</h2>
+        </div>
+    }
+
+    /*    let params = use_params::<ContactParams>();
     let contact = create_resource(
         move || {
             params
@@ -229,8 +263,8 @@ pub fn Contact() -> impl IntoView {
                 {contact_display}
             </Transition>
         </div>
-    }
-}*/
+    }*/
+}
 
 #[component]
 pub fn About() -> impl IntoView {
@@ -271,16 +305,14 @@ pub fn Settings() -> impl IntoView {
     });
 
     view! {
-        <>
-            <h1>"Settings"</h1>
-            <form>
-                <fieldset>
-                    <legend>"Name"</legend>
-                    <input type="text" name="first_name" placeholder="First"/>
-                    <input type="text" name="last_name" placeholder="Last"/>
-                </fieldset>
-                <pre>"This page is just a placeholder."</pre>
-            </form>
-        </>
+        <h1>"Settings"</h1>
+        <form>
+            <fieldset>
+                <legend>"Name"</legend>
+                <input type="text" name="first_name" placeholder="First"/>
+                <input type="text" name="last_name" placeholder="Last"/>
+            </fieldset>
+            <pre>"This page is just a placeholder."</pre>
+        </form>
     }
 }

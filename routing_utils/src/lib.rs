@@ -60,12 +60,16 @@ where
         };
 
         let (matched, remaining) = self.children.match_nested(path);
+        #[cfg(feature = "tracing")]
+        tracing::info!("matched = {:?}", matched.is_some());
         let matched = matched?;
 
         if !remaining.is_empty() {
+            #[cfg(feature = "tracing")]
+            tracing::info!("did not match because remaining was {remaining:?}");
             None
         } else {
-            Some(matched)
+            Some(matched.1)
         }
     }
 
@@ -79,10 +83,17 @@ where
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct RouteMatchId(pub(crate) u8);
+
 pub trait MatchInterface<'a> {
     type Params: IntoIterator<Item = (&'a str, &'a str)>;
     type Child;
     type View;
+
+    fn as_id(&self) -> RouteMatchId;
+
+    fn as_matched(&self) -> &str;
 
     fn to_params(&self) -> Self::Params;
 
@@ -95,7 +106,10 @@ pub trait MatchNestedRoutes<'a> {
     type Data;
     type Match: MatchInterface<'a>;
 
-    fn match_nested(&'a self, path: &'a str) -> (Option<Self::Match>, &'a str);
+    fn match_nested(
+        &'a self,
+        path: &'a str,
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str);
 
     fn generate_routes(
         &self,
