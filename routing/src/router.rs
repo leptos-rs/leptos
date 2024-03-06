@@ -1,13 +1,14 @@
-use crate::{generate_route_list::RouteList, location::Location};
+use crate::{generate_route_list::RouteList, location::Location, Params};
 use core::marker::PhantomData;
-use either_of::Either;
+use either_of::*;
 use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
+    owner::Owner,
     traits::{Read, Track},
 };
 use routing_utils::{
-    MatchInterface, MatchNestedRoutes, PossibleRouteMatch, Routes,
+    MatchInterface, MatchNestedRoutes, PossibleRouteMatch, RouteMatchId, Routes,
 };
 use std::borrow::Cow;
 use tachys::{
@@ -16,8 +17,8 @@ use tachys::{
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, either::EitherState, Position, PositionState,
-        Render, RenderHtml,
+        add_attr::AddAnyAttr, either::EitherState, Mountable, Position,
+        PositionState, Render, RenderHtml,
     },
 };
 
@@ -125,7 +126,11 @@ where
     Rndr: Renderer + 'static,
 {
     type State = RenderEffect<
-        EitherState<View::State, <Fallback as Render<Rndr>>::State, Rndr>,
+        EitherState<
+            NestedRouteState<View::State>,
+            <Fallback as Render<Rndr>>::State,
+            Rndr,
+        >,
     >;
     type FallibleState = ();
 
@@ -136,27 +141,47 @@ where
             let url = url.clone();
             move |_| url.read().path().to_string()
         });
-        let search_parans = ArcMemo::new({
+        let search_params = ArcMemo::new({
             let url = url.clone();
             move |_| url.read().search_params().clone()
         });
-        RenderEffect::new(move |prev| {
-            tachys::dom::log(&format!("recalculating route"));
+        let outer_owner =
+            Owner::current().expect("creating Router, but no Owner was found");
+
+        RenderEffect::new(move |prev: Option<EitherState<_, _, _>>| {
             let path = path.read();
-            let new_view = match self.routes.match_route(&*path) {
-                Some(matched) => {
-                    let view = matched.to_view();
-                    let view = view.choose();
-                    Either::Left(view)
-                }
-                _ => Either::Right((self.fallback)()),
-            };
+            let new_match = self.routes.match_route(&path);
 
             if let Some(mut prev) = prev {
-                new_view.rebuild(&mut prev);
+                if let Some(new_match) = new_match {
+                    match &mut prev.state {
+                        Either::Left(prev) => {
+                            nested_rebuild(&outer_owner, prev, new_match);
+                        }
+                        Either::Right(_) => {
+                            Either::<_, Fallback>::Left(NestedRouteView::new(
+                                &outer_owner,
+                                new_match,
+                            ))
+                            .rebuild(&mut prev);
+                        }
+                    }
+                } else {
+                    Either::<NestedRouteView<View>, _>::Right((self
+                            .fallback)(
+                        ))
+                        .rebuild(&mut prev);
+                }
                 prev
             } else {
-                new_view.build()
+                match new_match {
+                    Some(matched) => Either::Left(NestedRouteView::new(
+                        &outer_owner,
+                        matched,
+                    )),
+                    _ => Either::Right((self.fallback)()),
+                }
+                .build()
             }
         })
     }
@@ -172,6 +197,142 @@ where
         state: &mut Self::FallibleState,
     ) -> tachys::error::Result<()> {
         todo!()
+    }
+}
+
+fn nested_rebuild<'a, NewMatch, R>(
+    outer_owner: &Owner,
+    current: &mut NestedRouteState<
+        <<NewMatch::View as ChooseView>::Output as Render<R>>::State,
+    >,
+    new: NewMatch,
+) where
+    NewMatch: MatchInterface<'a>,
+    NewMatch::View: ChooseView,
+    <NewMatch::View as ChooseView>::Output: Render<R>,
+    R: Renderer,
+{
+    // if the new match is a different branch of the nested route tree from the current one, we can
+    // just rebuild the view starting here: everything underneath it will change
+    if new.as_id() != current.id {
+        // TODO provide params + matched via context?
+        let new_view = NestedRouteView::new(&outer_owner, new);
+        let prev_owner = std::mem::replace(&mut current.owner, new_view.owner);
+        current.id = new_view.id;
+        current.params = new_view.params;
+        current.matched = new_view.matched;
+        current
+            .owner
+            .with(|| new_view.view.rebuild(&mut current.view));
+
+        // TODO is this the right place to drop the old Owner?
+        drop(prev_owner);
+    } else {
+        tracing::warn!("TODO: replace");
+        // otherwise, we should recurse to the children of the current view, and the new match
+        //nested_rebuild(current.as_child_mut(), new.as_child())
+    }
+
+    // update params, in case they're different
+    // TODO
+}
+
+pub struct NestedRouteView<View> {
+    id: RouteMatchId,
+    owner: Owner,
+    params: Params,
+    matched: String,
+    view: View,
+}
+
+impl<View> NestedRouteView<View> {
+    pub fn new<'a, Matcher>(outer_owner: &Owner, matched: Matcher) -> Self
+    where
+        Matcher: MatchInterface<'a>,
+        Matcher::View: ChooseView<Output = View>,
+    {
+        NestedRouteView {
+            id: matched.as_id(),
+            owner: outer_owner.child(),
+            params: matched
+                .to_params()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            matched: matched.as_matched().to_string(),
+            view: matched.to_view().choose(),
+        }
+    }
+}
+
+impl<R, View> Render<R> for NestedRouteView<View>
+where
+    View: Render<R>,
+    R: Renderer,
+{
+    type State = NestedRouteState<View::State>;
+    type FallibleState = ();
+
+    fn build(self) -> Self::State {
+        let NestedRouteView {
+            id,
+            owner,
+            params,
+            matched,
+            view,
+        } = self;
+        NestedRouteState {
+            id,
+            owner,
+            params,
+            matched,
+            view: view.build(),
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        todo!()
+    }
+
+    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> tachys::error::Result<()> {
+        todo!()
+    }
+}
+
+pub struct NestedRouteState<ViewState> {
+    id: RouteMatchId,
+    owner: Owner,
+    params: Params,
+    matched: String,
+    view: ViewState,
+}
+
+impl<ViewState, R> Mountable<R> for NestedRouteState<ViewState>
+where
+    ViewState: Mountable<R>,
+    R: Renderer,
+{
+    fn unmount(&mut self) {
+        self.view.unmount();
+    }
+
+    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+        self.view.mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &R::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        self.view.insert_before_this(parent, child)
     }
 }
 
@@ -239,6 +400,40 @@ where
         self
     }
 }
+
+macro_rules! tuples {
+    ($either:ident => $($ty:ident),*) => {
+        paste::paste! {
+            impl<$($ty, [<Fn $ty>],)*> ChooseView for $either<$([<Fn $ty>],)*>
+            where
+                $([<Fn $ty>]: Fn() -> $ty,)*
+            {
+                type Output = $either<$($ty,)*>;
+
+                fn choose(self) -> Self::Output {
+                    match self {
+                        $($either::$ty(f) => $either::$ty(f()),)*
+                    }
+                }
+            }
+        }
+    }
+}
+
+tuples!(EitherOf3 => A, B, C);
+tuples!(EitherOf4 => A, B, C, D);
+tuples!(EitherOf5 => A, B, C, D, E);
+tuples!(EitherOf6 => A, B, C, D, E, F);
+tuples!(EitherOf7 => A, B, C, D, E, F, G);
+tuples!(EitherOf8 => A, B, C, D, E, F, G, H);
+tuples!(EitherOf9 => A, B, C, D, E, F, G, H, I);
+tuples!(EitherOf10 => A, B, C, D, E, F, G, H, I, J);
+tuples!(EitherOf11 => A, B, C, D, E, F, G, H, I, J, K);
+tuples!(EitherOf12 => A, B, C, D, E, F, G, H, I, J, K, L);
+tuples!(EitherOf13 => A, B, C, D, E, F, G, H, I, J, K, L, M);
+tuples!(EitherOf14 => A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+tuples!(EitherOf15 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+tuples!(EitherOf16 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 /*
 impl<Rndr, Loc, Fal, Children> RenderHtml<Rndr>
     for Router<Rndr, Loc, Children, Fal>

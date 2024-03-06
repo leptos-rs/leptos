@@ -1,7 +1,7 @@
 use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PossibleRouteMatch,
 };
-use crate::PathSegment;
+use crate::{PathSegment, RouteMatchId};
 use alloc::vec::Vec;
 use core::{fmt, iter};
 
@@ -17,6 +17,7 @@ pub struct NestedRoute<Segments, Children, Data, View> {
 
 #[derive(PartialEq, Eq)]
 pub struct NestedMatch<'a, ParamsIter, Child, View> {
+    id: RouteMatchId,
     /// The portion of the full path matched only by this nested route.
     matched: &'a str,
     /// The map of params matched only by this nested route.
@@ -50,6 +51,14 @@ where
     type Params = ParamsIter;
     type Child = &'a Child;
     type View = &'a View;
+
+    fn as_id(&self) -> RouteMatchId {
+        self.id
+    }
+
+    fn as_matched(&self) -> &str {
+        self.matched
+    }
 
     fn to_params(&self) -> Self::Params {
         self.params.clone()
@@ -87,7 +96,10 @@ where
         <<Children::Match as MatchInterface<'a>>::Params as IntoIterator>::IntoIter,
     >, Children::Match, View>;
 
-    fn match_nested(&'a self, path: &'a str) -> (Option<Self::Match>, &'a str) {
+    fn match_nested(
+        &'a self,
+        path: &'a str,
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
         self.segments
             .test(path)
             .and_then(
@@ -98,17 +110,21 @@ where
                  }| {
                     let (inner, remaining) =
                         self.children.match_nested(remaining);
-                    let inner = inner?;
+                    let (id, inner) = inner?;
                     let params = params.into_iter();
 
                     if remaining.is_empty() {
                         Some((
-                            Some(NestedMatch {
-                                matched,
-                                params: params.chain(inner.to_params()),
-                                child: inner,
-                                view: &self.view,
-                            }),
+                            Some((
+                                id,
+                                NestedMatch {
+                                    id,
+                                    matched,
+                                    params: params.chain(inner.to_params()),
+                                    child: inner,
+                                    view: &self.view,
+                                },
+                            )),
                             remaining,
                         ))
                     } else {

@@ -16,7 +16,7 @@ where
     B: Mountable<Rndr>,
     Rndr: Renderer,
 {
-    state: Either<A, B>,
+    pub state: Either<A, B>,
     marker: Rndr::Placeholder,
 }
 
