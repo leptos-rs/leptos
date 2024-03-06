@@ -14,15 +14,14 @@ pub struct View<T>(T)
 where
     T: Sized;
 
-pub trait IntoView:
-    Sized + Render<Dom> + RenderHtml<Dom> + AddAnyAttr<Dom>
+pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> //+ AddAnyAttr<Dom>
 {
     fn into_view(self) -> View<Self>;
 }
 
 impl<T> IntoView for T
 where
-    T: Sized + Render<Dom> + RenderHtml<Dom> + AddAnyAttr<Dom>,
+    T: Sized + Render<Dom> + RenderHtml<Dom>, //+ AddAnyAttr<Dom>,
 {
     fn into_view(self) -> View<Self> {
         View(self)
@@ -79,7 +78,7 @@ impl<T: RenderHtml<Dom>> RenderHtml<Dom> for View<T> {
     }
 }
 
-impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
+/*impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
     type Output<SomeNewAttr: Attribute<Dom>> =
         <T as AddAnyAttr<Dom>>::Output<SomeNewAttr>;
 
@@ -102,4 +101,4 @@ impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
     {
         self.0.add_any_attr_by_ref(attr)
     }
-}
+}*/

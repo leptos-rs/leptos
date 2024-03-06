@@ -32,7 +32,7 @@ members = [
   # libraries
   "meta",
   "router"
-, "routing"]
+, "routing", "is_server"]
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
