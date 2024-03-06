@@ -119,8 +119,8 @@ impl RouteList {
     // this is used to indicate to the Router that we are generating
     // a RouteList for server path generation
     thread_local! {
-        static IS_GENERATING: Cell<bool> = Cell::new(false);
-        static GENERATED: RefCell<Option<RouteList>> = RefCell::new(None);
+        static IS_GENERATING: Cell<bool> = const { Cell::new(false) };
+        static GENERATED: RefCell<Option<RouteList>> = const { RefCell::new(None) };
     }
 
     pub fn generate<T, Rndr>(app: impl FnOnce() -> T) -> Option<Self>
