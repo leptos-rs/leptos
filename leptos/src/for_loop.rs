@@ -1,6 +1,6 @@
 use leptos_dom::IntoView;
 use leptos_macro::component;
-use leptos_reactive::{Signal, SignalGet};
+use leptos_reactive::{MaybeSignal, SignalGet};
 use std::hash::Hash;
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -47,7 +47,7 @@ use std::hash::Hash;
 pub fn For<I, T, EF, N, KF, K>(
     /// Items over which the component should iterate.
     #[prop(into)]
-    each: Signal<I>,
+    each: MaybeSignal<I>,
     /// A key function that will be applied to each item.
     key: KF,
     /// A function that takes the item, and returns the view that will be displayed for each item.
