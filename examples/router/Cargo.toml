@@ -10,12 +10,16 @@ lto = true
 [dependencies]
 console_log = "1"
 log = "0.4"
-leptos = { path = "../../leptos", features = ["csr"] }
-leptos_router = { path = "../../router", features = ["csr"] }
+leptos = { path = "../../leptos", features = ["csr", "tracing"] }
+routing = { path = "../../routing", features = ["tracing"] }
+#leptos_router = { path = "../../router", features = ["csr"] }
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 console_error_panic_hook = "0.1.7"
-leptos_meta = { path = "../../meta", features = ["csr"] }
+tracing-subscriber = "0.3.18"
+tracing-subscriber-wasm = "0.1.0"
+tracing = "0.1.40"
+#leptos_meta = { path = "../../meta", features = ["csr"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"

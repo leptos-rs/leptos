@@ -33,6 +33,8 @@ members = [
   # libraries
   "meta",
   "router",
+  "routing",
+  "is_server",
 ]
 exclude = ["benchmarks", "examples"]
 

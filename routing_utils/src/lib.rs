@@ -9,7 +9,6 @@ pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
-use crate::PathSegment;
 use alloc::borrow::Cow;
 pub use horizontal::*;
 pub use nested::*;

@@ -26,10 +26,13 @@ impl ReactiveNode for RwLock<EffectInner> {
     fn mark_subscribers_check(&self) {}
 
     fn update_if_necessary(&self) -> bool {
-        let mut lock = self.write().or_poisoned();
-        for source in lock.sources.take() {
+        let sources = {
+            let guard = self.read().or_poisoned();
+            guard.sources.clone()
+        };
+
+        for source in sources {
             if source.update_if_necessary() {
-                lock.observer.notify();
                 return true;
             }
         }

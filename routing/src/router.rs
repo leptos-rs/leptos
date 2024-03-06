@@ -1,9 +1,13 @@
-use crate::generate_route_list::RouteList;
+use crate::{generate_route_list::RouteList, location::Location};
 use core::marker::PhantomData;
 use either_of::Either;
+use reactive_graph::{
+    computed::ArcMemo,
+    effect::RenderEffect,
+    traits::{Read, Track},
+};
 use routing_utils::{
-    location::Location,
-    matching::{MatchInterface, MatchNestedRoutes, PossibleRouteMatch, Routes},
+    MatchInterface, MatchNestedRoutes, PossibleRouteMatch, Routes,
 };
 use std::borrow::Cow;
 use tachys::{
@@ -61,10 +65,6 @@ where
             rndr: PhantomData,
         }
     }
-
-    pub fn set_location(&mut self, new_location: Loc) {
-        self.location = new_location;
-    }
 }
 
 impl<Rndr, Loc, Children, FallbackFn, Fallback>
@@ -114,51 +114,54 @@ impl<Rndr, Loc, FallbackFn, Fallback, Children, View> Render<Rndr>
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
-    FallbackFn: Fn() -> Fallback,
+    FallbackFn: Fn() -> Fallback + 'static,
     Fallback: Render<Rndr>,
-    for<'a> Children: MatchNestedRoutes<'a>,
+    for<'a> Children: MatchNestedRoutes<'a> + 'static,
     for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
         ChooseView<Output = View>,
     View: Render<Rndr>,
-    Rndr: Renderer,
+    View::State: 'static,
+    Fallback::State: 'static,
+    Rndr: Renderer + 'static,
 {
-    type State =
-        EitherState<View::State, <Fallback as Render<Rndr>>::State, Rndr>;
+    type State = RenderEffect<
+        EitherState<View::State, <Fallback as Render<Rndr>>::State, Rndr>,
+    >;
     type FallibleState = ();
 
     fn build(self) -> Self::State {
-        match self
-            .location
-            .current()
-            .as_ref()
-            .map(|url| self.routes.match_route(url.path()))
-        {
-            Ok(Some(matched)) => {
-                let view = matched.to_view();
-                let view = view.choose();
-                Either::Left(view)
+        self.location.init(self.base);
+        let url = self.location.as_url().clone();
+        let path = ArcMemo::new({
+            let url = url.clone();
+            move |_| url.read().path().to_string()
+        });
+        let search_parans = ArcMemo::new({
+            let url = url.clone();
+            move |_| url.read().search_params().clone()
+        });
+        RenderEffect::new(move |prev| {
+            tachys::dom::log(&format!("recalculating route"));
+            let path = path.read();
+            let new_view = match self.routes.match_route(&*path) {
+                Some(matched) => {
+                    let view = matched.to_view();
+                    let view = view.choose();
+                    Either::Left(view)
+                }
+                _ => Either::Right((self.fallback)()),
+            };
+
+            if let Some(mut prev) = prev {
+                new_view.rebuild(&mut prev);
+                prev
+            } else {
+                new_view.build()
             }
-            _ => Either::Right((self.fallback)()),
-        }
-        .build()
+        })
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        let new = match self
-            .location
-            .current()
-            .as_ref()
-            .map(|url| self.routes.match_route(url.path()))
-        {
-            Ok(Some(matched)) => {
-                let view = matched.to_view();
-                let view = view.choose();
-                Either::Left(view)
-            }
-            _ => Either::Right((self.fallback)()),
-        };
-        new.rebuild(state);
-    }
+    fn rebuild(self, state: &mut Self::State) {}
 
     fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
         todo!()
@@ -176,13 +179,15 @@ impl<Rndr, Loc, FallbackFn, Fallback, Children, View> RenderHtml<Rndr>
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
-    FallbackFn: Fn() -> Fallback,
+    FallbackFn: Fn() -> Fallback + 'static,
     Fallback: RenderHtml<Rndr>,
-    for<'a> Children: MatchNestedRoutes<'a>,
+    for<'a> Children: MatchNestedRoutes<'a> + 'static,
     for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
         ChooseView<Output = View>,
     View: Render<Rndr>,
-    Rndr: Renderer,
+    View::State: 'static,
+    Fallback::State: 'static,
+    Rndr: Renderer + 'static,
 {
     // TODO probably pick a max length here
     const MIN_LENGTH: usize = Fallback::MIN_LENGTH;
