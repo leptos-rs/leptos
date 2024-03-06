@@ -1,12 +1,15 @@
 //mod reactive;
 mod generate_route_list;
+pub mod location;
 mod method;
+mod params;
 mod router;
 mod ssr_mode;
 mod static_route;
 //pub use reactive::*;
 pub use generate_route_list::*;
 pub use method::*;
+pub use params::*;
 pub use router::*;
 pub use routing_utils::*;
 pub use ssr_mode::*;

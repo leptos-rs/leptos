@@ -4,43 +4,5 @@ edition = "2021"
 version.workspace = true
 
 [dependencies]
-const_str_slice_concat = { workspace = true }
 either_of = { workspace = true }
-next_tuple = { workspace = true }
-reactive_graph = { workspace = true, optional = true }
-url = "2"
-js-sys = { version = "0.3" }
-wasm-bindgen = { version = "0.2" }
 tracing = { version = "0.1", optional = true }
-
-[dependencies.web-sys]
-version = "0.3"
-features = [
-	"Document",
-	"Window",
-	"console",
-	# History/Routing
-	"History",
-	"HtmlAnchorElement",
-	"Location",
-	"MouseEvent",
-	"Url",
-	# Form
-	"FormData",
-	"HtmlButtonElement",
-	"HtmlFormElement",
-	"HtmlInputElement",
-	"SubmitEvent",
-	"Url",
-	"UrlSearchParams",
-	# Fetching in Hydrate Mode
-	"Headers",
-	"Request",
-	"RequestInit",
-	"RequestMode",
-	"Response",
-]
-
-[features]
-tracing = ["dep:tracing"]
-reactive_graph = ["dep:reactive_graph"]

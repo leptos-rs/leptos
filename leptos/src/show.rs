@@ -1,10 +1,7 @@
 use crate::children::{ChildrenFn, ViewFn};
 use leptos_macro::component;
 use reactive_graph::{computed::ArcMemo, traits::Get};
-use tachys::{
-    renderer::dom::Dom,
-    view::{either::Either, RenderHtml},
-};
+use tachys::{either::Either, renderer::dom::Dom, view::RenderHtml};
 
 #[component]
 pub fn Show<W>(

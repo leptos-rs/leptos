@@ -212,13 +212,12 @@ pub fn request_idle_callback_with_handle(
     cb: impl Fn() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
     #[cfg(feature = "tracing")]
-    {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-            let _guard = span.enter();
-            cb();
-        };
-    }
+    let span = ::tracing::Span::current();
+    #[cfg(feature = "tracing")]
+    let cb = move || {
+        let _guard = span.enter();
+        cb();
+    };
 
     #[inline(never)]
     fn ric(cb: Box<dyn Fn()>) -> Result<IdleCallbackHandle, JsValue> {

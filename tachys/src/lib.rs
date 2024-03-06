@@ -37,6 +37,7 @@ pub mod ssr;
 pub mod svg;
 pub mod view;
 
+pub use either_of as either;
 #[cfg(feature = "islands")]
 pub use wasm_bindgen;
 #[cfg(feature = "islands")]
