@@ -1,5 +1,6 @@
 use leptos_dom::IntoView;
 use leptos_macro::component;
+use leptos_reactive::{Signal, SignalGet};
 use std::hash::Hash;
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -24,19 +25,7 @@ use std::hash::Hash;
 ///     <div>
 ///       <For
 ///         // a function that returns the items we're iterating over; a signal is fine
-///         each=move || counters.get()
-///         // a unique key for each item
-///         key=|counter| counter.id
-///         // renders each item to a view
-///         children=move |counter: Counter| {
-///           view! {
-///             <button>"Value: " {move || counter.count.get()}</button>
-///           }
-///         }
-///       />
-///       <For
-///         // a function that returns the items we're iterating over; a signal is fine
-///         each=move || counters.get()
+///         each=counters
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
@@ -55,9 +44,10 @@ use std::hash::Hash;
     tracing::instrument(level = "trace", skip_all)
 )]
 #[component(transparent)]
-pub fn For<IF, I, T, EF, N, KF, K>(
+pub fn For<I, T, EF, N, KF, K>(
     /// Items over which the component should iterate.
-    each: IF,
+    #[prop(into)]
+    each: Signal<I>,
     /// A key function that will be applied to each item.
     key: KF,
     /// A function that takes the item, and returns the view that will be displayed for each item.
@@ -70,9 +60,10 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     /// # use leptos::*;
     /// # if false {
     /// let (data, set_data) = create_signal(vec![0, 1, 2]);
+    ///
     /// view! {
     ///     <For
-    ///         each=move || data.get()
+    ///         each=data
     ///         key=|n| *n
     ///         // stores the item in each row in a variable named `data`
     ///         let:data
@@ -88,9 +79,10 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     /// # use leptos::*;
     /// # if false {
     /// let (data, set_data) = create_signal(vec![0, 1, 2]);
+    ///
     /// view! {
     ///     <For
-    ///         each=move || data.get()
+    ///         each=data
     ///         key=|n| *n
     ///         children=|data| view! { <p>{data}</p> }
     ///     />
@@ -101,13 +93,12 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     children: EF,
 ) -> impl IntoView
 where
-    IF: Fn() -> I + 'static,
-    I: IntoIterator<Item = T>,
+    I: IntoIterator<Item = T> + Clone + 'static,
     EF: Fn(T) -> N + 'static,
     N: IntoView + 'static,
     KF: Fn(&T) -> K + 'static,
     K: Eq + Hash + 'static,
     T: 'static,
 {
-    leptos_dom::Each::new(each, key, children).into_view()
+    leptos_dom::Each::new(move || each.get(), key, children).into_view()
 }
