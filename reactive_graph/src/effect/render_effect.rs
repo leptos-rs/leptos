@@ -1,7 +1,9 @@
 use crate::{
     channel::channel,
     effect::inner::EffectInner,
-    graph::{AnySubscriber, SourceSet, Subscriber, ToAnySubscriber},
+    graph::{
+        AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
+    },
     owner::Owner,
 };
 use any_spawner::Executor;
@@ -62,14 +64,16 @@ where
 
             async move {
                 while rx.next().await.is_some() {
-                    subscriber.clear_sources(&subscriber);
+                    if subscriber.update_if_necessary() {
+                        subscriber.clear_sources(&subscriber);
 
-                    let old_value =
-                        mem::take(&mut *value.write().or_poisoned());
-                    let new_value = owner.with_cleanup(|| {
-                        subscriber.with_observer(|| fun(old_value))
-                    });
-                    *value.write().or_poisoned() = Some(new_value);
+                        let old_value =
+                            mem::take(&mut *value.write().or_poisoned());
+                        let new_value = owner.with_cleanup(|| {
+                            subscriber.with_observer(|| fun(old_value))
+                        });
+                        *value.write().or_poisoned() = Some(new_value);
+                    }
                 }
             }
         });

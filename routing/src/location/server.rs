@@ -1,37 +1,31 @@
-use super::{Location, LocationChange, Url};
-use alloc::string::{String, ToString};
-use core::fmt::Display;
+use super::{Url, BASE};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RequestUrl(String);
+pub struct RequestUrl(Arc<str>);
 
 impl RequestUrl {
     /// Creates a server-side request URL from a path.
-    pub fn new(path: impl Display) -> Self {
-        Self(path.to_string())
+    pub fn new(path: &str) -> Self {
+        Self(path.into())
     }
 }
 
 impl Default for RequestUrl {
     fn default() -> Self {
-        Self(String::from("/"))
+        Self::new("/")
     }
 }
 
-impl Location for RequestUrl {
-    type Error = url::ParseError;
-
-    fn current(&self) -> Result<Url, Self::Error> {
-        Self::parse(&self.0)
+impl RequestUrl {
+    fn parse(url: &str) -> Result<Url, url::ParseError> {
+        Self::parse_with_base(url, BASE)
     }
 
-    fn init(&self) {}
-
-    fn set_navigation_hook(&mut self, _cb: impl FnMut(Url) + 'static) {}
-
-    fn navigate(&self, _loc: &LocationChange) {}
-
-    fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
+    pub fn parse_with_base(
+        url: &str,
+        base: &str,
+    ) -> Result<Url, url::ParseError> {
         let base = url::Url::parse(base)?;
         let url = url::Url::options().base_url(Some(&base)).parse(url)?;
 
@@ -53,7 +47,6 @@ impl Location for RequestUrl {
 #[cfg(test)]
 mod tests {
     use super::RequestUrl;
-    use crate::location::Location;
 
     #[test]
     pub fn should_parse_url_without_origin() {

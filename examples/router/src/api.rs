@@ -2,7 +2,7 @@ use futures::{
     channel::oneshot::{self, Canceled},
     Future,
 };
-use leptos::set_timeout;
+use leptos::leptos_dom::helpers::set_timeout;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
