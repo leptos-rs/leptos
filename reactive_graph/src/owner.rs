@@ -38,6 +38,18 @@ impl Owner {
         }
     }
 
+    pub fn child(&self) -> Self {
+        let parent = Some(Arc::downgrade(&self.inner));
+        Self {
+            inner: Arc::new(RwLock::new(OwnerInner {
+                parent,
+                nodes: Default::default(),
+                contexts: Default::default(),
+                cleanups: Default::default(),
+            })),
+        }
+    }
+
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         let prev = {
             OWNER.with(|o| {
