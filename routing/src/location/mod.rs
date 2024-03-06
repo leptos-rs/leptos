@@ -1,11 +1,16 @@
-use crate::params::Params;
-use alloc::string::String;
+use any_spawner::Executor;
 use core::fmt::Debug;
-use wasm_bindgen::JsValue;
+use js_sys::Reflect;
+use reactive_graph::signal::ArcRwSignal;
+use std::{borrow::Cow, future::Future};
+use tachys::dom::window;
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
-mod browser;
+mod history;
 mod server;
-pub use browser::*;
+use crate::Params;
+pub use history::*;
 pub use server::*;
 
 pub(crate) const BASE: &str = "https://leptos.dev";
@@ -15,7 +20,7 @@ pub struct Url {
     origin: String,
     path: String,
     search: String,
-    search_params: Params<String>,
+    search_params: Params,
     hash: String,
 }
 
@@ -32,7 +37,7 @@ impl Url {
         &self.search
     }
 
-    pub fn search_params(&self) -> &Params<String> {
+    pub fn search_params(&self) -> &Params {
         &self.search_params
     }
 
@@ -69,15 +74,15 @@ impl Default for LocationChange {
 pub trait Location {
     type Error: Debug;
 
-    fn current(&self) -> Result<Url, Self::Error>;
+    fn as_url(&self) -> &ArcRwSignal<Url>;
+
+    fn current() -> Result<Url, Self::Error>;
 
     /// Sets up any global event listeners or other initialization needed.
-    fn init(&self);
+    fn init(&self, base: Option<Cow<'static, str>>);
 
-    fn set_navigation_hook(&mut self, cb: impl Fn(Url) + 'static);
-
-    /// Navigate to a new location.
-    fn navigate(&self, loc: &LocationChange);
+    /// Update the browser's history to reflect a new location.
+    fn complete_navigation(loc: &LocationChange);
 
     fn parse(url: &str) -> Result<Url, Self::Error> {
         Self::parse_with_base(url, BASE)
@@ -105,4 +110,116 @@ where
     fn from(value: T) -> Self {
         State(Some(value.into()))
     }
+}
+
+pub(crate) fn unescape(s: &str) -> String {
+    js_sys::decode_uri(s).unwrap().into()
+}
+
+pub(crate) fn handle_anchor_click<NavFn, NavFut>(
+    router_base: Option<Cow<'static, str>>,
+    parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,
+    navigate: NavFn,
+) -> Box<dyn Fn(Event) -> Result<(), JsValue>>
+where
+    NavFn: Fn(Url, LocationChange) -> NavFut + 'static,
+    NavFut: Future<Output = ()> + 'static,
+{
+    let router_base = router_base.unwrap_or_default();
+
+    Box::new(move |ev: Event| {
+        let ev = ev.unchecked_into::<MouseEvent>();
+        if ev.default_prevented()
+            || ev.button() != 0
+            || ev.meta_key()
+            || ev.alt_key()
+            || ev.ctrl_key()
+            || ev.shift_key()
+        {
+            return Ok(());
+        }
+
+        let composed_path = ev.composed_path();
+        let mut a: Option<HtmlAnchorElement> = None;
+        for i in 0..composed_path.length() {
+            if let Ok(el) = composed_path.get(i).dyn_into::<HtmlAnchorElement>()
+            {
+                a = Some(el);
+            }
+        }
+        if let Some(a) = a {
+            let href = a.href();
+            let target = a.target();
+
+            // let browser handle this event if link has target,
+            // or if it doesn't have href or state
+            // TODO "state" is set as a prop, not an attribute
+            if !target.is_empty()
+                || (href.is_empty() && !a.has_attribute("state"))
+            {
+                return Ok(());
+            }
+
+            let rel = a.get_attribute("rel").unwrap_or_default();
+            let mut rel = rel.split([' ', '\t']);
+
+            // let browser handle event if it has rel=external or download
+            if a.has_attribute("download") || rel.any(|p| p == "external") {
+                return Ok(());
+            }
+
+            let base = window()
+                .location()
+                .origin()
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(BASE));
+            let url = parse_with_base(href.as_str(), &base).unwrap();
+            let path_name = unescape(&url.path);
+            ev.prevent_default();
+
+            // let browser handle this event if it leaves our domain
+            // or our base path
+            if url.origin != window().location().origin().unwrap_or_default()
+                || (!router_base.is_empty()
+                    && !path_name.is_empty()
+                    && !path_name
+                        .to_lowercase()
+                        .starts_with(&router_base.to_lowercase()))
+            {
+                return Ok(());
+            }
+
+            let to = path_name
+                + if url.search.is_empty() { "" } else { "?" }
+                + &unescape(&url.search)
+                + &unescape(&url.hash);
+            let state = Reflect::get(&a, &JsValue::from_str("state"))
+                .ok()
+                .and_then(|value| {
+                    if value == JsValue::UNDEFINED {
+                        None
+                    } else {
+                        Some(value)
+                    }
+                });
+
+            ev.prevent_default();
+
+            let replace = Reflect::get(&a, &JsValue::from_str("replace"))
+                .ok()
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+
+            let change = LocationChange {
+                value: to,
+                replace,
+                scroll: true,
+                state: State(state),
+            };
+
+            Executor::spawn_local(navigate(url, change));
+        }
+
+        Ok(())
+    })
 }
