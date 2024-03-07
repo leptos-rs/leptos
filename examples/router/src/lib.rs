@@ -12,7 +12,7 @@ use leptos::{
 use log::{debug, info};
 use routing::{
     location::{BrowserUrl, Location},
-    NestedRoute, ParamSegment, Router, Routes, StaticSegment,
+    NestedRoute, ParamSegment, RouteData, Router, Routes, StaticSegment,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -32,16 +32,18 @@ pub fn RouterExample() -> impl IntoView {
                 segments: StaticSegment(""),
                 children: (
                     NestedRoute {
+                        segments: StaticSegment(""),
+                        children: (),
+                        data: (),
+                        view: |_: RouteData<Dom>| "Select a contact.",
+                    },
+                    // TODO: fix it so empty param doesn't match here, if we reverse the order of
+                    // these two
+                    NestedRoute {
                         segments: ParamSegment("id"),
                         children: (),
                         data: (),
                         view: Contact,
-                    },
-                    NestedRoute {
-                        segments: StaticSegment(""),
-                        children: (),
-                        data: (),
-                        view: || "Select a contact.",
                     },
                 ),
                 data: (),
@@ -142,8 +144,7 @@ pub fn ContactRoutes() -> impl IntoView {
     }
 }*/
 
-#[component]
-pub fn ContactList() -> impl IntoView {
+pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
     info!("rendering <ContactList/>");
 
     // contexts are passed down through the route tree
@@ -159,6 +160,7 @@ pub fn ContactList() -> impl IntoView {
             <li><a href="/1">1</a></li>
             <li><a href="/2">2</a></li>
             <li><a href="/3">3</a></li>
+            {(route_data.outlet)()}
         </div>
     }
 
@@ -199,8 +201,7 @@ pub struct ContactParams {
     id: Option<usize>,
 }*/
 
-#[component]
-pub fn Contact() -> impl IntoView {
+pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
     info!("rendering <Contact/>");
 
     info!(
@@ -266,8 +267,7 @@ pub fn Contact() -> impl IntoView {
     }*/
 }
 
-#[component]
-pub fn About() -> impl IntoView {
+pub fn About(route_data: RouteData<Dom>) -> impl IntoView {
     info!("rendering <About/>");
 
     Owner::on_cleanup(|| {
@@ -296,8 +296,7 @@ pub fn About() -> impl IntoView {
     }
 }
 
-#[component]
-pub fn Settings() -> impl IntoView {
+pub fn Settings(route_data: RouteData<Dom>) -> impl IntoView {
     info!("rendering <Settings/>");
 
     Owner::on_cleanup(|| {
