@@ -1,9 +1,12 @@
-use crate::{MatchInterface, MatchNestedRoutes, PathSegment, RouteMatchId};
-use alloc::vec::Vec;
+use super::{MatchInterface, MatchNestedRoutes, PathSegment, RouteMatchId};
 use core::iter;
 use either_of::*;
+use tachys::renderer::Renderer;
 
-impl<'a> MatchInterface<'a> for () {
+impl<'a, Rndr> MatchInterface<'a, Rndr> for ()
+where
+    Rndr: Renderer,
+{
     type Params = iter::Empty<(&'a str, &'a str)>;
     type Child = ();
     type View = ();
@@ -27,7 +30,10 @@ impl<'a> MatchInterface<'a> for () {
     fn to_view(&self) -> Self::View {}
 }
 
-impl<'a> MatchNestedRoutes<'a> for () {
+impl<'a, Rndr> MatchNestedRoutes<'a, Rndr> for ()
+where
+    Rndr: Renderer,
+{
     type Data = ();
     type Match = ();
 
@@ -45,9 +51,10 @@ impl<'a> MatchNestedRoutes<'a> for () {
     }
 }
 
-impl<'a, A> MatchInterface<'a> for (A,)
+impl<'a, A, Rndr> MatchInterface<'a, Rndr> for (A,)
 where
-    A: MatchInterface<'a>,
+    A: MatchInterface<'a, Rndr>,
+    Rndr: Renderer,
 {
     type Params = A::Params;
     type Child = A::Child;
@@ -74,9 +81,10 @@ where
     }
 }
 
-impl<'a, A> MatchNestedRoutes<'a> for (A,)
+impl<'a, A, Rndr> MatchNestedRoutes<'a, Rndr> for (A,)
 where
-    A: MatchNestedRoutes<'a>,
+    A: MatchNestedRoutes<'a, Rndr>,
+    Rndr: Renderer,
 {
     type Data = A::Data;
     type Match = A::Match;
@@ -95,10 +103,11 @@ where
     }
 }
 
-impl<'a, A, B> MatchInterface<'a> for Either<A, B>
+impl<'a, A, B, Rndr> MatchInterface<'a, Rndr> for Either<A, B>
 where
-    A: MatchInterface<'a>,
-    B: MatchInterface<'a>,
+    Rndr: Renderer + 'a,
+    A: MatchInterface<'a, Rndr>,
+    B: MatchInterface<'a, Rndr>,
 {
     type Params = Either<
         <A::Params as IntoIterator>::IntoIter,
@@ -143,10 +152,11 @@ where
     }
 }
 
-impl<'a, A, B> MatchNestedRoutes<'a> for (A, B)
+impl<'a, A, B, Rndr> MatchNestedRoutes<'a, Rndr> for (A, B)
 where
-    A: MatchNestedRoutes<'a>,
-    B: MatchNestedRoutes<'a>,
+    A: MatchNestedRoutes<'a, Rndr>,
+    B: MatchNestedRoutes<'a, Rndr>,
+    Rndr: Renderer + 'static,
 {
     type Data = (A::Data, B::Data);
     type Match = Either<A::Match, B::Match>;
@@ -194,9 +204,10 @@ macro_rules! chain_generated {
 
 macro_rules! tuples {
     ($either:ident => $($ty:ident = $count:expr),*) => {
-        impl<'a, $($ty,)*> MatchInterface<'a> for $either <$($ty,)*>
+        impl<'a, Rndr, $($ty,)*> MatchInterface<'a, Rndr> for $either <$($ty,)*>
         where
-			$($ty: MatchInterface<'a>),*,
+            Rndr: Renderer + 'static,
+			$($ty: MatchInterface<'a, Rndr>),*,
 			$($ty::Child: 'a),*,
 			$($ty::View: 'a),*,
         {
@@ -237,9 +248,10 @@ macro_rules! tuples {
             }
         }
 
-        impl<'a, $($ty),*> MatchNestedRoutes<'a> for ($($ty,)*)
+        impl<'a, Rndr, $($ty),*> MatchNestedRoutes<'a, Rndr> for ($($ty,)*)
         where
-			$($ty: MatchNestedRoutes<'a>),*,
+            Rndr: Renderer + 'static,
+			$($ty: MatchNestedRoutes<'a, Rndr>),*,
 			$($ty::Match: 'a),*,
         {
             type Data = ($($ty::Data,)*);

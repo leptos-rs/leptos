@@ -7,7 +7,6 @@ version.workspace = true
 any_spawner = { workspace = true }
 either_of = { workspace = true } 
 reactive_graph = { workspace = true } 
-routing_utils = { workspace = true }
 tachys = { workspace = true } 
 url = "2"
 js-sys = { version = "0.3" }
@@ -44,4 +43,4 @@ features = [
 ]
 
 [features]
-tracing = ["dep:tracing", "routing_utils/tracing"]
+tracing = ["dep:tracing"]
