@@ -1,14 +1,20 @@
-use crate::{generate_route_list::RouteList, location::Location, Params};
+use crate::{
+    generate_route_list::RouteList,
+    location::Location,
+    matching::{
+        MatchInterface, MatchNestedRoutes, PossibleRouteMatch, RouteMatchId,
+        Routes,
+    },
+    Params,
+};
 use core::marker::PhantomData;
 use either_of::*;
 use reactive_graph::{
-    computed::ArcMemo,
+    computed::{ArcMemo, Memo},
     effect::RenderEffect,
     owner::Owner,
-    traits::{Read, Track},
-};
-use routing_utils::{
-    MatchInterface, MatchNestedRoutes, PossibleRouteMatch, RouteMatchId, Routes,
+    signal::ArcRwSignal,
+    traits::{Get, Read, Track},
 };
 use std::borrow::Cow;
 use tachys::{
@@ -17,8 +23,10 @@ use tachys::{
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, either::EitherState, Mountable, Position,
-        PositionState, Render, RenderHtml,
+        add_attr::AddAnyAttr,
+        any_view::{AnyView, IntoAny},
+        either::EitherState,
+        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 
@@ -26,9 +34,8 @@ use tachys::{
 pub struct Router<Rndr, Loc, Children, FallbackFn> {
     base: Option<Cow<'static, str>>,
     location: Loc,
-    pub routes: Routes<Children>,
+    pub routes: Routes<Children, Rndr>,
     fallback: FallbackFn,
-    rndr: PhantomData<Rndr>,
 }
 
 impl<Rndr, Loc, Children, FallbackFn, Fallback>
@@ -40,7 +47,7 @@ where
 {
     pub fn new(
         location: Loc,
-        routes: Routes<Children>,
+        routes: Routes<Children, Rndr>,
         fallback: FallbackFn,
     ) -> Router<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -48,14 +55,13 @@ where
             location,
             routes,
             fallback,
-            rndr: PhantomData,
         }
     }
 
     pub fn new_with_base(
         base: impl Into<Cow<'static, str>>,
         location: Loc,
-        routes: Routes<Children>,
+        routes: Routes<Children, Rndr>,
         fallback: FallbackFn,
     ) -> Router<Rndr, Loc, Children, FallbackFn> {
         Self {
@@ -63,7 +69,6 @@ where
             location,
             routes,
             fallback,
-            rndr: PhantomData,
         }
     }
 }
@@ -79,34 +84,58 @@ where
     }
 }
 
-trait ChooseView {
+trait ChooseView<R>
+where
+    R: Renderer,
+{
     type Output;
 
-    fn choose(self) -> Self::Output;
+    fn choose(self, route_data: RouteData<R>) -> Self::Output;
 }
 
-impl<F, View> ChooseView for F
+pub struct RouteData<'a, R>
 where
-    F: Fn() -> View,
+    R: Renderer,
+{
+    pub params: ArcMemo<Params>,
+    pub outlet: Box<dyn FnOnce() -> AnyView<R> + 'a>,
+}
+
+impl<F, View, R> ChooseView<R> for F
+where
+    F: Fn(RouteData<R>) -> View,
+    R: Renderer,
 {
     type Output = View;
 
-    fn choose(self) -> Self::Output {
-        self()
+    fn choose(self, route_data: RouteData<R>) -> Self::Output {
+        self(route_data)
     }
 }
 
-impl<A, FnA, B, FnB> ChooseView for Either<FnA, FnB>
+impl<R> ChooseView<R> for ()
 where
-    FnA: Fn() -> A,
-    FnB: Fn() -> B,
+    R: Renderer,
+{
+    type Output = ();
+
+    fn choose(self, _route_data: RouteData<R>) -> Self::Output {
+        ()
+    }
+}
+
+impl<A, FnA, B, FnB, Rndr> ChooseView<Rndr> for Either<FnA, FnB>
+where
+    FnA: Fn(RouteData<Rndr>) -> A,
+    FnB: Fn(RouteData<Rndr>) -> B,
+    Rndr: Renderer,
 {
     type Output = Either<A, B>;
 
-    fn choose(self) -> Self::Output {
+    fn choose(self, route_data: RouteData<Rndr>) -> Self::Output {
         match self {
-            Either::Left(f) => Either::Left(f()),
-            Either::Right(f) => Either::Right(f()),
+            Either::Left(f) => Either::Left(f(route_data)),
+            Either::Right(f) => Either::Right(f(route_data)),
         }
     }
 }
@@ -117,10 +146,16 @@ where
     Loc: Location,
     FallbackFn: Fn() -> Fallback + 'static,
     Fallback: Render<Rndr>,
-    for<'a> Children: MatchNestedRoutes<'a> + 'static,
-    for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
-        ChooseView<Output = View>,
-    View: Render<Rndr>,
+    for<'a> Children: MatchNestedRoutes<'a, Rndr> + 'static,
+    for<'a> <<Children as MatchNestedRoutes<'a, Rndr>>::Match as MatchInterface<
+        'a,
+        R,
+    >>::View: ChooseView<Rndr, Output = View>,
+    for<'a> <<Children as MatchNestedRoutes<'a, Rndr>>::Match as MatchInterface<
+        'a,
+        R,
+    >>::Child: std::fmt::Debug,
+    View: Render<Rndr> + IntoAny<Rndr> + 'static,
     View::State: 'static,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
@@ -167,10 +202,10 @@ where
                         }
                     }
                 } else {
-                    Either::<NestedRouteView<View>, _>::Right((self
-                            .fallback)(
-                        ))
-                        .rebuild(&mut prev);
+                    Either::<NestedRouteView<View, Rndr>, _>::Right((self
+                        .fallback)(
+                    ))
+                    .rebuild(&mut prev);
                 }
                 prev
             } else {
@@ -203,20 +238,21 @@ where
 fn nested_rebuild<'a, NewMatch, R>(
     outer_owner: &Owner,
     current: &mut NestedRouteState<
-        <<NewMatch::View as ChooseView>::Output as Render<R>>::State,
+        <<NewMatch::View as ChooseView<R>>::Output as Render<R>>::State,
     >,
     new: NewMatch,
 ) where
-    NewMatch: MatchInterface<'a>,
-    NewMatch::View: ChooseView,
-    <NewMatch::View as ChooseView>::Output: Render<R>,
-    R: Renderer,
+    NewMatch: MatchInterface<'a, R> + 'a,
+    NewMatch::View: ChooseView<R>,
+    <NewMatch::View as ChooseView<R>>::Output: Render<R> + IntoAny<R> + 'static,
+    NewMatch::Child: std::fmt::Debug,
+    R: Renderer + 'static,
 {
     // if the new match is a different branch of the nested route tree from the current one, we can
     // just rebuild the view starting here: everything underneath it will change
     if new.as_id() != current.id {
         // TODO provide params + matched via context?
-        let new_view = NestedRouteView::new(&outer_owner, new);
+        let new_view = NestedRouteView::new(outer_owner, new);
         let prev_owner = std::mem::replace(&mut current.owner, new_view.owner);
         current.id = new_view.id;
         current.params = new_view.params;
@@ -228,7 +264,6 @@ fn nested_rebuild<'a, NewMatch, R>(
         // TODO is this the right place to drop the old Owner?
         drop(prev_owner);
     } else {
-        tracing::warn!("TODO: replace");
         // otherwise, we should recurse to the children of the current view, and the new match
         //nested_rebuild(current.as_child_mut(), new.as_child())
     }
@@ -237,35 +272,76 @@ fn nested_rebuild<'a, NewMatch, R>(
     // TODO
 }
 
-pub struct NestedRouteView<View> {
+pub struct NestedRouteView<View, R>
+where
+    R: Renderer,
+{
     id: RouteMatchId,
     owner: Owner,
-    params: Params,
-    matched: String,
+    params: ArcRwSignal<Params>,
+    matched: ArcRwSignal<String>,
     view: View,
+    rndr: PhantomData<R>,
 }
 
-impl<View> NestedRouteView<View> {
-    pub fn new<'a, Matcher>(outer_owner: &Owner, matched: Matcher) -> Self
+impl<View, R> NestedRouteView<View, R>
+where
+    R: Renderer + 'static,
+{
+    pub fn new<'a, Matcher>(outer_owner: &Owner, route_match: Matcher) -> Self
     where
-        Matcher: MatchInterface<'a>,
-        Matcher::View: ChooseView<Output = View>,
+        Matcher: MatchInterface<'a, R>,
+        Matcher::View: ChooseView<R, Output = View>,
+        Matcher::Child: std::fmt::Debug,
+        View: IntoAny<R> + 'static,
     {
-        NestedRouteView {
-            id: matched.as_id(),
-            owner: outer_owner.child(),
-            params: matched
+        let params = ArcRwSignal::new(
+            route_match
                 .to_params()
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
-            matched: matched.as_matched().to_string(),
-            view: matched.to_view().choose(),
+        );
+        let matched = ArcRwSignal::new(route_match.as_matched().to_string());
+        let id = route_match.as_id();
+        let view = route_match.to_view();
+        let route_data = RouteData {
+            params: {
+                let params = params.clone();
+                ArcMemo::new(move |_| params.get())
+            },
+            outlet: Box::new({
+                let child = route_match.into_child();
+                move || {
+                    child
+                        .map(|child| {
+                            // TODO nest the next child and use real params
+                            /*let params = child.to_params().into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Params>();
+                                                    let route_data = RouteData {
+                                                        params: ArcMemo::new(move |_| {
+                                                            params.clone()
+                                                        }),
+                            outlet: Box::new(|| ().into_any())
+                                                    };*/
+                            let view = child.to_view();
+                            format!("{child:?}")
+                        })
+                        .into_any()
+                }
+            }),
+        };
+        NestedRouteView {
+            id,
+            owner: outer_owner.child(),
+            params,
+            matched,
+            view: view.choose(route_data),
+            rndr: PhantomData,
         }
     }
 }
 
-impl<R, View> Render<R> for NestedRouteView<View>
+impl<R, View> Render<R> for NestedRouteView<View, R>
 where
     View: Render<R>,
     R: Renderer,
@@ -280,6 +356,7 @@ where
             params,
             matched,
             view,
+            rndr,
         } = self;
         NestedRouteState {
             id,
@@ -309,8 +386,8 @@ where
 pub struct NestedRouteState<ViewState> {
     id: RouteMatchId,
     owner: Owner,
-    params: Params,
-    matched: String,
+    params: ArcRwSignal<Params>,
+    matched: ArcRwSignal<String>,
     view: ViewState,
 }
 
@@ -336,16 +413,32 @@ where
     }
 }
 
+trait RouteView<'a, R>: MatchInterface<'a, R>
+where
+    R: Renderer,
+{
+    type RouteViewChild: RouteView<'a, R>;
+    type RouteView: Render<R>;
+
+    fn into_child(self) -> Option<Self::RouteViewChild>;
+}
+
 impl<Rndr, Loc, FallbackFn, Fallback, Children, View> RenderHtml<Rndr>
     for Router<Rndr, Loc, Children, FallbackFn>
 where
     Loc: Location,
     FallbackFn: Fn() -> Fallback + 'static,
     Fallback: RenderHtml<Rndr>,
-    for<'a> Children: MatchNestedRoutes<'a> + 'static,
-    for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
-        ChooseView<Output = View>,
-    View: Render<Rndr>,
+    for<'a> Children: MatchNestedRoutes<'a, Rndr> + 'static,
+    for<'a> <<Children as MatchNestedRoutes<'a, Rndr>>::Match as MatchInterface<
+        'a,
+        R,
+    >>::View: ChooseView<Rndr, Output = View>,
+    for<'a> <<Children as MatchNestedRoutes<'a, Rndr>>::Match as MatchInterface<
+        'a,
+        R,
+    >>::Child: std::fmt::Debug,
+    View: Render<Rndr> + IntoAny<Rndr> + 'static,
     View::State: 'static,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
@@ -372,9 +465,11 @@ where
     Loc: Location,
     FallbackFn: Fn() -> Fallback,
     Fallback: Render<Rndr>,
-    for<'a> Children: MatchNestedRoutes<'a>,
-    for<'a> <<Children as MatchNestedRoutes<'a>>::Match as MatchInterface<'a>>::View:
-        ChooseView<Output = View>,
+    for<'a> Children: MatchNestedRoutes<'a, Rndr>,
+    for<'a> <<Children as MatchNestedRoutes<'a, Rndr>>::Match as MatchInterface<
+        'a,
+        R,
+    >>::View: ChooseView<Rndr, Output = View>,
     Rndr: Renderer,
     Router<Rndr, Loc, Children, FallbackFn>: RenderHtml<Rndr>,
 {
@@ -404,15 +499,16 @@ where
 macro_rules! tuples {
     ($either:ident => $($ty:ident),*) => {
         paste::paste! {
-            impl<$($ty, [<Fn $ty>],)*> ChooseView for $either<$([<Fn $ty>],)*>
+            impl<Rndr, $($ty, [<Fn $ty>],)*> ChooseView<Rndr> for $either<$([<Fn $ty>],)*>
             where
-                $([<Fn $ty>]: Fn() -> $ty,)*
+                Rndr: Renderer,
+                $([<Fn $ty>]: Fn(RouteData<Rndr>) -> $ty,)*
             {
                 type Output = $either<$($ty,)*>;
 
-                fn choose(self) -> Self::Output {
+                fn choose(self, route_data: RouteData<Rndr>) -> Self::Output {
                     match self {
-                        $($either::$ty(f) => $either::$ty(f()),)*
+                        $($either::$ty(f) => $either::$ty(f(route_data)),)*
                     }
                 }
             }
