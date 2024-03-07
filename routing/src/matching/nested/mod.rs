@@ -1,9 +1,9 @@
 use super::{
-    MatchInterface, MatchNestedRoutes, PartialPathMatch, PossibleRouteMatch,
+    MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
+    PossibleRouteMatch, RouteMatchId,
 };
-use crate::{PathSegment, RouteMatchId};
-use alloc::vec::Vec;
 use core::{fmt, iter};
+use tachys::renderer::Renderer;
 
 mod tuples;
 
@@ -16,7 +16,7 @@ pub struct NestedRoute<Segments, Children, Data, View> {
 }
 
 #[derive(PartialEq, Eq)]
-pub struct NestedMatch<'a, ParamsIter, Child, View> {
+pub struct NestedMatch<'a, ParamsIter, Child, ViewFn, View> {
     id: RouteMatchId,
     /// The portion of the full path matched only by this nested route.
     matched: &'a str,
@@ -24,7 +24,8 @@ pub struct NestedMatch<'a, ParamsIter, Child, View> {
     params: ParamsIter,
     /// The nested route.
     child: Child,
-    view: &'a View,
+    view_fn: ViewFn,
+    view: View
 }
 
 impl<'a, ParamsIter, Child, View> fmt::Debug
@@ -42,15 +43,16 @@ where
     }
 }
 
-impl<'a, ParamsIter, Child, View> MatchInterface<'a>
-    for NestedMatch<'a, ParamsIter, Child, View>
+impl<'a, ParamsIter, Child, ViewFn, View, Rndr> MatchInterface<'a, Rndr>
+    for NestedMatch<'a, ParamsIter, Child, ViewFn, View>
 where
+    Rndr: Renderer + 'static,
     ParamsIter: IntoIterator<Item = (&'a str, &'a str)> + Clone,
-    Child: MatchInterface<'a>,
+    Child: MatchInterface<'a, Rndr>,
 {
     type Params = ParamsIter;
     type Child = Child;
-    type View = &'a View;
+    type View = View;
 
     fn as_id(&self) -> RouteMatchId {
         self.id
@@ -68,7 +70,7 @@ where
         Some(self.child)
     }
 
-    fn to_view(&self) -> Self::View {
+    fn to_view(&self) -> Self::ViewFn {
         self.view
     }
 }
@@ -79,13 +81,14 @@ impl<'a, ParamsIter, Child, View> NestedMatch<'a, ParamsIter, Child, View> {
     }
 }
 
-impl<'a, Segments, Children, Data, View> MatchNestedRoutes<'a>
+impl<'a, Segments, Children, Data, View, Rndr> MatchNestedRoutes<'a, Rndr>
     for NestedRoute<Segments, Children, Data, View>
 where
+    Rndr: Renderer + 'static,
     Segments: PossibleRouteMatch,
-    Children: MatchNestedRoutes<'a>,
+    Children: MatchNestedRoutes<'a, Rndr>,
     <Segments::ParamsIter<'a> as IntoIterator>::IntoIter: Clone,
-    <<Children::Match as MatchInterface<'a>>::Params as IntoIterator>::IntoIter:
+    <<Children::Match as MatchInterface<'a, Rndr>>::Params as IntoIterator>::IntoIter:
         Clone,
     Children: 'a,
     View: 'a,
@@ -93,7 +96,7 @@ where
     type Data = Data;
     type Match = NestedMatch<'a, iter::Chain<
         <Segments::ParamsIter<'a> as IntoIterator>::IntoIter,
-        <<Children::Match as MatchInterface<'a>>::Params as IntoIterator>::IntoIter,
+        <<Children::Match as MatchInterface<'a, Rndr>>::Params as IntoIterator>::IntoIter,
     >, Children::Match, View>;
 
     fn match_nested(

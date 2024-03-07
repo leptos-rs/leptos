@@ -1,5 +1,6 @@
-use crate::{Method, SsrMode, StaticDataMap, StaticMode};
-use routing_utils::PathSegment;
+use crate::{
+    matching::PathSegment, Method, SsrMode, StaticDataMap, StaticMode,
+};
 use std::{
     cell::{Cell, RefCell},
     collections::HashSet,

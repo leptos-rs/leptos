@@ -1,30 +1,30 @@
-#![no_std]
-
-#[macro_use]
-extern crate alloc;
-
 mod path_segment;
-use alloc::vec::Vec;
 pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
-use alloc::borrow::Cow;
 pub use horizontal::*;
 pub use nested::*;
+use std::{borrow::Cow, marker::PhantomData};
+use tachys::{
+    renderer::Renderer,
+    view::{any_view::IntoAny, Render},
+};
 pub use vertical::*;
 
 #[derive(Debug)]
-pub struct Routes<Children> {
+pub struct Routes<Children, Rndr> {
     base: Option<Cow<'static, str>>,
     children: Children,
+    ty: PhantomData<Rndr>,
 }
 
-impl<Children> Routes<Children> {
+impl<Children, Rndr> Routes<Children, Rndr> {
     pub fn new(children: Children) -> Self {
         Self {
             base: None,
             children,
+            ty: PhantomData,
         }
     }
 
@@ -35,13 +35,15 @@ impl<Children> Routes<Children> {
         Self {
             base: Some(base.into()),
             children,
+            ty: PhantomData,
         }
     }
 }
 
-impl<'a, Children> Routes<Children>
+impl<'a, Children, Rndr> Routes<Children, Rndr>
 where
-    Children: MatchNestedRoutes<'a>,
+    Rndr: Renderer + 'static,
+    Children: MatchNestedRoutes<'a, Rndr>,
 {
     pub fn match_route(&'a self, path: &'a str) -> Option<Children::Match> {
         let path = match &self.base {
@@ -82,10 +84,13 @@ where
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RouteMatchId(pub(crate) u8);
 
-pub trait MatchInterface<'a> {
+pub trait MatchInterface<'a, R>
+where
+    R: Renderer,
+{
     type Params: IntoIterator<Item = (&'a str, &'a str)>;
-    type Child: MatchInterface<'a>;
-    type View;
+    type Child: MatchInterface<'a, R>;
+    type View: Render<R>;
 
     fn as_id(&self) -> RouteMatchId;
 
@@ -95,12 +100,15 @@ pub trait MatchInterface<'a> {
 
     fn into_child(self) -> Option<Self::Child>;
 
-    fn to_view(&self) -> Self::View;
+    fn to_view(&self) -> impl Fn() -> View;
 }
 
-pub trait MatchNestedRoutes<'a> {
+pub trait MatchNestedRoutes<'a, R>
+where
+    R: Renderer,
+{
     type Data;
-    type Match: MatchInterface<'a>;
+    type Match: MatchInterface<'a, R>;
 
     fn match_nested(
         &'a self,
@@ -116,7 +124,6 @@ pub trait MatchNestedRoutes<'a> {
 mod tests {
     use super::{NestedRoute, ParamSegment, Routes};
     use crate::{MatchInterface, PathSegment, StaticSegment, WildcardSegment};
-    use alloc::vec::Vec;
 
     #[test]
     pub fn matches_single_root_route() {
