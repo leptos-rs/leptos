@@ -1,11 +1,12 @@
 [package]
 name = "leptos_meta"
-version = "0.6.6"
+version = "0.6.9"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Tools to set HTML metadata in the Leptos web framework."
+rust-version.workspace = true
 
 [dependencies]
 cfg-if = "1"

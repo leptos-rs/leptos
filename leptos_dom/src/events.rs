@@ -70,6 +70,12 @@ pub fn add_event_listener<E>(
 
     let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
     let key = intern(&key);
+    debug_assert_eq!(
+        Ok(false),
+        js_sys::Reflect::has(target, &JsValue::from_str(&key)),
+        "Error while adding {key} event listener, a listener of type {key} \
+         already present."
+    );
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     add_delegated_event_listener(&key, event_name, options);
 }
@@ -150,7 +156,10 @@ pub(crate) fn add_delegated_event_listener(
                         if !maybe_handler.is_undefined() {
                             let f = maybe_handler
                                 .unchecked_ref::<js_sys::Function>();
-                            let _ = f.call1(&node, &ev);
+
+                            if let Err(e) = f.call1(&node, &ev) {
+                                wasm_bindgen::throw_val(e);
+                            }
 
                             if ev.cancel_bubble() {
                                 return;

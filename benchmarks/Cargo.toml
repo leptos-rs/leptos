@@ -2,6 +2,7 @@
 name = "benchmarks"
 version = "0.1.0"
 edition = "2021"
+rust-version.workspace = true
 
 [dependencies]
 l0410 = { package = "leptos", version = "0.4.10", features = [

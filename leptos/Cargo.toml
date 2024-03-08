@@ -7,6 +7,7 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 readme = "../README.md"
+rust-version.workspace = true
 
 [dependencies]
 cfg-if = "1"
