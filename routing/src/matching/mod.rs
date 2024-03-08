@@ -1,4 +1,6 @@
+mod choose_view;
 mod path_segment;
+pub use choose_view::*;
 pub use path_segment::*;
 mod horizontal;
 mod nested;
@@ -40,12 +42,15 @@ impl<Children, Rndr> Routes<Children, Rndr> {
     }
 }
 
-impl<'a, Children, Rndr> Routes<Children, Rndr>
+impl<Children, Rndr> Routes<Children, Rndr>
 where
     Rndr: Renderer + 'static,
-    Children: MatchNestedRoutes<'a, Rndr>,
+    Children: MatchNestedRoutes<Rndr>,
 {
-    pub fn match_route(&'a self, path: &'a str) -> Option<Children::Match> {
+    pub fn match_route<'a>(
+        &'a self,
+        path: &'a str,
+    ) -> Option<Children::Match<'a>> {
         let path = match &self.base {
             None => path,
             Some(base) => {
@@ -72,10 +77,10 @@ where
     }
 
     pub fn generate_routes(
-        &'a self,
+        &self,
     ) -> (
         Option<&str>,
-        impl IntoIterator<Item = Vec<PathSegment>> + 'a,
+        impl IntoIterator<Item = Vec<PathSegment>> + '_,
     ) {
         (self.base.as_deref(), self.children.generate_routes())
     }
@@ -98,22 +103,27 @@ where
 
     fn to_params(&self) -> Self::Params;
 
-    fn into_child(self) -> Option<Self::Child>;
-
-    fn to_view(&self) -> impl Fn() -> View;
+    fn into_view_and_child(
+        self,
+    ) -> (
+        impl ChooseView<R, Output = Self::View> + 'a,
+        Option<Self::Child>,
+    );
 }
 
-pub trait MatchNestedRoutes<'a, R>
+pub trait MatchNestedRoutes<R>
 where
     R: Renderer,
 {
     type Data;
-    type Match: MatchInterface<'a, R>;
+    type Match<'a>: MatchInterface<'a, R>
+    where
+        Self: 'a;
 
-    fn match_nested(
+    fn match_nested<'a>(
         &'a self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str);
+    ) -> (Option<(RouteMatchId, Self::Match<'a>)>, &str);
 
     fn generate_routes(
         &self,
@@ -124,14 +134,17 @@ where
 mod tests {
     use super::{NestedRoute, ParamSegment, Routes};
     use crate::{MatchInterface, PathSegment, StaticSegment, WildcardSegment};
+    use std::marker::PhantomData;
+    use tachys::renderer::dom::Dom;
 
     #[test]
     pub fn matches_single_root_route() {
-        let routes = Routes::new(NestedRoute {
+        let routes = Routes::<_, Dom>::new(NestedRoute {
             segments: StaticSegment("/"),
             children: (),
             data: (),
-            view: || (),
+            view: |_| (),
+            rndr: PhantomData,
         });
         let matched = routes.match_route("/");
         assert!(matched.is_some());
@@ -151,10 +164,12 @@ mod tests {
                 segments: (StaticSegment("author"), StaticSegment("contact")),
                 children: (),
                 data: (),
-                view: "Contact Me",
+                view: |_| "Contact Me",
+                rndr: PhantomData,
             },
             data: (),
-            view: "Home",
+            view: |_| "Home",
+            rndr: PhantomData,
         });
 
         // route generation
@@ -188,9 +203,11 @@ mod tests {
                 children: (),
                 data: (),
                 view: "Contact Me",
+                rndr: PhantomData,
             },
             data: (),
             view: "Home",
+            rndr: PhantomData,
         });
         let matched = routes.match_route("/");
         assert!(matched.is_none());
@@ -207,16 +224,19 @@ mod tests {
                         children: (),
                         data: (),
                         view: || (),
+                        rndr: PhantomData,
                     },
                     NestedRoute {
                         segments: StaticSegment("about"),
                         children: (),
                         data: (),
                         view: || (),
+                        rndr: PhantomData,
                     },
                 ),
                 data: (),
                 view: || (),
+                rndr: PhantomData,
             },
             NestedRoute {
                 segments: StaticSegment("/blog"),
@@ -226,16 +246,19 @@ mod tests {
                         children: (),
                         data: (),
                         view: || (),
+                        rndr: PhantomData,
                     },
                     NestedRoute {
                         segments: (StaticSegment("post"), ParamSegment("id")),
                         children: (),
                         data: (),
                         view: || (),
+                        rndr: PhantomData,
                     },
                 ),
                 data: (),
                 view: || (),
+                rndr: PhantomData,
             },
         ));
 
@@ -289,16 +312,19 @@ mod tests {
                             children: (),
                             data: (),
                             view: || (),
+                            rndr: PhantomData,
                         },
                         NestedRoute {
                             segments: StaticSegment("about"),
                             children: (),
                             data: (),
                             view: || (),
+                            rndr: PhantomData,
                         },
                     ),
                     data: (),
                     view: || (),
+                    rndr: PhantomData,
                 },
                 NestedRoute {
                     segments: StaticSegment("/blog"),
@@ -308,12 +334,14 @@ mod tests {
                             children: (),
                             data: (),
                             view: || (),
+                            rndr: PhantomData,
                         },
                         NestedRoute {
                             segments: StaticSegment("category"),
                             children: (),
                             data: (),
                             view: || (),
+                            rndr: PhantomData,
                         },
                         NestedRoute {
                             segments: (
@@ -323,10 +351,12 @@ mod tests {
                             children: (),
                             data: (),
                             view: || (),
+                            rndr: PhantomData,
                         },
                     ),
                     data: (),
                     view: || (),
+                    rndr: PhantomData,
                 },
                 NestedRoute {
                     segments: (
@@ -336,6 +366,7 @@ mod tests {
                     children: (),
                     data: (),
                     view: || (),
+                    rndr: PhantomData,
                 },
             ),
             "/portfolio",
