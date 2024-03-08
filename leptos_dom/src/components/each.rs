@@ -1065,7 +1065,7 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
 //             ]
 //         );
 
-//         // Now we're going to to the same as above, just with more items
+//         // Now we're going to do the same as above, just with more items
 //         //
 //         // A = 1
 //         // B = 2, 3

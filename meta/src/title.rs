@@ -93,7 +93,7 @@ pub fn Title(
     /// A function that will be applied to any text value before it’s set as the title.
     #[prop(optional, into)]
     formatter: Option<Formatter>,
-    /// Sets the the current `document.title`.
+    /// Sets the current `document.title`.
     #[prop(optional, into)]
     text: Option<TextProp>,
 ) -> impl IntoView {

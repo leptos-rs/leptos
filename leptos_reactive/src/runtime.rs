@@ -438,7 +438,7 @@ impl Runtime {
                             let children = children.borrow();
 
                             if !children.is_empty() {
-                                // avoid going through an iterator in the simple psuedo-recursive case
+                                // avoid going through an iterator in the simple pseudo-recursive case
                                 if children.len() == 1 {
                                     child = children[0];
                                     continue;
