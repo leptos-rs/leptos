@@ -28,7 +28,7 @@ sqlx = { version = "0.7", features = [
 	"sqlite",
 ], optional = true }
 thiserror = "1.0"
-wasm-bindgen = "0.2"
+wasm-bindgen = "=0.2.92"
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]

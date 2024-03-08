@@ -26,7 +26,7 @@ sqlx = { version = "0.6.2", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
 ], optional = true }
-wasm-bindgen = "0.2"
+wasm-bindgen = "=0.2.92"
 tokio = { version = "1", features = ["rt", "time"], optional = true }
 
 [features]

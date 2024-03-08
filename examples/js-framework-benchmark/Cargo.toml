@@ -8,7 +8,11 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr", "nightly", "template_macro"] }
+leptos = { path = "../../leptos", features = [
+	"csr",
+	"nightly",
+	"template_macro",
+] }
 console_log = "1"
 log = "0.4"
 # used in rand, but we need to enable js feature
@@ -17,6 +21,6 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
-wasm-bindgen = "0.2"
+wasm-bindgen = "=0.2.92"
 wasm-bindgen-test = "0.3.0"
 web-sys = "0.3"
