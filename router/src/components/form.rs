@@ -80,6 +80,32 @@ pub fn Form<A>(
 where
     A: ToHref + 'static,
 {
+    async fn post_form_data(
+        action: &str,
+        form_data: FormData,
+    ) -> Result<gloo_net::http::Response, gloo_net::Error> {
+        gloo_net::http::Request::post(action)
+            .header("Accept", "application/json")
+            .redirect(RequestRedirect::Follow)
+            .body(form_data)?
+            .send()
+            .await
+    }
+
+    async fn post_params(
+        action: &str,
+        enctype: &str,
+        params: web_sys::UrlSearchParams,
+    ) -> Result<gloo_net::http::Response, gloo_net::Error> {
+        gloo_net::http::Request::post(action)
+            .header("Accept", "application/json")
+            .header("Content-Type", enctype)
+            .redirect(RequestRedirect::Follow)
+            .body(params)?
+            .send()
+            .await
+    }
+
     fn inner(
         has_router: bool,
         method: Option<&'static str>,
@@ -138,12 +164,7 @@ where
                     let on_response = on_response.clone();
                     let on_error = on_error.clone();
                     spawn_local(async move {
-                        let res = gloo_net::http::Request::post(&action)
-                            .header("Accept", "application/json")
-                            .redirect(RequestRedirect::Follow)
-                            .body(form_data)
-                            .send()
-                            .await;
+                        let res = post_form_data(&action, form_data).await;
                         match res {
                             Err(e) => {
                                 error!("<Form/> error while POSTing: {e:#?}");
@@ -155,6 +176,7 @@ where
                                 }
                             }
                             Ok(resp) => {
+                                let resp = web_sys::Response::from(resp);
                                 if let Some(version) = action_version {
                                     version.update(|n| *n += 1);
                                 }
@@ -162,7 +184,7 @@ where
                                     error.try_set(None);
                                 }
                                 if let Some(on_response) = on_response.clone() {
-                                    on_response(resp.as_raw());
+                                    on_response(&resp);
                                 }
                                 // Check all the logical 3xx responses that might
                                 // get returned from a server function
@@ -216,13 +238,7 @@ where
                     let on_response = on_response.clone();
                     let on_error = on_error.clone();
                     spawn_local(async move {
-                        let res = gloo_net::http::Request::post(&action)
-                            .header("Accept", "application/json")
-                            .header("Content-Type", &enctype)
-                            .redirect(RequestRedirect::Follow)
-                            .body(params)
-                            .send()
-                            .await;
+                        let res = post_params(&action, &enctype, params).await;
                         match res {
                             Err(e) => {
                                 error!("<Form/> error while POSTing: {e:#?}");
@@ -234,6 +250,7 @@ where
                                 }
                             }
                             Ok(resp) => {
+                                let resp = web_sys::Response::from(resp);
                                 if let Some(version) = action_version {
                                     version.update(|n| *n += 1);
                                 }
@@ -241,7 +258,7 @@ where
                                     error.try_set(None);
                                 }
                                 if let Some(on_response) = on_response.clone() {
-                                    on_response(resp.as_raw());
+                                    on_response(&resp);
                                 }
                                 // Check all the logical 3xx responses that might
                                 // get returned from a server function
