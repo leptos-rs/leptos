@@ -84,7 +84,6 @@ impl PossibleRouteMatch for WildcardSegment {
 mod tests {
     use super::PossibleRouteMatch;
     use crate::{ParamSegment, StaticSegment, WildcardSegment};
-    use alloc::vec::Vec;
 
     #[test]
     fn single_param_match() {
