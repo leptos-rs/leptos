@@ -7,7 +7,7 @@ version.workspace = true
 any_spawner = { workspace = true }
 either_of = { workspace = true } 
 reactive_graph = { workspace = true } 
-tachys = { workspace = true } 
+tachys = { workspace = true, features = ["reactive_graph"] } 
 url = "2"
 js-sys = { version = "0.3" }
 wasm-bindgen = { version = "0.2" }
