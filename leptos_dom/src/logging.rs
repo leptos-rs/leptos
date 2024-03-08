@@ -44,6 +44,7 @@ macro_rules! debug_warn {
 /// Log a string to the console (in the browser)
 /// or via `println!()` (if not in the browser).
 pub fn console_log(s: &str) {
+    #[allow(clippy::print_stdout)]
     if is_server() {
         println!("{s}");
     } else {
