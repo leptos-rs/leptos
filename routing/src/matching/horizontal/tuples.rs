@@ -5,14 +5,14 @@ macro_rules! chain_types {
     ($first:ty, $second:ty, ) => {
         Chain<
             $first,
-            <<$second as PossibleRouteMatch>::ParamsIter<'a> as IntoIterator>::IntoIter
+            <<$second as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter
         >
     };
     ($first:ty, $second:ty, $($rest:ty,)+) => {
         chain_types!(
             Chain<
                 $first,
-                <<$second as PossibleRouteMatch>::ParamsIter<'a> as IntoIterator>::IntoIter,
+                <<$second as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter,
             >,
             $($rest,)+
         )
@@ -27,9 +27,9 @@ macro_rules! tuples {
             $first: PossibleRouteMatch,
 			$($ty: PossibleRouteMatch),*,
         {
-            type ParamsIter<'a> = chain_types!(<<$first>::ParamsIter<'a> as IntoIterator>::IntoIter, $($ty,)*);
+            type ParamsIter = chain_types!(<<$first>::ParamsIter as IntoIterator>::IntoIter, $($ty,)*);
 
-            fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
+            fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
                 let mut matched_len = 0;
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = &self;

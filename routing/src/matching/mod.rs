@@ -10,7 +10,7 @@ pub use nested::*;
 use std::{borrow::Cow, marker::PhantomData};
 use tachys::{
     renderer::Renderer,
-    view::{any_view::IntoAny, Render},
+    view::{any_view::IntoAny, Render, RenderHtml},
 };
 pub use vertical::*;
 
@@ -47,10 +47,7 @@ where
     Rndr: Renderer + 'static,
     Children: MatchNestedRoutes<Rndr>,
 {
-    pub fn match_route<'a>(
-        &'a self,
-        path: &'a str,
-    ) -> Option<Children::Match<'a>> {
+    pub fn match_route(&self, path: &str) -> Option<Children::Match> {
         let path = match &self.base {
             None => path,
             Some(base) => {
@@ -89,41 +86,40 @@ where
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RouteMatchId(pub(crate) u8);
 
-pub trait MatchInterface<'a, R>
+pub trait MatchInterface<R>
 where
-    R: Renderer,
+    R: Renderer + 'static,
 {
-    type Params: IntoIterator<Item = (&'a str, &'a str)>;
-    type Child: MatchInterface<'a, R>;
-    type View: Render<R>;
+    type Child: MatchInterface<R> + MatchParams + 'static;
+    type View: Render<R> + RenderHtml<R> + 'static;
 
     fn as_id(&self) -> RouteMatchId;
 
     fn as_matched(&self) -> &str;
 
-    fn to_params(&self) -> Self::Params;
-
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<R, Output = Self::View> + 'a,
-        Option<Self::Child>,
-    );
+    ) -> (impl ChooseView<R, Output = Self::View>, Option<Self::Child>);
+}
+
+pub trait MatchParams {
+    type Params: IntoIterator<Item = (Cow<'static, str>, String)>;
+
+    fn to_params(&self) -> Self::Params;
 }
 
 pub trait MatchNestedRoutes<R>
 where
-    R: Renderer,
+    R: Renderer + 'static,
 {
     type Data;
-    type Match<'a>: MatchInterface<'a, R>
-    where
-        Self: 'a;
+    type View;
+    type Match: MatchInterface<R> + MatchParams;
 
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match<'a>)>, &str);
+    ) -> (Option<(RouteMatchId, Self::Match)>, &str);
 
     fn generate_routes(
         &self,
