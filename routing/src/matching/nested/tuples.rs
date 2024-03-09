@@ -1,14 +1,22 @@
 use super::{MatchInterface, MatchNestedRoutes, PathSegment, RouteMatchId};
-use crate::ChooseView;
+use crate::{ChooseView, MatchParams};
 use core::iter;
 use either_of::*;
+use std::borrow::Cow;
 use tachys::renderer::Renderer;
 
-impl<'a, Rndr> MatchInterface<'a, Rndr> for ()
+impl MatchParams for () {
+    type Params = iter::Empty<(Cow<'static, str>, String)>;
+
+    fn to_params(&self) -> Self::Params {
+        iter::empty()
+    }
+}
+
+impl<Rndr> MatchInterface<Rndr> for ()
 where
-    Rndr: Renderer,
+    Rndr: Renderer + 'static,
 {
-    type Params = iter::Empty<(&'a str, &'a str)>;
     type Child = ();
     type View = ();
 
@@ -20,14 +28,10 @@ where
         ""
     }
 
-    fn to_params(&self) -> Self::Params {
-        iter::empty()
-    }
-
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View> + 'a,
+        impl ChooseView<Rndr, Output = Self::View>,
         Option<Self::Child>,
     ) {
         ((), None)
@@ -36,15 +40,16 @@ where
 
 impl<Rndr> MatchNestedRoutes<Rndr> for ()
 where
-    Rndr: Renderer,
+    Rndr: Renderer + 'static,
 {
     type Data = ();
-    type Match<'a> = ();
+    type View = ();
+    type Match = ();
 
     fn match_nested<'a>(
         &self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match<'a>)>, &'a str) {
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
         (Some((RouteMatchId(0), ())), path)
     }
 
@@ -55,12 +60,22 @@ where
     }
 }
 
-impl<'a, A, Rndr> MatchInterface<'a, Rndr> for (A,)
+impl<A> MatchParams for (A,)
 where
-    A: MatchInterface<'a, Rndr>,
-    Rndr: Renderer,
+    A: MatchParams,
 {
     type Params = A::Params;
+
+    fn to_params(&self) -> Self::Params {
+        self.0.to_params()
+    }
+}
+
+impl<A, Rndr> MatchInterface<Rndr> for (A,)
+where
+    A: MatchInterface<Rndr>,
+    Rndr: Renderer + 'static,
+{
     type Child = A::Child;
     type View = A::View;
 
@@ -72,14 +87,10 @@ where
         self.0.as_matched()
     }
 
-    fn to_params(&self) -> Self::Params {
-        self.0.to_params()
-    }
-
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View> + 'a,
+        impl ChooseView<Rndr, Output = Self::View>,
         Option<Self::Child>,
     ) {
         self.0.into_view_and_child()
@@ -89,15 +100,16 @@ where
 impl<A, Rndr> MatchNestedRoutes<Rndr> for (A,)
 where
     A: MatchNestedRoutes<Rndr>,
-    Rndr: Renderer,
+    Rndr: Renderer + 'static,
 {
     type Data = A::Data;
-    type Match<'a> = A::Match<'a> where A: 'a;
+    type View = A::View;
+    type Match = A::Match;
 
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match<'a>)>, &'a str) {
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
         self.0.match_nested(path)
     }
 
@@ -108,16 +120,30 @@ where
     }
 }
 
-impl<'a, A, B, Rndr> MatchInterface<'a, Rndr> for Either<A, B>
+impl<A, B> MatchParams for Either<A, B>
 where
-    Rndr: Renderer,
-    A: MatchInterface<'a, Rndr>,
-    B: MatchInterface<'a, Rndr>,
+    A: MatchParams,
+    B: MatchParams,
 {
     type Params = Either<
         <A::Params as IntoIterator>::IntoIter,
         <B::Params as IntoIterator>::IntoIter,
     >;
+
+    fn to_params(&self) -> Self::Params {
+        match self {
+            Either::Left(i) => Either::Left(i.to_params().into_iter()),
+            Either::Right(i) => Either::Right(i.to_params().into_iter()),
+        }
+    }
+}
+
+impl<A, B, Rndr> MatchInterface<Rndr> for Either<A, B>
+where
+    Rndr: Renderer + 'static,
+    A: MatchInterface<Rndr>,
+    B: MatchInterface<Rndr>,
+{
     type Child = Either<A::Child, B::Child>;
     type View = Either<A::View, B::View>;
 
@@ -135,17 +161,10 @@ where
         }
     }
 
-    fn to_params(&self) -> Self::Params {
-        match self {
-            Either::Left(i) => Either::Left(i.to_params().into_iter()),
-            Either::Right(i) => Either::Right(i.to_params().into_iter()),
-        }
-    }
-
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View> + 'a,
+        impl ChooseView<Rndr, Output = Self::View>,
         Option<Self::Child>,
     ) {
         match self {
@@ -168,12 +187,13 @@ where
     Rndr: Renderer + 'static,
 {
     type Data = (A::Data, B::Data);
-    type Match<'a> = Either<A::Match<'a>, B::Match<'a>> where A: 'a, B: 'a;
+    type View = Either<A::View, B::View>;
+    type Match = Either<A::Match, B::Match>;
 
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match<'a>)>, &'a str) {
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
         #[allow(non_snake_case)]
         let (A, B) = &self;
         if let (Some((id, matched)), remaining) = A.match_nested(path) {
@@ -213,15 +233,26 @@ macro_rules! chain_generated {
 
 macro_rules! tuples {
     ($either:ident => $($ty:ident = $count:expr),*) => {
-        impl<'a, Rndr, $($ty,)*> MatchInterface<'a, Rndr> for $either <$($ty,)*>
+        impl<'a, $($ty,)*> MatchParams for $either <$($ty,)*>
         where
-            Rndr: Renderer + 'static,
-			$($ty: MatchInterface<'a, Rndr>),*,
-			$($ty::Child: 'a),*,
+			$($ty: MatchParams),*,
         {
             type Params = $either<$(
                 <$ty::Params as IntoIterator>::IntoIter,
             )*>;
+
+            fn to_params(&self) -> Self::Params {
+                match self {
+                    $($either::$ty(i) => $either::$ty(i.to_params().into_iter()),)*
+                }
+            }
+        }
+
+        impl<Rndr, $($ty,)*> MatchInterface<Rndr> for $either <$($ty,)*>
+        where
+            Rndr: Renderer + 'static,
+			$($ty: MatchInterface<Rndr>),*,
+        {
             type Child = $either<$($ty::Child,)*>;
             type View = $either<$($ty::View,)*>;
 
@@ -237,35 +268,31 @@ macro_rules! tuples {
                 }
             }
 
-            fn to_params(&self) -> Self::Params {
+            fn into_view_and_child(
+                self,
+            ) -> (
+                impl ChooseView<Rndr, Output = Self::View>,
+                Option<Self::Child>,
+            ) {
                 match self {
-                    $($either::$ty(i) => $either::$ty(i.to_params().into_iter()),)*
-                }
-            }
-
-            fn into_child(self) -> Option<Self::Child> {
-                Some(match self {
-                    $($either::$ty(i) => $either::$ty(i.into_child()?),)*
-                })
-            }
-
-            fn to_view(&self) -> impl ChooseView<Rndr, Output = Self::View> {
-                match self {
-                    $($either::$ty(i) => $either::$ty(i.to_view()),)*
+                    $($either::$ty(i) => {
+                        let (view, child) = i.into_view_and_child();
+                        ($either::$ty(view), child.map($either::$ty))
+                    })*
                 }
             }
         }
 
-        impl<'a, Rndr, $($ty),*> MatchNestedRoutes<'a, Rndr> for ($($ty,)*)
+        impl<Rndr, $($ty),*> MatchNestedRoutes<Rndr> for ($($ty,)*)
         where
             Rndr: Renderer + 'static,
-			$($ty: MatchNestedRoutes<'a, Rndr>),*,
-			$($ty::Match: 'a),*,
+			$($ty: MatchNestedRoutes<Rndr>),*,
         {
             type Data = ($($ty::Data,)*);
+            type View = $either<$($ty::View,)*>;
             type Match = $either<$($ty::Match,)*>;
 
-            fn match_nested(&'a self, path: &'a str) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
+            fn match_nested<'a>(&'a self, path: &'a str) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
                 #[allow(non_snake_case)]
 
                 let ($($ty,)*) = &self;
@@ -290,9 +317,9 @@ macro_rules! tuples {
         }
     }
 }
-/*
+
 tuples!(EitherOf3 => A = 0, B = 1, C = 2);
-tuples!(EitherOf4 => A = 0, B = 1, C = 2, D = 3);
+/*tuples!(EitherOf4 => A = 0, B = 1, C = 2, D = 3);
 tuples!(EitherOf5 => A = 0, B = 1, C = 2, D = 3, E = 4);
 tuples!(EitherOf6 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5);
 tuples!(EitherOf7 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5, G = 6);

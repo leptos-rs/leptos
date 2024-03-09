@@ -1,13 +1,14 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use core::iter;
+use std::borrow::Cow;
 
 impl PossibleRouteMatch for () {
-    type ParamsIter<'a> = iter::Empty<(&'a str, &'a str)>;
+    type ParamsIter = iter::Empty<(Cow<'static, str>, String)>;
 
     fn test<'a>(
         &self,
         path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
         Some(PartialPathMatch::new(path, iter::empty(), ""))
     }
 
@@ -18,12 +19,12 @@ impl PossibleRouteMatch for () {
 pub struct StaticSegment(pub &'static str);
 
 impl PossibleRouteMatch for StaticSegment {
-    type ParamsIter<'a> = iter::Empty<(&'a str, &'a str)>;
+    type ParamsIter = iter::Empty<(Cow<'static, str>, String)>;
 
     fn test<'a>(
         &self,
         path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
         let mut matched_len = 0;
         let mut test = path.chars().peekable();
         let mut this = self.0.chars();

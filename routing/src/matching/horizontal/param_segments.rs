@@ -1,16 +1,17 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use core::iter;
+use std::borrow::Cow;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParamSegment(pub &'static str);
 
 impl PossibleRouteMatch for ParamSegment {
-    type ParamsIter<'a> = iter::Once<(&'a str, &'a str)>;
+    type ParamsIter = iter::Once<(Cow<'static, str>, String)>;
 
     fn test<'a>(
         &self,
         path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
         let mut param_len = 0;
@@ -34,8 +35,10 @@ impl PossibleRouteMatch for ParamSegment {
         }
 
         let (matched, remaining) = path.split_at(matched_len);
-        let param_value =
-            iter::once((self.0, &path[param_offset..param_len + param_offset]));
+        let param_value = iter::once((
+            Cow::Borrowed(self.0),
+            path[param_offset..param_len + param_offset].to_string(),
+        ));
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
@@ -48,12 +51,12 @@ impl PossibleRouteMatch for ParamSegment {
 pub struct WildcardSegment(pub &'static str);
 
 impl PossibleRouteMatch for WildcardSegment {
-    type ParamsIter<'a> = iter::Once<(&'a str, &'a str)>;
+    type ParamsIter = iter::Once<(Cow<'static, str>, String)>;
 
     fn test<'a>(
         &self,
         path: &'a str,
-    ) -> Option<PartialPathMatch<'a, Self::ParamsIter<'a>>> {
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
         let mut matched_len = 0;
         let mut param_offset = 0;
         let mut param_len = 0;
@@ -70,8 +73,10 @@ impl PossibleRouteMatch for WildcardSegment {
         }
 
         let (matched, remaining) = path.split_at(matched_len);
-        let param_value =
-            iter::once((self.0, &path[param_offset..param_len + param_offset]));
+        let param_value = iter::once((
+            Cow::Borrowed(self.0),
+            path[param_offset..param_len + param_offset].to_string(),
+        ));
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
