@@ -93,9 +93,6 @@ impl Location for BrowserUrl {
         let navigate = {
             let url = self.url.clone();
             move |new_url, loc| {
-                web_sys::console::log_1(&JsValue::from_str(
-                    "updating URL signal",
-                ));
                 url.set(new_url);
                 async move {
                     Self::complete_navigation(&loc);
