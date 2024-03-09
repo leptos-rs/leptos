@@ -688,7 +688,7 @@ impl Docs {
         const RSX_START: &str = "# ::leptos::view! {";
         const RSX_END: &str = "# };";
 
-        // Seperated out of chain to allow rustfmt to work
+        // Separated out of chain to allow rustfmt to work
         let map = |(doc, span): (String, Span)| {
             doc.split('\n')
                 .map(str::trim_end)

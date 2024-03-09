@@ -308,8 +308,8 @@ async fn handle_server_fns_inner(
             let (status, mut res_headers) =
                 (res_options_inner.status, res_options_inner.headers.clone());
 
-            // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-            // Location set, then redirect to to Referer
+            // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+            // Location set, then redirect to Referer
             if accepts_html {
                 if let Some(referrer) = referrer {
                     let has_location = res.headers().get(LOCATION).is_some();
@@ -1075,7 +1075,7 @@ where
 
                 headers.extend(res_headers.drain());
 
-                // This one doesn't use generate_response(), so we need to do this seperately
+                // This one doesn't use generate_response(), so we need to do this separately
                 if !headers.contains_key(header::CONTENT_TYPE) {
                     // Set the Content Type headers on all responses. This makes Firefox show the page source
                     // without complaining
