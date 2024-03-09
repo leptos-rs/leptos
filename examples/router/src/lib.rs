@@ -12,7 +12,8 @@ use leptos::{
 use log::{debug, info};
 use routing::{
     location::{BrowserUrl, Location},
-    NestedRoute, ParamSegment, RouteData, Router, Routes, StaticSegment,
+    MatchNestedRoutes, NestedRoute, ParamSegment, RouteData, Router, Routes,
+    StaticSegment,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -20,7 +21,39 @@ struct ExampleContext(i32);
 
 #[component]
 pub fn RouterExample() -> impl IntoView {
-    info!("rendering <RouterExample/>");
+    let router = Router::new(
+        BrowserUrl::new().unwrap(),
+        Routes::new((
+            NestedRoute::new(StaticSegment(""), Home),
+            NestedRoute::new(StaticSegment("notfound"), NotFount),
+            NestedRoute::new(StaticSegment("about"), About),
+        )),
+        || "This page could not be found.",
+    );
+    view! {
+        <h3>"Leptos Router Bloat"</h3>
+
+        <nav>
+            <a href="/">"Home"</a>
+            " | "
+            <a href="/about">"About"</a>
+        </nav>
+        <br />
+
+        <main>
+            {router}
+            // un-comment the following lines and build again
+            // <Router>
+            //     <Routes>
+            //         <Route path="/" view=|cx| view! { cx, <Home /> } />
+            //         <Route path="/about" view=|cx| view! { cx, <About /> } />
+            //         <Route path="/*any" view=|cx| view! { cx, <NotFount /> } />
+            //     </Routes>
+            // </Router>
+        </main>
+    }
+}
+/*info!("rendering <RouterExample/>");
 
     // contexts are passed down through the route tree
     provide_context(ExampleContext(0));
@@ -28,39 +61,15 @@ pub fn RouterExample() -> impl IntoView {
     let router = Router::new(
         BrowserUrl::new().unwrap(),
         Routes::new((
-            NestedRoute {
-                segments: StaticSegment(""),
-                children: (
-                    NestedRoute {
-                        segments: StaticSegment(""),
-                        children: (),
-                        data: (),
-                        view: |_: RouteData<Dom>| "Select a contact.",
-                    },
-                    // TODO: fix it so empty param doesn't match here, if we reverse the order of
-                    // these two
-                    NestedRoute {
-                        segments: ParamSegment("id"),
-                        children: (),
-                        data: (),
-                        view: Contact,
-                    },
-                ),
-                data: (),
-                view: ContactList,
-            },
-            NestedRoute {
-                segments: StaticSegment("settings"),
-                children: (),
-                data: (),
-                view: Settings,
-            },
-            NestedRoute {
-                segments: StaticSegment("about"),
-                children: (),
-                data: (),
-                view: About,
-            },
+            NestedRoute::new(StaticSegment("contacts"), ContactList).child((
+                NestedRoute::new(StaticSegment(""), |_| "Select a contact."),
+                // TODO: fix it so empty param doesn't match here, if we reverse the order of
+                // these two
+                NestedRoute::new(ParamSegment("id"), Contact),
+            )),
+            //NestedRoute::new(StaticSegment(""), ContactList),
+            NestedRoute::new(StaticSegment("settings"), Settings),
+            NestedRoute::new(StaticSegment("about"), About),
         )),
         || "This page could not be found.",
     );
@@ -78,13 +87,13 @@ pub fn RouterExample() -> impl IntoView {
             <A href="settings">"Settings"</A>
             <A href="redirect-home">"Redirect to Home"</A>
             */
-            <a href="/">"Contacts"</a>
-            <a href="about">"About"</a>
-            <a href="settings">"Settings"</a>
-            <a href="redirect-home">"Redirect to Home"</a>
+            <a href="/contacts">"Contacts"</a>
+            <a href="/about">"About"</a>
+            <a href="/settings">"Settings"</a>
+            <a href="/redirect-home">"Redirect to Home"</a>
         </nav>
         {router}
-        /*<Router>
+        <Router>
             <nav>
                 // ordinary <a> elements can be used for client-side navigation
                 // using <A> has two effects:
@@ -118,8 +127,20 @@ pub fn RouterExample() -> impl IntoView {
                     />
                 </AnimatedRoutes>
             </main>
-        </Router>*/
+        </Router>
     }
+}*/
+
+fn Home(data: RouteData<Dom>) -> impl IntoView {
+    "Home Page"
+}
+
+fn About(data: RouteData<Dom>) -> impl IntoView {
+    "About Page"
+}
+
+fn NotFount(data: RouteData<Dom>) -> impl IntoView {
+    "Not Found!"
 }
 
 /*
@@ -144,7 +165,7 @@ pub fn ContactRoutes() -> impl IntoView {
     }
 }*/
 
-pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
+/*pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
     info!("rendering <ContactList/>");
 
     // contexts are passed down through the route tree
@@ -314,4 +335,4 @@ pub fn Settings(route_data: RouteData<Dom>) -> impl IntoView {
             <pre>"This page is just a placeholder."</pre>
         </form>
     }
-}
+}*/

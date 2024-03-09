@@ -2,10 +2,13 @@ use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
     PossibleRouteMatch, RouteMatchId,
 };
-use crate::{ChooseView, RouteData};
+use crate::{ChooseView, MatchParams, RouteData};
 use core::{fmt, iter};
-use std::marker::PhantomData;
-use tachys::{renderer::Renderer, view::Render};
+use std::{borrow::Cow, marker::PhantomData};
+use tachys::{
+    renderer::Renderer,
+    view::{Render, RenderHtml},
+};
 
 mod tuples;
 
@@ -18,20 +21,58 @@ pub struct NestedRoute<Segments, Children, Data, ViewFn, R> {
     pub rndr: PhantomData<R>,
 }
 
+impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
+    pub fn new<View>(path: Segments, view: ViewFn) -> Self
+    where
+        ViewFn: Fn(RouteData<R>) -> View,
+        R: Renderer,
+    {
+        Self {
+            segments: path,
+            children: (),
+            data: (),
+            view,
+            rndr: PhantomData,
+        }
+    }
+}
+
+impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
+    pub fn child<Children>(
+        self,
+        child: Children,
+    ) -> NestedRoute<Segments, Children, Data, ViewFn, R> {
+        let Self {
+            segments,
+            data,
+            view,
+            rndr,
+            ..
+        } = self;
+        NestedRoute {
+            segments,
+            children: child,
+            data,
+            view,
+            rndr,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq)]
-pub struct NestedMatch<'a, ParamsIter, Child, ViewFn> {
+pub struct NestedMatch<ParamsIter, Child, ViewFn> {
     id: RouteMatchId,
     /// The portion of the full path matched only by this nested route.
-    matched: &'a str,
+    matched: String,
     /// The map of params matched only by this nested route.
     params: ParamsIter,
     /// The nested route.
     child: Child,
-    view_fn: &'a ViewFn,
+    view_fn: ViewFn,
 }
 
-impl<'a, ParamsIter, Child, ViewFn> fmt::Debug
-    for NestedMatch<'a, ParamsIter, Child, ViewFn>
+impl<ParamsIter, Child, ViewFn> fmt::Debug
+    for NestedMatch<ParamsIter, Child, ViewFn>
 where
     ParamsIter: fmt::Debug,
     Child: fmt::Debug,
@@ -45,16 +86,27 @@ where
     }
 }
 
-impl<'a, ParamsIter, Child, ViewFn, Rndr> MatchInterface<'a, Rndr>
-    for NestedMatch<'a, ParamsIter, Child, ViewFn>
+impl<ParamsIter, Child, ViewFn> MatchParams
+    for NestedMatch<ParamsIter, Child, ViewFn>
 where
-    Rndr: Renderer + 'static,
-    ParamsIter: IntoIterator<Item = (&'a str, &'a str)> + Clone,
-    Child: MatchInterface<'a, Rndr>,
-    ViewFn: Fn(RouteData<Rndr>),
-    ViewFn::Output: Render<Rndr>,
+    ParamsIter: IntoIterator<Item = (Cow<'static, str>, String)> + Clone,
 {
     type Params = ParamsIter;
+
+    #[inline(always)]
+    fn to_params(&self) -> Self::Params {
+        self.params.clone()
+    }
+}
+
+impl<ParamsIter, Child, ViewFn, View, Rndr> MatchInterface<Rndr>
+    for NestedMatch<ParamsIter, Child, ViewFn>
+where
+    Rndr: Renderer + 'static,
+    Child: MatchInterface<Rndr> + MatchParams + 'static,
+    ViewFn: Fn(RouteData<Rndr>) -> View + 'static,
+    View: Render<Rndr> + RenderHtml<Rndr> + 'static,
+{
     type Child = Child;
     type View = ViewFn::Output;
 
@@ -63,50 +115,44 @@ where
     }
 
     fn as_matched(&self) -> &str {
-        self.matched
-    }
-
-    fn to_params(&self) -> Self::Params {
-        self.params.clone()
+        &self.matched
     }
 
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View> + 'a,
+        impl ChooseView<Rndr, Output = Self::View>,
         Option<Self::Child>,
     ) {
         (self.view_fn, Some(self.child))
     }
 }
 
-impl<'a, ParamsIter, Child, ViewFn> NestedMatch<'a, ParamsIter, Child, ViewFn> {
-    pub fn matched(&self) -> &'a str {
-        self.matched
-    }
-}
-
-impl<Segments, Children, Data, ViewFn, Rndr> MatchNestedRoutes<Rndr>
+impl<Segments, Children, Data, ViewFn, View, Rndr> MatchNestedRoutes<Rndr>
     for NestedRoute<Segments, Children, Data, ViewFn, Rndr>
 where
     Rndr: Renderer + 'static,
     Segments: PossibleRouteMatch,
+    <<Segments as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter: Clone,
     Children: MatchNestedRoutes<Rndr>,
-    for<'a> <Segments::ParamsIter<'a> as IntoIterator>::IntoIter: Clone,
-    for <'a> <<Children::Match<'a> as MatchInterface<'a, Rndr>>::Params as IntoIterator>::IntoIter:
-        Clone,
-    ViewFn: Fn(RouteData<Rndr>),
+    <<<Children as MatchNestedRoutes<Rndr>>::Match as MatchParams>::Params as IntoIterator>::IntoIter: Clone,
+   Children::Match: MatchParams,
+   Children: 'static,
+   <Children::Match as MatchParams>::Params: Clone,
+    ViewFn: Fn(RouteData<Rndr>) -> View + Clone + 'static,
+    View: Render<Rndr> + RenderHtml<Rndr> + 'static,
 {
     type Data = Data;
-    type Match<'a> = NestedMatch<'a, iter::Chain<
-        <Segments::ParamsIter<'a> as IntoIterator>::IntoIter,
-        <<Children::Match<'a> as MatchInterface<'a, Rndr>>::Params as IntoIterator>::IntoIter,
-    >, Children::Match<'a>, ViewFn> where <Children as MatchNestedRoutes<Rndr>>::Match<'a>: 'a, ViewFn: 'a, Children: 'a, Segments: 'a, Data: 'a;
+    type View = View;
+    type Match = NestedMatch<iter::Chain<
+        <Segments::ParamsIter as IntoIterator>::IntoIter,
+        <<Children::Match as MatchParams>::Params as IntoIterator>::IntoIter,
+    >, Children::Match, ViewFn>;
 
     fn match_nested<'a>(
         &'a self,
         path: &'a str,
-    ) -> (Option<(RouteMatchId, Self::Match<'a>)>, &'a str) {
+    ) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
         self.segments
             .test(path)
             .and_then(
@@ -126,10 +172,10 @@ where
                                 id,
                                 NestedMatch {
                                     id,
-                                    matched,
+                                    matched: matched.to_string(),
                                     params: params.chain(inner.to_params()),
                                     child: inner,
-                                    view_fn: &self.view,
+                                    view_fn: self.view.clone(),
                                 },
                             )),
                             remaining,

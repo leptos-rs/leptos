@@ -129,6 +129,7 @@ where
 
     Box::new(move |ev: Event| {
         let ev = ev.unchecked_into::<MouseEvent>();
+        let origin = window().location().origin()?;
         if ev.default_prevented()
             || ev.button() != 0
             || ev.meta_key()
@@ -168,23 +169,18 @@ where
                 return Ok(());
             }
 
-            let base = window()
-                .location()
-                .origin()
-                .map(Cow::Owned)
-                .unwrap_or(Cow::Borrowed(BASE));
-            let url = parse_with_base(href.as_str(), &base).unwrap();
+            let url = parse_with_base(href.as_str(), &origin).unwrap();
             let path_name = unescape(&url.path);
             ev.prevent_default();
 
             // let browser handle this event if it leaves our domain
             // or our base path
-            if url.origin != window().location().origin().unwrap_or_default()
+            if url.origin != origin
                 || (!router_base.is_empty()
                     && !path_name.is_empty()
-                    && !path_name
-                        .to_lowercase()
-                        .starts_with(&router_base.to_lowercase()))
+                    // NOTE: the two `to_lowercase()` calls here added a total of about 14kb to
+                    // release binary size, for limited gain
+                    && !path_name.starts_with(&*router_base))
             {
                 return Ok(());
             }
@@ -202,8 +198,6 @@ where
                         Some(value)
                     }
                 });
-
-            ev.prevent_default();
 
             let replace = Reflect::get(&a, &JsValue::from_str("replace"))
                 .ok()
