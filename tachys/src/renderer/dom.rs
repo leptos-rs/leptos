@@ -12,6 +12,7 @@ use web_sys::{
     Event, HtmlElement, Node, Text,
 };
 
+#[derive(Debug)]
 pub struct Dom;
 
 thread_local! {
