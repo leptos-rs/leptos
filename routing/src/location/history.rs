@@ -169,7 +169,6 @@ impl Location for BrowserUrl {
 fn search_params_from_web_url(
     params: &web_sys::UrlSearchParams,
 ) -> Result<Params, JsValue> {
-    let mut search_params = Params::new();
     try_iter(params)?
         .into_iter()
         .flatten()
@@ -177,8 +176,8 @@ fn search_params_from_web_url(
             pair.and_then(|pair| {
                 let row = pair.dyn_into::<Array>()?;
                 Ok((
-                    row.get(0).dyn_into::<JsString>()?.into(),
-                    row.get(1).dyn_into::<JsString>()?.into(),
+                    String::from(row.get(0).dyn_into::<JsString>()?),
+                    String::from(row.get(1).dyn_into::<JsString>()?),
                 ))
             })
         })

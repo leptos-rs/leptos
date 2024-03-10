@@ -21,39 +21,7 @@ struct ExampleContext(i32);
 
 #[component]
 pub fn RouterExample() -> impl IntoView {
-    let router = Router::new(
-        BrowserUrl::new().unwrap(),
-        Routes::new((
-            NestedRoute::new(StaticSegment(""), Home),
-            NestedRoute::new(StaticSegment("notfound"), NotFount),
-            NestedRoute::new(StaticSegment("about"), About),
-        )),
-        || "This page could not be found.",
-    );
-    view! {
-        <h3>"Leptos Router Bloat"</h3>
-
-        <nav>
-            <a href="/">"Home"</a>
-            " | "
-            <a href="/about">"About"</a>
-        </nav>
-        <br />
-
-        <main>
-            {router}
-            // un-comment the following lines and build again
-            // <Router>
-            //     <Routes>
-            //         <Route path="/" view=|cx| view! { cx, <Home /> } />
-            //         <Route path="/about" view=|cx| view! { cx, <About /> } />
-            //         <Route path="/*any" view=|cx| view! { cx, <NotFount /> } />
-            //     </Routes>
-            // </Router>
-        </main>
-    }
-}
-/*info!("rendering <RouterExample/>");
+    info!("rendering <RouterExample/>");
 
     // contexts are passed down through the route tree
     provide_context(ExampleContext(0));
@@ -93,7 +61,7 @@ pub fn RouterExample() -> impl IntoView {
             <a href="/redirect-home">"Redirect to Home"</a>
         </nav>
         {router}
-        <Router>
+        /*<Router>
             <nav>
                 // ordinary <a> elements can be used for client-side navigation
                 // using <A> has two effects:
@@ -127,45 +95,11 @@ pub fn RouterExample() -> impl IntoView {
                     />
                 </AnimatedRoutes>
             </main>
-        </Router>
+        </Router>*/
     }
-}*/
-
-fn Home(data: RouteData<Dom>) -> impl IntoView {
-    "Home Page"
 }
 
-fn About(data: RouteData<Dom>) -> impl IntoView {
-    "About Page"
-}
-
-fn NotFount(data: RouteData<Dom>) -> impl IntoView {
-    "Not Found!"
-}
-
-/*
-// You can define other routes in their own component.
-// Use a #[component(transparent)] that returns a <Route/>.
-#[component(transparent)]
-pub fn ContactRoutes() -> impl IntoView {
-    view! {
-        <Route
-            path=""
-            view=|| view! { <ContactList/> }
-        >
-            <Route
-                path=":id"
-                view=|| view! { <Contact/> }
-            />
-            <Route
-                path="/"
-                view=|| view! {  <p>"Select a contact."</p> }
-            />
-        </Route>
-    }
-}*/
-
-/*pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
+pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
     info!("rendering <ContactList/>");
 
     // contexts are passed down through the route tree
@@ -178,10 +112,10 @@ pub fn ContactRoutes() -> impl IntoView {
     view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
-            <li><a href="/1">1</a></li>
-            <li><a href="/2">2</a></li>
-            <li><a href="/3">3</a></li>
-            {(route_data.outlet)()}
+            <li><a href="/contacts/1">1</a></li>
+            <li><a href="/contacts/2">2</a></li>
+            <li><a href="/contacts/3">3</a></li>
+            {route_data.outlet}
         </div>
     }
 
@@ -215,14 +149,15 @@ pub fn ContactRoutes() -> impl IntoView {
         </div>
     }*/
 }
-/*
-#[derive(Params, PartialEq, Clone, Debug)]
+
+/*#[derive(Params, PartialEq, Clone, Debug)]
 pub struct ContactParams {
     // Params isn't implemented for usize, only Option<usize>
     id: Option<usize>,
 }*/
 
 pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
+    let params = route_data.params;
     info!("rendering <Contact/>");
 
     info!(
@@ -237,6 +172,7 @@ pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
     view! {
         <div class="contact">
             <h2>"Contact"</h2>
+            {move || format!("{:#?}", params.get())}
         </div>
     }
 
@@ -335,4 +271,4 @@ pub fn Settings(route_data: RouteData<Dom>) -> impl IntoView {
             <pre>"This page is just a placeholder."</pre>
         </form>
     }
-}*/
+}
