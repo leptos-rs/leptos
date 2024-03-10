@@ -1,5 +1,5 @@
 use crate::{html::element::CreateElement, view::Mountable};
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Debug};
 use wasm_bindgen::JsValue;
 
 pub mod dom;
@@ -10,7 +10,7 @@ pub mod mock_dom;
 /// By default, this is implemented for the Document Object Model (DOM) in a Web
 /// browser, but implementing this trait for some other platform allows you to use
 /// the library to render any tree-based UI.
-pub trait Renderer: Sized {
+pub trait Renderer: Sized + Debug {
     /// The basic type of node in the view tree.
     type Node: Mountable<Self> + Clone + 'static;
     /// A visible element in the view tree.
