@@ -14,9 +14,11 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::Owner,
     signal::ArcRwSignal,
-    traits::{Get, Read, Track},
+    traits::{Get, Read, Set, Track},
 };
-use std::borrow::Cow;
+use std::{
+    any::Any, borrow::Cow, cell::RefCell, collections::VecDeque, rc::Rc,
+};
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
@@ -24,7 +26,7 @@ use tachys::{
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::{AnyView, IntoAny},
+        any_view::{AnyView, AnyViewState, IntoAny},
         either::EitherState,
         Mountable, Position, PositionState, Render, RenderHtml,
     },
@@ -45,7 +47,6 @@ where
     Rndr: Renderer,
     FallbackFn: Fn() -> Fallback,
 {
-    #[inline(always)]
     pub fn new(
         location: Loc,
         routes: Routes<Children, Rndr>,
@@ -59,7 +60,6 @@ where
         }
     }
 
-    #[inline(always)]
     pub fn new_with_base(
         base: impl Into<Cow<'static, str>>,
         location: Loc,
@@ -88,10 +88,10 @@ where
 
 pub struct RouteData<R>
 where
-    R: Renderer,
+    R: Renderer + 'static,
 {
     pub params: ArcMemo<Params>,
-    pub outlet: Box<dyn FnOnce() -> AnyView<R>>,
+    pub outlet: Outlet<R>,
 }
 
 impl<Rndr, Loc, FallbackFn, Fallback, Children> Render<Rndr>
@@ -106,6 +106,8 @@ where
     View::State: 'static,*/
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
+    Children::Match: std::fmt::Debug,
+    <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
 {
     type State = RenderEffect<
         EitherState<
@@ -139,15 +141,13 @@ where
                     match &mut prev.state {
                         Either::Left(prev) => {
                             // TODO!
-                            //nested_rebuild(&outer_owner, prev, new_match);
+                            rebuild_nested(&outer_owner, prev, new_match);
                         }
                         Either::Right(_) => {
-                            Either::<_, Fallback>::Left(
-                                NestedRouteView::create(
-                                    &outer_owner,
-                                    new_match,
-                                ),
-                            )
+                            Either::<_, Fallback>::Left(NestedRouteView::new(
+                                &outer_owner,
+                                new_match,
+                            ))
                             .rebuild(&mut prev);
                         }
                     }
@@ -160,7 +160,7 @@ where
                 prev
             } else {
                 match new_match {
-                    Some(matched) => Either::Left(NestedRouteView::create(
+                    Some(matched) => Either::Left(NestedRouteView::new(
                         &outer_owner,
                         matched,
                     )),
@@ -193,9 +193,8 @@ where
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    matched: ArcRwSignal<String>,
+    outlets: VecDeque<Outlet<R>>,
     view: Matcher::View,
-    //child: Option<Box<dyn FnOnce() -> NestedRouteView<Matcher::Child, R>>>,
     ty: PhantomData<(Matcher, R)>,
 }
 
@@ -206,30 +205,35 @@ where
     Matcher::View: 'static,
     Rndr: Renderer + 'static,
 {
-    pub fn create(outer_owner: &Owner, route_match: Matcher) -> Self {
-        let id = route_match.as_id();
+    pub fn new(outer_owner: &Owner, route_match: Matcher) -> Self {
+        // keep track of all outlets, for diffing
+        let mut outlets = VecDeque::new();
+
+        // build this view
         let owner = outer_owner.child();
-        let params = ArcRwSignal::new(
-            route_match
-                .to_params()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-        );
-        let matched = ArcRwSignal::new(route_match.as_matched().to_string());
-        /*let (view, child) = route_match.into_view_and_child();
-        let child = child.map(|child| {
-            let owner = owner.clone();
-            Box::new(move || NestedRouteView::create(&owner, child))
-                as Box<dyn FnOnce() -> NestedRouteView<Matcher::Child, Rndr>>
-        });*/
-        let view = build_nested(route_match);
+        let id = route_match.as_id();
+        let params =
+            ArcRwSignal::new(route_match.to_params().into_iter().collect());
+        let (view, child) = route_match.into_view_and_child();
+
+        let outlet = child
+            .map(|child| get_inner_view(&mut outlets, &owner, child))
+            .unwrap_or_default();
+
+        let route_data = RouteData {
+            params: ArcMemo::new({
+                let params = params.clone();
+                move |_| params.get()
+            }),
+            outlet,
+        };
+        let view = view.choose(route_data);
 
         Self {
             id,
             owner,
             params,
-            matched,
+            outlets,
             view,
             ty: PhantomData,
         }
@@ -244,27 +248,301 @@ where
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    matched: ArcRwSignal<String>,
     view: <Matcher::View as Render<Rndr>>::State,
-    //child: Option<Box<NestedRouteState<Matcher::Child, Rndr>>>,
+    outlets: VecDeque<Outlet<Rndr>>,
 }
 
-// TODO: also build a Vec<(RouteMatchId, ArcRwSignal<Params>)>
-// when we rebuild, at each level,
-// if the route IDs don't match, then replace with new
-// if they do match, then just update params
-fn build_nested<Match, R>(route_match: Match) -> Match::View
+fn get_inner_view<Match, R>(
+    outlets: &mut VecDeque<Outlet<R>>,
+    parent: &Owner,
+    route_match: Match,
+) -> Outlet<R>
 where
-    Match: MatchInterface<R>,
+    Match: MatchInterface<R> + MatchParams,
+    R: Renderer + 'static,
+{
+    let owner = parent.child();
+    let id = route_match.as_id();
+    let params =
+        ArcRwSignal::new(route_match.to_params().into_iter().collect());
+    let state = Rc::new(RefCell::new(None));
+    let (view, child) = route_match.into_view_and_child();
+    let outlet = child
+        .map(|child| get_inner_view(outlets, &owner, child))
+        .unwrap_or_default();
+    let fun = Rc::new(RefCell::new(Some({
+        let params = params.clone();
+        Box::new(move || {
+            view.choose(RouteData {
+                params: ArcMemo::new(move |_| params.get()),
+                outlet,
+            })
+            .into_any()
+        }) as Box<dyn FnOnce() -> AnyView<R>>
+    })));
+
+    let outlet = Outlet {
+        id,
+        owner,
+        params,
+        state,
+        fun,
+    };
+    outlets.push_back(outlet.clone());
+    outlet
+}
+
+pub struct Outlet<R>
+where
+    R: Renderer + 'static,
+{
+    id: RouteMatchId,
+    owner: Owner,
+    params: ArcRwSignal<Params>,
+    state: Rc<RefCell<Option<OutletStateInner<R>>>>,
+    fun: Rc<RefCell<Option<Box<dyn FnOnce() -> AnyView<R>>>>>,
+}
+
+impl<R> Clone for Outlet<R>
+where
+    R: Renderer + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            owner: self.owner.clone(),
+            params: self.params.clone(),
+            state: Rc::clone(&self.state),
+            fun: Rc::clone(&self.fun),
+        }
+    }
+}
+
+impl<R> Default for Outlet<R>
+where
+    R: Renderer + 'static,
+{
+    fn default() -> Self {
+        Self {
+            id: RouteMatchId(0),
+            owner: Owner::current().unwrap(),
+            params: ArcRwSignal::new(Params::new()),
+            state: Default::default(),
+            fun: Rc::new(RefCell::new(Some(Box::new(|| ().into_any())))),
+        }
+    }
+}
+
+impl<R> Render<R> for Outlet<R>
+where
+    R: Renderer + 'static,
+{
+    type State = OutletState<R>;
+    type FallibleState = ();
+
+    fn build(self) -> Self::State {
+        let Outlet {
+            id,
+            owner,
+            state,
+            params,
+            fun,
+        } = self;
+        let fun = fun
+            .borrow_mut()
+            .take()
+            .expect("Outlet function taken before being built");
+        let this = fun();
+        *state.borrow_mut() = Some(OutletStateInner {
+            state: this.build(),
+        });
+        OutletState {
+            id,
+            owner,
+            state,
+            params,
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        todo!()
+    }
+
+    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> tachys::error::Result<()> {
+        todo!()
+    }
+}
+
+impl<R> RenderHtml<R> for Outlet<R>
+where
+    R: Renderer + 'static,
+{
+    const MIN_LENGTH: usize = 0; // TODO
+
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        todo!()
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<R>,
+        position: &PositionState,
+    ) -> Self::State {
+        todo!()
+    }
+}
+
+pub struct OutletState<R>
+where
+    R: Renderer + 'static,
+{
+    id: RouteMatchId,
+    owner: Owner,
+    params: ArcRwSignal<Params>,
+    state: Rc<RefCell<Option<OutletStateInner<R>>>>,
+}
+
+pub struct OutletStateInner<R>
+where
+    R: Renderer + 'static,
+{
+    state: AnyViewState<R>,
+}
+
+impl<R> Mountable<R> for OutletState<R>
+where
+    R: Renderer + 'static,
+{
+    fn unmount(&mut self) {
+        self.state
+            .borrow_mut()
+            .as_mut()
+            .expect("tried to access OutletState before it was built")
+            .state
+            .unmount();
+    }
+
+    fn mount(
+        &mut self,
+        parent: &<R as Renderer>::Element,
+        marker: Option<&<R as Renderer>::Node>,
+    ) {
+        self.state
+            .borrow_mut()
+            .as_mut()
+            .expect("tried to access OutletState before it was built")
+            .state
+            .mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<R as Renderer>::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        self.state
+            .borrow_mut()
+            .as_mut()
+            .expect("tried to access OutletState before it was built")
+            .state
+            .insert_before_this(parent, child)
+    }
+}
+
+struct OutletData<R>
+where
     R: Renderer,
 {
-    let (view, child) = route_match.into_view_and_child();
-    let outlet = move || child.map(|child| build_nested(child)).into_any();
-    let data = RouteData {
-        params: { ArcMemo::new(move |_| Params::new()) },
-        outlet: Box::new(outlet),
-    };
-    view.choose(data)
+    trigger: ArcRwSignal<()>,
+    child: Rc<RefCell<Option<Box<dyn Any>>>>,
+    fun: Box<dyn FnOnce() -> AnyView<R>>,
+}
+
+fn rebuild_nested<Match, R>(
+    outer_owner: &Owner,
+    prev: &mut NestedRouteState<Match, R>,
+    new_match: Match,
+) where
+    Match: MatchInterface<R> + MatchParams,
+    R: Renderer + 'static,
+{
+    let mut items = 1;
+    let NestedRouteState {
+        id,
+        owner,
+        params,
+        view,
+        outlets,
+    } = prev;
+
+    if new_match.as_id() == *id {
+        params.set(new_match.to_params().into_iter().collect::<Params>());
+        let (_, child) = new_match.into_view_and_child();
+        if let Some(child) = child {
+            rebuild_inner(&mut items, outlets, child);
+        } else {
+            outlets.truncate(items);
+        }
+    } else {
+        let new = NestedRouteView::new(outer_owner, new_match);
+        new.rebuild(prev);
+    }
+}
+
+fn rebuild_inner<Match, R>(
+    items: &mut usize,
+    outlets: &mut VecDeque<Outlet<R>>,
+    route_match: Match,
+) where
+    Match: MatchInterface<R> + MatchParams,
+    R: Renderer + 'static,
+{
+    *items += 1;
+
+    match outlets.pop_front() {
+        None => todo!(),
+        Some(prev) => {
+            let prev_id = prev.id;
+            let new_id = route_match.as_id();
+
+            if new_id == prev_id {
+                // this is the same route, but the params may have changed
+                // so we'll just update that params value
+                prev.params.set(
+                    route_match.to_params().into_iter().collect::<Params>(),
+                );
+                outlets.push_front(prev);
+                let (_, child) = route_match.into_view_and_child();
+                if let Some(child) = child {
+                    // we still recurse to the children, because they may also have changed
+                    rebuild_inner(items, outlets, child);
+                } else {
+                    outlets.truncate(*items);
+                }
+            } else {
+                // if different routes are matched here, it means the rest of the tree is no longer
+                // matched either
+                outlets.truncate(*items);
+
+                // we'll build a fresh tree instead
+                // TODO check parent logic here...
+                let new_outlet =
+                    get_inner_view(outlets, &prev.owner, route_match);
+                let fun = new_outlet.fun.borrow_mut().take().unwrap();
+                let new_view = fun();
+                new_view.rebuild(
+                    &mut prev.state.borrow_mut().as_mut().unwrap().state,
+                );
+            }
+        }
+    }
 }
 
 impl<Matcher, R> Render<R> for NestedRouteView<Matcher, R>
@@ -277,17 +555,37 @@ where
     type FallibleState = ();
 
     fn build(self) -> Self::State {
+        let NestedRouteView {
+            id,
+            owner,
+            params,
+            outlets,
+            view,
+            ty,
+        } = self;
         NestedRouteState {
-            id: self.id,
-            owner: self.owner,
-            params: self.params,
-            matched: self.matched,
-            view: self.view.build(), //child: None,
+            id,
+            owner,
+            outlets,
+            params,
+            view: view.build(),
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        todo!()
+        let NestedRouteView {
+            id,
+            owner,
+            params,
+            outlets,
+            view,
+            ty,
+        } = self;
+        state.id = id;
+        state.owner = owner;
+        state.params = params;
+        state.outlets = outlets;
+        view.rebuild(&mut state.view);
     }
 
     fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
@@ -495,6 +793,8 @@ where
     View::State: 'static,*/
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
+    Children::Match: std::fmt::Debug,
+    <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
 {
     // TODO probably pick a max length here
     const MIN_LENGTH: usize = Fallback::MIN_LENGTH;

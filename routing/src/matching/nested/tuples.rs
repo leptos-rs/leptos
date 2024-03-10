@@ -2,7 +2,7 @@ use super::{MatchInterface, MatchNestedRoutes, PathSegment, RouteMatchId};
 use crate::{ChooseView, MatchParams};
 use core::iter;
 use either_of::*;
-use std::borrow::Cow;
+use std::{any::Any, borrow::Cow};
 use tachys::renderer::Renderer;
 
 impl MatchParams for () {
@@ -73,14 +73,14 @@ where
 
 impl<A, Rndr> MatchInterface<Rndr> for (A,)
 where
-    A: MatchInterface<Rndr>,
+    A: MatchInterface<Rndr> + 'static,
     Rndr: Renderer + 'static,
 {
     type Child = A::Child;
     type View = A::View;
 
     fn as_id(&self) -> RouteMatchId {
-        RouteMatchId(0)
+        self.0.as_id()
     }
 
     fn as_matched(&self) -> &str {
@@ -99,7 +99,7 @@ where
 
 impl<A, Rndr> MatchNestedRoutes<Rndr> for (A,)
 where
-    A: MatchNestedRoutes<Rndr>,
+    A: MatchNestedRoutes<Rndr> + 'static,
     Rndr: Renderer + 'static,
 {
     type Data = A::Data;
@@ -149,8 +149,8 @@ where
 
     fn as_id(&self) -> RouteMatchId {
         match self {
-            Either::Left(_) => RouteMatchId(0),
-            Either::Right(_) => RouteMatchId(1),
+            Either::Left(i) => i.as_id(),
+            Either::Right(i) => i.as_id(),
         }
     }
 
@@ -251,14 +251,14 @@ macro_rules! tuples {
         impl<Rndr, $($ty,)*> MatchInterface<Rndr> for $either <$($ty,)*>
         where
             Rndr: Renderer + 'static,
-			$($ty: MatchInterface<Rndr>),*,
+            $($ty: MatchInterface<Rndr> + 'static),*,
         {
             type Child = $either<$($ty::Child,)*>;
             type View = $either<$($ty::View,)*>;
 
             fn as_id(&self) -> RouteMatchId {
                 match self {
-                    $($either::$ty(_) => RouteMatchId($count),)*
+                    $($either::$ty(i) => i.as_id(),)*
                 }
             }
 
@@ -286,7 +286,7 @@ macro_rules! tuples {
         impl<Rndr, $($ty),*> MatchNestedRoutes<Rndr> for ($($ty,)*)
         where
             Rndr: Renderer + 'static,
-			$($ty: MatchNestedRoutes<Rndr>),*,
+			$($ty: MatchNestedRoutes<Rndr> + 'static),*,
         {
             type Data = ($($ty::Data,)*);
             type View = $either<$($ty::View,)*>;
@@ -296,11 +296,8 @@ macro_rules! tuples {
                 #[allow(non_snake_case)]
 
                 let ($($ty,)*) = &self;
-                let mut id = 0;
                 $(if let (Some((_, matched)), remaining) = $ty.match_nested(path) {
-                    return (Some((RouteMatchId(id), $either::$ty(matched))), remaining);
-                } else {
-                    id += 1;
+                    return (Some((RouteMatchId($count), $either::$ty(matched))), remaining);
                 })*
                 (None, path)
             }
