@@ -4,7 +4,8 @@ use super::{
 };
 use crate::{ChooseView, MatchParams, RouteData};
 use core::{fmt, iter};
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData, any::Any, sync::atomic::{AtomicU16, Ordering}};
+use either_of::Either;
 use tachys::{
     renderer::Renderer,
     view::{Render, RenderHtml},
@@ -12,10 +13,13 @@ use tachys::{
 
 mod tuples;
 
+static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct NestedRoute<Segments, Children, Data, ViewFn, R> {
+    id: u16,
     pub segments: Segments,
-    pub children: Children,
+    pub children: Option<Children>,
     pub data: Data,
     pub view: ViewFn,
     pub rndr: PhantomData<R>,
@@ -25,11 +29,12 @@ impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
     pub fn new<View>(path: Segments, view: ViewFn) -> Self
     where
         ViewFn: Fn(RouteData<R>) -> View,
-        R: Renderer,
+        R: Renderer + 'static,
     {
         Self {
+            id: ROUTE_ID.fetch_add(1, Ordering::Relaxed),
             segments: path,
-            children: (),
+            children: None,
             data: (),
             view,
             rndr: PhantomData,
@@ -43,6 +48,7 @@ impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
         child: Children,
     ) -> NestedRoute<Segments, Children, Data, ViewFn, R> {
         let Self {
+            id,
             segments,
             data,
             view,
@@ -50,8 +56,9 @@ impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
             ..
         } = self;
         NestedRoute {
+            id,
             segments,
-            children: child,
+            children: Some(child),
             data,
             view,
             rndr,
@@ -67,7 +74,7 @@ pub struct NestedMatch<ParamsIter, Child, ViewFn> {
     /// The map of params matched only by this nested route.
     params: ParamsIter,
     /// The nested route.
-    child: Child,
+    child: Option<Child>,
     view_fn: ViewFn,
 }
 
@@ -124,15 +131,16 @@ where
         impl ChooseView<Rndr, Output = Self::View>,
         Option<Self::Child>,
     ) {
-        (self.view_fn, Some(self.child))
+        (self.view_fn, self.child)
     }
 }
 
 impl<Segments, Children, Data, ViewFn, View, Rndr> MatchNestedRoutes<Rndr>
     for NestedRoute<Segments, Children, Data, ViewFn, Rndr>
 where
+    Self: 'static,
     Rndr: Renderer + 'static,
-    Segments: PossibleRouteMatch,
+    Segments: PossibleRouteMatch + std::fmt::Debug,
     <<Segments as PossibleRouteMatch>::ParamsIter as IntoIterator>::IntoIter: Clone,
     Children: MatchNestedRoutes<Rndr>,
     <<<Children as MatchNestedRoutes<Rndr>>::Match as MatchParams>::Params as IntoIterator>::IntoIter: Clone,
@@ -146,7 +154,9 @@ where
     type View = View;
     type Match = NestedMatch<iter::Chain<
         <Segments::ParamsIter as IntoIterator>::IntoIter,
-        <<Children::Match as MatchParams>::Params as IntoIterator>::IntoIter,
+        Either<iter::Empty::<
+(Cow<'static, str>, String)
+            >, <<Children::Match as MatchParams>::Params as IntoIterator>::IntoIter>
     >, Children::Match, ViewFn>;
 
     fn match_nested<'a>(
@@ -161,10 +171,21 @@ where
                      params,
                      matched,
                  }| {
-                    let (inner, remaining) =
-                        self.children.match_nested(remaining);
-                    let (id, inner) = inner?;
+                    let (id, inner, remaining) = match &self.children {
+                        None => (None, None, remaining),
+                        Some(children) => {
+                            let (inner, remaining) = children.match_nested(remaining);
+                            let (id, inner) = inner?;
+                           (Some(id), Some(inner), remaining) 
+                        }
+                    };
                     let params = params.into_iter();
+                    let inner_params = match &inner {
+                        None => Either::Left(iter::empty()),
+                        Some(inner) => Either::Right(inner.to_params().into_iter())
+                    };
+
+                    let id = RouteMatchId(self.id);
 
                     if remaining.is_empty() || remaining == "/" {
                         Some((
@@ -173,7 +194,7 @@ where
                                 NestedMatch {
                                     id,
                                     matched: matched.to_string(),
-                                    params: params.chain(inner.to_params()),
+                                    params: params.chain(inner_params),
                                     child: inner,
                                     view_fn: self.view.clone(),
                                 },
@@ -194,7 +215,7 @@ where
         let mut segment_routes = Vec::new();
         self.segments.generate_path(&mut segment_routes);
         let segment_routes = segment_routes.into_iter();
-        let children_routes = self.children.generate_routes().into_iter();
+        let children_routes = self.children.as_ref().into_iter().flat_map(|child| child.generate_routes().into_iter());
         children_routes.map(move |child_routes| {
             segment_routes
                 .clone()
