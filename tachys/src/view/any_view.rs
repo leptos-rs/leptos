@@ -2,6 +2,7 @@ use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{hydration::Cursor, renderer::Renderer};
 use std::{
     any::{Any, TypeId},
+    fmt::Debug,
     marker::PhantomData,
 };
 
@@ -33,6 +34,22 @@ where
     insert_before_this:
         fn(&dyn Any, parent: &R::Element, child: &mut dyn Mountable<R>) -> bool,
     rndr: PhantomData<R>,
+}
+
+impl<R> Debug for AnyViewState<R>
+where
+    R: Renderer,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyViewState")
+            .field("type_id", &self.type_id)
+            .field("state", &self.state)
+            .field("unmount", &self.unmount)
+            .field("mount", &self.mount)
+            .field("insert_before_this", &self.insert_before_this)
+            .field("rndr", &self.rndr)
+            .finish()
+    }
 }
 
 pub trait IntoAny<R>
