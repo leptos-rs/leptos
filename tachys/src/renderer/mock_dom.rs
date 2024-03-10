@@ -12,6 +12,8 @@ use crate::{
 use slotmap::{new_key_type, SlotMap};
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
 use wasm_bindgen::JsValue;
+
+#[derive(Debug)]
 pub struct MockDom;
 
 new_key_type! {
