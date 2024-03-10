@@ -84,7 +84,7 @@ where
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct RouteMatchId(pub(crate) u8);
+pub struct RouteMatchId(pub(crate) u16);
 
 pub trait MatchInterface<R>
 where

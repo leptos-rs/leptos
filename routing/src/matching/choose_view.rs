@@ -5,7 +5,7 @@ use tachys::{renderer::Renderer, view::Render};
 pub trait ChooseView<R>
 where
     Self: 'static,
-    R: Renderer,
+    R: Renderer + 'static,
 {
     type Output: Render<R>;
 
@@ -16,7 +16,7 @@ impl<F, View, R> ChooseView<R> for F
 where
     F: Fn(RouteData<R>) -> View + 'static,
     View: Render<R>,
-    R: Renderer,
+    R: Renderer + 'static,
 {
     type Output = View;
 
@@ -27,7 +27,7 @@ where
 
 impl<R> ChooseView<R> for ()
 where
-    R: Renderer,
+    R: Renderer + 'static,
 {
     type Output = ();
 
@@ -38,7 +38,7 @@ impl<A, B, Rndr> ChooseView<Rndr> for Either<A, B>
 where
     A: ChooseView<Rndr>,
     B: ChooseView<Rndr>,
-    Rndr: Renderer,
+    Rndr: Renderer + 'static,
 {
     type Output = Either<A::Output, B::Output>;
 
@@ -55,7 +55,7 @@ macro_rules! tuples {
         impl<$($ty,)* Rndr> ChooseView<Rndr> for $either<$($ty,)*>
         where
             $($ty: ChooseView<Rndr>,)*
-            Rndr: Renderer,
+            Rndr: Renderer + 'static,
         {
             type Output = $either<$($ty::Output,)*>;
 
