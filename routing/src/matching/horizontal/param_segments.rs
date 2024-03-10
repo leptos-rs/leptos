@@ -34,6 +34,10 @@ impl PossibleRouteMatch for ParamSegment {
             }
         }
 
+        if matched_len == 0 {
+            return None;
+        }
+
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = iter::once((
             Cow::Borrowed(self.0),
