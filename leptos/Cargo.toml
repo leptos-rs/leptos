@@ -44,13 +44,11 @@ default = ["serde"]
 csr = [
   "leptos_macro/csr",
   "leptos_reactive/csr",
-  "leptos_server/csr",
   "dep:wasm-bindgen",
 ]
 hydrate = [
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
-  "leptos_server/hydrate",
   "dep:wasm-bindgen",
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
@@ -58,14 +56,12 @@ rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
-  "leptos_server/ssr",
   "server_fn/ssr",
 ]
 nightly = [
   "leptos_dom/nightly",
   "leptos_macro/nightly",
   "leptos_reactive/nightly",
-  "leptos_server/nightly",
   "tachys/nightly",
 ]
 serde = ["leptos_reactive/serde"]

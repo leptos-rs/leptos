@@ -12,8 +12,8 @@ panic = "abort"
 [dependencies]
 console_log = "1"
 log = "0.4"
-leptos = { path = "../../leptos", features = ["csr", "tracing"] }
-routing = { path = "../../routing", features = ["tracing"] }
+leptos = { path = "../../leptos", features = ["csr"] } #, "tracing"] }
+routing = { path = "../../routing" }                   #, features = ["tracing"] }
 #leptos_router = { path = "../../router", features = ["csr", "nightly"] }
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
