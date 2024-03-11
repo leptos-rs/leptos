@@ -4,6 +4,7 @@ dependencies = [
   "clean-trunk",
   "clean-node_modules",
   "clean-playwright",
+  "clean-pkg",
 ]
 
 [tasks.clean-cargo]
@@ -27,4 +28,9 @@ fi
 [tasks.clean-playwright]
 script = '''
 find . -name playwright-report -name playwright -name test-results | xargs rm -rf
+'''
+
+[tasks.clean-pkg]
+script = '''
+find . -type d -name pkg | xargs rm -rf
 '''
