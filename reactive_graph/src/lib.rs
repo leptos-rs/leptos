@@ -72,6 +72,7 @@
 use futures::Stream;
 use std::{future::Future, pin::Pin};
 
+pub mod action;
 pub(crate) mod channel;
 pub mod computed;
 pub mod diagnostics;
