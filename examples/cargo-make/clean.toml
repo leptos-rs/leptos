@@ -7,8 +7,9 @@ dependencies = [
 ]
 
 [tasks.clean-cargo]
-command = "rm"
-args = ["-rf", "target"]
+script = '''
+find . -type d -name target | xargs rm -rf
+'''
 
 [tasks.clean-trunk]
 script = '''
