@@ -10,7 +10,7 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
-leptos_reactive = { workspace = true }
+reactive_graph = { workspace = true }
 leptos_macro = { workspace = true }
 server_fn = { workspace = true }
 lazy_static = "1"
@@ -23,12 +23,8 @@ inventory = "0.3"
 leptos = { path = "../leptos" }
 
 [features]
-csr = ["leptos_reactive/csr", "leptos_macro/csr"]
 default-tls = ["server_fn/default-tls"]
-hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate"]
 rustls = ["server_fn/rustls"]
-ssr = ["leptos_reactive/ssr", "server_fn/ssr", "leptos_macro/ssr"]
-nightly = ["leptos_reactive/nightly"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]
