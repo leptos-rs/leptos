@@ -12,6 +12,7 @@ where
 {
     type_id: TypeId,
     value: Box<dyn Any>,
+    // TODO add async HTML rendering for AnyView
     to_html: fn(Box<dyn Any>, &mut String, &mut Position),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),

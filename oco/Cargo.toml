@@ -1,0 +1,8 @@
+[package]
+name = "oco"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+serde = "1"
+thiserror = "1"

@@ -6,6 +6,7 @@ members = [
   "const_str_slice_concat",
   "either_of",
   "next_tuple",
+  "oco",
   "or_poisoned",
   "routing_utils",
 
@@ -55,6 +56,7 @@ leptos_router = { path = "./router", version = "0.6.5" }
 leptos_server = { path = "./leptos_server", version = "0.6.5" }
 leptos_meta = { path = "./meta", version = "0.6.5" }
 next_tuple = { path = "./next_tuple" }
+oco = { path = "./oco" }
 or_poisoned = { path = "./or_poisoned" }
 reactive_graph = { path = "./reactive_graph" }
 routing = { path = "./routing" }
