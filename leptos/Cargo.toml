@@ -7,7 +7,6 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 readme = "../README.md"
-rust-version.workspace = true
 
 [dependencies]
 any_spawner = { workspace = true, features = ["wasm-bindgen"] }
@@ -17,7 +16,8 @@ leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
-leptos-spin-macro = { version = "0.1", optional = true }
+leptos-spin-macro = { git = "https://github.com/fermyon/leptos-spin", optional = true }
+oco = { workspace = true }
 paste = "1"
 reactive_graph = { workspace = true, features = ["serde"] }
 tachys = { workspace = true, features = ["reactive_graph"] }
@@ -37,31 +37,29 @@ web-sys = { version = "0.3.63", features = [
   "ShadowRootInit",
   "ShadowRootMode",
 ] }
-wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen = { version = "0.2" }
 
 [features]
 default = ["serde"]
-csr = [
-  "leptos_macro/csr",
-  "leptos_reactive/csr",
-  "dep:wasm-bindgen",
-]
+csr = ["leptos_macro/csr", "leptos_reactive/csr", "leptos_server/csr"]
 hydrate = [
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
-  "dep:wasm-bindgen",
+  "leptos_server/hydrate",
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
+  "leptos_server/ssr",
   "server_fn/ssr",
 ]
 nightly = [
   "leptos_dom/nightly",
   "leptos_macro/nightly",
   "leptos_reactive/nightly",
+  "leptos_server/nightly",
   "tachys/nightly",
 ]
 serde = ["leptos_reactive/serde"]
@@ -96,8 +94,6 @@ denylist = [
   "wasm-bindgen",
   "rkyv",                  # was causing clippy issues on nightly
   "trace-component-props",
-  "spin",
-  "experimental-islands",
 ]
 skip_feature_sets = [
   [
