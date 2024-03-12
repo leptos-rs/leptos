@@ -14,7 +14,7 @@ actix-web = "4"
 futures = "0.3"
 leptos = { workspace = true, features = ["ssr"] }
 leptos_macro = { workspace = true, features = ["actix"] }
-leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_meta = { workspace = true }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 server_fn = { workspace = true, features = ["actix"] }
