@@ -1,5 +1,14 @@
-use crate::use_head;
-use leptos::{nonce::use_nonce, *};
+use crate::register;
+use leptos::{
+    component,
+    oco::Oco,
+    prelude::GlobalAttributes,
+    tachys::{
+        html::{attribute::any_attribute::AnyAttribute, element::link},
+        renderer::dom::Dom,
+    },
+    IntoView,
+};
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head, accepting any of the valid attributes for that tag.
@@ -24,7 +33,7 @@ use leptos::{nonce::use_nonce, *};
 ///     }
 /// }
 /// ```
-#[component(transparent)]
+#[component]
 pub fn Link(
     /// The [`id`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-id) attribute.
     #[prop(optional, into)]
@@ -35,9 +44,6 @@ pub fn Link(
     /// The [`crossorigin`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-crossorigin) attribute.
     #[prop(optional, into)]
     crossorigin: Option<Oco<'static, str>>,
-    /// The [`disabled`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-disabled) attribute.
-    #[prop(optional, into)]
-    disabled: Option<bool>,
     /// The [`fetchpriority`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-fetchpriority) attribute.
     #[prop(optional, into)]
     fetchpriority: Option<Oco<'static, str>>,
@@ -59,9 +65,6 @@ pub fn Link(
     /// The [`media`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-media) attribute.
     #[prop(optional, into)]
     media: Option<Oco<'static, str>>,
-    /// The [`prefetch`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-prefetch) attribute.
-    #[prop(optional, into)]
-    prefetch: Option<Oco<'static, str>>,
     /// The [`referrerpolicy`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-referrerpolicy) attribute.
     #[prop(optional, into)]
     referrerpolicy: Option<Oco<'static, str>>,
@@ -82,42 +85,26 @@ pub fn Link(
     blocking: Option<Oco<'static, str>>,
     /// Custom attributes.
     #[prop(attrs, optional)]
-    attrs: Vec<(&'static str, Attribute)>,
+    attrs: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
-    let meta = use_head();
-    let next_id = meta.tags.get_next_id();
-    let mut id: Oco<'static, str> =
-        id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
-
-    let builder_el = leptos::leptos_dom::html::as_meta_tag({
-        let id = id.clone_inplace();
-        move || {
-            attrs
-                .into_iter()
-                .fold(leptos::leptos_dom::html::link(), |el, (name, value)| {
-                    el.attr(name, value)
-                })
-                .attr("id", id)
-                .attr("as", as_)
-                .attr("crossorigin", crossorigin)
-                .attr("disabled", disabled.unwrap_or(false))
-                .attr("fetchpriority", fetchpriority)
-                .attr("href", href)
-                .attr("hreflang", hreflang)
-                .attr("imagesizes", imagesizes)
-                .attr("imagesrcset", imagesrcset)
-                .attr("integrity", integrity)
-                .attr("media", media)
-                .attr("prefetch", prefetch)
-                .attr("referrerpolicy", referrerpolicy)
-                .attr("rel", rel)
-                .attr("sizes", sizes)
-                .attr("title", title)
-                .attr("type", type_)
-                .attr("blocking", blocking)
-                .attr("nonce", use_nonce())
-        }
-    });
-
-    meta.tags.register(id, builder_el.into_any());
+    // TODO additional attributes
+    register(
+        link()
+            .id(id)
+            .r#as(as_)
+            .crossorigin(crossorigin)
+            .fetchpriority(fetchpriority)
+            .href(href)
+            .hreflang(hreflang)
+            .imagesizes(imagesizes)
+            .imagesrcset(imagesrcset)
+            .integrity(integrity)
+            .media(media)
+            .referrerpolicy(referrerpolicy)
+            .rel(rel)
+            .sizes(sizes)
+            .title(title)
+            .r#type(type_)
+            .blocking(blocking),
+    )
 }
