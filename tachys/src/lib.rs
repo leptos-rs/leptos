@@ -43,6 +43,8 @@ pub use wasm_bindgen;
 #[cfg(feature = "islands")]
 pub use web_sys;
 
+#[cfg(feature = "oco")]
+pub mod oco;
 #[cfg(feature = "reactive_graph")]
 pub mod reactive_graph;
 
