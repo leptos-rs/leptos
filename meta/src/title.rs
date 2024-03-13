@@ -11,7 +11,7 @@ use leptos::{
         error::Result,
         hydration::Cursor,
         renderer::{dom::Dom, Renderer},
-        view::{Mountable, PositionState, Render, RenderHtml},
+        view::{Mountable, Position, PositionState, Render, RenderHtml},
     },
     text_prop::TextProp,
     IntoView,
@@ -20,6 +20,7 @@ use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
+    ops::Deref,
     rc::Rc,
     sync::{Arc, RwLock},
 };
@@ -138,7 +139,6 @@ pub fn Title(
     }
 }
 
-#[derive(Debug)]
 struct TitleView {
     meta: MetaContext,
     formatter: Option<Formatter>,
@@ -146,40 +146,45 @@ struct TitleView {
 }
 
 impl TitleView {
-    fn el(&self) -> Element {
+    fn el(&self) -> HtmlTitleElement {
         let mut el_ref = self.meta.title.el.write().or_poisoned();
         let el = if let Some(el) = &*el_ref {
             el.clone()
         } else {
             match document().query_selector("title") {
-                Ok(Some(title)) => title.unchecked_into(),
+                Ok(Some(title)) => SendWrapper::new(title.unchecked_into()),
                 _ => {
-                    let el_ref = meta.title.el.clone();
-                    let el = document().create_element("title").unwrap_throw();
-                    let head = document().head().unwrap_throw();
+                    let el_ref = self.meta.title.el.clone();
+                    let el = SendWrapper::new(
+                        document()
+                            .create_element("title")
+                            .unwrap_throw()
+                            .unchecked_into::<HtmlTitleElement>(),
+                    );
+                    let head =
+                        SendWrapper::new(document().head().unwrap_throw());
                     head.append_child(el.unchecked_ref()).unwrap_throw();
 
                     Owner::on_cleanup({
                         let el = el.clone();
                         move || {
                             _ = head.remove_child(&el);
-                            *el_ref.borrow_mut() = None;
+                            *el_ref.write().or_poisoned() = None;
                         }
                     });
 
-                    el.unchecked_into()
+                    el
                 }
             }
         };
-        *el_ref = Some(el.clone().unchecked_into());
+        *el_ref = Some(el.clone());
 
-        el
+        el.take()
     }
 }
 
-#[derive(Debug)]
 struct TitleViewState {
-    el: Element,
+    el: HtmlTitleElement,
     formatter: Option<Formatter>,
     text: Option<TextProp>,
     effect: RenderEffect<Oco<'static, str>>,
@@ -192,14 +197,17 @@ impl Render<Dom> for TitleView {
     fn build(self) -> Self::State {
         let el = self.el();
         let meta = self.meta;
-        let effect = RenderEffect::new(move |prev| {
-            let text = meta.title.as_string().unwrap_or_default();
+        let effect = RenderEffect::new({
+            let el = el.clone();
+            move |prev| {
+                let text = meta.title.as_string().unwrap_or_default();
 
-            if prev.as_ref() != Some(&text) {
-                el.set_text_content(Some(&text));
+                if prev.as_ref() != Some(&text) {
+                    el.set_text_content(Some(&text));
+                }
+
+                text
             }
-
-            text
         });
         TitleViewState {
             el,
@@ -209,7 +217,7 @@ impl Render<Dom> for TitleView {
         }
     }
 
-    fn rebuild(self, state: &mut Self::State) {
+    fn rebuild(self, _state: &mut Self::State) {
         // TODO  should this rebuild?
     }
 
@@ -226,19 +234,37 @@ impl Render<Dom> for TitleView {
 impl RenderHtml<Dom> for TitleView {
     const MIN_LENGTH: usize = 0;
 
-    fn to_html_with_buf(
-        self,
-        buf: &mut String,
-        position: &mut leptos::tachys::view::Position,
-    ) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        // meta tags are rendered into the buffer stored into the context
+        // the value has already been taken out, when we're on the server
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
+        _cursor: &Cursor<Dom>,
+        _position: &PositionState,
     ) -> Self::State {
-        self.build()
+        let el = self.el();
+        let meta = self.meta;
+        let effect = RenderEffect::new({
+            let el = el.clone();
+            move |prev| {
+                let text = meta.title.as_string().unwrap_or_default();
+
+                // don't reset the title on initial hydration
+                if prev.is_some() && prev.as_ref() != Some(&text) {
+                    el.set_text_content(Some(&text));
+                }
+
+                text
+            }
+        });
+        TitleViewState {
+            el,
+            formatter: self.formatter,
+            text: self.text,
+            effect,
+        }
     }
 }
 
@@ -250,12 +276,14 @@ impl Mountable<Dom> for TitleViewState {
         parent: &<Dom as Renderer>::Element,
         marker: Option<&<Dom as Renderer>::Node>,
     ) {
+        // <title> doesn't need to be mounted
+        // TitleView::el() guarantees that there is a <title> in the <head>
     }
 
     fn insert_before_this(
         &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
+        _parent: &<Dom as Renderer>::Element,
+        _child: &mut dyn Mountable<Dom>,
     ) -> bool {
         true
     }
