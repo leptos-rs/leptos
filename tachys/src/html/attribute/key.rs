@@ -125,6 +125,8 @@ attributes! {
     http_equiv "http-equiv", // [],
     icon "icon", // [],
     id "id", // [], // [GlobalAttribute]
+    imagesizes "imagesizes",
+    imagesrcset "imagesrcset",
     importance "importance", // [],
     inert "inert", // [], // [GlobalAttribute]
     inputmode "inputmode", // [], // [GlobalAttribute]

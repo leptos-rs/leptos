@@ -190,6 +190,8 @@ where
     }
 }
 
+// TODO impl AttributeValue for Rc<str> and Arc<str> too
+
 impl<R> AttributeValue<R> for bool
 where
     R: Renderer,
