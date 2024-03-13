@@ -1,4 +1,4 @@
-use crate::{use_head, ServerMetaContext};
+use crate::ServerMetaContext;
 use indexmap::IndexMap;
 use leptos::{
     component,
@@ -27,52 +27,7 @@ use std::{
     rc::Rc,
     sync::{Arc, RwLock},
 };
-use web_sys::{HtmlBodyElement, HtmlElement};
-
-/// Contains the current metadata for the document's `<body>`.
-#[derive(Clone, Default)]
-pub struct BodyContext {
-    class: Arc<RwLock<Option<TextProp>>>,
-    attributes: Arc<RwLock<Vec<AnyAttribute<Dom>>>>,
-}
-
-impl BodyContext {
-    /// Converts the `<body>` metadata into an HTML string.
-    ///
-    /// This consumes the list of `attributes`, and should only be called once per request.
-    pub fn to_string(&self) -> Option<String> {
-        let mut buf = String::from(" ");
-        if let Some(class) = &*self.class.read().or_poisoned() {
-            buf.push_str("class=\"");
-            buf.push_str(&class.get());
-            buf.push_str("\" ");
-        };
-
-        let attributes = mem::take(&mut *self.attributes.write().or_poisoned());
-
-        for attr in attributes {
-            attr.to_html(
-                &mut buf,
-                &mut String::new(),
-                &mut String::new(),
-                &mut String::new(),
-            );
-            buf.push(' ');
-        }
-
-        if buf.trim().is_empty() {
-            None
-        } else {
-            Some(buf)
-        }
-    }
-}
-
-impl core::fmt::Debug for BodyContext {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BodyContext").finish_non_exhaustive()
-    }
-}
+use web_sys::HtmlElement;
 
 /// A component to set metadata on the document’s `<body>` element from
 /// within the application.
@@ -102,32 +57,27 @@ impl core::fmt::Debug for BodyContext {
 /// ```
 #[component]
 pub fn Body(
-    /// The `class` attribute on the `<body>`.
-    #[prop(optional, into)]
-    class: Option<TextProp>,
-    /// Arbitrary attributes to add to the `<body>`
+    /// Arbitrary attributes to add to the `<body>`.
     #[prop(attrs)]
     mut attributes: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
     if let Some(meta) = use_context::<ServerMetaContext>() {
-        *meta.body.class.write().or_poisoned() = class.clone();
-
-        // these can safely be taken out if the server context is present
-        // server rendering is handled separately, not via RenderHtml
-        *meta.body.attributes.write().or_poisoned() = mem::take(&mut attributes)
+        let mut meta = meta.inner.write().or_poisoned();
+        // if we are server rendering, we will not actually use these values via RenderHtml
+        // instead, they'll be handled separately by the server integration
+        // so it's safe to take them out of the props here
+        meta.body = mem::take(&mut attributes);
     }
 
-    BodyView { class, attributes }
+    BodyView { attributes }
 }
 
 struct BodyView {
-    class: Option<TextProp>,
     attributes: Vec<AnyAttribute<Dom>>,
 }
 
 struct BodyViewState {
     el: HtmlElement,
-    class: Option<RenderEffect<Oco<'static, str>>>,
     attributes: Vec<AnyAttributeState<Dom>>,
 }
 
@@ -137,20 +87,6 @@ impl Render<Dom> for BodyView {
 
     fn build(self) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
-        let class = self.class.map(|class| {
-            RenderEffect::new({
-                let el = el.clone();
-                move |prev| {
-                    let next = class.get();
-                    if prev.as_ref() != Some(&next) {
-                        if let Err(e) = el.set_attribute("class", &next) {
-                            web_sys::console::error_1(&e);
-                        }
-                    }
-                    next
-                }
-            })
-        });
 
         let attributes = self
             .attributes
@@ -158,11 +94,7 @@ impl Render<Dom> for BodyView {
             .map(|attr| attr.build(&el))
             .collect();
 
-        BodyViewState {
-            el,
-            class,
-            attributes,
-        }
+        BodyViewState { el, attributes }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -190,24 +122,6 @@ impl RenderHtml<Dom> for BodyView {
         position: &PositionState,
     ) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
-        let class = self.class.map(|class| {
-            RenderEffect::new({
-                let el = el.clone();
-                move |prev| {
-                    let next = class.get();
-                    if prev.is_none() {
-                        return next;
-                    }
-
-                    if prev.as_ref() != Some(&next) {
-                        if let Err(e) = el.set_attribute("class", &next) {
-                            web_sys::console::error_1(&e);
-                        }
-                    }
-                    next
-                }
-            })
-        });
 
         let attributes = self
             .attributes
@@ -215,11 +129,7 @@ impl RenderHtml<Dom> for BodyView {
             .map(|attr| attr.hydrate::<FROM_SERVER>(&el))
             .collect();
 
-        BodyViewState {
-            el,
-            class,
-            attributes,
-        }
+        BodyViewState { el, attributes }
     }
 }
 
