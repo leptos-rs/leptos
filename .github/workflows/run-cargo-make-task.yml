@@ -44,6 +44,10 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - uses: jetli/wasm-bindgen-action@v0.2.0
+        with:
+          version: "0.2.92"
+
       - name: Install Trunk
         uses: jetli/trunk-action@v0.4.0
         with:
