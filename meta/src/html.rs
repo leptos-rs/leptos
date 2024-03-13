@@ -113,12 +113,15 @@ impl Render<Dom> for HtmlView {
 impl RenderHtml<Dom> for HtmlView {
     const MIN_LENGTH: usize = 0;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {}
+    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
+        // meta tags are rendered into the buffer stored into the context
+        // the value has already been taken out, when we're on the server
+    }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
+        _cursor: &Cursor<Dom>,
+        _position: &PositionState,
     ) -> Self::State {
         let el = document()
             .document_element()
@@ -139,15 +142,17 @@ impl Mountable<Dom> for HtmlViewState {
 
     fn mount(
         &mut self,
-        parent: &<Dom as Renderer>::Element,
-        marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &<Dom as Renderer>::Element,
+        _marker: Option<&<Dom as Renderer>::Node>,
     ) {
+        // <Html> only sets attributes
+        // the <html> tag doesn't need to be mounted anywhere, of course
     }
 
     fn insert_before_this(
         &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
+        _parent: &<Dom as Renderer>::Element,
+        _child: &mut dyn Mountable<Dom>,
     ) -> bool {
         true
     }
