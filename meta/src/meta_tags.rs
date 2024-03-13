@@ -1,5 +1,14 @@
-use crate::{use_head, TextProp};
-use leptos::{component, Attribute, IntoView};
+use crate::register;
+use leptos::{
+    component,
+    prelude::{CustomAttribute, GlobalAttributes},
+    tachys::{
+        html::{attribute::any_attribute::AnyAttribute, element::meta},
+        renderer::dom::Dom,
+    },
+    text_prop::TextProp,
+    IntoView,
+};
 
 /// Injects an [`HTMLMetaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
@@ -21,7 +30,7 @@ use leptos::{component, Attribute, IntoView};
 ///   }
 /// }
 /// ```
-#[component(transparent)]
+#[component]
 pub fn Meta(
     /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
     #[prop(optional, into)]
@@ -35,29 +44,24 @@ pub fn Meta(
     /// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
     #[prop(optional, into)]
     http_equiv: Option<TextProp>,
+    /// The [`itemprop`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-itemprop) attribute.
+    #[prop(optional, into)]
+    itemprop: Option<TextProp>,
     /// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
     #[prop(optional, into)]
     content: Option<TextProp>,
     /// Custom attributes.
     #[prop(attrs, optional)]
-    attrs: Vec<(&'static str, Attribute)>,
+    attrs: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
-    let meta = use_head();
-    let next_id = meta.tags.get_next_id();
-    let id = format!("leptos-link-{}", next_id.0);
-
-    let builder_el = leptos::leptos_dom::html::as_meta_tag(move || {
-        attrs
-            .into_iter()
-            .fold(leptos::leptos_dom::html::meta(), |el, (name, value)| {
-                el.attr(name, value)
-            })
-            .attr("charset", move || charset.as_ref().map(|v| v.get()))
-            .attr("name", move || name.as_ref().map(|v| v.get()))
-            .attr("property", move || property.as_ref().map(|v| v.get()))
-            .attr("http-equiv", move || http_equiv.as_ref().map(|v| v.get()))
-            .attr("content", move || content.as_ref().map(|v| v.get()))
-    });
-
-    meta.tags.register(id.into(), builder_el.into_any());
+    // TODO other attrs
+    register(
+        meta()
+            .charset(charset.map(|v| move || v.get()))
+            .name(name.map(|v| move || v.get()))
+            .attr("property", property.map(|v| move || v.get()))
+            .http_equiv(http_equiv.map(|v| move || v.get()))
+            .itemprop(itemprop.map(|v| move || v.get()))
+            .content(content.map(|v| move || v.get())),
+    )
 }
