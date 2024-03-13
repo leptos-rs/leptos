@@ -51,31 +51,35 @@ use indexmap::IndexMap;
 use leptos::{
     debug_warn,
     reactive_graph::owner::{provide_context, use_context},
+    tachys::{
+        html::attribute::any_attribute::AnyAttribute, renderer::dom::Dom,
+    },
 };
 use std::{
     cell::{Cell, RefCell},
     fmt::Debug,
     rc::Rc,
+    sync::{Arc, RwLock},
 };
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 mod body;
-/*mod html;
-mod link;
+mod html;
+/*mod link;
 mod meta_tags;
 mod script;
 mod style;
-mod stylesheet;
-mod title;*/
+mod stylesheet;*/
+mod title;
 pub use body::*;
-/*pub use html::*;
-pub use link::*;
+pub use html::*;
+/*pub use link::*;
 pub use meta_tags::*;
 pub use script::*;
 pub use style::*;
-pub use stylesheet::*;
-pub use title::*;*/
+pub use stylesheet::*;*/
+pub use title::*;
 
 /// Contains the current state of meta tags. To access it, you can use [`use_head`].
 ///
@@ -83,10 +87,8 @@ pub use title::*;*/
 /// [`provide_meta_context`].
 #[derive(Clone, Default, Debug)]
 pub struct MetaContext {
-    /*/// Metadata associated with the `<html>` element
-    pub html: HtmlContext,
     /// Metadata associated with the `<title>` element.
-    pub title: TitleContext,*/
+    pub title: TitleContext,
     /*
     /// Other metadata tags.
     pub tags: MetaTagsContext,
@@ -96,18 +98,33 @@ pub struct MetaContext {
 /// Contains the state of meta tags for server rendering.
 ///
 /// This should be provided as context during server rendering.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default)]
 pub struct ServerMetaContext {
+    inner: Arc<RwLock<ServerMetaContextInner>>,
+    /// Metadata associated with the `<title>` element.
+    pub(crate) title: TitleContext,
+}
+
+#[derive(Default)]
+struct ServerMetaContextInner {
     /*/// Metadata associated with the `<html>` element
     pub html: HtmlContext,
     /// Metadata associated with the `<title>` element.
     pub title: TitleContext,*/
+    /// Metadata associated with the `<html>` element
+    pub(crate) html: Vec<AnyAttribute<Dom>>,
     /// Metadata associated with the `<body>` element
-    pub(crate) body: BodyContext,
+    pub(crate) body: Vec<AnyAttribute<Dom>>,
     /*
     /// Other metadata tags.
     pub tags: MetaTagsContext,
     */
+}
+
+impl Debug for ServerMetaContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ServerMetaContext").finish_non_exhaustive()
+    }
 }
 
 impl ServerMetaContext {
