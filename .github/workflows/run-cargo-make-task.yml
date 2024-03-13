@@ -51,7 +51,7 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
 
       - name: Install cargo-leptos
-        run: cargo binstall cargo-leptos
+        run: cargo binstall cargo-leptos --no-confirm
 
       - name: Install Trunk
         uses: jetli/trunk-action@v0.4.0
