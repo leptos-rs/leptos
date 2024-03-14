@@ -44,6 +44,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install wasm-bindgen
+        run: cargo binstall wasm-bindgen-cli --no-confirm
+
+      - name: Install cargo-leptos
+        run: cargo binstall cargo-leptos --no-confirm
+
       - name: Install Trunk
         uses: jetli/trunk-action@v0.4.0
         with:
