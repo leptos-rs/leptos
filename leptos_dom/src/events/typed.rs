@@ -167,6 +167,14 @@ impl DOMEventResponder for crate::View {
     }
 }
 
+/// A statically typed event handler.
+pub enum EventHandlerFn {
+  /// Keydown event handler.
+  Keydown(Box<dyn FnMut(KeyboardEvent)>),
+  /// Click event handler.
+  Click(Box<dyn FnMut(MouseEvent)>),
+}
+
 /// Type that can be used to handle DOM events
 pub trait EventHandler {
     /// Attaches event listener to any target that can respond to DOM events

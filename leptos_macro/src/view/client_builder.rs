@@ -223,7 +223,7 @@ pub(crate) fn element_to_tokens(
                 None
             }
         });
-        let spread_attrs = node.attributes().iter().filter_map(|node| {
+        let spread_props = node.attributes().iter().filter_map(|node| {
             use rstml::node::NodeBlock;
             use syn::{Expr, ExprRange, RangeLimits, Stmt};
 
@@ -237,7 +237,7 @@ pub(crate) fn element_to_tokens(
                             ..
                         }),
                         _,
-                    ) => Some(quote! { .attrs(#[allow(unused_brace)] {#end}) }),
+                    ) => Some(quote! { .props(#[allow(unused_brace)] {#end}) }),
                     _ => None,
                 }
             } else {
@@ -356,7 +356,7 @@ pub(crate) fn element_to_tokens(
             #(#ide_helper_close_tag)*
             #name
                 #(#attrs)*
-                #(#spread_attrs)*
+                #(#spread_props)*
                 #(#class_attrs)*
                 #(#style_attrs)*
                 #global_class_expr

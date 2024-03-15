@@ -63,7 +63,7 @@ cfg_if! {
 
 use crate::{
     create_node_ref,
-    ev::EventDescriptor,
+    ev::{EventDescriptor, EventHandlerFn},
     hydration::HydrationCtx,
     macro_helpers::{
         Attribute, IntoAttribute, IntoClass, IntoProperty, IntoStyle,
@@ -366,6 +366,27 @@ where
     }
 }
 
+/// Represents HTML element properties. These can either be named attributes or event handlers.
+/// A collection of Props (`collection: Vec<Prop>`) can be spread onto an element like in `view! { <div {..collection} /> }`.
+pub enum Prop {
+    /// A statically named attribute.
+    NamedAttr((&'static str, Attribute)),
+    /// A statically typed event handler.
+    EventHandler(EventHandlerFn),
+}
+
+impl From<(&'static str, Attribute)> for Prop {
+    fn from((name, value): (&'static str, Attribute)) -> Self {
+        Self::NamedAttr((name, value))
+    }
+}
+
+impl From<EventHandlerFn> for Prop {
+    fn from(handler: EventHandlerFn) -> Self {
+        Self::EventHandler(handler)
+    }
+}
+
 impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     pub(crate) fn new(element: El) -> Self {
         cfg_if! {
@@ -651,14 +672,21 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
-    /// Adds multiple attributes to the element
+    /// Adds multiple properties to the element.
     #[track_caller]
-    pub fn attrs(
+    pub fn props<P: Into<Prop>>(
         mut self,
-        attrs: impl std::iter::IntoIterator<Item = (&'static str, Attribute)>,
+        props: impl std::iter::IntoIterator<Item = P>,
     ) -> Self {
-        for (name, value) in attrs {
-            self = self.attr(name, value);
+        for prop in props {
+            let prop = prop.into();
+            self = match prop {
+                Prop::NamedAttr((name, value)) => self.attr(name, value),
+                Prop::EventHandler(handler) => match handler {
+                    EventHandlerFn::Keydown(handler) => self.on(crate::events::typed::keydown, handler),
+                    EventHandlerFn::Click(handler) => self.on(crate::events::typed::click, handler),
+                },
+            };
         }
         self
     }

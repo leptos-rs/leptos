@@ -162,9 +162,11 @@ pub use leptos_dom::{
         set_interval_with_handle, set_timeout, set_timeout_with_handle,
         window_event_listener, window_event_listener_untyped,
     },
-    html, math, mount_to, mount_to_body, nonce, svg, window, Attribute, Class,
-    CollectView, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
-    IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
+    html,
+    html::Prop,
+    math, mount_to, mount_to_body, nonce, svg, window, Attribute, Class,
+    CollectView, Errors, EventHandlerFn, Fragment, HtmlElement, IntoAttribute,
+    IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {
