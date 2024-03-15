@@ -19,3 +19,4 @@ typed-builder = "0.18"
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 tempfile = "3"
+temp-env = { version = "0.3.6", features = ["async_closure"] }

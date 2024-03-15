@@ -23,13 +23,7 @@ env = "PROD"
 
 const CARGO_TOML_CONTENT_ERR: &str = r#"\
 [package.metadata.leptos]
-_output-name = "app-test"
-_site-root = "my_target/site"
-_site-pkg-dir = "my_pkg"
-_site-addr = "0.0.0.0:80"
-_reload-port = "8080"
-_reload-external-port = "8080"
-_env = "PROD"
+- invalid toml -
 "#;
 
 #[tokio::test]
@@ -43,10 +37,23 @@ async fn get_configuration_from_file_ok() {
     let path: &Path = cargo_tmp.as_ref();
     let path_s = path.to_string_lossy().to_string();
 
-    let config = get_configuration(Some(&path_s))
-        .await
-        .unwrap()
-        .leptos_options;
+    let config = temp_env::async_with_vars(
+        [
+            ("LEPTOS_OUTPUT_NAME", None::<&str>),
+            ("LEPTOS_SITE_ROOT", None::<&str>),
+            ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_ADDR", None::<&str>),
+            ("LEPTOS_RELOAD_PORT", None::<&str>),
+            ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
+        ],
+        async {
+            get_configuration(Some(&path_s))
+                .await
+                .unwrap()
+                .leptos_options
+        },
+    )
+    .await;
 
     assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
@@ -91,10 +98,23 @@ async fn get_config_from_file_ok() {
         write!(output, "{CARGO_TOML_CONTENT_OK}").unwrap();
     }
 
-    let config = get_config_from_file(&cargo_tmp)
-        .await
-        .unwrap()
-        .leptos_options;
+    let config = temp_env::async_with_vars(
+        [
+            ("LEPTOS_OUTPUT_NAME", None::<&str>),
+            ("LEPTOS_SITE_ROOT", None::<&str>),
+            ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_ADDR", None::<&str>),
+            ("LEPTOS_RELOAD_PORT", None::<&str>),
+            ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
+        ],
+        async {
+            get_config_from_file(&cargo_tmp)
+                .await
+                .unwrap()
+                .leptos_options
+        },
+    )
+    .await;
 
     assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
@@ -129,9 +149,18 @@ async fn get_config_from_file_empty() {
 
 #[test]
 fn get_config_from_str_content() {
-    let config = get_config_from_str(CARGO_TOML_CONTENT_OK)
-        .unwrap()
-        .leptos_options;
+    let config = temp_env::with_vars_unset(
+        [
+            "LEPTOS_OUTPUT_NAME",
+            "LEPTOS_SITE_ROOT",
+            "LEPTOS_SITE_PKG_DIR",
+            "LEPTOS_SITE_ADDR",
+            "LEPTOS_RELOAD_PORT",
+            "LEPTOS_RELOAD_EXTERNAL_PORT",
+        ],
+        || get_config_from_str(CARGO_TOML_CONTENT_OK).unwrap(),
+    );
+
     assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
@@ -146,16 +175,20 @@ fn get_config_from_str_content() {
 #[tokio::test]
 async fn get_config_from_env() {
     // Test config values from environment variables
-    std::env::set_var("LEPTOS_OUTPUT_NAME", "app-test");
-    std::env::set_var("LEPTOS_SITE_ROOT", "my_target/site");
-    std::env::set_var("LEPTOS_SITE_PKG_DIR", "my_pkg");
-    std::env::set_var("LEPTOS_SITE_ADDR", "0.0.0.0:80");
-    std::env::set_var("LEPTOS_RELOAD_PORT", "8080");
-    std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "8080");
+    let config = temp_env::async_with_vars(
+        [
+            ("LEPTOS_OUTPUT_NAME", Some("app-test")),
+            ("LEPTOS_SITE_ROOT", Some("my_target/site")),
+            ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
+            ("LEPTOS_SITE_ADDR", Some("0.0.0.0:80")),
+            ("LEPTOS_RELOAD_PORT", Some("8080")),
+            ("LEPTOS_RELOAD_EXTERNAL_PORT", Some("8080")),
+        ],
+        async { get_configuration(None).await.unwrap().leptos_options },
+    )
+    .await;
 
-    let config = get_configuration(None).await.unwrap().leptos_options;
     assert_eq!(config.output_name, "app-test");
-
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -166,13 +199,19 @@ async fn get_config_from_env() {
     assert_eq!(config.reload_external_port, Some(8080));
 
     // Test default config values
-    std::env::remove_var("LEPTOS_SITE_ROOT");
-    std::env::remove_var("LEPTOS_SITE_PKG_DIR");
-    std::env::remove_var("LEPTOS_SITE_ADDR");
-    std::env::remove_var("LEPTOS_RELOAD_PORT");
-    std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "443");
+    let config = temp_env::async_with_vars(
+        [
+            ("LEPTOS_OUTPUT_NAME", None::<&str>),
+            ("LEPTOS_SITE_ROOT", None::<&str>),
+            ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_ADDR", None::<&str>),
+            ("LEPTOS_RELOAD_PORT", None::<&str>),
+            ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
+        ],
+        async { get_configuration(None).await.unwrap().leptos_options },
+    )
+    .await;
 
-    let config = get_configuration(None).await.unwrap().leptos_options;
     assert_eq!(config.site_root, "target/site");
     assert_eq!(config.site_pkg_dir, "pkg");
     assert_eq!(
@@ -180,7 +219,7 @@ async fn get_config_from_env() {
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
     );
     assert_eq!(config.reload_port, 3001);
-    assert_eq!(config.reload_external_port, Some(443));
+    assert_eq!(config.reload_external_port, None);
 }
 
 #[test]

@@ -303,30 +303,34 @@ impl TryFrom<String> for ReloadWSProtocol {
 pub fn get_config_from_str(
     text: &str,
 ) -> Result<LeptosOptions, LeptosConfigError> {
-    let re: Regex =
-        Regex::new(r"(?m)^\[package.metadata.leptos\]\s*\n").unwrap();
+    let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
     let re_workspace: Regex =
-        Regex::new(r"(?m)^\[\[workspace.metadata.leptos\]\]\s*\n").unwrap();
+        Regex::new(r"(?m)^\[\[workspace.metadata.leptos\]\]").unwrap();
 
-    let options_start;
+    let metadata_name;
+    let start;
     match re.find(text) {
         Some(found) => {
-            options_start = found.end();
+            metadata_name = "[package.metadata.leptos]";
+            start = found.start();
         }
         None => match re_workspace.find(text) {
             Some(found) => {
-                options_start = found.end();
+                metadata_name = "[[workspace.metadata.leptos]]";
+                start = found.start();
             }
             None => return Err(LeptosConfigError::ConfigSectionNotFound),
         },
     };
 
     // so that serde error messages have right line number
-    let newlines = text[..options_start].matches('\n').count();
-    let input = "\n".repeat(newlines) + &text[options_start..];
+    let newlines = text[..start].matches('\n').count();
+    let input = "\n".repeat(newlines) + &text[start..];
+    // so the settings will be interpreted as root level settings
+    let toml = input.replace(metadata_name, "");
     let settings = Config::builder()
         // Read the "default" configuration file
-        .add_source(File::from_str(&input, FileFormat::Toml))
+        .add_source(File::from_str(&toml, FileFormat::Toml))
         // Layer on the environment-specific values.
         // Add in settings from environment variables (with a prefix of LEPTOS)
         // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
