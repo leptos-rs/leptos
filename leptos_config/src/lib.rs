@@ -3,7 +3,7 @@
 pub mod errors;
 
 use crate::errors::LeptosConfigError;
-use config::{Config, File, FileFormat};
+use config::{Case, Config, File, FileFormat};
 use regex::Regex;
 use std::{
     convert::TryFrom, env::VarError, fs, net::SocketAddr, path::Path,
@@ -300,38 +300,40 @@ impl TryFrom<String> for ReloadWSProtocol {
 
 /// Loads [LeptosOptions] from a Cargo.toml text content with layered overrides.
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
-pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
-    let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
+pub fn get_config_from_str(
+    text: &str,
+) -> Result<LeptosOptions, LeptosConfigError> {
+    let re: Regex =
+        Regex::new(r"(?m)^\[package.metadata.leptos\]\s*\n").unwrap();
     let re_workspace: Regex =
-        Regex::new(r"(?m)^\[\[workspace.metadata.leptos\]\]").unwrap();
+        Regex::new(r"(?m)^\[\[workspace.metadata.leptos\]\]\s*\n").unwrap();
 
-    let metadata_name;
-    let start;
+    let options_start;
     match re.find(text) {
         Some(found) => {
-            metadata_name = "[package.metadata.leptos]";
-            start = found.start();
+            options_start = found.end();
         }
         None => match re_workspace.find(text) {
             Some(found) => {
-                metadata_name = "[[workspace.metadata.leptos]]";
-                start = found.start();
+                options_start = found.end();
             }
             None => return Err(LeptosConfigError::ConfigSectionNotFound),
         },
     };
 
     // so that serde error messages have right line number
-    let newlines = text[..start].matches('\n').count();
-    let input = "\n".repeat(newlines) + &text[start..];
-    let toml = input.replace(metadata_name, "[leptos-options]");
+    let newlines = text[..options_start].matches('\n').count();
+    let input = "\n".repeat(newlines) + &text[options_start..];
     let settings = Config::builder()
         // Read the "default" configuration file
-        .add_source(File::from_str(&toml, FileFormat::Toml))
+        .add_source(File::from_str(&input, FileFormat::Toml))
         // Layer on the environment-specific values.
-        // Add in settings from environment variables (with a prefix of LEPTOS and '_' as separator)
+        // Add in settings from environment variables (with a prefix of LEPTOS)
         // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
-        .add_source(config::Environment::with_prefix("LEPTOS").separator("_"))
+        .add_source(
+            config::Environment::with_prefix("LEPTOS")
+                .convert_case(Case::Kebab),
+        )
         .build()?;
 
     settings
@@ -361,7 +363,8 @@ pub async fn get_config_from_file<P: AsRef<Path>>(
 ) -> Result<ConfFile, LeptosConfigError> {
     let text = fs::read_to_string(path)
         .map_err(|_| LeptosConfigError::ConfigNotFound)?;
-    get_config_from_str(&text)
+    let leptos_options = get_config_from_str(&text)?;
+    Ok(ConfFile { leptos_options })
 }
 
 /// Loads [LeptosOptions] from environment variables or rely on the defaults
