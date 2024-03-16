@@ -12,6 +12,17 @@ pub struct Memo<T: Send + Sync + 'static> {
     inner: StoredValue<ArcMemo<T>>,
 }
 
+impl<T: Send + Sync + 'static> From<ArcMemo<T>> for Memo<T> {
+    #[track_caller]
+    fn from(value: ArcMemo<T>) -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new(value),
+        }
+    }
+}
+
 impl<T: Send + Sync + 'static> Memo<T> {
     #[track_caller]
     #[cfg_attr(

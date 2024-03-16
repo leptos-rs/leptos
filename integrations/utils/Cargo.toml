@@ -10,7 +10,7 @@ rust-version.workspace = true
 
 [dependencies]
 futures = "0.3"
-leptos = { workspace = true, features = ["ssr"] }
+leptos = { workspace = true }
 leptos_hot_reload = { workspace = true }
 leptos_meta = { workspace = true }
 leptos_config = { workspace = true }
