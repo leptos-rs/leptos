@@ -98,7 +98,8 @@ impl SharedContext for SsrSharedContext {
             .into_iter()
             .map(|(id, data)| async move {
                 let data = data.await;
-                format!("__RESOLVED_RESOURCES[{}] = {data:?};", id.0)
+                let data = data.replace('<', "\\u003c");
+                format!("__RESOLVED_RESOURCES[{}] = {:?};", id.0, data)
             })
             .collect::<FuturesUnordered<_>>();
 

@@ -71,7 +71,7 @@ impl<T> DefinedAt for ArcAsyncDerived<T> {
 
 // This helps create a derived async signal.
 // It needs to be implemented as a macro because it needs to be flexible over
-// whether `fun` returns a `Future` that is `Send + Sync`. Doing it as a function would,
+// whether `fun` returns a `Future` that is `Send`. Doing it as a function would,
 // as far as I can tell, require repeating most of the function body.
 macro_rules! spawn_derived {
     ($spawner:expr, $initial:ident, $fun:ident) => {{
@@ -174,7 +174,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     pub fn new<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
     where
         T: Send + Sync + 'static,
-        Fut: Future<Output = T> + Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
     {
         Self::new_with_initial(AsyncState::Loading, fun)
     }
@@ -186,7 +186,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     ) -> Self
     where
         T: Send + Sync + 'static,
-        Fut: Future<Output = T> + Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
     {
         spawn_derived!(Executor::spawn, initial_value, fun)
     }
