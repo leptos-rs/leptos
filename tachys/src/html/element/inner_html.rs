@@ -4,12 +4,12 @@ use crate::{
     renderer::{DomRenderer, Renderer},
     view::add_attr::AddAnyAttr,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc, sync::Arc};
 
 #[inline(always)]
 pub fn inner_html<T, R>(value: T) -> InnerHtml<T, R>
 where
-    T: AsRef<str>,
+    T: InnerHtmlValue<R>,
     R: DomRenderer,
 {
     InnerHtml {
@@ -21,8 +21,8 @@ where
 #[derive(Debug, Clone, Copy)]
 pub struct InnerHtml<T, R>
 where
-    T: AsRef<str>,
-    R: Renderer,
+    T: InnerHtmlValue<R>,
+    R: DomRenderer,
 {
     value: T,
     rndr: PhantomData<R>,
@@ -30,12 +30,12 @@ where
 
 impl<T, R> Attribute<R> for InnerHtml<T, R>
 where
-    T: AsRef<str> + PartialEq,
+    T: InnerHtmlValue<R>,
     R: DomRenderer,
 {
     const MIN_LENGTH: usize = 0;
 
-    type State = (R::Element, T);
+    type State = T::State;
 
     fn to_html(
         self,
@@ -44,33 +44,28 @@ where
         _style: &mut String,
         inner_html: &mut String,
     ) {
-        inner_html.push_str(self.value.as_ref());
+        self.value.to_html(inner_html);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
         el: &<R as Renderer>::Element,
     ) -> Self::State {
-        (el.clone(), self.value)
+        self.value.hydrate::<FROM_SERVER>(el)
     }
 
     fn build(self, el: &<R as Renderer>::Element) -> Self::State {
-        R::set_inner_html(el, self.value.as_ref());
-        (el.clone(), self.value)
+        self.value.build(el)
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let (el, prev) = state;
-        if self.value != *prev {
-            R::set_inner_html(el, self.value.as_ref());
-            *prev = self.value;
-        }
+        self.value.rebuild(state);
     }
 }
 
 impl<T, R> NextAttribute<R> for InnerHtml<T, R>
 where
-    T: AsRef<str> + PartialEq,
+    T: InnerHtmlValue<R>,
     R: DomRenderer,
 {
     type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
@@ -85,7 +80,7 @@ where
 
 pub trait InnerHtmlAttribute<T, Rndr>
 where
-    T: AsRef<str> + PartialEq,
+    T: InnerHtmlValue<Rndr>,
     Rndr: DomRenderer,
     Self: Sized + AddAnyAttr<Rndr>,
 {
@@ -103,7 +98,7 @@ where
     Self: AddAnyAttr<Rndr>,
     E: ElementWithChildren,
     At: Attribute<Rndr>,
-    T: AsRef<str> + PartialEq,
+    T: InnerHtmlValue<Rndr>,
     Rndr: DomRenderer,
 {
     fn inner_html(
@@ -111,5 +106,190 @@ where
         value: T,
     ) -> <Self as AddAnyAttr<Rndr>>::Output<InnerHtml<T, Rndr>> {
         self.add_any_attr(inner_html(value))
+    }
+}
+
+pub trait InnerHtmlValue<R: DomRenderer> {
+    type State;
+
+    fn to_html(self, buf: &mut String);
+
+    fn to_template(buf: &mut String);
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
+
+    fn build(self, el: &R::Element) -> Self::State;
+
+    fn rebuild(self, state: &mut Self::State);
+}
+
+impl<R> InnerHtmlValue<R> for String
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, buf: &mut String) {
+        buf.push_str(&self);
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        if !FROM_SERVER {
+            R::set_inner_html(el, &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+        R::set_inner_html(el, &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        if self != state.1 {
+            R::set_inner_html(&state.0, &self);
+            state.1 = self;
+        }
+    }
+}
+
+impl<R> InnerHtmlValue<R> for Rc<str>
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, buf: &mut String) {
+        buf.push_str(&self);
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        if !FROM_SERVER {
+            R::set_inner_html(el, &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+        R::set_inner_html(el, &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        if !Rc::ptr_eq(&self, &state.1) {
+            R::set_inner_html(&state.0, &self);
+            state.1 = self;
+        }
+    }
+}
+
+impl<R> InnerHtmlValue<R> for Arc<str>
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, buf: &mut String) {
+        buf.push_str(&self);
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        if !FROM_SERVER {
+            R::set_inner_html(el, &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+        R::set_inner_html(el, &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        if !Arc::ptr_eq(&self, &state.1) {
+            R::set_inner_html(&state.0, &self);
+            state.1 = self;
+        }
+    }
+}
+
+impl<'a, R> InnerHtmlValue<R> for &'a str
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, buf: &mut String) {
+        buf.push_str(self);
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        if !FROM_SERVER {
+            R::set_inner_html(el, self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+        R::set_inner_html(el, self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        if self != state.1 {
+            R::set_inner_html(&state.0, self);
+            state.1 = self;
+        }
+    }
+}
+
+impl<T, R> InnerHtmlValue<R> for Option<T>
+where
+    T: InnerHtmlValue<R>,
+    R: DomRenderer,
+{
+    type State = Option<T::State>;
+
+    fn to_html(self, buf: &mut String) {
+        if let Some(value) = self {
+            value.to_html(buf);
+        }
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        self.map(|n| n.hydrate::<FROM_SERVER>(el))
+    }
+
+    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+        self.map(|n| n.build(el))
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        todo!()
     }
 }

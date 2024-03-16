@@ -4,10 +4,58 @@ use reactive_graph::owner::Owner;
 use std::marker::PhantomData;
 use tachys::{
     dom::body,
+    hydration::Cursor,
     renderer::{dom::Dom, Renderer},
-    view::{Mountable, Render},
+    view::{Mountable, PositionState, Render, RenderHtml},
 };
+use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
+
+#[cfg(feature = "hydrate")]
+/// Hydrates the app described by the provided function, starting at `<body>`.
+pub fn hydrate_body<F, N>(f: F)
+where
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    let owner = hydrate_from(body(), f);
+    owner.forget();
+}
+
+#[cfg(feature = "hydrate")]
+/// Runs the provided closure and mounts the result to the provided element.
+pub fn hydrate_from<F, N>(
+    parent: HtmlElement,
+    f: F,
+) -> UnmountHandle<N::State, Dom>
+where
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    use hydration_context::HydrateSharedContext;
+    use std::sync::Arc;
+
+    // use wasm-bindgen-futures to drive the reactive system
+    Executor::init_wasm_bindgen();
+
+    // create a new reactive owner and use it as the root node to run the app
+    let owner = Owner::new_root(Arc::new(HydrateSharedContext::new()));
+    let mountable = owner.with(move || {
+        let view = f().into_view();
+        view.hydrate::<true>(
+            &Cursor::new(parent.unchecked_into()),
+            &PositionState::default(),
+        )
+    });
+
+    // returns a handle that owns the owner
+    // when this is dropped, it will clean up the reactive system and unmount the view
+    UnmountHandle {
+        owner,
+        mountable,
+        rndr: PhantomData,
+    }
+}
 
 /// Runs the provided closure and mounts the result to the `<body>`.
 pub fn mount_to_body<F, N>(f: F)

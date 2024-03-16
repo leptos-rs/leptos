@@ -156,6 +156,8 @@ pub mod children;
 pub mod component;
 mod for_loop;
 mod hydration_scripts;
+#[cfg(feature = "nonce")]
+pub mod nonce;
 mod show;
 pub mod text_prop;
 pub use for_loop::*;
@@ -165,7 +167,7 @@ pub use reactive_graph::{
     self,
     signal::{arc_signal, create_signal, signal},
 };
-pub use server_fn::error;
+pub use server_fn::{self, error};
 pub use show::*;
 #[doc(hidden)]
 pub use typed_builder;
@@ -175,11 +177,27 @@ mod into_view;
 pub use into_view::IntoView;
 pub use leptos_dom;
 pub use tachys;
-pub mod logging;
-mod mount;
+pub mod mount;
 pub use any_spawner::Executor;
-pub use mount::*;
+pub use leptos_config as config;
+#[cfg(feature = "hydrate")]
+pub use mount::hydrate_body;
+pub use mount::mount_to_body;
 pub use oco;
+
+pub mod context {
+    pub use reactive_graph::owner::{provide_context, use_context};
+}
+
+#[cfg(feature = "hydration")]
+pub mod server {
+    pub use leptos_server::{ArcResource, Resource};
+}
+
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging {
+    pub use leptos_dom::{debug_warn, error, log, warn};
+}
 
 /*mod additional_attributes;
 pub use additional_attributes::*;

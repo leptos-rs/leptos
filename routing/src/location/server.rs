@@ -11,6 +11,12 @@ impl RequestUrl {
     }
 }
 
+impl AsRef<str> for RequestUrl {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
 impl Default for RequestUrl {
     fn default() -> Self {
         Self::new("/")
@@ -18,7 +24,7 @@ impl Default for RequestUrl {
 }
 
 impl RequestUrl {
-    fn parse(url: &str) -> Result<Url, url::ParseError> {
+    pub fn parse(url: &str) -> Result<Url, url::ParseError> {
         Self::parse_with_base(url, BASE)
     }
 

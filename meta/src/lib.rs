@@ -47,9 +47,10 @@
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in.
 
-use indexmap::IndexMap;
+use futures::{Stream, StreamExt};
 use leptos::{
-    component, debug_warn,
+    component,
+    logging::debug_warn,
     reactive_graph::owner::{provide_context, use_context},
     tachys::{
         dom::document,
@@ -67,13 +68,12 @@ use once_cell::sync::Lazy;
 use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
-    cell::{Cell, RefCell},
     fmt::Debug,
-    rc::Rc,
+    pin::Pin,
     sync::{Arc, RwLock},
 };
 use wasm_bindgen::JsCast;
-use web_sys::{HtmlHeadElement, Node};
+use web_sys::HtmlHeadElement;
 
 mod body;
 mod html;
@@ -157,7 +157,61 @@ pub struct ServerMetaContext {
     pub(crate) title: TitleContext,
 }
 
-#[derive(Default)]
+impl ServerMetaContext {
+    /// Consumes the metadata, injecting it into the the first chunk of an HTML stream in the
+    /// appropriate place.
+    ///
+    /// This means that only meta tags rendered during the first chunk of the stream will be
+    /// included.
+    pub async fn inject_meta_context(
+        self,
+        mut stream: impl Stream<Item = String> + Send + Sync + Unpin,
+    ) -> impl Stream<Item = String> + Send + Sync {
+        let mut first_chunk = stream.next().await.unwrap_or_default();
+
+        let meta_buf =
+            std::mem::take(&mut self.inner.write().or_poisoned().head_html);
+
+        let title = self.title.as_string();
+        let title_len = title
+            .as_ref()
+            .map(|n| "<title>".len() + n.len() + "</title>".len())
+            .unwrap_or(0);
+
+        let modified_chunk = if title_len == 0 && meta_buf.is_empty() {
+            first_chunk
+        } else {
+            let mut buf = String::with_capacity(
+                first_chunk.len() + title_len + meta_buf.len(),
+            );
+            let head_loc = first_chunk
+                .find("</head>")
+                .expect("you are using leptos_meta without a </head> tag");
+            let marker_loc =
+                first_chunk.find("<!--HEAD-->").unwrap_or_else(|| {
+                    first_chunk.find("</head>").unwrap_or(head_loc)
+                });
+            let (before_marker, after_marker) =
+                first_chunk.split_at_mut(marker_loc);
+            let (before_head_close, after_head) =
+                after_marker.split_at_mut(head_loc - marker_loc);
+            buf.push_str(before_marker);
+            if let Some(title) = title {
+                buf.push_str("<title>");
+                buf.push_str(&title);
+                buf.push_str("</title>");
+            }
+            buf.push_str(before_head_close);
+            buf.push_str(&meta_buf);
+            buf.push_str(after_head);
+            buf
+        };
+
+        futures::stream::once(async move { modified_chunk }).chain(stream)
+    }
+}
+
+#[derive(Default, Debug)]
 struct ServerMetaContextInner {
     /*/// Metadata associated with the `<html>` element
     pub html: HtmlContext,
@@ -173,7 +227,9 @@ struct ServerMetaContextInner {
 
 impl Debug for ServerMetaContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ServerMetaContext").finish_non_exhaustive()
+        f.debug_struct("ServerMetaContext")
+            .field("inner", &self.inner)
+            .finish_non_exhaustive()
     }
 }
 
@@ -367,6 +423,7 @@ pub fn MetaTags() -> impl IntoView {
     }
 }
 
+#[derive(Debug)]
 struct MetaTagsView {
     context: ServerMetaContext,
 }
@@ -399,14 +456,7 @@ impl RenderHtml<Dom> for MetaTagsView {
     const MIN_LENGTH: usize = 0;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        if let Some(title) = self.context.title.as_string() {
-            buf.reserve(15 + title.len());
-            buf.push_str("<title>");
-            buf.push_str(&title);
-            buf.push_str("</title>");
-        }
-
-        buf.push_str(&self.context.inner.write().or_poisoned().head_html);
+        buf.push_str("<!--HEAD-->");
     }
 
     fn hydrate<const FROM_SERVER: bool>(

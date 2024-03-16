@@ -10,7 +10,7 @@ pub enum StaticMode {
 }
 
 // TODO
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StaticDataMap;
 
 impl StaticDataMap {

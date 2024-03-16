@@ -7,20 +7,23 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 readme = "../README.md"
+rust-version.workspace = true
 
 [dependencies]
 any_spawner = { workspace = true, features = ["wasm-bindgen"] }
+base64 = { version = "0.22", optional = true }
 cfg-if = "1"
+hydration_context = { workspace = true, optional = true }
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
-leptos-spin-macro = { git = "https://github.com/fermyon/leptos-spin", optional = true }
-oco = { workspace = true }
+leptos-spin-macro = { version = "0.1", optional = true }
 paste = "1"
+rand = { version = "0.8", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
-tachys = { workspace = true, features = ["oco", "reactive_graph"] }
+tachys = { workspace = true, features = ["reactive_graph"] }
 tracing = "0.1"
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
@@ -37,7 +40,7 @@ web-sys = { version = "0.3.63", features = [
   "ShadowRootInit",
   "ShadowRootMode",
 ] }
-wasm-bindgen = { version = "0.2" }
+wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
 default = ["serde"]
@@ -94,6 +97,8 @@ denylist = [
   "wasm-bindgen",
   "rkyv",                  # was causing clippy issues on nightly
   "trace-component-props",
+  "spin",
+  "experimental-islands",
 ]
 skip_feature_sets = [
   [
