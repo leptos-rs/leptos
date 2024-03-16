@@ -7,7 +7,7 @@ use std::{
 };
 use tachys::{renderer::Renderer, view::RenderHtml};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 /// A route that this application can serve.
 pub struct RouteListing {
     path: Vec<PathSegment>,
@@ -64,6 +64,10 @@ impl RouteListing {
         self.static_mode.as_ref().map(|n| &n.1)
     }
 
+    pub fn into_static_parts(self) -> Option<(StaticMode, StaticDataMap)> {
+        self.static_mode
+    }
+
     /*
     /// Build a route statically, will return `Ok(true)` on success or `Ok(false)` when the route
     /// is not marked as statically rendered. All route parameters to use when resolving all paths
@@ -99,6 +103,12 @@ impl RouteListing {
 
 #[derive(Debug, Default)]
 pub struct RouteList(Vec<RouteListing>);
+
+impl From<Vec<RouteListing>> for RouteList {
+    fn from(value: Vec<RouteListing>) -> Self {
+        Self(value)
+    }
+}
 
 impl RouteList {
     pub fn push(&mut self, data: RouteListing) {

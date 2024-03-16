@@ -25,7 +25,7 @@ use futures::Stream;
 pub use hydrate::*;
 use serde::{Deserialize, Serialize};
 pub use ssr::*;
-use std::{fmt::Debug, future::Future, pin::Pin, sync::OnceLock};
+use std::{fmt::Debug, future::Future, pin::Pin};
 
 /// Type alias for a boxed [`Future`].
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;

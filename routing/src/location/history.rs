@@ -20,11 +20,6 @@ impl fmt::Debug for BrowserUrl {
 }
 
 impl BrowserUrl {
-    pub fn new() -> Result<Self, JsValue> {
-        let url = ArcRwSignal::new(Self::current()?);
-        Ok(Self { url })
-    }
-
     fn scroll_to_el(loc_scroll: bool) {
         if let Ok(hash) = window().location().hash() {
             if !hash.is_empty() {
@@ -49,6 +44,11 @@ impl BrowserUrl {
 
 impl Location for BrowserUrl {
     type Error = JsValue;
+
+    fn new() -> Result<Self, JsValue> {
+        let url = ArcRwSignal::new(Self::current()?);
+        Ok(Self { url })
+    }
 
     fn as_url(&self) -> &ArcRwSignal<Url> {
         &self.url

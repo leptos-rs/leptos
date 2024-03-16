@@ -214,14 +214,12 @@ where
     ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
         let mut segment_routes = Vec::new();
         self.segments.generate_path(&mut segment_routes);
-        let segment_routes = segment_routes.into_iter();
-        let children_routes = self.children.as_ref().into_iter().flat_map(|child| child.generate_routes().into_iter());
-        children_routes.map(move |child_routes| {
-            segment_routes
-                .clone()
-                .chain(child_routes)
-                .filter(|seg| seg != &PathSegment::Unit)
-                .collect()
-        })
+        let children = self.children.as_ref();
+        match children {
+            None => Either::Left(iter::once(segment_routes)),
+            Some(children) => {
+                Either::Right(children.generate_routes().into_iter())
+            }
+        }
     }
 }

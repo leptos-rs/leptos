@@ -1,5 +1,5 @@
-use crate::is_server;
-use cfg_if::cfg_if;
+//! Utilities for simple isomorphic logging to the console or terminal.
+
 use wasm_bindgen::JsValue;
 
 /// Uses `println!()`-style formatting to log something to the console (in the browser)
@@ -41,11 +41,18 @@ macro_rules! debug_warn {
     }
 }
 
+const fn log_to_stdout() -> bool {
+    cfg!(not(all(
+        target_arch = "wasm32",
+        not(any(target_os = "emscripten", target_os = "wasi"))
+    )))
+}
+
 /// Log a string to the console (in the browser)
 /// or via `println!()` (if not in the browser).
 pub fn console_log(s: &str) {
     #[allow(clippy::print_stdout)]
-    if is_server() {
+    if log_to_stdout() {
         println!("{s}");
     } else {
         web_sys::console::log_1(&JsValue::from_str(s));
@@ -55,7 +62,7 @@ pub fn console_log(s: &str) {
 /// Log a warning to the console (in the browser)
 /// or via `println!()` (if not in the browser).
 pub fn console_warn(s: &str) {
-    if is_server() {
+    if log_to_stdout() {
         eprintln!("{s}");
     } else {
         web_sys::console::warn_1(&JsValue::from_str(s));
@@ -64,8 +71,9 @@ pub fn console_warn(s: &str) {
 
 /// Log an error to the console (in the browser)
 /// or via `println!()` (if not in the browser).
+#[inline(always)]
 pub fn console_error(s: &str) {
-    if is_server() {
+    if log_to_stdout() {
         eprintln!("{s}");
     } else {
         web_sys::console::error_1(&JsValue::from_str(s));
@@ -74,16 +82,19 @@ pub fn console_error(s: &str) {
 
 /// Log an error to the console (in the browser)
 /// or via `println!()` (if not in the browser), but only in a debug build.
+#[inline(always)]
 pub fn console_debug_warn(s: &str) {
-    cfg_if! {
-        if #[cfg(debug_assertions)] {
-            if is_server() {
-                eprintln!("{s}");
-            } else {
-                web_sys::console::warn_1(&JsValue::from_str(s));
-            }
+    #[cfg(debug_assertions)]
+    {
+        if log_to_stdout() {
+            eprintln!("{s}");
         } else {
-          let _ = s;
+            web_sys::console::warn_1(&JsValue::from_str(s));
         }
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = s;
     }
 }

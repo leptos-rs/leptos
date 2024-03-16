@@ -7,3 +7,14 @@ pub enum PathSegment {
     Param(Cow<'static, str>),
     Splat(Cow<'static, str>),
 }
+
+impl PathSegment {
+    pub fn as_raw_str(&self) -> &str {
+        match self {
+            PathSegment::Unit => "",
+            PathSegment::Static(i) => i,
+            PathSegment::Param(i) => i,
+            PathSegment::Splat(i) => i,
+        }
+    }
+}

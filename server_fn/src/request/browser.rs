@@ -8,27 +8,39 @@ use send_wrapper::SendWrapper;
 use std::ops::{Deref, DerefMut};
 use wasm_bindgen::JsValue;
 use wasm_streams::ReadableStream;
-use web_sys::{FormData, Headers, RequestInit, UrlSearchParams};
+use web_sys::{
+    AbortController, AbortSignal, FormData, Headers, RequestInit,
+    UrlSearchParams,
+};
 
 /// A `fetch` request made in the browser.
 #[derive(Debug)]
-pub struct BrowserRequest(pub(crate) SendWrapper<Request>);
+pub struct BrowserRequest(pub(crate) SendWrapper<RequestInner>);
 
-impl From<Request> for BrowserRequest {
-    fn from(value: Request) -> Self {
-        Self(SendWrapper::new(value))
+#[derive(Debug)]
+pub(crate) struct RequestInner {
+    pub(crate) request: Request,
+    pub(crate) abort_ctrl: Option<AbortOnDrop>,
+}
+
+#[derive(Debug)]
+pub(crate) struct AbortOnDrop(AbortController);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
     }
 }
 
 impl From<BrowserRequest> for Request {
     fn from(value: BrowserRequest) -> Self {
-        value.0.take()
+        value.0.take().request
     }
 }
 
 impl From<BrowserRequest> for web_sys::Request {
     fn from(value: BrowserRequest) -> Self {
-        value.0.take().into()
+        value.0.take().request.into()
     }
 }
 
@@ -36,13 +48,13 @@ impl Deref for BrowserRequest {
     type Target = Request;
 
     fn deref(&self) -> &Self::Target {
-        self.0.deref()
+        &self.0.deref().request
     }
 }
 
 impl DerefMut for BrowserRequest {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.deref_mut()
+        &mut self.0.deref_mut().request
     }
 }
 
@@ -56,6 +68,12 @@ impl From<FormData> for BrowserFormData {
     }
 }
 
+fn abort_signal() -> (Option<AbortOnDrop>, Option<AbortSignal>) {
+    let ctrl = AbortController::new().ok();
+    let signal = ctrl.as_ref().map(|ctrl| ctrl.signal());
+    (ctrl.map(AbortOnDrop), signal)
+}
+
 impl<CustErr> ClientReq<CustErr> for BrowserRequest {
     type FormData = BrowserFormData;
 
@@ -65,6 +83,7 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         query: &str,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(
             server_url.len() + path.len() + 1 + query.len(),
@@ -73,13 +92,15 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         url.push_str(path);
         url.push('?');
         url.push_str(query);
-        Ok(Self(SendWrapper::new(
-            Request::get(&url)
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::get(&url)
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
                 .build()
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        )))
+            abort_ctrl,
+        })))
     }
 
     fn try_new_post(
@@ -88,17 +109,20 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: String,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
         url.push_str(server_url);
         url.push_str(path);
-        Ok(Self(SendWrapper::new(
-            Request::post(&url)
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::post(&url)
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
                 .body(body)
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        )))
+            abort_ctrl,
+        })))
     }
 
     fn try_new_post_bytes(
@@ -107,19 +131,22 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: Bytes,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
         url.push_str(server_url);
         url.push_str(path);
         let body: &[u8] = &body;
         let body = Uint8Array::from(body).buffer();
-        Ok(Self(SendWrapper::new(
-            Request::post(&url)
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::post(&url)
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
                 .body(body)
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        )))
+            abort_ctrl,
+        })))
     }
 
     fn try_new_multipart(
@@ -127,16 +154,19 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         accepts: &str,
         body: Self::FormData,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let (abort_ctrl, abort_signal) = abort_signal();
         let server_url = get_server_url();
         let mut url = String::with_capacity(server_url.len() + path.len());
         url.push_str(server_url);
         url.push_str(path);
-        Ok(Self(SendWrapper::new(
-            Request::post(&url)
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::post(&url)
                 .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
                 .body(body.0.take())
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        )))
+            abort_ctrl,
+        })))
     }
 
     fn try_new_post_form_data(
@@ -145,6 +175,7 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: Self::FormData,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        let (abort_ctrl, abort_signal) = abort_signal();
         let form_data = body.0.take();
         let url_params =
             UrlSearchParams::new_with_str_sequence_sequence(&form_data)
@@ -156,13 +187,15 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
                         },
                     ))
                 })?;
-        Ok(Self(SendWrapper::new(
-            Request::post(path)
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: Request::post(path)
                 .header("Content-Type", content_type)
                 .header("Accept", accepts)
+                .abort_signal(abort_signal.as_ref())
                 .body(url_params)
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        )))
+            abort_ctrl,
+        })))
     }
 
     fn try_new_streaming(
@@ -171,9 +204,13 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         content_type: &str,
         body: impl Stream<Item = Bytes> + 'static,
     ) -> Result<Self, ServerFnError<CustErr>> {
+        // TODO abort signal
         let req = streaming_request(path, accepts, content_type, body)
             .map_err(|e| ServerFnError::Request(format!("{e:?}")))?;
-        Ok(Self(SendWrapper::new(req)))
+        Ok(Self(SendWrapper::new(RequestInner {
+            request: req,
+            abort_ctrl: None,
+        })))
     }
 }
 
@@ -183,6 +220,7 @@ fn streaming_request(
     content_type: &str,
     body: impl Stream<Item = Bytes> + 'static,
 ) -> Result<Request, JsValue> {
+    let (abort_ctrl, abort_signal) = abort_signal();
     let stream = ReadableStream::from_stream(body.map(|bytes| {
         let data = Uint8Array::from(bytes.as_ref());
         let data = JsValue::from(data);

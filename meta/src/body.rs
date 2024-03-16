@@ -7,9 +7,14 @@ use leptos::{
     tachys::{
         dom::document,
         error::Result,
-        html::attribute::{
-            any_attribute::{AnyAttribute, AnyAttributeState},
-            Attribute,
+        html::{
+            attribute::{
+                any_attribute::{
+                    AnyAttribute, AnyAttributeState, IntoAnyAttribute,
+                },
+                Attribute,
+            },
+            class,
         },
         hydration::Cursor,
         reactive_graph::RenderEffectState,
@@ -57,10 +62,17 @@ use web_sys::HtmlElement;
 /// ```
 #[component]
 pub fn Body(
+    /// The `class` attribute on the `<body>`.
+    #[prop(optional, into)]
+    mut class: Option<TextProp>,
     /// Arbitrary attributes to add to the `<body>`.
     #[prop(attrs)]
     mut attributes: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
+    if let Some(value) = class.take() {
+        let value = class::class(move || value.get());
+        attributes.push(value.into_any_attr());
+    }
     if let Some(meta) = use_context::<ServerMetaContext>() {
         let mut meta = meta.inner.write().or_poisoned();
         // if we are server rendering, we will not actually use these values via RenderHtml

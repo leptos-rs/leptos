@@ -1,8 +1,8 @@
 use crate::{
-    html::attribute::AttributeValue,
+    html::{attribute::AttributeValue, class::IntoClass},
     hydration::Cursor,
     prelude::{Mountable, Render, RenderHtml},
-    renderer::Renderer,
+    renderer::{DomRenderer, Renderer},
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco::Oco;
@@ -140,5 +140,36 @@ where
             R::set_attribute(el, key, &self);
         }
         *prev_value = self;
+    }
+}
+
+impl<R> IntoClass<R> for Oco<'static, str>
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, class: &mut String) {
+        IntoClass::<R>::to_html(self.as_str(), class);
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+        if !FROM_SERVER {
+            R::set_attribute(el, "class", &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        R::set_attribute(el, "class", &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (el, prev) = state;
+        if self != *prev {
+            R::set_attribute(el, "class", &self);
+        }
+        *prev = self;
     }
 }

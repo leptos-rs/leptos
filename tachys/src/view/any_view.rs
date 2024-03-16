@@ -1,5 +1,5 @@
 use super::{Mountable, Position, PositionState, Render, RenderHtml};
-use crate::{hydration::Cursor, renderer::Renderer};
+use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -12,8 +12,9 @@ where
 {
     type_id: TypeId,
     value: Box<dyn Any>,
-    // TODO add async HTML rendering for AnyView
     to_html: fn(Box<dyn Any>, &mut String, &mut Position),
+    to_html_async: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
+    to_html_async_ooo: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
     #[allow(clippy::type_complexity)]
@@ -122,6 +123,24 @@ where
                     .expect("AnyView::to_html could not be downcast");
                 value.to_html_with_buf(buf, position);
             };
+        let to_html_async =
+            |value: Box<dyn Any>,
+             buf: &mut StreamBuilder,
+             position: &mut Position| {
+                let value = value
+                    .downcast::<T>()
+                    .expect("AnyView::to_html could not be downcast");
+                value.to_html_async_with_buf::<false>(buf, position);
+            };
+        let to_html_async_ooo =
+            |value: Box<dyn Any>,
+             buf: &mut StreamBuilder,
+             position: &mut Position| {
+                let value = value
+                    .downcast::<T>()
+                    .expect("AnyView::to_html could not be downcast");
+                value.to_html_async_with_buf::<true>(buf, position);
+            };
         let build = |value: Box<dyn Any>| {
             let value = value
                 .downcast::<T>()
@@ -198,6 +217,8 @@ where
             type_id: TypeId::of::<T>(),
             value,
             to_html,
+            to_html_async,
+            to_html_async_ooo,
             build,
             rebuild,
             hydrate_from_server,
@@ -241,6 +262,20 @@ where
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         (self.to_html)(self.value, buf, position);
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+    ) where
+        Self: Sized,
+    {
+        if OUT_OF_ORDER {
+            (self.to_html_async_ooo)(self.value, buf, position);
+        } else {
+            (self.to_html_async)(self.value, buf, position);
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
