@@ -29,7 +29,7 @@ impl<T> Debug for MemoInner<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> MemoInner<T> {
+impl<T: 'static> MemoInner<T> {
     #[allow(clippy::type_complexity)]
     pub fn new(
         fun: Arc<dyn Fn(Option<&T>) -> T + Send + Sync>,
@@ -49,7 +49,7 @@ impl<T: Send + Sync + 'static> MemoInner<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ReactiveNode for RwLock<MemoInner<T>> {
+impl<T: 'static> ReactiveNode for RwLock<MemoInner<T>> {
     fn mark_dirty(&self) {
         self.write().or_poisoned().state = ReactiveNodeState::Dirty;
         self.mark_subscribers_check();
@@ -133,7 +133,7 @@ impl<T: Send + Sync + 'static> ReactiveNode for RwLock<MemoInner<T>> {
     }
 }
 
-impl<T: Send + Sync + 'static> Source for RwLock<MemoInner<T>> {
+impl<T: 'static> Source for RwLock<MemoInner<T>> {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
         self.write().or_poisoned().subscribers.subscribe(subscriber);
     }
@@ -150,7 +150,7 @@ impl<T: Send + Sync + 'static> Source for RwLock<MemoInner<T>> {
     }
 }
 
-impl<T: Send + Sync + 'static> Subscriber for RwLock<MemoInner<T>> {
+impl<T: 'static> Subscriber for RwLock<MemoInner<T>> {
     fn add_source(&self, source: AnySource) {
         self.write().or_poisoned().sources.insert(source);
     }

@@ -38,11 +38,19 @@ pub trait Client<CustErr> {
 pub mod browser {
     use super::Client;
     use crate::{
-        error::ServerFnError, request::browser::BrowserRequest,
+        error::ServerFnError,
+        request::browser::{AbortOnDrop, BrowserRequest, RequestInner},
         response::browser::BrowserResponse,
     };
+    use gloo_net::{http::Response, Error};
     use send_wrapper::SendWrapper;
-    use std::future::Future;
+    use std::{
+        future::Future,
+        marker::PhantomData,
+        pin::Pin,
+        task::{Context, Poll},
+    };
+    use web_sys::AbortController;
 
     /// Implements [`Client`] for a `fetch` request in the browser.    
     pub struct BrowserClient;
@@ -56,8 +64,17 @@ pub mod browser {
         ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
                + Send {
             SendWrapper::new(async move {
-                req.0
-                    .take()
+                let mut req = req.0.take();
+                let RequestInner {
+                    request,
+                    abort_ctrl,
+                } = req;
+                /*BrowserRequestFuture {
+                    request_fut: request.send(),
+                    abort_ctrl,
+                    cust_err: PhantomData,
+                }*/
+                request
                     .send()
                     .await
                     .map(|res| BrowserResponse(SendWrapper::new(res)))
@@ -65,6 +82,36 @@ pub mod browser {
             })
         }
     }
+
+    /*pin_project_lite::pin_project! {
+        struct BrowserRequestFuture<Fut, CustErr>
+        where
+            Fut: Future<Output = Result<Response, Error>>,
+        {
+            #[pin]
+            request_fut: Fut,
+            abort_ctrl: Option<AbortOnDrop>,
+            cust_err: PhantomData<CustErr>
+        }
+    }
+
+    impl<Fut, CustErr> Future for BrowserRequestFuture<Fut, CustErr>
+    where
+        Fut: Future<Output = Result<Response, Error>>,
+    {
+        type Output = Result<BrowserResponse, ServerFnError<CustErr>>;
+
+        fn poll(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Self::Output> {
+            let this = self.project();
+            match this.request_fut.poll(cx) {
+                Poll::Ready(value) => todo!(),
+                Poll::Pending => Poll::Pending,
+            }
+        }
+    }*/
 }
 
 #[cfg(feature = "reqwest")]

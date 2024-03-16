@@ -71,8 +71,10 @@ impl Default for LocationChange {
     }
 }
 
-pub trait Location {
+pub trait Location: Sized {
     type Error: Debug;
+
+    fn new() -> Result<Self, Self::Error>;
 
     fn as_url(&self) -> &ArcRwSignal<Url>;
 

@@ -7,6 +7,12 @@ impl Params {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn get(&self, key: &str) -> Option<&str> {
+        self.0
+            .iter()
+            .find_map(|(k, v)| (k == key).then_some(v.as_str()))
+    }
 }
 
 impl<K, V> FromIterator<(K, V)> for Params

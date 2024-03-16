@@ -7,9 +7,15 @@ use leptos::{
     tachys::{
         dom::document,
         error::Result,
-        html::attribute::{
-            any_attribute::{AnyAttribute, AnyAttributeState},
-            Attribute,
+        html::{
+            attribute::{
+                self,
+                any_attribute::{
+                    AnyAttribute, AnyAttributeState, IntoAnyAttribute,
+                },
+                Attribute,
+            },
+            class,
         },
         hydration::Cursor,
         reactive_graph::RenderEffectState,
@@ -54,10 +60,30 @@ use web_sys::{Element, HtmlElement};
 /// ```
 #[component]
 pub fn Html(
+    /// The `lang` attribute on the `<html>`.
+    #[prop(optional, into)]
+    mut lang: Option<TextProp>,
+    /// The `dir` attribute on the `<html>`.
+    #[prop(optional, into)]
+    mut dir: Option<TextProp>,
+    /// The `class` attribute on the `<html>`.
+    #[prop(optional, into)]
+    mut class: Option<TextProp>,
     /// Arbitrary attributes to add to the `<html>`
     #[prop(attrs)]
     mut attributes: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
+    attributes.extend(
+        lang.take()
+            .map(|value| attribute::lang(move || value.get()).into_any_attr())
+            .into_iter()
+            .chain(dir.take().map(|value| {
+                attribute::dir(move || value.get()).into_any_attr()
+            }))
+            .chain(class.take().map(|value| {
+                class::class(move || value.get()).into_any_attr()
+            })),
+    );
     if let Some(meta) = use_context::<ServerMetaContext>() {
         let mut meta = meta.inner.write().or_poisoned();
         // if we are server rendering, we will not actually use these values via RenderHtml

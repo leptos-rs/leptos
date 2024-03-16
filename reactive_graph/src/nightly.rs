@@ -4,10 +4,11 @@ use crate::{
         ArcReadSignal, ArcRwSignal, ArcWriteSignal, ReadSignal, RwSignal,
         WriteSignal,
     },
-    traits::{Read, Set},
+    traits::{Get, Read, Set},
+    wrappers::read::{ArcSignal, Signal},
 };
 
-macro_rules! impl_get_fn_traits {
+macro_rules! impl_get_fn_traits_read {
     ($($ty:ident $(($method_name:ident))?),*) => {
         $(
             #[cfg(feature = "nightly")]
@@ -16,7 +17,7 @@ macro_rules! impl_get_fn_traits {
 
                 #[inline(always)]
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits!(@method_name self $($method_name)?)
+                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
                 }
             }
 
@@ -24,7 +25,7 @@ macro_rules! impl_get_fn_traits {
             impl<T: 'static> FnMut<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits!(@method_name self $($method_name)?)
+                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
                 }
             }
 
@@ -32,13 +33,51 @@ macro_rules! impl_get_fn_traits {
             impl<T: 'static> Fn<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits!(@method_name self $($method_name)?)
+                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
                 }
             }
         )*
     };
     (@method_name $self:ident) => {
         $self.read()
+    };
+    (@method_name $self:ident $ident:ident) => {
+        $self.$ident()
+    };
+}
+
+macro_rules! impl_get_fn_traits_get {
+    ($($ty:ident $(($method_name:ident))?),*) => {
+        $(
+            #[cfg(feature = "nightly")]
+            impl<T: 'static> FnOnce<()> for $ty<T> {
+                type Output = <Self as Get>::Value;
+
+                #[inline(always)]
+                extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
+                }
+            }
+
+            #[cfg(feature = "nightly")]
+            impl<T: 'static> FnMut<()> for $ty<T> {
+                #[inline(always)]
+                extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
+                }
+            }
+
+            #[cfg(feature = "nightly")]
+            impl<T: 'static> Fn<()> for $ty<T> {
+                #[inline(always)]
+                extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
+                }
+            }
+        )*
+    };
+    (@method_name $self:ident) => {
+        $self.get()
     };
     (@method_name $self:ident $ident:ident) => {
         $self.$ident()
@@ -83,7 +122,7 @@ macro_rules! impl_set_fn_traits {
     };
 }
 
-macro_rules! impl_get_fn_traits_send {
+macro_rules! impl_get_fn_traits_read_send {
     ($($ty:ident $(($method_name:ident))?),*) => {
         $(
             #[cfg(feature = "nightly")]
@@ -92,7 +131,7 @@ macro_rules! impl_get_fn_traits_send {
 
                 #[inline(always)]
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits_send!(@method_name self $($method_name)?)
+                    impl_get_fn_traits_read_send!(@method_name self $($method_name)?)
                 }
             }
 
@@ -100,7 +139,7 @@ macro_rules! impl_get_fn_traits_send {
             impl<T: Send + Sync + 'static> FnMut<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits_send!(@method_name self $($method_name)?)
+                    impl_get_fn_traits_read_send!(@method_name self $($method_name)?)
                 }
             }
 
@@ -108,7 +147,7 @@ macro_rules! impl_get_fn_traits_send {
             impl<T: Send + Sync + 'static> Fn<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits_send!(@method_name self $($method_name)?)
+                    impl_get_fn_traits_read_send!(@method_name self $($method_name)?)
                 }
             }
         )*
@@ -121,6 +160,43 @@ macro_rules! impl_get_fn_traits_send {
     };
 }
 
+macro_rules! impl_get_fn_traits_get_send {
+    ($($ty:ident $(($method_name:ident))?),*) => {
+        $(
+            #[cfg(feature = "nightly")]
+            impl<T: Send + Sync + Clone + 'static> FnOnce<()> for $ty<T> {
+                type Output = <Self as Get>::Value;
+
+                #[inline(always)]
+                extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+                    impl_get_fn_traits_get_send!(@method_name self $($method_name)?)
+                }
+            }
+
+            #[cfg(feature = "nightly")]
+            impl<T: Send + Sync + Clone + 'static> FnMut<()> for $ty<T> {
+                #[inline(always)]
+                extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+                    impl_get_fn_traits_get_send!(@method_name self $($method_name)?)
+                }
+            }
+
+            #[cfg(feature = "nightly")]
+            impl<T: Send + Sync + Clone + 'static> Fn<()> for $ty<T> {
+                #[inline(always)]
+                extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+                    impl_get_fn_traits_get_send!(@method_name self $($method_name)?)
+                }
+            }
+        )*
+    };
+    (@method_name $self:ident) => {
+        $self.get()
+    };
+    (@method_name $self:ident $ident:ident) => {
+        $self.$ident()
+    };
+}
 macro_rules! impl_set_fn_traits_send {
     ($($ty:ident $($method_name:ident)?),*) => {
         $(
@@ -159,7 +235,8 @@ macro_rules! impl_set_fn_traits_send {
     };
 }
 
-impl_get_fn_traits![ArcReadSignal, ArcRwSignal];
-impl_get_fn_traits_send![ReadSignal, RwSignal, Memo, ArcMemo];
+impl_get_fn_traits_read![ArcReadSignal, ArcRwSignal];
+impl_get_fn_traits_get_send![ArcSignal, Signal];
+impl_get_fn_traits_read_send![ReadSignal, RwSignal, Memo, ArcMemo];
 impl_set_fn_traits![ArcWriteSignal];
 impl_set_fn_traits_send![WriteSignal];
