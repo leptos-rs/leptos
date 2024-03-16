@@ -316,7 +316,7 @@ macro_rules! tuples {
 }
 
 tuples!(EitherOf3 => A = 0, B = 1, C = 2);
-/*tuples!(EitherOf4 => A = 0, B = 1, C = 2, D = 3);
+tuples!(EitherOf4 => A = 0, B = 1, C = 2, D = 3);
 tuples!(EitherOf5 => A = 0, B = 1, C = 2, D = 3, E = 4);
 tuples!(EitherOf6 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5);
 tuples!(EitherOf7 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5, G = 6);
@@ -329,4 +329,3 @@ tuples!(EitherOf13 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5, G = 6, H = 7, I 
 tuples!(EitherOf14 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5, G = 6, H = 7, I = 8, J = 9, K = 10, L = 11, M = 12, N = 13);
 tuples!(EitherOf15 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5, G = 6, H = 7, I = 8, J = 9, K = 10, L = 11, M = 12, N = 13, O = 14);
 tuples!(EitherOf16 => A = 0, B = 1, C = 2, D = 3, E = 4, F = 5, G = 6, H = 7, I = 8, J = 9, K = 10, L = 11, M = 12, N = 13, O = 14, P = 15);
-*/

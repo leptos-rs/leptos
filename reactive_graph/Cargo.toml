@@ -7,6 +7,7 @@ version.workspace = true
 any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
 futures = "0.3"
+hydration_context = { workspace = true, optional = true } 
 pin-project-lite = "0.2"
 rustc-hash = "1.1.0"
 serde = { version = "1", features = ["derive"], optional = true }
@@ -23,6 +24,7 @@ any_spawner = { workspace = true, features = ["tokio"] }
 nightly = []
 serde = ["dep:serde"]
 tracing = ["dep:tracing"]
+hydration = ["dep:hydration_context"]
 
 [package.metadata.docs.rs]
 all-features = true

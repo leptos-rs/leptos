@@ -10,14 +10,27 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
-reactive_graph = { workspace = true }
-leptos_macro = { workspace = true }
+hydration_context = { workspace = true }
+reactive_graph = { workspace = true, features = ["hydration"] }
+#leptos_macro = { workspace = true }
 server_fn = { workspace = true }
-lazy_static = "1"
-serde = { version = "1", features = ["derive"] }
+#lazy_static = "1"
 thiserror = "1"
-tracing = "0.1"
-inventory = "0.3"
+tracing = { version = "0.1", optional = true }
+#inventory = "0.3"
+futures = "0.3"
+
+# serialization formats
+serde = { version = "1", optional = true }
+serde_json = { version = "1", optional = true }
+miniserde = { version = "0.1", optional = true }
+rkyv = { version = "0.7", optional = true, features = [
+	"validation",
+	"uuid",
+	"strict",
+] }
+serde-lite = { version = "0.5", optional = true }
+base64 = { version = "0.22", optional = true }
 
 [dev-dependencies]
 leptos = { path = "../leptos" }
@@ -25,6 +38,9 @@ leptos = { path = "../leptos" }
 [features]
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
+hydration = ["reactive_graph/hydration", "dep:serde", "dep:serde_json"]
+rkyv = ["dep:rkyv", "dep:base64"]
+tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

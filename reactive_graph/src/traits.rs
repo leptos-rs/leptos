@@ -184,12 +184,10 @@ where
     }
 }
 
-pub trait With: WithUntracked + Track {
-    #[track_caller]
-    fn try_with<U>(&self, fun: impl FnOnce(&Self::Value) -> U) -> Option<U> {
-        self.track();
-        self.try_with_untracked(fun)
-    }
+pub trait With: DefinedAt {
+    type Value: ?Sized;
+
+    fn try_with<U>(&self, fun: impl FnOnce(&Self::Value) -> U) -> Option<U>;
 
     #[track_caller]
     fn with<U>(&self, fun: impl FnOnce(&Self::Value) -> U) -> U {
@@ -197,15 +195,23 @@ pub trait With: WithUntracked + Track {
     }
 }
 
-impl<T> With for T where T: WithUntracked + Track {}
-
-pub trait GetUntracked: WithUntracked
+impl<T> With for T
 where
-    Self::Value: Clone,
+    T: WithUntracked + Track,
 {
-    fn try_get_untracked(&self) -> Option<Self::Value> {
-        self.try_with_untracked(Self::Value::clone)
+    type Value = <T as WithUntracked>::Value;
+
+    #[track_caller]
+    fn try_with<U>(&self, fun: impl FnOnce(&Self::Value) -> U) -> Option<U> {
+        self.track();
+        self.try_with_untracked(fun)
     }
+}
+
+pub trait GetUntracked: DefinedAt {
+    type Value;
+
+    fn try_get_untracked(&self) -> Option<Self::Value>;
 
     #[track_caller]
     fn get_untracked(&self) -> Self::Value {
@@ -219,20 +225,21 @@ where
     T: WithUntracked,
     T::Value: Clone,
 {
+    type Value = <Self as WithUntracked>::Value;
+
+    fn try_get_untracked(&self) -> Option<Self::Value> {
+        self.try_with_untracked(Self::Value::clone)
+    }
 }
 
-pub trait Get: With
-where
-    Self::Value: Clone,
-{
-    fn try_get(&self) -> Option<Self::Value> {
-        self.try_with(Self::Value::clone)
-    }
+pub trait Get: DefinedAt {
+    type Value: Clone;
+
+    fn try_get(&self) -> Option<Self::Value>;
 
     #[track_caller]
     fn get(&self) -> Self::Value {
-        self.try_with(Self::Value::clone)
-            .unwrap_or_else(unwrap_signal!(self))
+        self.try_get().unwrap_or_else(unwrap_signal!(self))
     }
 }
 
@@ -241,6 +248,11 @@ where
     T: With,
     T::Value: Clone,
 {
+    type Value = <T as With>::Value;
+
+    fn try_get(&self) -> Option<Self::Value> {
+        self.try_with(Self::Value::clone)
+    }
 }
 
 pub trait Trigger {
