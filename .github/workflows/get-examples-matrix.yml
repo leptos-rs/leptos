@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install JQ Tool
-        uses: mbround18/install-jq@v1
+        run: sudo apt-get install jq
 
       - name: Set Matrix
         id: set-matrix
