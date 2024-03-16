@@ -2,6 +2,7 @@ use super::{Attribute, NextAttribute};
 use crate::renderer::Renderer;
 use std::{
     any::{Any, TypeId},
+    fmt::Debug,
     marker::PhantomData,
 };
 
@@ -15,6 +16,15 @@ pub struct AnyAttribute<R: Renderer> {
     hydrate_from_server: fn(Box<dyn Any>, &R::Element) -> AnyAttributeState<R>,
     hydrate_from_template:
         fn(Box<dyn Any>, &R::Element) -> AnyAttributeState<R>,
+}
+
+impl<R> Debug for AnyAttribute<R>
+where
+    R: Renderer,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyAttribute").finish_non_exhaustive()
+    }
 }
 
 pub struct AnyAttributeState<R>

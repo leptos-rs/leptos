@@ -3,7 +3,7 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc, sync::Arc};
 
 #[inline(always)]
 pub fn class<C, R>(class: C) -> Class<C, R>
@@ -114,7 +114,7 @@ impl<'a, R> IntoClass<R> for &'a str
 where
     R: DomRenderer,
 {
-    type State = (R::Element, &'a str);
+    type State = (R::Element, Self);
 
     fn to_html(self, class: &mut String) {
         class.push_str(self);
@@ -145,7 +145,7 @@ impl<R> IntoClass<R> for String
 where
     R: DomRenderer,
 {
-    type State = (R::Element, String);
+    type State = (R::Element, Self);
 
     fn to_html(self, class: &mut String) {
         IntoClass::<R>::to_html(self.as_str(), class);
@@ -166,6 +166,68 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
+            R::set_attribute(el, "class", &self);
+        }
+        *prev = self;
+    }
+}
+
+impl<R> IntoClass<R> for Rc<str>
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, class: &mut String) {
+        IntoClass::<R>::to_html(self.as_ref(), class);
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+        if !FROM_SERVER {
+            R::set_attribute(el, "class", &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        R::set_attribute(el, "class", &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (el, prev) = state;
+        if !Rc::ptr_eq(&self, prev) {
+            R::set_attribute(el, "class", &self);
+        }
+        *prev = self;
+    }
+}
+
+impl<R> IntoClass<R> for Arc<str>
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, Self);
+
+    fn to_html(self, class: &mut String) {
+        IntoClass::<R>::to_html(self.as_ref(), class);
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+        if !FROM_SERVER {
+            R::set_attribute(el, "class", &self);
+        }
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        R::set_attribute(el, "class", &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (el, prev) = state;
+        if !Arc::ptr_eq(&self, prev) {
             R::set_attribute(el, "class", &self);
         }
         *prev = self;

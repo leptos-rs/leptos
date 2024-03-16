@@ -1,3 +1,5 @@
+#[cfg(feature = "hydration")]
+use hydration_context::SharedContext;
 use or_poisoned::OrPoisoned;
 use rustc_hash::FxHashMap;
 use std::{
@@ -18,6 +20,8 @@ pub use context::*;
 #[must_use]
 pub struct Owner {
     pub(crate) inner: Arc<RwLock<OwnerInner>>,
+    #[cfg(feature = "hydration")]
+    pub(crate) shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
 }
 
 thread_local! {
@@ -25,9 +29,21 @@ thread_local! {
 }
 
 impl Owner {
+    pub fn debug_id(&self) -> usize {
+        Arc::as_ptr(&self.inner) as usize
+    }
     pub fn new() -> Self {
+        #[cfg(not(feature = "hydration"))]
         let parent = OWNER
             .with(|o| o.borrow().as_ref().map(|o| Arc::downgrade(&o.inner)));
+        #[cfg(feature = "hydration")]
+        let (parent, shared_context) = OWNER
+            .with(|o| {
+                o.borrow().as_ref().map(|o| {
+                    (Some(Arc::clone(&o.inner)), o.shared_context.clone())
+                })
+            })
+            .unwrap_or((None, None));
         Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
@@ -35,11 +51,29 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
             })),
+            #[cfg(feature = "hydration")]
+            shared_context,
+        }
+    }
+
+    #[cfg(feature = "hydration")]
+    pub fn new_root(
+        shared_context: Arc<dyn SharedContext + Send + Sync>,
+    ) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(OwnerInner {
+                parent: None,
+                nodes: Default::default(),
+                contexts: Default::default(),
+                cleanups: Default::default(),
+            })),
+            #[cfg(feature = "hydration")]
+            shared_context: Some(shared_context),
         }
     }
 
     pub fn child(&self) -> Self {
-        let parent = Some(Arc::downgrade(&self.inner));
+        let parent = Some(Arc::clone(&self.inner));
         Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
@@ -47,6 +81,8 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
             })),
+            #[cfg(feature = "hydration")]
+            shared_context: self.shared_context.clone(),
         }
     }
 
@@ -97,11 +133,21 @@ impl Owner {
     pub fn current() -> Option<Owner> {
         OWNER.with(|o| o.borrow().clone())
     }
+
+    #[cfg(feature = "hydration")]
+    pub fn current_shared_context(
+    ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
+        OWNER.with(|o| {
+            o.borrow()
+                .as_ref()
+                .and_then(|current| current.shared_context.clone())
+        })
+    }
 }
 
 #[derive(Default)]
 pub(crate) struct OwnerInner {
-    pub parent: Option<Weak<RwLock<OwnerInner>>>,
+    pub parent: Option<Arc<RwLock<OwnerInner>>>,
     nodes: Vec<NodeId>,
     pub contexts: FxHashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,
