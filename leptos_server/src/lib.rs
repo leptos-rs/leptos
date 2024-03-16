@@ -1,6 +1,13 @@
 //#![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "hydration")]
+mod resource;
+#[cfg(feature = "hydration")]
+pub mod serializers;
+#[cfg(feature = "hydration")]
+pub use resource::*;
+
 ////! # Leptos Server Functions
 ////!
 ////! This package is based on a simple idea: sometimes it’s useful to write functions

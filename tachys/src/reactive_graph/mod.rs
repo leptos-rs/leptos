@@ -3,6 +3,7 @@ use crate::{
     error::AnyError,
     html::{
         attribute::{Attribute, AttributeValue},
+        element::InnerHtmlValue,
         property::IntoProperty,
     },
     hydration::Cursor,
@@ -552,6 +553,56 @@ where
         )
         .into(); */
     }
+}
+
+impl<F, V, R> InnerHtmlValue<R> for F
+where
+    F: FnMut() -> V + 'static,
+    V: InnerHtmlValue<R>,
+    V::State: 'static,
+    R: DomRenderer,
+{
+    type State = RenderEffectState<V::State>;
+
+    fn to_html(mut self, buf: &mut String) {
+        let value = self();
+        value.to_html(buf);
+    }
+
+    fn to_template(_buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        mut self,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        let el = el.to_owned();
+        RenderEffect::new(move |prev| {
+            let value = self();
+            if let Some(mut state) = prev {
+                value.rebuild(&mut state);
+                state
+            } else {
+                value.hydrate::<FROM_SERVER>(&el)
+            }
+        })
+        .into()
+    }
+
+    fn build(mut self, el: &<R as Renderer>::Element) -> Self::State {
+        let el = el.to_owned();
+        RenderEffect::new(move |prev| {
+            let value = self();
+            if let Some(mut state) = prev {
+                value.rebuild(&mut state);
+                state
+            } else {
+                value.build(&el)
+            }
+        })
+        .into()
+    }
+
+    fn rebuild(self, _state: &mut Self::State) {}
 }
 
 /*
