@@ -236,3 +236,52 @@ fn leptos_options_builder_default() {
     assert_eq!(conf.reload_port, 3001);
     assert_eq!(conf.reload_external_port, None);
 }
+
+#[test]
+fn environment_variable_override() {
+    // first check without variables set
+    let config = temp_env::with_vars_unset(
+        [
+            "LEPTOS_OUTPUT_NAME",
+            "LEPTOS_SITE_ROOT",
+            "LEPTOS_SITE_PKG_DIR",
+            "LEPTOS_SITE_ADDR",
+            "LEPTOS_RELOAD_PORT",
+            "LEPTOS_RELOAD_EXTERNAL_PORT",
+        ],
+        || get_config_from_str(CARGO_TOML_CONTENT_OK).unwrap(),
+    );
+
+    assert_eq!(config.output_name, "app-test");
+    assert_eq!(config.site_root, "my_target/site");
+    assert_eq!(config.site_pkg_dir, "my_pkg");
+    assert_eq!(
+        config.site_addr,
+        SocketAddr::from_str("0.0.0.0:80").unwrap()
+    );
+    assert_eq!(config.reload_port, 8080);
+    assert_eq!(config.reload_external_port, Some(8080));
+
+    // check the override
+    let config = temp_env::with_vars(
+        [
+            ("LEPTOS_OUTPUT_NAME", Some("app-test2")),
+            ("LEPTOS_SITE_ROOT", Some("my_target/site2")),
+            ("LEPTOS_SITE_PKG_DIR", Some("my_pkg2")),
+            ("LEPTOS_SITE_ADDR", Some("0.0.0.0:82")),
+            ("LEPTOS_RELOAD_PORT", Some("8082")),
+            ("LEPTOS_RELOAD_EXTERNAL_PORT", Some("8082")),
+        ],
+        || get_config_from_str(CARGO_TOML_CONTENT_OK).unwrap(),
+    );
+
+    assert_eq!(config.output_name, "app-test2");
+    assert_eq!(config.site_root, "my_target/site2");
+    assert_eq!(config.site_pkg_dir, "my_pkg2");
+    assert_eq!(
+        config.site_addr,
+        SocketAddr::from_str("0.0.0.0:82").unwrap()
+    );
+    assert_eq!(config.reload_port, 8082);
+    assert_eq!(config.reload_external_port, Some(8082));
+}
