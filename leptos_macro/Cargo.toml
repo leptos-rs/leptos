@@ -13,7 +13,7 @@ rust-version.workspace = true
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.8", features = ["syn-full"] }
+attribute-derive = { version = "0.9", features = ["syn-full"]}
 cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.12"

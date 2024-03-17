@@ -1,4 +1,4 @@
-use attribute_derive::Attribute as AttributeDerive;
+use attribute_derive::FromAttr;
 use convert_case::{
     Case::{Pascal, Snake},
     Casing,
@@ -808,7 +808,7 @@ impl Docs {
     }
 }
 
-#[derive(Clone, Debug, AttributeDerive)]
+#[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
 struct PropOpt {
     #[attribute(conflicts = [optional_no_strip, strip_option])]
