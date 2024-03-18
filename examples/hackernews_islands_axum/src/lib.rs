@@ -16,6 +16,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
+        <Example/>
         <Router>
             <Nav />
             <main>
@@ -26,6 +27,48 @@ pub fn App() -> impl IntoView {
                 </Routes>
             </main>
         </Router>
+    }
+}
+
+use leptos::*;
+
+#[island]
+pub fn CommonIsland() -> impl IntoView {
+    let val = RwSignal::new(0);
+    view! {
+        <div>
+            {move || format!("CommonIsland value is {}", val.get())}
+            <button on:click=move|_| val.update(|x| {*x += 1})>Click</button>
+        </div>
+
+    }
+}
+
+#[island]
+pub fn OuterWorking(children: Children) -> impl IntoView {
+    let val = RwSignal::new(0);
+    view! {
+        <>
+            <div>
+                {move || format!("outer value is {}", val.get())}
+                <button on:click=move|_| val.update(|x| {*x += 1})>Click</button>
+            </div>
+            {children()}
+        </>
+
+    }
+}
+
+#[component]
+pub fn Example() -> impl IntoView {
+    view! {
+        <OuterFailing/>
+
+        <OuterWorking>
+            <CommonIsland/>
+        </OuterWorking>
+
+        <CommonIsland/>
     }
 }
 
