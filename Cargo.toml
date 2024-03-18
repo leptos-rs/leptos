@@ -55,12 +55,10 @@ leptos_reactive = { path = "./leptos_reactive", version = "0.6.5" }
 leptos_router = { path = "./router", version = "0.6.5" }
 leptos_server = { path = "./leptos_server", version = "0.6.5" }
 leptos_meta = { path = "./meta", version = "0.6.5" }
-next_tuple = { path = "./next_tuple" }
 oco = { path = "./oco" }
 or_poisoned = { path = "./or_poisoned" }
 reactive_graph = { path = "./reactive_graph" }
 routing = { path = "./routing" }
-routing_utils = { path = "./routing_utils" }
 server_fn = { path = "./server_fn", version = "0.6.5" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.6.5" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
