@@ -298,9 +298,23 @@ pub trait Update {
         self.try_update(fun);
     }
 
+    fn maybe_update(&self, fun: impl FnOnce(&mut Self::Value) -> bool) {
+        self.try_maybe_update(|val| {
+            let did_update = fun(val);
+            (did_update, ())
+        });
+    }
+
     fn try_update<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
+    ) -> Option<U> {
+        self.try_maybe_update(|val| (true, fun(val)))
+    }
+
+    fn try_maybe_update<U>(
+        &self,
+        fun: impl FnOnce(&mut Self::Value) -> (bool, U),
     ) -> Option<U>;
 }
 
@@ -310,12 +324,14 @@ where
 {
     type Value = <Self as UpdateUntracked>::Value;
 
-    fn try_update<U>(
+    fn try_maybe_update<U>(
         &self,
-        fun: impl FnOnce(&mut Self::Value) -> U,
+        fun: impl FnOnce(&mut Self::Value) -> (bool, U),
     ) -> Option<U> {
-        let val = self.try_update_untracked(fun)?;
-        self.trigger();
+        let (did_update, val) = self.try_update_untracked(fun)?;
+        if did_update {
+            self.trigger();
+        }
         Some(val)
     }
 }
@@ -345,7 +361,8 @@ pub trait DefinedAt {
     fn defined_at(&self) -> Option<&'static Location<'static>>;
 }
 
-pub(crate) fn panic_getting_disposed_signal(
+#[doc(hidden)]
+pub fn panic_getting_disposed_signal(
     defined_at: Option<&'static Location<'static>>,
     location: &'static Location<'static>,
 ) -> String {
