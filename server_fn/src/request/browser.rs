@@ -6,10 +6,11 @@ pub use gloo_net::http::Request;
 use js_sys::{Reflect, Uint8Array};
 use send_wrapper::SendWrapper;
 use std::ops::{Deref, DerefMut};
-use wasm_bindgen::JsValue;
+use thiserror::Error;
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_streams::ReadableStream;
 use web_sys::{
-    AbortController, AbortSignal, FormData, Headers, RequestInit,
+    AbortController, AbortSignal, Event, FormData, Headers, RequestInit,
     UrlSearchParams,
 };
 
