@@ -57,6 +57,16 @@ impl<T> Hash for ArcRwSignal<T> {
     }
 }
 
+impl<T> Default for ArcRwSignal<T>
+where
+    T: Default,
+{
+    #[track_caller]
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> ArcRwSignal<T> {
     #[cfg_attr(
         feature = "tracing",

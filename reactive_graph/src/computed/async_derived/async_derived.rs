@@ -23,6 +23,18 @@ pub struct AsyncDerived<T: Send + Sync + 'static> {
     inner: StoredValue<ArcAsyncDerived<T>>,
 }
 
+impl<T: Send + Sync + 'static> From<ArcAsyncDerived<T>> for AsyncDerived<T> {
+    fn from(value: ArcAsyncDerived<T>) -> Self {
+        #[cfg(debug_assertions)]
+        let defined_at = value.defined_at;
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at,
+            inner: StoredValue::new(value),
+        }
+    }
+}
+
 impl<T: Send + Sync + 'static> StoredData for AsyncDerived<T> {
     type Data = ArcAsyncDerived<T>;
 

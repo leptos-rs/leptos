@@ -1,6 +1,8 @@
 //#![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+mod action;
+pub use action::*;
 #[cfg(feature = "hydration")]
 mod resource;
 #[cfg(feature = "hydration")]
