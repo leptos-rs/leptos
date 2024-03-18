@@ -9,13 +9,15 @@ use core::{fmt::Debug, marker::PhantomData};
 use futures::Future;
 use hydration_context::SerializedDataId;
 use reactive_graph::{
-    computed::{ArcAsyncDerived, AsyncDerived, AsyncDerivedFuture, AsyncState},
+    computed::{
+        ArcAsyncDerived, ArcMemo, AsyncDerived, AsyncDerivedFuture, AsyncState,
+    },
     owner::Owner,
     prelude::*,
 };
 use std::{future::IntoFuture, ops::Deref};
 
-pub struct ArcResource<T, Ser> {
+pub struct ArcResource<T, Ser = SerdeJson> {
     ser: PhantomData<Ser>,
     data: ArcAsyncDerived<T>,
 }
@@ -34,12 +36,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(fun)
+        ArcResource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -49,12 +55,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_serde<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(fun)
+        ArcResource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -65,14 +75,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_miniserde<Fut>(
-        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    pub fn new_miniserde<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(fun)
+        ArcResource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -83,14 +95,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_serde_lite<Fut>(
-        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    pub fn new_serde_lite<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(fun)
+        ArcResource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -101,12 +115,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_rkyv<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new_rkyv<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(fun)
+        ArcResource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -117,10 +135,12 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_with_encoding<Fut>(
-        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    pub fn new_with_encoding<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> ArcResource<T, Ser>
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Debug + Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
@@ -131,6 +151,9 @@ where
             .unwrap_or_default();
 
         let initial = Self::initial_value(&id);
+
+        let source = ArcMemo::new(move |_| source());
+        let fun = move || fetcher(source.get());
 
         let data = ArcAsyncDerived::new_with_initial(initial, fun);
 
@@ -227,12 +250,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(fun)
+        Resource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -242,12 +269,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_serde<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new_serde<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(fun)
+        Resource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -258,14 +289,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_miniserde<Fut>(
-        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    pub fn new_miniserde<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(fun)
+        Resource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -276,14 +309,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_serde_lite<Fut>(
-        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    pub fn new_serde_lite<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(fun)
+        Resource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -294,12 +329,16 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_rkyv<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new_rkyv<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
+        S: PartialEq + Clone + Send + Sync + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(fun)
+        Resource::new_with_encoding(source, fetcher)
     }
 }
 
@@ -310,68 +349,21 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_with_encoding<Fut>(
-        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    pub fn new_with_encoding<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Resource<T, Ser>
     where
+        S: Send + Sync + Clone + PartialEq + 'static,
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        let shared_context = Owner::current_shared_context();
-        let id = shared_context
-            .as_ref()
-            .map(|sc| sc.next_id())
-            .unwrap_or_default();
-
-        let initial = Self::initial_value(&id);
-
-        let data = AsyncDerived::new_with_initial(initial, fun);
-
-        if let Some(shared_context) = shared_context {
-            let value = data;
-            let ready_fut = data.ready();
-
-            shared_context.write_async(
-                id,
-                Box::pin(async move {
-                    ready_fut.await;
-                    value
-                        .with_untracked(|data| match &data {
-                            AsyncState::Complete(val) => val.ser(),
-                            _ => unreachable!(),
-                        })
-                        .unwrap() // TODO handle
-                }),
-            );
-        }
-
+        let ArcResource { ser, data } =
+            ArcResource::new_with_encoding(source, fetcher);
         Resource {
             ser: PhantomData,
-            data,
+            data: data.into(),
         }
-    }
-
-    #[inline(always)]
-    fn initial_value(id: &SerializedDataId) -> AsyncState<T> {
-        #[cfg(feature = "hydration")]
-        {
-            let shared_context = Owner::current_shared_context();
-            if let Some(shared_context) = shared_context {
-                let value = shared_context.read_data(id);
-                if let Some(value) = value {
-                    match T::de(&value) {
-                        Ok(value) => return AsyncState::Complete(value),
-                        Err(e) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!(
-                                "couldn't deserialize from {value:?}: {e:?}"
-                            );
-                        }
-                    }
-                }
-            }
-        }
-        AsyncState::Loading
     }
 }
 
