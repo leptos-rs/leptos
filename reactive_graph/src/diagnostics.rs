@@ -71,3 +71,17 @@ macro_rules! diagnostics {
         }
     }};
 }
+
+thread_local! {
+    static SUPPRESS_RESOURCE_LOAD: Cell<bool> = const { Cell::new(false) };
+}
+
+#[doc(hidden)]
+pub fn suppress_resource_load(suppress: bool) {
+    SUPPRESS_RESOURCE_LOAD.with(|w| w.set(suppress));
+}
+
+#[doc(hidden)]
+pub fn is_suppressing_resource_load() -> bool {
+    SUPPRESS_RESOURCE_LOAD.with(|w| w.get())
+}

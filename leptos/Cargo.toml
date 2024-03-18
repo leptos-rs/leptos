@@ -24,10 +24,11 @@ paste = "1"
 rand = { version = "0.8", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 tachys = { workspace = true, features = ["reactive_graph"] }
+thiserror = "1"
 tracing = "0.1"
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
-serde = { version = "1", optional = true }
+serde = "1"
 serde_json = { version = "1", optional = true }
 server_fn = { workspace = true, features = [
   "form-redirects",
@@ -41,6 +42,7 @@ web-sys = { version = "0.3.63", features = [
   "ShadowRootMode",
 ] }
 wasm-bindgen = { version = "0.2", optional = true }
+serde_qs = "0.12.0"
 
 [features]
 default = ["serde"]
@@ -78,7 +80,6 @@ experimental-islands = [
   "leptos_dom/experimental-islands",
   "leptos_macro/experimental-islands",
   "leptos_reactive/experimental-islands",
-  "dep:serde",
   "dep:serde_json",
 ]
 trace-component-props = [
