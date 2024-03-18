@@ -30,7 +30,9 @@ error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
 25 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: unexpected end of input, expected assignment `=`
+error: unexpected end of input, expected `=` or `(`
+
+       = help: try `#[prop(default = 5 * 10)]`
   --> tests/ui/component_absolute.rs:32:19
    |
 32 |     #[prop(default)] default: bool,
@@ -38,7 +40,7 @@ error: unexpected end of input, expected assignment `=`
 
 error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
 
-       = help: try `#[prop(default=5 * 10)]`
+       = help: try `#[prop(default = 5 * 10)]`
   --> tests/ui/component_absolute.rs:39:22
    |
 39 |     #[prop(default= |)] default: bool,

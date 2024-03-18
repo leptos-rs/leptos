@@ -1,7 +1,7 @@
 use crate::component::{
     convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
 };
-use attribute_derive::Attribute as AttributeDerive;
+use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
@@ -179,7 +179,7 @@ impl Prop {
     }
 }
 
-#[derive(Clone, Debug, AttributeDerive)]
+#[derive(Clone, Debug, FromAttr)]
 #[attribute(ident = prop)]
 struct PropOpt {
     #[attribute(conflicts = [optional_no_strip, strip_option])]
