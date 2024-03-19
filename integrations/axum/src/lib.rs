@@ -1624,6 +1624,30 @@ where
 
         let mut router = self;
 
+        // register server functions first to allow for wildcard router path
+        for (path, method) in server_fn::axum::server_fn_paths() {
+            let cx_with_state = cx_with_state.clone();
+            let handler = move |req: Request<Body>| async move {
+                handle_server_fns_with_context(cx_with_state, req).await
+            };
+            router = router.route(
+                path,
+                match method {
+                    Method::GET => get(handler),
+                    Method::POST => post(handler),
+                    Method::PUT => put(handler),
+                    Method::DELETE => delete(handler),
+                    Method::PATCH => patch(handler),
+                    _ => {
+                        panic!(
+                            "Unsupported server function HTTP method: \
+                             {method:?}"
+                        );
+                    }
+                },
+            );
+        }
+
         // register router paths
         for listing in paths.iter() {
             let path = listing.path();
@@ -1720,30 +1744,6 @@ where
                 )
                 };
             }
-        }
-
-        // register server functions
-        for (path, method) in server_fn::axum::server_fn_paths() {
-            let cx_with_state = cx_with_state.clone();
-            let handler = move |req: Request<Body>| async move {
-                handle_server_fns_with_context(cx_with_state, req).await
-            };
-            router = router.route(
-                path,
-                match method {
-                    Method::GET => get(handler),
-                    Method::POST => post(handler),
-                    Method::PUT => put(handler),
-                    Method::DELETE => delete(handler),
-                    Method::PATCH => patch(handler),
-                    _ => {
-                        panic!(
-                            "Unsupported server function HTTP method: \
-                             {method:?}"
-                        );
-                    }
-                },
-            );
         }
 
         router
