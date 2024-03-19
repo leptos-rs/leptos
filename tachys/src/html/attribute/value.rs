@@ -94,7 +94,7 @@ where
         buf.push(' ');
         buf.push_str(key);
         buf.push_str("=\"");
-        buf.push_str(&escape_attr(V));
+        buf.push_str(V);
         buf.push('"');
     }
 
@@ -289,7 +289,6 @@ where
     }
 }
 
-// TODO
 fn escape_attr(value: &str) -> Cow<'_, str> {
-    value.into()
+    html_escape::encode_double_quoted_attribute(value)
 }
