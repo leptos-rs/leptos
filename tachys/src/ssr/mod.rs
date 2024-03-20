@@ -15,7 +15,7 @@ use std::{
 #[derive(Default)]
 pub struct StreamBuilder {
     sync_buf: String,
-    chunks: VecDeque<StreamChunk>,
+    pub chunks: VecDeque<StreamChunk>,
     pending: Option<ChunkFuture>,
     pending_ooo: VecDeque<ChunkFuture>,
     id: Option<Vec<u16>>,
@@ -26,10 +26,19 @@ type ChunkFuture = PinnedFuture<VecDeque<StreamChunk>>;
 
 impl StreamBuilder {
     pub fn new(id: Option<Vec<u16>>) -> Self {
+        Self::with_capacity(0, id)
+    }
+
+    pub fn with_capacity(capacity: usize, id: Option<Vec<u16>>) -> Self {
         Self {
             id,
+            sync_buf: String::with_capacity(capacity),
             ..Default::default()
         }
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.sync_buf.reserve(additional);
     }
 
     pub fn push_sync(&mut self, string: &str) {

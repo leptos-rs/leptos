@@ -126,6 +126,11 @@ where
     type State = (R::Element, Option<Box<dyn FnOnce(&R::Element)>>);
 
     #[inline(always)]
+    fn html_len(&self) -> usize {
+        0
+    }
+
+    #[inline(always)]
     fn to_html(
         self,
         _buf: &mut String,

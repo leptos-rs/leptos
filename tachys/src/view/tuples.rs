@@ -130,6 +130,10 @@ where
 {
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
+    fn html_len(&self) -> usize {
+        self.0.html_len()
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         self.0.to_html_with_buf(buf, position);
     }
@@ -253,7 +257,14 @@ macro_rules! impl_view_for_tuples {
 			$($ty: RenderHtml<Rndr>),*,
 			Rndr: Renderer,
 		{
-			const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
+            const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
+
+            #[inline(always)]
+            fn html_len(&self) -> usize {
+                #[allow(non_snake_case)]
+			    let ($first, $($ty,)* ) = self;
+                $($ty.html_len() +)* $first.html_len()
+            }
 
 			fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
 				paste::paste! {

@@ -78,7 +78,14 @@ where
     T: RenderHtml<R>,
     R: Renderer,
 {
-    const MIN_LENGTH: usize = 0;
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn html_len(&self) -> usize {
+        match self {
+            Some(i) => i.html_len(),
+            None => 0,
+        }
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         if let Some(value) = self {
@@ -313,6 +320,10 @@ where
     R: Renderer,
 {
     const MIN_LENGTH: usize = 0;
+
+    fn html_len(&self) -> usize {
+        self.iter().map(|n| n.html_len()).sum()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         let mut children = self.into_iter();

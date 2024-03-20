@@ -48,6 +48,10 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -171,6 +175,10 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         <&str as RenderHtml<R>>::to_html_with_buf(self.as_str(), buf, position)
     }
@@ -265,6 +273,10 @@ where
     R: Renderer,
 {
     const MIN_LENGTH: usize = 0;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
@@ -362,6 +374,10 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
     }
@@ -457,6 +473,10 @@ where
     R: Renderer,
 {
     const MIN_LENGTH: usize = 0;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)

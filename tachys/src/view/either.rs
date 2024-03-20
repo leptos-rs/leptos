@@ -117,13 +117,34 @@ where
     }
 }
 
+const fn max_usize(vals: &[usize]) -> usize {
+    let mut max = 0;
+    let len = vals.len();
+    let mut i = 0;
+    while i < len {
+        if vals[i] > max {
+            max = vals[i];
+        }
+        i += 1;
+    }
+    max
+}
+
 impl<A, B, Rndr> RenderHtml<Rndr> for Either<A, B>
 where
     A: RenderHtml<Rndr>,
     B: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    const MIN_LENGTH: usize = min_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
+    const MIN_LENGTH: usize = max_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
+
+    #[inline(always)]
+    fn html_len(&self) -> usize {
+        match self {
+            Either::Left(i) => i.html_len(),
+            Either::Right(i) => i.html_len(),
+        }
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         match self {
@@ -172,19 +193,6 @@ where
         position.set(Position::NextChild);
         EitherState { state, marker }
     }
-}
-
-const fn min_usize(vals: &[usize]) -> usize {
-    let mut min = usize::MAX;
-    let len = vals.len();
-    let mut i = 0;
-    while i < len {
-        if vals[i] < min {
-            min = vals[i];
-        }
-        i += 1;
-    }
-    min
 }
 
 macro_rules! tuples {
@@ -291,7 +299,14 @@ macro_rules! tuples {
 
 
             {
-                const MIN_LENGTH: usize = min_usize(&[$($ty ::MIN_LENGTH,)*]);
+                const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
+
+                #[inline(always)]
+                fn html_len(&self) -> usize {
+                    match self {
+                        $([<EitherOf $num>]::$ty(i) => i.html_len(),)*
+                    }
+                }
 
                 fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
                     match self {

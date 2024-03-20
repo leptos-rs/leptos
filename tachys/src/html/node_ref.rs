@@ -50,6 +50,11 @@ where
     const MIN_LENGTH: usize = 0;
     type State = ();
 
+    #[inline(always)]
+    fn html_len(&self) -> usize {
+        0
+    }
+
     fn to_html(
         self,
         _buf: &mut String,
