@@ -40,6 +40,10 @@ where
     const MIN_LENGTH: usize = 0;
     type State = V::State;
 
+    fn html_len(&self) -> usize {
+        self.key.as_ref().len() + 3 + self.value.html_len()
+    }
+
     fn to_html(
         self,
         buf: &mut String,

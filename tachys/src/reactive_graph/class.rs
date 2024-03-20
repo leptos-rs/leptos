@@ -12,6 +12,10 @@ where
 {
     type State = RenderEffectState<C::State>;
 
+    fn html_len(&self) -> usize {
+        0
+    }
+
     fn to_html(mut self, class: &mut String) {
         let value = self();
         value.to_html(class);
@@ -79,6 +83,10 @@ where
     R: DomRenderer,
 {
     type State = RenderEffectState<(R::ClassList, bool)>;
+
+    fn html_len(&self) -> usize {
+        self.0.len()
+    }
 
     fn to_html(self, class: &mut String) {
         let (name, mut f) = self;
@@ -172,6 +180,10 @@ where
 {
     type State = <String as IntoClass<R>>::State;
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, class: &mut String) {
         <&str as IntoClass<R>>::to_html(self.deref().as_str(), class);
     }
@@ -201,6 +213,10 @@ where
     R: DomRenderer,
 {
     type State = <(&'static str, bool) as IntoClass<R>>::State;
+
+    fn html_len(&self) -> usize {
+        self.0.len()
+    }
 
     fn to_html(self, class: &mut String) {
         <(&'static str, bool) as IntoClass<R>>::to_html(

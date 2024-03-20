@@ -4,6 +4,8 @@ use std::borrow::Cow;
 pub trait AttributeValue<R: Renderer> {
     type State;
 
+    fn html_len(&self) -> usize;
+
     fn to_html(self, key: &str, buf: &mut String);
 
     fn to_template(key: &str, buf: &mut String);
@@ -24,6 +26,11 @@ where
     R: Renderer,
 {
     type State = ();
+
+    fn html_len(&self) -> usize {
+        0
+    }
+
     fn to_html(self, _key: &str, _buf: &mut String) {}
 
     fn to_template(_key: &str, _buf: &mut String) {}
@@ -40,6 +47,10 @@ where
     R: Renderer,
 {
     type State = (R::Element, &'a str);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, key: &str, buf: &mut String) {
         buf.push(' ');
@@ -86,6 +97,10 @@ where
 {
     type State = ();
 
+    fn html_len(&self) -> usize {
+        V.len()
+    }
+
     fn to_html(self, key: &str, buf: &mut String) {
         <&str as AttributeValue<R>>::to_html(V, key, buf);
     }
@@ -117,6 +132,10 @@ where
     R: Renderer,
 {
     type State = (R::Element, &'a String);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, key: &str, buf: &mut String) {
         <&str as AttributeValue<R>>::to_html(self.as_str(), key, buf);
@@ -156,6 +175,10 @@ where
     R: Renderer,
 {
     type State = (R::Element, String);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, key: &str, buf: &mut String) {
         <&str as AttributeValue<R>>::to_html(self.as_str(), key, buf);
@@ -197,6 +220,10 @@ where
     R: Renderer,
 {
     type State = (R::Element, bool);
+
+    fn html_len(&self) -> usize {
+        0
+    }
 
     fn to_html(self, key: &str, buf: &mut String) {
         if self {
@@ -246,6 +273,13 @@ where
     R: Renderer,
 {
     type State = (R::Element, Option<V::State>);
+
+    fn html_len(&self) -> usize {
+        match self {
+            Some(i) => i.html_len(),
+            None => 0,
+        }
+    }
 
     fn to_html(self, key: &str, buf: &mut String) {
         if let Some(v) = self {

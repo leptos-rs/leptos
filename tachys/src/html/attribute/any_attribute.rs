@@ -8,6 +8,7 @@ use std::{
 
 pub struct AnyAttribute<R: Renderer> {
     type_id: TypeId,
+    html_len: usize,
     value: Box<dyn Any + Send + Sync>,
     to_html:
         fn(Box<dyn Any>, &mut String, &mut String, &mut String, &mut String),
@@ -56,6 +57,8 @@ where
     // i.e., doesn't ship HTML-generating code that isn't used
     #[inline(always)]
     fn into_any_attr(self) -> AnyAttribute<R> {
+        let html_len = self.html_len();
+
         let value = Box::new(self) as Box<dyn Any + Send + Sync>;
 
         let to_html = |value: Box<dyn Any>,
@@ -126,6 +129,7 @@ where
         };
         AnyAttribute {
             type_id: TypeId::of::<T>(),
+            html_len,
             value,
             to_html,
             build,
@@ -157,6 +161,10 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = AnyAttributeState<R>;
+
+    fn html_len(&self) -> usize {
+        self.html_len
+    }
 
     fn to_html(
         self,
