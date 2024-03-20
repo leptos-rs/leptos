@@ -52,7 +52,7 @@ jobs:
         run: cargo binstall cargo-leptos --no-confirm
 
       - name: Install Trunk
-        run: cargo binstall trunk --no-confirm
+        uses: mbround18/trunk-rs@v0.0.1
 
       - name: Print Trunk Version
         run: trunk --version
