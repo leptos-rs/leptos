@@ -110,6 +110,10 @@ where
 {
     type State = (R::Element, Oco<'static, str>);
 
+    fn html_len(&self) -> usize {
+        self.as_str().len()
+    }
+
     fn to_html(self, key: &str, buf: &mut String) {
         <&str as AttributeValue<R>>::to_html(self.as_str(), key, buf);
     }
@@ -148,6 +152,10 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+
+    fn html_len(&self) -> usize {
+        self.as_str().len()
+    }
 
     fn to_html(self, class: &mut String) {
         IntoClass::<R>::to_html(self.as_str(), class);

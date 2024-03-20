@@ -208,7 +208,7 @@ where
     <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
 {
     // TODO probably pick a max length here
-    const MIN_LENGTH: usize = Fallback::MIN_LENGTH;
+    const MIN_LENGTH: usize = Children::View::MIN_LENGTH;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // if this is being run on the server for the first time, generating all possible routes
@@ -512,6 +512,10 @@ where
         }) as Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>
     }));
     let inner = Rc::new(RefCell::new(OutletStateInner {
+        html_len: {
+            let view = Rc::clone(&view);
+            Box::new(move || view.borrow().html_len())
+        },
         view: Rc::clone(&view),
         state: Lazy::new(Box::new(move || view.take().unwrap().build())),
     }));
@@ -563,6 +567,10 @@ where
         }) as Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>
     }));
     let inner = Rc::new(RefCell::new(OutletStateInner {
+        html_len: Box::new({
+            let view = Rc::clone(&view);
+            move || view.borrow().html_len()
+        }),
         view: Rc::clone(&view),
         state: Lazy::new(Box::new({
             let cursor = cursor.clone();
@@ -653,6 +661,10 @@ where
 {
     const MIN_LENGTH: usize = 0; // TODO
 
+    fn html_len(&self) -> usize {
+        (self.inner.borrow().html_len)()
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         let view = self.inner.borrow().view.take().unwrap();
         view.to_html_with_buf(buf, position);
@@ -684,6 +696,7 @@ pub struct OutletStateInner<R>
 where
     R: Renderer + 'static,
 {
+    html_len: Box<dyn Fn() -> usize>,
     view: Rc<
         Lazy<
             RefCell<Option<AnyView<R>>>,
@@ -708,6 +721,7 @@ where
             Rc::new(Lazy::new(Box::new(|| RefCell::new(Some(().into_any())))
                 as Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>));
         Self {
+            html_len: Box::new(|| 0),
             view,
             state: Lazy::new(Box::new(|| ().into_any().build())),
         }
@@ -901,7 +915,12 @@ where
 {
     const MIN_LENGTH: usize = Matcher::View::MIN_LENGTH;
 
+    fn html_len(&self) -> usize {
+        self.view.html_len()
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        buf.reserve(self.html_len());
         self.view.to_html_with_buf(buf, position);
     }
 
@@ -912,6 +931,7 @@ where
     ) where
         Self: Sized,
     {
+        buf.reserve(self.html_len());
         self.view
             .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
     }
