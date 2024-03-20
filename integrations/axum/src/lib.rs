@@ -750,7 +750,7 @@ where
                     // drop the owner, cleaning up the reactive runtime,
                     // once the stream is over
                     .chain(once(async move {
-                        //drop(owner);
+                        drop(owner);
                         Ok(Default::default())
                     })),
             ))

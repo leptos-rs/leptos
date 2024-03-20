@@ -35,6 +35,10 @@ where
 
     type State = C::State;
 
+    fn html_len(&self) -> usize {
+        self.class.html_len() + 1
+    }
+
     fn to_html(
         self,
         _buf: &mut String,
@@ -98,6 +102,8 @@ pub trait IntoClass<R: DomRenderer> {
 
     type State;
 
+    fn html_len(&self) -> usize;
+
     fn to_html(self, class: &mut String);
 
     #[allow(unused)] // it's used with `nightly` feature
@@ -115,6 +121,10 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, class: &mut String) {
         class.push_str(self);
@@ -147,6 +157,10 @@ where
 {
     type State = (R::Element, Self);
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, class: &mut String) {
         IntoClass::<R>::to_html(self.as_str(), class);
     }
@@ -177,6 +191,10 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, class: &mut String) {
         IntoClass::<R>::to_html(self.as_ref(), class);
@@ -209,6 +227,10 @@ where
 {
     type State = (R::Element, Self);
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, class: &mut String) {
         IntoClass::<R>::to_html(self.as_ref(), class);
     }
@@ -239,6 +261,10 @@ where
     R: DomRenderer,
 {
     type State = (R::ClassList, bool);
+
+    fn html_len(&self) -> usize {
+        self.0.len()
+    }
 
     fn to_html(self, class: &mut String) {
         let (name, include) = self;
@@ -288,6 +314,10 @@ where
     const TEMPLATE: &'static str = V;
 
     type State = ();
+
+    fn html_len(&self) -> usize {
+        V.len()
+    }
 
     fn to_html(self, class: &mut String) {
         class.push_str(V);
