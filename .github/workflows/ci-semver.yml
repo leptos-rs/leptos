@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@
+        uses: actions/checkout@v4
 
       - name: Sember Checks
         uses: obi1kenobi/cargo-semver-checks-action@v2
