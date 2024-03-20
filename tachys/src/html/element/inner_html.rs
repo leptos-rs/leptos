@@ -37,6 +37,10 @@ where
 
     type State = T::State;
 
+    fn html_len(&self) -> usize {
+        self.value.html_len()
+    }
+
     fn to_html(
         self,
         _buf: &mut String,
@@ -112,6 +116,8 @@ where
 pub trait InnerHtmlValue<R: DomRenderer> {
     type State;
 
+    fn html_len(&self) -> usize;
+
     fn to_html(self, buf: &mut String);
 
     fn to_template(buf: &mut String);
@@ -128,6 +134,10 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, buf: &mut String) {
         buf.push_str(&self);
@@ -164,6 +174,10 @@ where
 {
     type State = (R::Element, Self);
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, buf: &mut String) {
         buf.push_str(&self);
     }
@@ -198,6 +212,10 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
 
     fn to_html(self, buf: &mut String) {
         buf.push_str(&self);
@@ -234,6 +252,10 @@ where
 {
     type State = (R::Element, Self);
 
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
     fn to_html(self, buf: &mut String) {
         buf.push_str(self);
     }
@@ -269,6 +291,13 @@ where
     R: DomRenderer,
 {
     type State = Option<T::State>;
+
+    fn html_len(&self) -> usize {
+        match self {
+            Some(i) => i.html_len(),
+            None => 0,
+        }
+    }
 
     fn to_html(self, buf: &mut String) {
         if let Some(value) = self {

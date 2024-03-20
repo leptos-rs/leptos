@@ -235,6 +235,21 @@ where
         + E::TAG.len()
     };
 
+    fn html_len(&self) -> usize {
+        if E::SELF_CLOSING {
+            3 // < ... />
+        + E::TAG.len()
+        + self.attributes.html_len()
+        } else {
+            2 // < ... >
+        + E::TAG.len()
+        + self.attributes.html_len()
+        + self.children.html_len()
+        + 3 // </ ... >
+        + E::TAG.len()
+        }
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // opening tag
         buf.push('<');
@@ -565,7 +580,7 @@ mod tests {
             em().child(Static::<"beautiful">),
             Static::<" world!">,
         )));
-        let allocated_len = el.min_length();
+        let allocated_len = el.html_len();
         let html = el.to_html();
         assert_eq!(
             html,
