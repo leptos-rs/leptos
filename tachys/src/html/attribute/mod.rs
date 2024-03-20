@@ -17,6 +17,8 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> {
 
     type State;
 
+    fn html_len(&self) -> usize;
+
     fn to_html(
         self,
         buf: &mut String,
@@ -48,6 +50,10 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = ();
+
+    fn html_len(&self) -> usize {
+        0
+    }
 
     fn to_html(
         self,
@@ -114,6 +120,10 @@ where
 
     type State = V::State;
 
+    fn html_len(&self) -> usize {
+        K::KEY.len() + 3 + self.1.html_len()
+    }
+
     fn to_html(
         self,
         buf: &mut String,
@@ -164,6 +174,12 @@ macro_rules! impl_attr_for_tuples {
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
 			type State = ($first::State, $($ty::State,)*);
+
+            fn html_len(&self) -> usize {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                $first.html_len() $(+ $ty.html_len())*
+            }
 
 			fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
 				paste::paste! {
@@ -235,6 +251,12 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
 
 			type State = ($first::State, $($ty::State,)*);
 
+            fn html_len(&self) -> usize {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                $first.html_len() $(+ $ty.html_len())*
+            }
+
 			fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
 				paste::paste! {
 					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
@@ -300,6 +322,10 @@ where
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
     type State = A::State;
+
+    fn html_len(&self) -> usize {
+        self.0.html_len()
+    }
 
     fn to_html(
         self,

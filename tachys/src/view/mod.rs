@@ -70,7 +70,12 @@ where
 {
     const MIN_LENGTH: usize;
 
-    fn min_length(&self) -> usize {
+    /// An estimated length for this view, when rendered to HTML.
+    ///
+    /// This is used for calculating the string buffer size when rendering HTML. It does not need
+    /// to be precise, but should be an appropriate estimate. The more accurate, the fewer
+    /// reallocations will be required and the faster server-side rendering will be.
+    fn html_len(&self) -> usize {
         Self::MIN_LENGTH
     }
 
@@ -79,7 +84,7 @@ where
     where
         Self: Sized,
     {
-        let mut buf = String::with_capacity(Self::MIN_LENGTH);
+        let mut buf = String::with_capacity(self.html_len());
         self.to_html_with_buf(&mut buf, &mut Position::FirstChild);
         buf
     }
@@ -89,7 +94,7 @@ where
     where
         Self: Sized,
     {
-        let mut builder = StreamBuilder::default();
+        let mut builder = StreamBuilder::with_capacity(self.html_len(), None);
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
@@ -102,35 +107,32 @@ where
     where
         Self: Sized,
     {
-        let mut builder = StreamBuilder::new(Some(vec![0]));
+        let capacity = self.html_len();
+        let mut builder = StreamBuilder::with_capacity(capacity, Some(vec![0]));
+
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
         );
         builder.finish()
+        /*let mut b = builder.finish();
+        let last = b.chunks.pop_back().unwrap();
+        match &last {
+            crate::ssr::StreamChunk::Sync(s) => {
+                println!("actual = {}", s.len())
+            }
+            crate::ssr::StreamChunk::Async {
+                chunks,
+                should_block,
+            } => todo!(),
+            crate::ssr::StreamChunk::OutOfOrder {
+                chunks,
+                should_block,
+            } => todo!(),
+        }
+        b.chunks.push_back(last);
+        b*/
     }
-
-    /// Renders a view to an HTML string, asynchronously.
-    /* fn to_html_stream(self) -> impl Stream<Item = String>
-    where
-        Self: Sized,
-    {
-        use crate::ssr::handle_chunks;
-        use futures::channel::mpsc::unbounded;
-
-        let mut chunks = VecDeque::new();
-        let mut curr = String::new();
-        self.to_html_async_with_buf(
-            &mut chunks,
-            &mut curr,
-            &PositionState::new(Position::FirstChild),
-        );
-        let (tx, rx) = unbounded();
-
-        handle_chunks(tx, chunks).await;
-
-        rx
-    } */
 
     /// Renders a view to HTML, writing it into the given buffer.
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position);

@@ -65,7 +65,13 @@ where
     R: Renderer,
 {
     const MIN_LENGTH: usize = K::KEY.len() + 3 + V.len(); // K::KEY + ="..." + V
+
     type State = ();
+
+    #[inline(always)]
+    fn html_len(&self) -> usize {
+        K::KEY.len() + 3 + V.len()
+    }
 
     fn to_html(
         self,
