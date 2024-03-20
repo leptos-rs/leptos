@@ -11,6 +11,7 @@ where
     R: Renderer,
 {
     type_id: TypeId,
+    html_len: usize,
     value: Box<dyn Any>,
     to_html: fn(Box<dyn Any>, &mut String, &mut Position),
     to_html_async: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
@@ -114,6 +115,8 @@ where
     // i.e., doesn't ship HTML-generating code that isn't used
     #[inline(always)]
     fn into_any(self) -> AnyView<R> {
+        let html_len = self.html_len();
+
         let value = Box::new(self) as Box<dyn Any>;
 
         let to_html =
@@ -215,6 +218,7 @@ where
         };
         AnyView {
             type_id: TypeId::of::<T>(),
+            html_len,
             value,
             to_html,
             to_html_async,

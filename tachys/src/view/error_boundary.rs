@@ -48,6 +48,13 @@ where
 {
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
+    fn html_len(&self) -> usize {
+        match self {
+            Ok(i) => i.html_len(),
+            Err(_) => 0,
+        }
+    }
+
     fn to_html_with_buf(
         self,
         buf: &mut String,

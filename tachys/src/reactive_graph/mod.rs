@@ -236,6 +236,10 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    fn html_len(&self) -> usize {
+        V::MIN_LENGTH
+    }
+
     fn to_html_with_buf(mut self, buf: &mut String, position: &mut Position) {
         let value = self();
         value.to_html_with_buf(buf, position)
@@ -386,6 +390,10 @@ where
     R: Renderer,
 {
     type State = RenderEffectState<V::State>;
+
+    fn html_len(&self) -> usize {
+        0
+    }
 
     fn to_html(mut self, key: &str, buf: &mut String) {
         let value = self();
@@ -563,6 +571,10 @@ where
     R: DomRenderer,
 {
     type State = RenderEffectState<V::State>;
+
+    fn html_len(&self) -> usize {
+        0
+    }
 
     fn to_html(mut self, buf: &mut String) {
         let value = self();
