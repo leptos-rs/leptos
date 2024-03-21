@@ -1770,8 +1770,13 @@ where
 
         let mut router = self;
 
-        // register server functions first to allow for wildcard router path
+        // register server functions
+        println!(
+            "server fn paths are {:?}",
+            server_fn::axum::server_fn_paths().collect::<Vec<_>>()
+        );
         for (path, method) in server_fn::axum::server_fn_paths() {
+            println!("registering {path}");
             let cx_with_state = cx_with_state.clone();
             let handler = move |req: Request<Body>| async move {
                 handle_server_fns_with_context(cx_with_state, req).await
