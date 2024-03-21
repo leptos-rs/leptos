@@ -54,6 +54,9 @@ jobs:
       - name: Install Trunk
         run: cargo binstall trunk --no-confirm
 
+      - name: Print Trunk Version
+        run: trunk --version
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
