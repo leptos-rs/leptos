@@ -52,7 +52,9 @@ jobs:
         run: cargo binstall cargo-leptos --no-confirm
 
       - name: Install Trunk
-        run: cargo binstall trunk --no-confirm
+        uses: jetli/trunk-action@v0.4.0
+        with:
+          version: "latest"
 
       - name: Print Trunk Version
         run: trunk --version
