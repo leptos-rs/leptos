@@ -40,7 +40,7 @@ impl Owner {
         let (parent, shared_context) = OWNER
             .with(|o| {
                 o.borrow().as_ref().map(|o| {
-                    (Some(Arc::clone(&o.inner)), o.shared_context.clone())
+                    (Some(Arc::downgrade(&o.inner)), o.shared_context.clone())
                 })
             })
             .unwrap_or((None, None));
@@ -73,7 +73,7 @@ impl Owner {
     }
 
     pub fn child(&self) -> Self {
-        let parent = Some(Arc::clone(&self.inner));
+        let parent = Some(Arc::downgrade(&self.inner));
         Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
@@ -147,7 +147,7 @@ impl Owner {
 
 #[derive(Default)]
 pub(crate) struct OwnerInner {
-    pub parent: Option<Arc<RwLock<OwnerInner>>>,
+    pub parent: Option<Weak<RwLock<OwnerInner>>>,
     nodes: Vec<NodeId>,
     pub contexts: FxHashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,

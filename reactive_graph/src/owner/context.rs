@@ -14,7 +14,7 @@ impl Owner {
     fn use_context<T: Clone + 'static>(&self) -> Option<T> {
         let ty = TypeId::of::<T>();
         let inner = self.inner.read().or_poisoned();
-        let mut parent = inner.parent.as_ref().map(|p| p.clone());
+        let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
         let contexts = &self.inner.read().or_poisoned().contexts;
         if let Some(context) = contexts.get(&ty) {
             context.downcast_ref::<T>().cloned()
@@ -28,7 +28,8 @@ impl Owner {
                 if let Some(value) = downcast {
                     return Some(value);
                 } else {
-                    parent = this_parent.parent.as_ref().map(|p| p.clone());
+                    parent =
+                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
                 }
             }
             None
