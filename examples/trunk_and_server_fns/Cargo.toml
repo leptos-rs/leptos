@@ -1,0 +1,35 @@
+[package]
+name = "todo_app_sqlite_csr"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "front"
+
+[dependencies]
+actix-files = { version = "0.6.2", optional = true }
+actix-web = { version = "4.2.1", optional = true, features = ["macros"] }
+console_log = "1.0.0"
+console_error_panic_hook = "0.1.7"
+serde = { version = "1.0.152", features = ["derive"] }
+futures = "0.3.25"
+leptos = { path = "../../leptos", features = ["nightly"] }
+leptos_actix = { path = "../../integrations/actix", optional = true }
+leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos_router = { path = "../../router", features = ["nightly"] }
+log = "0.4.17"
+sqlx = { version = "0.6.2", features = ["runtime-tokio-rustls", "sqlite"], optional = true }
+wasm-bindgen = "0.2"
+tokio = { version = "1", features = ["rt", "time"], optional = true }
+
+[features]
+server = [
+	"dep:actix-web",
+	"dep:sqlx",
+	"leptos_actix",
+	"dep:tokio",
+]
+
+[package.metadata.cargo-all-features]
+denylist = ["actix-web", "leptos_actix", "sqlx"]
