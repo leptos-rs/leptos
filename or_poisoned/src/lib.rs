@@ -18,7 +18,9 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-use std::sync::{PoisonError, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{
+    LockResult, MutexGuard, PoisonError, RwLockReadGuard, RwLockWriteGuard,
+};
 
 /// Unwraps a lock.
 pub trait OrPoisoned {
@@ -47,6 +49,14 @@ impl<'a, T> OrPoisoned
     for Result<RwLockWriteGuard<'a, T>, PoisonError<RwLockWriteGuard<'a, T>>>
 {
     type Inner = RwLockWriteGuard<'a, T>;
+
+    fn or_poisoned(self) -> Self::Inner {
+        self.expect("lock poisoned")
+    }
+}
+
+impl<'a, T> OrPoisoned for LockResult<MutexGuard<'a, T>> {
+    type Inner = MutexGuard<'a, T>;
 
     fn or_poisoned(self) -> Self::Inner {
         self.expect("lock poisoned")

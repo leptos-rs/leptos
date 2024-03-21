@@ -107,8 +107,9 @@ where
     where
         Self: Sized,
     {
-        let capacity = self.html_len();
-        let mut builder = StreamBuilder::with_capacity(capacity, Some(vec![0]));
+        //let capacity = self.html_len();
+        let mut builder =
+            StreamBuilder::with_capacity(self.html_len(), Some(vec![0]));
 
         self.to_html_async_with_buf::<true>(
             &mut builder,

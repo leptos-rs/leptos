@@ -181,12 +181,18 @@ pub mod read {
 
         fn try_get_untracked(&self) -> Option<Self::Value> {
             self.inner
-                .with_value(|inner| match &inner {
+                // cloning here clones the inner Arc and releases the lock, in case anything inside needs to take it
+                // this happens particularly in derived signals, because they need to to access the
+                // global arena again
+                //
+                // note that .read() multiple times in the same thread on a std RwLock can deadlock
+                // to avoid writer starvation, which is why this happens
+                .with_value(|inner| inner.clone())
+                .and_then(|inner| match &inner {
                     SignalTypes::ReadSignal(i) => i.try_get_untracked(),
                     SignalTypes::Memo(i) => i.try_get_untracked(),
                     SignalTypes::DerivedSignal(i) => Some(untrack(|| i())),
                 })
-                .flatten()
         }
     }
 

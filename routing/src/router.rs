@@ -107,9 +107,6 @@ where
     FallbackFn: Fn() -> Fallback + 'static,
     Fallback: Render<Rndr>,
     Children: MatchNestedRoutes<Rndr> + 'static,
-    //for<'a> <Children::Match<'a> as MatchInterface<Rndr, View = View>>,
-    /*View: Render<Rndr> + IntoAny<Rndr> + 'static,
-    View::State: 'static,*/
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
     Children::Match: std::fmt::Debug,
@@ -1014,5 +1011,390 @@ where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
         self
+    }
+}
+
+#[derive(Debug)]
+pub struct FlatRouter<Rndr, Loc, Children, FallbackFn> {
+    base: Option<Cow<'static, str>>,
+    location: PhantomData<Loc>,
+    pub routes: Routes<Children, Rndr>,
+    fallback: FallbackFn,
+}
+
+impl<Rndr, Loc, Children, FallbackFn, Fallback>
+    FlatRouter<Rndr, Loc, Children, FallbackFn>
+where
+    Loc: Location,
+    Rndr: Renderer,
+    FallbackFn: Fn() -> Fallback,
+{
+    pub fn new(
+        routes: Routes<Children, Rndr>,
+        fallback: FallbackFn,
+    ) -> FlatRouter<Rndr, Loc, Children, FallbackFn> {
+        Self {
+            base: None,
+            location: PhantomData,
+            routes,
+            fallback,
+        }
+    }
+
+    pub fn new_with_base(
+        base: impl Into<Cow<'static, str>>,
+        routes: Routes<Children, Rndr>,
+        fallback: FallbackFn,
+    ) -> FlatRouter<Rndr, Loc, Children, FallbackFn> {
+        Self {
+            base: Some(base.into()),
+            location: PhantomData,
+            routes,
+            fallback,
+        }
+    }
+}
+impl<Rndr, Loc, FallbackFn, Fallback, Children> Render<Rndr>
+    for FlatRouter<Rndr, Loc, Children, FallbackFn>
+where
+    Loc: Location,
+    FallbackFn: Fn() -> Fallback + 'static,
+    Fallback: Render<Rndr>,
+    Children: MatchNestedRoutes<Rndr> + 'static,
+    Fallback::State: 'static,
+    Rndr: Renderer + 'static,
+{
+    type State =
+        RenderEffect<
+            EitherState<
+                <<Children::Match as MatchInterface<Rndr>>::View as Render<
+                    Rndr,
+                >>::State,
+                <Fallback as Render<Rndr>>::State,
+                Rndr,
+            >,
+        >;
+    type FallibleState = Self::State;
+
+    fn build(self) -> Self::State {
+        let location = Loc::new().unwrap(); // TODO
+        location.init(self.base);
+        let url = location.as_url().clone();
+        let path = ArcMemo::new({
+            let url = url.clone();
+            move |_| url.read().path().to_string()
+        });
+        let search_params = ArcMemo::new({
+            let url = url.clone();
+            move |_| url.read().search_params().clone()
+        });
+        let outer_owner =
+            Owner::current().expect("creating Router, but no Owner was found");
+
+        RenderEffect::new(move |prev: Option<EitherState<_, _, _>>| {
+            let path = path.read();
+            let new_match = self.routes.match_route(&path);
+
+            if let Some(mut prev) = prev {
+                if let Some(new_match) = new_match {
+                    let params = ArcRwSignal::new(
+                        new_match.to_params().into_iter().collect(),
+                    );
+                    #[allow(unused)]
+                    let (view, child) = new_match.into_view_and_child();
+                    #[cfg(debug_assertions)]
+                    if child.is_some() {
+                        panic!(
+                            "FlatRouter should not be used with a route that \
+                             has a child."
+                        );
+                    }
+
+                    let route_data = RouteData {
+                        params: ArcMemo::new({
+                            let params = params.clone();
+                            move |_| params.get()
+                        }),
+                        outlet: Default::default(),
+                    };
+                    let view = outer_owner.with(|| view.choose(route_data));
+                    Either::Left::<_, Fallback>(view).rebuild(&mut prev);
+                } else {
+                    Either::<<Children::Match as MatchInterface<Rndr>>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
+                }
+                prev
+            } else {
+                match new_match {
+                    Some(matched) => {
+                        let params = ArcRwSignal::new(
+                            matched.to_params().into_iter().collect(),
+                        );
+                        #[allow(unused)]
+                        let (view, child) = matched.into_view_and_child();
+                        #[cfg(debug_assertions)]
+                        if child.is_some() {
+                            panic!(
+                                "FlatRouter should not be used with a route \
+                                 that has a child."
+                            );
+                        }
+
+                        let route_data = RouteData {
+                            params: ArcMemo::new({
+                                let params = params.clone();
+                                move |_| params.get()
+                            }),
+                            outlet: Default::default(),
+                        };
+                        let view = outer_owner.with(|| view.choose(route_data));
+                        Either::Left(view)
+                    }
+                    _ => Either::Right((self.fallback)()),
+                }
+                .build()
+            }
+        })
+    }
+
+    fn rebuild(self, state: &mut Self::State) {}
+
+    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> tachys::error::Result<()> {
+        todo!()
+    }
+}
+
+impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
+    for FlatRouter<Rndr, Loc, Children, FallbackFn>
+where
+    Loc: Location,
+    FallbackFn: Fn() -> Fallback + 'static,
+    Fallback: RenderHtml<Rndr>,
+    Children: MatchNestedRoutes<Rndr> + 'static,
+    Fallback::State: 'static,
+    Rndr: Renderer + 'static,
+{
+    const MIN_LENGTH: usize =
+        <Children::Match as MatchInterface<Rndr>>::View::MIN_LENGTH;
+
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        // if this is being run on the server for the first time, generating all possible routes
+        if RouteList::is_generating() {
+            // add routes
+            let (base, routes) = self.routes.generate_routes();
+            let mut routes = routes
+                .into_iter()
+                .map(|segments| {
+                    let path = base
+                        .into_iter()
+                        .flat_map(|base| {
+                            iter::once(PathSegment::Static(
+                                base.to_string().into(),
+                            ))
+                        })
+                        .chain(segments)
+                        .collect::<Vec<_>>();
+                    // TODO add non-defaults for mode, etc.
+                    RouteListing::new(
+                        path,
+                        SsrMode::OutOfOrder,
+                        [Method::Get],
+                        None,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            // add fallback
+            // TODO fix: causes overlapping route issues on Axum
+            /*routes.push(RouteListing::new(
+                [PathSegment::Static(
+                    base.unwrap_or_default().to_string().into(),
+                )],
+                SsrMode::Async,
+                [
+                    Method::Get,
+                    Method::Post,
+                    Method::Put,
+                    Method::Patch,
+                    Method::Delete,
+                ],
+                None,
+            ));*/
+
+            RouteList::register(RouteList::from(routes));
+        } else {
+            let outer_owner = Owner::current()
+                .expect("creating Router, but no Owner was found");
+            let url = use_context::<RequestUrl>()
+                .expect("could not find request URL in context");
+            // TODO base
+            let url =
+                RequestUrl::parse(url.as_ref()).expect("could not parse URL");
+            // TODO query params
+            match self.routes.match_route(url.path()) {
+                Some(new_match) => {
+                    let params = ArcRwSignal::new(
+                        new_match.to_params().into_iter().collect(),
+                    );
+                    #[allow(unused)]
+                    let (view, child) = new_match.into_view_and_child();
+                    #[cfg(debug_assertions)]
+                    if child.is_some() {
+                        panic!(
+                            "FlatRouter should not be used with a route that \
+                             has a child."
+                        );
+                    }
+
+                    let route_data = RouteData {
+                        params: ArcMemo::new({
+                            let params = params.clone();
+                            move |_| params.get()
+                        }),
+                        outlet: Default::default(),
+                    };
+                    let view = outer_owner.with(|| view.choose(route_data));
+                    Either::Left(view)
+                }
+                None => Either::Right((self.fallback)()),
+            }
+            .to_html_with_buf(buf, position)
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+    ) where
+        Self: Sized,
+    {
+        let outer_owner =
+            Owner::current().expect("creating Router, but no Owner was found");
+        let url = use_context::<RequestUrl>()
+            .expect("could not find request URL in context");
+        // TODO base
+        let url = RequestUrl::parse(url.as_ref()).expect("could not parse URL");
+        // TODO query params
+        match self.routes.match_route(url.path()) {
+            Some(new_match) => {
+                let params = ArcRwSignal::new(
+                    new_match.to_params().into_iter().collect(),
+                );
+                #[allow(unused)]
+                let (view, child) = new_match.into_view_and_child();
+                #[cfg(debug_assertions)]
+                if child.is_some() {
+                    panic!(
+                        "FlatRouter should not be used with a route that has \
+                         a child."
+                    );
+                }
+
+                let route_data = RouteData {
+                    params: ArcMemo::new({
+                        let params = params.clone();
+                        move |_| params.get()
+                    }),
+                    outlet: Default::default(),
+                };
+                let view = outer_owner.with(|| view.choose(route_data));
+                Either::Left(view)
+            }
+            None => Either::Right((self.fallback)()),
+        }
+        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        let location = Loc::new().unwrap(); // TODO
+        location.init(self.base);
+        let url = location.as_url().clone();
+        let path = ArcMemo::new({
+            let url = url.clone();
+            move |_| url.read().path().to_string()
+        });
+        let search_params = ArcMemo::new({
+            let url = url.clone();
+            move |_| url.read().search_params().clone()
+        });
+        let outer_owner =
+            Owner::current().expect("creating Router, but no Owner was found");
+        let cursor = cursor.clone();
+        let position = position.clone();
+
+        RenderEffect::new(move |prev: Option<EitherState<_, _, _>>| {
+            let path = path.read();
+            let new_match = self.routes.match_route(&path);
+
+            if let Some(mut prev) = prev {
+                if let Some(new_match) = new_match {
+                    let params = ArcRwSignal::new(
+                        new_match.to_params().into_iter().collect(),
+                    );
+                    #[allow(unused)]
+                    let (view, child) = new_match.into_view_and_child();
+                    #[cfg(debug_assertions)]
+                    if child.is_some() {
+                        panic!(
+                            "FlatRouter should not be used with a route that \
+                             has a child."
+                        );
+                    }
+
+                    let route_data = RouteData {
+                        params: ArcMemo::new({
+                            let params = params.clone();
+                            move |_| params.get()
+                        }),
+                        outlet: Default::default(),
+                    };
+                    let view = outer_owner.with(|| view.choose(route_data));
+                    Either::Left::<_, Fallback>(view).rebuild(&mut prev);
+                } else {
+                    Either::<<Children::Match as MatchInterface<Rndr>>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
+                }
+                prev
+            } else {
+                match new_match {
+                    Some(matched) => {
+                        let params = ArcRwSignal::new(
+                            matched.to_params().into_iter().collect(),
+                        );
+                        #[allow(unused)]
+                        let (view, child) = matched.into_view_and_child();
+                        #[cfg(debug_assertions)]
+                        if child.is_some() {
+                            panic!(
+                                "FlatRouter should not be used with a route \
+                                 that has a child."
+                            );
+                        }
+
+                        let route_data = RouteData {
+                            params: ArcMemo::new({
+                                let params = params.clone();
+                                move |_| params.get()
+                            }),
+                            outlet: Default::default(),
+                        };
+                        let view = outer_owner.with(|| view.choose(route_data));
+                        Either::Left(view)
+                    }
+                    _ => Either::Right((self.fallback)()),
+                }
+                .hydrate::<FROM_SERVER>(&cursor, &position)
+            }
+        })
     }
 }
