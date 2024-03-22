@@ -1389,6 +1389,7 @@ where
                 }
             }
 
+            let current_span = tracing::Span::current();
             // run the Future
             let serializable = self.serializable;
             spawn_local({
@@ -1397,6 +1398,8 @@ where
                 let set_loading = self.set_loading;
                 let last_version = self.version.clone();
                 async move {
+                    // continue trace context within resource fetcher
+                    let _guard = current_span.enter();
                     let res = fut.await;
 
                     if version == last_version.get() {
