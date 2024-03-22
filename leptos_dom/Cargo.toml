@@ -10,7 +10,7 @@ rust-version.workspace = true
 
 [dependencies]
 async-recursion = "1"
-base64 = { version = "0.21", optional = true }
+base64 = { version = "0.22", optional = true }
 cfg-if = "1"
 drain_filter_polyfill = "0.1"
 futures = "0.3"
