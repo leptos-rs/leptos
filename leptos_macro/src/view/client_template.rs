@@ -20,7 +20,10 @@ pub(crate) fn render_template(nodes: &[Node]) -> TokenStream {
             root_element_to_tokens(&template_uid, node)
         }
         _ => {
-            abort!(Span::call_site(), "template! takes a single root element.")
+            proc_macro_error::abort!(
+                Span::call_site(),
+                "template! takes a single root element."
+            )
         }
     }
 }
@@ -201,7 +204,7 @@ fn element_to_tokens(
         let next_sib =
             match next_sibling_node(&node.children, idx + 1, next_el_id) {
                 Ok(next_sib) => next_sib,
-                Err(err) => abort!(span, "{}", err),
+                Err(err) => proc_macro_error::abort!(span, "{}", err),
             };
 
         let curr_id = child_to_tokens(
@@ -292,7 +295,10 @@ fn attr_to_tokens(
 
     // refs
     if name == "ref" {
-        abort!(span, "node_ref not yet supported in template! macro")
+        proc_macro_error::abort!(
+            span,
+            "node_ref not yet supported in template! macro"
+        )
     }
     // Event Handlers
     else if name.starts_with("on:") {
@@ -457,7 +463,10 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        _ => abort!(Span::call_site(), "unexpected child node type"),
+        _ => proc_macro_error::abort!(
+            Span::call_site(),
+            "unexpected child node type"
+        ),
     }
 }
 
