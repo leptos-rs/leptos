@@ -28,7 +28,7 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]`][server] macro allows you to annotate a function to
+//! The [`#[server]`](../leptos/attr.server.html) macro allows you to annotate a function to
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
