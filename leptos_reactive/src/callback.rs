@@ -238,7 +238,7 @@ mod tests {
     fn clone_callback() {
         let rt = create_runtime();
         let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
-        let _cloned = callback.clone();
+        let _cloned = callback;
         rt.dispose();
     }
 

@@ -71,8 +71,8 @@ use crate::{
 #[track_caller]
 pub fn create_slice<T, O, S>(
     signal: RwSignal<T>,
-    getter: impl Fn(&T) -> O + Clone + Copy + 'static,
-    setter: impl Fn(&mut T, S) + Clone + Copy + 'static,
+    getter: impl Fn(&T) -> O + Copy + 'static,
+    setter: impl Fn(&mut T, S) + Copy + 'static,
 ) -> (Signal<O>, SignalSetter<S>)
 where
     O: PartialEq,
@@ -88,7 +88,7 @@ where
 #[track_caller]
 pub fn create_read_slice<T, O>(
     signal: RwSignal<T>,
-    getter: impl Fn(&T) -> O + Clone + Copy + 'static,
+    getter: impl Fn(&T) -> O + Copy + 'static,
 ) -> Signal<O>
 where
     O: PartialEq,
@@ -101,7 +101,7 @@ where
 #[track_caller]
 pub fn create_write_slice<T, O>(
     signal: RwSignal<T>,
-    setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
+    setter: impl Fn(&mut T, O) + Copy + 'static,
 ) -> SignalSetter<O> {
     let setter = move |value| signal.update(|x| setter(x, value));
     setter.into_signal_setter()
