@@ -11,16 +11,27 @@ where
     R: Renderer,
 {
     type_id: TypeId,
-    html_len: usize,
     value: Box<dyn Any>,
+
+    // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
+    // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
+    // With this type-erased wrapper, however, the compiler is not *always* able to correctly
+    // eliminate that code.
+    #[cfg(feature = "ssr")]
+    html_len: usize,
+    #[cfg(feature = "ssr")]
     to_html: fn(Box<dyn Any>, &mut String, &mut Position),
+    #[cfg(feature = "ssr")]
     to_html_async: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
+    #[cfg(feature = "ssr")]
     to_html_async_ooo: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
+    #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
     hydrate_from_server:
         fn(Box<dyn Any>, &Cursor<R>, &PositionState) -> AnyViewState<R>,
+    #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
     hydrate_from_template:
         fn(Box<dyn Any>, &Cursor<R>, &PositionState) -> AnyViewState<R>,
@@ -115,10 +126,12 @@ where
     // i.e., doesn't ship HTML-generating code that isn't used
     #[inline(always)]
     fn into_any(self) -> AnyView<R> {
+        #[cfg(feature = "ssr")]
         let html_len = self.html_len();
 
         let value = Box::new(self) as Box<dyn Any>;
 
+        #[cfg(feature = "ssr")]
         let to_html =
             |value: Box<dyn Any>, buf: &mut String, position: &mut Position| {
                 let value = value
@@ -126,6 +139,7 @@ where
                     .expect("AnyView::to_html could not be downcast");
                 value.to_html_with_buf(buf, position);
             };
+        #[cfg(feature = "ssr")]
         let to_html_async =
             |value: Box<dyn Any>,
              buf: &mut StreamBuilder,
@@ -135,6 +149,7 @@ where
                     .expect("AnyView::to_html could not be downcast");
                 value.to_html_async_with_buf::<false>(buf, position);
             };
+        #[cfg(feature = "ssr")]
         let to_html_async_ooo =
             |value: Box<dyn Any>,
              buf: &mut StreamBuilder,
@@ -159,6 +174,7 @@ where
                 insert_before_this: insert_before_this::<R, T>,
             }
         };
+        #[cfg(feature = "hydrate")]
         let hydrate_from_server =
             |value: Box<dyn Any>,
              cursor: &Cursor<R>,
@@ -177,6 +193,7 @@ where
                     insert_before_this: insert_before_this::<R, T>,
                 }
             };
+        #[cfg(feature = "hydrate")]
         let hydrate_from_template =
             |value: Box<dyn Any>,
              cursor: &Cursor<R>,
@@ -218,14 +235,20 @@ where
         };
         AnyView {
             type_id: TypeId::of::<T>(),
-            html_len,
             value,
-            to_html,
-            to_html_async,
-            to_html_async_ooo,
             build,
             rebuild,
+            #[cfg(feature = "ssr")]
+            html_len,
+            #[cfg(feature = "ssr")]
+            to_html,
+            #[cfg(feature = "ssr")]
+            to_html_async,
+            #[cfg(feature = "ssr")]
+            to_html_async_ooo,
+            #[cfg(feature = "hydrate")]
             hydrate_from_server,
+            #[cfg(feature = "hydrate")]
             hydrate_from_template,
         }
     }
@@ -265,7 +288,17 @@ where
     const MIN_LENGTH: usize = 0;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        #[cfg(feature = "ssr")]
         (self.to_html)(self.value, buf, position);
+        #[cfg(not(feature = "ssr"))]
+        {
+            _ = buf;
+            _ = position;
+            panic!(
+                "You are rendering AnyView to HTML without the `ssr` feature \
+                 enabled."
+            );
+        }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -275,10 +308,20 @@ where
     ) where
         Self: Sized,
     {
+        #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
             (self.to_html_async_ooo)(self.value, buf, position);
         } else {
             (self.to_html_async)(self.value, buf, position);
+        }
+        #[cfg(not(feature = "ssr"))]
+        {
+            _ = buf;
+            _ = position;
+            panic!(
+                "You are rendering AnyView to HTML without the `ssr` feature \
+                 enabled."
+            );
         }
     }
 
@@ -287,10 +330,20 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
+        #[cfg(feature = "hydrate")]
         if FROM_SERVER {
             (self.hydrate_from_server)(self.value, cursor, position)
         } else {
             (self.hydrate_from_template)(self.value, cursor, position)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            _ = cursor;
+            _ = position;
+            panic!(
+                "You are trying to hydrate AnyView without the `hydrate` \
+                 feature enabled."
+            );
         }
     }
 }
