@@ -407,8 +407,10 @@ where
         key: &str,
         el: &<R as Renderer>::Element,
     ) -> Self::State {
+        let key = R::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
+
         RenderEffect::new(move |prev| {
             let value = self();
             if let Some(mut state) = prev {
@@ -426,8 +428,10 @@ where
         el: &<R as Renderer>::Element,
         key: &str,
     ) -> Self::State {
+        let key = R::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
+
         RenderEffect::new(move |prev| {
             let value = self();
             if let Some(mut state) = prev {
@@ -506,8 +510,10 @@ where
         el: &<R as Renderer>::Element,
         key: &str,
     ) -> Self::State {
+        let key = R::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
+
         RenderEffect::new(move |prev| {
             let value = self();
             if let Some(mut state) = prev {
@@ -525,8 +531,10 @@ where
         el: &<R as Renderer>::Element,
         key: &str,
     ) -> Self::State {
+        let key = R::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
+
         RenderEffect::new(move |prev| {
             let value = self();
             if let Some(mut state) = prev {

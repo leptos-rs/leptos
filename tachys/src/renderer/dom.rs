@@ -2,14 +2,16 @@ use super::{CastFrom, DomRenderer, Renderer};
 use crate::{
     dom::{document, window},
     ok_or_debug, or_debug,
-    view::Mountable,
+    view::{Mountable, ToTemplate},
 };
+use linear_map::LinearMap;
+use once_cell::unsync::Lazy;
 use rustc_hash::FxHashSet;
-use std::{borrow::Cow, cell::RefCell};
+use std::{any::TypeId, borrow::Cow, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{
     Comment, CssStyleDeclaration, DocumentFragment, DomTokenList, Element,
-    Event, HtmlElement, Node, Text,
+    Event, HtmlElement, HtmlTemplateElement, Node, Text,
 };
 
 #[derive(Debug)]
@@ -25,6 +27,10 @@ impl Renderer for Dom {
     type Element = Element;
     type Placeholder = Comment;
 
+    fn intern(text: &str) -> &str {
+        intern(text)
+    }
+
     fn create_text_node(text: &str) -> Self::Text {
         document().create_text_node(text)
     }
@@ -38,15 +44,11 @@ impl Renderer for Dom {
     }
 
     fn set_attribute(node: &Self::Element, name: &str, value: &str) {
-        or_debug!(
-            node.set_attribute(intern(name), value),
-            node,
-            "setAttribute"
-        );
+        or_debug!(node.set_attribute(name, value), node, "setAttribute");
     }
 
     fn remove_attribute(node: &Self::Element, name: &str) {
-        or_debug!(node.remove_attribute(intern(name)), node, "removeAttribute");
+        or_debug!(node.remove_attribute(name), node, "removeAttribute");
     }
 
     fn insert_node(
@@ -97,12 +99,13 @@ impl DomRenderer for Dom {
     type Event = JsValue;
     type ClassList = DomTokenList;
     type CssStyleDeclaration = CssStyleDeclaration;
+    type TemplateElement = HtmlTemplateElement;
 
     fn set_property(el: &Self::Element, key: &str, value: &JsValue) {
         or_debug!(
             js_sys::Reflect::set(
                 el,
-                &wasm_bindgen::JsValue::from_str(intern(key)),
+                &wasm_bindgen::JsValue::from_str(key),
                 value,
             ),
             el,
@@ -160,10 +163,10 @@ impl DomRenderer for Dom {
         delegation_key: Cow<'static, str>,
         cb: Box<dyn FnMut(Self::Event)>,
     ) -> Box<dyn FnOnce(&Self::Element)> {
-        let cb = Closure::wrap(cb).into_js_value();
+        let cb = Closure::wrap(cb);
         let key = intern(&delegation_key);
         or_debug!(
-            js_sys::Reflect::set(el, &JsValue::from_str(key), &cb),
+            js_sys::Reflect::set(el, &JsValue::from_str(key), cb.as_ref()),
             el,
             "set property"
         );
@@ -237,15 +240,19 @@ impl DomRenderer for Dom {
         });
 
         // return the remover
-        Box::new(move |el| {
-            or_debug!(
-                js_sys::Reflect::delete_property(
+        Box::new({
+            let key = key.to_owned();
+            move |el| {
+                drop(cb);
+                or_debug!(
+                    js_sys::Reflect::delete_property(
+                        el,
+                        &JsValue::from_str(&key)
+                    ),
                     el,
-                    &JsValue::from_str(intern(&delegation_key))
-                ),
-                el,
-                "delete property"
-            );
+                    "delete property"
+                );
+            }
         })
     }
 
@@ -254,15 +261,11 @@ impl DomRenderer for Dom {
     }
 
     fn add_class(list: &Self::ClassList, name: &str) {
-        or_debug!(list.add_1(intern(name)), list.unchecked_ref(), "add()");
+        or_debug!(list.add_1(name), list.unchecked_ref(), "add()");
     }
 
     fn remove_class(list: &Self::ClassList, name: &str) {
-        or_debug!(
-            list.remove_1(intern(name)),
-            list.unchecked_ref(),
-            "remove()"
-        );
+        or_debug!(list.remove_1(name), list.unchecked_ref(), "remove()");
     }
 
     fn style(el: &Self::Element) -> Self::CssStyleDeclaration {
@@ -275,7 +278,7 @@ impl DomRenderer for Dom {
         value: &str,
     ) {
         or_debug!(
-            style.set_property(intern(name), value),
+            style.set_property(name, value),
             style.unchecked_ref(),
             "setProperty"
         );
@@ -283,6 +286,47 @@ impl DomRenderer for Dom {
 
     fn set_inner_html(el: &Self::Element, html: &str) {
         el.set_inner_html(html);
+    }
+
+    fn get_template<V>() -> Self::TemplateElement
+    where
+        V: ToTemplate + 'static,
+    {
+        thread_local! {
+            static TEMPLATE_ELEMENT: Lazy<HtmlTemplateElement> =
+                Lazy::new(|| document().create_element("template").unwrap().unchecked_into());
+            static TEMPLATES: RefCell<LinearMap<TypeId, HtmlTemplateElement>> = Default::default();
+        }
+
+        TEMPLATES.with(|t| {
+            t.borrow_mut()
+                .entry(TypeId::of::<V>())
+                .or_insert_with(|| {
+                    let tpl = TEMPLATE_ELEMENT.with(|t| {
+                        t.clone_node()
+                            .unwrap()
+                            .unchecked_into::<HtmlTemplateElement>()
+                    });
+                    let mut buf = String::new();
+                    V::to_template(
+                        &mut buf,
+                        &mut String::new(),
+                        &mut String::new(),
+                        &mut String::new(),
+                        &mut Default::default(),
+                    );
+                    tpl.set_inner_html(&buf);
+                    tpl
+                })
+                .clone()
+        })
+    }
+
+    fn clone_template(tpl: &Self::TemplateElement) -> Self::Element {
+        tpl.content()
+            .clone_node_with_deep(true)
+            .unwrap()
+            .unchecked_into()
     }
 }
 

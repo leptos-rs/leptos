@@ -22,6 +22,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
         let (name, mut f) = self;
+        let name = R::intern(name);
         // TODO FROM_SERVER vs template
         let style = R::style(el);
         RenderEffect::new(move |prev| {
@@ -50,6 +51,7 @@ where
 
     fn build(self, el: &R::Element) -> Self::State {
         let (name, mut f) = self;
+        let name = R::intern(name);
         let style = R::style(el);
         RenderEffect::new(move |prev| {
             let value = f().into();

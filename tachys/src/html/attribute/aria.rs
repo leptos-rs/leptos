@@ -2,6 +2,7 @@ use crate::{
     html::attribute::{Attr, *},
     view::add_attr::AddAnyAttr,
 };
+
 pub trait AriaAttributes<Rndr, V>
 where
     Self: Sized + AddAnyAttr<Rndr>,
