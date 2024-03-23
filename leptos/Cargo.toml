@@ -46,19 +46,26 @@ serde_qs = "0.12.0"
 
 [features]
 default = ["serde"]
-csr = ["leptos_macro/csr", "leptos_reactive/csr", "leptos_server/csr"]
+hydration = [
+  "leptos_server/hydration",
+  "dep:hydration_context",
+  "hydration_context/browser",
+]
+csr = ["leptos_macro/csr", "leptos_reactive/csr"]
 hydrate = [
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
-  "leptos_server/hydrate",
+  "hydration",
+  "tachys/hydrate",
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
-  "leptos_server/ssr",
   "server_fn/ssr",
+  "hydration",
+  "tachys/ssr",
 ]
 nightly = [
   "leptos_dom/nightly",
