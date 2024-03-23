@@ -94,6 +94,37 @@ where
     }
 }
 
+/// Runs the provided closure and mounts the result to the provided element.
+pub fn mount_to_renderer<F, N, R>(
+    parent: &R::Element,
+    f: F,
+) -> UnmountHandle<N::State, R>
+where
+    F: FnOnce() -> N + 'static,
+    N: Render<R>,
+    R: Renderer,
+{
+    // use wasm-bindgen-futures to drive the reactive system
+    Executor::init_wasm_bindgen();
+
+    // create a new reactive owner and use it as the root node to run the app
+    let owner = Owner::new();
+    let mountable = owner.with(move || {
+        let view = f();
+        let mut mountable = view.build();
+        mountable.mount(&parent, None);
+        mountable
+    });
+
+    // returns a handle that owns the owner
+    // when this is dropped, it will clean up the reactive system and unmount the view
+    UnmountHandle {
+        owner,
+        mountable,
+        rndr: PhantomData,
+    }
+}
+
 /// On drop, this will clean up the reactive [`Owner`] and unmount the view created by
 /// [`mount_to`].
 ///

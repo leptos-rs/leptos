@@ -143,6 +143,9 @@ futures = "0.3"
 parking_lot = "0.12"
 itertools = "0.12"
 send_wrapper = "0.6"
+linear-map = "1.2.0"
+sledgehammer_bindgen = { version = "0.4", features = ["web"], optional = true }
+sledgehammer_utils = { version = "0.2", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -157,3 +160,4 @@ ssr = []
 nightly = ["reactive_graph/nightly"]
 testing = ["dep:slotmap"]
 reactive_graph = ["dep:reactive_graph"]
+sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]

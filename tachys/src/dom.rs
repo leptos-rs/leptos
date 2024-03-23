@@ -2,12 +2,26 @@ use once_cell::unsync::Lazy;
 use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement, Node, Window};
 
-pub fn window() -> Window {
-    web_sys::window().unwrap()
+thread_local! {
+    pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap();
+
+    pub(crate) static DOCUMENT: web_sys::Document = web_sys::window().unwrap().document().unwrap();
 }
 
+/// Returns the [`Window`](https://developer.mozilla.org/en-US/docs/Web/API/Window).
+///
+/// This is cached as a thread-local variable, so calling `window()` multiple times
+/// requires only one call out to JavaScript.
+pub fn window() -> Window {
+    WINDOW.with(Clone::clone)
+}
+
+/// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
+///
+/// This is cached as a thread-local variable, so calling `document()` multiple times
+/// requires only one call out to JavaScript.
 pub fn document() -> Document {
-    window().document().unwrap()
+    DOCUMENT.with(Clone::clone)
 }
 
 pub fn body() -> HtmlElement {
