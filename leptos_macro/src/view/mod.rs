@@ -344,7 +344,7 @@ fn attribute_to_tokens(
                     _ => unreachable!(),
                 };
                 prop_to_tokens(node, prop.into_token_stream(), name)
-            } else if name.contains('-')
+            } else if name.contains('-') && !name.starts_with("aria-")
                 // we don't provide statically-checked methods for SVG attributes
                 || tag_type == TagType::Svg
             {

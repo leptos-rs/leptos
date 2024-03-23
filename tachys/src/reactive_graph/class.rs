@@ -59,14 +59,11 @@ where
         drop(prev_effect);
         *state = RenderEffect::new_with_value(
             move |prev| {
-                crate::log("rebuilt class");
                 let value = self();
                 if let Some(mut state) = prev {
-                    crate::log("  rebuilt it");
                     value.rebuild(&mut state);
                     state
                 } else {
-                    crate::log("  oh no!");
                     todo!()
                 }
             },
@@ -100,6 +97,8 @@ where
         // TODO FROM_SERVER vs template
         let (name, mut f) = self;
         let class_list = R::class_list(el);
+        let name = R::intern(name);
+
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
             let include = *f().borrow();
             if let Some((class_list, prev)) = prev {
@@ -119,6 +118,8 @@ where
     fn build(self, el: &R::Element) -> Self::State {
         let (name, mut f) = self;
         let class_list = R::class_list(el);
+        let name = R::intern(name);
+
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
             let include = *f().borrow();
             match prev {

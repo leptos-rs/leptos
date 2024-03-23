@@ -215,6 +215,7 @@ impl DomRenderer for MockDom {
     type Event = ();
     type ClassList = ();
     type CssStyleDeclaration = ();
+    type TemplateElement = ();
 
     fn set_property(el: &Self::Element, key: &str, value: &JsValue) {
         todo!()
@@ -269,6 +270,17 @@ impl DomRenderer for MockDom {
     where
         T: CastFrom<Self::Element>,
     {
+        todo!()
+    }
+
+    fn get_template<V>() -> Self::TemplateElement
+    where
+        V: crate::view::ToTemplate + 'static,
+    {
+        todo!()
+    }
+
+    fn clone_template(tpl: &Self::TemplateElement) -> Self::Element {
         todo!()
     }
 }
@@ -385,6 +397,10 @@ impl Renderer for MockDom {
     type Text = Text;
     type Element = Element;
     type Placeholder = Placeholder;
+
+    fn intern(text: &str) -> &str {
+        text
+    }
 
     fn create_text_node(data: &str) -> Self::Text {
         document().create_text_node(data)

@@ -1,3 +1,5 @@
+#[cfg(feature = "sledgehammer")]
+use crate::renderer::sledgehammer::Sledgehammer;
 use crate::{
     html::{
         attribute::{Attr, Attribute, AttributeValue},
@@ -92,6 +94,13 @@ macro_rules! html_elements {
                             });
                         }
                         ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
+                    }
+                }
+
+                #[cfg(feature = "sledgehammer")]
+                impl CreateElement<Sledgehammer> for [<$tag:camel>] {
+                    fn create_element(&self) -> <Sledgehammer as Renderer>::Element {
+                        Sledgehammer::element(stringify!($tag))
                     }
                 }
             )*
