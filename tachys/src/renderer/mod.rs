@@ -1,10 +1,15 @@
-use crate::{html::element::CreateElement, view::Mountable};
+use crate::{
+    html::element::CreateElement,
+    view::{Mountable, ToTemplate},
+};
 use std::{borrow::Cow, fmt::Debug};
 use wasm_bindgen::JsValue;
 
 pub mod dom;
 #[cfg(feature = "testing")]
 pub mod mock_dom;
+#[cfg(feature = "sledgehammer")]
+pub mod sledgehammer;
 
 /// Implements the instructions necessary to render an interface on some platform.
 /// By default, this is implemented for the Document Object Model (DOM) in a Web
@@ -32,6 +37,8 @@ pub trait Renderer: Sized + Debug {
         + Mountable<Self>
         + Clone
         + 'static;
+
+    fn intern(text: &str) -> &str;
 
     /// Creates a new element node.
     fn create_element<E: CreateElement<Self>>(tag: E) -> Self::Element {
@@ -110,6 +117,8 @@ pub trait DomRenderer: Renderer {
     type ClassList: Clone + 'static;
     /// The CSS styles for an element.
     type CssStyleDeclaration: Clone + 'static;
+    /// The type of a `<template>` element.
+    type TemplateElement;
 
     /// Sets a JavaScript object property on a DOM element.
     fn set_property(el: &Self::Element, key: &str, value: &JsValue);
@@ -159,6 +168,13 @@ pub trait DomRenderer: Renderer {
 
     /// Sets the `innerHTML` of a DOM element, without escaping any values.
     fn set_inner_html(el: &Self::Element, html: &str);
+
+    /// Returns a cached template element created from the given type.
+    fn get_template<V>() -> Self::TemplateElement
+    where
+        V: ToTemplate + 'static;
+
+    fn clone_template(tpl: &Self::TemplateElement) -> Self::Element;
 }
 
 /// Attempts to cast from one type to another.
