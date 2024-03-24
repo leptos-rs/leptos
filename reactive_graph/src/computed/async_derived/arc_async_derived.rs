@@ -2,6 +2,8 @@ use super::{
     inner::ArcAsyncDerivedInner, AsyncDerivedReadyFuture, AsyncState,
     ScopedFuture,
 };
+#[cfg(feature = "sandboxed-arenas")]
+use crate::owner::Sandboxed;
 use crate::{
     channel::channel,
     graph::{
@@ -118,7 +120,7 @@ macro_rules! spawn_derived {
             let value = Arc::downgrade(&this.value);
             let inner = Arc::downgrade(&this.inner);
             let wakers = Arc::downgrade(&this.wakers);
-            async move {
+            let fut = async move {
                 while rx.next().await.is_some() {
                     match (value.upgrade(), inner.upgrade(), wakers.upgrade()) {
                         (Some(value), Some(inner), Some(wakers)) => {
@@ -128,6 +130,8 @@ macro_rules! spawn_derived {
                                 any_subscriber
                                     .with_observer(|| ScopedFuture::new($fun()))
                             });
+                            #[cfg(feature = "sandboxed-arenas")]
+                            let fut = Sandboxed::new(fut);
 
                             // update state from Complete to Reloading
                             {
@@ -162,7 +166,12 @@ macro_rules! spawn_derived {
                         _ => break,
                     }
                 }
-            }
+            };
+
+            #[cfg(feature = "sandboxed-arenas")]
+            let fut = Sandboxed::new(fut);
+
+            fut
         });
 
         this
