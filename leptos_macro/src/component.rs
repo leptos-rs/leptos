@@ -705,8 +705,8 @@ impl Docs {
                         {
                             view_code_fence_state = ViewCodeFenceState::Rust;
                             let view = trimmed_doc.find('v').unwrap();
-                            quotes = trimmed_doc[..view].to_owned();
-                            quote_ws = leading_ws.to_owned();
+                            trimmed_doc[..view].clone_into(&mut quotes);
+                            leading_ws.clone_into(&mut quote_ws);
                             let rust_options = &trimmed_doc
                                 [view + "view".len()..]
                                 .trim_start();
