@@ -4,6 +4,8 @@ use crate::serializers::Miniserde;
 use crate::serializers::Rkyv;
 #[cfg(feature = "serde-lite")]
 use crate::serializers::SerdeLite;
+#[cfg(feature = "serde-wasm-bindgen")]
+use crate::serializers::SerdeWasmBindgen;
 use crate::serializers::{SerdeJson, SerializableData, Serializer, Str};
 use core::{fmt::Debug, marker::PhantomData};
 use futures::Future;
@@ -55,7 +57,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new<S, Fut>(
+    pub fn new_serde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
@@ -68,6 +70,25 @@ where
     }
 }
 
+#[cfg(feature = "serde-wasm-bindgen")]
+impl<T> ArcResource<T, SerdeWasmBindgen>
+where
+    T: Debug + SerializableData<SerdeWasmBindgen>,
+    T::SerErr: Debug,
+    T::DeErr: Debug,
+{
+    pub fn new_serde_wb<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_encoding(source, fetcher)
+    }
+}
 #[cfg(feature = "miniserde")]
 impl<T> ArcResource<T, Miniserde>
 where
@@ -270,6 +291,26 @@ where
     T::DeErr: Debug,
 {
     pub fn new_serde<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_encoding(source, fetcher)
+    }
+}
+
+#[cfg(feature = "serde-wasm-bindgen")]
+impl<T> Resource<T, SerdeWasmBindgen>
+where
+    T: Debug + SerializableData<SerdeWasmBindgen> + Send + Sync + 'static,
+    T::SerErr: Debug,
+    T::DeErr: Debug,
+{
+    pub fn new_serde_wb<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
