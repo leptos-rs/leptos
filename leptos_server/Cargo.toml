@@ -22,6 +22,9 @@ futures = "0.3"
 
 # serialization formats
 serde = { version = "1", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+js-sys = { version = "0.3", optional = true } 
+wasm-bindgen = { version = "0.2", optional = true } 
 serde_json = { version = "1", optional = true }
 miniserde = { version = "0.1", optional = true }
 rkyv = { version = "0.7", optional = true, features = [
@@ -40,6 +43,7 @@ default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
 hydration = ["reactive_graph/hydration", "dep:serde", "dep:serde_json"]
 rkyv = ["dep:rkyv", "dep:base64"]
+serde-wasm-bindgen = ["dep:serde-wasm-bindgen", "dep:js-sys", "dep:wasm-bindgen"]
 tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
