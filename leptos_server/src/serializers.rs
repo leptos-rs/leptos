@@ -200,3 +200,35 @@ mod rkyv {
 
 #[cfg(feature = "rkyv")]
 pub use rkyv::*;
+
+#[cfg(feature = "serde-wasm-bindgen")]
+mod serde_wasm_bindgen {
+    use super::{SerializableData, Serializer};
+    use serde::{de::DeserializeOwned, Serialize};
+
+    /// A [`Serializer`] that serializes using [`serde_json`] and deserializes using
+    /// [`serde-wasm-bindgen`].
+    pub struct SerdeWasmBindgen;
+
+    impl Serializer for SerdeWasmBindgen {}
+
+    impl<T> SerializableData<SerdeWasmBindgen> for T
+    where
+        T: DeserializeOwned + Serialize,
+    {
+        type SerErr = serde_json::Error;
+        type DeErr = wasm_bindgen::JsValue;
+
+        fn ser(&self) -> Result<String, Self::SerErr> {
+            serde_json::to_string(&self)
+        }
+
+        fn de(data: &str) -> Result<Self, Self::DeErr> {
+            let json = js_sys::JSON::parse(data)?;
+            serde_wasm_bindgen::from_value(json).map_err(Into::into)
+        }
+    }
+}
+
+#[cfg(feature = "serde-wasm-bindgen")]
+pub use serde_wasm_bindgen::*;
