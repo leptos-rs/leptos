@@ -52,10 +52,10 @@ use leptos_reactive::{
 ///   /* etc. */
 /// ```
 ///
-/// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::core::Error.
-/// ErrorBoundary requires your `Result<T,E>` to implement `IntoView`.
-/// `Result<T,E>` only implements `IntoView` if E implements `std::core::Error`.
-/// So, for instance, if you pass a Result<T,String> where T implements IntoView
+/// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::error::Error.
+/// `ErrorBoundary` requires your `Result<T,E>` to implement [IntoView](https://docs.rs/leptos/latest/leptos/trait.IntoView.html).
+/// `Result<T,E>` only implements `IntoView` if `E` implements [std::error::Error](https://doc.rust-lang.org/std/error/trait.Error.html).
+/// So, for instance, if you pass a `Result<T,String>` where `T` implements [IntoView](https://docs.rs/leptos/latest/leptos/trait.IntoView.html)
 /// and attempt to render the error for the purposes of `ErrorBoundary` you'll get a compiler error like this.
 ///
 /// ```
