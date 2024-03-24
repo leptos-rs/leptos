@@ -248,7 +248,7 @@ fn owning_memo_slice() {
     let token = create_owning_memo(move |old_token| {
         state.with(move |state| {
             let is_different = old_token.as_ref() != Some(&state.token);
-            let mut token = old_token.unwrap_or_else(String::new);
+            let mut token = old_token.unwrap_or_default();
 
             if is_different {
                 token.clone_from(&state.token);

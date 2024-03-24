@@ -1210,6 +1210,15 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
+
+        // register server functions first to allow for wildcard route in Leptos's Router
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = handle_server_fns_with_context(additional_context);
+            router = router.route(path, handler);
+        }
+
+        // register routes defined in Leptos's Router
         for listing in paths.iter() {
             let path = listing.path();
             let mode = listing.mode();
@@ -1272,13 +1281,6 @@ where
             }
         }
 
-        // register server functions
-        for (path, _) in server_fn::actix::server_fn_paths() {
-            let additional_context = additional_context.clone();
-            let handler = handle_server_fns_with_context(additional_context);
-            router = router.route(path, handler);
-        }
-
         router
     }
 }
@@ -1311,6 +1313,15 @@ impl LeptosRoutes for &mut ServiceConfig {
         IV: IntoView + 'static,
     {
         let mut router = self;
+
+        // register server functions first to allow for wildcard route in Leptos's Router
+        for (path, _) in server_fn::actix::server_fn_paths() {
+            let additional_context = additional_context.clone();
+            let handler = handle_server_fns_with_context(additional_context);
+            router = router.route(path, handler);
+        }
+
+        // register routes defined in Leptos's Router
         for listing in paths.iter() {
             let path = listing.path();
             let mode = listing.mode();
@@ -1353,13 +1364,6 @@ impl LeptosRoutes for &mut ServiceConfig {
                     },
                 );
             }
-        }
-
-        // register server functions
-        for (path, _) in server_fn::actix::server_fn_paths() {
-            let additional_context = additional_context.clone();
-            let handler = handle_server_fns_with_context(additional_context);
-            router = router.route(path, handler);
         }
 
         router

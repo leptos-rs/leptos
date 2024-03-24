@@ -359,7 +359,7 @@ fn inherit_settings(children: &mut [RouteDefinition], router: &RouterContext) {
     ) {
         for child in children {
             if child.trailing_slash.is_none() {
-                child.trailing_slash = inherited.trailing_slash.clone();
+                child.trailing_slash.clone_from(&inherited.trailing_slash);
             }
             route_def_inherit(
                 &mut child.children,
