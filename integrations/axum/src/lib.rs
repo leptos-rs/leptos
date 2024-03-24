@@ -58,6 +58,7 @@ use leptos::{
 use leptos_meta::{MetaContext, ServerMetaContext};
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
+use reactive_graph::owner::Sandboxed;
 use routing::{
     location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
     StaticDataMap, StaticMode,
@@ -707,13 +708,12 @@ where
         let res_options2 = default_res_options.clone();
         let res_options3 = default_res_options.clone();
 
-        Box::pin(async move {
-            let owner = Owner::new_root(Arc::new(SsrSharedContext::new()));
+        let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
+        Box::pin(Sandboxed::new(async move {
             let meta_context = ServerMetaContext::new();
             let stream = owner.with(|| {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
                 let path = req.uri().path_and_query().unwrap().as_str();
 
                 let full_path = format!("http://leptos.dev{path}");
@@ -744,7 +744,7 @@ where
 
             let stream = meta_context.inject_meta_context(stream).await;
 
-            Html(Body::from_stream(
+            Html(Body::from_stream(Sandboxed::new(
                 stream
                     .map(|chunk| Ok(chunk) as Result<String, std::io::Error>)
                     // drop the owner, cleaning up the reactive runtime,
@@ -753,9 +753,9 @@ where
                         drop(owner);
                         Ok(Default::default())
                     })),
-            ))
+            )))
             .into_response()
-        })
+        }))
     }
 }
 
@@ -1423,7 +1423,7 @@ where
 {
     init_executor();
 
-    let owner = Owner::new();
+    let owner = Owner::new_root(None);
     let routes = owner
         .with(|| {
             // stub out a path for now
