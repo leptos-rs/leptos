@@ -25,6 +25,7 @@ nightly = []
 serde = ["dep:serde"]
 tracing = ["dep:tracing"]
 hydration = ["dep:hydration_context"]
+sandboxed-arenas = []
 
 [package.metadata.docs.rs]
 all-features = true

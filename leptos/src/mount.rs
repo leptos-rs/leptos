@@ -39,7 +39,7 @@ where
     Executor::init_wasm_bindgen();
 
     // create a new reactive owner and use it as the root node to run the app
-    let owner = Owner::new_root(Arc::new(HydrateSharedContext::new()));
+    let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
     let mountable = owner.with(move || {
         let view = f().into_view();
         view.hydrate::<true>(
