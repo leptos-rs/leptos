@@ -1,3 +1,4 @@
+use crate::into_view::{IntoView, View};
 use std::sync::Arc;
 use tachys::{
     renderer::dom::Dom,
@@ -25,6 +26,17 @@ type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom>>;
 #[doc(hidden)]
 pub trait ToChildren<F> {
     fn to_children(f: F) -> Self;
+}
+
+impl<F, C> ToChildren<F> for TypedChildren<C>
+where
+    F: FnOnce() -> C + 'static,
+    C: IntoView,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        TypedChildren(Box::new(move || f().into_view()))
+    }
 }
 
 impl<F, C> ToChildren<F> for Children
@@ -96,5 +108,15 @@ impl ViewFn {
     /// Execute the wrapped function
     pub fn run(&self) -> AnyView<Dom> {
         (self.0)()
+    }
+}
+
+/// A typed equivalent to [`Children`], which takes a generic but preserves type information to
+/// allow the compiler to optimize the view more effectively.
+pub struct TypedChildren<T>(Box<dyn FnOnce() -> View<T>>);
+
+impl<T> TypedChildren<T> {
+    pub fn into_inner(self) -> impl FnOnce() -> View<T> {
+        self.0
     }
 }
