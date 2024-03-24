@@ -98,6 +98,7 @@ pub fn App() -> impl IntoView {
                     </Route>
                 </Routes>
             </main>
+            <footer><p>"Does the footer hydrate correctly?"</p></footer>
         </Router>
     }
 }
