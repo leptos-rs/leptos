@@ -12,6 +12,9 @@ use std::{
 
 mod arena;
 mod context;
+use self::arena::Arena;
+#[cfg(feature = "sandboxed-arenas")]
+pub use arena::sandboxed::Sandboxed;
 use arena::NodeId;
 pub use arena::{StoredData, StoredValue};
 pub use context::*;
@@ -58,8 +61,10 @@ impl Owner {
 
     #[cfg(feature = "hydration")]
     pub fn new_root(
-        shared_context: Arc<dyn SharedContext + Send + Sync>,
+        shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
     ) -> Self {
+        Arena::enter_new();
+
         Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent: None,
@@ -68,7 +73,7 @@ impl Owner {
                 cleanups: Default::default(),
             })),
             #[cfg(feature = "hydration")]
-            shared_context: Some(shared_context),
+            shared_context,
         }
     }
 
@@ -108,8 +113,12 @@ impl Owner {
             cleanup();
         }
 
-        for node in nodes {
-            _ = arena::map().write().or_poisoned().remove(node);
+        if !nodes.is_empty() {
+            Arena::with_mut(|arena| {
+                for node in nodes {
+                    _ = arena.remove(node);
+                }
+            });
         }
 
         self.with(fun)
@@ -170,8 +179,13 @@ impl Drop for OwnerInner {
             cleanup();
         }
 
-        for node in mem::take(&mut self.nodes) {
-            _ = arena::map().write().or_poisoned().remove(node);
+        let nodes = mem::take(&mut self.nodes);
+        if !nodes.is_empty() {
+            Arena::with_mut(|arena| {
+                for node in nodes {
+                    _ = arena.remove(node);
+                }
+            });
         }
     }
 }
