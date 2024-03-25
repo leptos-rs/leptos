@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr", "nightly"] }
-gtk = { version = "0.5.0", package = "gtk4" }
+any_spawner = { path = "../../any_spawner/", features = ["glib"] }
+gtk = { version = "0.8.0", package = "gtk4" }
