@@ -2,38 +2,76 @@ use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{create_render_effect, signal_prelude::*};
 use std::cell::Cell;
 
-/// Contains a shared reference to a DOM node created while using the `view`
-/// macro to create your UI.
-///
-/// ```
-/// # use leptos::{*, logging::log};
-/// use leptos::html::Input;
-///
-/// #[component]
-/// pub fn MyComponent() -> impl IntoView {
-///     let input_ref = create_node_ref::<Input>();
-///
-///     let on_click = move |_| {
-///         let node =
-///             input_ref.get().expect("input_ref should be loaded by now");
-///         // `node` is strongly typed
-///         // it is dereferenced to an `HtmlInputElement` automatically
-///         log!("value is {:?}", node.value())
-///     };
-///
-///     view! {
-///       <div>
-///       // `node_ref` loads the input
-///       <input _ref=input_ref type="text"/>
-///       // the button consumes it
-///       <button on:click=on_click>"Click me"</button>
-///       </div>
-///     }
-/// }
-/// ```
-#[repr(transparent)]
-pub struct NodeRef<T: ElementDescriptor + 'static>(
-    RwSignal<Option<HtmlElement<T>>>,
+cfg_if::cfg_if!(
+  if #[cfg(debug_assertions)] {
+    /// Contains a shared reference to a DOM node created while using the `view`
+    /// macro to create your UI.
+    ///
+    /// ```
+    /// # use leptos::{*, logging::log};
+    /// use leptos::html::Input;
+    ///
+    /// #[component]
+    /// pub fn MyComponent() -> impl IntoView {
+    ///     let input_ref = create_node_ref::<Input>();
+    ///
+    ///     let on_click = move |_| {
+    ///         let node =
+    ///             input_ref.get().expect("input_ref should be loaded by now");
+    ///         // `node` is strongly typed
+    ///         // it is dereferenced to an `HtmlInputElement` automatically
+    ///         log!("value is {:?}", node.value())
+    ///     };
+    ///
+    ///     view! {
+    ///       <div>
+    ///       // `node_ref` loads the input
+    ///       <input _ref=input_ref type="text"/>
+    ///       // the button consumes it
+    ///       <button on:click=on_click>"Click me"</button>
+    ///       </div>
+    ///     }
+    /// }
+    /// ```
+    pub struct NodeRef<T: ElementDescriptor + 'static> {
+      defined_at: &'static std::panic::Location<'static>,
+      element: RwSignal<Option<HtmlElement<T>>>,
+    }
+  } else {
+    /// Contains a shared reference to a DOM node created while using the `view`
+    /// macro to create your UI.
+    ///
+    /// ```
+    /// # use leptos::{*, logging::log};
+    /// use leptos::html::Input;
+    ///
+    /// #[component]
+    /// pub fn MyComponent() -> impl IntoView {
+    ///     let input_ref = create_node_ref::<Input>();
+    ///
+    ///     let on_click = move |_| {
+    ///         let node =
+    ///             input_ref.get().expect("input_ref should be loaded by now");
+    ///         // `node` is strongly typed
+    ///         // it is dereferenced to an `HtmlInputElement` automatically
+    ///         log!("value is {:?}", node.value())
+    ///     };
+    ///
+    ///     view! {
+    ///       <div>
+    ///       // `node_ref` loads the input
+    ///       <input _ref=input_ref type="text"/>
+    ///       // the button consumes it
+    ///       <button on:click=on_click>"Click me"</button>
+    ///       </div>
+    ///     }
+    /// }
+    /// ```
+    #[repr(transparent)]
+    pub struct NodeRef<T: ElementDescriptor + 'static> {
+      element: RwSignal<Option<HtmlElement<T>>>,
+    }
+  }
 );
 
 /// Creates a shared reference to a DOM node created while using the `view`
@@ -65,9 +103,13 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 ///     }
 /// }
 /// ```
+#[track_caller]
 #[inline(always)]
 pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
-    NodeRef(create_rw_signal(None))
+    NodeRef {
+        defined_at: std::panic::Location::caller(),
+        element: create_rw_signal(None),
+    }
 }
 
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
@@ -120,7 +162,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     where
         T: Clone,
     {
-        self.0.get()
+        self.element.get()
     }
 
     /// Gets the element that is currently stored in the reference.
@@ -132,7 +174,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     where
         T: Clone,
     {
-        self.0.get_untracked()
+        self.element.get_untracked()
     }
 
     #[doc(hidden)]
@@ -144,7 +186,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     where
         T: Clone,
     {
-        self.0.update(|current| {
+        self.element.update(|current| {
             if current.is_some() {
                 crate::debug_warn!(
                     "You are setting a NodeRef that has already been filled. \
@@ -176,6 +218,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
 }
 
 impl<T: ElementDescriptor> Clone for NodeRef<T> {
+    #[track_caller]
     fn clone(&self) -> Self {
         *self
     }
@@ -184,6 +227,7 @@ impl<T: ElementDescriptor> Clone for NodeRef<T> {
 impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}
 
 impl<T: ElementDescriptor + 'static> Default for NodeRef<T> {
+    #[track_caller]
     fn default() -> Self {
         Self::new()
     }
