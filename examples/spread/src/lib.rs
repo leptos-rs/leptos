@@ -12,35 +12,46 @@ pub fn SpreadingExample() -> impl IntoView {
         ("aria-disabled", Attribute::String(Oco::Borrowed("false"))),
     ];
 
-    let event_handlers_only: Vec<EventHandlerFn> = vec![
-        EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
+    let event_handlers_only: Vec<EventHandlerFn> =
+        vec![EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
             alert("event_handlers_only clicked");
-        })),
-    ];
+        }))];
 
-    let mixed: Vec<Prop> = vec![
+    let mixed: Vec<Binding> = vec![
         ("data-foo", Attribute::String(Oco::Borrowed("123"))).into(),
         ("aria-disabled", Attribute::String(Oco::Borrowed("true"))).into(),
         EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
             alert("mixed clicked");
-        })).into(),
+        }))
+        .into(),
     ];
+
+    let partial_attrs: Vec<(&'static str, Attribute)> =
+        vec![("data-foo", Attribute::String(Oco::Borrowed("11")))];
+    let partial_event_handlers: Vec<EventHandlerFn> =
+        vec![EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
+            alert("partial_event_handlers clicked");
+        }))];
 
     view! {
         <div {..attrs_only}>
-            "attrs_only"
+            "<div {..attrs_only} />"
         </div>
 
         <div {..event_handlers_only}>
-            "event_handlers_only"
+            "<div {..event_handlers_only} />"
         </div>
 
         <div {..mixed}>
-            "mixed"
+            "<div {..mixed} />"
+        </div>
+
+        <div {..partial_attrs} {..partial_event_handlers}>
+            "<div {..partial_attrs} {..partial_event_handlers} />"
         </div>
 
         // Overwriting an event handler, here on:click, will result in a panic in debug builds. In release builds, the initial handler is kept.
-        // If spreading is used, prefer manually merging event handlers in the prop list instead.
+        // If spreading is used, prefer manually merging event handlers in the binding list instead.
         //<div {..mixed} on:click=|_e| { alert("I will never be seen..."); }>
         //    "with overwritten click handler"
         //</div>

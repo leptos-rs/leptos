@@ -163,7 +163,7 @@ pub use leptos_dom::{
         window_event_listener, window_event_listener_untyped,
     },
     html,
-    html::Prop,
+    html::Binding,
     math, mount_to, mount_to_body, nonce, svg, window, Attribute, Class,
     CollectView, Errors, EventHandlerFn, Fragment, HtmlElement, IntoAttribute,
     IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,

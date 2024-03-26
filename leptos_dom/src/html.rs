@@ -366,22 +366,27 @@ where
     }
 }
 
-/// Represents HTML element properties. These can either be named attributes or event handlers.
-/// A collection of Props (`collection: Vec<Prop>`) can be spread onto an element like in `view! { <div {..collection} /> }`.
-pub enum Prop {
+/// Bind data through attributes or behavior through event handlers to an element.
+/// A collection of bindings (`collection: Vec<Binding>`) can be spread onto an element like in `view! { <div {..collection} /> }`.
+pub enum Binding {
     /// A statically named attribute.
-    NamedAttr((&'static str, Attribute)),
+    Attribute {
+        /// Name of the attribute.
+        name: &'static str,
+        /// Value of the attribute, possibly reactive.
+        value: Attribute,
+    },
     /// A statically typed event handler.
     EventHandler(EventHandlerFn),
 }
 
-impl From<(&'static str, Attribute)> for Prop {
+impl From<(&'static str, Attribute)> for Binding {
     fn from((name, value): (&'static str, Attribute)) -> Self {
-        Self::NamedAttr((name, value))
+        Self::Attribute { name, value }
     }
 }
 
-impl From<EventHandlerFn> for Prop {
+impl From<EventHandlerFn> for Binding {
     fn from(handler: EventHandlerFn) -> Self {
         Self::EventHandler(handler)
     }
@@ -672,23 +677,147 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
-    /// Adds multiple properties to the element.
+    /// Adds multiple attributes to the element.
     #[track_caller]
-    pub fn props<P: Into<Prop>>(
+    #[deprecated(
+        since = "0.6.10",
+        note = "Please call `bindings` instead. It can act as a drop-in-replacement but can handle both attributes and event handlers at the same time."
+    )]
+    pub fn attrs(
         mut self,
-        props: impl std::iter::IntoIterator<Item = P>,
+        attrs: impl std::iter::IntoIterator<Item = (&'static str, Attribute)>,
     ) -> Self {
-        for prop in props {
-            let prop = prop.into();
-            self = match prop {
-                Prop::NamedAttr((name, value)) => self.attr(name, value),
-                Prop::EventHandler(handler) => match handler {
-                    EventHandlerFn::Keydown(handler) => self.on(crate::events::typed::keydown, handler),
-                    EventHandlerFn::Click(handler) => self.on(crate::events::typed::click, handler),
-                },
-            };
+        for (name, value) in attrs {
+            self = self.attr(name, value);
         }
         self
+    }
+
+    /// Adds multiple bindings (attributes or event handlers) to the element.
+    #[track_caller]
+    pub fn bindings<B: Into<Binding>>(
+        mut self,
+        bindings: impl std::iter::IntoIterator<Item = B>,
+    ) -> Self {
+        for binding in bindings {
+            self = self.binding(binding.into());
+        }
+        self
+    }
+
+    /// Add a single binding (attribute or event handler) to the element.
+    #[track_caller]
+    fn binding(self, binding: Binding) -> Self {
+        match binding {
+            Binding::Attribute { name, value } => self.attr(name, value),
+            Binding::EventHandler(handler) => match handler {
+                EventHandlerFn::Keydown(handler) => {
+                    self.on(crate::events::typed::keydown, handler)
+                }
+                EventHandlerFn::Keyup(handler) => {
+                    self.on(crate::events::typed::keyup, handler)
+                }
+                EventHandlerFn::Keypress(handler) => {
+                    self.on(crate::events::typed::keypress, handler)
+                }
+                EventHandlerFn::Click(handler) => {
+                    self.on(crate::events::typed::click, handler)
+                }
+                EventHandlerFn::Dblclick(handler) => {
+                    self.on(crate::events::typed::dblclick, handler)
+                }
+                EventHandlerFn::Mousedown(handler) => {
+                    self.on(crate::events::typed::mousedown, handler)
+                }
+                EventHandlerFn::Mouseup(handler) => {
+                    self.on(crate::events::typed::mouseup, handler)
+                }
+                EventHandlerFn::Mouseenter(handler) => {
+                    self.on(crate::events::typed::mouseenter, handler)
+                }
+                EventHandlerFn::Mouseleave(handler) => {
+                    self.on(crate::events::typed::mouseleave, handler)
+                }
+                EventHandlerFn::Mouseout(handler) => {
+                    self.on(crate::events::typed::mouseout, handler)
+                }
+                EventHandlerFn::Mouseover(handler) => {
+                    self.on(crate::events::typed::mouseover, handler)
+                }
+                EventHandlerFn::Mousemove(handler) => {
+                    self.on(crate::events::typed::mousemove, handler)
+                }
+                EventHandlerFn::Wheel(handler) => {
+                    self.on(crate::events::typed::wheel, handler)
+                }
+                EventHandlerFn::Touchstart(handler) => {
+                    self.on(crate::events::typed::touchstart, handler)
+                }
+                EventHandlerFn::Touchend(handler) => {
+                    self.on(crate::events::typed::touchend, handler)
+                }
+                EventHandlerFn::Touchcancel(handler) => {
+                    self.on(crate::events::typed::touchcancel, handler)
+                }
+                EventHandlerFn::Touchmove(handler) => {
+                    self.on(crate::events::typed::touchmove, handler)
+                }
+                EventHandlerFn::Pointerenter(handler) => {
+                    self.on(crate::events::typed::pointerenter, handler)
+                }
+                EventHandlerFn::Pointerleave(handler) => {
+                    self.on(crate::events::typed::pointerleave, handler)
+                }
+                EventHandlerFn::Pointerdown(handler) => {
+                    self.on(crate::events::typed::pointerdown, handler)
+                }
+                EventHandlerFn::Pointerup(handler) => {
+                    self.on(crate::events::typed::pointerup, handler)
+                }
+                EventHandlerFn::Pointercancel(handler) => {
+                    self.on(crate::events::typed::pointercancel, handler)
+                }
+                EventHandlerFn::Pointerout(handler) => {
+                    self.on(crate::events::typed::pointerout, handler)
+                }
+                EventHandlerFn::Pointerover(handler) => {
+                    self.on(crate::events::typed::pointerover, handler)
+                }
+                EventHandlerFn::Pointermove(handler) => {
+                    self.on(crate::events::typed::pointermove, handler)
+                }
+                EventHandlerFn::Drag(handler) => {
+                    self.on(crate::events::typed::drag, handler)
+                }
+                EventHandlerFn::Dragend(handler) => {
+                    self.on(crate::events::typed::dragend, handler)
+                }
+                EventHandlerFn::Dragenter(handler) => {
+                    self.on(crate::events::typed::dragenter, handler)
+                }
+                EventHandlerFn::Dragleave(handler) => {
+                    self.on(crate::events::typed::dragleave, handler)
+                }
+                EventHandlerFn::Dragstart(handler) => {
+                    self.on(crate::events::typed::dragstart, handler)
+                }
+                EventHandlerFn::Drop(handler) => {
+                    self.on(crate::events::typed::drop, handler)
+                }
+                EventHandlerFn::Blur(handler) => {
+                    self.on(crate::events::typed::blur, handler)
+                }
+                EventHandlerFn::Focusout(handler) => {
+                    self.on(crate::events::typed::focusout, handler)
+                }
+                EventHandlerFn::Focus(handler) => {
+                    self.on(crate::events::typed::focus, handler)
+                }
+                EventHandlerFn::Focusin(handler) => {
+                    self.on(crate::events::typed::focusin, handler)
+                }
+            },
+        }
     }
 
     /// Adds a class to an element.

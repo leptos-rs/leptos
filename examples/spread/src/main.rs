@@ -1,5 +1,5 @@
-use spread::SpreadingExample;
 use leptos::*;
+use spread::SpreadingExample;
 
 pub fn main() {
     _ = console_log::init_with_level(log::Level::Debug);

@@ -237,7 +237,7 @@ pub(crate) fn element_to_tokens(
                             ..
                         }),
                         _,
-                    ) => Some(quote! { .props(#[allow(unused_brace)] {#end}) }),
+                    ) => Some(quote! { .bindings(#[allow(unused_brace)] {#end}) }),
                     _ => None,
                 }
             } else {
