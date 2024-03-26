@@ -36,7 +36,10 @@ pub use directive::*;
 pub use events::add_event_helper;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
-pub use events::{typed as ev, typed::EventHandler, typed::EventHandlerFn};
+pub use events::{
+    typed as ev,
+    typed::EventHandler, typed::EventHandlerFn
+};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
