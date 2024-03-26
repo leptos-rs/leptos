@@ -38,7 +38,7 @@ pub use events::add_event_helper;
 use events::{add_event_listener, add_event_listener_undelegated};
 pub use events::{
     typed as ev,
-    typed::EventHandler, typed::EventHandlerFn
+    typed::{EventHandler, EventHandlerFn},
 };
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
