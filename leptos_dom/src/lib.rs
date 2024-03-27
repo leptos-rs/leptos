@@ -771,9 +771,26 @@ impl View {
                 });
               }
               Self::CoreComponent(c) => match c {
-                CoreComponent::DynChild(_) => {}
-                CoreComponent::Each(_) => {}
-                _ => {}
+                CoreComponent::DynChild(d) => {
+                    if let Some(subview) = *d.child.take() {
+                        let subview = subview.on(event, event_handler);
+                        d.child.replace(Box::new(Some(subview)));
+                    }
+                }
+                CoreComponent::Each(each) => {
+                    let event_handler = Rc::new(RefCell::new(event_handler));
+                    let new_children = each.children.take().into_iter().map(|item| {
+                        if let Some(mut item) = item {
+                            let event_handler = Rc::clone(&event_handler);
+                            item.child = item.child.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
+                            Some(item)
+                        } else {
+                            None
+                        }
+                    }).collect::<Vec<_>>();
+                    each.children.replace(new_children);
+                }
+                CoreComponent::Unit(_) => {}
               },
               _ => {}
             }
