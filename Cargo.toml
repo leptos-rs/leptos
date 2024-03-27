@@ -33,7 +33,7 @@ members = [
   # libraries
   "meta",
   "router"
-, "routing", "is_server"]
+, "routing", "is_server", "routing_macro"]
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
