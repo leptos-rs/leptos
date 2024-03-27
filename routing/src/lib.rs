@@ -1,4 +1,4 @@
-//mod reactive;
+pub mod components;
 mod generate_route_list;
 pub mod location;
 mod matching;
@@ -7,7 +7,7 @@ mod params;
 mod router;
 mod ssr_mode;
 mod static_route;
-//pub use reactive::*;
+
 pub use generate_route_list::*;
 pub use matching::*;
 pub use method::*;

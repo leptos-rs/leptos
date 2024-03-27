@@ -37,9 +37,23 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     }
 
     fn update_if_necessary(&self) -> bool {
-        // always return false, because the async work will not be ready yet
-        // we'll mark subscribers dirty again when it resolves
-        false
+        // if update_is_necessary is being called, that mean that a subscriber
+        // wants to know if our latest value has changed
+        //
+        // this could be the case either because
+        // 1) we have updated, and asynchronously woken the subscriber back up
+        // 2) a different source has woken up the subscriber, and it's now asking us
+        //    if we've changed
+        //
+        // if we return `false` it will short-circuit that subscriber
+        // if we return `true` it means "yes, we may have changed"
+        //
+        // returning `true` here means that an AsyncDerived behaves like a signal (it always says
+        // "sure, I"ve changed) and not like a memo (checks whether it has *actually* changed)
+        //
+        // TODO is there a dirty-checking mechanism that would work here? we would need a
+        // memoization process like a memo has, to ensure we don't over-notify
+        true
     }
 }
 

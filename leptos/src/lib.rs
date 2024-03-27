@@ -162,7 +162,9 @@ mod hydration_scripts;
 #[cfg(feature = "nonce")]
 pub mod nonce;
 mod show;
+mod suspense_component;
 pub mod text_prop;
+mod transition;
 pub use for_loop::*;
 pub use hydration_scripts::*;
 pub use leptos_macro::*;
@@ -172,6 +174,8 @@ pub use reactive_graph::{
 };
 pub use server_fn::{self, error};
 pub use show::*;
+pub use suspense_component::*;
+pub use transition::*;
 #[doc(hidden)]
 pub use typed_builder;
 #[doc(hidden)]
@@ -265,7 +269,7 @@ pub use serde;
 pub use serde_json;
 pub use show::*;
 //pub use suspense_component::*;
-//mod suspense_component;
+mod suspense_component;
 //mod transition;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]

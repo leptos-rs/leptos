@@ -8,13 +8,17 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr", "nightly"] }
+leptos = { path = "../../leptos", features = ["csr", "nightly", "tracing"] }
 reqwasm = "0.5"
+gloo-timers = { version = "0.3", features = ["futures"] }
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
 console_log = "1"
 console_error_panic_hook = "0.1"
 thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-subscriber-wasm = "0.1"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

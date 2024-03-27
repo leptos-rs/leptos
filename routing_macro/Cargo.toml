@@ -1,0 +1,16 @@
+[package]
+name = "routing_macro"
+edition = "2021"
+version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro-error = { version = "1", default-features = false }
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+
+[dev-dependencies]
+routing = { workspace = true }

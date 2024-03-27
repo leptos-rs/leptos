@@ -139,7 +139,7 @@ where
 impl<const TRANSITION: bool, Fal, Fut, Rndr> RenderHtml<Rndr>
     for Suspend<TRANSITION, Fal, Fut>
 where
-    Fal: RenderHtml<Rndr> + Send + Sync + 'static,
+    Fal: RenderHtml<Rndr> + 'static,
     Fut: Future + Send + Sync + 'static,
     Fut::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
