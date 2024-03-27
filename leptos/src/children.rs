@@ -158,7 +158,7 @@ where
 /// New-type wrapper for the a function that returns a view with `From` and `Default` traits implemented
 /// to enable optional props in for example `<Show>` and `<Suspense>`.
 #[derive(Clone)]
-pub struct ViewFn(Arc<dyn Fn() -> AnyView<Dom>>);
+pub struct ViewFn(Arc<dyn Fn() -> AnyView<Dom> + Send + Sync + 'static>);
 
 impl Default for ViewFn {
     fn default() -> Self {
@@ -168,7 +168,7 @@ impl Default for ViewFn {
 
 impl<F, C> From<F> for ViewFn
 where
-    F: Fn() -> C + 'static,
+    F: Fn() -> C + Send + Sync + 'static,
     C: RenderHtml<Dom> + 'static,
 {
     fn from(value: F) -> Self {
