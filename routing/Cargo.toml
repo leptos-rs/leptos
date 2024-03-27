@@ -4,6 +4,7 @@ edition = "2021"
 version.workspace = true
 
 [dependencies]
+leptos = { workspace = true }
 any_spawner = { workspace = true }
 either_of = { workspace = true } 
 reactive_graph = { workspace = true } 
