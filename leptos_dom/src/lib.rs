@@ -1220,6 +1220,7 @@ macro_rules! viewable_primitive {
 
 viewable_primitive![
     &String,
+    Rc<str>,
     usize,
     u8,
     u16,
