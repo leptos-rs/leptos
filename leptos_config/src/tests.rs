@@ -30,44 +30,53 @@ fn ws_from_str_test() {
 
 #[test]
 fn env_w_default_test() {
-    std::env::set_var("LEPTOS_CONFIG_ENV_TEST", "custom");
-    assert_eq!(
-        env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
-        String::from("custom")
-    );
-    std::env::remove_var("LEPTOS_CONFIG_ENV_TEST");
-    assert_eq!(
-        env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
-        String::from("default")
-    );
+    _ = temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
+        assert_eq!(
+            env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
+            String::from("custom")
+        );
+    });
+
+    _ = temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
+        assert_eq!(
+            env_w_default("LEPTOS_CONFIG_ENV_TEST", "default").unwrap(),
+            String::from("default")
+        );
+    });
 }
 
 #[test]
 fn env_wo_default_test() {
-    std::env::set_var("LEPTOS_CONFIG_ENV_TEST", "custom");
-    assert_eq!(
-        env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(),
-        Some(String::from("custom"))
-    );
-    std::env::remove_var("LEPTOS_CONFIG_ENV_TEST");
-    assert_eq!(env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(), None);
+    _ = temp_env::with_var("LEPTOS_CONFIG_ENV_TEST", Some("custom"), || {
+        assert_eq!(
+            env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(),
+            Some(String::from("custom"))
+        );
+    });
+
+    _ = temp_env::with_var_unset("LEPTOS_CONFIG_ENV_TEST", || {
+        assert_eq!(env_wo_default("LEPTOS_CONFIG_ENV_TEST").unwrap(), None);
+    });
 }
 
 #[test]
 fn try_from_env_test() {
     // Test config values from environment variables
-    std::env::set_var("LEPTOS_OUTPUT_NAME", "app_test");
-    std::env::set_var("LEPTOS_SITE_ROOT", "my_target/site");
-    std::env::set_var("LEPTOS_SITE_PKG_DIR", "my_pkg");
-    std::env::set_var("LEPTOS_SITE_ADDR", "0.0.0.0:80");
-    std::env::set_var("LEPTOS_RELOAD_PORT", "8080");
-    std::env::set_var("LEPTOS_RELOAD_EXTERNAL_PORT", "8080");
-    std::env::set_var("LEPTOS_ENV", "PROD");
-    std::env::set_var("LEPTOS_RELOAD_WS_PROTOCOL", "WSS");
+    let config = temp_env::with_vars(
+        [
+            ("LEPTOS_OUTPUT_NAME", Some("app_test")),
+            ("LEPTOS_SITE_ROOT", Some("my_target/site")),
+            ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
+            ("LEPTOS_SITE_ADDR", Some("0.0.0.0:80")),
+            ("LEPTOS_RELOAD_PORT", Some("8080")),
+            ("LEPTOS_RELOAD_EXTERNAL_PORT", Some("8080")),
+            ("LEPTOS_ENV", Some("PROD")),
+            ("LEPTOS_RELOAD_WS_PROTOCOL", Some("WSS")),
+        ],
+        || LeptosOptions::try_from_env().unwrap(),
+    );
 
-    let config = LeptosOptions::try_from_env().unwrap();
     assert_eq!(config.output_name, "app_test");
-
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(

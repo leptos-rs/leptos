@@ -10,7 +10,7 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
-config = { version = "0.14", default-features = false, features = ["toml"] }
+config = { version = "0.14", default-features = false, features = ["toml", "convert-case"] }
 regex = "1.7.0"
 serde = { version = "1.0.151", features = ["derive"] }
 thiserror = "1.0.38"
@@ -19,3 +19,4 @@ typed-builder = "0.18"
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 tempfile = "3"
+temp-env = { version = "0.3.6", features = ["async_closure"] }
