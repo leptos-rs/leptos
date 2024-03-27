@@ -36,6 +36,7 @@ members = [
   "router",
   "routing",
   "is_server",
+  "routing_macro",
 ]
 exclude = ["benchmarks", "examples"]
 

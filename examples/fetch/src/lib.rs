@@ -5,7 +5,7 @@ use leptos::{
         computed::AsyncDerived,
         signal::{signal, RwSignal},
     },
-    view, IntoView,
+    view, IntoView, Transition,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -46,7 +46,7 @@ async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
 }
 
 pub fn fetch_example() -> impl IntoView {
-    let (cat_count, set_cat_count) = signal::<CatCount>(0);
+    let (cat_count, set_cat_count) = signal::<CatCount>(3);
 
     // we use new_unsync here because the reqwasm request type isn't Send
     // if we were doing SSR, then
@@ -73,22 +73,6 @@ pub fn fetch_example() -> impl IntoView {
         }
     };*/
 
-    let cats_view = move || {
-        async move {
-            cats.await
-                .map(|cats| {
-                    cats.into_iter()
-                        .map(|s| view! { <p><img src={s}/></p> })
-                        .collect::<Vec<_>>()
-                })
-                .catch(|err| view! { <p class="error">{err.to_string()}</p> })
-        }
-        .suspend()
-        .transition()
-        .track()
-        .with_fallback(|| view! { <div>"Loading..."</div>})
-    };
-
     view! {
         <div>
             <label>
@@ -102,7 +86,17 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-            {cats_view}
+            <Transition fallback=|| view! { <div>"Loading..."</div> }>
+                {async move {
+                    cats.await
+                        .map(|cats| {
+                            cats.into_iter()
+                                .map(|s| view! { <p><img src={s}/></p> })
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default()
+                }}
+            </Transition>
         </div>
     }
 }
