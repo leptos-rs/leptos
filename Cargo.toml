@@ -37,6 +37,7 @@ members = [
   "routing",
   "is_server",
   "routing_macro",
+  "any_error",
 ]
 exclude = ["benchmarks", "examples"]
 
@@ -45,6 +46,7 @@ version = "0.6.12"
 rust-version = "1.75"
 
 [workspace.dependencies]
+any_error = { path = "./any_error/" }
 any_spawner = { path = "./any_spawner/" }
 const_str_slice_concat = { path = "./const_str_slice_concat" }
 either_of = { path = "./either_of/" }
