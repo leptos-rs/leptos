@@ -28,21 +28,10 @@ pub trait ToChildren<F> {
     fn to_children(f: F) -> Self;
 }
 
-impl<F, C> ToChildren<F> for TypedChildren<C>
-where
-    F: FnOnce() -> C + 'static,
-    C: IntoView,
-{
-    #[inline]
-    fn to_children(f: F) -> Self {
-        TypedChildren(Box::new(move || f().into_view()))
-    }
-}
-
 impl<F, C> ToChildren<F> for Children
 where
-    F: FnOnce() -> C + 'static,
-    C: RenderHtml<Dom> + 'static,
+    F: FnOnce() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -52,8 +41,8 @@ where
 
 impl<F, C> ToChildren<F> for ChildrenFn
 where
-    F: Fn() -> C + 'static,
-    C: RenderHtml<Dom> + 'static,
+    F: Fn() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -63,8 +52,8 @@ where
 
 impl<F, C> ToChildren<F> for ChildrenFnMut
 where
-    F: Fn() -> C + 'static,
-    C: RenderHtml<Dom> + 'static,
+    F: Fn() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -75,7 +64,7 @@ where
 impl<F, C> ToChildren<F> for BoxedChildrenFn
 where
     F: Fn() -> C + 'static,
-    C: RenderHtml<Dom> + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -97,7 +86,7 @@ impl Default for ViewFn {
 impl<F, C> From<F> for ViewFn
 where
     F: Fn() -> C + Send + Sync + 'static,
-    C: RenderHtml<Dom> + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     fn from(value: F) -> Self {
         Self(Arc::new(move || value().into_any()))
@@ -113,10 +102,42 @@ impl ViewFn {
 
 /// A typed equivalent to [`Children`], which takes a generic but preserves type information to
 /// allow the compiler to optimize the view more effectively.
-pub struct TypedChildren<T>(Box<dyn FnOnce() -> View<T>>);
+pub struct TypedChildren<T>(Box<dyn FnOnce() -> View<T> + Send>);
 
 impl<T> TypedChildren<T> {
-    pub fn into_inner(self) -> impl FnOnce() -> View<T> {
+    pub fn into_inner(self) -> impl FnOnce() -> View<T> + Send {
         self.0
+    }
+}
+
+impl<F, C> ToChildren<F> for TypedChildren<C>
+where
+    F: FnOnce() -> C + Send + 'static,
+    C: IntoView,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        TypedChildren(Box::new(move || f().into_view()))
+    }
+}
+
+/// A typed equivalent to [`ChildrenMut`], which takes a generic but preserves type information to
+/// allow the compiler to optimize the view more effectively.
+pub struct TypedChildrenMut<T>(Box<dyn FnMut() -> View<T> + Send>);
+
+impl<T> TypedChildrenMut<T> {
+    pub fn into_inner(self) -> impl FnMut() -> View<T> + Send {
+        self.0
+    }
+}
+
+impl<F, C> ToChildren<F> for TypedChildrenMut<C>
+where
+    F: FnMut() -> C + Send + 'static,
+    C: IntoView,
+{
+    #[inline]
+    fn to_children(mut f: F) -> Self {
+        TypedChildrenMut(Box::new(move || f().into_view()))
     }
 }

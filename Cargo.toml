@@ -33,13 +33,14 @@ members = [
   # libraries
   "meta",
   "router"
-, "routing", "is_server", "routing_macro"]
+, "routing", "is_server", "routing_macro", "any_error"]
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.6.5"
 
 [workspace.dependencies]
+any_error = { path = "./any_error/" }
 any_spawner = { path = "./any_spawner/" }
 const_str_slice_concat = { path = "./const_str_slice_concat" }
 either_of = { path = "./either_of/" }

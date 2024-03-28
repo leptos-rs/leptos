@@ -1,4 +1,4 @@
-//#![deny(missing_docs)] // TODO restore
+//#!rdeny(missing_docs)] // TODO restore
 #![forbid(unsafe_code)]
 //! # About Leptos
 //!
@@ -157,6 +157,8 @@ pub use action_form::*;
 pub mod callback;
 pub mod children;
 pub mod component;
+mod error_boundary;
+pub use error_boundary::*;
 mod for_loop;
 mod hydration_scripts;
 #[cfg(feature = "nonce")]
@@ -165,6 +167,7 @@ mod show;
 mod suspense_component;
 pub mod text_prop;
 mod transition;
+pub use any_error as error;
 pub use for_loop::*;
 pub use hydration_scripts::*;
 pub use leptos_macro::*;
@@ -172,7 +175,7 @@ pub use reactive_graph::{
     self,
     signal::{arc_signal, create_signal, signal},
 };
-pub use server_fn::{self, error};
+pub use server_fn;
 pub use show::*;
 pub use suspense_component::*;
 pub use transition::*;

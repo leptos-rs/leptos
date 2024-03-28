@@ -19,14 +19,14 @@ impl<R: Renderer> Render<R> for () {
 
     fn rebuild(self, _state: &mut Self::State) {}
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(())
     }
 
     fn try_rebuild(
         self,
         _state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         Ok(())
     }
 }
@@ -111,14 +111,14 @@ impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
         self.0.rebuild(state)
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         self.0.try_build()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.0.try_rebuild(state)
     }
 }
@@ -231,7 +231,7 @@ macro_rules! impl_view_for_tuples {
 				}
 			}
 
-			fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+			fn try_build(self) -> any_error::Result<Self::FallibleState> {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 Ok((
@@ -240,7 +240,7 @@ macro_rules! impl_view_for_tuples {
                 ))
 			}
 
-			fn try_rebuild(self, state: &mut Self::FallibleState) -> crate::error::Result<()> {
+			fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
 				paste::paste! {
 					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
 					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;

@@ -128,14 +128,14 @@ where
         *hashed_items = new_hashed_items;
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         _state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         todo!()
     }
 }

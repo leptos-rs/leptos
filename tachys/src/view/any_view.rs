@@ -11,7 +11,7 @@ where
     R: Renderer,
 {
     type_id: TypeId,
-    value: Box<dyn Any>,
+    value: Box<dyn Any + Send>,
 
     // The fields below are cfg-gated so they will not be included in WASM bundles if not needed.
     // Ordinarily, the compiler can simply omit this dead code because the methods are not called.
@@ -118,6 +118,7 @@ where
 
 impl<T, R> IntoAny<R> for T
 where
+    T: Send,
     T: RenderHtml<R> + 'static,
     T::State: 'static,
     R: Renderer + 'static,
@@ -129,7 +130,7 @@ where
         #[cfg(feature = "ssr")]
         let html_len = self.html_len();
 
-        let value = Box::new(self) as Box<dyn Any>;
+        let value = Box::new(self) as Box<dyn Any + Send>;
 
         #[cfg(feature = "ssr")]
         let to_html =
@@ -269,14 +270,14 @@ where
         (self.rebuild)(self.type_id, self.value, state)
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         _state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         todo!()
     }
 }

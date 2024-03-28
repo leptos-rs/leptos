@@ -14,14 +14,15 @@ pub struct View<T>(T)
 where
     T: Sized;
 
-pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> //+ AddAnyAttr<Dom>
+pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> + Send
+//+ AddAnyAttr<Dom>
 {
     fn into_view(self) -> View<Self>;
 }
 
 impl<T> IntoView for T
 where
-    T: Sized + Render<Dom> + RenderHtml<Dom>, //+ AddAnyAttr<Dom>,
+    T: Sized + Render<Dom> + RenderHtml<Dom> + Send, //+ AddAnyAttr<Dom>,
 {
     fn into_view(self) -> View<Self> {
         View(self)
@@ -40,14 +41,14 @@ impl<T: Render<Dom>> Render<Dom> for View<T> {
         self.0.rebuild(state)
     }
 
-    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         self.0.try_build()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> tachys::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.0.try_rebuild(state)
     }
 }

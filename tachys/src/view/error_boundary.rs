@@ -1,17 +1,17 @@
 use super::{Position, PositionState, RenderHtml};
 use crate::{
-    error::AnyError,
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{Mountable, Render, Renderer},
 };
-use std::{error::Error, marker::PhantomData};
+use any_error::Error as AnyError;
+use std::marker::PhantomData;
 
 impl<R, T, E> Render<R> for Result<T, E>
 where
     T: Render<R>,
     R: Renderer,
-    E: Error + 'static,
+    E: Into<AnyError> + 'static,
 {
     type State = <Option<T> as Render<R>>::State;
     type FallibleState = T::State;
@@ -24,8 +24,8 @@ where
         self.ok().rebuild(state);
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
-        let inner = self.map_err(AnyError::new)?;
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
+        let inner = self.map_err(Into::into)?;
         let state = inner.build();
         Ok(state)
     }
@@ -33,8 +33,8 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
-        let inner = self.map_err(AnyError::new)?;
+    ) -> any_error::Result<()> {
+        let inner = self.map_err(Into::into)?;
         inner.rebuild(state);
         Ok(())
     }
@@ -44,7 +44,7 @@ impl<R, T, E> RenderHtml<R> for Result<T, E>
 where
     T: RenderHtml<R>,
     R: Renderer,
-    E: Error + 'static,
+    E: Into<AnyError> + 'static,
 {
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -209,14 +209,14 @@ where
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }

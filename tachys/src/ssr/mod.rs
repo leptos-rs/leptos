@@ -21,7 +21,7 @@ pub struct StreamBuilder {
     id: Option<Vec<u16>>,
 }
 
-type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
+type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type ChunkFuture = PinnedFuture<VecDeque<StreamChunk>>;
 
 impl StreamBuilder {
@@ -48,7 +48,7 @@ impl StreamBuilder {
     pub fn push_async(
         &mut self,
         should_block: bool,
-        fut: impl Future<Output = VecDeque<StreamChunk>> + Send + Sync + 'static,
+        fut: impl Future<Output = VecDeque<StreamChunk>> + Send + 'static,
     ) {
         // flush sync chunk
         let sync = mem::take(&mut self.sync_buf);
@@ -141,7 +141,7 @@ impl StreamBuilder {
     pub fn push_async_out_of_order<View, Rndr>(
         &mut self,
         should_block: bool,
-        view: impl Future<Output = View> + Send + Sync + 'static,
+        view: impl Future<Output = View> + Send + 'static,
         position: &mut Position,
     ) where
         View: RenderHtml<Rndr>,

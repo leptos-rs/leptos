@@ -9,6 +9,7 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 readme = "../README.md"
 
 [dependencies]
+any_error = { workspace = true }
 any_spawner = { workspace = true, features = ["wasm-bindgen"] }
 base64 = { version = "0.22", optional = true }
 cfg-if = "1"
