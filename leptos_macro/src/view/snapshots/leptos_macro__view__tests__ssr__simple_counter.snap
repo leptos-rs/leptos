@@ -1,5 +1,6 @@
 ---
 source: leptos_macro/src/view/tests.rs
+assertion_line: 101
 expression: pretty(result)
 ---
 fn view() {
@@ -46,10 +47,7 @@ fn view() {
                 ),
                 #[allow(unused_braces)]
                 {
-                    let view = ::leptos::IntoView::into_view(
-                        #[allow(unused_braces)]
-                        { { value } },
-                    );
+                    let view = ::leptos::IntoView::into_view({ value });
                     ::leptos::leptos_dom::html::StringOrView::View(
                         ::std::rc::Rc::new(move || view.clone()),
                     )

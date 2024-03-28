@@ -1,40 +1,50 @@
 ---
 source: leptos_macro/src/view/tests.rs
+assertion_line: 101
 expression: result
 ---
 TokenStream [
     Punct {
         char: ':',
         spacing: Joint,
+        span: bytes(10..82),
     },
     Punct {
         char: ':',
         spacing: Alone,
+        span: bytes(10..82),
     },
     Ident {
         sym: leptos,
+        span: bytes(10..82),
     },
     Punct {
         char: ':',
         spacing: Joint,
+        span: bytes(10..82),
     },
     Punct {
         char: ':',
         spacing: Alone,
+        span: bytes(10..82),
     },
     Ident {
         sym: IntoView,
+        span: bytes(10..82),
     },
     Punct {
         char: ':',
         spacing: Joint,
+        span: bytes(10..82),
     },
     Punct {
         char: ':',
         spacing: Alone,
+        span: bytes(10..82),
     },
     Ident {
         sym: into_view,
+        span: bytes(10..82),
     },
     Group {
         delimiter: Parenthesis,
@@ -42,84 +52,74 @@ TokenStream [
             Punct {
                 char: '#',
                 spacing: Alone,
+                span: bytes(10..82),
             },
             Group {
                 delimiter: Bracket,
                 stream: TokenStream [
                     Ident {
                         sym: allow,
+                        span: bytes(10..82),
                     },
                     Group {
                         delimiter: Parenthesis,
                         stream: TokenStream [
                             Ident {
                                 sym: unused_braces,
+                                span: bytes(10..82),
                             },
                         ],
+                        span: bytes(10..82),
                     },
                 ],
+                span: bytes(10..82),
             },
             Group {
                 delimiter: Brace,
                 stream: TokenStream [
-                    Punct {
-                        char: ':',
-                        spacing: Joint,
-                    },
-                    Punct {
-                        char: ':',
-                        spacing: Alone,
-                    },
-                    Ident {
-                        sym: leptos,
-                    },
-                    Punct {
-                        char: ':',
-                        spacing: Joint,
-                    },
-                    Punct {
-                        char: ':',
-                        spacing: Alone,
-                    },
-                    Ident {
-                        sym: component_view,
-                    },
                     Group {
-                        delimiter: Parenthesis,
+                        delimiter: Brace,
                         stream: TokenStream [
-                            Punct {
-                                char: '&',
-                                spacing: Alone,
+                            Ident {
+                                sym: let,
+                                span: bytes(10..82),
                             },
                             Ident {
-                                sym: ExternalComponent,
+                                sym: props,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: '=',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Joint,
                                 span: bytes(11..28),
                             },
                             Punct {
-                                char: ',',
-                                spacing: Alone,
-                            },
-                            Punct {
-                                char: ':',
-                                spacing: Joint,
-                            },
-                            Punct {
                                 char: ':',
                                 spacing: Alone,
+                                span: bytes(11..28),
                             },
                             Ident {
                                 sym: leptos,
+                                span: bytes(11..28),
                             },
                             Punct {
                                 char: ':',
                                 spacing: Joint,
+                                span: bytes(11..28),
                             },
                             Punct {
                                 char: ':',
                                 spacing: Alone,
+                                span: bytes(11..28),
                             },
                             Ident {
                                 sym: component_props_builder,
+                                span: bytes(11..28),
                             },
                             Group {
                                 delimiter: Parenthesis,
@@ -127,29 +127,242 @@ TokenStream [
                                     Punct {
                                         char: '&',
                                         spacing: Alone,
+                                        span: bytes(11..28),
                                     },
                                     Ident {
                                         sym: ExternalComponent,
                                         span: bytes(11..28),
                                     },
                                 ],
+                                span: bytes(11..28),
+                            },
+                            Punct {
+                                char: ';',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: '#',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Group {
+                                delimiter: Bracket,
+                                stream: TokenStream [
+                                    Ident {
+                                        sym: allow,
+                                        span: bytes(10..82),
+                                    },
+                                    Group {
+                                        delimiter: Parenthesis,
+                                        stream: TokenStream [
+                                            Ident {
+                                                sym: clippy,
+                                                span: bytes(10..82),
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Joint,
+                                                span: bytes(10..82),
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Alone,
+                                                span: bytes(10..82),
+                                            },
+                                            Ident {
+                                                sym: let_unit_value,
+                                                span: bytes(10..82),
+                                            },
+                                            Punct {
+                                                char: ',',
+                                                spacing: Alone,
+                                                span: bytes(10..82),
+                                            },
+                                            Ident {
+                                                sym: clippy,
+                                                span: bytes(10..82),
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Joint,
+                                                span: bytes(10..82),
+                                            },
+                                            Punct {
+                                                char: ':',
+                                                spacing: Alone,
+                                                span: bytes(10..82),
+                                            },
+                                            Ident {
+                                                sym: unit_arg,
+                                                span: bytes(10..82),
+                                            },
+                                        ],
+                                        span: bytes(10..82),
+                                    },
+                                ],
+                                span: bytes(10..82),
+                            },
+                            Ident {
+                                sym: let,
+                                span: bytes(10..82),
+                            },
+                            Ident {
+                                sym: props,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: '=',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Ident {
+                                sym: props,
+                                span: bytes(10..82),
                             },
                             Punct {
                                 char: '.',
                                 spacing: Alone,
+                                span: bytes(11..28),
                             },
                             Ident {
                                 sym: build,
+                                span: bytes(11..28),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [],
+                                span: bytes(11..28),
+                            },
+                            Punct {
+                                char: ';',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: '#',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Group {
+                                delimiter: Bracket,
+                                stream: TokenStream [
+                                    Ident {
+                                        sym: allow,
+                                        span: bytes(10..82),
+                                    },
+                                    Group {
+                                        delimiter: Parenthesis,
+                                        stream: TokenStream [
+                                            Ident {
+                                                sym: unreachable_code,
+                                                span: bytes(10..82),
+                                            },
+                                        ],
+                                        span: bytes(10..82),
+                                    },
+                                ],
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Joint,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Ident {
+                                sym: leptos,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Joint,
+                                span: bytes(10..82),
+                            },
+                            Punct {
+                                char: ':',
+                                spacing: Alone,
+                                span: bytes(10..82),
+                            },
+                            Ident {
+                                sym: component_view,
+                                span: bytes(10..82),
+                            },
+                            Group {
+                                delimiter: Parenthesis,
+                                stream: TokenStream [
+                                    Punct {
+                                        char: '#',
+                                        spacing: Alone,
+                                        span: bytes(10..82),
+                                    },
+                                    Group {
+                                        delimiter: Bracket,
+                                        stream: TokenStream [
+                                            Ident {
+                                                sym: allow,
+                                                span: bytes(10..82),
+                                            },
+                                            Group {
+                                                delimiter: Parenthesis,
+                                                stream: TokenStream [
+                                                    Ident {
+                                                        sym: clippy,
+                                                        span: bytes(10..82),
+                                                    },
+                                                    Punct {
+                                                        char: ':',
+                                                        spacing: Joint,
+                                                        span: bytes(10..82),
+                                                    },
+                                                    Punct {
+                                                        char: ':',
+                                                        spacing: Alone,
+                                                        span: bytes(10..82),
+                                                    },
+                                                    Ident {
+                                                        sym: needless_borrows_for_generic_args,
+                                                        span: bytes(10..82),
+                                                    },
+                                                ],
+                                                span: bytes(10..82),
+                                            },
+                                        ],
+                                        span: bytes(10..82),
+                                    },
+                                    Punct {
+                                        char: '&',
+                                        spacing: Alone,
+                                        span: bytes(11..28),
+                                    },
+                                    Ident {
+                                        sym: ExternalComponent,
+                                        span: bytes(11..28),
+                                    },
+                                    Punct {
+                                        char: ',',
+                                        spacing: Alone,
+                                        span: bytes(10..82),
+                                    },
+                                    Ident {
+                                        sym: props,
+                                        span: bytes(10..82),
+                                    },
+                                ],
+                                span: bytes(10..82),
                             },
                         ],
+                        span: bytes(10..82),
                     },
                 ],
+                span: bytes(10..82),
             },
         ],
+        span: bytes(10..82),
     },
     Punct {
         char: '.',
@@ -157,6 +370,7 @@ TokenStream [
     },
     Ident {
         sym: on,
+        span: bytes(29..50),
     },
     Group {
         delimiter: Parenthesis,
