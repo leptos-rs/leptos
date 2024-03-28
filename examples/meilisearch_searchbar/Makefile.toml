@@ -1,0 +1,4 @@
+[tasks.ci]
+description = "Continuous Integration task"
+command = "cargo"
+args = ["test"] 

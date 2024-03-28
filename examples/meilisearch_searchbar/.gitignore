@@ -1,0 +1,5 @@
+/target
+meilisearch
+data.ms
+dumps
+Cargo.lock
