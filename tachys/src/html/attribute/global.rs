@@ -91,7 +91,7 @@ pub trait OnAttribute<E, F, Rndr> {
 impl<T, E, F, Rndr> OnAttribute<E, F, Rndr> for T
 where
     T: AddAnyAttr<Rndr>,
-    E: EventDescriptor + 'static,
+    E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
     F: FnMut(E::EventType) + 'static,
@@ -114,7 +114,7 @@ impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
 where
     Self: ElementType,
     T: AddAnyAttr<Rndr>,
-    E: EventDescriptor + 'static,
+    E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
     F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)

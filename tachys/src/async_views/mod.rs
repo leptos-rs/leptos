@@ -124,14 +124,14 @@ where
         });
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         _state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         todo!()
     }
 }
@@ -140,7 +140,7 @@ impl<const TRANSITION: bool, Fal, Fut, Rndr> RenderHtml<Rndr>
     for Suspend<TRANSITION, Fal, Fut>
 where
     Fal: RenderHtml<Rndr> + 'static,
-    Fut: Future + Send + Sync + 'static,
+    Fut: Future + Send + 'static,
     Fut::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
 {

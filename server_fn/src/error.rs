@@ -1,3 +1,4 @@
+use any_error::Error;
 use serde::{Deserialize, Serialize};
 use std::{
     error, fmt,
@@ -12,50 +13,9 @@ use url::Url;
 /// A custom header that can be used to indicate a server function returned an error.
 pub const SERVER_FN_ERROR_HEADER: &str = "serverfnerror";
 
-/// This is a result type into which any error can be converted,
-/// and which can be used directly in your `view`.
-///
-/// All errors will be stored as [`struct@Error`].
-pub type Result<T, E = Error> = core::result::Result<T, E>;
-
-/// A generic wrapper for any error.
-#[derive(Debug, Clone)]
-#[repr(transparent)]
-pub struct Error(Arc<dyn error::Error + Send + Sync>);
-
-impl Error {
-    /// Converts the wrapper into the inner reference-counted error.
-    pub fn into_inner(self) -> Arc<dyn error::Error + Send + Sync> {
-        Arc::clone(&self.0)
-    }
-}
-
-impl ops::Deref for Error {
-    type Target = Arc<dyn error::Error + Send + Sync>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl<T> From<T> for Error
-where
-    T: std::error::Error + Send + Sync + 'static,
-{
-    fn from(value: T) -> Self {
-        Error(Arc::new(value))
-    }
-}
-
 impl From<ServerFnError> for Error {
     fn from(e: ServerFnError) -> Self {
-        Error(Arc::new(ServerFnErrorErr::from(e)))
+        Error::from(ServerFnErrorErr::from(e))
     }
 }
 

@@ -117,7 +117,7 @@ impl DomRenderer for Dom {
         el: &Self::Element,
         name: &str,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element)> {
+    ) -> Box<dyn FnOnce(&Self::Element) + Send> {
         let cb = wasm_bindgen::closure::Closure::wrap(cb);
         let name = intern(name);
         or_debug!(
@@ -132,6 +132,7 @@ impl DomRenderer for Dom {
         // return the remover
         Box::new({
             let name = name.to_owned();
+            let cb = send_wrapper::SendWrapper::new(cb);
             move |el| {
                 or_debug!(
                     el.remove_event_listener_with_callback(
@@ -162,7 +163,7 @@ impl DomRenderer for Dom {
         name: Cow<'static, str>,
         delegation_key: Cow<'static, str>,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element)> {
+    ) -> Box<dyn FnOnce(&Self::Element) + Send> {
         let cb = Closure::wrap(cb);
         let key = intern(&delegation_key);
         or_debug!(
@@ -242,8 +243,9 @@ impl DomRenderer for Dom {
         // return the remover
         Box::new({
             let key = key.to_owned();
+            let cb = send_wrapper::SendWrapper::new(cb);
             move |el| {
-                drop(cb);
+                drop(cb.take());
                 or_debug!(
                     js_sys::Reflect::delete_property(
                         el,

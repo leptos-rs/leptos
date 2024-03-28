@@ -29,14 +29,14 @@ impl<'a, R: Renderer> Render<R> for &'a str {
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }
@@ -156,14 +156,14 @@ impl<R: Renderer> Render<R> for String {
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }
@@ -255,14 +255,14 @@ impl<R: Renderer> Render<R> for Rc<str> {
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }
@@ -355,14 +355,14 @@ impl<R: Renderer> Render<R> for Arc<str> {
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }
@@ -455,14 +455,14 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }
