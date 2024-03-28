@@ -58,20 +58,21 @@ impl<E, T, R> From<E> for Targeted<E, T, R> {
     }
 }
 
-pub fn on<E, R>(event: E, mut cb: impl FnMut(E::EventType) + 'static) -> On<R>
+pub fn on<E, R>(event: E, cb: impl FnMut(E::EventType) + 'static) -> On<R>
 where
-    E: EventDescriptor + 'static,
+    E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,
     E::EventType: From<R::Event>,
 {
+    let mut cb = send_wrapper::SendWrapper::new(cb);
     On {
         name: event.name(),
         setup: Box::new(move |el| {
             let cb = Box::new(move |ev: R::Event| {
                 let ev = E::EventType::from(ev);
                 cb(ev);
-            }) as Box<dyn FnMut(R::Event)>;
+            }) as Box<dyn FnMut(R::Event) + Send>;
 
             if E::BUBBLES && cfg!(feature = "delegation") {
                 R::add_event_listener_delegated(
@@ -93,7 +94,7 @@ pub fn on_target<E, T, R>(
     mut cb: impl FnMut(Targeted<E::EventType, T, R>) + 'static,
 ) -> On<R>
 where
-    E: EventDescriptor + 'static,
+    E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,
     E::EventType: From<R::Event>,
@@ -104,7 +105,7 @@ where
 pub struct On<R: DomRenderer> {
     name: Cow<'static, str>,
     #[allow(clippy::type_complexity)]
-    setup: Box<dyn FnOnce(&R::Element) -> Box<dyn FnOnce(&R::Element)>>,
+    setup: Box<dyn FnOnce(&R::Element) -> Box<dyn FnOnce(&R::Element)> + Send>,
     ty: PhantomData<R>,
 }
 

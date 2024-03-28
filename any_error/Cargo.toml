@@ -1,0 +1,6 @@
+[package]
+name = "any_error"
+edition = "2021"
+version.workspace = true
+
+[dependencies]

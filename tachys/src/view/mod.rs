@@ -33,12 +33,12 @@ pub trait Render<R: Renderer>: Sized {
     /// Updates the view with new data.
     fn rebuild(self, state: &mut Self::State);
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState>;
+    fn try_build(self) -> any_error::Result<Self::FallibleState>;
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()>;
+    ) -> any_error::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy)]

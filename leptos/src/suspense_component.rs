@@ -1,8 +1,10 @@
-use crate::{children::ToChildren};
-use tachys::prelude::FutureViewExt;
-use crate::{children::ViewFn, IntoView};
+use crate::{
+    children::{ToChildren, ViewFn},
+    IntoView,
+};
 use leptos_macro::component;
 use std::{future::Future, sync::Arc};
+use tachys::prelude::FutureViewExt;
 
 /// An async, typed equivalent to [`Children`], which takes a generic but preserves
 /// type information to allow the compiler to optimize the view more effectively.
@@ -39,16 +41,15 @@ pub fn Suspense<Chil, ChilFn, ChilFut>(
 ) -> impl IntoView
 where
     Chil: IntoView + 'static,
-    ChilFn: Fn() -> ChilFut + Clone + 'static,
-    ChilFut: Future<Output = Chil> + Send + Sync + 'static,
+    ChilFn: Fn() -> ChilFut + Send + Clone + 'static,
+    ChilFut: Future<Output = Chil> + Send + 'static,
 {
-    let children = Arc::new(children.into_inner());
+    let children = children.into_inner();
     // TODO check this against islands
     move || {
-        children()
+        (children.clone())()
             .suspend()
             .with_fallback(fallback.run())
             .track()
     }
 }
-
