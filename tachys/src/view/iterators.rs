@@ -43,7 +43,7 @@ where
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         match self {
             None => {
                 let placeholder = R::create_placeholder();
@@ -68,7 +68,7 @@ where
     fn try_rebuild(
         self,
         _state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         todo!()
     }
 }
@@ -246,7 +246,7 @@ where
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         let states = self
             .into_iter()
             .map(T::try_build)
@@ -261,7 +261,7 @@ where
     fn try_rebuild(
         self,
         _state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         todo!()
     }
 }

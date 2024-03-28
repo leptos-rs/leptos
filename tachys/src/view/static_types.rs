@@ -139,14 +139,14 @@ where
     // This type is specified as static, so no rebuilding is done.
     fn rebuild(self, _state: &mut Self::State) {}
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(Render::<R>::build(self))
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         Render::<R>::rebuild(self, state);
         Ok(())
     }

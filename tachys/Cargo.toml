@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+any_error = { workspace = true }
 any_spawner = { workspace = true }
 const_str_slice_concat = { workspace = true }
 either_of = { workspace = true } 

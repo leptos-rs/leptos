@@ -11,8 +11,8 @@ pub fn Transition<Chil, ChilFn, ChilFut>(
 ) -> impl IntoView
 where
     Chil: IntoView + 'static,
-    ChilFn: Fn() -> ChilFut + Clone + 'static,
-    ChilFut: Future<Output = Chil> + Send + Sync + 'static,
+    ChilFn: Fn() -> ChilFut + Clone + Send + 'static,
+    ChilFut: Future<Output = Chil> + Send + 'static,
 {
     let children = children.into_inner();
     move || {
