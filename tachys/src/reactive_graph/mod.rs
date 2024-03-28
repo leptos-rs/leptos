@@ -1,6 +1,5 @@
 use crate::{
     async_views::Suspend,
-    error::AnyError,
     html::{
         attribute::{Attribute, AttributeValue},
         element::InnerHtmlValue,
@@ -14,6 +13,7 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
+use any_error::Error as AnyError;
 use reactive_graph::{
     computed::ScopedFuture,
     effect::RenderEffect,
@@ -72,7 +72,7 @@ where
         .into()
     }
 
-    fn try_build(mut self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(mut self) -> any_error::Result<Self::FallibleState> {
         let parent = Observer::get();
         let effect = RenderEffect::new({
             move |prev| {
@@ -135,7 +135,7 @@ where
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         crate::log("RenderEffect::try_rebuild");
         if let Some(inner) = &mut state.0 {
             inner

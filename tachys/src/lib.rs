@@ -28,7 +28,6 @@ use web_sys::Node;
 
 pub mod async_views;
 pub mod dom;
-pub mod error;
 pub mod html;
 pub mod hydration;
 pub mod mathml;
