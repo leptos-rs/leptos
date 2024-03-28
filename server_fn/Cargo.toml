@@ -10,6 +10,7 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
+any_error = { workspace = true }
 server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
 const_format = "0.2"

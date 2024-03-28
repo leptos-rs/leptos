@@ -72,11 +72,11 @@ macro_rules! render_primitive {
 					}
 				}
 
-                fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+                fn try_build(self) -> any_error::Result<Self::FallibleState> {
                     Ok(self.build())
                 }
 
-                fn try_rebuild(self, state: &mut Self::FallibleState) -> crate::error::Result<()> {
+                fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
                     self.rebuild(state);
 Ok(())
                 }
@@ -224,14 +224,14 @@ where
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
     }

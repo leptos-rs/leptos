@@ -29,14 +29,14 @@ impl<R: Renderer> Render<R> for Oco<'static, str> {
         }
     }
 
-    fn try_build(self) -> crate::error::Result<Self::FallibleState> {
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         Ok(<Self as Render<R>>::build(self))
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> crate::error::Result<()> {
+    ) -> any_error::Result<()> {
         <Self as Render<R>>::rebuild(self, state);
         Ok(())
     }
