@@ -1,4 +1,4 @@
-use crate::{use_location, use_resolved_path, State};
+use crate::{unescape, use_location, use_resolved_path, State};
 use leptos::{leptos_dom::IntoView, *};
 use std::borrow::Cow;
 
@@ -135,10 +135,11 @@ where
                     let path = to
                         .split(['?', '#'])
                         .next()
+                        .map(unescape)
                         .unwrap_or_default()
                         .to_lowercase();
                     location.pathname.with(|loc| {
-                        let loc = loc.to_lowercase();
+                        let loc = unescape(&loc.to_lowercase());
                         if exact {
                             loc == path
                         } else {
