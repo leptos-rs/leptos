@@ -11,7 +11,8 @@ next_tuple = { path = "../../next_tuple/" }
 gtk = { version = "0.8.0", package = "gtk4", optional = true }
 paste = "1.0.14"
 
+console_error_panic_hook = { version = "0.1", optional = true }
+
 [features]
-default = ["gtk"]
 gtk = ["dep:gtk", "any_spawner/glib"]
-wasm = ["any_spawner/wasm-bindgen"]
+wasm = ["any_spawner/wasm-bindgen", "dep:console_error_panic_hook"]
