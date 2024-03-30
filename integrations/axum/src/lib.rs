@@ -302,12 +302,6 @@ async fn handle_server_fns_inner(
             // actually run the server fn
             let mut res = service.run(req).await;
 
-            // update response as needed
-            let res_options = expect_context::<ResponseOptions>().0;
-            let res_options_inner = res_options.read();
-            let (status, mut res_headers) =
-                (res_options_inner.status, res_options_inner.headers.clone());
-
             // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
             // Location set, then redirect to Referer
             if accepts_html {
@@ -320,11 +314,22 @@ async fn handle_server_fns_inner(
                 }
             }
 
-            // apply status code and headers if used changed them
-            if let Some(status) = status {
-                *res.status_mut() = status;
+            // update response as needed
+            if let Some(res_options) = use_context::<ResponseOptions>() {
+                let res_options_inner = res_options.0.read();
+                let (status, mut res_headers) = (
+                    res_options_inner.status,
+                    res_options_inner.headers.clone(),
+                );
+
+                // apply status code and headers if used changed them
+                if let Some(status) = status {
+                    *res.status_mut() = status;
+                }
+                res.headers_mut().extend(res_headers.drain());
+            } else {
+                eprintln!("Failed to find ResponseOptions for {path}");
             }
-            res.headers_mut().extend(res_headers.drain());
 
             // clean up the scope
             runtime.dispose();

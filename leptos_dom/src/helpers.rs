@@ -39,7 +39,10 @@ pub fn location_hash() -> Option<String> {
     if is_server() {
         None
     } else {
-        location().hash().ok().map(|hash| hash.replace('#', ""))
+        location().hash().ok().map(|hash| match hash.chars().next() {
+            Some('#') => hash[1..].to_string(),
+            _ => hash,
+        })
     }
 }
 
