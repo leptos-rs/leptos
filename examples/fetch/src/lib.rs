@@ -54,35 +54,16 @@ pub fn fetch_example() -> impl IntoView {
     // 2) we'd need to make sure there was a thread-local spawner set up
     let cats = AsyncDerived::new_unsync(move || fetch_cats(cat_count.get()));
 
-    // TODO ErrorBoundary
-    /*let fallback = move |errors: RwSignal<Errors>| {
-        let error_list = move || {
-            errors.with(|errors| {
-                errors
-                    .iter()
-                    .map(|(_, e)| view! { <li>{e.to_string()}</li> })
-                    .collect_view()
-            })
-        };
-
-        view! {
-            <div class="error">
-                <h2>"Error"</h2>
-                <ul>{error_list}</ul>
-            </div>
-        }
-    };*/
-
+    // TODO weaving together Transition and ErrorBoundary is hard with the new async API for
+    // suspense, because Transition expects a Future as its children, and ErrorBoundary isn't a
+    // future
     let cats_view = move || async move {
-        view! {
-        <ErrorBoundary fallback=|e| view! { <p class="error">{e.to_string()}</p> }>
-            {async move { cats.await.map(|cats| {
-        cats.into_iter()
-            .map(|s| view! { <p><img src={s}/></p> })
-            .collect::<Vec<_>>()
-                                                })}}
-        </ErrorBoundary>
-            }
+        cats.await.map(|cats| {
+            cats.into_iter()
+                .map(|s| view! { <p><img src={s}/></p> })
+                .collect::<Vec<_>>()
+        })
+        //.catch(|e| view! { <p class="error">{e.to_string()}</p> })
     };
 
     view! {
@@ -98,10 +79,11 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-                <Transition fallback=|| view! { <div>"Loading..."</div> }>
-                    {cats_view()}
-                </Transition>
-            </ErrorBoundary>
+                <ErrorBoundary fallback=|e| view! { <p class="error">{e.to_string()}</p> }>
+                    <Transition fallback=|| view! { <div>"Loading..."</div> }>
+                        {cats_view()}
+                    </Transition>
+                </ErrorBoundary>
         </div>
     }
 }
