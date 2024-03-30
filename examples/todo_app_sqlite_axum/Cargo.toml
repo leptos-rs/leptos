@@ -31,7 +31,7 @@ thiserror = "1.0"
 wasm-bindgen = "0.2"
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+hydrate = ["leptos/hydrate"]
 ssr = [
 	"dep:axum",
 	"dep:tower",
@@ -39,8 +39,6 @@ ssr = [
 	"dep:tokio",
 	"dep:sqlx",
 	"leptos/ssr",
-	"leptos_meta/ssr",
-	"leptos_router/ssr",
 	"dep:leptos_axum",
 ]
 
