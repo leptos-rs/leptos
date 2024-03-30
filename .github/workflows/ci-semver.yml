@@ -1,12 +1,6 @@
 name: CI semver
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: workflow_dispatch # Only run this workflow manually
 
 jobs:
   get-leptos-changed:
