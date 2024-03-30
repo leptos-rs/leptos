@@ -155,6 +155,7 @@ tokio = { version = "1", features = ["rt", "macros"] }
 [features]
 default = ["testing"]
 delegation = []                       # enables event delegation
+error-hook = []
 hydrate = []
 islands = []
 ssr = []
