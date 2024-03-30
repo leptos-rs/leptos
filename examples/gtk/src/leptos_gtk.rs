@@ -1,11 +1,22 @@
+use self::properties::Connect;
 use gtk::{
+    ffi::GtkWidget,
+    glib::{
+        object::{IsA, IsClass, ObjectExt},
+        Object, Value,
+    },
     prelude::{Cast, WidgetExt},
     Label, Orientation, Widget,
 };
-use leptos::tachys::{
-    renderer::{CastFrom, Renderer},
-    view::{Mountable, Render},
+use leptos::{
+    reactive_graph::effect::RenderEffect,
+    tachys::{
+        renderer::{CastFrom, Renderer},
+        view::{Mountable, Render},
+    },
 };
+use next_tuple::TupleBuilder;
+use std::{borrow::Cow, marker::PhantomData};
 
 #[derive(Debug)]
 pub struct LeptosGtk;
@@ -134,11 +145,11 @@ impl Renderer for LeptosGtk {
     }
 
     fn set_attribute(node: &Self::Element, name: &str, value: &str) {
-        todo!()
+        node.0.set_property(name, value);
     }
 
     fn remove_attribute(node: &Self::Element, name: &str) {
-        todo!()
+        node.0.set_property(name, None::<&str>);
     }
 
     fn insert_node(
@@ -183,111 +194,153 @@ impl Renderer for LeptosGtk {
     }
 }
 
-pub struct Button<C, F>(C, F)
+fn root<Chil>(children: Chil) -> (Widget, impl Mountable<LeptosGtk>)
 where
-    C: Render<LeptosGtk>,
-    F: Fn(&gtk::Button) + 'static;
-
-pub fn button<C, F>(children: C, on_click: F) -> Button<C, F>
-where
-    C: Render<LeptosGtk>,
-    F: Fn(&gtk::Button) + 'static,
+    Chil: Render<LeptosGtk>,
 {
-    Button(children, on_click)
+    let state = r#box()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .child(children)
+        .build();
+    (state.as_widget().clone(), state)
 }
 
-impl<C, F> Render<LeptosGtk> for Button<C, F>
+pub trait WidgetClass {
+    type Widget: Into<Widget> + IsA<Object> + IsClass;
+}
+
+pub struct LGtkWidget<Widg, Props, Chil> {
+    widget: PhantomData<Widg>,
+    properties: Props,
+    children: Chil,
+}
+
+impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
 where
-    C: Render<LeptosGtk>,
-    F: Fn(&gtk::Button) + 'static,
+    Widg: WidgetClass,
+    Chil: TupleBuilder,
 {
-    type State = ElementState<C::State>;
-    type FallibleState = ElementState<C::State>;
+    pub fn child<T>(
+        self,
+        child: T,
+    ) -> LGtkWidget<Widg, Props, Chil::Output<T>> {
+        let LGtkWidget {
+            widget,
+            properties,
+            children,
+        } = self;
+        LGtkWidget {
+            widget,
+            properties,
+            children: children.next_tuple(child),
+        }
+    }
+}
+impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
+where
+    Widg: WidgetClass,
+    Props: TupleBuilder,
+    Chil: Render<LeptosGtk>,
+{
+    pub fn connect<F>(
+        self,
+        signal_name: &'static str,
+        callback: F,
+    ) -> LGtkWidget<Widg, Props::Output<Connect<F>>, Chil>
+    where
+        F: Fn(&[Value]) -> Option<Value> + Send + Sync + 'static,
+    {
+        let LGtkWidget {
+            widget,
+            properties,
+            children,
+        } = self;
+        LGtkWidget {
+            widget,
+            properties: properties.next_tuple(Connect {
+                signal_name,
+                callback,
+            }),
+            children,
+        }
+    }
+}
+
+pub struct LGtkWidgetState<Widg, Props, Chil>
+where
+    Chil: Render<LeptosGtk>,
+    Props: Property,
+    Widg: WidgetClass,
+{
+    ty: PhantomData<Widg>,
+    widget: Element,
+    properties: Props::State,
+    children: Chil::State,
+}
+
+impl<Widg, Props, Chil> LGtkWidgetState<Widg, Props, Chil>
+where
+    Chil: Render<LeptosGtk>,
+    Props: Property,
+    Widg: WidgetClass,
+{
+    pub fn as_widget(&self) -> &Widget {
+        &self.widget.0
+    }
+}
+
+impl<Widg, Props, Chil> Render<LeptosGtk> for LGtkWidget<Widg, Props, Chil>
+where
+    Widg: WidgetClass,
+    Props: Property,
+    Chil: Render<LeptosGtk>,
+{
+    type State = LGtkWidgetState<Widg, Props, Chil>;
+    type FallibleState = ();
 
     fn build(self) -> Self::State {
-        use gtk::prelude::ButtonExt;
-
-        let Button(children, on_click) = self;
-        let button = gtk::Button::new();
-        let handler = button.connect_clicked(on_click);
-        let button = Element::from(button);
-        let mut children = children.build();
-        children.mount(&button, None);
-        ElementState(button, children)
+        let widget = Object::new::<Widg::Widget>();
+        let widget = Element::from(widget);
+        let properties = self.properties.build(&widget);
+        let mut children = self.children.build();
+        children.mount(&widget, None);
+        LGtkWidgetState {
+            ty: PhantomData,
+            widget,
+            properties,
+            children,
+        }
     }
 
     fn rebuild(self, state: &mut Self::State) {
+        self.properties
+            .rebuild(&state.widget, &mut state.properties);
+        self.children.rebuild(&mut state.children);
+    }
+
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
         todo!()
     }
 
-    fn try_build(self) -> leptos::tachys::error::Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> leptos::tachys::error::Result<()> {
-        self.rebuild(state);
-        Ok(())
+    ) -> any_error::Result<()> {
+        todo!()
     }
 }
 
-pub struct Box_<C>(Orientation, i32, C)
+impl<Widg, Props, Chil> Mountable<LeptosGtk>
+    for LGtkWidgetState<Widg, Props, Chil>
 where
-    C: Render<LeptosGtk>;
-
-pub fn r#box<C>(orientation: Orientation, spacing: i32, children: C) -> Box_<C>
-where
-    C: Render<LeptosGtk>,
-{
-    Box_(orientation, spacing, children)
-}
-
-impl<C> Render<LeptosGtk> for Box_<C>
-where
-    C: Render<LeptosGtk>,
-{
-    type State = ElementState<C::State>;
-    type FallibleState = ElementState<C::State>;
-
-    fn build(self) -> Self::State {
-        let Box_(orientation, spacing, children) = self;
-        let el = Element::from(gtk::Box::new(orientation, spacing));
-        let mut children = children.build();
-        children.mount(&el, None);
-        ElementState(el, children)
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        let ElementState(el, children) = state;
-        self.2.rebuild(children);
-    }
-
-    fn try_build(self) -> leptos::tachys::error::Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::tachys::error::Result<()> {
-        self.rebuild(state);
-        Ok(())
-    }
-}
-
-pub struct ElementState<C>(pub Element, pub C)
-where
-    C: Mountable<LeptosGtk>;
-
-impl<C> Mountable<LeptosGtk> for ElementState<C>
-where
-    C: Mountable<LeptosGtk>,
+    Widg: WidgetClass,
+    Props: Property,
+    Chil: Render<LeptosGtk>,
 {
     fn unmount(&mut self) {
-        self.1.unmount();
-        self.0.remove();
+        self.children.unmount();
+        self.widget.remove();
     }
 
     fn mount(
@@ -295,7 +348,9 @@ where
         parent: &<LeptosGtk as Renderer>::Element,
         marker: Option<&<LeptosGtk as Renderer>::Node>,
     ) {
-        LeptosGtk::insert_node(parent, &self.0, marker);
+        println!("mounting {}", std::any::type_name::<Widg>());
+        self.children.mount(&self.widget, None);
+        LeptosGtk::insert_node(parent, &self.widget, marker);
     }
 
     fn insert_before_this(
@@ -303,7 +358,294 @@ where
         parent: &<LeptosGtk as Renderer>::Element,
         child: &mut dyn Mountable<LeptosGtk>,
     ) -> bool {
-        child.mount(parent, Some(self.0.as_ref()));
+        child.mount(parent, Some(self.widget.as_ref()));
         true
     }
+}
+
+pub trait Property {
+    type State;
+
+    fn build(self, element: &Element) -> Self::State;
+
+    fn rebuild(self, element: &Element, state: &mut Self::State);
+}
+
+impl<T, F> Property for F
+where
+    T: Property,
+    T::State: 'static,
+    F: Fn() -> T + 'static,
+{
+    type State = RenderEffect<T::State>;
+
+    fn build(self, widget: &Element) -> Self::State {
+        let widget = widget.clone();
+        RenderEffect::new(move |prev| {
+            let value = self();
+            if let Some(mut prev) = prev {
+                value.rebuild(&widget, &mut prev);
+                prev
+            } else {
+                value.build(&widget)
+            }
+        })
+    }
+
+    fn rebuild(self, widget: &Element, state: &mut Self::State) {}
+}
+
+pub fn button() -> LGtkWidget<gtk::Button, (), ()> {
+    LGtkWidget {
+        widget: PhantomData,
+        properties: (),
+        children: (),
+    }
+}
+
+pub fn r#box() -> LGtkWidget<gtk::Box, (), ()> {
+    LGtkWidget {
+        widget: PhantomData,
+        properties: (),
+        children: (),
+    }
+}
+
+mod widgets {
+    use super::WidgetClass;
+
+    impl WidgetClass for gtk::Button {
+        type Widget = Self;
+    }
+
+    impl WidgetClass for gtk::Box {
+        type Widget = Self;
+    }
+}
+
+pub mod properties {
+    use super::{
+        Element, LGtkWidget, LGtkWidgetState, LeptosGtk, Property, WidgetClass,
+    };
+    use gtk::glib::{object::ObjectExt, Value};
+    use leptos::tachys::{renderer::Renderer, view::Render};
+    use next_tuple::TupleBuilder;
+
+    pub struct Connect<F>
+    where
+        F: Fn(&[Value]) -> Option<Value> + Send + Sync + 'static,
+    {
+        pub signal_name: &'static str,
+        pub callback: F,
+    }
+
+    impl<F> Property for Connect<F>
+    where
+        F: Fn(&[Value]) -> Option<Value> + Send + Sync + 'static,
+    {
+        type State = ();
+
+        fn build(self, element: &Element) -> Self::State {
+            element.0.connect(self.signal_name, false, self.callback);
+        }
+
+        fn rebuild(self, element: &Element, state: &mut Self::State) {}
+    }
+
+    /* examples for macro */
+    pub struct Orientation {
+        value: gtk::Orientation,
+    }
+
+    pub struct OrientationState {
+        value: gtk::Orientation,
+    }
+
+    impl Property for Orientation {
+        type State = OrientationState;
+
+        fn build(self, element: &Element) -> Self::State {
+            element.0.set_property("orientation", self.value);
+            OrientationState { value: self.value }
+        }
+
+        fn rebuild(self, element: &Element, state: &mut Self::State) {
+            if self.value != state.value {
+                element.0.set_property("orientation", self.value);
+                state.value = self.value;
+            }
+        }
+    }
+
+    impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
+    where
+        Widg: WidgetClass,
+        Props: TupleBuilder,
+        Chil: Render<LeptosGtk>,
+    {
+        pub fn orientation(
+            self,
+            value: impl Into<gtk::Orientation>,
+        ) -> LGtkWidget<Widg, Props::Output<Orientation>, Chil> {
+            let LGtkWidget {
+                widget,
+                properties,
+                children,
+            } = self;
+            LGtkWidget {
+                widget,
+                properties: properties.next_tuple(Orientation {
+                    value: value.into(),
+                }),
+                children,
+            }
+        }
+    }
+
+    pub struct Spacing {
+        value: i32,
+    }
+
+    pub struct SpacingState {
+        value: i32,
+    }
+
+    impl Property for Spacing {
+        type State = SpacingState;
+
+        fn build(self, element: &Element) -> Self::State {
+            element.0.set_property("spacing", self.value);
+            SpacingState { value: self.value }
+        }
+
+        fn rebuild(self, element: &Element, state: &mut Self::State) {
+            if self.value != state.value {
+                element.0.set_property("spacing", self.value);
+                state.value = self.value;
+            }
+        }
+    }
+
+    impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
+    where
+        Widg: WidgetClass,
+        Props: TupleBuilder,
+        Chil: Render<LeptosGtk>,
+    {
+        pub fn spacing(
+            self,
+            value: impl Into<i32>,
+        ) -> LGtkWidget<Widg, Props::Output<Spacing>, Chil> {
+            let LGtkWidget {
+                widget,
+                properties,
+                children,
+            } = self;
+            LGtkWidget {
+                widget,
+                properties: properties.next_tuple(Spacing {
+                    value: value.into(),
+                }),
+                children,
+            }
+        }
+    }
+
+    /* end examples for properties macro */
+
+    pub struct Label {
+        value: String,
+    }
+
+    impl Label {
+        pub fn new(value: impl Into<String>) -> Self {
+            Self {
+                value: value.into(),
+            }
+        }
+    }
+
+    pub struct LabelState {
+        value: String,
+    }
+
+    impl Property for Label {
+        type State = LabelState;
+
+        fn build(self, element: &Element) -> Self::State {
+            LeptosGtk::set_attribute(element, "label", &self.value);
+            LabelState { value: self.value }
+        }
+
+        fn rebuild(self, element: &Element, state: &mut Self::State) {
+            todo!()
+        }
+    }
+
+    impl Property for () {
+        type State = ();
+
+        fn build(self, _element: &Element) -> Self::State {}
+
+        fn rebuild(self, _element: &Element, _state: &mut Self::State) {}
+    }
+
+    macro_rules! tuples {
+        ($($ty:ident),* $(,)?) => {
+            impl<$($ty,)*> Property for ($($ty,)*)
+                where $($ty: Property,)*
+            {
+                type State = ($($ty::State,)*);
+
+                fn build(self, element: &Element) -> Self::State {
+                    #[allow(non_snake_case)]
+                    let ($($ty,)*) = self;
+                    ($($ty.build(element),)*)
+                }
+
+                fn rebuild(self, element: &Element, state: &mut Self::State) {
+                    paste::paste! {
+                        #[allow(non_snake_case)]
+                        let ($($ty,)*) = self;
+                        #[allow(non_snake_case)]
+                        let ($([<state_ $ty:lower>],)*) = state;
+                        $($ty.rebuild(element, [<state_ $ty:lower>]));*
+                    }
+                }
+            }
+        }
+    }
+
+    tuples!(A);
+    tuples!(A, B);
+    tuples!(A, B, C);
+    tuples!(A, B, C, D);
+    tuples!(A, B, C, D, E);
+    tuples!(A, B, C, D, E, F);
+    tuples!(A, B, C, D, E, F, G);
+    tuples!(A, B, C, D, E, F, G, H);
+    tuples!(A, B, C, D, E, F, G, H, I);
+    tuples!(A, B, C, D, E, F, G, H, I, J);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+    tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+    tuples!(
+        A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W
+    );
+    tuples!(
+        A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X
+    );
+    tuples!(
+        A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X,
+        Y
+    );
 }
