@@ -194,7 +194,7 @@ impl Renderer for LeptosGtk {
     }
 }
 
-fn root<Chil>(children: Chil) -> (Widget, impl Mountable<LeptosGtk>)
+pub fn root<Chil>(children: Chil) -> (Widget, impl Mountable<LeptosGtk>)
 where
     Chil: Render<LeptosGtk>,
 {
