@@ -1,11 +1,16 @@
-use gtk::{prelude::*, Application, ApplicationWindow, Orientation};
+use gtk::{
+    glib::Value, prelude::*, Application, ApplicationWindow, Orientation,
+    Widget,
+};
 use leptos::{
     prelude::*,
     reactive_graph::{effect::Effect, owner::Owner, signal::RwSignal},
     Executor, For, ForProps,
 };
-use leptos_gtk::{button, r#box, Box_, LeptosGtk};
+#[cfg(feature = "gtk")]
+use leptos_gtk::{Element, LGtkWidget, LeptosGtk};
 use std::{mem, thread, time::Duration};
+#[cfg(feature = "gtk")]
 mod leptos_gtk;
 
 const APP_ID: &str = "dev.leptos.Counter";
@@ -13,32 +18,39 @@ const APP_ID: &str = "dev.leptos.Counter";
 // Basic GTK app setup from https://gtk-rs.org/gtk4-rs/stable/latest/book/hello_world.html
 fn main() {
     // use the glib event loop to power the reactive system
-    _ = Executor::init_glib();
+    #[cfg(feature = "gtk")]
+    {
+        _ = Executor::init_glib();
+        let app = Application::builder().application_id(APP_ID).build();
 
-    let app = Application::builder().application_id(APP_ID).build();
+        app.connect_activate(|app| {
+            let owner = Owner::new();
+            let view = owner.with(ui);
 
-    app.connect_activate(|app| {
-        let owner = Owner::new();
-        let view = owner.with(ui);
+            // Connect to "activate" signal of `app`
+            let (root, state) = leptos_gtk::root(view);
 
-        // Connect to "activate" signal of `app`
-        let state = view.build();
+            let window = ApplicationWindow::builder()
+                .application(app)
+                .title("TachyGTK")
+                .child(&root)
+                .build();
+            // Present window
+            window.present();
 
-        let window = ApplicationWindow::builder()
-            .application(app)
-            .title("TachyGTK")
-            .child(&state.0 .0)
-            .build();
-        // Present window
-        window.present();
+            mem::forget((owner, state));
+        });
 
-        mem::forget((owner, state));
-    });
+        app.run();
+    }
 
-    app.run();
+    #[cfg(feature = "wasm")]
+    {
+        _ = Executor::init_wasm_bindgen();
+    }
 }
 
-fn ui() -> Box_<impl Render<LeptosGtk>> {
+fn ui() -> impl Render<LeptosGtk> {
     let value = RwSignal::new(0);
     let rows = RwSignal::new(vec![1, 2, 3, 4, 5]);
 
@@ -71,10 +83,28 @@ fn ui() -> Box_<impl Render<LeptosGtk>> {
     ))
 }
 
-fn vstack(children: impl Render<LeptosGtk>) -> Box_<impl Render<LeptosGtk>> {
-    r#box(Orientation::Vertical, 12, children)
+fn button(
+    label: impl Render<LeptosGtk>,
+    callback: impl Fn(&[Value]) + Send + Sync + 'static,
+) -> impl Render<LeptosGtk> {
+    leptos_gtk::button()
+        .child(label)
+        .connect("clicked", move |value| {
+            callback(value);
+            None
+        })
+}
+
+fn vstack(children: impl Render<LeptosGtk>) -> impl Render<LeptosGtk> {
+    leptos_gtk::r#box()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .child(children)
 }
 
 fn hstack(children: impl Render<LeptosGtk>) -> impl Render<LeptosGtk> {
-    r#box(Orientation::Horizontal, 12, children)
+    leptos_gtk::r#box()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .child(children)
 }
