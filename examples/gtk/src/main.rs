@@ -27,6 +27,8 @@ fn main() {
         _ = Executor::init_glib();
         let app = Application::builder().application_id(APP_ID).build();
 
+        app.connect_startup(|_| load_css());
+
         app.connect_activate(|app| {
             // Connect to "activate" signal of `app`
             let owner = Owner::new();
@@ -155,4 +157,19 @@ fn hstack(children: impl Render<Rndr>) -> impl Render<Rndr> {
             .style(("margin", "1rem"))
             .child(children)
     }
+}
+
+#[cfg(feature = "gtk")]
+fn load_css() {
+    use gtk::{gdk::Display, CssProvider};
+
+    let provider = CssProvider::new();
+    provider.load_from_path("style.css");
+
+    // Add the provider to the default screen
+    gtk::style_context_add_provider_for_display(
+        &Display::default().expect("Could not connect to a display."),
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }
