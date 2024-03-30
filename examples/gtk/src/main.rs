@@ -1,8 +1,12 @@
+#[cfg(feature = "gtk")]
 use gtk::{
     glib::Value, prelude::*, Application, ApplicationWindow, Orientation,
     Widget,
 };
+#[cfg(feature = "wasm")]
+use leptos::tachys::{dom::body, html::element, html::event as ev};
 use leptos::{
+    logging,
     prelude::*,
     reactive_graph::{effect::Effect, owner::Owner, signal::RwSignal},
     Executor, For, ForProps,
@@ -24,10 +28,9 @@ fn main() {
         let app = Application::builder().application_id(APP_ID).build();
 
         app.connect_activate(|app| {
+            // Connect to "activate" signal of `app`
             let owner = Owner::new();
             let view = owner.with(ui);
-
-            // Connect to "activate" signal of `app`
             let (root, state) = leptos_gtk::root(view);
 
             let window = ApplicationWindow::builder()
@@ -37,28 +40,39 @@ fn main() {
                 .build();
             // Present window
             window.present();
-
             mem::forget((owner, state));
         });
 
         app.run();
     }
 
-    #[cfg(feature = "wasm")]
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
     {
+        console_error_panic_hook::set_once();
         _ = Executor::init_wasm_bindgen();
+        let owner = Owner::new();
+        let view = owner.with(ui);
+        let mut state = view.build();
+        state.mount(&body().into(), None);
+        mem::forget((owner, state));
     }
 }
 
-fn ui() -> impl Render<LeptosGtk> {
+#[cfg(feature = "gtk")]
+type Rndr = LeptosGtk;
+#[cfg(all(feature = "wasm", not(feature = "gtk")))]
+type Rndr = Dom;
+
+fn ui() -> impl Render<Rndr> {
     let value = RwSignal::new(0);
     let rows = RwSignal::new(vec![1, 2, 3, 4, 5]);
 
     Effect::new(move |_| {
-        println!("value = {}", value.get());
+        logging::log!("value = {}", value.get());
     });
 
     // just an example of multithreaded reactivity
+    #[cfg(feature = "gtk")]
     thread::spawn(move || loop {
         thread::sleep(Duration::from_millis(250));
         value.update(|n| *n += 1);
@@ -66,16 +80,16 @@ fn ui() -> impl Render<LeptosGtk> {
 
     vstack((
         hstack((
-            button("-1", move |_| value.update(|n| *n -= 1)),
+            button("-1", move || value.update(|n| *n -= 1)),
             move || value.get().to_string(),
-            button("+1", move |_| value.update(|n| *n += 1)),
+            button("+1", move || value.update(|n| *n += 1)),
         )),
-        button("Swap", move |_| {
+        button("Swap", move || {
             rows.update(|items| {
                 items.swap(1, 3);
             })
         }),
-        vstack(For(ForProps::builder()
+        hstack(For(ForProps::builder()
             .each(move || rows.get())
             .key(|k| *k)
             .children(|v| v)
@@ -84,27 +98,61 @@ fn ui() -> impl Render<LeptosGtk> {
 }
 
 fn button(
-    label: impl Render<LeptosGtk>,
-    callback: impl Fn(&[Value]) + Send + Sync + 'static,
-) -> impl Render<LeptosGtk> {
-    leptos_gtk::button()
-        .child(label)
-        .connect("clicked", move |value| {
-            callback(value);
-            None
-        })
+    label: impl Render<Rndr>,
+    callback: impl Fn() + Send + Sync + 'static,
+) -> impl Render<Rndr> {
+    #[cfg(feature = "gtk")]
+    {
+        leptos_gtk::button()
+            .child(label)
+            .connect("clicked", move |_| {
+                callback();
+                None
+            })
+    }
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        element::button()
+            .on(ev::click, move |_| callback())
+            .child(label)
+    }
 }
 
-fn vstack(children: impl Render<LeptosGtk>) -> impl Render<LeptosGtk> {
-    leptos_gtk::r#box()
-        .orientation(Orientation::Vertical)
-        .spacing(12)
-        .child(children)
+fn vstack(children: impl Render<Rndr>) -> impl Render<Rndr> {
+    #[cfg(feature = "gtk")]
+    {
+        leptos_gtk::r#box()
+            .orientation(Orientation::Vertical)
+            .spacing(12)
+            .child(children)
+    }
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        element::div()
+            .style(("display", "flex"))
+            .style(("flex-direction", "column"))
+            .style(("align-items", "center"))
+            .style(("justify-content", "center"))
+            .style(("margin", "1rem"))
+            .child(children)
+    }
 }
 
-fn hstack(children: impl Render<LeptosGtk>) -> impl Render<LeptosGtk> {
-    leptos_gtk::r#box()
-        .orientation(Orientation::Horizontal)
-        .spacing(12)
-        .child(children)
+fn hstack(children: impl Render<Rndr>) -> impl Render<Rndr> {
+    #[cfg(feature = "gtk")]
+    {
+        leptos_gtk::r#box()
+            .orientation(Orientation::Horizontal)
+            .spacing(12)
+            .child(children)
+    }
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        element::div()
+            .style(("display", "flex"))
+            .style(("align-items", "center"))
+            .style(("justify-content", "center"))
+            .style(("margin", "1rem"))
+            .child(children)
+    }
 }
