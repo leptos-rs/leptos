@@ -21,6 +21,7 @@ leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
+oco = { workspace = true }
 paste = "1"
 rand = { version = "0.8", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
@@ -42,7 +43,7 @@ web-sys = { version = "0.3.63", features = [
   "ShadowRootInit",
   "ShadowRootMode",
 ] }
-wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen = "0.2"
 serde_qs = "0.12.0"
 
 [features]
@@ -72,7 +73,6 @@ nightly = [
   "leptos_dom/nightly",
   "leptos_macro/nightly",
   "leptos_reactive/nightly",
-  "leptos_server/nightly",
   "tachys/nightly",
 ]
 serde = ["leptos_reactive/serde"]
