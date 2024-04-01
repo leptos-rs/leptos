@@ -1,4 +1,4 @@
-use leptos::{ev, html::*, *};
+use leptos::{html::*, *};
 
 /// A simple counter view.
 // A component is really just a function call: it runs once to create the DOM and reactive system
