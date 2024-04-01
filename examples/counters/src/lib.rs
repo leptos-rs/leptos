@@ -1,4 +1,4 @@
-use leptos::{For, *};
+use leptos::*;
 
 const MANY_COUNTERS: usize = 1000;
 

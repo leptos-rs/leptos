@@ -48,6 +48,9 @@ jobs:
       - name: Install wasm-bindgen
         run: cargo binstall wasm-bindgen-cli --no-confirm
 
+      - name: Install wasm-pack
+        run: cargo binstall wasm-pack --no-confirm
+
       - name: Install cargo-leptos
         run: cargo binstall cargo-leptos --no-confirm
 

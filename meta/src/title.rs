@@ -1,4 +1,4 @@
-use crate::{use_head, TextProp};
+use crate::use_head;
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};

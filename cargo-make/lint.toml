@@ -9,12 +9,10 @@ args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]
 dependencies = ["install-clippy"]
 command = "cargo"
 args = [
-    "hack",
     "clippy",
-    "--all",
-    "--each-feature",
-    "--no-dev-deps",
+    "--all-features",
+    "--no-deps",
     "--",
     "-D",
-    "clippy::print_stdout"
+    "clippy::print_stdout",
 ]

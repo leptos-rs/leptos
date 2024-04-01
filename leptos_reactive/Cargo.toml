@@ -72,7 +72,7 @@ hydrate = [
   "dep:web-sys",
 ]
 ssr = ["dep:tokio"]
-nightly = ["rkyv?/copy"]
+nightly = [] #["rkyv?/copy"] # not working on more recent nightlys
 serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
@@ -81,7 +81,7 @@ experimental-islands = []
 spin = ["ssr", "dep:spin-sdk"]
 
 [package.metadata.cargo-all-features]
-denylist = ["nightly"]
+denylist = ["nightly", "rkyv"]
 skip_feature_sets = [
   [
     "csr",

@@ -3,5 +3,5 @@ alias = "check-all"
 
 [tasks.check-all]
 command = "cargo"
-args = ["+nightly-2024-01-29", "check-all-features"]
+args = ["+nightly-2024-03-31", "check-all-features"]
 install_crate = "cargo-all-features"

@@ -1,5 +1,5 @@
 use crate::{use_location, use_resolved_path, State};
-use leptos::{leptos_dom::IntoView, *};
+use leptos::*;
 use std::borrow::Cow;
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
