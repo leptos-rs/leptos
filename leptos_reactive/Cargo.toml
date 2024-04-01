@@ -81,7 +81,7 @@ experimental-islands = []
 spin = ["ssr", "dep:spin-sdk"]
 
 [package.metadata.cargo-all-features]
-denylist = ["nightly"]
+denylist = ["nightly", "rkyv"]
 skip_feature_sets = [
   [
     "csr",
