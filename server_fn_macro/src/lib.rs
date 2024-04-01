@@ -13,7 +13,7 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
-    Type, *,
+    *,
 };
 
 /// The implementation of the `server` macro.
