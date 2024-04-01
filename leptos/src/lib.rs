@@ -171,8 +171,6 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
-pub struct SimulateChange;
-
 /// Types to make it easier to handle errors in your application.
 pub mod error {
     pub use server_fn::error::{Error, Result};
