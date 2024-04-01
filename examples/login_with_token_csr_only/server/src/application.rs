@@ -124,6 +124,7 @@ impl EmailAddress {
 #[derive(Clone)]
 pub struct CurrentUser {
     pub email: EmailAddress,
+    #[allow(dead_code)] // possibly a lint regression, this is used at line 65
     pub token: Uuid,
 }
 
