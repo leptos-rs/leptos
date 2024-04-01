@@ -206,5 +206,3 @@ fn ssr_option() {
 
     runtime.dispose();
 }
-
-// TODO: remove this simulated change
