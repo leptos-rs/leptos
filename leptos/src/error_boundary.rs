@@ -58,7 +58,7 @@ use leptos_reactive::{
 /// So, for instance, if you pass a `Result<T,String>` where `T` implements [IntoView](https://docs.rs/leptos/latest/leptos/trait.IntoView.html)
 /// and attempt to render the error for the purposes of `ErrorBoundary` you'll get a compiler error like this.
 ///
-/// ```
+/// ```rust,ignore
 /// error[E0599]: the method `into_view` exists for enum `Result<ViewableLoginFlow, String>`, but its trait bounds were not satisfied
 ///    --> src/login.rs:229:32
 ///     |
