@@ -155,9 +155,8 @@ fn match_serialize() {
 }
 
 #[test]
+#[allow(clippy::needless_borrow)]
 fn match_no_serialize() {
-    #![allow(clippy::needless_borrow)]
-
     struct CustomStruct {
         field: &'static str,
     }
