@@ -16,7 +16,7 @@ impl AppState {
         credentials: Credentials,
     ) -> Result<(), CreateUserError> {
         let Credentials { email, password } = credentials;
-        let user_exists = self.users.get(&email).is_some();
+        let user_exists = self.users.contains_key(&email);
         if user_exists {
             return Err(CreateUserError::UserExists);
         }
