@@ -1,4 +1,4 @@
-#![feature(lazy_cell)]
+#![cfg_attr(feature = "nightly", feature(Lazy_cell))]
 
 use leptos::*;
 use leptos_meta::*;

@@ -17,7 +17,7 @@ pub async fn fetch_story(
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
     let story = create_resource(
-        move || params().get("id").cloned().unwrap_or_default(),
+        move || params.get().get("id").cloned().unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 Ok(RefCell::new(None))
@@ -94,7 +94,7 @@ pub fn Toggle(children: Children) -> impl IntoView {
     view! {
         <div class="toggle" class:open=open>
             <a on:click=move |_| set_open.update(|n| *n = !*n)>
-                {move || if open() {
+                {move || if open.get() {
                     "[-]"
                 } else {
                     "[+] comments collapsed"
@@ -103,7 +103,7 @@ pub fn Toggle(children: Children) -> impl IntoView {
         </div>
         <ul
             class="comment-children"
-            style:display=move || if open() {
+            style:display=move || if open.get() {
                 "block"
             } else {
                 "none"

@@ -11,17 +11,14 @@ codegen-units = 1
 lto = true
 
 [dependencies]
+leptos_meta = { path = "../../meta" }
 console_log = "1.0"
 console_error_panic_hook = "0.1"
-leptos = { path = "../../leptos", features = [
-  "nightly",
-  "experimental-islands",
-] }
+leptos = { path = "../../leptos", features = ["experimental-islands"] }
 leptos_axum = { path = "../../integrations/axum", optional = true, features = [
   "experimental-islands",
 ] }
-leptos_meta = { path = "../../meta", features = ["nightly"] }
-leptos_router = { path = "../../router", features = ["nightly"] }
+leptos_router = { path = "../../router" }
 log = "0.4"
 simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }
