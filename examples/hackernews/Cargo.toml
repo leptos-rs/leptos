@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "hackernews_bin"
+path = "./src/main.rs"
+
 [profile.release]
 codegen-units = 1
 lto = true
@@ -15,13 +19,13 @@ actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["macros"] }
 console_log = "1"
 console_error_panic_hook = "0.1"
-leptos = { path = "../../leptos", features = ["nightly"] }
-leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_router = { path = "../../router", features = ["nightly"] }
+leptos_router = { path = "../../router" }
+leptos_meta = { path = "../../meta" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
-gloo-net = { version = "0.2", features = ["http"] }
+gloo-net = { version = "0.5", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"] }
 tracing = "0.1"
 # openssl = { version = "0.10", features = ["v110"] }
@@ -32,12 +36,12 @@ web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-	"dep:actix-files",
-	"dep:actix-web",
-	"dep:leptos_actix",
-	"leptos/ssr",
-	"leptos_meta/ssr",
-	"leptos_router/ssr",
+  "dep:actix-files",
+  "dep:actix-web",
+  "dep:leptos_actix",
+  "leptos/ssr",
+  "leptos_meta/ssr",
+  "leptos_router/ssr",
 ]
 
 [profile.wasm-release]
@@ -51,6 +55,8 @@ denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
+#Added to avoid name collition with lib package
+bin-exe-name = "hackernews_bin"
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
 output-name = "hackernews"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.

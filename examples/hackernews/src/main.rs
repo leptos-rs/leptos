@@ -49,6 +49,7 @@ async fn main() -> std::io::Result<()> {
 #[cfg(not(feature = "ssr"))]
 fn main() {
     use hackernews::App;
+    use leptos::mount_to_body;
 
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
