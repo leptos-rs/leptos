@@ -218,7 +218,6 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
 }
 
 impl<T: ElementDescriptor> Clone for NodeRef<T> {
-    #[track_caller]
     fn clone(&self) -> Self {
         *self
     }
