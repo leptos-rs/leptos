@@ -4,3 +4,4 @@ edition = "2021"
 version.workspace = true
 
 [dependencies]
+pin-project-lite = "0.2"
