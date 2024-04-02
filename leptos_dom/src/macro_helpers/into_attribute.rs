@@ -227,7 +227,7 @@ impl IntoAttribute for Option<Box<dyn IntoAttribute>> {
 
 impl IntoAttribute for TextProp {
     fn into_attribute(self) -> Attribute {
-        self.get().into_attribute()
+        (move || self.get()).into_attribute()
     }
 
     impl_into_attr_boxed! {}

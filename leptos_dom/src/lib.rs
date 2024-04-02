@@ -251,7 +251,7 @@ where
 
 impl IntoView for TextProp {
     fn into_view(self) -> View {
-        self.get().into_view()
+        (move || self.get()).into_view()
     }
 }
 
