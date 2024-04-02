@@ -25,6 +25,7 @@ oco = { workspace = true }
 paste = "1"
 rand = { version = "0.8", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
+rustc-hash = "1"
 tachys = { workspace = true, features = ["reactive_graph"] }
 thiserror = "1"
 tracing = "0.1"

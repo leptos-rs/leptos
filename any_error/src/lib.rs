@@ -1,4 +1,14 @@
-use std::{error, fmt, ops, sync::Arc};
+use std::{
+    cell::RefCell,
+    error, fmt,
+    future::Future,
+    ops,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
+/* Wrapper Types */
 
 /// This is a result type into which any error can be converted.
 ///
@@ -37,5 +47,83 @@ where
 {
     fn from(value: T) -> Self {
         Error(Arc::new(value))
+    }
+}
+
+/// Implements behavior that allows for global or scoped error handling.
+///
+/// This allows for both "throwing" errors to register them, and "clearing" errors when they are no
+/// longer valid. This is useful for something like a user interface, in which an error can be
+/// "thrown" on some invalid user input, and later "cleared" if the user corrects the input.
+/// Keeping a unique identifier for each error allows the UI to be updated accordingly.
+pub trait ErrorHook: Send + Sync {
+    /// Handles the given error, returning a unique identifier.
+    fn throw(&self, error: Error) -> ErrorId;
+
+    /// Clears the error associated with the given identifier.
+    fn clear(&self, id: &ErrorId);
+}
+
+/// A unique identifier for an error. This is returned when you call [`throw`], which calls a
+/// global error handler.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Default)]
+pub struct ErrorId(usize);
+
+thread_local! {
+    static ERROR_HOOK: RefCell<Option<Arc<dyn ErrorHook>>> = RefCell::new(None);
+}
+
+/// Sets the current thread-local error hook, which will be invoked when [`throw`] is called.
+pub fn set_error_hook(hook: Arc<dyn ErrorHook>) {
+    ERROR_HOOK.with_borrow_mut(|this| *this = Some(hook))
+}
+
+/// Invokes the error hook set by [`set_error_hook`] with the given error.
+pub fn throw(error: impl Into<Error>) -> ErrorId {
+    ERROR_HOOK
+        .with_borrow(|hook| hook.as_ref().map(|hook| hook.throw(error.into())))
+        .unwrap_or_default()
+}
+
+/// Clears the given error from the current error hook.
+pub fn clear(id: &ErrorId) {
+    ERROR_HOOK
+        .with_borrow(|hook| hook.as_ref().map(|hook| hook.clear(id)))
+        .unwrap_or_default()
+}
+
+pin_project_lite::pin_project! {
+    /// A [`Future`] that reads the error hook that is set when it is created, and sets this as the
+    /// current error hook whenever it is polled.
+    pub struct ErrorHookFuture<Fut> {
+        hook: Option<Arc<dyn ErrorHook>>,
+        #[pin]
+        inner: Fut
+    }
+}
+
+impl<Fut> ErrorHookFuture<Fut> {
+    /// Reads the current hook and wraps the given [`Future`], returning a new `Future` that will
+    /// set the error hook whenever it is polled.
+    pub fn new(inner: Fut) -> Self {
+        Self {
+            hook: ERROR_HOOK.with_borrow(Clone::clone),
+            inner,
+        }
+    }
+}
+
+impl<Fut> Future for ErrorHookFuture<Fut>
+where
+    Fut: Future,
+{
+    type Output = Fut::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        if let Some(hook) = &this.hook {
+            set_error_hook(Arc::clone(hook))
+        }
+        this.inner.poll(cx)
     }
 }
