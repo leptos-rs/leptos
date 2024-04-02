@@ -189,10 +189,12 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
         self.element.update(|current| {
             if current.is_some() {
                 crate::debug_warn!(
-                    "You are setting a NodeRef that has already been filled. \
+                    "You are setting the NodeRef defined at {}, which has \
+                     already been filled \
                      It’s possible this is intentional, but it’s also \
                      possible that you’re accidentally using the same NodeRef \
-                     for multiple _ref attributes."
+                     for multiple _ref attributes.",
+                    self.defined_at
                 );
             }
             *current = Some(node.clone());
