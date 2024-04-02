@@ -1,5 +1,8 @@
 use crate::into_view::{IntoView, View};
-use std::sync::Arc;
+use std::{
+    fmt::{self, Debug},
+    sync::Arc,
+};
 use tachys::{
     renderer::dom::Dom,
     view::{
@@ -124,6 +127,12 @@ where
 /// A typed equivalent to [`ChildrenMut`], which takes a generic but preserves type information to
 /// allow the compiler to optimize the view more effectively.
 pub struct TypedChildrenMut<T>(Box<dyn FnMut() -> View<T> + Send>);
+
+impl<T> Debug for TypedChildrenMut<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("TypedChildrenMut").finish()
+    }
+}
 
 impl<T> TypedChildrenMut<T> {
     pub fn into_inner(self) -> impl FnMut() -> View<T> + Send {
