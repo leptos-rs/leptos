@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "hackernews_axum_bin"
+path = "./src/main.rs"
+
 [profile.release]
 codegen-units = 1
 lto = true
@@ -13,15 +17,15 @@ lto = true
 [dependencies]
 console_log = "1.0"
 console_error_panic_hook = "0.1"
-leptos = { path = "../../leptos", features = ["nightly"] }
+leptos = { path = "../../leptos" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
-leptos_meta = { path = "../../meta", features = ["nightly"] }
-leptos_router = { path = "../../router", features = ["nightly"] }
+leptos_meta = { path = "../../meta" }
+leptos_router = { path = "../../router" }
 log = "0.4"
 simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
-gloo-net = { version = "0.4", features = ["http"] }
+gloo-net = { version = "0.5", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"] }
 axum = { version = "0.7", optional = true }
 tower = { version = "0.4", optional = true }
@@ -52,6 +56,8 @@ denylist = ["axum", "tower", "tower-http", "tokio", "http", "leptos_axum"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
+#Had to change default name of the bin to avoid name collition with lib package when using trunk, this lets cargo_leptos know what the name will be
+bin-exe-name = "hackernews_axum_bin"
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
 output-name = "hackernews_axum"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.

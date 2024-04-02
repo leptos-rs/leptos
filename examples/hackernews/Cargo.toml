@@ -55,7 +55,7 @@ denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
-#Added to avoid name collition with lib package
+#Had to change default name of the bin to avoid name collition with lib package when using trunk, this lets cargo_leptos know what the name will be
 bin-exe-name = "hackernews_bin"
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
 output-name = "hackernews"

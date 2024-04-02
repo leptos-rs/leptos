@@ -34,6 +34,7 @@ async fn main() {
 #[cfg(not(feature = "ssr"))]
 pub fn main() {
     use hackernews_axum::*;
+    use leptos::mount_to_body;
 
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
