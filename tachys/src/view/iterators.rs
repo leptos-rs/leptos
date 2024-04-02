@@ -154,7 +154,7 @@ where
         if let Some(ref mut state) = self.state {
             state.unmount();
         }
-        R::remove(self.placeholder.as_ref());
+        self.placeholder.unmount();
     }
 
     fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
