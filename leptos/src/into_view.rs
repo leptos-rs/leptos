@@ -14,6 +14,12 @@ pub struct View<T>(T)
 where
     T: Sized;
 
+impl<T> View<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> + Send
 //+ AddAnyAttr<Dom>
 {

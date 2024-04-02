@@ -3,9 +3,9 @@ use leptos::{
     prelude::*,
     reactive_graph::{
         computed::AsyncDerived,
-        signal::{signal, RwSignal},
+        signal::{signal, ArcRwSignal},
     },
-    view, ErrorBoundary, IntoView, Transition,
+    view, ErrorBoundary, Errors, IntoView, Transition,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -54,6 +54,25 @@ pub fn fetch_example() -> impl IntoView {
     // 2) we'd need to make sure there was a thread-local spawner set up
     let cats = AsyncDerived::new_unsync(move || fetch_cats(cat_count.get()));
 
+    let fallback = move |errors: &ArcRwSignal<Errors>| {
+        let errors = errors.clone();
+        let error_list = move || {
+            errors.with(|errors| {
+                errors
+                    .iter()
+                    .map(|(_, e)| view! { <li>{e.to_string()}</li> })
+                    .collect::<Vec<_>>()
+            })
+        };
+
+        view! {
+            <div class="error">
+                <h2>"Error"</h2>
+                <ul>{error_list}</ul>
+            </div>
+        }
+    };
+
     // TODO weaving together Transition and ErrorBoundary is hard with the new async API for
     // suspense, because Transition expects a Future as its children, and ErrorBoundary isn't a
     // future
@@ -79,7 +98,7 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-                <ErrorBoundary fallback=|e| view! { <p class="error">{e.to_string()}</p> }>
+                <ErrorBoundary fallback>
                     <Transition fallback=|| view! { <div>"Loading..."</div> }>
                         {cats_view()}
                     </Transition>

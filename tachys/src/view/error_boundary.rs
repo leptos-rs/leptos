@@ -1,6 +1,7 @@
 use super::{Position, PositionState, RenderHtml};
 use crate::{
     hydration::Cursor,
+    renderer::CastFrom,
     ssr::StreamBuilder,
     view::{Mountable, Render, Renderer},
 };
@@ -13,30 +14,103 @@ where
     R: Renderer,
     E: Into<AnyError> + 'static,
 {
-    type State = <Option<T> as Render<R>>::State;
+    type State = ResultState<T::State, R>;
     type FallibleState = T::State;
 
     fn build(self) -> Self::State {
-        self.ok().build()
+        let placeholder = R::create_placeholder();
+        let state = match self {
+            Ok(view) => Ok(view.build()),
+            Err(e) => Err(any_error::throw(e.into())),
+        };
+        ResultState { placeholder, state }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        self.ok().rebuild(state);
+        match (&mut state.state, self) {
+            // both errors: throw the new error and replace
+            (Err(prev), Err(new)) => {
+                *prev = any_error::throw(new.into());
+            }
+            // both Ok: need to rebuild child
+            (Ok(old), Ok(new)) => {
+                T::rebuild(new, old);
+            }
+            // Ok => Err: unmount, replace with marker, and throw
+            (Ok(old), Err(err)) => {
+                old.unmount();
+                state.state = Err(any_error::throw(err));
+            }
+            // Err => Ok: clear error and build
+            (Err(err), Ok(new)) => {
+                any_error::clear(err);
+                let mut new_state = new.build();
+                R::mount_before(&mut new_state, state.placeholder.as_ref());
+                state.state = Ok(new_state);
+            }
+        }
     }
 
     fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        let inner = self.map_err(Into::into)?;
-        let state = inner.build();
-        Ok(state)
+        todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
-        let inner = self.map_err(Into::into)?;
-        inner.rebuild(state);
-        Ok(())
+        todo!()
+    }
+}
+
+/// View state for a `Result<_, _>` view.
+pub struct ResultState<T, R>
+where
+    T: Mountable<R>,
+    R: Renderer,
+{
+    /// Marks the location of this view.
+    placeholder: R::Placeholder,
+    /// The view state.
+    state: Result<T, any_error::ErrorId>,
+}
+
+impl<T, R> Mountable<R> for ResultState<T, R>
+where
+    T: Mountable<R>,
+    R: Renderer,
+{
+    fn unmount(&mut self) {
+        if let Ok(ref mut state) = self.state {
+            state.unmount();
+        }
+        // TODO investigate: including this seems to break error boundaries, although it doesn't
+        // make sense to me why it would be a problem
+        // self.placeholder.unmount();
+    }
+
+    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+        self.placeholder.mount(parent, marker);
+        if let Ok(ref mut state) = self.state {
+            state.mount(parent, Some(self.placeholder.as_ref()));
+        }
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &R::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        if self
+            .state
+            .as_ref()
+            .map(|n| n.insert_before_this(parent, child))
+            == Ok(true)
+        {
+            true
+        } else {
+            self.placeholder.insert_before_this(parent, child)
+        }
     }
 }
 
@@ -82,7 +156,22 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        self.ok().hydrate::<FROM_SERVER>(cursor, position)
+        // hydrate the state, if it exists
+        let state = self
+            .map(|s| s.hydrate::<FROM_SERVER>(cursor, position))
+            .map_err(|e| any_error::throw(e.into()));
+
+        // pull the placeholder
+        if position.get() == Position::FirstChild {
+            cursor.child();
+        } else {
+            cursor.sibling();
+        }
+        let placeholder = cursor.current().to_owned();
+        let placeholder = R::Placeholder::cast_from(placeholder).unwrap();
+        position.set(Position::NextChild);
+
+        ResultState { placeholder, state }
     }
 }
 
