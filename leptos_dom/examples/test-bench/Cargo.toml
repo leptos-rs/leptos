@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 console_error_panic_hook = "0.1"
 gloo = { version = "0.8", features = ["futures"] }
-leptos = { path = "../../../leptos", features = ["nightly", "csr", "tracing"] }
+leptos = { path = "../../../leptos", features = ["csr", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 tracing-subscriber-wasm = "0.1"

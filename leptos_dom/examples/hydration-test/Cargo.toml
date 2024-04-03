@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-leptos = { path = "../../../leptos", features = ["nightly"] }
+leptos = { path = "../../../leptos" }
 actix-web = { version = "4", optional = true }
 actix-files = { version = "0.6", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }

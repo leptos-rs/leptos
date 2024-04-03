@@ -22,7 +22,7 @@ pub fn TimerDemo() -> impl IntoView {
         <div>
             <div>"Count A (fixed interval of 1000 ms)"</div>
             <div>{move||count_a.get()}</div>
-            <div>"Count B (dynamic interval, currently " {interval} " ms)"</div>
+            <div>"Count B (dynamic interval, currently " {move||interval.get()} " ms)"</div>
             <div>{move||count_b.get()}</div>
             <input prop:value=interval on:input=move |ev| {
                 if let Ok(value) = event_target_value(&ev).parse::<u64>() {

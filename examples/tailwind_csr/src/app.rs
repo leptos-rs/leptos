@@ -31,7 +31,7 @@ fn Home() -> impl IntoView {
                 on:click=move |_| set_count.update(|count| *count += 1)
             >
                 "Something's here | "
-                {move || if count() == 0 {
+                {move || if count.get() == 0 {
                     "Click me!".to_string()
                 } else {
                     count.get().to_string()

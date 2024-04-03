@@ -46,11 +46,11 @@ pub fn ComponentA() -> impl IntoView {
         .child(
             input()
                 .attr("type", "text")
-                .prop("value", (value))
-                .on(ev::input, move |e| set_value(event_target_value(&e))),
+                .prop("value", value.get())
+                .on(ev::input, move |e| set_value.set(event_target_value(&e))),
         )
-        .child(input().attr("type", "text").prop("value", value))
-        .child(p().child("Value: ").child(value))
+        .child(input().attr("type", "text").prop("value", value.get()))
+        .child(p().child("Value: ").child(value.get()))
         .into_view()
 }
 

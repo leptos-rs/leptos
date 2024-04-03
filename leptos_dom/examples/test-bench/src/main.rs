@@ -77,12 +77,12 @@ where
         let to = to.clone();
         let then = then.clone();
         move || {
-            set_list(to);
+            set_list.get(to);
 
             if let Some(then) = then {
                 request_animation_frame({
                     move || {
-                        set_list(then);
+                        set_list.get(then);
                     }
                 });
             }
@@ -110,7 +110,7 @@ where
                 }
             } "]" <br/> "result: ["
             <For
-                each=list
+                each=move||list.get()
                 key=|i| *i
                 view=|i| {
                     view! { <span>{i} ", "</span> }

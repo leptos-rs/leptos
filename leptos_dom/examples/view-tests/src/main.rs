@@ -12,12 +12,12 @@ fn SelfUpdatingEffect() -> Element {
 
     create_effect(move |_| {
         if !a() {
-            set_a(true);
+            set_a.set(true);
         }
     });
 
     view! {
-      <h1>"Hello " {move || a().to_string()}</h1>
+      <h1>"Hello " {move || a.get().to_string()}</h1>
     }
 }
 
