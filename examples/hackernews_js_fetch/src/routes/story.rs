@@ -7,7 +7,7 @@ use leptos_router::*;
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
     let story = create_resource(
-        move || params().get("id").cloned().unwrap_or_default(),
+        move || params.get().get("id").cloned().unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 None
@@ -83,11 +83,11 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
         {(!comment.comments.is_empty()).then(|| {
             view! {
                 <div>
-                    <div class="toggle" class:open=open>
+                    <div class="toggle" class:open=move||open.get()>
                         <a on:click=move |_| set_open.update(|n| *n = !*n)>
                             {
                                 let comments_len = comment.comments.len();
-                                move || if open() {
+                                move || if open.get() {
                                     "[-]".into()
                                 } else {
                                     format!("[+] {}{} collapsed", comments_len, pluralize(comments_len))
@@ -95,7 +95,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                             }
                         </a>
                     </div>
-                    {move || open().then({
+                    {move || open.get().then({
                         let comments = comment.comments.clone();
                         move || view! {
                             <ul class="comment-children">

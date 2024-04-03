@@ -31,10 +31,10 @@ pub fn App() -> impl IntoView {
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
-                class:red=red
-                class:right=right
-                class:italics=italics
-                class:smallcaps=smallcaps
+                class:red=move||red.get()
+                class:right=move||right.get()
+                class:italics=move||italics.get()
+                class:smallcaps=move||smallcaps.get()
             >
                 "Lorem ipsum sit dolor amet."
             </p>
@@ -82,7 +82,7 @@ pub fn ButtonB(
     view! {
 
         <button
-            on:click=on_click
+            on:click=move|ev|on_click.call(ev)
         >
             "Toggle Right"
         </button>

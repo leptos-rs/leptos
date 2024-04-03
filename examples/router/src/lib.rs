@@ -117,7 +117,8 @@ pub fn ContactList() -> impl IntoView {
 
 #[derive(Params, PartialEq, Clone, Debug)]
 pub struct ContactParams {
-    id: usize,
+    // Params isn't implemented for usize, only Option<usize>
+    id: Option<usize>,
 }
 
 #[component]
@@ -135,7 +136,12 @@ pub fn Contact() -> impl IntoView {
 
     let params = use_params::<ContactParams>();
     let contact = create_resource(
-        move || params().map(|params| params.id).ok(),
+        move || {
+            params
+                .get()
+                .map(|params| params.id.unwrap_or_default())
+                .ok()
+        },
         // any of the following would work (they're identical)
         // move |id| async move { get_contact(id).await }
         // move |id| get_contact(id),

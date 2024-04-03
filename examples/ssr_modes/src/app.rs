@@ -9,12 +9,13 @@ use thiserror::Error;
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
+    let fallback = || view! { "Page not found." }.into_view();
 
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
         <Title text="Welcome to Leptos"/>
 
-        <Router>
+        <Router fallback>
             <main>
                 <Routes>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
@@ -66,7 +67,7 @@ fn HomePage() -> impl IntoView {
 
 #[derive(Params, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PostParams {
-    id: usize,
+    id: Option<usize>,
 }
 
 #[component]
@@ -74,7 +75,7 @@ fn Post() -> impl IntoView {
     let query = use_params::<PostParams>();
     let id = move || {
         query.with(|q| {
-            q.as_ref().map(|q| q.id).map_err(|_| PostError::InvalidId)
+            q.as_ref().map(|q| q.id.unwrap_or_default()).map_err(|_| PostError::InvalidId)
         })
     };
     let post = create_resource(id, |id| async move {

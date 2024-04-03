@@ -34,7 +34,7 @@ fn Home() -> impl IntoView {
                 {move || if count() == 0 {
                     "Click me!".to_string()
                 } else {
-                    count().to_string()
+                    count.get().to_string()
                 }}
                 " | Some more text"
             </button>
