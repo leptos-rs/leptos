@@ -8,7 +8,7 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr", "nightly"] }
+leptos = { path = "../../leptos", features = ["csr"] }
 leptos_router = { path = "../../router", features = ["csr"] }
 console_log = "1"
 log = "0.4"
