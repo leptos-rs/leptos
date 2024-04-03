@@ -8,7 +8,7 @@ To the extent that new features have been released or breaking changes have been
 
 ## Getting Started
 
-The simplest way to get started with any example is to use the “quick start” command found in the README for each example. Most of the examples use either [`trunk`](https://trunkrs.dev/) (a simple build system and dev server for client-side-rendered apps) or [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) (a build system for server-rendered and client-hydrated apps). 
+The simplest way to get started with any example is to use the “quick start” command found in the README for each example. Most of the examples use either [`trunk`](https://trunkrs.dev/) (a simple build system and dev server for client-side-rendered apps) or [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) (a build system for ssr, server-rendered and client-hydrated apps). 
 
 ## Using Cargo Make
 
