@@ -167,7 +167,8 @@ pub fn WithAnAction() -> impl IntoView {
 
     // this resource will hold the total number of rows
     // passing it action.version() means it will refetch whenever the action resolves successfully
-    let row_count = create_resource(move||action.version().get(), |_| get_rows());
+    let row_count =
+        create_resource(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>create_action</code></h3>
@@ -206,7 +207,8 @@ pub fn WithAnAction() -> impl IntoView {
 #[component]
 pub fn WithActionForm() -> impl IntoView {
     let action = create_server_action::<AddRow>();
-    let row_count = create_resource(move|| action.version().get(), |_| get_rows());
+    let row_count =
+        create_resource(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>"<ActionForm/>"</code></h3>

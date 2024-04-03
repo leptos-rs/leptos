@@ -75,7 +75,9 @@ fn Post() -> impl IntoView {
     let query = use_params::<PostParams>();
     let id = move || {
         query.with(|q| {
-            q.as_ref().map(|q| q.id.unwrap_or_default()).map_err(|_| PostError::InvalidId)
+            q.as_ref()
+                .map(|q| q.id.unwrap_or_default())
+                .map_err(|_| PostError::InvalidId)
         })
     };
     let post = create_resource(id, |id| async move {
