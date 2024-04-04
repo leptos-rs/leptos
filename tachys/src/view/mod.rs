@@ -1,6 +1,6 @@
 use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use parking_lot::RwLock;
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 pub mod add_attr;
 pub mod any_view;
@@ -26,6 +26,7 @@ pub trait Render<R: Renderer>: Sized {
     /// and the previous string, to allow for diffing between updates.
     type State: Mountable<R>;
     type FallibleState: Mountable<R>;
+    type AsyncOutput: Render<R>;
 
     /// Creates the view for the first time, without hydrating from existing HTML.
     fn build(self) -> Self::State;
@@ -39,6 +40,8 @@ pub trait Render<R: Renderer>: Sized {
         self,
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()>;
+
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput>;
 }
 
 #[derive(Debug, Clone, Copy)]
