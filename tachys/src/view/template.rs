@@ -1,16 +1,8 @@
 use super::{
     Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
 };
-use crate::{
-    dom::document,
-    hydration::Cursor,
-    renderer::{dom::Dom, DomRenderer},
-};
-use linear_map::LinearMap;
-use once_cell::unsync::Lazy;
-use std::{any::TypeId, cell::RefCell, marker::PhantomData};
-use wasm_bindgen::JsCast;
-use web_sys::HtmlTemplateElement;
+use crate::{hydration::Cursor, renderer::DomRenderer};
+use std::marker::PhantomData;
 
 pub struct ViewTemplate<V, R>
 where
@@ -46,6 +38,7 @@ where
 {
     type State = V::State;
     type FallibleState = V::FallibleState;
+    type AsyncOutput = Self;
 
     // TODO try_build/try_rebuild()
 
@@ -69,6 +62,10 @@ where
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
