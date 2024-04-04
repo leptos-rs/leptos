@@ -1,0 +1,113 @@
+[workspace]
+resolver = "2"
+members = ["app", "frontend", "ids", "server","e2e"]
+
+# need to be applied only to wasm build
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'
+
+[workspace.dependencies]
+leptos = { version = "0.6.9", features = ["nightly"] }
+leptos_meta = { version = "0.6.9", features = ["nightly"] }
+leptos_router = { version = "0.6.9", features = ["nightly"] }
+leptos_axum = { version = "0.6.9" }
+leptos-use = {version = "0.10.5"}
+
+axum = "0.7"
+axum-server = {version = "0.6", features = ["tls-rustls"]}
+axum-extra = { version = "0.9.2", features=["cookie"]}
+cfg-if = "1"
+console_error_panic_hook = "0.1.7"
+console_log = "1"
+http = "1"
+ids = {path="./ids"}
+# this goes to this personal branch because of https://github.com/ory/sdk/issues/325#issuecomment-1960834676
+ory-kratos-client = {git="https://github.com/sjud/kratos-client-rust"}
+ory-keto-client = {version = "0.11.0-alpha.0"}
+reqwest = { version = "0.11.24", features = ["json","cookies"] }
+serde = "1.0.197"
+serde_json = "1.0.114"
+sqlx = {version= "0.7.3", features=["runtime-tokio","sqlite","macros"]}
+thiserror = "1"
+time = "0.3.34"
+tokio = { version = "1.33.0", features = ["full"] }
+tower = { version = "0.4.13", features = ["full"] }
+tower-http = { version = "0.5", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = {version="0.3.18", features=["env-filter"]}
+url = "2.5.0"
+uuid = {version = "1.7.0", features=["v4","serde"]}
+wasm-bindgen = "0.2.92"
+web-sys = {version = "0.3.69", features=["HtmlDocument","HtmlFormElement","FormData"]}
+
+
+# See https://github.com/akesson/cargo-leptos for documentation of all the parameters.
+
+# A leptos project defines which workspace members
+# that are used together frontend (lib) & server (bin)
+[[workspace.metadata.leptos]]
+# this name is used for the wasm, js and css file names
+name = "ory-auth-example"
+
+# the package in the workspace that contains the server binary (binary crate)
+bin-package = "server"
+
+# the package in the workspace that contains the frontend wasm binary (library crate)
+lib-package = "frontend"
+
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site-root = "target/site"
+
+# The site-root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg
+site-pkg-dir = "pkg"
+
+# [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
+style-file = "style/main.scss"
+
+# Assets source dir. All files found here will be copied and synchronized to site-root.
+# The assets-dir cannot have a sub directory with the same name/path as site-pkg-dir.
+#
+# Optional. Env: LEPTOS_ASSETS_DIR.
+assets-dir = "public"
+
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+site-addr = "127.0.0.1:3000"
+
+# The port to use for automatic reload monitoring
+reload-port = 3001
+
+# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
+end2end-cmd = "cargo test --test app_suite"
+end2end-dir = "e2e"
+
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults"
+
+# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
+watch = false
+
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"
+
+# The features to use when compiling the bin target
+#
+# Optional. Can be over-ridden with the command line parameter --bin-features
+bin-features = []
+
+# If the --no-default-features flag should be used when compiling the bin target
+#
+# Optional. Defaults to false.
+bin-default-features = false
+
+# The features to use when compiling the lib target
+#
+# Optional. Can be over-ridden with the command line parameter --lib-features
+lib-features = []
+
+# If the --no-default-features flag should be used when compiling the lib target
+#
+# Optional. Defaults to false.
+lib-default-features = false

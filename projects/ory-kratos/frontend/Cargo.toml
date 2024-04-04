@@ -1,0 +1,19 @@
+[package]
+name = "frontend"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+app = { path = "../app", default-features = false, features = ["hydrate"] }
+leptos = { workspace = true, features = [ "hydrate" ] }
+
+console_error_panic_hook.workspace = true
+console_log.workspace = true
+wasm-bindgen.workspace = true
+
+ids = { path="../ids" }

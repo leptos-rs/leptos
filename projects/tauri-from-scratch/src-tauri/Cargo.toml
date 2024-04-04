@@ -1,0 +1,21 @@
+[package]
+name = "src_tauri"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name="app_lib"
+path="src/lib.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0-alpha.13", features = [] }
+
+[dependencies]
+log = "0.4.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2.0.0-alpha.20", features = ["devtools"] }
+tauri-plugin-http = "2.0.0-alpha.9"
+
+[features]
+#default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

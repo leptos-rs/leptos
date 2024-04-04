@@ -1,0 +1,31 @@
+[package]
+name = "shared-server-1"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+axum = {version = "0.7",optional=true}
+leptos = "0.6" 
+leptos_axum = {version = "0.6",optional=true}
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true}
+tower-http = {version = "0.5", optional = true, features=["trace"]}
+tracing = {version = "0.1.40", optional=true}
+tracing-subscriber = {version = "0.3.18", optional = true}
+
+[features]
+default = ["ssr"]
+hydrate = ["leptos/hydrate"]
+ssr = [
+    "dep:axum",
+    "dep:tokio",
+    "dep:leptos_axum",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:tower-http",
+    "leptos/ssr",
+]
+
+#We don't need cargo leptos options because we're not using cargo leptos.

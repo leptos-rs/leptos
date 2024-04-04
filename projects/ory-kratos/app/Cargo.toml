@@ -1,0 +1,40 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+leptos.workspace = true
+leptos_meta.workspace = true
+leptos_router.workspace = true
+leptos_axum = { workspace = true, optional = true }
+leptos-use.workspace = true
+
+axum = { workspace = true, optional = true }
+axum-extra = { workspace = true, optional = true }
+http.workspace = true
+cfg-if.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+
+ory-kratos-client.workspace = true
+reqwest  = { workspace = true, optional = true }
+time = {workspace  = true, optional = true }
+tracing = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+uuid = { workspace = true}
+ids.workspace = true
+wasm-bindgen = { workspace = true, optional = true}
+web-sys = { workspace = true}
+
+sqlx = { workspace = true, optional = true}
+
+[features]
+default = []
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate","dep:wasm-bindgen"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:sqlx","leptos-use/axum","leptos-use/ssr","dep:time",
+"dep:leptos_axum","dep:axum","dep:tracing","dep:reqwest","dep:url","dep:axum-extra"]
+
