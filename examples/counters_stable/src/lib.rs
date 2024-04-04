@@ -1,5 +1,6 @@
 use leptos::*;
 use leptos_meta::*;
+use log::info;
 
 const MANY_COUNTERS: usize = 1000;
 
@@ -38,6 +39,19 @@ pub fn Counters() -> impl IntoView {
         set_counters.update(|counters| counters.clear());
     };
 
+    let (x_counters_input, set_x_counters_input) = create_signal(2);
+    let add_x_counters = move |_| {
+        let v = x_counters_input.get() as usize;
+        info!("add_x_counters: {}", v);
+        let next_id = next_counter_id.get();
+        let new_counters = (next_id..next_id + v).map(|id| {
+            let signal = create_signal(0);
+            (id, signal)
+        });
+        set_counters.update(move |counters| counters.extend(new_counters));
+        set_next_counter_id.update(|id| *id += v);
+    };
+
     view! {
         <Title text="Counters (Stable)" />
         <div>
@@ -50,6 +64,17 @@ pub fn Counters() -> impl IntoView {
             <button on:click=clear_counters>
                 "Clear Counters"
             </button>
+            <p>
+            <input data-testid="add_x_counters_input" type="text" on:input=move |ev| {
+                let x = event_target_value(&ev).parse::<i32>().unwrap_or_default();
+                set_x_counters_input.set(x)
+              }
+              prop:value=x_counters_input/>
+            <button on:click=add_x_counters>
+                "Add " {move || x_counters_input.get()} " counters"
+            </button>
+            </p>
+
             <p>
                 "Total: "
                 <span data-testid="total">{move ||
