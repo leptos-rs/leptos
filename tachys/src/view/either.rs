@@ -17,7 +17,7 @@ where
     Rndr: Renderer,
 {
     pub state: Either<A, B>,
-    marker: Rndr::Placeholder,
+    pub marker: Rndr::Placeholder,
 }
 
 impl<A, B, Rndr> Render<Rndr> for Either<A, B>
@@ -28,6 +28,7 @@ where
 {
     type State = EitherState<A::State, B::State, Rndr>;
     type FallibleState = EitherState<A::FallibleState, B::FallibleState, Rndr>;
+    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
 
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
@@ -72,6 +73,13 @@ where
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            Either::Left(left) => Either::Left(left.resolve().await),
+            Either::Right(right) => Either::Right(right.resolve().await),
+        }
     }
 }
 
@@ -248,7 +256,7 @@ macro_rules! tuples {
             {
                 type State = [<EitherOf $num State>]<$($ty,)* Rndr>;
                 type FallibleState = [<EitherOf $num State>]<$($ty,)* Rndr>;
-
+                type AsyncOutput = [<EitherOf $num>]<$($ty::AsyncOutput,)*>;
 
                 fn build(self) -> Self::State {
                     let marker = Rndr::create_placeholder();
@@ -289,6 +297,12 @@ macro_rules! tuples {
                     _state: &mut Self::FallibleState,
                     ) -> any_error::Result<()> {
                     todo!()
+                }
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    match self {
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.resolve().await),)*
+                    }
                 }
             }
 

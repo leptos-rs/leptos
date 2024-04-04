@@ -16,6 +16,7 @@ where
 {
     type State = ResultState<T::State, R>;
     type FallibleState = T::State;
+    type AsyncOutput = Result<T::AsyncOutput, E>;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -60,6 +61,13 @@ where
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            Ok(view) => Ok(view.resolve().await),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -234,6 +242,7 @@ where
 {
     type State = TryState<T, Fal, Rndr>;
     type FallibleState = Self::State;
+    type AsyncOutput = Try<T::AsyncOutput, Fal, FalFn, Rndr>;
 
     fn build(mut self) -> Self::State {
         let inner = match self.child.try_build() {
@@ -308,6 +317,10 @@ where
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        todo!()
     }
 }
 

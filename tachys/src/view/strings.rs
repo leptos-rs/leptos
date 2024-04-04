@@ -15,6 +15,7 @@ pub struct StrState<'a, R: Renderer> {
 impl<'a, R: Renderer> Render<R> for &'a str {
     type State = StrState<'a, R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(self);
@@ -39,6 +40,10 @@ impl<'a, R: Renderer> Render<R> for &'a str {
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
@@ -142,6 +147,7 @@ pub struct StringState<R: Renderer> {
 impl<R: Renderer> Render<R> for String {
     type State = StringState<R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -166,6 +172,10 @@ impl<R: Renderer> Render<R> for String {
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
@@ -241,6 +251,7 @@ pub struct RcStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Rc<str> {
     type State = RcStrState<R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -265,6 +276,10 @@ impl<R: Renderer> Render<R> for Rc<str> {
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
@@ -341,6 +356,7 @@ pub struct ArcStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Arc<str> {
     type State = ArcStrState<R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -365,6 +381,10 @@ impl<R: Renderer> Render<R> for Arc<str> {
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
@@ -441,6 +461,7 @@ pub struct CowStrState<'a, R: Renderer> {
 impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
     type State = CowStrState<'a, R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -465,6 +486,10 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 

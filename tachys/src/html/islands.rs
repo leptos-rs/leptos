@@ -49,6 +49,7 @@ where
 {
     type State = View::State;
     type FallibleState = View::FallibleState;
+    type AsyncOutput = View::AsyncOutput;
 
     fn build(self) -> Self::State {
         self.view.build()
@@ -67,6 +68,10 @@ where
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         self.view.try_rebuild(state)
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.view.resolve().await
     }
 }
 
@@ -152,6 +157,7 @@ where
 {
     type State = ();
     type FallibleState = Self::State;
+    type AsyncOutput = View::AsyncOutput;
 
     fn build(self) -> Self::State {}
 
@@ -166,6 +172,11 @@ where
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        // TODO should this be wrapped?
+        self.view.resolve().await
     }
 }
 
