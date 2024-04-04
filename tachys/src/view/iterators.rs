@@ -13,6 +13,7 @@ where
 {
     type State = OptionState<T::State, R>;
     type FallibleState = OptionState<T::FallibleState, R>;
+    type AsyncOutput = Option<T::AsyncOutput>;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -70,6 +71,13 @@ where
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            None => None,
+            Some(value) => Some(value.resolve().await),
+        }
     }
 }
 
@@ -189,6 +197,7 @@ where
 {
     type State = VecState<T::State, R>;
     type FallibleState = VecState<T::FallibleState, R>;
+    type AsyncOutput = Vec<T::AsyncOutput>;
 
     fn build(self) -> Self::State {
         VecState {
@@ -263,6 +272,13 @@ where
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.into_iter().map(T::resolve))
+            .await
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 }
 

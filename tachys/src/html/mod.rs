@@ -28,6 +28,7 @@ pub fn doctype<R: Renderer>(value: &'static str) -> Doctype<R> {
 impl<R: Renderer> Render<R> for Doctype<R> {
     type State = ();
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {}
 
@@ -42,6 +43,10 @@ impl<R: Renderer> Render<R> for Doctype<R> {
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
