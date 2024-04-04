@@ -1,10 +1,11 @@
 use crate::{
-    children::{ToChildren, ViewFn},
+    children::{ToChildren, TypedChildrenFn, TypedChildrenMut, ViewFn},
     IntoView,
 };
 use leptos_macro::component;
+use leptos_reactive::untrack;
 use std::{future::Future, sync::Arc};
-use tachys::prelude::FutureViewExt;
+use tachys::{async_views::SuspenseBoundary, prelude::FutureViewExt};
 
 /// An async, typed equivalent to [`Children`], which takes a generic but preserves
 /// type information to allow the compiler to optimize the view more effectively.
@@ -35,21 +36,24 @@ where
 
 /// TODO docs!
 #[component]
-pub fn Suspense<Chil, ChilFn, ChilFut>(
+pub fn Suspense<Chil>(
     #[prop(optional, into)] fallback: ViewFn,
-    children: AsyncChildren<Chil, ChilFn, ChilFut>,
+    children: TypedChildrenFn<Chil>,
 ) -> impl IntoView
 where
     Chil: IntoView + 'static,
-    ChilFn: Fn() -> ChilFut + Send + Clone + 'static,
-    ChilFut: Future<Output = Chil> + Send + 'static,
 {
     let children = children.into_inner();
+    let fallback = move || fallback.clone().run();
     // TODO check this against islands
     move || {
-        (children.clone())()
-            .suspend()
-            .with_fallback(fallback.run())
-            .track()
+        crate::logging::log!("running innner thing");
+        untrack(|| {
+            SuspenseBoundary::<false, _, _>::new(
+                fallback.clone(),
+                (children.clone())(),
+            )
+        })
+        // TODO track
     }
 }

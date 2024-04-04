@@ -261,6 +261,7 @@ where
 {
     type State = AnyViewState<R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         (self.build)(self.value)
@@ -278,6 +279,11 @@ where
         self,
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
+        todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        // we probably do need a function for this
         todo!()
     }
 }
