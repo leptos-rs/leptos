@@ -74,6 +74,7 @@ where
     type State = KeyedState<K, V, Rndr>;
     // TODO fallible state and try_build()/try_rebuild() here
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let items = self.items.into_iter();
@@ -136,6 +137,10 @@ where
         self,
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
+        todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }
 }
