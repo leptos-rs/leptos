@@ -5,7 +5,7 @@ use leptos::{
         computed::AsyncDerived,
         signal::{signal, ArcRwSignal},
     },
-    view, ErrorBoundary, Errors, IntoView, Transition,
+    view, ErrorBoundary, Errors, IntoView, Suspense, Transition,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -25,6 +25,7 @@ type CatCount = usize;
 
 async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
     if count > 0 {
+        gloo_timers::future::TimeoutFuture::new(1000).await;
         // make the request
         let res = reqwasm::http::Request::get(&format!(
             "https://api.thecatapi.com/v1/images/search?limit={count}",
@@ -76,14 +77,17 @@ pub fn fetch_example() -> impl IntoView {
     // TODO weaving together Transition and ErrorBoundary is hard with the new async API for
     // suspense, because Transition expects a Future as its children, and ErrorBoundary isn't a
     // future
-    let cats_view = move || async move {
-        cats.await.map(|cats| {
-            cats.into_iter()
-                .map(|s| view! { <p><img src={s}/></p> })
-                .collect::<Vec<_>>()
-        })
-        //.catch(|e| view! { <p class="error">{e.to_string()}</p> })
-    };
+    /*let cats_view = move || {
+        async move {
+            cats.await.map(|cats| {
+                cats.into_iter()
+                    .map(|s| view! { <p><img src={s}/></p> })
+                    .collect::<Vec<_>>()
+            })
+            //.catch(|e| view! { <p class="error">{e.to_string()}</p> })
+        }
+        .suspend()
+    };*/
 
     view! {
         <div>
@@ -98,11 +102,22 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-                <ErrorBoundary fallback>
-                    <Transition fallback=|| view! { <div>"Loading..."</div> }>
-                        {cats_view()}
-                    </Transition>
-                </ErrorBoundary>
+            <ErrorBoundary fallback>
+                <Suspense fallback=|| view! { <div>"Loading..."</div> }>
+                    <ul>
+                    {
+                        async move {
+                            cats.await.map(|cats| {
+                                cats.into_iter()
+                                    .map(|s| view! { <li><img src={s}/></li> })
+                                    .collect::<Vec<_>>()
+                            })
+                        }
+                        .suspend()
+                    }
+                    </ul>
+                </Suspense>
+            </ErrorBoundary>
         </div>
     }
 }

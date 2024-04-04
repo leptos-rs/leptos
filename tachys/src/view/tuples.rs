@@ -14,6 +14,7 @@ use const_str_slice_concat::{
 impl<R: Renderer> Render<R> for () {
     type State = ();
     type FallibleState = Self::State;
+    type AsyncOutput = ();
 
     fn build(self) -> Self::State {}
 
@@ -29,6 +30,8 @@ impl<R: Renderer> Render<R> for () {
     ) -> any_error::Result<()> {
         Ok(())
     }
+
+    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<R> RenderHtml<R> for ()
@@ -102,6 +105,7 @@ impl ToTemplate for () {
 impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
     type State = A::State;
     type FallibleState = A::FallibleState;
+    type AsyncOutput = (A::AsyncOutput,);
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -120,6 +124,10 @@ impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         self.0.try_rebuild(state)
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        (self.0.resolve().await,)
     }
 }
 
@@ -210,8 +218,8 @@ macro_rules! impl_view_for_tuples {
 			Rndr: Renderer
 		{
 			type State = ($first::State, $($ty::State,)*);
-
 			type FallibleState = ($first::FallibleState, $($ty::FallibleState,)*);
+            type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
 
 			fn build(self) -> Self::State {
                 #[allow(non_snake_case)]
@@ -249,6 +257,15 @@ macro_rules! impl_view_for_tuples {
 				}
 				Ok(())
 			}
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                futures::join!(
+                    $first.resolve(),
+                    $($ty.resolve()),*
+                )
+            }
 		}
 
 		impl<$first, $($ty),*, Rndr> RenderHtml<Rndr> for ($first, $($ty,)*)

@@ -21,7 +21,7 @@ macro_rules! render_primitive {
 		paste::paste! {
 			pub struct [<$child_type:camel State>]<R>(R::Text, $child_type) where R: Renderer;
 
-			impl<'a, R: Renderer> Mountable<R> for [<$child_type:camel State>]<R> {
+			impl<R: Renderer> Mountable<R> for [<$child_type:camel State>]<R> {
 					fn unmount(&mut self) {
 						self.0.unmount()
 					}
@@ -44,10 +44,10 @@ macro_rules! render_primitive {
 					}
 			}
 
-			impl<'a, R: Renderer> Render<R> for $child_type {
+			impl<R: Renderer> Render<R> for $child_type {
 				type State = [<$child_type:camel State>]<R>;
                 type FallibleState = Self::State;
-
+				type AsyncOutput = Self;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -68,11 +68,15 @@ macro_rules! render_primitive {
 
                 fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
                     self.rebuild(state);
-Ok(())
+					Ok(())
+                }
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
                 }
 			}
 
-			impl<'a, R> RenderHtml<R> for $child_type
+			impl<R> RenderHtml<R> for $child_type
 			where
 				R: Renderer,
 

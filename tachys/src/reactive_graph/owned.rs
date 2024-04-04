@@ -69,6 +69,7 @@ where
 {
     type State = OwnedViewState<T::State, R>;
     type FallibleState = OwnedViewState<T::FallibleState, R>;
+    type AsyncOutput = OwnedView<T::AsyncOutput, R>;
 
     fn build(self) -> Self::State {
         let state = self.owner.with(|| self.view.build());
@@ -89,6 +90,10 @@ where
         self,
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
+        todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }
 }

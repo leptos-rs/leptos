@@ -52,12 +52,12 @@ macro_rules! render_primitive {
 					}
 			}
 
-			impl<'a, G, R: Renderer> Render<R> for ReadGuard<$child_type, G>
+			impl<G, R: Renderer> Render<R> for ReadGuard<$child_type, G>
             where G: Deref<Target = $child_type>
             {
 				type State = [<ReadGuard $child_type:camel State>]<R>;
                 type FallibleState = Self::State;
-
+                type AsyncOutput = Self;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -79,6 +79,10 @@ macro_rules! render_primitive {
                 fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
                     self.rebuild(state);
 Ok(())
+                }
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
                 }
 			}
 
@@ -206,6 +210,7 @@ where
 {
     type State = ReadGuardStringState<R>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -234,6 +239,10 @@ where
     ) -> any_error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 

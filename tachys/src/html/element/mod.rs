@@ -167,6 +167,7 @@ where
 {
     type State = ElementState<At::State, Ch::State, Rndr>;
     type FallibleState = ElementState<At::State, Ch::FallibleState, Rndr>;
+    type AsyncOutput = HtmlElement<E, At, Ch::AsyncOutput, Rndr>;
 
     fn rebuild(self, state: &mut Self::State) {
         let ElementState {
@@ -212,6 +213,16 @@ where
         self.attributes.rebuild(attrs);
         self.children.try_rebuild(children)?;
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        HtmlElement {
+            tag: self.tag,
+            // TODO async attributes too
+            attributes: self.attributes,
+            children: self.children.resolve().await,
+            rndr: PhantomData,
+        }
     }
 }
 
