@@ -6,3 +6,6 @@ version.workspace = true
 [dependencies]
 serde = "1"
 thiserror = "1"
+
+[dev-dependencies]
+serde_json = "1"

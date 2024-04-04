@@ -150,3 +150,30 @@ where
         TypedChildrenMut(Box::new(move || f().into_view()))
     }
 }
+
+/// A typed equivalent to [`ChildrenFn`], which takes a generic but preserves type information to
+/// allow the compiler to optimize the view more effectively.
+pub struct TypedChildrenFn<T>(Arc<dyn Fn() -> View<T> + Send + Sync>);
+
+impl<T> Debug for TypedChildrenFn<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("TypedChildrenFn").finish()
+    }
+}
+
+impl<T> TypedChildrenFn<T> {
+    pub fn into_inner(self) -> Arc<dyn Fn() -> View<T> + Send + Sync> {
+        self.0
+    }
+}
+
+impl<F, C> ToChildren<F> for TypedChildrenFn<C>
+where
+    F: Fn() -> C + Send + Sync + 'static,
+    C: IntoView,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        TypedChildrenFn(Arc::new(move || f().into_view()))
+    }
+}

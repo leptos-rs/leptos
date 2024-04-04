@@ -57,6 +57,8 @@ where
     type State = RenderEffectState<V::State>;
     type FallibleState =
         RenderEffectState<Result<V::FallibleState, Option<AnyError>>>;
+    // TODO how this should be handled?
+    type AsyncOutput = Self;
 
     #[track_caller]
     fn build(mut self) -> Self::State {
@@ -136,7 +138,6 @@ where
         self,
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
-        crate::log("RenderEffect::try_rebuild");
         if let Some(inner) = &mut state.0 {
             inner
                 .with_value_mut(|value| match value {
@@ -148,8 +149,11 @@ where
             Ok(())
         }
     }
-}
 
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+}
 pub struct RenderEffectState<T: 'static>(Option<RenderEffect<T>>);
 
 impl<T> From<RenderEffect<T>> for RenderEffectState<T> {

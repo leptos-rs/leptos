@@ -130,6 +130,7 @@ where
 {
     type State = Option<R::Text>;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         // a view state has to be returned so it can be mounted
@@ -149,6 +150,10 @@ where
     ) -> any_error::Result<()> {
         Render::<R>::rebuild(self, state);
         Ok(())
+    }
+
+    fn resolve(self) -> futures::future::Ready<Self::AsyncOutput> {
+        futures::future::ready(self)
     }
 }
 

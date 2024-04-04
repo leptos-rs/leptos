@@ -71,6 +71,7 @@ where
 {
     type State = ErrorBoundaryViewState<Chil, Fal, Rndr>;
     type FallibleState = ();
+    type AsyncOutput = ErrorBoundaryView<Chil, FalFn, Fal, Rndr>;
 
     fn build(self) -> Self::State {
         let Self {
@@ -147,6 +148,10 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<Chil, FalFn, Fal, Rndr> RenderHtml<Rndr>
@@ -205,7 +210,7 @@ where
             Either::Left(chil) => chil.unmount(),
             Either::Right((fal, _)) => fal.unmount(),
         });
-        self.placeholder.unmount();
+        //self.placeholder.unmount();
     }
 
     fn mount(
