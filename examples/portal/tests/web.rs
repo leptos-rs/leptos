@@ -57,8 +57,6 @@ async fn portal() {
 
     assert_eq!(
         div.inner_html(),
-        "<!-- <App> --><div><button id=\"btn-show\">\n                Show \
-         Overlay\n            </button><!-- <Show> --><!-- <DynChild> --><!-- \
-         <() /> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> -->"
+       "<!-- <App> --><div><button id=\"btn-show\">Show Overlay</button><!-- <Show> --><!-- <DynChild> --><!-- <() /> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> -->"
     );
 }
