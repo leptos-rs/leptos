@@ -1,11 +1,11 @@
 [tasks.build]
-toolchain = "nightly-2024-03-31"
+toolchain = "stable"
 command = "cargo"
 args = ["build-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check]
-toolchain = "nightly-2024-03-31"
+toolchain = "stable"
 command = "cargo"
 args = ["check-all-features"]
 install_crate = "cargo-all-features"

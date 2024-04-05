@@ -96,8 +96,8 @@ fn Post() -> impl IntoView {
     };
 
     let post_view = move || {
-        post().and_then(|post| {
-            Ok(view! {
+        post().map(|post| {
+            view! {
                 // render content
                 <h1>{&post.title}</h1>
                 <p>{&post.content}</p>
@@ -107,7 +107,7 @@ fn Post() -> impl IntoView {
                 // when it's first served
                 <Title text=post.title.clone()/>
                 <Meta name="description" content=post.content.clone()/>
-            })
+            }
         })
     };
 
