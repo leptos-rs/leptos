@@ -52,13 +52,13 @@ where
             (Either::Right(new), Either::Left(old)) => {
                 old.unmount();
                 let mut new_state = new.build();
-                Rndr::mount_before(&mut new_state, marker);
+                Rndr::try_mount_before(&mut new_state, marker);
                 state.state = Either::Right(new_state);
             }
             (Either::Left(new), Either::Right(old)) => {
                 old.unmount();
                 let mut new_state = new.build();
-                Rndr::mount_before(&mut new_state, marker);
+                Rndr::try_mount_before(&mut new_state, marker);
                 state.state = Either::Left(new_state);
             }
         }
