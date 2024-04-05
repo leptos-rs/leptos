@@ -7,27 +7,25 @@ pub fn SpreadingExample() -> impl IntoView {
         let _ = window().alert_with_message(msg.as_ref());
     }
 
-    let attrs_only: Vec<(&'static str, Attribute)> = vec![
-        ("data-foo", Attribute::String(Oco::Borrowed("42"))),
-        ("aria-disabled", Attribute::String(Oco::Borrowed("false"))),
-    ];
+    let attrs_only: Vec<(&'static str, Attribute)> =
+        vec![("data-foo", "42".into_attribute())];
 
     let event_handlers_only: Vec<EventHandlerFn> =
         vec![EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
             alert("event_handlers_only clicked");
         }))];
 
-    let mixed: Vec<Binding> = vec![
-        ("data-foo", Attribute::String(Oco::Borrowed("123"))).into(),
-        ("aria-disabled", Attribute::String(Oco::Borrowed("true"))).into(),
+    let combined: Vec<Binding> = vec![
+        ("data-foo", "123".into_attribute()).into(),
         EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
-            alert("mixed clicked");
+            alert("combined clicked");
         }))
         .into(),
     ];
 
     let partial_attrs: Vec<(&'static str, Attribute)> =
-        vec![("data-foo", Attribute::String(Oco::Borrowed("11")))];
+        vec![("data-foo", "11".into_attribute())];
+
     let partial_event_handlers: Vec<EventHandlerFn> =
         vec![EventHandlerFn::Click(Box::new(|_e: ev::MouseEvent| {
             alert("partial_event_handlers clicked");
@@ -42,8 +40,8 @@ pub fn SpreadingExample() -> impl IntoView {
             "<div {..event_handlers_only} />"
         </div>
 
-        <div {..mixed}>
-            "<div {..mixed} />"
+        <div {..combined}>
+            "<div {..combined} />"
         </div>
 
         <div {..partial_attrs} {..partial_event_handlers}>
