@@ -47,13 +47,10 @@ where
     let fallback = move || fallback.clone().run();
     // TODO check this against islands
     move || {
-        crate::logging::log!("running innner thing");
-        untrack(|| {
-            SuspenseBoundary::<false, _, _>::new(
-                fallback.clone(),
-                (children.clone())(),
-            )
-        })
+        SuspenseBoundary::<false, _, _>::new(
+            fallback.clone(),
+            (children.clone())(),
+        )
         // TODO track
     }
 }
