@@ -80,20 +80,24 @@ fn Post() -> impl IntoView {
                 .map_err(|_| PostError::InvalidId)
         })
     };
-    let post = create_resource(id, |id| async move {
+    let post_resource = create_resource(id, |id| async move {
         match id {
             Err(e) => Err(e),
             Ok(id) => get_post(id)
                 .await
                 .map(|data| data.ok_or(PostError::PostNotFound))
-                .map_err(|_| PostError::ServerError)
-                .flatten(),
+                .map_err(|_| PostError::ServerError),
         }
     });
 
+    let post = move || match post_resource.get() {
+        Some(Ok(Ok(v))) => Ok(v),
+        _ => Err(PostError::ServerError),
+    };
+
     let post_view = move || {
-        post.and_then(|post| {
-            view! {
+        post().and_then(|post| {
+            Ok(view! {
                 // render content
                 <h1>{&post.title}</h1>
                 <p>{&post.content}</p>
@@ -103,7 +107,7 @@ fn Post() -> impl IntoView {
                 // when it's first served
                 <Title text=post.title.clone()/>
                 <Meta name="description" content=post.content.clone()/>
-            }
+            })
         })
     };
 
