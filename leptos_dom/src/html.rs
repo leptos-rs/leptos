@@ -367,7 +367,8 @@ where
 }
 
 /// Bind data through attributes, or behavior through event handlers, to an element.
-/// A collection of bindings (`collection: Vec<Binding>`) can be spread onto an element like in `view! { <div {..collection} /> }`.
+/// A value of any type able to provide an iterator of bindings (like a: `Vec<Binding>`),
+/// can be spread onto an element using the spread syntax `view! { <div {..bindings} /> }`.
 pub enum Binding {
     /// A statically named attribute.
     Attribute {
