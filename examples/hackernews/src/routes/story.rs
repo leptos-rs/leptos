@@ -87,7 +87,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                         <a on:click=move |_| set_open.update(|n| *n = !*n)>
                             {
                                 let comments_len = comment.comments.len();
-                                move || if open() {
+                                move || if open.get() {
                                     "[-]".into()
                                 } else {
                                     format!("[+] {}{} collapsed", comments_len, pluralize(comments_len))
@@ -95,7 +95,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                             }
                         </a>
                     </div>
-                    {move || open().then({
+                    {move || open.get().then({
                         let comments = comment.comments.clone();
                         move || view! {
                             <ul class="comment-children">
