@@ -470,15 +470,13 @@ where
             }
         });
     }
-    let action_url = if let Some(url) = action.url() {
-        url
-    } else {
+    let action_url = action.url().unwrap_or_else(|| {
         debug_warn!(
             "<ActionForm/> action needs a URL. Either use \
              create_server_action() or Action::using_server_fn()."
         );
         String::new()
-    };
+    });
     let version = action.version();
     let value = action.value();
 
@@ -570,15 +568,13 @@ where
             }
         });
     }
-    let action_url = if let Some(url) = action.url() {
-        url
-    } else {
+    let action_url = action.url().unwrap_or_else(|| {
         debug_warn!(
             "<MultiActionForm/> action needs a URL. Either use \
              create_server_action() or Action::using_server_fn()."
         );
         String::new()
-    };
+    });
 
     let on_submit = move |ev: SubmitEvent| {
         if ev.default_prevented() {

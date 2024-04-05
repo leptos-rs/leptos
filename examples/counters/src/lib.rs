@@ -1,4 +1,4 @@
-use leptos::{For, *};
+use leptos::*;
 
 const MANY_COUNTERS: usize = 1000;
 
@@ -16,14 +16,14 @@ pub fn Counters() -> impl IntoView {
     provide_context(CounterUpdater { set_counters });
 
     let add_counter = move |_| {
-        let id = next_counter_id();
+        let id = next_counter_id.get();
         let sig = create_signal(0);
         set_counters.update(move |counters| counters.push((id, sig)));
         set_next_counter_id.update(|id| *id += 1);
     };
 
     let add_many_counters = move |_| {
-        let next_id = next_counter_id();
+        let next_id = next_counter_id.get();
         let new_counters = (next_id..next_id + MANY_COUNTERS).map(|id| {
             let signal = create_signal(0);
             (id, signal)
@@ -53,17 +53,17 @@ pub fn Counters() -> impl IntoView {
                 <span>{move ||
                     counters.get()
                         .iter()
-                        .map(|(_, (count, _))| count())
+                        .map(|(_, (count, _))| count.get())
                         .sum::<i32>()
                         .to_string()
                 }</span>
                 " from "
-                <span>{move || counters().len().to_string()}</span>
+                <span>{move || counters.get().len().to_string()}</span>
                 " counters."
             </p>
             <ul>
                 <For
-                    each=counters
+                    each=move||counters.get()
                     key=|counter| counter.0
                     children=move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
                         view! {
@@ -85,7 +85,8 @@ fn Counter(
     let CounterUpdater { set_counters } = use_context().unwrap();
 
     let input = move |ev| {
-        set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default())
+        set_value
+            .set(event_target_value(&ev).parse::<i32>().unwrap_or_default())
     };
 
     // this will run when the scope is disposed, i.e., when this row is deleted

@@ -44,7 +44,7 @@ pub fn fetch_example() -> impl IntoView {
     // 1) our error type isn't serializable/deserializable
     // 2) we're not doing server-side rendering in this example anyway
     //    (during SSR, create_resource will begin loading on the server and resolve on the client)
-    let cats = create_local_resource(cat_count, fetch_cats);
+    let cats = create_local_resource(move || cat_count.get(), fetch_cats);
 
     let fallback = move |errors: RwSignal<Errors>| {
         let error_list = move || {
@@ -85,7 +85,7 @@ pub fn fetch_example() -> impl IntoView {
                     prop:value=move || cat_count.get().to_string()
                     on:input=move |ev| {
                         let val = event_target_value(&ev).parse::<CatCount>().unwrap_or(0);
-                        set_cat_count(val);
+                        set_cat_count.set(val);
                     }
                 />
             </label>

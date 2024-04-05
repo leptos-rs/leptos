@@ -516,8 +516,10 @@ where
     }
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 struct HashRun<T>(T);
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl<T> fmt::Debug for HashRun<T> {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

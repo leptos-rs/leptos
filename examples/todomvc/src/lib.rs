@@ -146,7 +146,7 @@ pub fn TodoMVC() -> impl IntoView {
     window_event_listener(ev::hashchange, move |_| {
         let new_mode =
             location_hash().map(|hash| route(&hash)).unwrap_or_default();
-        set_mode(new_mode);
+        set_mode.set(new_mode);
     });
 
     // Callback to add a todo on pressing the `Enter` key, if the field isn't empty
@@ -256,9 +256,9 @@ pub fn TodoMVC() -> impl IntoView {
                         " left"
                     </span>
                     <ul class="filters">
-                        <li><a href="#/" class="selected" class:selected={move || mode() == Mode::All}>"All"</a></li>
-                        <li><a href="#/active" class:selected={move || mode() == Mode::Active}>"Active"</a></li>
-                        <li><a href="#/completed" class:selected={move || mode() == Mode::Completed}>"Completed"</a></li>
+                        <li><a href="#/" class="selected" class:selected={move || mode.get() == Mode::All}>"All"</a></li>
+                        <li><a href="#/active" class:selected={move || mode.get() == Mode::Active}>"Active"</a></li>
+                        <li><a href="#/completed" class:selected={move || mode.get() == Mode::Completed}>"Completed"</a></li>
                     </ul>
                     <button
                         class="clear-completed hidden"
@@ -293,7 +293,7 @@ pub fn Todo(todo: Todo) -> impl IntoView {
         } else {
             todo.title.set(value.to_string());
         }
-        set_editing(false);
+        set_editing.set(false);
     };
 
     view! {
@@ -307,14 +307,14 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                     node_ref=todo_input
                     class="toggle"
                     type="checkbox"
-                    prop:checked={move || (todo.completed)()}
+                    prop:checked={move || todo.completed.get()}
                     on:input={move |ev| {
                         let checked = event_target_checked(&ev);
                         todo.completed.set(checked);
                     }}
                 />
                 <label on:dblclick=move |_| {
-                    set_editing(true);
+                    set_editing.set(true);
 
                     if let Some(input) = todo_input.get() {
                         _ = input.focus();
@@ -324,10 +324,10 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                 </label>
                 <button class="destroy" on:click=move |_| set_todos.update(|t| t.remove(todo.id))/>
             </div>
-            {move || editing().then(|| view! {
+            {move || editing.get().then(|| view! {
                 <input
                     class="edit"
-                    class:hidden={move || !(editing)()}
+                    class:hidden={move || !editing.get()}
                     prop:value={move || todo.title.get()}
                     on:focusout=move |ev: web_sys::FocusEvent| save(&event_target_value(&ev))
                     on:keyup={move |ev: web_sys::KeyboardEvent| {
@@ -335,7 +335,7 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                         if key_code == ENTER_KEY {
                             save(&event_target_value(&ev));
                         } else if key_code == ESCAPE_KEY {
-                            set_editing(false);
+                            set_editing.set(false);
                         }
                     }}
                 />

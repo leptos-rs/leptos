@@ -9,7 +9,7 @@ use crate::{
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::{Oco, *};
+use leptos_reactive::*;
 use std::pin::Pin;
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;

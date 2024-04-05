@@ -8,12 +8,12 @@ use axum::{
     Router,
 };
 use axum_session::{Key, SessionConfig, SessionLayer, SessionStore};
-use axum_session_auth::{AuthConfig, AuthSessionLayer, SessionSqlitePool};
+use axum_session_auth::{AuthConfig, AuthSessionLayer};
 use leptos::{get_configuration, logging::log, provide_context, view};
 use leptos_axum::{
     generate_route_list, handle_server_fns_with_context, LeptosRoutes,
 };
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::sqlite::SqlitePoolOptions;
 use sso_auth_axum::{
     auth::*, fallback::file_and_error_handler, state::AppState,
 };

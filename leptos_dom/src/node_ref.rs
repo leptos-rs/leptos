@@ -1,7 +1,5 @@
 use crate::{html::ElementDescriptor, HtmlElement};
-use leptos_reactive::{
-    create_render_effect, create_rw_signal, signal_prelude::*, RwSignal,
-};
+use leptos_reactive::{create_render_effect, signal_prelude::*};
 use std::cell::Cell;
 
 /// Contains a shared reference to a DOM node created while using the `view`

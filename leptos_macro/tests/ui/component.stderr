@@ -41,15 +41,19 @@ error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
 error: unexpected end of input, expected `=` or `(`
 
        = help: try `#[prop(default = 5 * 10)]`
-  --> tests/ui/component.rs:36:40
+  --> tests/ui/component.rs:35:1
    |
-36 | fn default_without_value(#[prop(default)] default: bool) -> impl IntoView {
-   |                                        ^
+35 | #[component]
+   | ^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
 
        = help: try `#[prop(default = 5 * 10)]`
-  --> tests/ui/component.rs:42:22
+  --> tests/ui/component.rs:40:1
    |
-42 |     #[prop(default= |)] default: bool,
-   |                      ^
+40 | #[component]
+   | ^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)
