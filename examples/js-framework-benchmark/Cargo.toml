@@ -8,7 +8,7 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr", "nightly", "template_macro"] }
+leptos = { path = "../../leptos", features = ["csr","template_macro"] }
 console_log = "1"
 log = "0.4"
 # used in rand, but we need to enable js feature

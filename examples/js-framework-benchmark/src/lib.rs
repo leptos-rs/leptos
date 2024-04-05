@@ -109,13 +109,13 @@ pub fn App() -> impl IntoView {
     };
 
     let run = move |_| {
-        set_data(build_data(1000));
-        set_selected(None);
+        set_data.set(build_data(1000));
+        set_selected.set(None);
     };
 
     let run_lots = move |_| {
-        set_data(build_data(10000));
-        set_selected(None);
+        set_data.set(build_data(10000));
+        set_selected.set(None);
     };
 
     let add = move |_| {
@@ -131,8 +131,8 @@ pub fn App() -> impl IntoView {
     };
 
     let clear = move |_| {
-        set_data(Vec::new());
-        set_selected(None);
+        set_data.set(Vec::new());
+        set_selected.set(None);
     };
 
     let swap_rows = move |_| {
@@ -143,7 +143,7 @@ pub fn App() -> impl IntoView {
         });
     };
 
-    let is_selected = create_selector(selected);
+    let is_selected = create_selector(move || selected.get());
 
     view! {
 
@@ -166,7 +166,7 @@ pub fn App() -> impl IntoView {
             <table class="table table-hover table-striped test-data">
                 <tbody>
                     <For
-                        each={data}
+                        each=move||data.get()
                         key={|row| row.id}
                         children=move |row: RowData| {
                             let row_id = row.id;
@@ -182,7 +182,7 @@ pub fn App() -> impl IntoView {
                             template! {
                                 <tr class:danger={move || is_selected.selected(Some(row_id))}>
                                     <td class="col-md-1">{row_id.to_string()}</td>
-                                    <td class="col-md-4"><a on:click=move |_| set_selected(Some(row_id))>{move || label.get()}</a></td>
+                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{move || label.get()}</a></td>
                                     <td class="col-md-1"><a on:click=move |_| remove(row_id)><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                                     <td class="col-md-6"/>
                                 </tr>

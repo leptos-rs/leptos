@@ -1,5 +1,5 @@
 use crate::errors::AppError;
-use leptos::{logging::log, Errors, *};
+use leptos::{logging::log, *};
 #[cfg(feature = "ssr")]
 use leptos_axum::ResponseOptions;
 

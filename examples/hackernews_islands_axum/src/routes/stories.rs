@@ -45,7 +45,7 @@ pub fn Stories() -> impl IntoView {
     let (pending, set_pending) = create_signal(false);
 
     let hide_more_link = move || {
-        pending()
+        pending.get()
             || stories
                 .map(|stories| {
                     stories.as_ref().map(|s| s.len() < 28).unwrap_or_default()

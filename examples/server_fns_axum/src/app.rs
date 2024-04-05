@@ -102,7 +102,7 @@ pub fn SpawnLocal() -> impl IntoView {
                 let value = input_ref.get().unwrap().value();
                 spawn_local(async move {
                     let uppercase_text = shouting_text(value).await.unwrap_or_else(|e| e.to_string());
-                    set_shout_result(uppercase_text);
+                    set_shout_result.set(uppercase_text);
                 });
             }
         >
@@ -167,7 +167,8 @@ pub fn WithAnAction() -> impl IntoView {
 
     // this resource will hold the total number of rows
     // passing it action.version() means it will refetch whenever the action resolves successfully
-    let row_count = create_resource(action.version(), |_| get_rows());
+    let row_count =
+        create_resource(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>create_action</code></h3>
@@ -192,7 +193,7 @@ pub fn WithAnAction() -> impl IntoView {
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
         <p>The result was: {move || format!("{:?}", action.value().get())}</p>
         <Transition>
-            <p>Total rows: {row_count}</p>
+            <p>Total rows: {move || row_count.get()}</p>
         </Transition>
     }
 }
@@ -206,7 +207,8 @@ pub fn WithAnAction() -> impl IntoView {
 #[component]
 pub fn WithActionForm() -> impl IntoView {
     let action = create_server_action::<AddRow>();
-    let row_count = create_resource(action.version(), |_| get_rows());
+    let row_count =
+        create_resource(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>"<ActionForm/>"</code></h3>
@@ -225,7 +227,7 @@ pub fn WithActionForm() -> impl IntoView {
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
         <p>The result was: {move || format!("{:?}", action.value().get())}</p>
         <Transition>archive underaligned: need alignment 4 but have alignment 1
-            <p>Total rows: {row_count}</p>
+            <p>Total rows: {move || row_count.get()}</p>
         </Transition>
     }
 }
@@ -277,13 +279,13 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
                 let value = input_ref.get().unwrap().value();
                 spawn_local(async move {
                     let length = length_of_input(value).await.unwrap_or(0);
-                    set_result(length);
+                    set_result.set(length);
                 });
             }
         >
             Click to see length
         </button>
-        <p>Length is {result}</p>
+        <p>Length is {move||result.get()}</p>
     }
 }
 
@@ -307,7 +309,7 @@ pub async fn rkyv_example(input: String) -> Result<String, ServerFnError> {
 pub fn RkyvExample() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
     let (input, set_input) = create_signal(String::new());
-    let rkyv_result = create_resource(input, rkyv_example);
+    let rkyv_result = create_resource(move || input.get(), rkyv_example);
 
     view! {
         <h3>Using <code>rkyv</code> encoding</h3>
@@ -317,14 +319,14 @@ pub fn RkyvExample() -> impl IntoView {
         <button
             on:click=move |_| {
                 let value = input_ref.get().unwrap().value();
-                set_input(value);
+                set_input.set(value);
             }
         >
             Click to capitalize
         </button>
-        <p>{input}</p>
+        <p>{move||input.get()}</p>
         <Transition>
-            {rkyv_result}
+            {move || rkyv_result.get()}
         </Transition>
     }
 }
@@ -507,9 +509,9 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             .unchecked_into::<web_sys::File>();
         let filename = file.name();
         let size = file.size() as usize;
-        set_filename(Some(filename.clone()));
-        set_max(Some(size));
-        set_current(None::<usize>);
+        set_filename.set(Some(filename.clone()));
+        set_max.set(Some(size));
+        set_current.set(None::<usize>);
 
         spawn_local(async move {
             let mut progress = file_progress(filename)
@@ -532,7 +534,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
                     )
                     .parse::<usize>()
                     .expect("invalid length");
-                set_current(Some(len));
+                set_current.set(Some(len));
             }
         });
         spawn_local(async move {
@@ -550,9 +552,9 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             <input type="file" name="file_to_upload"/>
             <input type="submit"/>
         </form>
-        {move || filename().map(|filename| view! { <p>Uploading {filename}</p> })}
-        {move || max().map(|max| view! {
-            <progress max=max value=move || current().unwrap_or_default()/>
+        {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
+        {move || max.get().map(|max| view! {
+            <progress max=max value=move || current.get().unwrap_or_default()/>
         })}
     }
 }
@@ -665,7 +667,7 @@ pub fn CustomErrorTypes() -> impl IntoView {
                 let value = input_ref.get().unwrap().value();
                 spawn_local(async move {
                     let data = ascii_uppercase(value).await;
-                    set_result(Some(data));
+                    set_result.set(Some(data));
                 });
             }
         >
@@ -789,13 +791,13 @@ pub fn CustomEncoding() -> impl IntoView {
                 let value = input_ref.get().unwrap().value();
                 spawn_local(async move {
                 let new_value = why_not(value, ", but in TOML!!!".to_string()).await.unwrap();
-                    set_result(new_value.0.modified);
+                    set_result.set(new_value.0.modified);
                 });
             }
         >
             Submit
         </button>
-        <p>{result}</p>
+        <p>{move||result.get()}</p>
     }
 }
 

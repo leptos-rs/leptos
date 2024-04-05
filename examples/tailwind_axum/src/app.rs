@@ -31,7 +31,7 @@ fn Home() -> impl IntoView {
                         "+"
                     </button>
                     <button class="rounded px-3 py-2 m-1 border-b-4 border-l-2 shadow-lg bg-blue-800 border-blue-900 text-white">
-                        {value}
+                        {move||value.get()}
                     </button>
                     <button on:click=move |_| set_value.update(|value| *value -= 1) class="rounded px-3 py-2 m-1 border-b-4 border-l-2 shadow-lg bg-blue-700 border-blue-800 text-white">
                         "-"

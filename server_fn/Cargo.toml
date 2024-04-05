@@ -128,6 +128,7 @@ denylist = [
   "ciborium",
   "hyper",
   "inventory",
+  "rkyv",
 ]
 skip_feature_sets = [
   [

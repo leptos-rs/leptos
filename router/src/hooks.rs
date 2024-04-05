@@ -3,8 +3,7 @@ use crate::{
     RouterContext,
 };
 use leptos::{
-    create_memo, request_animation_frame, signal_prelude::*, use_context,
-    window, Memo, Oco,
+    request_animation_frame, signal_prelude::*, use_context, window, Oco,
 };
 use std::{rc::Rc, str::FromStr};
 
@@ -134,9 +133,9 @@ pub fn use_params_map() -> Memo<ParamsMap> {
 
 /// Returns the current route params, parsed into the given type, or an error.
 #[track_caller]
-pub fn use_params<T: Params>() -> Memo<Result<T, ParamsError>>
+pub fn use_params<T>() -> Memo<Result<T, ParamsError>>
 where
-    T: PartialEq,
+    T: Params + PartialEq,
 {
     let route = use_route();
     create_memo(move |_| route.params().with(T::from_map))
@@ -150,9 +149,9 @@ pub fn use_query_map() -> Memo<ParamsMap> {
 
 /// Returns the current URL search query, parsed into the given type, or an error.
 #[track_caller]
-pub fn use_query<T: Params>() -> Memo<Result<T, ParamsError>>
+pub fn use_query<T>() -> Memo<Result<T, ParamsError>>
 where
-    T: PartialEq,
+    T: Params + PartialEq,
 {
     let router = use_router();
     create_memo(move |_| router.inner.location.query.with(|m| T::from_map(m)))
