@@ -77,10 +77,28 @@ pub trait Renderer: Sized + Debug {
         M: Mountable<Self>,
     {
         let parent = Self::Element::cast_from(
-            Self::get_parent(before).expect("node should have parent"),
+            Self::get_parent(before).expect("could not find parent element"),
         )
         .expect("placeholder parent should be Element");
         new_child.mount(&parent, Some(before));
+    }
+
+    /// Tries to mount the new child before the marker as its sibling.
+    ///
+    /// Returns `false` if the child did not have a valid parent.
+    #[track_caller]
+    fn try_mount_before<M>(new_child: &mut M, before: &Self::Node) -> bool
+    where
+        M: Mountable<Self>,
+    {
+        if let Some(parent) =
+            Self::get_parent(before).and_then(Self::Element::cast_from)
+        {
+            new_child.mount(&parent, Some(before));
+            true
+        } else {
+            false
+        }
     }
 
     /// Removes the child node from the parents, and returns the removed node.
