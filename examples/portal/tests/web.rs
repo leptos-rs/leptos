@@ -33,7 +33,7 @@ async fn portal() {
     // check HTML
     assert_eq!(
         div.inner_html(),
-            "<!-- <App> --><div><button id=\"btn-show\">\n                Show Overlay\n            </button><!-- <Show> --><!-- <DynChild> --><!-- <> --><div>Show</div><!-- <Portal> --><!-- <() /> --><!-- </Portal> --><!-- </> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> --><div><!-- <> --><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">\n                            Close Overlay\n                        </button><button id=\"btn-toggle\">\n                            Toggle inner\n                        </button><!-- <Show> --><!-- <DynChild> -->Hidden<!-- </DynChild> --><!-- </Show> --></div><!-- </> --></div>"
+           "<!-- <App> --><div><button id=\"btn-show\">Show Overlay</button><!-- <Show> --><!-- <DynChild> --><!-- <> --><div>Show</div><!-- <Portal> --><!-- <() /> --><!-- </Portal> --><!-- </> --><!-- </DynChild> --><!-- </Show> --></div><!-- </App> --><div><!-- <> --><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">Close Overlay</button><button id=\"btn-toggle\">Toggle inner</button><!-- <Show> --><!-- <DynChild> -->Hidden<!-- </DynChild> --><!-- </Show> --></div><!-- </> --></div>"
         );
 
     let toggle_button = document

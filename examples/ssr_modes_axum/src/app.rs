@@ -96,7 +96,7 @@ fn Post() -> impl IntoView {
     };
 
     let post_view = move || {
-        post().and_then(|post| {
+        post().map(|post| {
             Ok(view! {
                 // render content
                 <h1>{&post.title}</h1>
