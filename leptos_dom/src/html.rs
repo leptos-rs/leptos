@@ -366,7 +366,7 @@ where
     }
 }
 
-/// Bind data through attributes or behavior through event handlers to an element.
+/// Bind data through attributes, or behavior through event handlers, to an element.
 /// A collection of bindings (`collection: Vec<Binding>`) can be spread onto an element like in `view! { <div {..collection} /> }`.
 pub enum Binding {
     /// A statically named attribute.
