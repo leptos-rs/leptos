@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr", "nightly"] }
-leptos_meta = { path = "../../meta", features = ["csr", "nightly"] }
-leptos_router = { path = "../../router", features = ["csr", "nightly"] }
+leptos = { path = "../../leptos", features = ["csr"] }
+leptos_meta = { path = "../../meta", features = ["csr"] }
+leptos_router = { path = "../../router", features = ["csr"] }
 log = "0.4"
 gloo-net = { version = "0.2", features = ["http"] }
 
