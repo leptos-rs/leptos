@@ -39,6 +39,7 @@
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
 //! - [`slots`](https://github.com/leptos-rs/leptos/tree/main/examples/slots) shows how to use slots on components.
+//! - [`spread`](https://github.com/leptos-rs/leptos/tree/main/examples/spread) shows how the spread syntax can be used to spread data and/or event handlers onto elements.
 //! - [`counter_isomorphic`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic) shows
 //!   different methods of interaction with a stateful server, including server functions, server actions, forms,
 //!   and server-sent events (SSE).
