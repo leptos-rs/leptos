@@ -12,10 +12,10 @@ actix-web = { version = "4", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1"
 console_log = "1"
 lazy_static = "1"
-leptos = { path = "../../leptos", features = ["nightly"] }
-leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos = { path = "../../leptos"}
+leptos_meta = { path = "../../meta" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_router = { path = "../../router", features = ["nightly"] }
+leptos_router = { path = "../../router" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"

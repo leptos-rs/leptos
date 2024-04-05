@@ -28,9 +28,9 @@ fn SlotIf(
     #[prop(optional)] fallback: Option<Fallback>,
 ) -> impl IntoView {
     move || {
-        if cond() {
+        if cond.get() {
             (then.children)().into_view()
-        } else if let Some(else_if) = else_if.iter().find(|i| (i.cond)()) {
+        } else if let Some(else_if) = else_if.iter().find(|i| i.cond.get()) {
             (else_if.children)().into_view()
         } else if let Some(fallback) = &fallback {
             (fallback.children)().into_view()
@@ -43,13 +43,13 @@ fn SlotIf(
 #[component]
 pub fn App() -> impl IntoView {
     let (count, set_count) = create_signal(0);
-    let is_even = MaybeSignal::derive(move || count() % 2 == 0);
-    let is_div5 = MaybeSignal::derive(move || count() % 5 == 0);
-    let is_div7 = MaybeSignal::derive(move || count() % 7 == 0);
+    let is_even = MaybeSignal::derive(move || count.get() % 2 == 0);
+    let is_div5 = MaybeSignal::derive(move || count.get() % 5 == 0);
+    let is_div7 = MaybeSignal::derive(move || count.get() % 7 == 0);
 
     view! {
         <button on:click=move |_| set_count.update(|value| *value += 1)>"+1"</button>
-        " "{count}" is "
+        " "{move||count.get()}" is "
         <SlotIf cond=is_even>
             // The slot name can be emitted if it would match the slot struct name (in snake case).
             <Then slot>"even"</Then>

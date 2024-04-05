@@ -7,6 +7,6 @@ codegen-units = 1
 lto = true
 
 [patch.crates-io]
-leptos = { path = "../../leptos", features = ["nightly"] }
-leptos_router = { path = "../../router", features = ["nightly"] }
+leptos = { path = "../../leptos" } 
+leptos_router = { path = "../../router" }
 api-boundary = { path = "api-boundary" }
