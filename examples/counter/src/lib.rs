@@ -14,7 +14,7 @@ pub fn SimpleCounter(
 
     view! {
         <div>
-            <button on:click=move |_| set_value.set(0)>"Clear value"</button>
+            <button on:click=move |_| set_value.set(0)>"Clear"</button>
             <button on:click=move |_| set_value.update(|value| *value -= step)>"-1"</button>
             <span>"Value: " {move || value.get()} "!"</span>
             <button on:click=move |_| set_value.update(|value| *value += step)>"+1"</button>
