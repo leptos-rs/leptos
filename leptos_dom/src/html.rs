@@ -679,12 +679,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     /// Adds multiple attributes to the element.
     #[track_caller]
-    #[deprecated(
-        since = "0.6.10",
-        note = "Please call `bindings` instead. It can act as a \
-                drop-in-replacement but can handle both attributes and event \
-                handlers at the same time."
-    )]
     pub fn attrs(
         mut self,
         attrs: impl std::iter::IntoIterator<Item = (&'static str, Attribute)>,
