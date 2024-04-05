@@ -1,25 +1,27 @@
-use crate::{children::ViewFn, AsyncChildren, IntoView};
+use crate::{
+    children::{TypedChildrenFn, ViewFn},
+    IntoView,
+};
 use leptos_macro::component;
-use std::{future::Future, sync::Arc};
-use tachys::prelude::FutureViewExt;
+use tachys::async_views::SuspenseBoundary;
 
 /// TODO docs!
 #[component]
-pub fn Transition<Chil, ChilFn, ChilFut>(
+pub fn Transition<Chil>(
     #[prop(optional, into)] fallback: ViewFn,
-    children: AsyncChildren<Chil, ChilFn, ChilFut>,
+    children: TypedChildrenFn<Chil>,
 ) -> impl IntoView
 where
     Chil: IntoView + 'static,
-    ChilFn: Fn() -> ChilFut + Clone + Send + 'static,
-    ChilFut: Future<Output = Chil> + Send + 'static,
 {
     let children = children.into_inner();
+    let fallback = move || fallback.clone().run();
+    // TODO check this against islands
     move || {
-        children()
-            .suspend()
-            .transition()
-            .with_fallback(fallback.run())
-            .track()
+        SuspenseBoundary::<true, _, _>::new(
+            fallback.clone(),
+            (children.clone())(),
+        )
+        // TODO track
     }
 }

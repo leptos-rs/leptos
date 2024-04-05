@@ -5,13 +5,12 @@ use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
     signal::ArcRwSignal,
-    traits::{Get, GetUntracked, Track, Update, With},
+    traits::{GetUntracked, Track, Update, With},
 };
 use rustc_hash::FxHashMap;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::{
     either::Either,
-    reactive_graph::RenderEffectState,
     renderer::Renderer,
     view::{Mountable, Render, RenderHtml},
 };
@@ -210,7 +209,7 @@ where
             Either::Left(chil) => chil.unmount(),
             Either::Right((fal, _)) => fal.unmount(),
         });
-        //self.placeholder.unmount();
+        self.placeholder.unmount();
     }
 
     fn mount(
