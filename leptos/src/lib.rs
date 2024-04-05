@@ -27,8 +27,6 @@
 //!   the code that Leptos generates.
 //! - [`counters`](https://github.com/leptos-rs/leptos/tree/main/examples/counters) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
-//! - [`counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable) adapts the `counters` example
-//!   to show how to use Leptos with `stable` Rust.
 //! - [`error_boundary`](https://github.com/leptos-rs/leptos/tree/main/examples/error_boundary) shows how to use
 //!   `Result` types to handle errors.
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
