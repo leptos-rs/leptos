@@ -72,12 +72,19 @@ check-examples`.
 
 ## Before Submitting a PR
 
-We have a fairly extensive CI setup that runs both lints (like `rustfmt` and `clippy`) 
+We have a fairly extensive CI setup that runs both lints (like `rustfmt` and `clippy`)
 and tests on PRs. You can run most of these locally if you have `cargo-make` installed.
+
+Note that some of the `rustfmt` settings used require usage of the nightly compiler.
+Formatting the code using the stable toolchain may result in a wrong code format and
+subsequently CI errors.
+Run `cargo +nightly fmt` if you want to keep the stable toolchain active.
+You may want to let your IDE automatically use the `+nightly` parameter when a
+"format on save" action is used.
 
 If you added an example, make sure to add it to the list in `examples/Makefile.toml`.
 
-From the root directory of the repo, run 
+From the root directory of the repo, run
 - `cargo +nightly fmt`
 - `cargo +nightly make check`
 - `cargo +nightly make test`

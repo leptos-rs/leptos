@@ -27,8 +27,6 @@
 //!   the code that Leptos generates.
 //! - [`counters`](https://github.com/leptos-rs/leptos/tree/main/examples/counters) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
-//! - [`counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable) adapts the `counters` example
-//!   to show how to use Leptos with `stable` Rust.
 //! - [`error_boundary`](https://github.com/leptos-rs/leptos/tree/main/examples/error_boundary) shows how to use
 //!   `Result` types to handle errors.
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
@@ -39,6 +37,7 @@
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
 //! - [`slots`](https://github.com/leptos-rs/leptos/tree/main/examples/slots) shows how to use slots on components.
+//! - [`spread`](https://github.com/leptos-rs/leptos/tree/main/examples/spread) shows how the spread syntax can be used to spread data and/or event handlers onto elements.
 //! - [`counter_isomorphic`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic) shows
 //!   different methods of interaction with a stateful server, including server functions, server actions, forms,
 //!   and server-sent events (SSE).
@@ -162,9 +161,11 @@ pub use leptos_dom::{
         set_interval_with_handle, set_timeout, set_timeout_with_handle,
         window_event_listener, window_event_listener_untyped,
     },
-    html, math, mount_to, mount_to_body, nonce, svg, window, Attribute, Class,
-    CollectView, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
-    IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
+    html,
+    html::Binding,
+    math, mount_to, mount_to_body, nonce, svg, window, Attribute, Class,
+    CollectView, Errors, EventHandlerFn, Fragment, HtmlElement, IntoAttribute,
+    IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {

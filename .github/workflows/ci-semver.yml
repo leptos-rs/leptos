@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sember Checks
+      - name: Semver Checks
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
           rust-toolchain: nightly-2024-03-31
