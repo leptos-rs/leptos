@@ -46,7 +46,7 @@ where
             (Err(err), Ok(new)) => {
                 any_error::clear(err);
                 let mut new_state = new.build();
-                R::mount_before(&mut new_state, state.placeholder.as_ref());
+                R::try_mount_before(&mut new_state, state.placeholder.as_ref());
                 state.state = Ok(new_state);
             }
         }
@@ -83,6 +83,20 @@ where
     state: Result<T, any_error::ErrorId>,
 }
 
+impl<T, R> Drop for ResultState<T, R>
+where
+    T: Mountable<R>,
+    R: Renderer,
+{
+    fn drop(&mut self) {
+        // when the state is cleared, unregister this error; this item is being dropped and its
+        // error should no longer be shown
+        if let Err(e) = &self.state {
+            any_error::clear(e);
+        }
+    }
+}
+
 impl<T, R> Mountable<R> for ResultState<T, R>
 where
     T: Mountable<R>,
@@ -92,9 +106,7 @@ where
         if let Ok(ref mut state) = self.state {
             state.unmount();
         }
-        // TODO investigate: including this seems to break error boundaries, although it doesn't
-        // make sense to me why it would be a problem
-        // self.placeholder.unmount();
+        self.placeholder.unmount();
     }
 
     fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
