@@ -96,7 +96,8 @@ where
             async move {
                 let value = fut.await;
                 let mut state = state.borrow_mut();
-                let fut = Either::<Fal, Chil::AsyncOutput>::Right(value)
+
+                Either::<Fal, Chil::AsyncOutput>::Right(value)
                     .rebuild(&mut *state);
             }
         });
