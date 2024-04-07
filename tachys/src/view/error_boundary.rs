@@ -92,7 +92,7 @@ where
         // when the state is cleared, unregister this error; this item is being dropped and its
         // error should no longer be shown
         if let Err(e) = &self.state {
-            any_error::clear(e);
+            //any_error::clear(e);
         }
     }
 }
