@@ -5,7 +5,7 @@ use leptos::{
         computed::AsyncDerived,
         signal::{signal, ArcRwSignal},
     },
-    view, ErrorBoundary, Errors, IntoView, Suspense, Transition,
+    view, ErrorBoundary, Errors, IntoView, Suspense,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -91,14 +91,14 @@ pub fn fetch_example() -> impl IntoView {
                 <ErrorBoundary fallback>
                         <ul>
                         {
-                            async move {
+                            move || async move {
                                 cats.await.map(|cats| {
                                     cats.into_iter()
                                         .map(|s| view! { <li><img src={s}/></li> })
                                         .collect::<Vec<_>>()
                                 })
                             }
-                            .suspend()
+                            .wait()
                         }
                         </ul>
                 </ErrorBoundary>
