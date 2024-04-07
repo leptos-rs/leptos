@@ -22,6 +22,7 @@ leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
 oco = { workspace = true }
+or_poisoned = { workspace = true }
 paste = "1"
 rand = { version = "0.8", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }

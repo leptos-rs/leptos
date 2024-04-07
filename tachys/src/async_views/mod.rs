@@ -13,92 +13,166 @@ use futures::FutureExt;
 use parking_lot::RwLock;
 use std::{cell::RefCell, fmt::Debug, future::Future, rc::Rc, sync::Arc};
 
-pub struct SuspenseBoundary<const TRANSITION: bool, FalFn, Chil> {
-    fallback: FalFn,
+pub struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
+    fallback: Option<Fal>,
     children: Chil,
 }
 
-impl<const TRANSITION: bool, FalFn, Chil>
-    SuspenseBoundary<TRANSITION, FalFn, Chil>
+impl<const TRANSITION: bool, Fal, Chil>
+    SuspenseBoundary<TRANSITION, Fal, Chil>
 {
-    pub fn new(fallback: FalFn, children: Chil) -> Self {
+    pub fn new(fallback: Option<Fal>, children: Chil) -> Self {
         Self { fallback, children }
     }
 }
 
-impl<const TRANSITION: bool, FalFn, Fal, Chil, Rndr> Render<Rndr>
-    for SuspenseBoundary<TRANSITION, FalFn, Chil>
+pub struct SuspenseBoundaryState<Fal, Chil, R>
 where
-    FalFn: Fn() -> Fal,
+    Fal: Render<R>,
+    Chil: Render<R>,
+    R: Renderer,
+{
+    inner: Rc<RefCell<SuspenseBoundaryStateInner<Fal, Chil, R>>>,
+    marker: R::Placeholder,
+}
+
+struct SuspenseBoundaryStateInner<Fal, Chil, R>
+where
+    Fal: Render<R>,
+    Chil: Render<R>,
+    R: Renderer,
+{
+    fallback: Fal::State,
+    children: Option<<Chil::AsyncOutput as Render<R>>::State>,
+}
+
+impl<Fal, Chil, R> Mountable<R> for SuspenseBoundaryState<Fal, Chil, R>
+where
+    Fal: Render<R>,
+    Chil: Render<R>,
+    R: Renderer,
+{
+    fn unmount(&mut self) {
+        let mut inner = self.inner.borrow_mut();
+        if let Some(children) = &mut inner.children {
+            children.unmount();
+        } else {
+            inner.fallback.unmount();
+        }
+        self.marker.unmount();
+    }
+
+    fn mount(
+        &mut self,
+        parent: &<R as Renderer>::Element,
+        marker: Option<&<R as Renderer>::Node>,
+    ) {
+        let mut inner = self.inner.borrow_mut();
+        if let Some(children) = &mut inner.children {
+            children.mount(parent, marker);
+        } else {
+            inner.fallback.mount(parent, marker);
+        }
+        self.marker.mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<R as Renderer>::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        let mut inner = self.inner.borrow_mut();
+        if let Some(children) = &mut inner.children {
+            children.insert_before_this(parent, child)
+        } else {
+            inner.fallback.insert_before_this(parent, child)
+        }
+    }
+}
+
+impl<const TRANSITION: bool, Fal, Chil, Rndr> Render<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
+where
     Fal: Render<Rndr> + 'static,
     Chil: Render<Rndr> + 'static,
     Chil::State: 'static,
     Rndr: Renderer + 'static,
 {
-    type State = Rc<
-        RefCell<
-            EitherState<
-                Fal::State,
-                <Chil::AsyncOutput as Render<Rndr>>::State,
-                Rndr,
-            >,
-        >,
-    >;
+    type State = SuspenseBoundaryState<Fal, Chil, Rndr>;
     type FallibleState = ();
     type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
+        crate::dom::log("building SuspenseBoundary");
         let fut = self.children.resolve();
         #[cfg(feature = "reactive_graph")]
         let fut = reactive_graph::computed::ScopedFuture::new(fut);
 
-        let initial = Either::<
-            Fal::State,
-            <Chil::AsyncOutput as Render<Rndr>>::State,
-        >::Left((self.fallback)().build());
-
         // now we can build the initial state
         let marker = Rndr::create_placeholder();
-        let state = Rc::new(RefCell::new(EitherState {
-            state: initial,
-            marker: marker.clone(),
+        let inner = Rc::new(RefCell::new(SuspenseBoundaryStateInner {
+            fallback: self
+                .fallback
+                .expect(
+                    "SuspenseBoundary tried to use fallback but it has \
+                     already been taken",
+                )
+                .build(),
+            children: None,
         }));
 
-        // if the initial state was pending, spawn a future to wait for it
-        // spawning immediately means that our now_or_never poll result isn't lost
-        // if it wasn't pending at first, we don't need to poll the Future again
+        // TODO: handle multiple reruns while still pending, by versioning
         Executor::spawn_local({
-            let state = Rc::clone(&state);
+            let inner = Rc::clone(&inner);
             let marker = marker.clone();
             async move {
-                let mut value = fut.await;
-                let mut state = state.borrow_mut();
-                Either::<Fal, Chil::AsyncOutput>::Right(value)
-                    .rebuild(&mut *state);
+                let value = fut.await;
+                let mut inner = inner.borrow_mut();
+                if let Some(children) = &mut inner.children {
+                    value.rebuild(children);
+                } else {
+                    let mut new_children = value.build();
+                    Rndr::try_mount_before(&mut new_children, marker.as_ref());
+                    inner.children = Some(new_children);
+                    Mountable::unmount(&mut inner.fallback);
+                }
             }
         });
 
-        state
+        SuspenseBoundaryState { inner, marker }
     }
 
     fn rebuild(self, state: &mut Self::State) {
+        crate::dom::log("rebuilding SuspenseBoundary");
+        let mut inner = state.inner.borrow_mut();
+        let mut old_children = inner.children.take();
+
         if !TRANSITION {
-            Either::<Fal, Chil::AsyncOutput>::Left((self.fallback)())
-                .rebuild(&mut *state.borrow_mut());
+            Rndr::try_mount_before(&mut inner.fallback, state.marker.as_ref());
+            if let Some(children) = &mut old_children {
+                children.unmount();
+            }
         }
+        drop(inner);
 
         // spawn the future, and rebuild the state when it resolves
         let fut = self.children.resolve();
         #[cfg(feature = "reactive_graph")]
         let fut = reactive_graph::computed::ScopedFuture::new(fut);
         Executor::spawn_local({
-            let state = Rc::clone(state);
+            let inner = Rc::clone(&state.inner);
+            let marker = state.marker.clone();
             async move {
                 let value = fut.await;
-                let mut state = state.borrow_mut();
-
-                Either::<Fal, Chil::AsyncOutput>::Right(value)
-                    .rebuild(&mut *state);
+                let mut inner = inner.borrow_mut();
+                if let Some(children) = &mut inner.children {
+                    value.rebuild(children);
+                } else {
+                    let mut new_children = value.build();
+                    Rndr::try_mount_before(&mut new_children, marker.as_ref());
+                    inner.children = Some(new_children);
+                    Mountable::unmount(&mut inner.fallback);
+                }
             }
         });
     }
@@ -122,10 +196,9 @@ where
     }
 }
 
-impl<const TRANSITION: bool, FalFn, Fal, Chil, Rndr> RenderHtml<Rndr>
-    for SuspenseBoundary<TRANSITION, FalFn, Chil>
+impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
-    FalFn: Fn() -> Fal,
     Fal: RenderHtml<Rndr> + 'static,
     Chil: RenderHtml<Rndr> + 'static,
     Chil::State: 'static,
