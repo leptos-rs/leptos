@@ -14,6 +14,7 @@ use parking_lot::RwLock;
 use std::{cell::RefCell, fmt::Debug, future::Future, rc::Rc, sync::Arc};
 
 pub struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
+    in_fallback: bool,
     fallback: Option<Fal>,
     children: Chil,
 }
@@ -21,8 +22,16 @@ pub struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
 impl<const TRANSITION: bool, Fal, Chil>
     SuspenseBoundary<TRANSITION, Fal, Chil>
 {
-    pub fn new(fallback: Option<Fal>, children: Chil) -> Self {
-        Self { fallback, children }
+    pub fn new(
+        in_fallback: bool,
+        fallback: Option<Fal>,
+        children: Chil,
+    ) -> Self {
+        Self {
+            in_fallback,
+            fallback,
+            children,
+        }
     }
 }
 
