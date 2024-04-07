@@ -106,17 +106,11 @@ where
         let mut children = Some(self.children);
         let mut fallback = Some(self.fallback);
         let none_pending = self.none_pending;
-        let mut first_run = true;
 
-        (move || {
-            none_pending.get();
-            let view = EitherKeepAlive {
-                a: children.take(),
-                b: fallback.take(),
-                show_b: first_run || !none_pending.get(),
-            };
-            first_run = false;
-            view
+        (move || EitherKeepAlive {
+            a: children.take(),
+            b: fallback.take(),
+            show_b: !none_pending.get(),
         })
         .build()
     }
