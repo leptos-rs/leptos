@@ -203,6 +203,155 @@ where
     }
 }
 
+/// Stores each value in the view state, overwriting it only if `Some(_)` is provided.
+pub struct EitherKeepAlive<A, B> {
+    pub a: Option<A>,
+    pub b: Option<B>,
+    pub show_b: bool,
+}
+
+pub struct EitherKeepAliveState<A, B, Rndr>
+where
+    Rndr: Renderer,
+{
+    a: Option<A>,
+    b: Option<B>,
+    showing_b: bool,
+    marker: Rndr::Placeholder,
+}
+
+impl<A, B, Rndr> Render<Rndr> for EitherKeepAlive<A, B>
+where
+    A: Render<Rndr>,
+    B: Render<Rndr>,
+    Rndr: Renderer,
+{
+    type State = EitherKeepAliveState<A::State, B::State, Rndr>;
+
+    type FallibleState = ();
+    type AsyncOutput = ();
+
+    fn build(self) -> Self::State {
+        let marker = Rndr::create_placeholder();
+        let showing_b = self.show_b;
+        let a = self.a.map(Render::build);
+        let b = self.b.map(Render::build);
+        EitherKeepAliveState {
+            a,
+            b,
+            showing_b,
+            marker,
+        }
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        // set or update A -- `None` just means "no change"
+        match (self.a, &mut state.a) {
+            (Some(new), Some(old)) => new.rebuild(old),
+            (Some(new), None) => state.a = Some(new.build()),
+            _ => {}
+        }
+
+        // set or update B
+        match (self.b, &mut state.b) {
+            (Some(new), Some(old)) => new.rebuild(old),
+            (Some(new), None) => state.b = Some(new.build()),
+            _ => {}
+        }
+
+        match (self.show_b, state.showing_b) {
+            // transition from A to B
+            (true, false) => {
+                if let Some(a) = &mut state.a {
+                    a.unmount();
+                }
+                if let Some(b) = &mut state.b {
+                    Rndr::try_mount_before(b, state.marker.as_ref());
+                }
+            }
+            // transition from B to A
+            (false, true) => {
+                if let Some(b) = &mut state.b {
+                    b.unmount();
+                }
+                if let Some(a) = &mut state.a {
+                    Rndr::try_mount_before(a, state.marker.as_ref());
+                }
+            }
+            _ => {}
+        }
+        state.showing_b = self.show_b;
+    }
+
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        state: &mut Self::FallibleState,
+    ) -> any_error::Result<()> {
+        todo!()
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        todo!()
+    }
+}
+
+impl<A, B, Rndr> Mountable<Rndr> for EitherKeepAliveState<A, B, Rndr>
+where
+    A: Mountable<Rndr>,
+    B: Mountable<Rndr>,
+    Rndr: Renderer,
+{
+    fn unmount(&mut self) {
+        if self.showing_b {
+            self.b.as_mut().expect("B was not present").unmount();
+        } else {
+            self.a.as_mut().expect("A was not present").unmount();
+        }
+        self.marker.unmount();
+    }
+
+    fn mount(
+        &mut self,
+        parent: &<Rndr as Renderer>::Element,
+        marker: Option<&<Rndr as Renderer>::Node>,
+    ) {
+        if self.showing_b {
+            self.b
+                .as_mut()
+                .expect("B was not present")
+                .mount(parent, marker);
+        } else {
+            self.a
+                .as_mut()
+                .expect("A was not present")
+                .mount(parent, marker);
+        }
+        self.marker.mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<Rndr as Renderer>::Element,
+        child: &mut dyn Mountable<Rndr>,
+    ) -> bool {
+        if self.showing_b {
+            self.b
+                .as_ref()
+                .expect("B was not present")
+                .insert_before_this(parent, child)
+        } else {
+            self.a
+                .as_ref()
+                .expect("A was no present")
+                .insert_before_this(parent, child)
+        }
+    }
+}
+
 macro_rules! tuples {
     ($num:literal => $($ty:ident),*) => {
         paste::paste! {
@@ -274,7 +423,7 @@ macro_rules! tuples {
                         // or mount new state
                         $(([<EitherOf $num>]::$ty(new), _) => {
                             let mut new = new.build();
-                            Rndr::mount_before(&mut new, marker);
+                            Rndr::try_mount_before(&mut new, marker);
                             [<EitherOf $num>]::$ty(new)
                         },)*
                     };
