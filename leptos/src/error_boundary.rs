@@ -61,19 +61,12 @@ where
     any_error::set_error_hook(Arc::clone(&hook));
     let mut children = Some(children.into_inner()());
 
-    Effect::new({
-        let errors_empty = errors_empty.clone();
-        move |_| {
-            crate::logging::log!("errors? {}", !errors_empty.get());
-        }
-    });
-
-    Rebuildable(move || ErrorBoundaryView {
+    move || ErrorBoundaryView {
         errors_empty: errors_empty.get(),
         children: children.take(),
         fallback: Some((fallback.clone())(&errors)),
         rndr: PhantomData,
-    })
+    }
 }
 
 #[derive(Debug)]
@@ -166,7 +159,7 @@ where
             // no errors, and was showing fallback
             (true, true) => {
                 state.fallback.unmount();
-                Rndr::mount_before(
+                Rndr::try_mount_before(
                     &mut state.children,
                     state.placeholder.as_ref(),
                 );
@@ -174,7 +167,7 @@ where
             // yes errors, and was showing children
             (false, false) => {
                 state.children.unmount();
-                Rndr::mount_before(
+                Rndr::try_mount_before(
                     &mut state.fallback,
                     state.placeholder.as_ref(),
                 );
@@ -205,9 +198,7 @@ where
             fallback,
             rndr,
         } = self;
-        if errors_empty {
-            crate::logging::log!("no errors!");
-        }
+        if errors_empty {}
         let children = match children {
             Some(inner) if errors_empty => Some(inner.resolve().await),
             _ => None,
@@ -242,64 +233,6 @@ where
     }
 }
 
-#[derive(Debug)]
-struct Rebuildable<T>(T);
-
-impl<T, F, R> Render<R> for Rebuildable<F>
-where
-    F: FnMut() -> T + 'static + Render<R>,
-    T: Render<R>,
-    R: Renderer,
-{
-    type State = F::State;
-    type FallibleState = ();
-    type AsyncOutput = T::AsyncOutput;
-
-    fn build(self) -> Self::State {
-        self.0.build()
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        self.0.rebuild(state);
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
-    }
-
-    async fn resolve(mut self) -> Self::AsyncOutput {
-        (self.0)().resolve().await
-    }
-}
-
-impl<T, F, R> RenderHtml<R> for Rebuildable<F>
-where
-    F: FnMut() -> T + 'static + RenderHtml<R>,
-    T: RenderHtml<R>,
-    R: Renderer,
-{
-    const MIN_LENGTH: usize = T::MIN_LENGTH;
-
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        todo!()
-    }
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        cursor: &Cursor<R>,
-        position: &PositionState,
-    ) -> Self::State {
-        todo!()
-    }
-}
-
 #[derive(Debug, Default)]
 struct ErrorBoundaryErrorHook {
     errors: ArcRwSignal<Errors>,
@@ -307,7 +240,6 @@ struct ErrorBoundaryErrorHook {
 
 impl ErrorHook for ErrorBoundaryErrorHook {
     fn throw(&self, error: Error) -> ErrorId {
-        crate::logging::log!("throwing error...");
         let key = ErrorId::default();
         self.errors.update(|map| {
             map.insert(key.clone(), error);
@@ -316,7 +248,6 @@ impl ErrorHook for ErrorBoundaryErrorHook {
     }
 
     fn clear(&self, id: &any_error::ErrorId) {
-        crate::logging::log!("clearing error!");
         self.errors.update(|map| {
             map.remove(id);
         });
