@@ -15,11 +15,12 @@ where
     Chil: IntoView + 'static,
 {
     let children = children.into_inner();
-    let fallback = move || fallback.clone().run();
+    let mut fallback = Some(fallback.run());
     // TODO check this against islands
     move || {
+        crate::logging::log!("running suspense again");
         SuspenseBoundary::<true, _, _>::new(
-            fallback.clone(),
+            fallback.take(),
             (children.clone())(),
         )
         // TODO track

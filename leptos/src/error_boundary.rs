@@ -1,18 +1,18 @@
-use crate::{children::TypedChildrenMut, IntoView};
+use crate::{children::TypedChildren, IntoView};
 use any_error::{Error, ErrorHook, ErrorId};
 use leptos_macro::component;
+use leptos_reactive::Effect;
 use reactive_graph::{
     computed::ArcMemo,
-    effect::RenderEffect,
     signal::ArcRwSignal,
-    traits::{GetUntracked, Track, Update, With},
+    traits::{Get, Update, With},
 };
 use rustc_hash::FxHashMap;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::{
-    either::Either,
+    hydration::Cursor,
     renderer::Renderer,
-    view::{Mountable, Render, RenderHtml},
+    view::{Mountable, Position, PositionState, Render, RenderHtml},
 };
 
 ///
@@ -40,9 +40,9 @@ use tachys::{
 #[component]
 pub fn ErrorBoundary<FalFn, Fal, Chil>(
     /// The elements that will be rendered, which may include one or more `Result<_>` types.
-    children: TypedChildrenMut<Chil>,
+    children: TypedChildren<Chil>,
     /// A fallback that will be shown if an error occurs.
-    fallback: FalFn,
+    mut fallback: FalFn,
 ) -> impl IntoView
 where
     FalFn: FnMut(&ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
@@ -59,105 +59,133 @@ where
 
     // provide the error hook and render children
     any_error::set_error_hook(Arc::clone(&hook));
+    let mut children = Some(children.into_inner()());
 
-    ErrorBoundaryView {
-        errors,
-        errors_empty,
-        children,
-        fallback,
-        fal_ty: PhantomData,
+    Effect::new({
+        let errors_empty = errors_empty.clone();
+        move |_| {
+            crate::logging::log!("errors? {}", !errors_empty.get());
+        }
+    });
+
+    Rebuildable(move || ErrorBoundaryView {
+        errors_empty: errors_empty.get(),
+        children: children.take(),
+        fallback: Some((fallback.clone())(&errors)),
         rndr: PhantomData,
-    }
+    })
 }
 
 #[derive(Debug)]
-struct ErrorBoundaryView<Chil, FalFn, Fal, Rndr> {
-    errors: ArcRwSignal<Errors>,
-    errors_empty: ArcMemo<bool>,
-    children: TypedChildrenMut<Chil>,
-    fallback: FalFn,
-    fal_ty: PhantomData<Fal>,
+struct ErrorBoundaryView<Chil, Fal, Rndr> {
+    errors_empty: bool,
+    children: Option<Chil>,
+    fallback: Fal,
     rndr: PhantomData<Rndr>,
 }
 
-impl<Chil, FalFn, Fal, Rndr> Render<Rndr>
-    for ErrorBoundaryView<Chil, FalFn, Fal, Rndr>
+struct ErrorBoundaryViewState<Chil, Fal, Rndr>
 where
-    Chil: Render<Rndr> + 'static,
-    Chil::State: 'static,
-    Fal: Render<Rndr> + 'static,
-    Fal::State: 'static,
-    FalFn: FnMut(&ArcRwSignal<Errors>) -> Fal + Send + 'static,
+    Chil: Render<Rndr>,
+    Fal: Render<Rndr>,
+    Rndr: Renderer,
+{
+    showing_fallback: bool,
+    // both the children and the fallback are always present, and we toggle between the two of them
+    // as needed
+    children: Chil::State,
+    fallback: Fal::State,
+    placeholder: Rndr::Placeholder,
+}
+
+impl<Chil, Fal, Rndr> Mountable<Rndr>
+    for ErrorBoundaryViewState<Chil, Fal, Rndr>
+where
+    Chil: Render<Rndr>,
+    Fal: Render<Rndr>,
+    Rndr: Renderer,
+{
+    fn unmount(&mut self) {
+        if self.showing_fallback {
+            self.fallback.unmount();
+        } else {
+            self.children.unmount();
+        }
+        self.placeholder.unmount();
+    }
+
+    fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
+        if self.showing_fallback {
+            self.fallback.mount(parent, marker);
+        } else {
+            self.children.mount(parent, marker);
+        }
+        self.placeholder.mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &Rndr::Element,
+        child: &mut dyn Mountable<Rndr>,
+    ) -> bool {
+        if self.showing_fallback {
+            self.fallback.insert_before_this(parent, child)
+        } else {
+            self.children.insert_before_this(parent, child)
+        }
+    }
+}
+
+impl<Chil, Fal, Rndr> Render<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
+where
+    Chil: Render<Rndr>,
+    Fal: Render<Rndr>,
     Rndr: Renderer,
 {
     type State = ErrorBoundaryViewState<Chil, Fal, Rndr>;
     type FallibleState = ();
-    type AsyncOutput = ErrorBoundaryView<Chil, FalFn, Fal, Rndr>;
+    type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, Fal, Rndr>;
 
     fn build(self) -> Self::State {
-        let Self {
-            errors,
-            errors_empty,
-            children,
-            mut fallback,
-            fal_ty,
-            rndr,
-        } = self;
         let placeholder = Rndr::create_placeholder();
-        let mut children = Some(children);
-        let effect = RenderEffect::new({
-            let placeholder = placeholder.clone();
-            move |prev: Option<
-                Either<Chil::State, (Fal::State, Chil::State)>,
-            >| {
-                errors_empty.track();
-                if let Some(prev) = prev {
-                    match (errors_empty.get_untracked(), prev) {
-                        // no errors, and already showing children
-                        (true, Either::Left(children)) => {
-                            Either::Left(children)
-                        }
-                        // no errors, and was showing fallback
-                        (true, Either::Right((mut fallback, mut children))) => {
-                            fallback.unmount();
-                            Rndr::mount_before(
-                                &mut children,
-                                placeholder.as_ref(),
-                            );
-                            Either::Left(children)
-                        }
-                        // yes errors, and was showing children
-                        (false, Either::Left(mut chil)) => {
-                            chil.unmount();
-                            let mut fal = fallback(&errors).build();
-                            Rndr::mount_before(&mut fal, placeholder.as_ref());
-                            Either::Right((fal, chil))
-                        }
-                        // yes errors, and was showing fallback
-                        (false, Either::Right(_)) => todo!(),
-                    }
-                } else {
-                    let children = children.take().unwrap();
-                    let mut children = children.into_inner();
-                    let children = children().into_inner().build();
-                    if errors_empty.get_untracked() {
-                        Either::Left(children)
-                    } else {
-                        Either::Right((fallback(&errors).build(), children))
-                    }
-                }
-            }
-        });
+        let children = (self.children.expect(
+            "tried to build ErrorBoundary but children were not present",
+        ))
+        .build();
+        let fallback = self.fallback.build();
         ErrorBoundaryViewState {
-            effect,
+            showing_fallback: !self.errors_empty,
+            children,
+            fallback,
             placeholder,
-            chil_ty: PhantomData,
-            fal_ty,
-            rndr,
         }
     }
 
-    fn rebuild(self, state: &mut Self::State) {}
+    fn rebuild(self, state: &mut Self::State) {
+        match (self.errors_empty, state.showing_fallback) {
+            // no errors, and was showing fallback
+            (true, true) => {
+                state.fallback.unmount();
+                Rndr::mount_before(
+                    &mut state.children,
+                    state.placeholder.as_ref(),
+                );
+            }
+            // yes errors, and was showing children
+            (false, false) => {
+                state.children.unmount();
+                Rndr::mount_before(
+                    &mut state.fallback,
+                    state.placeholder.as_ref(),
+                );
+            }
+            // either there were no errors, and we were already showing the children
+            // or there are errors, but we were already showing the fallback
+            // in either case, rebuilding doesn't require us to do anything
+            _ => {}
+        }
+        state.showing_fallback = !self.errors_empty;
+    }
 
     fn try_build(self) -> any_error::Result<Self::FallibleState> {
         todo!()
@@ -171,98 +199,104 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self
+        let Self {
+            errors_empty,
+            children,
+            fallback,
+            rndr,
+        } = self;
+        if errors_empty {
+            crate::logging::log!("no errors!");
+        }
+        let children = match children {
+            Some(inner) if errors_empty => Some(inner.resolve().await),
+            _ => None,
+        };
+        ErrorBoundaryView {
+            errors_empty,
+            children,
+            fallback,
+            rndr,
+        }
     }
 }
 
-impl<Chil, FalFn, Fal, Rndr> RenderHtml<Rndr>
-    for ErrorBoundaryView<Chil, FalFn, Fal, Rndr>
+impl<Chil, Fal, Rndr> RenderHtml<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
 where
-    Chil: Render<Rndr> + 'static,
-    Chil::State: 'static,
-    Fal: Render<Rndr> + 'static,
-    Fal::State: 'static,
-    FalFn: FnMut(&ArcRwSignal<Errors>) -> Fal + Send + 'static,
+    Chil: RenderHtml<Rndr>,
+    Fal: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    const MIN_LENGTH: usize = 0; //Chil::MIN_LENGTH;
+    const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn to_html_with_buf(
-        self,
-        buf: &mut String,
-        position: &mut tachys::view::Position,
-    ) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         todo!()
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &tachys::hydration::Cursor<Rndr>,
-        position: &tachys::view::PositionState,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
     ) -> Self::State {
         todo!()
     }
 }
 
-struct ErrorBoundaryViewState<Chil, Fal, Rndr>
+#[derive(Debug)]
+struct Rebuildable<T>(T);
+
+impl<T, F, R> Render<R> for Rebuildable<F>
 where
-    Chil: Render<Rndr>,
-    Chil::State: 'static,
-    Fal: Render<Rndr>,
-    Fal::State: 'static,
-    Rndr: Renderer,
+    F: FnMut() -> T + 'static + Render<R>,
+    T: Render<R>,
+    R: Renderer,
 {
-    effect: RenderEffect<Either<Chil::State, (Fal::State, Chil::State)>>,
-    placeholder: Rndr::Placeholder,
-    chil_ty: PhantomData<Chil>,
-    fal_ty: PhantomData<Fal>,
-    rndr: PhantomData<Rndr>,
+    type State = F::State;
+    type FallibleState = ();
+    type AsyncOutput = T::AsyncOutput;
+
+    fn build(self) -> Self::State {
+        self.0.build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        self.0.rebuild(state);
+    }
+
+    fn try_build(self) -> any_error::Result<Self::FallibleState> {
+        todo!()
+    }
+
+    fn try_rebuild(
+        self,
+        _state: &mut Self::FallibleState,
+    ) -> any_error::Result<()> {
+        todo!()
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        (self.0)().resolve().await
+    }
 }
 
-impl<Chil, Fal, Rndr> Mountable<Rndr>
-    for ErrorBoundaryViewState<Chil, Fal, Rndr>
+impl<T, F, R> RenderHtml<R> for Rebuildable<F>
 where
-    Chil: Render<Rndr>,
-    Fal: Render<Rndr>,
-    Rndr: Renderer,
+    F: FnMut() -> T + 'static + RenderHtml<R>,
+    T: RenderHtml<R>,
+    R: Renderer,
 {
-    fn unmount(&mut self) {
-        self.effect.with_value_mut(|state| match state {
-            Either::Left(chil) => chil.unmount(),
-            Either::Right((fal, _)) => fal.unmount(),
-        });
-        self.placeholder.unmount();
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        todo!()
     }
 
-    fn mount(
-        &mut self,
-        parent: &<Rndr as Renderer>::Element,
-        marker: Option<&<Rndr as Renderer>::Node>,
-    ) {
-        self.placeholder.mount(parent, marker);
-        self.effect.with_value_mut(|state| match state {
-            Either::Left(chil) => {
-                chil.mount(parent, Some(self.placeholder.as_ref()))
-            }
-            Either::Right((fal, _)) => {
-                fal.mount(parent, Some(self.placeholder.as_ref()))
-            }
-        });
-    }
-
-    fn insert_before_this(
-        &self,
-        parent: &<Rndr as Renderer>::Element,
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
-        self.effect
-            .with_value_mut(|state| match state {
-                Either::Left(chil) => chil.insert_before_this(parent, child),
-                Either::Right((fal, _)) => {
-                    fal.insert_before_this(parent, child)
-                }
-            })
-            .unwrap_or(false)
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<R>,
+        position: &PositionState,
+    ) -> Self::State {
+        todo!()
     }
 }
 
@@ -273,6 +307,7 @@ struct ErrorBoundaryErrorHook {
 
 impl ErrorHook for ErrorBoundaryErrorHook {
     fn throw(&self, error: Error) -> ErrorId {
+        crate::logging::log!("throwing error...");
         let key = ErrorId::default();
         self.errors.update(|map| {
             map.insert(key.clone(), error);
@@ -281,6 +316,7 @@ impl ErrorHook for ErrorBoundaryErrorHook {
     }
 
     fn clear(&self, id: &any_error::ErrorId) {
+        crate::logging::log!("clearing error!");
         self.errors.update(|map| {
             map.remove(id);
         });
