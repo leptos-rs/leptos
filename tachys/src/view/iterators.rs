@@ -38,7 +38,7 @@ where
             } // None => Some: build
             (None, Some(new)) => {
                 let mut new_state = new.build();
-                R::mount_before(&mut new_state, state.placeholder.as_ref());
+                R::try_mount_before(&mut new_state, state.placeholder.as_ref());
                 state.state = Some(new_state);
             }
         }
