@@ -147,6 +147,7 @@
 extern crate self as leptos;
 
 pub mod prelude {
+    pub use crate::suspense_component::FutureViewExt;
     pub use reactive_graph::prelude::*;
     pub use tachys::prelude::*;
 }
@@ -165,7 +166,7 @@ pub mod nonce;
 mod show;
 mod suspense_component;
 pub mod text_prop;
-mod transition;
+//mod transition;
 pub use any_error as error;
 pub use for_loop::*;
 pub use hydration_scripts::*;
@@ -176,8 +177,8 @@ pub use reactive_graph::{
 };
 pub use server_fn;
 pub use show::*;
-pub use suspense_component::*;
-pub use transition::*;
+pub use suspense_component::Suspense;
+//pub use transition::*;
 #[doc(hidden)]
 pub use typed_builder;
 #[doc(hidden)]
