@@ -25,7 +25,7 @@ type CatCount = usize;
 
 async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
     if count > 0 {
-        gloo_timers::future::TimeoutFuture::new(250).await;
+        gloo_timers::future::TimeoutFuture::new(1000).await;
         // make the request
         let res = reqwasm::http::Request::get(&format!(
             "https://api.thecatapi.com/v1/images/search?limit={count}",
@@ -47,7 +47,7 @@ async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
 }
 
 pub fn fetch_example() -> impl IntoView {
-    let (cat_count, set_cat_count) = signal::<CatCount>(0);
+    let (cat_count, set_cat_count) = signal::<CatCount>(1);
 
     // we use new_unsync here because the reqwasm request type isn't Send
     // if we were doing SSR, then
@@ -74,21 +74,6 @@ pub fn fetch_example() -> impl IntoView {
         }
     };
 
-    // TODO weaving together Transition and ErrorBoundary is hard with the new async API for
-    // suspense, because Transition expects a Future as its children, and ErrorBoundary isn't a
-    // future
-    /*let cats_view = move || {
-        async move {
-            cats.await.map(|cats| {
-                cats.into_iter()
-                    .map(|s| view! { <p><img src={s}/></p> })
-                    .collect::<Vec<_>>()
-            })
-            //.catch(|e| view! { <p class="error">{e.to_string()}</p> })
-        }
-        .suspend()
-    };*/
-
     view! {
         <div>
             <label>
@@ -102,22 +87,22 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-            <ErrorBoundary fallback>
-                <Transition fallback=|| view! { <div>"Loading..."</div> }>
-                    <ul>
-                    {
-                        async move {
-                            cats.await.map(|cats| {
-                                cats.into_iter()
-                                    .map(|s| view! { <li><img src={s}/></li> })
-                                    .collect::<Vec<_>>()
-                            })
+            <Suspense fallback=|| view! { <div>"Loading..."</div> }>
+                <ErrorBoundary fallback>
+                        <ul>
+                        {
+                            async move {
+                                cats.await.map(|cats| {
+                                    cats.into_iter()
+                                        .map(|s| view! { <li><img src={s}/></li> })
+                                        .collect::<Vec<_>>()
+                                })
+                            }
+                            .suspend()
                         }
-                        .suspend()
-                    }
-                    </ul>
-                </Transition>
-            </ErrorBoundary>
+                        </ul>
+                </ErrorBoundary>
+            </Suspense>
         </div>
     }
 }
