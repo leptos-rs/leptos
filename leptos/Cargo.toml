@@ -16,13 +16,18 @@ leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
-leptos-spin-macro = { version="0.1", optional = true}
+leptos-spin-macro = { version = "0.1", optional = true }
 tracing = "0.1"
 typed-builder = "0.18"
 typed-builder-macro = "0.18"
 serde = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
-server_fn = { workspace = true, features = ["form-redirects", "browser", "url", "cbor"] }
+server_fn = { workspace = true, features = [
+  "form-redirects",
+  "browser",
+  "url",
+  "cbor",
+] }
 web-sys = { version = "0.3.63", features = [
   "ShadowRoot",
   "ShadowRootInit",
@@ -68,10 +73,7 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 nonce = ["leptos_dom/nonce"]
-spin = [
-  "leptos_reactive/spin",
-  "leptos-spin-macro"
-]
+spin = ["leptos_reactive/spin", "leptos-spin-macro"]
 experimental-islands = [
   "leptos_dom/experimental-islands",
   "leptos_macro/experimental-islands",
@@ -81,7 +83,7 @@ experimental-islands = [
 ]
 trace-component-props = [
   "leptos_dom/trace-component-props",
-  "leptos_macro/trace-component-props"
+  "leptos_macro/trace-component-props",
 ]
 
 [package.metadata.cargo-all-features]
@@ -92,9 +94,10 @@ denylist = [
   "rustls",
   "default-tls",
   "wasm-bindgen",
+  "rkyv",                  # was causing clippy issues on nightly
   "trace-component-props",
   "spin",
-  "experimental-islands"
+  "experimental-islands",
 ]
 skip_feature_sets = [
   [

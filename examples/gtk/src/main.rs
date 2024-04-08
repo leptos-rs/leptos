@@ -51,7 +51,7 @@ fn counter_button() -> Button {
     create_effect({
         let button = button.clone();
         move |_| {
-            button.set_label(&format!("Count: {}", value()));
+            button.set_label(&format!("Count: {}", value.get()));
         }
     });
 

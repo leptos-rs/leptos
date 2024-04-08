@@ -14,7 +14,7 @@ pub async fn fetch_user(
 pub fn User() -> impl IntoView {
     let params = use_params_map();
     let user = create_resource(
-        move || params().get("id").cloned().unwrap_or_default(),
+        move || params.get().get("id").cloned().unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 Ok(None)

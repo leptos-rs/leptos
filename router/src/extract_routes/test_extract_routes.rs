@@ -186,7 +186,7 @@ impl History for TestHistory {
     }
 
     fn navigate(&self, new_loc: &LocationChange) {
-        self.loc.update(|loc| loc.value = new_loc.value.clone())
+        self.loc.update(|loc| loc.value.clone_from(&new_loc.value))
     }
 }
 

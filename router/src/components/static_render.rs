@@ -270,6 +270,7 @@ where
         if let Some(data) = static_data.get(path.path()) {
             path.add_params(data);
         }
+        #[allow(clippy::print_stdout)]
         for path in path.into_paths() {
             println!("building static route: {}", path);
             path.write(options, app_fn.clone(), additional_context.clone())

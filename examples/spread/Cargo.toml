@@ -1,0 +1,14 @@
+[package]
+name = "spread"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[dependencies]
+leptos = { path = "../../leptos", features = ["csr"] }
+console_log = "1"
+log = "0.4"
+console_error_panic_hook = "0.1.7"

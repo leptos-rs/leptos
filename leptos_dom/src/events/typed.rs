@@ -167,6 +167,86 @@ impl DOMEventResponder for crate::View {
     }
 }
 
+/// A statically typed event handler.
+pub enum EventHandlerFn {
+    /// `keydown` event handler.
+    Keydown(Box<dyn FnMut(KeyboardEvent)>),
+    /// `keyup` event handler.
+    Keyup(Box<dyn FnMut(KeyboardEvent)>),
+    /// `keypress` event handler.
+    Keypress(Box<dyn FnMut(KeyboardEvent)>),
+
+    /// `click` event handler.
+    Click(Box<dyn FnMut(MouseEvent)>),
+    /// `dblclick` event handler.
+    Dblclick(Box<dyn FnMut(MouseEvent)>),
+    /// `mousedown` event handler.
+    Mousedown(Box<dyn FnMut(MouseEvent)>),
+    /// `mouseup` event handler.
+    Mouseup(Box<dyn FnMut(MouseEvent)>),
+    /// `mouseenter` event handler.
+    Mouseenter(Box<dyn FnMut(MouseEvent)>),
+    /// `mouseleave` event handler.
+    Mouseleave(Box<dyn FnMut(MouseEvent)>),
+    /// `mouseout` event handler.
+    Mouseout(Box<dyn FnMut(MouseEvent)>),
+    /// `mouseover` event handler.
+    Mouseover(Box<dyn FnMut(MouseEvent)>),
+    /// `mousemove` event handler.
+    Mousemove(Box<dyn FnMut(MouseEvent)>),
+
+    /// `wheel` event handler.
+    Wheel(Box<dyn FnMut(WheelEvent)>),
+
+    /// `touchstart` event handler.
+    Touchstart(Box<dyn FnMut(TouchEvent)>),
+    /// `touchend` event handler.
+    Touchend(Box<dyn FnMut(TouchEvent)>),
+    /// `touchcancel` event handler.
+    Touchcancel(Box<dyn FnMut(TouchEvent)>),
+    /// `touchmove` event handler.
+    Touchmove(Box<dyn FnMut(TouchEvent)>),
+
+    /// `pointerenter` event handler.
+    Pointerenter(Box<dyn FnMut(PointerEvent)>),
+    /// `pointerleave` event handler.
+    Pointerleave(Box<dyn FnMut(PointerEvent)>),
+    /// `pointerdown` event handler.
+    Pointerdown(Box<dyn FnMut(PointerEvent)>),
+    /// `pointerup` event handler.
+    Pointerup(Box<dyn FnMut(PointerEvent)>),
+    /// `pointercancel` event handler.
+    Pointercancel(Box<dyn FnMut(PointerEvent)>),
+    /// `pointerout` event handler.
+    Pointerout(Box<dyn FnMut(PointerEvent)>),
+    /// `pointerover` event handler.
+    Pointerover(Box<dyn FnMut(PointerEvent)>),
+    /// `pointermove` event handler.
+    Pointermove(Box<dyn FnMut(PointerEvent)>),
+
+    /// `drag` event handler.
+    Drag(Box<dyn FnMut(DragEvent)>),
+    /// `dragend` event handler.
+    Dragend(Box<dyn FnMut(DragEvent)>),
+    /// `dragenter` event handler.
+    Dragenter(Box<dyn FnMut(DragEvent)>),
+    /// `dragleave` event handler.
+    Dragleave(Box<dyn FnMut(DragEvent)>),
+    /// `dragstart` event handler.
+    Dragstart(Box<dyn FnMut(DragEvent)>),
+    /// `drop` event handler.
+    Drop(Box<dyn FnMut(DragEvent)>),
+
+    /// `blur` event handler.
+    Blur(Box<dyn FnMut(FocusEvent)>),
+    /// `focusout` event handler.
+    Focusout(Box<dyn FnMut(FocusEvent)>),
+    /// `focus` event handler.
+    Focus(Box<dyn FnMut(FocusEvent)>),
+    /// `focusin` event handler.
+    Focusin(Box<dyn FnMut(FocusEvent)>),
+}
+
 /// Type that can be used to handle DOM events
 pub trait EventHandler {
     /// Attaches event listener to any target that can respond to DOM events

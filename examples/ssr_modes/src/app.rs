@@ -67,7 +67,7 @@ fn HomePage() -> impl IntoView {
 
 #[derive(Params, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PostParams {
-    id: usize,
+    id: Option<usize>,
 }
 
 #[component]
@@ -75,22 +75,28 @@ fn Post() -> impl IntoView {
     let query = use_params::<PostParams>();
     let id = move || {
         query.with(|q| {
-            q.as_ref().map(|q| q.id).map_err(|_| PostError::InvalidId)
+            q.as_ref()
+                .map(|q| q.id.unwrap_or_default())
+                .map_err(|_| PostError::InvalidId)
         })
     };
-    let post = create_resource(id, |id| async move {
+    let post_resource = create_resource(id, |id| async move {
         match id {
             Err(e) => Err(e),
             Ok(id) => get_post(id)
                 .await
                 .map(|data| data.ok_or(PostError::PostNotFound))
-                .map_err(|_| PostError::ServerError)
-                .flatten(),
+                .map_err(|_| PostError::ServerError),
         }
     });
 
+    let post = move || match post_resource.get() {
+        Some(Ok(Ok(v))) => Ok(v),
+        _ => Err(PostError::ServerError),
+    };
+
     let post_view = move || {
-        post.and_then(|post| {
+        post().map(|post| {
             view! {
                 // render content
                 <h1>{&post.title}</h1>

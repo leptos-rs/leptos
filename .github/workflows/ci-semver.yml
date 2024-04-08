@@ -1,0 +1,28 @@
+name: CI semver
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  get-leptos-changed:
+    uses: ./.github/workflows/get-leptos-changed.yml
+
+  test:
+    needs: [get-leptos-changed]
+    if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
+    name: Run semver check (nightly-2024-03-31)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Semver Checks
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          rust-toolchain: nightly-2024-03-31

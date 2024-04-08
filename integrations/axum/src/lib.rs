@@ -302,14 +302,8 @@ async fn handle_server_fns_inner(
             // actually run the server fn
             let mut res = service.run(req).await;
 
-            // update response as needed
-            let res_options = expect_context::<ResponseOptions>().0;
-            let res_options_inner = res_options.read();
-            let (status, mut res_headers) =
-                (res_options_inner.status, res_options_inner.headers.clone());
-
-            // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
-            // Location set, then redirect to to Referer
+            // if it accepts text/html (i.e., is a plain form post) and doesn't already have a
+            // Location set, then redirect to Referer
             if accepts_html {
                 if let Some(referrer) = referrer {
                     let has_location = res.headers().get(LOCATION).is_some();
@@ -320,11 +314,22 @@ async fn handle_server_fns_inner(
                 }
             }
 
-            // apply status code and headers if used changed them
-            if let Some(status) = status {
-                *res.status_mut() = status;
+            // update response as needed
+            if let Some(res_options) = use_context::<ResponseOptions>() {
+                let res_options_inner = res_options.0.read();
+                let (status, mut res_headers) = (
+                    res_options_inner.status,
+                    res_options_inner.headers.clone(),
+                );
+
+                // apply status code and headers if used changed them
+                if let Some(status) = status {
+                    *res.status_mut() = status;
+                }
+                res.headers_mut().extend(res_headers.drain());
+            } else {
+                eprintln!("Failed to find ResponseOptions for {path}");
             }
-            res.headers_mut().extend(res_headers.drain());
 
             // clean up the scope
             runtime.dispose();
@@ -1075,7 +1080,7 @@ where
 
                 headers.extend(res_headers.drain());
 
-                // This one doesn't use generate_response(), so we need to do this seperately
+                // This one doesn't use generate_response(), so we need to do this separately
                 if !headers.contains_key(header::CONTENT_TYPE) {
                     // Set the Content Type headers on all responses. This makes Firefox show the page source
                     // without complaining
@@ -1624,6 +1629,30 @@ where
 
         let mut router = self;
 
+        // register server functions first to allow for wildcard router path
+        for (path, method) in server_fn::axum::server_fn_paths() {
+            let cx_with_state = cx_with_state.clone();
+            let handler = move |req: Request<Body>| async move {
+                handle_server_fns_with_context(cx_with_state, req).await
+            };
+            router = router.route(
+                path,
+                match method {
+                    Method::GET => get(handler),
+                    Method::POST => post(handler),
+                    Method::PUT => put(handler),
+                    Method::DELETE => delete(handler),
+                    Method::PATCH => patch(handler),
+                    _ => {
+                        panic!(
+                            "Unsupported server function HTTP method: \
+                             {method:?}"
+                        );
+                    }
+                },
+            );
+        }
+
         // register router paths
         for listing in paths.iter() {
             let path = listing.path();
@@ -1720,30 +1749,6 @@ where
                 )
                 };
             }
-        }
-
-        // register server functions
-        for (path, method) in server_fn::axum::server_fn_paths() {
-            let cx_with_state = cx_with_state.clone();
-            let handler = move |req: Request<Body>| async move {
-                handle_server_fns_with_context(cx_with_state, req).await
-            };
-            router = router.route(
-                path,
-                match method {
-                    Method::GET => get(handler),
-                    Method::POST => post(handler),
-                    Method::PUT => put(handler),
-                    Method::DELETE => delete(handler),
-                    Method::PATCH => patch(handler),
-                    _ => {
-                        panic!(
-                            "Unsupported server function HTTP method: \
-                             {method:?}"
-                        );
-                    }
-                },
-            );
         }
 
         router

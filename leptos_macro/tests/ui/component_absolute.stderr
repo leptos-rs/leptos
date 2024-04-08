@@ -30,16 +30,22 @@ error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
 25 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: unexpected end of input, expected assignment `=`
-  --> tests/ui/component_absolute.rs:32:19
+error: unexpected end of input, expected `=` or `(`
+
+       = help: try `#[prop(default = 5 * 10)]`
+  --> tests/ui/component_absolute.rs:30:1
    |
-32 |     #[prop(default)] default: bool,
-   |                   ^
+30 | #[::leptos::component]
+   | ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `::leptos::component` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
 
-       = help: try `#[prop(default=5 * 10)]`
-  --> tests/ui/component_absolute.rs:39:22
+       = help: try `#[prop(default = 5 * 10)]`
+  --> tests/ui/component_absolute.rs:37:1
    |
-39 |     #[prop(default= |)] default: bool,
-   |                      ^
+37 | #[::leptos::component]
+   | ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `::leptos::component` (in Nightly builds, run with -Z macro-backtrace for more info)

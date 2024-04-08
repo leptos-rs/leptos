@@ -5,7 +5,8 @@ pub fn App() -> impl IntoView {
     let (value, set_value) = create_signal(Ok(0));
 
     // when input changes, try to parse a number from the input
-    let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
+    let on_input =
+        move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 
     view! {
         <h1>"Error Handling"</h1>

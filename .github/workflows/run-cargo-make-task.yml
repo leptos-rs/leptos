@@ -27,11 +27,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ inputs.toolchain }}
-          override: true
-          components: rustfmt
 
       - name: Add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
@@ -43,6 +41,18 @@ jobs:
         run: cargo generate-lockfile
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: Install binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install wasm-bindgen
+        run: cargo binstall wasm-bindgen-cli --no-confirm
+
+      - name: Install wasm-pack
+        run: cargo binstall wasm-pack --no-confirm
+
+      - name: Install cargo-leptos
+        run: cargo binstall cargo-leptos --no-confirm
 
       - name: Install Trunk
         uses: jetli/trunk-action@v0.4.0
@@ -69,7 +79,7 @@ jobs:
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}

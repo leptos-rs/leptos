@@ -442,6 +442,21 @@ fn attribute_to_tokens_ssr<'a>(
                 { _ = #value; }
             });
         }
+    } else if let Some(directive_name) = name.strip_prefix("use:") {
+        let handler = syn::Ident::new(directive_name, attr.key.span());
+        let value = attr.value();
+        let value = value.map(|value| {
+            quote! {
+                _ = #value;
+            }
+        });
+        exprs_for_compiler.push(quote! {
+            #[allow(unused_braces)]
+            {
+                _ = #handler;
+                #value
+            }
+        });
     } else if name == "inner_html" {
         return attr.value();
     } else {

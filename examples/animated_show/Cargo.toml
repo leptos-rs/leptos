@@ -7,7 +7,7 @@ edition = "2021"
 codegen-units = 1
 lto = true
 
-[dependencies]
+[dependencies] 
 leptos = { path = "../../leptos", features = ["csr"] }
 console_log = "1"
 log = "0.4"

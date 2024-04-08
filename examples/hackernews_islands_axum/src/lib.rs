@@ -1,5 +1,3 @@
-#![feature(lazy_cell)]
-
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;

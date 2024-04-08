@@ -6,9 +6,12 @@ use std::collections::HashSet;
 pub struct User {
     pub id: i64,
     pub username: String,
-    pub password: String,
     pub permissions: HashSet<String>,
 }
+
+// Explicitly is not Serialize/Deserialize!
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UserPasshash(String);
 
 impl Default for User {
     fn default() -> Self {
@@ -17,7 +20,6 @@ impl Default for User {
         Self {
             id: -1,
             username: "Guest".into(),
-            password: "".into(),
             permissions,
         }
     }
@@ -25,7 +27,7 @@ impl Default for User {
 
 #[cfg(feature = "ssr")]
 pub mod ssr {
-    pub use super::User;
+    pub use super::{User, UserPasshash};
     pub use axum_session_auth::{
         Authentication, HasPermission, SessionSqlitePool,
     };
@@ -42,7 +44,10 @@ pub mod ssr {
     pub use bcrypt::{hash, verify, DEFAULT_COST};
 
     impl User {
-        pub async fn get(id: i64, pool: &SqlitePool) -> Option<Self> {
+        pub async fn get_with_passhash(
+            id: i64,
+            pool: &SqlitePool,
+        ) -> Option<(Self, UserPasshash)> {
             let sqluser = sqlx::query_as::<_, SqlUser>(
                 "SELECT * FROM users WHERE id = ?",
             )
@@ -63,10 +68,16 @@ pub mod ssr {
             Some(sqluser.into_user(Some(sql_user_perms)))
         }
 
-        pub async fn get_from_username(
+        pub async fn get(id: i64, pool: &SqlitePool) -> Option<Self> {
+            User::get_with_passhash(id, pool)
+                .await
+                .map(|(user, _)| user)
+        }
+
+        pub async fn get_from_username_with_passhash(
             name: String,
             pool: &SqlitePool,
-        ) -> Option<Self> {
+        ) -> Option<(Self, UserPasshash)> {
             let sqluser = sqlx::query_as::<_, SqlUser>(
                 "SELECT * FROM users WHERE username = ?",
             )
@@ -85,6 +96,15 @@ pub mod ssr {
             .ok()?;
 
             Some(sqluser.into_user(Some(sql_user_perms)))
+        }
+
+        pub async fn get_from_username(
+            name: String,
+            pool: &SqlitePool,
+        ) -> Option<Self> {
+            User::get_from_username_with_passhash(name, pool)
+                .await
+                .map(|(user, _)| user)
         }
     }
 
@@ -137,20 +157,22 @@ pub mod ssr {
         pub fn into_user(
             self,
             sql_user_perms: Option<Vec<SqlPermissionTokens>>,
-        ) -> User {
-            User {
-                id: self.id,
-                username: self.username,
-                password: self.password,
-                permissions: if let Some(user_perms) = sql_user_perms {
-                    user_perms
-                        .into_iter()
-                        .map(|x| x.token)
-                        .collect::<HashSet<String>>()
-                } else {
-                    HashSet::<String>::new()
+        ) -> (User, UserPasshash) {
+            (
+                User {
+                    id: self.id,
+                    username: self.username,
+                    permissions: if let Some(user_perms) = sql_user_perms {
+                        user_perms
+                            .into_iter()
+                            .map(|x| x.token)
+                            .collect::<HashSet<String>>()
+                    } else {
+                        HashSet::<String>::new()
+                    },
                 },
-            }
+                UserPasshash(self.password),
+            )
         }
     }
 }
@@ -180,11 +202,12 @@ pub async fn login(
     let pool = pool()?;
     let auth = auth()?;
 
-    let user: User = User::get_from_username(username, &pool)
-        .await
-        .ok_or_else(|| ServerFnError::new("User does not exist."))?;
+    let (user, UserPasshash(expected_passhash)) =
+        User::get_from_username_with_passhash(username, &pool)
+            .await
+            .ok_or_else(|| ServerFnError::new("User does not exist."))?;
 
-    match verify(password, &user.password)? {
+    match verify(password, &expected_passhash)? {
         true => {
             auth.login_user(user.id);
             auth.remember_user(remember.is_some());

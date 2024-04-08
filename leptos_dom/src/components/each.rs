@@ -516,8 +516,10 @@ where
     }
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 struct HashRun<T>(T);
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl<T> fmt::Debug for HashRun<T> {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -1065,7 +1067,7 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
 //             ]
 //         );
 
-//         // Now we're going to to the same as above, just with more items
+//         // Now we're going to do the same as above, just with more items
 //         //
 //         // A = 1
 //         // B = 2, 3

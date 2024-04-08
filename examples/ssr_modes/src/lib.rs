@@ -1,5 +1,3 @@
-#![feature(result_flattening)]
-
 pub mod app;
 
 #[cfg(feature = "hydrate")]

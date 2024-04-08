@@ -56,9 +56,14 @@ pub fn html_parts_separated(
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
 ) -> (String, &'static str) {
-    let pkg_path = option_env!("CDN_PKG_PATH")
-        .map(Cow::from)
-        .unwrap_or_else(|| format!("/{}", options.site_pkg_dir).into());
+    // First check runtime env, then build time, then default:
+    let pkg_path = match std::env::var("CDN_PKG_PATH").ok().map(Cow::from) {
+        Some(path) => path,
+        None => match option_env!("CDN_PKG_PATH").map(Cow::from) {
+            Some(path) => path,
+            None => format!("/{}", options.site_pkg_dir).into(),
+        },
+    };
     let output_name = &options.output_name;
     let nonce = use_nonce();
     let nonce = nonce

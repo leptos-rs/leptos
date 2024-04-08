@@ -37,7 +37,7 @@ pub fn Stories() -> impl IntoView {
 
     let hide_more_link = move || {
         stories.get().unwrap_or(None).unwrap_or_default().len() < 28
-            || pending()
+            || pending.get()
     };
 
     view! {

@@ -36,7 +36,10 @@ pub use directive::*;
 pub use events::add_event_helper;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
-pub use events::{typed as ev, typed::EventHandler};
+pub use events::{
+    typed as ev,
+    typed::{EventHandler, EventHandlerFn},
+};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
@@ -771,9 +774,26 @@ impl View {
                 });
               }
               Self::CoreComponent(c) => match c {
-                CoreComponent::DynChild(_) => {}
-                CoreComponent::Each(_) => {}
-                _ => {}
+                CoreComponent::DynChild(d) => {
+                    if let Some(subview) = *d.child.take() {
+                        let subview = subview.on(event, event_handler);
+                        d.child.replace(Box::new(Some(subview)));
+                    }
+                }
+                CoreComponent::Each(each) => {
+                    let event_handler = Rc::new(RefCell::new(event_handler));
+                    let new_children = each.children.take().into_iter().map(|item| {
+                        if let Some(mut item) = item {
+                            let event_handler = Rc::clone(&event_handler);
+                            item.child = item.child.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
+                            Some(item)
+                        } else {
+                            None
+                        }
+                    }).collect::<Vec<_>>();
+                    each.children.replace(new_children);
+                }
+                CoreComponent::Unit(_) => {}
               },
               _ => {}
             }
@@ -1158,6 +1178,17 @@ impl IntoView for Cow<'static, str> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "#text", skip_all)
+    )]
+    #[inline(always)]
+    fn into_view(self) -> View {
+        View::Text(Text::new(self.into()))
+    }
+}
+
+impl IntoView for Rc<str> {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", name = "#text", skip_all)
     )]
     #[inline(always)]
     fn into_view(self) -> View {
