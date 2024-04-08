@@ -24,7 +24,6 @@ pub(crate) enum TagType {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn fragment_to_tokens(
-    _span: Span,
     nodes: &[Node],
     lazy: bool,
     parent_type: TagType,
@@ -35,9 +34,16 @@ pub(crate) fn fragment_to_tokens(
     let mut slots = HashMap::new();
     let has_slots = parent_slots.is_some();
 
+    let original_span = nodes
+        .first()
+        .zip(nodes.last())
+        .and_then(|(first, last)| first.span().join(last.span()))
+        .unwrap_or_else(Span::call_site);
+
     let mut nodes = nodes
         .iter()
         .filter_map(|node| {
+            let span = node.span();
             let node = node_to_tokens(
                 node,
                 parent_type,
@@ -46,8 +52,12 @@ pub(crate) fn fragment_to_tokens(
                 None,
             )?;
 
+            let node = quote_spanned! {span=>
+                #[allow(unused_braces)] {#node}
+            };
+
             Some(quote! {
-                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
+                ::leptos::IntoView::into_view(#node)
             })
         })
         .peekable();
@@ -72,7 +82,7 @@ pub(crate) fn fragment_to_tokens(
     };
 
     let tokens = if lazy {
-        quote! {
+        quote_spanned! {original_span=>
             {
                 ::leptos::Fragment::lazy(|| ::std::vec![
                     #(#nodes),*
@@ -81,7 +91,7 @@ pub(crate) fn fragment_to_tokens(
             }
         }
     } else {
-        quote! {
+        quote_spanned! {original_span=>
             {
                 ::leptos::Fragment::new(::std::vec![
                     #(#nodes),*
@@ -112,7 +122,6 @@ pub(crate) fn node_to_tokens(
 ) -> Option<TokenStream> {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
-            Span::call_site(),
             &fragment.children,
             true,
             parent_type,
@@ -169,7 +178,7 @@ pub(crate) fn element_to_tokens(
         let name = if is_custom_element(&tag) {
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
-            let custom = Ident::new("custom", name.span());
+            let custom = Ident::new("custom", node.name().span());
             quote! { ::leptos::leptos_dom::html::#custom(::leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
@@ -237,9 +246,7 @@ pub(crate) fn element_to_tokens(
                             ..
                         }),
                         _,
-                    ) => Some(
-                        quote! { .bindings(#[allow(unused_brace)] {#end}) },
-                    ),
+                    ) => Some(quote! { .bindings(#end) }),
                     _ => None,
                 }
             } else {
@@ -276,14 +283,7 @@ pub(crate) fn element_to_tokens(
         });
         let global_class_expr = match global_class {
             None => quote! {},
-            Some(class) => {
-                quote! {
-                    .classes(
-                        #[allow(unused_braces)]
-                        {#class}
-                    )
-                }
-            }
+            Some(class) => quote! { .classes(#class) },
         };
 
         if is_self_closing(node) && !node.children.is_empty() {
@@ -295,65 +295,48 @@ pub(crate) fn element_to_tokens(
             );
         }
 
-        let children = node.children.iter().map(|node| {
-            let (child, is_static) = match node {
-                Node::Fragment(fragment) => (
-                    fragment_to_tokens(
-                        Span::call_site(),
-                        &fragment.children,
-                        true,
-                        parent_type,
-                        None,
-                        global_class,
-                        None,
-                    )
-                    .unwrap_or(quote_spanned! {
-                        Span::call_site()=> ::leptos::leptos_dom::Unit
-                    }),
-                    false,
-                ),
-                Node::Text(node) => (quote! { #node }, true),
+        let children = node
+            .children
+            .iter()
+            .map(|node| match node {
+                Node::Fragment(fragment) => fragment_to_tokens(
+                    &fragment.children,
+                    true,
+                    parent_type,
+                    None,
+                    global_class,
+                    None,
+                )
+                .unwrap_or(quote_spanned! {
+                    Span::call_site()=> ::leptos::leptos_dom::Unit
+                }),
+                Node::Text(node) => quote! { #node },
                 Node::RawText(node) => {
                     let text = node.to_string_best();
                     let text = syn::LitStr::new(&text, node.span());
-                    (quote! { #text }, true)
+                    quote! { #text }
                 }
-                Node::Block(node) => (
-                    quote! {
-                       #node
-                    },
-                    false,
-                ),
-                Node::Element(node) => (
-                    element_to_tokens(
-                        node,
-                        parent_type,
-                        None,
-                        global_class,
-                        None,
-                    )
-                    .unwrap_or_default(),
-                    false,
-                ),
-                Node::Comment(_) | Node::Doctype(_) => (quote! {}, false),
-            };
-            if is_static {
-                quote! {
-                    .child(#child)
-                }
-            } else {
-                quote! {
-                    .child((#child))
-                }
-            }
-        });
+                Node::Block(node) => quote! { #node },
+                Node::Element(node) => element_to_tokens(
+                    node,
+                    parent_type,
+                    None,
+                    global_class,
+                    None,
+                )
+                .unwrap_or_default(),
+                Node::Comment(_) | Node::Doctype(_) => quote! {},
+            })
+            .map(|node| quote!(.child(#node)));
+
         let view_marker = if let Some(marker) = view_marker {
             quote! { .with_view_marker(#marker) }
         } else {
             quote! {}
         };
         let ide_helper_close_tag = ide_helper_close_tag.into_iter();
-        Some(quote! {
+        Some(quote_spanned! {node.span()=>
+            #[allow(unused_braces)]
             {
             #(#ide_helper_close_tag)*
             #name
@@ -453,7 +436,7 @@ pub(crate) fn attribute_to_tokens(
             prop.span()=> .prop
         };
         quote! {
-            #prop(#name, #[allow(unused_braces)] {#value})
+            #prop(#name, #value)
         }
     } else if let Some(name) = name.strip_prefix("class:") {
         let value = attribute_value(node);
@@ -465,7 +448,7 @@ pub(crate) fn attribute_to_tokens(
             class.span()=> .class
         };
         quote! {
-            #class(#name, #[allow(unused_braces)] {#value})
+            #class(#name, #value)
         }
     } else if let Some(name) = name.strip_prefix("style:") {
         let value = attribute_value(node);
@@ -477,7 +460,7 @@ pub(crate) fn attribute_to_tokens(
             style.span()=> .style
         };
         quote! {
-            #style(#name, #[allow(unused_braces)] {#value})
+            #style(#name, #value)
         }
     } else {
         let name = name.replacen("attr:", "", 1);
@@ -520,7 +503,7 @@ pub(crate) fn attribute_to_tokens(
             }
         };
         quote! {
-            #attr(#name, (#value))
+            #attr(#name, #value)
         }
     }
 }

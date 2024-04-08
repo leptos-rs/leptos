@@ -1,15 +1,23 @@
 ---
 source: leptos_macro/src/view/tests.rs
+assertion_line: 101
 expression: pretty(result)
 ---
 fn view() {
     ::leptos::IntoView::into_view(
             #[allow(unused_braces)]
             {
-                ::leptos::component_view(
-                    &ExternalComponent,
-                    ::leptos::component_props_builder(&ExternalComponent).build(),
-                )
+                {
+                    let props = ::leptos::component_props_builder(&ExternalComponent);
+                    #[allow(clippy::let_unit_value, clippy::unit_arg)]
+                    let props = props.build();
+                    #[allow(unreachable_code)]
+                    ::leptos::component_view(
+                        #[allow(clippy::needless_borrows_for_generic_args)]
+                        &ExternalComponent,
+                        props,
+                    )
+                }
             },
         )
         .on(

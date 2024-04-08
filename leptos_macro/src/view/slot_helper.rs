@@ -3,7 +3,7 @@ use super::{
     convert_to_snake_case, ident_from_tag_name,
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -23,11 +23,10 @@ pub(crate) fn slot_to_tokens(
     });
 
     let component_name = ident_from_tag_name(node.name());
-    let span = node.name().span();
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error::emit_error!(
-            span,
+            node.name().span(),
             "slots cannot be used inside HTML elements"
         );
         return;
@@ -62,8 +61,12 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            quote! {
-                .#name(#[allow(unused_braces)] {#value})
+            let value = quote_spanned! {value.span()=>
+                #[allow(unused_braces)] {#value}
+            };
+
+            quote_spanned! {attr.span()=>
+                .#name(#value)
             }
         });
 
@@ -109,17 +112,7 @@ pub(crate) fn slot_to_tokens(
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let marker = format!("<{component_name}/>-children");
-                let view_marker = quote! { .with_view_marker(#marker) };
-            } else {
-                let view_marker = quote! {};
-            }
-        }
-
         let children = fragment_to_tokens(
-            span,
             &node.children,
             true,
             TagType::Unknown,
@@ -128,16 +121,28 @@ pub(crate) fn slot_to_tokens(
             None,
         );
 
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let marker = format!("<{component_name}/>-children");
+                // For some reason spanning for `.children` breaks, unless `#view_marker`
+                // is also covered by `children.span()`.
+                let view_marker = quote_spanned!(children.span()=> .with_view_marker(#marker));
+            } else {
+                let view_marker = quote! {};
+            }
+        }
+
         if let Some(children) = children {
             let bindables =
                 items_to_bind.iter().map(|ident| quote! { #ident, });
 
-            let clonables = items_to_clone
-                .iter()
-                .map(|ident| quote! { let #ident = #ident.clone(); });
+            let clonables = items_to_clone.iter().map(|ident| {
+                let ident_ref = quote_spanned!(ident.span()=> &#ident);
+                quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
+            });
 
             if bindables.len() > 0 {
-                quote! {
+                quote_spanned! {children.span()=>
                     .children({
                         #(#clonables)*
 
@@ -145,7 +150,7 @@ pub(crate) fn slot_to_tokens(
                     })
                 }
             } else {
-                quote! {
+                quote_spanned! {children.span()=>
                     .children({
                         #(#clonables)*
 
@@ -158,28 +163,41 @@ pub(crate) fn slot_to_tokens(
         }
     };
 
-    let slots = slots.drain().map(|(slot, values)| {
+    let slots = slots.drain().map(|(slot, mut values)| {
+        let span = values
+            .last()
+            .expect("List of slots must not be empty")
+            .span();
         let slot = Ident::new(&slot, span);
-        if values.len() > 1 {
-            quote! {
-                .#slot(::std::vec![
+        let value = if values.len() > 1 {
+            quote_spanned! {span=>
+                ::std::vec![
                     #(#values)*
-                ])
+                ]
             }
         } else {
-            let value = &values[0];
-            quote! { .#slot(#value) }
-        }
+            values.remove(0)
+        };
+
+        quote! { .#slot(#value) }
     });
 
-    let slot = quote! {
-        #component_name::builder()
-            #(#props)*
-            #(#slots)*
-            #children
-            .build()
-            #dyn_attrs
-            .into(),
+    let build = quote_spanned! {node.name().span()=>
+        .build()
+    };
+
+    let slot = quote_spanned! {node.span()=>
+        #[allow(unused_braces)] {
+            let slot = #component_name::builder()
+                #(#props)*
+                #(#slots)*
+                #children
+                #build
+                #dyn_attrs;
+
+            #[allow(unreachable_code, clippy::useless_conversion)]
+            slot.into()
+        },
     };
 
     parent_slots

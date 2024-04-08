@@ -38,7 +38,6 @@ pub(crate) fn render_view(
                 call_site,
             ),
             _ => server_template::fragment_to_tokens_ssr(
-                Span::call_site(),
                 nodes,
                 global_class,
                 call_site,
@@ -56,7 +55,6 @@ pub(crate) fn render_view(
             )
             .unwrap_or_default(),
             _ => client_builder::fragment_to_tokens(
-                Span::call_site(),
                 nodes,
                 true,
                 client_builder::TagType::Unknown,
@@ -422,7 +420,7 @@ fn fancy_class_name<'a>(
                 let value = &tuple.elems[1];
                 return Some((
                     quote! {
-                        #class(#class_name, (#value))
+                        #class(#class_name, #value)
                     },
                     class_name,
                     value,
@@ -491,7 +489,7 @@ fn fancy_style_name<'a>(
                 let value = &tuple.elems[1];
                 return Some((
                     quote! {
-                        #style(#style_name, (#value))
+                        #style(#style_name, #value)
                     },
                     style_name,
                     value,
@@ -537,10 +535,10 @@ pub(crate) fn directive_call_from_attribute_node(
     let handler = syn::Ident::new(directive_name, attr.key.span());
 
     let param = if let Some(value) = attr.value() {
-        quote! { ::std::convert::Into::into(#value) }
+        quote!(::std::convert::Into::into(#value))
     } else {
-        quote! { ().into() }
+        quote_spanned!(attr.key.span()=> ().into())
     };
 
-    quote! { .directive(#handler, #param) }
+    quote! { .directive(#handler, #[allow(clippy::useless_conversion)] #param) }
 }

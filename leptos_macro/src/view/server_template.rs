@@ -12,7 +12,7 @@ use leptos_hot_reload::parsing::{
     block_to_primitive_expression, is_component_node, value_to_string,
 };
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::quote;
+use quote::{quote, quote_spanned};
 use rstml::node::{
     KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement,
 };
@@ -34,7 +34,6 @@ pub(crate) fn root_node_to_tokens_ssr(
 ) -> TokenStream {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens_ssr(
-            Span::call_site(),
             &fragment.children,
             global_class,
             view_marker,
@@ -65,23 +64,35 @@ pub(crate) fn root_node_to_tokens_ssr(
 }
 
 pub(crate) fn fragment_to_tokens_ssr(
-    _span: Span,
     nodes: &[Node],
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> TokenStream {
+    let original_span = nodes
+        .first()
+        .zip(nodes.last())
+        .and_then(|(first, last)| first.span().join(last.span()))
+        .unwrap_or_else(Span::call_site);
+
     let view_marker = if let Some(marker) = view_marker {
         quote! { .with_view_marker(#marker) }
     } else {
         quote! {}
     };
+
     let nodes = nodes.iter().map(|node| {
+        let span = node.span();
         let node = root_node_to_tokens_ssr(node, global_class, None);
+        let node = quote_spanned! {span=>
+            #[allow(unused_braces)] {#node}
+        };
+
         quote! {
-            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#node})
+            ::leptos::IntoView::into_view(#node)
         }
     });
-    quote! {
+
+    quote_spanned! {original_span=>
         {
             ::leptos::Fragment::lazy(|| ::std::vec![
                 #(#nodes),*
@@ -281,8 +292,10 @@ fn element_to_tokens_ssr(
                     // should basically be the resolved attributes, joined on spaces, placed into
                     // the template
                     template.push_str(" {}");
-                    holes.push(quote! {
-                        {#end}.into_iter().filter_map(|(name, attr)| {
+                    let end_into_iter =
+                        quote_spanned!(end.span()=> {#end}.into_iter());
+                    holes.push(quote_spanned! {block.span()=>
+                        #end_into_iter.filter_map(|(name, attr)| {
                            Some(::std::format!(
                                 "{}=\"{}\"",
                                 name,
@@ -372,14 +385,14 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                    ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
+                                    ::leptos::IntoView::into_view(#block)
                                 }));
                             }
                         }
                         // Keep invalid blocks for faster IDE diff (on user type)
                         Node::Block(block @ NodeBlock::Invalid { .. }) => {
                             chunks.push(SsrElementChunks::View(quote! {
-                                ::leptos::IntoView::into_view(#[allow(unused_braces)] {#block})
+                                ::leptos::IntoView::into_view(#block)
                             }));
                         }
                         Node::Fragment(_) => abort!(
@@ -475,7 +488,7 @@ fn attribute_to_tokens_ssr<'a>(
                 } else {
                     template.push_str("{}");
                     holes.push(quote! {
-                        &::leptos::IntoAttribute::into_attribute(#[allow(unused_braces)] {#value})
+                        &::leptos::IntoAttribute::into_attribute(#value)
                             .as_nameless_value_string()
                             .map(|a| ::std::format!(
                                 "{}=\"{}\"",

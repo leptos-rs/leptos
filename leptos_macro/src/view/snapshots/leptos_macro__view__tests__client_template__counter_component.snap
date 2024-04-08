@@ -1,14 +1,21 @@
 ---
 source: leptos_macro/src/view/tests.rs
+assertion_line: 101
 expression: pretty(result)
 ---
 fn view() {
-    ::leptos::component_view(
-        &SimpleCounter,
-        ::leptos::component_props_builder(&SimpleCounter)
+    {
+        let props = ::leptos::component_props_builder(&SimpleCounter)
             .initial_value(#[allow(unused_braces)] { 0 })
-            .step(#[allow(unused_braces)] { 1 })
-            .build(),
-    )
+            .step(#[allow(unused_braces)] { 1 });
+        #[allow(clippy::let_unit_value, clippy::unit_arg)]
+        let props = props.build();
+        #[allow(unreachable_code)]
+        ::leptos::component_view(
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            &SimpleCounter,
+            props,
+        )
+    }
 }
 
