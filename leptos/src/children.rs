@@ -75,7 +75,7 @@ where
     }
 }
 
-/// New-type wrapper for the a function that returns a view with `From` and `Default` traits implemented
+/// New-type wrapper for a function that returns a view with `From` and `Default` traits implemented
 /// to enable optional props in for example `<Show>` and `<Suspense>`.
 #[derive(Clone)]
 pub struct ViewFn(Arc<dyn Fn() -> AnyView<Dom> + Send + Sync + 'static>);
@@ -99,6 +99,33 @@ where
 impl ViewFn {
     /// Execute the wrapped function
     pub fn run(&self) -> AnyView<Dom> {
+        (self.0)()
+    }
+}
+
+/// New-type wrapper for a function, which will only be called once and returns a view with `From` and
+/// `Default` traits implemented to enable optional props in for example `<Show>` and `<Suspense>`.
+pub struct ViewFnOnce(Box<dyn FnOnce() -> AnyView<Dom> + Send + 'static>);
+
+impl Default for ViewFnOnce {
+    fn default() -> Self {
+        Self(Box::new(|| ().into_any()))
+    }
+}
+
+impl<F, C> From<F> for ViewFnOnce
+where
+    F: FnOnce() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
+{
+    fn from(value: F) -> Self {
+        Self(Box::new(move || value().into_any()))
+    }
+}
+
+impl ViewFnOnce {
+    /// Execute the wrapped function
+    pub fn run(self) -> AnyView<Dom> {
         (self.0)()
     }
 }
