@@ -246,8 +246,19 @@ pub fn handle_server_fns_with_context(
 
                 // Use provided ResponseParts headers if they exist
                 let headers = res.headers_mut();
-                for (k, v) in std::mem::take(&mut res_parts.0.write().headers) {
-                    headers.append(k.clone(), v.clone());
+                let mut res_parts = res_parts.0.write();
+
+                // Location is set to redirect to Referer in the server handler handler by default,
+                // but it can only have a single value
+                //
+                // if we have used redirect() we will end up appending this second Location value
+                // to the first one, which will cause an invalid response
+                // see https://github.com/leptos-rs/leptos/issues/2506
+                for location in res_parts.headers.remove(header::LOCATION) {
+                    headers.insert(header::LOCATION, location);
+                }
+                for (k, v) in std::mem::take(&mut res_parts.headers) {
+                    headers.append(k, v);
                 }
 
                 // clean up the scope
