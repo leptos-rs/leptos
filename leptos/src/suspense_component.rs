@@ -1,28 +1,18 @@
 use crate::{
-    children::{
-        ToChildren, TypedChildren, TypedChildrenFn, TypedChildrenMut, ViewFn,
-    },
+    children::{TypedChildren, ViewFnOnce},
     IntoView,
 };
 use any_spawner::Executor;
 use futures::FutureExt;
 use leptos_macro::component;
-use leptos_reactive::{untrack, Effect};
-use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context},
     signal::ArcRwSignal,
-    traits::{Get, Read, Track, Update, With, Writeable},
+    traits::{Get, Update, With, Writeable},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{
-    cell::RefCell,
-    fmt::Debug,
-    future::Future,
-    rc::Rc,
-    sync::{Arc, Mutex, Weak},
-};
+use std::{cell::RefCell, fmt::Debug, future::Future, rc::Rc};
 use tachys::{
     hydration::Cursor,
     reactive_graph::RenderEffectState,
@@ -35,37 +25,10 @@ use tachys::{
     },
 };
 
-/// An async, typed equivalent to [`Children`], which takes a generic but preserves
-/// type information to allow the compiler to optimize the view more effectively.
-pub struct AsyncChildren<T, F, Fut>(pub(crate) F)
-where
-    F: Fn() -> Fut,
-    Fut: Future<Output = T>;
-
-impl<T, F, Fut> AsyncChildren<T, F, Fut>
-where
-    F: Fn() -> Fut,
-    Fut: Future<Output = T>,
-{
-    pub fn into_inner(self) -> F {
-        self.0
-    }
-}
-
-impl<T, F, Fut> ToChildren<F> for AsyncChildren<T, F, Fut>
-where
-    F: Fn() -> Fut,
-    Fut: Future<Output = T>,
-{
-    fn to_children(f: F) -> Self {
-        AsyncChildren(f)
-    }
-}
-
 /// TODO docs!
 #[component]
 pub fn Suspense<Chil>(
-    #[prop(optional, into)] fallback: ViewFn,
+    #[prop(optional, into)] fallback: ViewFnOnce,
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
@@ -78,20 +41,21 @@ where
         tasks: tasks.clone(),
     });
     let none_pending = ArcMemo::new(move |_| tasks.with(SlotMap::is_empty));
-    SuspenseBoundary {
+    SuspenseBoundary::<false, _, _> {
         none_pending,
         fallback,
         children,
     }
 }
 
-pub(crate) struct SuspenseBoundary<Fal, Chil> {
-    none_pending: ArcMemo<bool>,
-    fallback: Fal,
-    children: Chil,
+pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
+    pub none_pending: ArcMemo<bool>,
+    pub fallback: Fal,
+    pub children: Chil,
 }
 
-impl<Fal, Chil, Rndr> Render<Rndr> for SuspenseBoundary<Fal, Chil>
+impl<const TRANSITION: bool, Fal, Chil, Rndr> Render<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
     Fal: Render<Rndr> + 'static,
     Chil: Render<Rndr> + 'static,
@@ -106,11 +70,21 @@ where
         let mut children = Some(self.children);
         let mut fallback = Some(self.fallback);
         let none_pending = self.none_pending;
+        let mut nth_run = 0;
 
-        (move || EitherKeepAlive {
-            a: children.take(),
-            b: fallback.take(),
-            show_b: !none_pending.get(),
+        (move || {
+            // show the fallback if
+            // 1) there are pending futures, and
+            // 2) we are either in a Suspense (not Transition), or it's the first fallback
+            //    (because we initially render the children to register Futures, the "first
+            //    fallback" is probably the 2nd run
+            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 2);
+            nth_run += 1;
+            EitherKeepAlive {
+                a: children.take(),
+                b: fallback.take(),
+                show_b,
+            }
         })
         .build()
     }
@@ -131,7 +105,8 @@ where
     async fn resolve(self) -> Self::AsyncOutput {}
 }
 
-impl<Fal, Chil, Rndr> RenderHtml<Rndr> for SuspenseBoundary<Fal, Chil>
+impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
     Fal: RenderHtml<Rndr> + 'static,
     Chil: RenderHtml<Rndr> + 'static,
@@ -154,7 +129,7 @@ where
 
 #[derive(Clone, Debug)]
 pub(crate) struct SuspenseContext {
-    tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+    pub tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
 }
 
 impl SuspenseContext {
