@@ -5,7 +5,7 @@ use leptos::{
         computed::AsyncDerived,
         signal::{signal, ArcRwSignal},
     },
-    view, ErrorBoundary, Errors, IntoView, Transition,
+    suspend, view, ErrorBoundary, Errors, IntoView, Transition,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -90,16 +90,11 @@ pub fn fetch_example() -> impl IntoView {
             <Transition fallback=|| view! { <div>"Loading..."</div> }>
                 <ErrorBoundary fallback>
                         <ul>
-                        {
-                            move || async move {
-                                cats.await.map(|cats| {
-                                    cats.into_iter()
-                                        .map(|s| view! { <li><img src={s}/></li> })
-                                        .collect::<Vec<_>>()
-                                })
-                            }
-                            .wait()
-                        }
+                            {suspend!(cats.await.map(|cats| {
+                                cats.into_iter()
+                                    .map(|s| view! { <li><img src={s}/></li> })
+                                    .collect::<Vec<_>>()
+                            }))}
                         </ul>
                 </ErrorBoundary>
             </Transition>
