@@ -314,9 +314,8 @@ pub fn Todo(todo: Todo) -> impl IntoView {
     view! {
         <li
             class="todo"
-            // TODO
-            //class:editing={editing}
-            //class:completed={move || todo.completed.get()}
+            class:editing={editing}
+            class:completed={move || todo.completed.get()}
         >
             <div class="view">
                 <input
