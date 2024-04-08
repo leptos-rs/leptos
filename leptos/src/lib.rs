@@ -166,7 +166,7 @@ pub mod nonce;
 mod show;
 mod suspense_component;
 pub mod text_prop;
-//mod transition;
+mod transition;
 pub use any_error as error;
 pub use for_loop::*;
 pub use hydration_scripts::*;
@@ -178,7 +178,7 @@ pub use reactive_graph::{
 pub use server_fn;
 pub use show::*;
 pub use suspense_component::Suspense;
-//pub use transition::*;
+pub use transition::*;
 #[doc(hidden)]
 pub use typed_builder;
 #[doc(hidden)]
@@ -196,8 +196,23 @@ pub use mount::mount_to_body;
 pub use oco;
 pub mod from_form_data;
 
+pub mod signals {
+    pub use reactive_graph::signal::{
+        arc_signal, signal, ArcReadSignal, ArcRwSignal, ArcWriteSignal,
+        ReadSignal, RwSignal, WriteSignal,
+    };
+}
+
 pub mod context {
     pub use reactive_graph::owner::{provide_context, use_context};
+}
+
+pub mod ev {
+    pub use tachys::html::event::*;
+}
+
+pub mod html {
+    pub use tachys::html::element::*;
 }
 
 pub use leptos_server as server;
