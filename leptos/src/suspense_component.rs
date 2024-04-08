@@ -168,6 +168,13 @@ pub trait FutureViewExt: Sized {
 
 impl<F> FutureViewExt for F where F: Future + Sized {}
 
+#[macro_export]
+macro_rules! suspend {
+    ($fut:expr) => {
+        move || $crate::prelude::FutureViewExt::wait(async move { $fut })
+    };
+}
+
 pub struct Suspend<Fut> {
     pub fut: Fut,
 }

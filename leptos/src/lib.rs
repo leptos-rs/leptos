@@ -164,6 +164,7 @@ mod hydration_scripts;
 #[cfg(feature = "nonce")]
 pub mod nonce;
 mod show;
+#[macro_use]
 mod suspense_component;
 pub mod text_prop;
 mod transition;
