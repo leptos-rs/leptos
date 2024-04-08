@@ -5,7 +5,7 @@ use leptos::{
         computed::AsyncDerived,
         signal::{signal, ArcRwSignal},
     },
-    view, ErrorBoundary, Errors, IntoView, Suspense,
+    view, ErrorBoundary, Errors, IntoView, Transition,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -87,7 +87,7 @@ pub fn fetch_example() -> impl IntoView {
                     }
                 />
             </label>
-            <Suspense fallback=|| view! { <div>"Loading..."</div> }>
+            <Transition fallback=|| view! { <div>"Loading..."</div> }>
                 <ErrorBoundary fallback>
                         <ul>
                         {
@@ -102,7 +102,7 @@ pub fn fetch_example() -> impl IntoView {
                         }
                         </ul>
                 </ErrorBoundary>
-            </Suspense>
+            </Transition>
         </div>
     }
 }
