@@ -1,4 +1,4 @@
-use crate::children::{ChildrenFn, ViewFn};
+use crate::children::{ChildrenFnMut, ViewFn};
 use leptos_macro::component;
 use reactive_graph::{computed::ArcMemo, traits::Get};
 use tachys::{either::Either, renderer::dom::Dom, view::RenderHtml};
@@ -6,7 +6,7 @@ use tachys::{either::Either, renderer::dom::Dom, view::RenderHtml};
 #[component]
 pub fn Show<W>(
     /// The children will be shown whenever the condition in the `when` closure returns `true`.
-    children: ChildrenFn,
+    mut children: ChildrenFnMut,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false. By default this is the empty view.
