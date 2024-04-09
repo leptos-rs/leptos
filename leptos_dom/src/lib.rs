@@ -45,7 +45,8 @@ use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
-    MaybeProp, MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+    MaybeProp, MaybeSignal, Memo, ReadSignal, Resource, RwSignal, Signal,
+    SignalGet,
 };
 use leptos_reactive::{Oco, TextProp};
 pub use macro_helpers::*;
@@ -196,6 +197,20 @@ where
 #[cfg(not(feature = "nightly"))]
 impl<T> IntoView for Signal<T>
 where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "trace", name = "Signal<T>", skip_all)
+    )]
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
+    }
+}
+#[cfg(not(feature = "nightly"))]
+impl<S, T> IntoView for Resource<S, T>
+where
+    S: Clone,
     T: IntoView + Clone,
 {
     #[cfg_attr(
