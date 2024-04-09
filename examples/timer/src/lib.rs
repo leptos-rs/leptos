@@ -1,7 +1,7 @@
 use leptos::{
-    effect::Effect,
     leptos_dom::helpers::{set_interval_with_handle, IntervalHandle},
     prelude::*,
+    reactive_graph::effect::Effect,
     signals::RwSignal,
     *,
 };
@@ -30,10 +30,9 @@ pub fn TimerDemo() -> impl IntoView {
             <div>{count_a}</div>
             <div>"Count B (dynamic interval, currently " {interval} " ms)"</div>
             <div>{count_b}</div>
-            // TODO impl Property directly on signal types in stable
             <input prop:value=interval on:input:target=move |ev| {
-                if let Ok(value) = ev.target().value().parse::<u64>() {
-                    interval.set.set(value);
+                if let Ok(value) = ev.target().value().parse::<i32>() {
+                    interval.set(value);
                 }
             }/>
         </div>

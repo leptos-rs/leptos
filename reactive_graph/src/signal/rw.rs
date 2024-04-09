@@ -16,7 +16,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub struct RwSignal<T: Send + Sync + 'static> {
+pub struct RwSignal<T: 'static> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcRwSignal<T>>,
@@ -90,15 +90,15 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Copy for RwSignal<T> {}
+impl<T: 'static> Copy for RwSignal<T> {}
 
-impl<T: Send + Sync + 'static> Clone for RwSignal<T> {
+impl<T: 'static> Clone for RwSignal<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: Send + Sync + 'static> Debug for RwSignal<T> {
+impl<T: 'static> Debug for RwSignal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RwSignal")
             .field("type", &std::any::type_name::<T>())
@@ -107,21 +107,21 @@ impl<T: Send + Sync + 'static> Debug for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> PartialEq for RwSignal<T> {
+impl<T: 'static> PartialEq for RwSignal<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T: Send + Sync + 'static> Eq for RwSignal<T> {}
+impl<T: 'static> Eq for RwSignal<T> {}
 
-impl<T: Send + Sync + 'static> Hash for RwSignal<T> {
+impl<T: 'static> Hash for RwSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T: Send + Sync + 'static> DefinedAt for RwSignal<T> {
+impl<T: 'static> DefinedAt for RwSignal<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
