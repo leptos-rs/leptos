@@ -41,7 +41,6 @@ ssr = [
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
-nightly = ["leptos/nightly", "leptos_router/nightly"]
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix"]
