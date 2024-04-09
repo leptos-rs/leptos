@@ -1,4 +1,3 @@
-use super::RenderEffectState;
 use crate::{html::style::IntoStyle, renderer::DomRenderer};
 use reactive_graph::effect::RenderEffect;
 use std::borrow::Cow;
@@ -9,7 +8,7 @@ where
     S: Into<Cow<'static, str>>,
     R: DomRenderer,
 {
-    type State = RenderEffectState<(R::CssStyleDeclaration, Cow<'static, str>)>;
+    type State = RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
 
     fn to_html(self, style: &mut String) {
         let (name, mut f) = self;
@@ -75,30 +74,7 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {
-        // TODO — knowing how and whether to rebuild effects like this is tricky
-        // it's the one place I've run into "stale values" when experimenting with this model
-
-        /* let (name, mut f) = self;
-        let prev_effect = std::mem::take(&mut state.0);
-        let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
-        drop(prev_effect);
-        *state = RenderEffect::new_with_value(
-            move |prev| {
-                let value = f().into();
-                if let Some(mut state) = prev {
-                    let (style, prev) = &mut state;
-                    if &value != prev {
-                        R::set_css_property(&style, name, &value);
-                    }
-                    *prev = value;
-                    state
-                } else {
-                    todo!()
-                }
-            },
-            prev_value,
-        )
-        .into(); */
+        // TODO rebuild
     }
 }
 
@@ -111,9 +87,9 @@ where
 {
     type State = RenderEffect<C::State>;
 
-    fn to_html(mut self, class: &mut String) {
+    fn to_html(mut self, style: &mut String) {
         let value = self();
-        value.to_html(class);
+        value.to_html(style);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -138,4 +114,160 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+}
+
+#[cfg(not(feature = "nightly"))]
+mod stable {
+    macro_rules! style_signal {
+        ($sig:ident) => {
+            impl<C, R> IntoStyle<R> for $sig<C>
+            where
+                C: IntoStyle<R> + Clone + Send + Sync + 'static,
+                C::State: 'static,
+                R: DomRenderer,
+            {
+                type State = RenderEffect<C::State>;
+
+                fn to_html(self, style: &mut String) {
+                    let value = self.get();
+                    value.to_html(style);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    (move || self.get()).build(el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+
+            impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
+            where
+                S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
+                R: DomRenderer,
+            {
+                type State =
+                    RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+
+                fn to_html(self, style: &mut String) {
+                    IntoStyle::<R>::to_html(
+                        (self.0, move || self.1.get()),
+                        style,
+                    )
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    IntoStyle::<R>::hydrate::<FROM_SERVER>(
+                        (self.0, move || self.1.get()),
+                        el,
+                    )
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    IntoStyle::<R>::build((self.0, move || self.1.get()), el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+        };
+    }
+
+    macro_rules! style_signal_unsend {
+        ($sig:ident) => {
+            impl<C, R> IntoStyle<R> for $sig<C>
+            where
+                C: IntoStyle<R> + Clone + 'static,
+                C::State: 'static,
+                R: DomRenderer,
+            {
+                type State = RenderEffect<C::State>;
+
+                fn to_html(self, style: &mut String) {
+                    let value = self.get();
+                    value.to_html(style);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    (move || self.get()).build(el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+
+            impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
+            where
+                S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
+                R: DomRenderer,
+            {
+                type State =
+                    RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+
+                fn to_html(self, style: &mut String) {
+                    IntoStyle::<R>::to_html(
+                        (self.0, move || self.1.get()),
+                        style,
+                    )
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    IntoStyle::<R>::hydrate::<FROM_SERVER>(
+                        (self.0, move || self.1.get()),
+                        el,
+                    )
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    IntoStyle::<R>::build((self.0, move || self.1.get()), el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+        };
+    }
+
+    use super::RenderEffect;
+    use crate::{html::style::IntoStyle, renderer::DomRenderer};
+    use reactive_graph::{
+        computed::{ArcMemo, Memo},
+        signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
+        traits::Get,
+        wrappers::read::{ArcSignal, Signal},
+    };
+    use std::borrow::Cow;
+
+    style_signal!(RwSignal);
+    style_signal!(ReadSignal);
+    style_signal!(Memo);
+    style_signal!(Signal);
+    style_signal_unsend!(ArcRwSignal);
+    style_signal_unsend!(ArcReadSignal);
+    style_signal!(ArcMemo);
+    style_signal!(ArcSignal);
 }

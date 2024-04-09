@@ -144,33 +144,7 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {
-        // TODO — knowing how and whether to rebuild effects like this is tricky
-        // it's the one place I've run into "stale values" when experimenting with this model
-
-        /* let (name, mut f) = self;
-        let prev_effect = std::mem::take(&mut state.0);
-        let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
-        drop(prev_effect);
-        *state = RenderEffect::new_with_value(
-            move |prev| {
-                let include = f();
-                match prev {
-                    Some((class_list, prev)) => {
-                        if include {
-                            if !prev {
-                                R::add_class(&class_list, name);
-                            }
-                        } else if prev {
-                            R::remove_class(&class_list, name);
-                        }
-                        (class_list.clone(), include)
-                    }
-                    None => unreachable!(),
-                }
-            },
-            prev_value,
-        )
-        .into(); */
+        // TODO rebuild?
     }
 }
 
@@ -249,4 +223,173 @@ where
             state,
         )
     }
+}
+
+#[cfg(not(feature = "nightly"))]
+mod stable {
+    macro_rules! class_signal {
+        ($sig:ident) => {
+            impl<C, R> IntoClass<R> for $sig<C>
+            where
+                C: IntoClass<R> + Clone + Send + Sync + 'static,
+                C::State: 'static,
+                R: DomRenderer,
+            {
+                type State = RenderEffectState<C::State>;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, class: &mut String) {
+                    let value = self.get();
+                    value.to_html(class);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    (move || self.get()).build(el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+
+            impl<R> IntoClass<R> for (&'static str, $sig<bool>)
+            where
+                R: DomRenderer,
+            {
+                type State = RenderEffectState<(R::ClassList, bool)>;
+
+                fn html_len(&self) -> usize {
+                    self.0.len()
+                }
+
+                fn to_html(self, class: &mut String) {
+                    let (name, f) = self;
+                    let include = f.get();
+                    if include {
+                        <&str as IntoClass<R>>::to_html(name, class);
+                    }
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    IntoClass::<R>::hydrate::<FROM_SERVER>(
+                        (self.0, move || self.1.get()),
+                        el,
+                    )
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    IntoClass::<R>::build((self.0, move || self.1.get()), el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+        };
+    }
+
+    macro_rules! class_signal_unsend {
+        ($sig:ident) => {
+            impl<C, R> IntoClass<R> for $sig<C>
+            where
+                C: IntoClass<R> + Clone + 'static,
+                C::State: 'static,
+                R: DomRenderer,
+            {
+                type State = RenderEffectState<C::State>;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, class: &mut String) {
+                    let value = self.get();
+                    value.to_html(class);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(el)
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    (move || self.get()).build(el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+
+            impl<R> IntoClass<R> for (&'static str, $sig<bool>)
+            where
+                R: DomRenderer,
+            {
+                type State = RenderEffectState<(R::ClassList, bool)>;
+
+                fn html_len(&self) -> usize {
+                    self.0.len()
+                }
+
+                fn to_html(self, class: &mut String) {
+                    let (name, f) = self;
+                    let include = f.get();
+                    if include {
+                        <&str as IntoClass<R>>::to_html(name, class);
+                    }
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &R::Element,
+                ) -> Self::State {
+                    IntoClass::<R>::hydrate::<FROM_SERVER>(
+                        (self.0, move || self.1.get()),
+                        el,
+                    )
+                }
+
+                fn build(self, el: &R::Element) -> Self::State {
+                    IntoClass::<R>::build((self.0, move || self.1.get()), el)
+                }
+
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild here?
+                }
+            }
+        };
+    }
+
+    use super::RenderEffectState;
+    use crate::{html::class::IntoClass, renderer::DomRenderer};
+    use reactive_graph::{
+        computed::{ArcMemo, Memo},
+        signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
+        traits::Get,
+        wrappers::read::{ArcSignal, Signal},
+    };
+
+    class_signal!(RwSignal);
+    class_signal!(ReadSignal);
+    class_signal!(Memo);
+    class_signal!(Signal);
+    class_signal_unsend!(ArcRwSignal);
+    class_signal_unsend!(ArcReadSignal);
+    class_signal!(ArcMemo);
+    class_signal!(ArcSignal);
 }
