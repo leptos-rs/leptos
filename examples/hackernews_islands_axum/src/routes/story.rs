@@ -92,7 +92,7 @@ pub fn Story() -> impl IntoView {
 pub fn Toggle(children: Children) -> impl IntoView {
     let (open, set_open) = create_signal(true);
     view! {
-        <div class="toggle" class:open=move||open.get()>
+        <div class="toggle" class:open=open>
             <a on:click=move |_| set_open.update(|n| *n = !*n)>
                 {move || if open.get() {
                     "[-]"

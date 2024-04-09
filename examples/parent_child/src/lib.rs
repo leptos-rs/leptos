@@ -31,10 +31,10 @@ pub fn App() -> impl IntoView {
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
-                class:red=move||red.get()
-                class:right=move||right.get()
-                class:italics=move||italics.get()
-                class:smallcaps=move||smallcaps.get()
+                class:red=red
+                class:right=right
+                class:italics=italics
+                class:smallcaps=smallcaps
             >
                 "Lorem ipsum sit dolor amet."
             </p>

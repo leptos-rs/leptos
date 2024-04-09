@@ -83,7 +83,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
         {(!comment.comments.is_empty()).then(|| {
             view! {
                 <div>
-                    <div class="toggle" class:open=move||open.get()>
+                    <div class="toggle" class:open=open>
                         <a on:click=move |_| set_open.update(|n| *n = !*n)>
                             {
                                 let comments_len = comment.comments.len();

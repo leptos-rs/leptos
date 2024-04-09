@@ -11,7 +11,7 @@ pub fn App() -> impl IntoView {
                 Show Overlay
             </button>
 
-            <Show when=move||show_overlay.get() fallback=|| ()>
+            <Show when=move || show_overlay.get() fallback=|| ()>
                 <div>Show</div>
                 <Portal mount=document().get_element_by_id("app").unwrap()>
                     <div style="position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;">
@@ -23,7 +23,7 @@ pub fn App() -> impl IntoView {
                             Toggle inner
                         </button>
 
-                        <Show when=move||show_inside_overlay.get() fallback=|| view! { "Hidden" }>
+                        <Show when=move || show_inside_overlay.get() fallback=|| view! { "Hidden" }>
                             Visible
                         </Show>
                     </div>

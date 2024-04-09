@@ -49,7 +49,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         <button on:click=move |_| set_count.update(|value| *value += 1)>"+1"</button>
-        " "{move||count.get()}" is "
+        " "{count}" is "
         <SlotIf cond=is_even>
             // The slot name can be emitted if it would match the slot struct name (in snake case).
             <Then slot>"even"</Then>
