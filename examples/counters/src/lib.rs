@@ -28,7 +28,7 @@ pub fn Counters() -> impl IntoView {
     let add_counter = move |_| {
         let id = next_counter_id.get();
         let sig = ArcRwSignal::new(0);
-        set_counters.update(move |counters| counters.push((*id, sig)));
+        set_counters.update(move |counters| counters.push((id, sig)));
         set_next_counter_id.update(|id| *id += 1);
     };
 
@@ -63,7 +63,7 @@ pub fn Counters() -> impl IntoView {
                 <span>{move ||
                     counters.get()
                         .iter()
-                        .map(|(_, (count, _))| count.get())
+                        .map(|(_, count)| count.get())
                         .sum::<i32>()
                         .to_string()
                 }</span>
@@ -95,10 +95,7 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
         <li>
             <button on:click=move |_| value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
-                prop:value={
-                    // TODO: implement attribute/prop types for guards
-                    move || *value()
-                }
+                prop:value=value
                 on:input:target=move |ev| { value.set(ev.target().value().parse::<i32>().unwrap_or_default()) }
             />
             <span>{value.clone()}</span>
