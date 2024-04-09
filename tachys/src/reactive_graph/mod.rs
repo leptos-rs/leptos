@@ -1,12 +1,8 @@
 use crate::{
     async_views::Suspend,
-    html::{
-        attribute::{Attribute, AttributeValue},
-        element::InnerHtmlValue,
-        property::IntoProperty,
-    },
+    html::attribute::{Attribute, AttributeValue},
     hydration::Cursor,
-    renderer::{DomRenderer, Renderer},
+    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -22,8 +18,10 @@ use reactive_graph::{
 
 mod class;
 mod guards;
+mod inner_html;
 pub mod node_ref;
 mod owned;
+mod property;
 mod style;
 pub use owned::*;
 
@@ -113,25 +111,7 @@ where
 
     #[track_caller]
     fn rebuild(self, _state: &mut Self::State) {
-        // TODO — knowing how and whether to rebuild effects like this is tricky
-        // it's the one place I've run into "stale values" when experimenting with this model
-
-        /* let prev_effect = mem::take(&mut state.0);
-        let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
-        drop(prev_effect);
-        *state = RenderEffect::new_with_value(
-            move |prev| {
-                let value = self();
-                if let Some(mut state) = prev {
-                    value.rebuild(&mut state);
-                    state
-                } else {
-                    value.build()
-                }
-            },
-            prev_value,
-        )
-        .into(); */
+        // TODO rebuild
     }
 
     fn try_rebuild(
@@ -374,17 +354,6 @@ where
     }
 }
 
-// Extends to track suspense
-impl<const TRANSITION: bool, Fal, Fut> Suspend<TRANSITION, Fal, Fut> {
-    pub fn track(self) -> Suspend<TRANSITION, Fal, ScopedFuture<Fut>> {
-        let Suspend { fallback, fut } = self;
-        Suspend {
-            fallback,
-            fut: ScopedFuture::new(fut),
-        }
-    }
-}
-
 // Dynamic attributes
 impl<F, V, R> AttributeValue<R> for F
 where
@@ -449,184 +418,290 @@ where
     }
 
     fn rebuild(self, _key: &str, _state: &mut Self::State) {
-        // TODO — knowing how and whether to rebuild effects like this is tricky
-        // it's the one place I've run into "stale values" when experimenting with this model
-
-        // TODO
-        /* let prev_effect = mem::take(&mut state.0);
-        let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
-        drop(prev_effect);
-        let key = key.to_owned();
-        *state = RenderEffect::new_with_value(
-            move |prev| {
-                crate::log(&format!(
-                    "inside here, prev is some? {}",
-                    prev.is_some()
-                ));
-                let value = self();
-                if let Some(mut state) = prev {
-                    value.rebuild(&key, &mut state);
-                    state
-                } else {
-                    unreachable!()
-                }
-            },
-            prev_value,
-        )
-        .into(); */
-    }
-
-    /*     fn build(self) -> Self::State {
-        RenderEffect::new(move |prev| {
-            let value = self();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state);
-                state
-            } else {
-                value.build()
-            }
-        })
-    }
-
-    #[track_caller]
-    fn rebuild(self, state: &mut Self::State) {
-        /* crate::log(&format!(
-            "[REBUILDING EFFECT] Is this a mistake? {}",
-            std::panic::Location::caller(),
-        )); */
-        let old_effect = std::mem::replace(state, self.build());
-    } */
-}
-
-// Dynamic properties
-// These do update during hydration because properties don't exist in the DOM
-impl<F, V, R> IntoProperty<R> for F
-where
-    F: FnMut() -> V + 'static,
-    V: IntoProperty<R>,
-    V::State: 'static,
-    R: DomRenderer,
-{
-    type State = RenderEffectState<V::State>;
-
-    fn hydrate<const FROM_SERVER: bool>(
-        mut self,
-        el: &<R as Renderer>::Element,
-        key: &str,
-    ) -> Self::State {
-        let key = R::intern(key);
-        let key = key.to_owned();
-        let el = el.to_owned();
-
-        RenderEffect::new(move |prev| {
-            let value = self();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state, &key);
-                state
-            } else {
-                value.hydrate::<FROM_SERVER>(&el, &key)
-            }
-        })
-        .into()
-    }
-
-    fn build(
-        mut self,
-        el: &<R as Renderer>::Element,
-        key: &str,
-    ) -> Self::State {
-        let key = R::intern(key);
-        let key = key.to_owned();
-        let el = el.to_owned();
-
-        RenderEffect::new(move |prev| {
-            let value = self();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state, &key);
-                state
-            } else {
-                value.build(&el, &key)
-            }
-        })
-        .into()
-    }
-
-    fn rebuild(self, _state: &mut Self::State, _key: &str) {
-        // TODO — knowing how and whether to rebuild effects like this is tricky
-        // it's the one place I've run into "stale values" when experimenting with this model
-
-        /* let prev_effect = mem::take(&mut state.0);
-        let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
-        drop(prev_effect);
-        let key = key.to_owned();
-        *state = RenderEffect::new_with_value(
-            move |prev| {
-                let value = self();
-                if let Some(mut state) = prev {
-                    value.rebuild(&mut state, &key);
-                    state
-                } else {
-                    unreachable!()
-                }
-            },
-            prev_value,
-        )
-        .into(); */
+        // TODO rebuild
     }
 }
 
-impl<F, V, R> InnerHtmlValue<R> for F
-where
-    F: FnMut() -> V + 'static,
-    V: InnerHtmlValue<R>,
-    V::State: 'static,
-    R: DomRenderer,
-{
-    type State = RenderEffectState<V::State>;
+#[cfg(not(feature = "nightly"))]
+mod stable {
+    use super::RenderEffectState;
+    use crate::{
+        html::attribute::{Attribute, AttributeValue},
+        hydration::Cursor,
+        renderer::Renderer,
+        ssr::StreamBuilder,
+        view::{Position, PositionState, Render, RenderHtml},
+    };
+    use any_error::Error as AnyError;
+    use reactive_graph::{
+        computed::{ArcMemo, Memo},
+        signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
+        traits::Get,
+        wrappers::read::{ArcSignal, Signal},
+    };
 
-    fn html_len(&self) -> usize {
-        0
-    }
+    macro_rules! signal_impl {
+        ($sig:ident) => {
+            impl<V, R> Render<R> for $sig<V>
+            where
+                V: Render<R> + Clone + Send + Sync + 'static,
+                V::State: 'static,
+                V::FallibleState: 'static,
+                R: Renderer,
+            {
+                type State = RenderEffectState<V::State>;
+                type FallibleState = RenderEffectState<
+                    Result<V::FallibleState, Option<AnyError>>,
+                >;
+                // TODO how this should be handled?
+                type AsyncOutput = Self;
 
-    fn to_html(mut self, buf: &mut String) {
-        let value = self();
-        value.to_html(buf);
-    }
+                #[track_caller]
+                fn build(self) -> Self::State {
+                    (move || self.get()).build()
+                }
 
-    fn to_template(_buf: &mut String) {}
+                fn try_build(self) -> any_error::Result<Self::FallibleState> {
+                    (move || self.get()).try_build()
+                }
 
-    fn hydrate<const FROM_SERVER: bool>(
-        mut self,
-        el: &<R as Renderer>::Element,
-    ) -> Self::State {
-        let el = el.to_owned();
-        RenderEffect::new(move |prev| {
-            let value = self();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state);
-                state
-            } else {
-                value.hydrate::<FROM_SERVER>(&el)
+                #[track_caller]
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild
+                }
+
+                fn try_rebuild(
+                    self,
+                    state: &mut Self::FallibleState,
+                ) -> any_error::Result<()> {
+                    (move || self.get()).try_rebuild(state)
+                }
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
             }
-        })
-        .into()
-    }
 
-    fn build(mut self, el: &<R as Renderer>::Element) -> Self::State {
-        let el = el.to_owned();
-        RenderEffect::new(move |prev| {
-            let value = self();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state);
-                state
-            } else {
-                value.build(&el)
+            impl<V, R> RenderHtml<R> for $sig<V>
+            where
+                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V::State: 'static,
+                V::FallibleState: 'static,
+                R: Renderer + 'static,
+            {
+                const MIN_LENGTH: usize = 0;
+
+                fn html_len(&self) -> usize {
+                    V::MIN_LENGTH
+                }
+
+                fn to_html_with_buf(
+                    self,
+                    buf: &mut String,
+                    position: &mut Position,
+                ) {
+                    let value = self.get();
+                    value.to_html_with_buf(buf, position)
+                }
+
+                fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+                    self,
+                    buf: &mut StreamBuilder,
+                    position: &mut Position,
+                ) where
+                    Self: Sized,
+                {
+                    let value = self.get();
+                    value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    cursor: &Cursor<R>,
+                    position: &PositionState,
+                ) -> Self::State {
+                    (move || self.get())
+                        .hydrate::<FROM_SERVER>(cursor, position)
+                }
             }
-        })
-        .into()
+
+            impl<V, R> AttributeValue<R> for $sig<V>
+            where
+                V: AttributeValue<R> + Clone + Send + Sync + 'static,
+                V::State: 'static,
+                R: Renderer,
+            {
+                type State = RenderEffectState<V::State>;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, key: &str, buf: &mut String) {
+                    let value = self.get();
+                    value.to_html(key, buf);
+                }
+
+                fn to_template(_key: &str, _buf: &mut String) {}
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    mut self,
+                    key: &str,
+                    el: &<R as Renderer>::Element,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
+                }
+
+                fn build(
+                    self,
+                    el: &<R as Renderer>::Element,
+                    key: &str,
+                ) -> Self::State {
+                    (move || self.get()).build(el, key)
+                }
+
+                fn rebuild(self, _key: &str, _state: &mut Self::State) {
+                    // TODO rebuild
+                }
+            }
+        };
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    macro_rules! signal_impl_unsend {
+        ($sig:ident) => {
+            impl<V, R> Render<R> for $sig<V>
+            where
+                V: Render<R> + Clone + 'static,
+                V::State: 'static,
+                V::FallibleState: 'static,
+                R: Renderer,
+            {
+                type State = RenderEffectState<V::State>;
+                type FallibleState = RenderEffectState<
+                    Result<V::FallibleState, Option<AnyError>>,
+                >;
+                // TODO how this should be handled?
+                type AsyncOutput = Self;
+
+                #[track_caller]
+                fn build(self) -> Self::State {
+                    (move || self.get()).build()
+                }
+
+                fn try_build(self) -> any_error::Result<Self::FallibleState> {
+                    (move || self.get()).try_build()
+                }
+
+                #[track_caller]
+                fn rebuild(self, _state: &mut Self::State) {
+                    // TODO rebuild
+                }
+
+                fn try_rebuild(
+                    self,
+                    state: &mut Self::FallibleState,
+                ) -> any_error::Result<()> {
+                    (move || self.get()).try_rebuild(state)
+                }
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
+            }
+
+            impl<V, R> RenderHtml<R> for $sig<V>
+            where
+                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V::State: 'static,
+                V::FallibleState: 'static,
+                R: Renderer + 'static,
+            {
+                const MIN_LENGTH: usize = 0;
+
+                fn html_len(&self) -> usize {
+                    V::MIN_LENGTH
+                }
+
+                fn to_html_with_buf(
+                    self,
+                    buf: &mut String,
+                    position: &mut Position,
+                ) {
+                    let value = self.get();
+                    value.to_html_with_buf(buf, position)
+                }
+
+                fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+                    self,
+                    buf: &mut StreamBuilder,
+                    position: &mut Position,
+                ) where
+                    Self: Sized,
+                {
+                    let value = self.get();
+                    value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                }
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    cursor: &Cursor<R>,
+                    position: &PositionState,
+                ) -> Self::State {
+                    (move || self.get())
+                        .hydrate::<FROM_SERVER>(cursor, position)
+                }
+            }
+
+            impl<V, R> AttributeValue<R> for $sig<V>
+            where
+                V: AttributeValue<R> + Clone + 'static,
+                V::State: 'static,
+                R: Renderer,
+            {
+                type State = RenderEffectState<V::State>;
+
+                fn html_len(&self) -> usize {
+                    0
+                }
+
+                fn to_html(self, key: &str, buf: &mut String) {
+                    let value = self.get();
+                    value.to_html(key, buf);
+                }
+
+                fn to_template(_key: &str, _buf: &mut String) {}
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    mut self,
+                    key: &str,
+                    el: &<R as Renderer>::Element,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(key, el)
+                }
+
+                fn build(
+                    self,
+                    el: &<R as Renderer>::Element,
+                    key: &str,
+                ) -> Self::State {
+                    (move || self.get()).build(el, key)
+                }
+
+                fn rebuild(self, _key: &str, _state: &mut Self::State) {
+                    // TODO rebuild
+                }
+            }
+        };
+    }
+
+    signal_impl!(RwSignal);
+    signal_impl!(ReadSignal);
+    signal_impl!(Memo);
+    signal_impl!(Signal);
+    signal_impl_unsend!(ArcRwSignal);
+    signal_impl_unsend!(ArcReadSignal);
+    signal_impl!(ArcMemo);
+    signal_impl!(ArcSignal);
 }
 
 /*
