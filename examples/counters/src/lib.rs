@@ -63,7 +63,7 @@ pub fn Counters() -> impl IntoView {
             </p>
             <ul>
                 <For
-                    each=move||counters.get()
+                    each=move || counters.get()
                     key=|counter| counter.0
                     children=move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
                         view! {

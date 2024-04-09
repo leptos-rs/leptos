@@ -129,7 +129,7 @@ pub fn App() -> impl IntoView {
                     <Route path="" view=move || {
                         view!{
                             {display_email}
-                            <Show when=move||email.get().is_some() fallback=||view!{<SignIn/>}>
+                            <Show when=move || email.get().is_some() fallback=||view!{<SignIn/>}>
                                 <LogOut/>
                             </Show>
                             }

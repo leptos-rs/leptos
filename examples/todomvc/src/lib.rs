@@ -300,14 +300,14 @@ pub fn Todo(todo: Todo) -> impl IntoView {
         <li
             class="todo"
             class:editing={editing}
-            class:completed={move || todo.completed.get()}
+            class:completed={todo.completed}
         >
             <div class="view">
                 <input
                     node_ref=todo_input
                     class="toggle"
                     type="checkbox"
-                    prop:checked={move || todo.completed.get()}
+                    prop:checked={todo.completed}
                     on:input={move |ev| {
                         let checked = event_target_checked(&ev);
                         todo.completed.set(checked);
@@ -320,7 +320,7 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                         _ = input.focus();
                     }
                 }>
-                    {move || todo.title.get()}
+                    {todo.title}
                 </label>
                 <button class="destroy" on:click=move |_| set_todos.update(|t| t.remove(todo.id))/>
             </div>
@@ -328,7 +328,7 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                 <input
                     class="edit"
                     class:hidden={move || !editing.get()}
-                    prop:value={move || todo.title.get()}
+                    prop:value=todo.title
                     on:focusout=move |ev: web_sys::FocusEvent| save(&event_target_value(&ev))
                     on:keyup={move |ev: web_sys::KeyboardEvent| {
                         let key_code = ev.key_code();

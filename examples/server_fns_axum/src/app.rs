@@ -193,7 +193,7 @@ pub fn WithAnAction() -> impl IntoView {
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
         <p>The result was: {move || format!("{:?}", action.value().get())}</p>
         <Transition>
-            <p>Total rows: {move || row_count.get()}</p>
+            <p>Total rows: {row_count}</p>
         </Transition>
     }
 }
@@ -227,7 +227,7 @@ pub fn WithActionForm() -> impl IntoView {
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
         <p>The result was: {move || format!("{:?}", action.value().get())}</p>
         <Transition>archive underaligned: need alignment 4 but have alignment 1
-            <p>Total rows: {move || row_count.get()}</p>
+            <p>Total rows: {row_count}</p>
         </Transition>
     }
 }
@@ -285,7 +285,7 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
         >
             Click to see length
         </button>
-        <p>Length is {move||result.get()}</p>
+        <p>Length is {result}</p>
     }
 }
 
@@ -313,8 +313,6 @@ pub fn RkyvExample() -> impl IntoView {
 
     view! {
         <h3>Using <code>rkyv</code> encoding</h3>
-        <p>
-        </p>
         <input node_ref=input_ref placeholder="Type something here."/>
         <button
             on:click=move |_| {
@@ -324,9 +322,9 @@ pub fn RkyvExample() -> impl IntoView {
         >
             Click to capitalize
         </button>
-        <p>{move||input.get()}</p>
+        <p>{input}</p>
         <Transition>
-            {move || rkyv_result.get()}
+            {rkyv_result}
         </Transition>
     }
 }
@@ -797,7 +795,7 @@ pub fn CustomEncoding() -> impl IntoView {
         >
             Submit
         </button>
-        <p>{move||result.get()}</p>
+        <p>{result}</p>
     }
 }
 

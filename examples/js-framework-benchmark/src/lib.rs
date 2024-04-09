@@ -166,7 +166,7 @@ pub fn App() -> impl IntoView {
             <table class="table table-hover table-striped test-data">
                 <tbody>
                     <For
-                        each=move||data.get()
+                        each=move || data.get()
                         key={|row| row.id}
                         children=move |row: RowData| {
                             let row_id = row.id;
@@ -182,7 +182,7 @@ pub fn App() -> impl IntoView {
                             template! {
                                 <tr class:danger={move || is_selected.selected(Some(row_id))}>
                                     <td class="col-md-1">{row_id.to_string()}</td>
-                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{move || label.get()}</a></td>
+                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{label}</a></td>
                                     <td class="col-md-1"><a on:click=move |_| remove(row_id)><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                                     <td class="col-md-6"/>
                                 </tr>
