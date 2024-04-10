@@ -112,7 +112,7 @@ where
     Rndr: Renderer + 'static,
     Child: MatchInterface<Rndr> + MatchParams + 'static,
     ViewFn: Fn(RouteData<Rndr>) -> View + 'static,
-    View: Render<Rndr> + RenderHtml<Rndr> + 'static,
+    View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Child = Child;
     type View = ViewFn::Output;
@@ -148,7 +148,7 @@ where
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
     ViewFn: Fn(RouteData<Rndr>) -> View + Clone + 'static,
-    View: Render<Rndr> + RenderHtml<Rndr> + 'static,
+    View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Data = Data;
     type View = View;
