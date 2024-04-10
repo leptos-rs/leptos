@@ -16,17 +16,11 @@ use leptos::{
 #[cfg(feature = "transition")]
 use leptos_reactive::use_transition;
 use send_wrapper::SendWrapper;
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{cell::RefCell, rc::Rc};
 use thiserror::Error;
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
 use wasm_bindgen::UnwrapThrowExt;
-
-static GLOBAL_ROUTERS_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Provides for client-side and server-side routing. This should usually be somewhere near
 /// the root of the application.
@@ -48,9 +42,13 @@ pub fn Router(
     /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
     /// to define and display [`Route`](crate::Route)s.
     children: Children,
+    /// A unique identifier for this router, allowing you to mount multiple Leptos apps with
+    /// different routes from the same server.
+    #[prop(optional)]
+    id: usize,
 ) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
-    let router = RouterContext::new(base, fallback, trailing_slash);
+    let router = RouterContext::new(id, base, fallback, trailing_slash);
     provide_context(router);
     provide_context(GlobalSuspenseContext::new());
     if let Some(set_is_routing) = set_is_routing {
@@ -141,6 +139,7 @@ impl RouterContext {
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn new(
+        id: usize,
         base: Option<&'static str>,
         fallback: Option<fn() -> View>,
         trailing_slash: TrailingSlash,
@@ -220,7 +219,7 @@ impl RouterContext {
         });
 
         let inner = Rc::new(RouterContextInner {
-            id: GLOBAL_ROUTERS_COUNT.fetch_add(1, Ordering::SeqCst),
+            id,
             base_path: base_path.into_owned(),
             path_stack: store_value(vec![location.pathname.get_untracked()]),
             location,
