@@ -2,11 +2,11 @@ use crate::ServerMetaContext;
 use indexmap::IndexMap;
 use leptos::{
     component,
+    error::Result,
     oco::Oco,
     reactive_graph::{effect::RenderEffect, owner::use_context},
     tachys::{
         dom::document,
-        error::Result,
         html::{
             attribute::{
                 self,
@@ -107,6 +107,7 @@ struct HtmlViewState {
 impl Render<Dom> for HtmlView {
     type State = HtmlViewState;
     type FallibleState = HtmlViewState;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let el = document()
@@ -133,6 +134,10 @@ impl Render<Dom> for HtmlView {
     fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 
