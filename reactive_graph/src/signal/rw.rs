@@ -198,6 +198,13 @@ impl<T: Send + Sync + 'static> From<ArcRwSignal<T>> for RwSignal<T> {
     }
 }
 
+impl<'a, T: Send + Sync + 'static> From<&'a ArcRwSignal<T>> for RwSignal<T> {
+    #[track_caller]
+    fn from(value: &'a ArcRwSignal<T>) -> Self {
+        value.clone().into()
+    }
+}
+
 impl<T: Send + Sync + 'static> From<RwSignal<T>> for ArcRwSignal<T> {
     #[track_caller]
     fn from(value: RwSignal<T>) -> Self {
