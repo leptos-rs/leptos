@@ -1,5 +1,14 @@
 use crate::renderer::Renderer;
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    fmt::Write,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
+        NonZeroU8, NonZeroUsize,
+    },
+};
 
 pub trait AttributeValue<R: Renderer> {
     type State;
@@ -326,3 +335,88 @@ where
 fn escape_attr(value: &str) -> Cow<'_, str> {
     html_escape::encode_double_quoted_attribute(value)
 }
+
+macro_rules! render_primitive {
+  ($($child_type:ty),* $(,)?) => {
+      $(
+        impl<R> AttributeValue<R> for $child_type
+        where
+            R: Renderer,
+        {
+            type State = (R::Element, $child_type);
+
+            fn html_len(&self) -> usize {
+                0
+            }
+
+            fn to_html(self, key: &str, buf: &mut String) {
+                <String as AttributeValue<R>>::to_html(self.to_string(), key, buf);
+            }
+
+            fn to_template(_key: &str, _buf: &mut String) {}
+
+            fn hydrate<const FROM_SERVER: bool>(
+                self,
+                key: &str,
+                el: &R::Element,
+            ) -> Self::State {
+                // if we're actually hydrating from SSRed HTML, we don't need to set the attribute
+                // if we're hydrating from a CSR-cloned <template>, we do need to set non-StaticAttr attributes
+                if !FROM_SERVER {
+                    R::set_attribute(el, key, &self.to_string());
+                }
+                (el.clone(), self)
+            }
+
+            fn build(self, el: &R::Element, key: &str) -> Self::State {
+                R::set_attribute(el, key, &self.to_string());
+                (el.to_owned(), self)
+            }
+
+            fn rebuild(self, key: &str, state: &mut Self::State) {
+                let (el, prev_value) = state;
+                if self != *prev_value {
+                    R::set_attribute(el, key, &self.to_string());
+                }
+                *prev_value = self;
+            }
+        }
+      )*
+  }
+}
+
+render_primitive![
+    usize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    isize,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    f32,
+    f64,
+    char,
+    IpAddr,
+    SocketAddr,
+    SocketAddrV4,
+    SocketAddrV6,
+    Ipv4Addr,
+    Ipv6Addr,
+    NonZeroI8,
+    NonZeroU8,
+    NonZeroI16,
+    NonZeroU16,
+    NonZeroI32,
+    NonZeroU32,
+    NonZeroI64,
+    NonZeroU64,
+    NonZeroI128,
+    NonZeroU128,
+    NonZeroIsize,
+    NonZeroUsize,
+];
