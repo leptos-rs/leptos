@@ -1,6 +1,7 @@
 use crate::{use_head, MetaContext, ServerMetaContext};
 use leptos::{
     component,
+    error::Result,
     oco::Oco,
     reactive_graph::{
         effect::RenderEffect,
@@ -8,7 +9,6 @@ use leptos::{
     },
     tachys::{
         dom::document,
-        error::Result,
         hydration::Cursor,
         renderer::{dom::Dom, Renderer},
         view::{Mountable, Position, PositionState, Render, RenderHtml},
@@ -193,6 +193,7 @@ struct TitleViewState {
 impl Render<Dom> for TitleView {
     type State = TitleViewState;
     type FallibleState = TitleViewState;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let el = self.el();
@@ -228,6 +229,10 @@ impl Render<Dom> for TitleView {
     fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 

@@ -7,7 +7,7 @@ where
     Self: 'static,
     R: Renderer + 'static,
 {
-    type Output: Render<R>;
+    type Output: Render<R> + Send;
 
     fn choose(self, route_data: RouteData<R>) -> Self::Output;
 }
@@ -15,7 +15,7 @@ where
 impl<F, View, R> ChooseView<R> for F
 where
     F: Fn(RouteData<R>) -> View + 'static,
-    View: Render<R>,
+    View: Render<R> + Send,
     R: Renderer + 'static,
 {
     type Output = View;

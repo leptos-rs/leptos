@@ -1431,7 +1431,7 @@ where
             additional_context();
             RouteList::generate(&app_fn)
         })
-        .expect("could not generate routes");
+        .unwrap_or_default();
 
     // Axum's Router defines Root routes as "/" not ""
     let mut routes = routes
