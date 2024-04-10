@@ -27,7 +27,7 @@ paste = "1"
 rand = { version = "0.8", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = "1"
-tachys = { workspace = true, features = ["reactive_graph"] }
+tachys = { workspace = true, features = ["reactive_graph", "oco"] }
 thiserror = "1"
 tracing = "0.1"
 typed-builder = "0.18"
@@ -86,7 +86,7 @@ rkyv = ["leptos_reactive/rkyv", "server_fn/rkyv"]
 tracing = [
   "reactive_graph/tracing",
 ] #, "leptos_macro/tracing", "leptos_dom/tracing"]
-nonce = ["leptos_dom/nonce"]
+nonce = ["base64", "leptos_dom/nonce", "rand"]
 spin = ["leptos_reactive/spin", "leptos-spin-macro"]
 experimental-islands = [
   "leptos_dom/experimental-islands",

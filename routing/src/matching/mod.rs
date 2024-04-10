@@ -91,7 +91,7 @@ where
     R: Renderer + 'static,
 {
     type Child: MatchInterface<R> + MatchParams + 'static;
-    type View: Render<R> + RenderHtml<R> + 'static;
+    type View: Render<R> + RenderHtml<R> + Send + 'static;
 
     fn as_id(&self) -> RouteMatchId;
 

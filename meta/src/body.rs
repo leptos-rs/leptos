@@ -2,11 +2,11 @@ use crate::ServerMetaContext;
 use indexmap::IndexMap;
 use leptos::{
     component,
+    error::Result,
     oco::Oco,
     reactive_graph::{effect::RenderEffect, owner::use_context},
     tachys::{
         dom::document,
-        error::Result,
         html::{
             attribute::{
                 any_attribute::{
@@ -96,6 +96,7 @@ struct BodyViewState {
 impl Render<Dom> for BodyView {
     type State = BodyViewState;
     type FallibleState = BodyViewState;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
@@ -120,6 +121,10 @@ impl Render<Dom> for BodyView {
     fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 

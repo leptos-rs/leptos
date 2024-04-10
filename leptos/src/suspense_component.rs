@@ -115,7 +115,16 @@ where
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        todo!()
+        self.fallback.to_html_with_buf(buf, position);
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+    ) where
+        Self: Sized,
+    {
     }
 
     fn hydrate<const FROM_SERVER: bool>(

@@ -120,6 +120,7 @@ where
         >,
     >;
     type FallibleState = (); // TODO
+    type AsyncOutput = (); // TODO
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -176,16 +177,18 @@ where
 
     fn rebuild(self, state: &mut Self::State) {}
 
-    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> tachys::error::Result<()> {
+    ) -> leptos::error::Result<()> {
         todo!()
     }
+
+    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
@@ -631,6 +634,7 @@ where
 {
     type State = Outlet<R>;
     type FallibleState = ();
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         self
@@ -640,15 +644,19 @@ where
         todo!()
     }
 
-    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> tachys::error::Result<()> {
+    ) -> leptos::error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 
@@ -857,6 +865,7 @@ where
 {
     type State = NestedRouteState<Matcher, R>;
     type FallibleState = ();
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let NestedRouteView {
@@ -892,15 +901,19 @@ where
         view.rebuild(&mut state.view);
     }
 
-    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> tachys::error::Result<()> {
+    ) -> leptos::error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 
@@ -1075,6 +1088,7 @@ where
             >,
         >;
     type FallibleState = Self::State;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -1158,15 +1172,19 @@ where
 
     fn rebuild(self, state: &mut Self::State) {}
 
-    fn try_build(self) -> tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
         todo!()
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> tachys::error::Result<()> {
+    ) -> leptos::error::Result<()> {
         todo!()
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 

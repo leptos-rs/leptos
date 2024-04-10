@@ -165,8 +165,8 @@ impl ServerMetaContext {
     /// included.
     pub async fn inject_meta_context(
         self,
-        mut stream: impl Stream<Item = String> + Send + Sync + Unpin,
-    ) -> impl Stream<Item = String> + Send + Sync {
+        mut stream: impl Stream<Item = String> + Send + Unpin,
+    ) -> impl Stream<Item = String> + Send {
         let mut first_chunk = stream.next().await.unwrap_or_default();
 
         let meta_buf =
@@ -324,6 +324,7 @@ where
 {
     type State = RegisteredMetaTagState<E, At, Ch>;
     type FallibleState = RegisteredMetaTagState<E, At, Ch>;
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let state = self.el.unwrap().build();
@@ -334,16 +335,20 @@ where
         self.el.unwrap().rebuild(&mut state.state);
     }
 
-    fn try_build(self) -> leptos::tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
         Ok(self.build())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> leptos::tachys::error::Result<()> {
+    ) -> leptos::error::Result<()> {
         self.rebuild(state);
         Ok(())
+    }
+
+    async fn resolve(self) -> Self {
+        self
     }
 }
 
@@ -435,20 +440,25 @@ struct MetaTagsView {
 impl Render<Dom> for MetaTagsView {
     type State = ();
     type FallibleState = ();
+    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, state: &mut Self::State) {}
 
-    fn try_build(self) -> leptos::tachys::error::Result<Self::FallibleState> {
+    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
         Ok(())
     }
 
     fn try_rebuild(
         self,
         state: &mut Self::FallibleState,
-    ) -> leptos::tachys::error::Result<()> {
+    ) -> leptos::error::Result<()> {
         Ok(())
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
