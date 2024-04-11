@@ -76,7 +76,6 @@ where
 
     let set = SignalSetter::map(move |value: Option<T>| {
         let mut new_query_map = query_map.get();
-        let nav_options = nav_options.clone();
         match value {
             Some(value) => {
                 new_query_map.insert(key.to_string(), value.to_string());
@@ -89,7 +88,7 @@ where
         let path = location.pathname.get_untracked();
         let hash = location.hash.get_untracked();
         let new_url = format!("{path}{qs}{hash}");
-        navigate(&new_url, nav_options);
+        navigate(&new_url, nav_options.clone());
     });
 
     (get, set)
