@@ -50,6 +50,17 @@ pub fn create_query_signal<T>(
 where
     T: FromStr + ToString + PartialEq,
 {
+    create_query_signal_with_options::<T>(key, NavigateOptions::default())
+}
+
+#[track_caller]
+pub fn create_query_signal_with_options<T>(
+    key: impl Into<Oco<'static, str>>,
+    nav_options: NavigateOptions,
+) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
+where
+    T: FromStr + ToString + PartialEq,
+{
     let mut key: Oco<'static, str> = key.into();
     let query_map = use_query_map();
     let navigate = use_navigate();
@@ -65,6 +76,7 @@ where
 
     let set = SignalSetter::map(move |value: Option<T>| {
         let mut new_query_map = query_map.get();
+        let nav_options = nav_options.clone();
         match value {
             Some(value) => {
                 new_query_map.insert(key.to_string(), value.to_string());
@@ -77,7 +89,7 @@ where
         let path = location.pathname.get_untracked();
         let hash = location.hash.get_untracked();
         let new_url = format!("{path}{qs}{hash}");
-        navigate(&new_url, NavigateOptions::default());
+        navigate(&new_url, nav_options);
     });
 
     (get, set)
