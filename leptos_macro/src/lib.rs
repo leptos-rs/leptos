@@ -489,7 +489,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// use leptos::html::Div;
 ///
 /// #[component]
-/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(render_prop: impl Fn() -> HtmlElement<Div>) -> impl IntoView {
+/// fn MyComponent(render_prop: impl Fn() -> HtmlElement<Div>) -> impl IntoView {
 /// }
 /// ```
 ///
