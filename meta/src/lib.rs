@@ -69,6 +69,7 @@ use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
+    future::{ready, Ready},
     pin::Pin,
     sync::{Arc, RwLock},
 };
@@ -324,7 +325,6 @@ where
 {
     type State = RegisteredMetaTagState<E, At, Ch>;
     type FallibleState = RegisteredMetaTagState<E, At, Ch>;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let state = self.el.unwrap().build();
@@ -346,10 +346,6 @@ where
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self {
-        self
-    }
 }
 
 impl<E, At, Ch> RenderHtml<Dom> for RegisteredMetaTag<E, At, Ch>
@@ -358,7 +354,13 @@ where
     At: Attribute<Dom>,
     Ch: RenderHtml<Dom>,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
         // meta tags are rendered into the buffer stored into the context
@@ -440,7 +442,6 @@ struct MetaTagsView {
 impl Render<Dom> for MetaTagsView {
     type State = ();
     type FallibleState = ();
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {}
 
@@ -456,14 +457,16 @@ impl Render<Dom> for MetaTagsView {
     ) -> leptos::error::Result<()> {
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl RenderHtml<Dom> for MetaTagsView {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         buf.push_str("<!--HEAD-->");

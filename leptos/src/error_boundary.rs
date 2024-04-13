@@ -47,7 +47,9 @@ pub fn ErrorBoundary<FalFn, Fal, Chil>(
 where
     FalFn: FnMut(&ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
     Fal: IntoView + 'static,
+    Fal::AsyncOutput: Send,
     Chil: IntoView + 'static,
+    Chil::AsyncOutput: Send,
 {
     let hook = Arc::new(ErrorBoundaryErrorHook::default());
     let errors = hook.errors.clone();
@@ -137,7 +139,6 @@ where
 {
     type State = ErrorBoundaryViewState<Chil, Fal, Rndr>;
     type FallibleState = ();
-    type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, Fal, Rndr>;
 
     fn build(self) -> Self::State {
         let placeholder = Rndr::create_placeholder();
@@ -190,26 +191,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        let Self {
-            errors_empty,
-            children,
-            fallback,
-            rndr,
-        } = self;
-        if errors_empty {}
-        let children = match children {
-            Some(inner) if errors_empty => Some(inner.resolve().await),
-            _ => None,
-        };
-        ErrorBoundaryView {
-            errors_empty,
-            children,
-            fallback,
-            rndr,
-        }
-    }
 }
 
 impl<Chil, Fal, Rndr> RenderHtml<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
@@ -218,7 +199,13 @@ where
     Fal: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
+    type AsyncOutput = std::future::Ready<()>; //ErrorBoundaryView<Chil::AsyncOutput, Fal, Rndr>;
+
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        todo!()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         todo!()

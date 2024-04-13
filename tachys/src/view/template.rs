@@ -38,7 +38,6 @@ where
 {
     type State = V::State;
     type FallibleState = V::FallibleState;
-    type AsyncOutput = Self;
 
     // TODO try_build/try_rebuild()
 
@@ -63,10 +62,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<V, R> RenderHtml<R> for ViewTemplate<V, R>
@@ -75,6 +70,8 @@ where
     V::State: Mountable<R>,
     R: DomRenderer,
 {
+    type AsyncOutput = V::AsyncOutput;
+
     const MIN_LENGTH: usize = V::MIN_LENGTH;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -87,6 +84,10 @@ where
         position: &PositionState,
     ) -> Self::State {
         self.view.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    fn resolve(self) -> Self::AsyncOutput {
+        todo!()
     }
 }
 
