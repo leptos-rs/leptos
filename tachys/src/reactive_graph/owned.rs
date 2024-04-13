@@ -69,7 +69,6 @@ where
 {
     type State = OwnedViewState<T::State, R>;
     type FallibleState = OwnedViewState<T::FallibleState, R>;
-    type AsyncOutput = OwnedView<T::AsyncOutput, R>;
 
     fn build(self) -> Self::State {
         let state = self.owner.with(|| self.view.build());
@@ -92,10 +91,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
-    }
 }
 
 impl<T, R> RenderHtml<R> for OwnedView<T, R>
@@ -103,6 +98,9 @@ where
     T: RenderHtml<R>,
     R: Renderer,
 {
+    // TODO
+    type AsyncOutput = std::future::Ready<OwnedView<T::AsyncOutput, R>>;
+
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
     fn to_html_with_buf(
@@ -136,6 +134,10 @@ where
             .owner
             .with(|| self.view.hydrate::<FROM_SERVER>(cursor, position));
         OwnedViewState::new(state, self.owner)
+    }
+
+    fn resolve(self) -> Self::AsyncOutput {
+        todo!()
     }
 }
 

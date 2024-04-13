@@ -144,6 +144,7 @@ impl<F, C> ToChildren<F> for TypedChildren<C>
 where
     F: FnOnce() -> C + Send + 'static,
     C: IntoView,
+    C::AsyncOutput: Send,
 {
     #[inline]
     fn to_children(f: F) -> Self {
@@ -171,6 +172,7 @@ impl<F, C> ToChildren<F> for TypedChildrenMut<C>
 where
     F: FnMut() -> C + Send + 'static,
     C: IntoView,
+    C::AsyncOutput: Send,
 {
     #[inline]
     fn to_children(mut f: F) -> Self {
@@ -198,6 +200,7 @@ impl<F, C> ToChildren<F> for TypedChildrenFn<C>
 where
     F: Fn() -> C + Send + Sync + 'static,
     C: IntoView,
+    C::AsyncOutput: Send,
 {
     #[inline]
     fn to_children(f: F) -> Self {

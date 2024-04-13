@@ -74,7 +74,6 @@ where
     type State = KeyedState<K, V, Rndr>;
     // TODO fallible state and try_build()/try_rebuild() here
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let items = self.items.into_iter();
@@ -139,10 +138,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
-    }
 }
 
 impl<T, I, K, KF, VF, V, Rndr> RenderHtml<Rndr>
@@ -155,7 +150,13 @@ where
     VF: Fn(T) -> V,
     Rndr: Renderer,
 {
+    type AsyncOutput = std::future::Ready<()>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        todo!()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         for item in self.items.into_iter() {
