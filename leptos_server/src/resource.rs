@@ -173,6 +173,7 @@ where
             .unwrap_or_default();
 
         let initial = Self::initial_value(&id);
+        let is_ready = matches!(initial, AsyncState::Complete(_));
 
         let source = ArcMemo::new(move |_| source());
         let fun = {
@@ -181,8 +182,10 @@ where
         };
 
         let data = ArcAsyncDerived::new_with_initial(initial, fun);
-        _ = source.with(|_| ());
-        source.add_subscriber(data.to_any_subscriber());
+        if is_ready {
+            _ = source.with(|_| ());
+            source.add_subscriber(data.to_any_subscriber());
+        }
 
         if let Some(shared_context) = shared_context {
             let value = data.clone();
