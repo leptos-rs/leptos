@@ -6,7 +6,13 @@ use crate::{
     view::{Mountable, Render, Renderer},
 };
 use any_error::Error as AnyError;
-use std::marker::PhantomData;
+use pin_project_lite::pin_project;
+use std::{
+    future::{Future, Ready},
+    marker::PhantomData,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 impl<R, T, E> Render<R> for Result<T, E>
 where
@@ -16,7 +22,6 @@ where
 {
     type State = ResultState<T::State, R>;
     type FallibleState = T::State;
-    type AsyncOutput = Result<T::AsyncOutput, E>;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -61,13 +66,6 @@ where
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
-    }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        match self {
-            Ok(view) => Ok(view.resolve().await),
-            Err(e) => Err(e),
-        }
     }
 }
 
@@ -140,7 +138,18 @@ where
     R: Renderer,
     E: Into<AnyError> + 'static,
 {
+    type AsyncOutput = ResultFuture<T::AsyncOutput, E>;
+
     const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            Ok(view) => ResultFuture::Ok {
+                inner: view.resolve(),
+            },
+            Err(e) => ResultFuture::Err { inner: Some(e) },
+        }
+    }
 
     fn html_len(&self) -> usize {
         match self {
@@ -195,6 +204,38 @@ where
     }
 }
 
+pin_project! {
+    #[project = ResultFutureProj]
+    pub enum ResultFuture<T, E> {
+        Ok {
+            #[pin]
+            inner: T
+        },
+        Err { inner: Option<E> }
+    }
+}
+
+impl<T, E> Future for ResultFuture<T, E>
+where
+    T: Future,
+{
+    type Output = Result<T::Output, E>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this {
+            ResultFutureProj::Err { inner } => Poll::Ready(Err(inner
+                .take()
+                .expect("ResultFuture polled twice"))),
+            ResultFutureProj::Ok { inner } => match inner.poll(cx) {
+                Poll::Ready(value) => Poll::Ready(Ok(value)),
+                Poll::Pending => Poll::Pending,
+            },
+        }
+    }
+}
+
+/*
 pub trait TryCatchBoundary<Fal, FalFn, Rndr>
 where
     Self: Sized + Render<Rndr>,
@@ -254,7 +295,6 @@ where
 {
     type State = TryState<T, Fal, Rndr>;
     type FallibleState = Self::State;
-    type AsyncOutput = Try<T::AsyncOutput, Fal, FalFn, Rndr>;
 
     fn build(mut self) -> Self::State {
         let inner = match self.child.try_build() {
@@ -330,21 +370,23 @@ where
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
-    }
 }
 
 // TODO RenderHtml implementation for ErrorBoundary
 impl<T, Fal, FalFn, Rndr> RenderHtml<Rndr> for Try<T, Fal, FalFn, Rndr>
 where
-    T: Render<Rndr>,
+    T: RenderHtml<Rndr>,
     Fal: RenderHtml<Rndr>,
     FalFn: FnMut(AnyError) -> Fal,
     Rndr: Renderer,
 {
+    type AsyncOutput = Ready<Try<T::AsyncOutput, Fal, FalFn, Rndr>>;
+
     const MIN_LENGTH: usize = Fal::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        todo!()
+    }
 
     fn to_html_with_buf(
         self,
@@ -458,4 +500,4 @@ where
             }
         }
     }
-}
+}*/

@@ -14,6 +14,7 @@ use reactive_graph::{
     computed::{
         ArcAsyncDerived, ArcMemo, AsyncDerived, AsyncDerivedFuture, AsyncState,
     },
+    graph::{Source, ToAnySource, ToAnySubscriber},
     owner::Owner,
     prelude::*,
 };
@@ -174,9 +175,14 @@ where
         let initial = Self::initial_value(&id);
 
         let source = ArcMemo::new(move |_| source());
-        let fun = move || fetcher(source.get());
+        let fun = {
+            let source = source.clone();
+            move || fetcher(source.get())
+        };
 
         let data = ArcAsyncDerived::new_with_initial(initial, fun);
+        _ = source.with(|_| ());
+        source.add_subscriber(data.to_any_subscriber());
 
         if let Some(shared_context) = shared_context {
             let value = data.clone();

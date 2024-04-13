@@ -6,6 +6,7 @@ use crate::{
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco::Oco;
+use std::future::{ready, Ready};
 
 pub struct OcoStrState<R: Renderer> {
     node: R::Text,
@@ -15,7 +16,6 @@ pub struct OcoStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Oco<'static, str> {
     type State = OcoStrState<R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -41,17 +41,19 @@ impl<R: Renderer> Render<R> for Oco<'static, str> {
         <Self as Render<R>>::rebuild(self, state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<R> RenderHtml<R> for Oco<'static, str>
 where
     R: Renderer,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)

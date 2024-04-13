@@ -24,6 +24,7 @@ use std::{
     cell::{Cell, RefCell},
     collections::VecDeque,
     fmt::Debug,
+    future::{ready, Ready},
     iter,
     rc::Rc,
 };
@@ -120,7 +121,6 @@ where
         >,
     >;
     type FallibleState = (); // TODO
-    type AsyncOutput = (); // TODO
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -187,8 +187,6 @@ where
     ) -> leptos::error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
@@ -207,8 +205,14 @@ where
     Children::Match: std::fmt::Debug,
     <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
 {
+    type AsyncOutput = Ready<Self>;
+
     // TODO probably pick a max length here
     const MIN_LENGTH: usize = Children::View::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // if this is being run on the server for the first time, generating all possible routes
@@ -634,7 +638,6 @@ where
 {
     type State = Outlet<R>;
     type FallibleState = ();
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         self
@@ -654,17 +657,19 @@ where
     ) -> leptos::error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self {
-        self
-    }
 }
 
 impl<R> RenderHtml<R> for Outlet<R>
 where
     R: Renderer + 'static,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0; // TODO
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn html_len(&self) -> usize {
         (self.inner.borrow().html_len)()
@@ -865,7 +870,6 @@ where
 {
     type State = NestedRouteState<Matcher, R>;
     type FallibleState = ();
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let NestedRouteView {
@@ -911,10 +915,6 @@ where
     ) -> leptos::error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self {
-        self
-    }
 }
 
 impl<Matcher, R> RenderHtml<R> for NestedRouteView<Matcher, R>
@@ -923,7 +923,13 @@ where
     Matcher::View: Sized + 'static,
     R: Renderer + 'static,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = Matcher::View::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn html_len(&self) -> usize {
         self.view.html_len()
@@ -1088,7 +1094,6 @@ where
             >,
         >;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -1182,10 +1187,6 @@ where
     ) -> leptos::error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self {
-        self
-    }
 }
 
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
@@ -1198,8 +1199,14 @@ where
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize =
         <Children::Match as MatchInterface<Rndr>>::View::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // if this is being run on the server for the first time, generating all possible routes
