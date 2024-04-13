@@ -5,7 +5,12 @@ use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
 };
-use std::{borrow::Cow, rc::Rc, sync::Arc};
+use std::{
+    borrow::Cow,
+    future::{ready, Ready},
+    rc::Rc,
+    sync::Arc,
+};
 
 pub struct StrState<'a, R: Renderer> {
     pub node: R::Text,
@@ -15,7 +20,6 @@ pub struct StrState<'a, R: Renderer> {
 impl<'a, R: Renderer> Render<R> for &'a str {
     type State = StrState<'a, R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(self);
@@ -41,17 +45,19 @@ impl<'a, R: Renderer> Render<R> for &'a str {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<'a, R> RenderHtml<R> for &'a str
 where
     R: Renderer,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn html_len(&self) -> usize {
         self.len()
@@ -147,7 +153,6 @@ pub struct StringState<R: Renderer> {
 impl<R: Renderer> Render<R> for String {
     type State = StringState<R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -173,10 +178,6 @@ impl<R: Renderer> Render<R> for String {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<R> RenderHtml<R> for String
@@ -184,6 +185,11 @@ where
     R: Renderer,
 {
     const MIN_LENGTH: usize = 0;
+    type AsyncOutput = Ready<Self>;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn html_len(&self) -> usize {
         self.len()
@@ -251,7 +257,6 @@ pub struct RcStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Rc<str> {
     type State = RcStrState<R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -277,17 +282,22 @@ impl<R: Renderer> Render<R> for Rc<str> {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
+// can't Send an Rc<str> between threads, so can't implement async HTML rendering that might need
+// to send it
+/*
 impl<R> RenderHtml<R> for Rc<str>
 where
     R: Renderer,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+    ready(self)
+    }
 
     fn html_len(&self) -> usize {
         self.len()
@@ -307,7 +317,7 @@ where
             this.hydrate::<FROM_SERVER>(cursor, position);
         RcStrState { node, str: self }
     }
-}
+}*/
 
 impl ToTemplate for Rc<str> {
     const TEMPLATE: &'static str = <&str as ToTemplate>::TEMPLATE;
@@ -356,7 +366,6 @@ pub struct ArcStrState<R: Renderer> {
 impl<R: Renderer> Render<R> for Arc<str> {
     type State = ArcStrState<R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -382,17 +391,19 @@ impl<R: Renderer> Render<R> for Arc<str> {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<R> RenderHtml<R> for Arc<str>
 where
     R: Renderer,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn html_len(&self) -> usize {
         self.len()
@@ -461,7 +472,6 @@ pub struct CowStrState<'a, R: Renderer> {
 impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
     type State = CowStrState<'a, R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -487,17 +497,19 @@ impl<'a, R: Renderer> Render<R> for Cow<'a, str> {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<'a, R> RenderHtml<R> for Cow<'a, str>
 where
     R: Renderer,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn html_len(&self) -> usize {
         self.len()

@@ -49,7 +49,6 @@ where
 {
     type State = View::State;
     type FallibleState = View::FallibleState;
-    type AsyncOutput = View::AsyncOutput;
 
     fn build(self) -> Self::State {
         self.view.build()
@@ -69,10 +68,6 @@ where
     ) -> any_error::Result<()> {
         self.view.try_rebuild(state)
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self.view.resolve().await
-    }
 }
 
 impl<Rndr, View> RenderHtml<Rndr> for Island<Rndr, View>
@@ -80,11 +75,17 @@ where
     View: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
+    type AsyncOutput = View::AsyncOutput;
+
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
         + "</>".len()
         + "data-component".len()
         + View::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        self.view.resolve()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         Self::open_tag(self.component, buf);
@@ -157,7 +158,6 @@ where
 {
     type State = ();
     type FallibleState = Self::State;
-    type AsyncOutput = View::AsyncOutput;
 
     fn build(self) -> Self::State {}
 
@@ -173,11 +173,6 @@ where
     ) -> any_error::Result<()> {
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        // TODO should this be wrapped?
-        self.view.resolve().await
-    }
 }
 
 impl<Rndr, View> RenderHtml<Rndr> for IslandChildren<Rndr, View>
@@ -185,10 +180,17 @@ where
     View: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
+    type AsyncOutput = View::AsyncOutput;
+
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()
         + "</>".len()
         + View::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        // TODO should this be wrapped?
+        self.view.resolve()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         Self::open_tag(buf);

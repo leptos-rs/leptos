@@ -17,9 +17,7 @@ pub mod prelude {
             node_ref::NodeRefAttribute,
         },
         renderer::{dom::Dom, Renderer},
-        view::{
-            error_boundary::TryCatchBoundary, Mountable, Render, RenderHtml,
-        },
+        view::{Mountable, Render, RenderHtml},
     };
 }
 

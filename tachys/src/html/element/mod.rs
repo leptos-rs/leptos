@@ -12,7 +12,12 @@ use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
 use next_tuple::TupleBuilder;
-use std::marker::PhantomData;
+use std::{
+    future::Future,
+    marker::PhantomData,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 mod custom;
 mod elements;
@@ -94,9 +99,8 @@ where
 impl<E, At, Ch, Rndr> AddAnyAttr<Rndr> for HtmlElement<E, At, Ch, Rndr>
 where
     E: ElementType + CreateElement<Rndr>,
-    Ch: RenderHtml<Rndr>,
-    Rndr: Renderer,
     At: Attribute<Rndr>,
+    Ch: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
     type Output<SomeNewAttr: Attribute<Rndr>> = HtmlElement<
@@ -167,7 +171,6 @@ where
 {
     type State = ElementState<At::State, Ch::State, Rndr>;
     type FallibleState = ElementState<At::State, Ch::FallibleState, Rndr>;
-    type AsyncOutput = HtmlElement<E, At, Ch::AsyncOutput, Rndr>;
 
     fn rebuild(self, state: &mut Self::State) {
         let ElementState {
@@ -214,14 +217,38 @@ where
         self.children.try_rebuild(children)?;
         Ok(())
     }
+}
+pin_project_lite::pin_project! {
+    pub struct HtmlElementFuture<E, At, Ch, Rndr> {
+        sync_fields: Option<(E, At)>,
+        #[pin]
+        children_fut: Ch,
+        rndr: PhantomData<Rndr>,
+    }
+}
 
-    async fn resolve(self) -> Self::AsyncOutput {
-        HtmlElement {
-            tag: self.tag,
-            // TODO async attributes too
-            attributes: self.attributes,
-            children: self.children.resolve().await,
-            rndr: PhantomData,
+impl<E, At, Ch, Rndr> Future for HtmlElementFuture<E, At, Ch, Rndr>
+where
+    Ch: Future,
+{
+    type Output = HtmlElement<E, At, Ch::Output, Rndr>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this.children_fut.poll(cx) {
+            Poll::Ready(children) => {
+                let (tag, attributes) = this.sync_fields.take().expect(
+                    "tried to take synchronous fields from HtmlElementFuture \
+                     more than once",
+                );
+                Poll::Ready(HtmlElement {
+                    tag,
+                    attributes,
+                    children,
+                    rndr: PhantomData,
+                })
+            }
+            Poll::Pending => Poll::Pending,
         }
     }
 }
@@ -233,6 +260,8 @@ where
     Ch: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
+    type AsyncOutput = HtmlElementFuture<E, At, Ch::AsyncOutput, Rndr>;
+
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
         + E::TAG.len()
@@ -245,6 +274,14 @@ where
         + 3 // </ ... >
         + E::TAG.len()
     };
+
+    fn resolve(self) -> Self::AsyncOutput {
+        HtmlElementFuture {
+            sync_fields: Some((self.tag, self.attributes)),
+            children_fut: self.children.resolve(),
+            rndr: self.rndr,
+        }
+    }
 
     fn html_len(&self) -> usize {
         if E::SELF_CLOSING {
