@@ -25,8 +25,9 @@ pub trait Render<R: Renderer>: Sized {
     /// For example, for a text node, `State` might be the actual DOM text node
     /// and the previous string, to allow for diffing between updates.
     type State: Mountable<R>;
+
+    // TODO remove this, the other ErrorBoundary way is better
     type FallibleState: Mountable<R>;
-    type AsyncOutput: Render<R>;
 
     /// Creates the view for the first time, without hydrating from existing HTML.
     fn build(self) -> Self::State;
@@ -40,8 +41,6 @@ pub trait Render<R: Renderer>: Sized {
         self,
         state: &mut Self::FallibleState,
     ) -> any_error::Result<()>;
-
-    fn resolve(self) -> impl Future<Output = Self::AsyncOutput>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -71,7 +70,11 @@ pub trait RenderHtml<R: Renderer>
 where
     Self: Render<R>,
 {
+    type AsyncOutput: Future; //RenderHtml<R> + Send;
+
     const MIN_LENGTH: usize;
+
+    fn resolve(self) -> Self::AsyncOutput;
 
     /// An estimated length for this view, when rendered to HTML.
     ///

@@ -15,7 +15,7 @@ pub mod sledgehammer;
 /// By default, this is implemented for the Document Object Model (DOM) in a Web
 /// browser, but implementing this trait for some other platform allows you to use
 /// the library to render any tree-based UI.
-pub trait Renderer: Sized + Debug {
+pub trait Renderer: Send + Sized + Debug {
     /// The basic type of node in the view tree.
     type Node: Mountable<Self> + Clone + 'static;
     /// A visible element in the view tree.

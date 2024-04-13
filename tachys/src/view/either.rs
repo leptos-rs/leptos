@@ -28,7 +28,6 @@ where
 {
     type State = EitherState<A::State, B::State, Rndr>;
     type FallibleState = EitherState<A::FallibleState, B::FallibleState, Rndr>;
-    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
 
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
@@ -73,13 +72,6 @@ where
         _state: &mut Self::FallibleState,
     ) -> any_error::Result<()> {
         todo!()
-    }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        match self {
-            Either::Left(left) => Either::Left(left.resolve().await),
-            Either::Right(right) => Either::Right(right.resolve().await),
-        }
     }
 }
 
@@ -144,6 +136,19 @@ where
     B: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
+    type AsyncOutput = EitherFuture<A::AsyncOutput, B::AsyncOutput>;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            Either::Left(left) => EitherFuture::Left {
+                inner: left.resolve(),
+            },
+            Either::Right(right) => EitherFuture::Right {
+                inner: right.resolve(),
+            },
+        }
+    }
+
     const MIN_LENGTH: usize = max_usize(&[A::MIN_LENGTH, B::MIN_LENGTH]);
 
     #[inline(always)]
@@ -229,7 +234,6 @@ where
     type State = EitherKeepAliveState<A::State, B::State, Rndr>;
 
     type FallibleState = ();
-    type AsyncOutput = ();
 
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
@@ -266,7 +270,7 @@ where
                     a.unmount();
                 }
                 if let Some(b) = &mut state.b {
-                    Rndr::try_mount_before(b, state.marker.as_ref());
+                    Rndr::mount_before(b, state.marker.as_ref());
                 }
             }
             // transition from B to A
@@ -275,7 +279,7 @@ where
                     b.unmount();
                 }
                 if let Some(a) = &mut state.a {
-                    Rndr::try_mount_before(a, state.marker.as_ref());
+                    Rndr::mount_before(a, state.marker.as_ref());
                 }
             }
             _ => {}
@@ -293,9 +297,57 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
+}
 
-    async fn resolve(self) -> Self::AsyncOutput {
+impl<A, B, Rndr> RenderHtml<Rndr> for EitherKeepAlive<A, B>
+where
+    A: RenderHtml<Rndr>,
+    B: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type AsyncOutput = EitherFuture<A::AsyncOutput, B::AsyncOutput>;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
         todo!()
+    }
+
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        todo!()
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        let showing_b = self.show_b;
+        let a = self.a.map(|a| {
+            if showing_b {
+                a.build()
+            } else {
+                a.hydrate::<FROM_SERVER>(cursor, position)
+            }
+        });
+        let b = self.b.map(|b| {
+            if showing_b {
+                b.hydrate::<FROM_SERVER>(cursor, position)
+            } else {
+                b.build()
+            }
+        });
+
+        cursor.sibling();
+        let marker = cursor.current().to_owned();
+        let marker = Rndr::Placeholder::cast_from(marker).unwrap();
+        position.set(Position::NextChild);
+        EitherKeepAliveState {
+            showing_b,
+            a,
+            b,
+            marker,
+        }
     }
 }
 
@@ -405,7 +457,6 @@ macro_rules! tuples {
             {
                 type State = [<EitherOf $num State>]<$($ty,)* Rndr>;
                 type FallibleState = [<EitherOf $num State>]<$($ty,)* Rndr>;
-                type AsyncOutput = [<EitherOf $num>]<$($ty::AsyncOutput,)*>;
 
                 fn build(self) -> Self::State {
                     let marker = Rndr::create_placeholder();
@@ -448,21 +499,22 @@ macro_rules! tuples {
                     todo!()
                 }
 
-                async fn resolve(self) -> Self::AsyncOutput {
-                    match self {
-                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.resolve().await),)*
-                    }
-                }
             }
 
             impl<Rndr, $($ty,)*> RenderHtml<Rndr> for [<EitherOf $num>]<$($ty,)*>
             where
                 $($ty: RenderHtml<Rndr>,)*
                 Rndr: Renderer,
-
-
             {
+                type AsyncOutput = [<EitherOf $num Future>]<$($ty::AsyncOutput,)*>;
+
                 const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
+
+                fn resolve(self) -> Self::AsyncOutput {
+                    match self {
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num Future>]::$ty { inner: this.resolve() },)*
+                    }
+                }
 
                 #[inline(always)]
                 fn html_len(&self) -> usize {
