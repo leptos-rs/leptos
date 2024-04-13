@@ -6,7 +6,10 @@ use crate::{
     hydration::Cursor,
     renderer::Renderer,
 };
-use std::marker::PhantomData;
+use std::{
+    future::{ready, Ready},
+    marker::PhantomData,
+};
 
 /// An attribute for which both the key and the value are known at compile time,
 /// i.e., as `&'static str`s.
@@ -130,7 +133,6 @@ where
 {
     type State = Option<R::Text>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         // a view state has to be returned so it can be mounted
@@ -151,10 +153,6 @@ where
         Render::<R>::rebuild(self, state);
         Ok(())
     }
-
-    fn resolve(self) -> futures::future::Ready<Self::AsyncOutput> {
-        futures::future::ready(self)
-    }
 }
 
 impl<const V: &'static str, R> RenderHtml<R> for Static<V>
@@ -163,7 +161,13 @@ where
 
     R::Text: Mountable<R>,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = V.len();
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // add a comment node to separate from previous sibling, if any
