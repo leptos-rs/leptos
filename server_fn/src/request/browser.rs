@@ -25,11 +25,20 @@ pub(crate) struct RequestInner {
 }
 
 #[derive(Debug)]
-pub(crate) struct AbortOnDrop(AbortController);
+pub(crate) struct AbortOnDrop(Option<AbortController>);
+
+impl AbortOnDrop {
+    /// Prevents the request from being aborted on drop.
+    pub fn prevent_cancellation(&mut self) {
+        self.0.take();
+    }
+}
 
 impl Drop for AbortOnDrop {
     fn drop(&mut self) {
-        self.0.abort();
+        if let Some(inner) = self.0.take() {
+            inner.abort();
+        }
     }
 }
 
@@ -72,7 +81,7 @@ impl From<FormData> for BrowserFormData {
 fn abort_signal() -> (Option<AbortOnDrop>, Option<AbortSignal>) {
     let ctrl = AbortController::new().ok();
     let signal = ctrl.as_ref().map(|ctrl| ctrl.signal());
-    (ctrl.map(AbortOnDrop), signal)
+    (ctrl.map(|ctrl| AbortOnDrop(Some(ctrl))), signal)
 }
 
 impl<CustErr> ClientReq<CustErr> for BrowserRequest {
