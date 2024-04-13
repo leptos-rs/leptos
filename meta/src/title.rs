@@ -20,6 +20,7 @@ use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
+    future::{ready, Ready},
     ops::Deref,
     rc::Rc,
     sync::{Arc, RwLock},
@@ -193,7 +194,6 @@ struct TitleViewState {
 impl Render<Dom> for TitleView {
     type State = TitleViewState;
     type FallibleState = TitleViewState;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let el = self.el();
@@ -230,14 +230,16 @@ impl Render<Dom> for TitleView {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self {
-        self
-    }
 }
 
 impl RenderHtml<Dom> for TitleView {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         // meta tags are rendered into the buffer stored into the context

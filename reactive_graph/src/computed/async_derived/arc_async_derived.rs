@@ -12,7 +12,7 @@ use crate::{
     },
     owner::Owner,
     signal::guards::{Plain, ReadGuard},
-    traits::{DefinedAt, ReadUntracked},
+    traits::{DefinedAt, ReadUntracked, Track},
 };
 use any_spawner::Executor;
 use core::fmt::Debug;
@@ -103,19 +103,6 @@ macro_rules! spawn_derived {
         };
         let any_subscriber = this.to_any_subscriber();
 
-        // if it's immediately available, poll once
-        // this means either
-        // a) it's synchronous, or
-        // b) it was hydrated, and we want to access any reactivity
-        if is_ready {
-            let owner = this.inner.read().or_poisoned().owner.clone();
-            let fut = owner.with_cleanup(|| {
-                any_subscriber
-                    .with_observer(|| ScopedFuture::new($fun()))
-            });
-            _ = fut.now_or_never();
-        }
-
         $spawner({
             let value = Arc::downgrade(&this.value);
             let inner = Arc::downgrade(&this.inner);
@@ -174,7 +161,7 @@ macro_rules! spawn_derived {
             fut
         });
 
-        this
+        (this, is_ready)
     }};
 }
 
@@ -197,7 +184,8 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        spawn_derived!(Executor::spawn, initial_value, fun)
+        let (this, _) = spawn_derived!(Executor::spawn, initial_value, fun);
+        this
     }
 
     #[track_caller]
@@ -218,7 +206,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
-        spawn_derived!(Executor::spawn_local, initial_value, fun)
+        let (this, _) =
+            spawn_derived!(Executor::spawn_local, initial_value, fun);
+        this
     }
 
     pub fn ready(&self) -> AsyncDerivedReadyFuture<T> {
