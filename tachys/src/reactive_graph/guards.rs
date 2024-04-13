@@ -12,6 +12,7 @@ use crate::{
 use reactive_graph::signal::guards::ReadGuard;
 use std::{
     fmt::Write,
+    future::{ready, Ready},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
@@ -57,7 +58,6 @@ macro_rules! render_primitive {
             {
 				type State = [<ReadGuard $child_type:camel State>]<R>;
                 type FallibleState = Self::State;
-                type AsyncOutput = Self;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -80,19 +80,17 @@ macro_rules! render_primitive {
                     self.rebuild(state);
 Ok(())
                 }
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
 			}
 
-			impl<'a, G, R> RenderHtml<R> for ReadGuard<$child_type, G>
+			impl<G, R> RenderHtml<R> for ReadGuard<$child_type, G>
 			where
 				R: Renderer,
 
 
                 G: Deref<Target = $child_type>
 			{
+                type AsyncOutput = Ready<Self>;
+
 				const MIN_LENGTH: usize = 0;
 
 				fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -136,6 +134,10 @@ Ok(())
 
 					[<ReadGuard $child_type:camel State>](node, *self)
 				}
+
+                fn resolve(self) -> Self::AsyncOutput {
+                    ready(self)
+                }
 			}
 
 		    impl<'a, G> ToTemplate for ReadGuard<$child_type, G>
@@ -210,7 +212,6 @@ where
 {
     type State = ReadGuardStringState<R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -240,10 +241,6 @@ where
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<G, R> RenderHtml<R> for ReadGuard<String, G>
@@ -252,6 +249,8 @@ where
 
     G: Deref<Target = String>,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -270,6 +269,10 @@ where
             node,
             str: self.to_string(),
         }
+    }
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
     }
 }
 

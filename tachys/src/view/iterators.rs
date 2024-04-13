@@ -4,7 +4,14 @@ use crate::{
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
 };
+use futures::future::JoinAll;
 use itertools::Itertools;
+use pin_project_lite::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 impl<T, R> Render<R> for Option<T>
 where
@@ -13,7 +20,6 @@ where
 {
     type State = OptionState<T::State, R>;
     type FallibleState = OptionState<T::FallibleState, R>;
-    type AsyncOutput = Option<T::AsyncOutput>;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -72,13 +78,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        match self {
-            None => None,
-            Some(value) => Some(value.resolve().await),
-        }
-    }
 }
 
 impl<T, R> RenderHtml<R> for Option<T>
@@ -86,7 +85,18 @@ where
     T: RenderHtml<R>,
     R: Renderer,
 {
+    type AsyncOutput = OptionFuture<T::AsyncOutput>;
+
     const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            None => OptionFuture::None,
+            Some(value) => OptionFuture::Some {
+                inner: value.resolve(),
+            },
+        }
+    }
 
     fn html_len(&self) -> usize {
         match self {
@@ -190,6 +200,35 @@ where
     }
 }
 
+pin_project! {
+    #[project = OptionFutureProj]
+    pub enum OptionFuture<T> {
+        None,
+        Some {
+            #[pin]
+            inner: T
+        }
+    }
+}
+
+impl<T> Future for OptionFuture<T>
+where
+    T: Future,
+{
+    type Output = Option<T::Output>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this {
+            OptionFutureProj::None => Poll::Ready(None),
+            OptionFutureProj::Some { inner } => match inner.poll(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(value) => Poll::Ready(Some(value)),
+            },
+        }
+    }
+}
+
 impl<T, R> Render<R> for Vec<T>
 where
     T: Render<R>,
@@ -197,7 +236,6 @@ where
 {
     type State = VecState<T::State, R>;
     type FallibleState = VecState<T::FallibleState, R>;
-    type AsyncOutput = Vec<T::AsyncOutput>;
 
     fn build(self) -> Self::State {
         VecState {
@@ -273,13 +311,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        futures::future::join_all(self.into_iter().map(T::resolve))
-            .await
-            .into_iter()
-            .collect::<Vec<_>>()
-    }
 }
 
 pub struct VecState<T, R>
@@ -335,7 +366,13 @@ where
     T: RenderHtml<R>,
     R: Renderer,
 {
+    type AsyncOutput = JoinAll<T::AsyncOutput>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.into_iter().map(T::resolve))
+    }
 
     fn html_len(&self) -> usize {
         self.iter().map(|n| n.html_len()).sum()

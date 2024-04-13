@@ -28,6 +28,7 @@ use or_poisoned::OrPoisoned;
 use std::{
     cell::RefCell,
     collections::HashMap,
+    future::{ready, Ready},
     mem,
     rc::Rc,
     sync::{Arc, RwLock},
@@ -96,7 +97,6 @@ struct BodyViewState {
 impl Render<Dom> for BodyView {
     type State = BodyViewState;
     type FallibleState = BodyViewState;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
@@ -122,14 +122,16 @@ impl Render<Dom> for BodyView {
         self.rebuild(state);
         Ok(())
     }
-
-    async fn resolve(self) -> Self {
-        self
-    }
 }
 
 impl RenderHtml<Dom> for BodyView {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {}
 

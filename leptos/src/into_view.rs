@@ -20,8 +20,9 @@ impl<T> View<T> {
     }
 }
 
-pub trait IntoView: Sized + Render<Dom> + RenderHtml<Dom> + Send
-//+ AddAnyAttr<Dom>
+pub trait IntoView
+where
+    Self: Sized + Render<Dom> + RenderHtml<Dom> + Send,
 {
     fn into_view(self) -> View<Self>;
 }
@@ -38,7 +39,6 @@ where
 impl<T: Render<Dom>> Render<Dom> for View<T> {
     type State = T::State;
     type FallibleState = T::FallibleState;
-    type AsyncOutput = T::AsyncOutput;
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -58,14 +58,16 @@ impl<T: Render<Dom>> Render<Dom> for View<T> {
     ) -> any_error::Result<()> {
         self.0.try_rebuild(state)
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self.0.resolve().await
-    }
 }
 
 impl<T: RenderHtml<Dom>> RenderHtml<Dom> for View<T> {
+    type AsyncOutput = T::AsyncOutput;
+
     const MIN_LENGTH: usize = <T as RenderHtml<Dom>>::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        self.0.resolve()
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         self.0.to_html_with_buf(buf, position);

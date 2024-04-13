@@ -5,7 +5,7 @@ use leptos::tachys::either::Either;
 use leptos::{
     component, server, suspend, view, ActionForm, ErrorBoundary, IntoView,
 };
-use leptos::{prelude::*, Transition};
+use leptos::{prelude::*, Suspense, Transition};
 use serde::{Deserialize, Serialize};
 use server_fn::codec::SerdeLite;
 use server_fn::ServerFnError;
@@ -36,6 +36,8 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
 
     // this is just an example of how to access server context injected in the handlers
     let req_parts = use_context::<Parts>();
+
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     if let Some(req_parts) = req_parts {
         println!("Uri = {:?}", req_parts.uri);
@@ -123,11 +125,12 @@ pub fn Todos() -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>*/
-            <Transition fallback=move || view! {<p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|errors| view!{<ErrorTemplate errors/>}>
+            <Suspense fallback=move || view! {<p>"Loading..."</p> }>
+                //<ErrorBoundary fallback=|errors| view!{<ErrorTemplate errors/>}>
                     <ul>
                         {suspend!(
                             todos.await.map(|todos| {
+                                leptos::logging::log!("{todos:#?}");
                                 if todos.is_empty() {
                                     Either::Left(view! { <p>"No tasks were found."</p> })
                                 } else {
@@ -167,8 +170,8 @@ pub fn Todos() -> impl IntoView {
                         //            {existing_todos}
                                 //{pending_todos}
                     </ul>
-                </ErrorBoundary>
-            </Transition>
+                //</ErrorBoundary>
+            </Suspense>
         </div>
     }
 }

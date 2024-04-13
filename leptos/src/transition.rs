@@ -9,6 +9,7 @@ use reactive_graph::{
     traits::With,
 };
 use slotmap::{DefaultKey, SlotMap};
+use std::future::Future;
 
 /// TODO docs!
 #[component]
@@ -17,7 +18,9 @@ pub fn Transition<Chil>(
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
-    Chil: IntoView + 'static,
+    Chil: IntoView + Send + 'static,
+    Chil::AsyncOutput: Send + 'static,
+    <Chil::AsyncOutput as Future>::Output: IntoView,
 {
     let fallback = fallback.run();
     let children = children.into_inner()();

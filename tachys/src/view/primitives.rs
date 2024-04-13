@@ -6,6 +6,7 @@ use crate::{
 };
 use std::{
     fmt::Write,
+    future::{ready, Ready},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
@@ -47,7 +48,6 @@ macro_rules! render_primitive {
 			impl<R: Renderer> Render<R> for $child_type {
 				type State = [<$child_type:camel State>]<R>;
                 type FallibleState = Self::State;
-				type AsyncOutput = Self;
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -70,19 +70,19 @@ macro_rules! render_primitive {
                     self.rebuild(state);
 					Ok(())
                 }
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
 			}
 
 			impl<R> RenderHtml<R> for $child_type
 			where
 				R: Renderer,
-
-
 			{
+				type AsyncOutput = Ready<Self>;
+
 				const MIN_LENGTH: usize = 0;
+
+                fn resolve(self) -> Self::AsyncOutput {
+                    ready(self)
+                }
 
 				fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
 					// add a comment node to separate from previous sibling, if any

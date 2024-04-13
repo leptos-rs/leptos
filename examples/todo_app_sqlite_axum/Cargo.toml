@@ -11,7 +11,7 @@ console_log = "1.0"
 console_error_panic_hook = "0.1"
 futures = "0.3"
 http = "1.0"
-leptos = { path = "../../leptos" }
+leptos = { path = "../../leptos", features = ["tracing"] }
 server_fn = { path = "../../server_fn", features = ["serde-lite"] }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 log = "0.4"
@@ -27,6 +27,10 @@ sqlx = { version = "0.7", features = [
 ], optional = true }
 thiserror = "1.0"
 wasm-bindgen = "0.2"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-subscriber-wasm = "0.1"
 
 [features]
 hydrate = ["leptos/hydrate"]

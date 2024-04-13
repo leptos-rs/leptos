@@ -15,6 +15,7 @@ use reactive_graph::{
     effect::RenderEffect,
     graph::{Observer, ReactiveNode},
 };
+use std::future::{ready, Ready};
 
 mod class;
 mod guards;
@@ -55,8 +56,6 @@ where
     type State = RenderEffectState<V::State>;
     type FallibleState =
         RenderEffectState<Result<V::FallibleState, Option<AnyError>>>;
-    // TODO how this should be handled?
-    type AsyncOutput = Self;
 
     #[track_caller]
     fn build(mut self) -> Self::State {
@@ -128,10 +127,6 @@ where
         } else {
             Ok(())
         }
-    }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
     }
 }
 pub struct RenderEffectState<T: 'static>(Option<RenderEffect<T>>);
@@ -218,7 +213,13 @@ where
     V::FallibleState: 'static,
     R: Renderer + 'static,
 {
+    type AsyncOutput = V::AsyncOutput;
+
     const MIN_LENGTH: usize = 0;
+
+    fn resolve(mut self) -> Self::AsyncOutput {
+        self().resolve()
+    }
 
     fn html_len(&self) -> usize {
         V::MIN_LENGTH
@@ -439,6 +440,7 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
+    use std::future::{ready, Ready};
 
     macro_rules! signal_impl {
         ($sig:ident) => {
@@ -453,9 +455,6 @@ mod stable {
                 type FallibleState = RenderEffectState<
                     Result<V::FallibleState, Option<AnyError>>,
                 >;
-                // TODO how this should be handled?
-                type AsyncOutput = Self;
-
                 #[track_caller]
                 fn build(self) -> Self::State {
                     (move || self.get()).build()
@@ -476,10 +475,6 @@ mod stable {
                 ) -> any_error::Result<()> {
                     (move || self.get()).try_rebuild(state)
                 }
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
             }
 
             impl<V, R> RenderHtml<R> for $sig<V>
@@ -489,7 +484,13 @@ mod stable {
                 V::FallibleState: 'static,
                 R: Renderer + 'static,
             {
+                type AsyncOutput = Ready<Self>;
+
                 const MIN_LENGTH: usize = 0;
+
+                fn resolve(self) -> Self::AsyncOutput {
+                    ready(self)
+                }
 
                 fn html_len(&self) -> usize {
                     V::MIN_LENGTH
@@ -580,8 +581,6 @@ mod stable {
                 type FallibleState = RenderEffectState<
                     Result<V::FallibleState, Option<AnyError>>,
                 >;
-                // TODO how this should be handled?
-                type AsyncOutput = Self;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
@@ -603,10 +602,6 @@ mod stable {
                 ) -> any_error::Result<()> {
                     (move || self.get()).try_rebuild(state)
                 }
-
-                async fn resolve(self) -> Self::AsyncOutput {
-                    self
-                }
             }
 
             impl<V, R> RenderHtml<R> for $sig<V>
@@ -616,7 +611,13 @@ mod stable {
                 V::FallibleState: 'static,
                 R: Renderer + 'static,
             {
+                type AsyncOutput = Ready<Self>;
+
                 const MIN_LENGTH: usize = 0;
+
+                fn resolve(self) -> Self::AsyncOutput {
+                    ready(self)
+                }
 
                 fn html_len(&self) -> usize {
                     V::MIN_LENGTH

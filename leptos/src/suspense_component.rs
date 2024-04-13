@@ -12,8 +12,14 @@ use reactive_graph::{
     traits::{Get, Update, With, Writeable},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{cell::RefCell, fmt::Debug, future::Future, rc::Rc};
+use std::{
+    cell::RefCell,
+    fmt::Debug,
+    future::{ready, Future, Ready},
+    rc::Rc,
+};
 use tachys::{
+    either::Either,
     hydration::Cursor,
     reactive_graph::RenderEffectState,
     renderer::Renderer,
@@ -32,7 +38,9 @@ pub fn Suspense<Chil>(
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
-    Chil: IntoView + 'static,
+    Chil: IntoView + Send + 'static,
+    Chil::AsyncOutput: Send + 'static,
+    <Chil::AsyncOutput as Future>::Output: IntoView,
 {
     let fallback = fallback.run();
     let children = children.into_inner()();
@@ -64,7 +72,6 @@ where
     type State =
         RenderEffectState<EitherKeepAliveState<Chil::State, Fal::State, Rndr>>;
     type FallibleState = ();
-    type AsyncOutput = ();
 
     fn build(self) -> Self::State {
         let mut children = Some(self.children);
@@ -101,8 +108,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
@@ -110,9 +115,19 @@ impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
 where
     Fal: RenderHtml<Rndr> + 'static,
     Chil: RenderHtml<Rndr> + 'static,
+    Chil::AsyncOutput: Send + 'static,
+    <Chil::AsyncOutput as Future>::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
 {
+    // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
+    // itself
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         self.fallback.to_html_with_buf(buf, position);
@@ -125,6 +140,45 @@ where
     ) where
         Self: Sized,
     {
+        buf.next_id();
+
+        let mut fut = Box::pin(self.children.resolve());
+        match fut.as_mut().now_or_never() {
+            Some(resolved) => {
+                Either::<Fal, _>::Right(resolved)
+                    .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            }
+            None => {
+                let id = buf.clone_id();
+
+                // out-of-order streams immediately push fallback,
+                // wrapped by suspense markers
+                if OUT_OF_ORDER {
+                    buf.push_fallback(self.fallback, position);
+                    buf.push_async_out_of_order(
+                        false, /* TODO should_block */ fut, position,
+                    );
+                } else {
+                    buf.push_async(
+                        false, // TODO should_block
+                        {
+                            let mut position = *position;
+                            async move {
+                                let value = fut.await;
+                                let mut builder = StreamBuilder::new(id);
+                                Either::<Fal, _>::Right(value)
+                                    .to_html_async_with_buf::<OUT_OF_ORDER>(
+                                        &mut builder,
+                                        &mut position,
+                                    );
+                                builder.finish().take_chunks()
+                            }
+                        },
+                    );
+                    *position = Position::NextChild;
+                }
+            }
+        };
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -132,7 +186,26 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
-        todo!()
+        let mut children = Some(self.children);
+        let mut fallback = Some(self.fallback);
+        let none_pending = self.none_pending;
+        let mut nth_run = 0;
+
+        (move || {
+            // show the fallback if
+            // 1) there are pending futures, and
+            // 2) we are either in a Suspense (not Transition), or it's the first fallback
+            //    (because we initially render the children to register Futures, the "first
+            //    fallback" is probably the 2nd run
+            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 2);
+            nth_run += 1;
+            EitherKeepAlive {
+                a: children.take(),
+                b: fallback.take(),
+                show_b,
+            }
+        })
+        .hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
@@ -232,7 +305,6 @@ where
 {
     type State = SuspendState<Fut::Output, Rndr>;
     type FallibleState = Self::State;
-    type AsyncOutput = ();
 
     // TODO cancelation if it fires multiple times
     fn build(self) -> Self::State {
@@ -290,8 +362,6 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<Fut, Rndr> RenderHtml<Rndr> for Suspend<Fut>
@@ -300,6 +370,8 @@ where
     Fut::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
 {
+    type AsyncOutput = Fut;
+
     const MIN_LENGTH: usize = Fut::Output::MIN_LENGTH;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -316,11 +388,43 @@ where
         todo!();
     }
 
+    // TODO cancellation
     fn hydrate<const FROM_SERVER: bool>(
         self,
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
-        todo!()
+        // poll the future once immediately
+        // if it's already available, start in the ready state
+        // otherwise, start with the fallback
+        let mut fut = Box::pin(ScopedFuture::new(self.fut));
+        let initial = fut.as_mut().now_or_never();
+        let initially_pending = initial.is_none();
+        let inner = Rc::new(RefCell::new(
+            initial.hydrate::<FROM_SERVER>(cursor, position),
+        ));
+
+        // get a unique ID if there's a SuspenseContext
+        let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
+
+        // if the initial state was pending, spawn a future to wait for it
+        // spawning immediately means that our now_or_never poll result isn't lost
+        // if it wasn't pending at first, we don't need to poll the Future again
+        if initially_pending {
+            Executor::spawn_local({
+                let state = Rc::clone(&inner);
+                async move {
+                    let value = fut.as_mut().await;
+                    drop(id);
+                    Some(value).rebuild(&mut *state.borrow_mut());
+                }
+            });
+        }
+
+        SuspendState { inner }
+    }
+
+    fn resolve(self) -> Self::AsyncOutput {
+        self.fut
     }
 }

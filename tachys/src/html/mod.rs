@@ -2,7 +2,10 @@ use crate::{
     renderer::Renderer,
     view::{Position, Render, RenderHtml},
 };
-use std::marker::PhantomData;
+use std::{
+    future::{ready, Ready},
+    marker::PhantomData,
+};
 
 pub mod attribute;
 pub mod class;
@@ -28,7 +31,6 @@ pub fn doctype<R: Renderer>(value: &'static str) -> Doctype<R> {
 impl<R: Renderer> Render<R> for Doctype<R> {
     type State = ();
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {}
 
@@ -44,17 +46,19 @@ impl<R: Renderer> Render<R> for Doctype<R> {
     ) -> any_error::Result<()> {
         Ok(())
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        self
-    }
 }
 
 impl<R> RenderHtml<R> for Doctype<R>
 where
-    R: Renderer,
+    R: Renderer + Send,
 {
+    type AsyncOutput = Ready<Self>;
+
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
+
+    fn resolve(self) -> Self::AsyncOutput {
+        ready(self)
+    }
 
     fn to_html_with_buf(self, buf: &mut String, _position: &mut Position) {
         buf.push_str("<!DOCTYPE ");
