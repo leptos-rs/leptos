@@ -3,6 +3,7 @@ use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
+    future::Ready,
     marker::PhantomData,
 };
 
@@ -261,7 +262,6 @@ where
 {
     type State = AnyViewState<R>;
     type FallibleState = Self::State;
-    type AsyncOutput = Self;
 
     fn build(self) -> Self::State {
         (self.build)(self.value)
@@ -281,17 +281,19 @@ where
     ) -> any_error::Result<()> {
         todo!()
     }
-
-    async fn resolve(self) -> Self::AsyncOutput {
-        // we probably do need a function for this
-        todo!()
-    }
 }
 
 impl<R> RenderHtml<R> for AnyView<R>
 where
     R: Renderer + 'static,
 {
+    type AsyncOutput = Ready<Self>;
+
+    fn resolve(self) -> Self::AsyncOutput {
+        // we probably do need a function for this
+        todo!()
+    }
+
     const MIN_LENGTH: usize = 0;
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
