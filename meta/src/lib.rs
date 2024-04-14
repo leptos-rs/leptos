@@ -352,7 +352,7 @@ impl<E, At, Ch> RenderHtml<Dom> for RegisteredMetaTag<E, At, Ch>
 where
     E: ElementType + CreateElement<Dom>,
     At: Attribute<Dom>,
-    Ch: RenderHtml<Dom>,
+    Ch: RenderHtml<Dom> + Send,
 {
     type AsyncOutput = Ready<Self>;
 
@@ -369,8 +369,8 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
+        _cursor: &Cursor<Dom>,
+        _position: &PositionState,
     ) -> Self::State {
         let cursor = use_context::<MetaContext>()
             .expect(
