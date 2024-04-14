@@ -49,7 +49,7 @@ where
 impl<T, K, P, Rndr> PropAttribute<K, P, Rndr> for T
 where
     T: AddAnyAttr<Rndr>,
-    K: AsRef<str>,
+    K: AsRef<str> + Send,
     P: IntoProperty<Rndr>,
     Rndr: DomRenderer,
 {

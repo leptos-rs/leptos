@@ -8,7 +8,7 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-pub trait NodeRefContainer<E, Rndr>
+pub trait NodeRefContainer<E, Rndr>: Send
 where
     E: ElementType,
     Rndr: Renderer,

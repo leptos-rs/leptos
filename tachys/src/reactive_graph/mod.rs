@@ -358,7 +358,7 @@ where
 // Dynamic attributes
 impl<F, V, R> AttributeValue<R> for F
 where
-    F: FnMut() -> V + 'static,
+    F: FnMut() -> V + Send + 'static,
     V: AttributeValue<R>,
     V::State: 'static,
     R: Renderer,
@@ -655,7 +655,7 @@ mod stable {
 
             impl<V, R> AttributeValue<R> for $sig<V>
             where
-                V: AttributeValue<R> + Clone + 'static,
+                V: AttributeValue<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: Renderer,
             {
@@ -673,7 +673,7 @@ mod stable {
                 fn to_template(_key: &str, _buf: &mut String) {}
 
                 fn hydrate<const FROM_SERVER: bool>(
-                    mut self,
+                    self,
                     key: &str,
                     el: &<R as Renderer>::Element,
                 ) -> Self::State {
