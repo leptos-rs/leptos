@@ -23,7 +23,7 @@ regex = { version = "1", optional = true }
 url = { version = "2", optional = true }
 percent-encoding = "2"
 thiserror = "1"
-serde_qs = "0.12"
+serde_qs = "0.13"
 serde = "1"
 tracing = "0.1"
 js-sys = { version = "0.3" }
