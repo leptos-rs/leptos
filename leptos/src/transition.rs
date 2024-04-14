@@ -1,5 +1,6 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
+    into_view::View,
     suspense_component::{SuspenseBoundary, SuspenseContext},
     IntoView,
 };
@@ -10,6 +11,10 @@ use reactive_graph::{
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::future::Future;
+use tachys::{
+    renderer::dom::Dom,
+    view::{any_view::AnyView, RenderHtml},
+};
 
 /// TODO docs!
 #[component]
@@ -18,9 +23,7 @@ pub fn Transition<Chil>(
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
-    Chil: IntoView + Send + 'static,
-    Chil::AsyncOutput: Send + 'static,
-    <Chil::AsyncOutput as Future>::Output: IntoView,
+    SuspenseBoundary<true, AnyView<Dom>, View<Chil>>: IntoView,
 {
     let fallback = fallback.run();
     let children = children.into_inner()();

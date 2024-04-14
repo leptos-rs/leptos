@@ -85,9 +85,7 @@ Ok(())
 			impl<G, R> RenderHtml<R> for ReadGuard<$child_type, G>
 			where
 				R: Renderer,
-
-
-                G: Deref<Target = $child_type>
+                G: Deref<Target = $child_type> + Send
 			{
                 type AsyncOutput = Ready<Self>;
 
@@ -247,7 +245,7 @@ impl<G, R> RenderHtml<R> for ReadGuard<String, G>
 where
     R: Renderer,
 
-    G: Deref<Target = String>,
+    G: Deref<Target = String> + Send,
 {
     type AsyncOutput = Ready<Self>;
 

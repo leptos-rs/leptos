@@ -118,59 +118,14 @@ pub fn Todos() -> impl IntoView {
 
     view! {
         <div>
-            /*<MultiActionForm action=add_todo>
-                <label>
-                    "Add a Todo"
-                    <input type="text" name="title"/>
-                </label>
-                <input type="submit" value="Add"/>
-            </MultiActionForm>*/
-            <Suspense fallback=move || view! {<p>"Loading..."</p> }>
-                //<ErrorBoundary fallback=|errors| view!{<ErrorTemplate errors/>}>
-                    <ul>
-                        {suspend!(
-                            todos.await.map(|todos| {
-                                leptos::logging::log!("{todos:#?}");
-                                if todos.is_empty() {
-                                    Either::Left(view! { <p>"No tasks were found."</p> })
-                                } else {
-                                    Either::Right(todos
-                                        .into_iter()
-                                        .map(move |todo| {
-                                            view! {
-                                                <li>
-                                                    {todo.title}
-                                                    <ActionForm action=delete_todo>
-                                                        <input type="hidden" name="id" value={todo.id}/>
-                                                        <input type="submit" value="X"/>
-                                                    </ActionForm>
-                                                </li>
-                                            }
-                                        })
-                                        .collect::<Vec<_>>()
-                                    )
-                                }
-                            })
-                        )}
 
-                        /*let pending_todos = move || {
-                            submissions
-                            .get()
-                            .into_iter()
-                            .filter(|submission| submission.pending().get())
-                            .map(|submission| {
-                                view! {
-
-                                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
-                                }
-                            })
-                            .collect::<Vec<_>>()
-                        };*/
-
-                        //            {existing_todos}
-                                //{pending_todos}
+            // fallback=move || view! { <p>"Loading..."</p> }>
+            <Suspense>
+                <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
+                    <ul>"foo"// {existing_todos}
+                    // {pending_todos}
                     </ul>
-                //</ErrorBoundary>
+                </ErrorBoundary>
             </Suspense>
         </div>
     }

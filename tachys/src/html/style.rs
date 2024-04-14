@@ -99,7 +99,7 @@ where
 
 /// Any type that can be added to the `style` attribute or set as a style in
 /// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
-pub trait IntoStyle<R: DomRenderer> {
+pub trait IntoStyle<R: DomRenderer>: Send {
     type State;
 
     fn to_html(self, style: &mut String);

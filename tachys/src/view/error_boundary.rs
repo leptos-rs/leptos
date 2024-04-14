@@ -136,7 +136,7 @@ impl<R, T, E> RenderHtml<R> for Result<T, E>
 where
     T: RenderHtml<R>,
     R: Renderer,
-    E: Into<AnyError> + 'static,
+    E: Into<AnyError> + Send + 'static,
 {
     type AsyncOutput = ResultFuture<T::AsyncOutput, E>;
 

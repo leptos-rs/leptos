@@ -113,7 +113,7 @@ where
     }
 }
 
-pub trait InnerHtmlValue<R: DomRenderer> {
+pub trait InnerHtmlValue<R: DomRenderer>: Send {
     type State;
 
     fn html_len(&self) -> usize;
@@ -162,45 +162,6 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         if self != state.1 {
-            R::set_inner_html(&state.0, &self);
-            state.1 = self;
-        }
-    }
-}
-
-impl<R> InnerHtmlValue<R> for Rc<str>
-where
-    R: DomRenderer,
-{
-    type State = (R::Element, Self);
-
-    fn html_len(&self) -> usize {
-        self.len()
-    }
-
-    fn to_html(self, buf: &mut String) {
-        buf.push_str(&self);
-    }
-
-    fn to_template(_buf: &mut String) {}
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        el: &<R as Renderer>::Element,
-    ) -> Self::State {
-        if !FROM_SERVER {
-            R::set_inner_html(el, &self);
-        }
-        (el.clone(), self)
-    }
-
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
-        R::set_inner_html(el, &self);
-        (el.clone(), self)
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        if !Rc::ptr_eq(&self, &state.1) {
             R::set_inner_html(&state.0, &self);
             state.1 = self;
         }

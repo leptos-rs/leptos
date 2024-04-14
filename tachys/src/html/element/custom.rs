@@ -54,7 +54,7 @@ where
 }
 
 // TODO these are all broken for custom elements
-pub trait CustomElementKey: AsRef<str> {
+pub trait CustomElementKey: AsRef<str> + Send {
     const KEY: &'static str;
 }
 
@@ -71,10 +71,6 @@ impl CustomElementKey for &String {
 }
 
 impl CustomElementKey for String {
-    const KEY: &'static str = "";
-}
-
-impl CustomElementKey for Rc<str> {
     const KEY: &'static str = "";
 }
 

@@ -42,14 +42,12 @@ pub fn ErrorBoundary<FalFn, Fal, Chil>(
     /// The elements that will be rendered, which may include one or more `Result<_>` types.
     children: TypedChildren<Chil>,
     /// A fallback that will be shown if an error occurs.
-    mut fallback: FalFn,
+    fallback: FalFn,
 ) -> impl IntoView
 where
     FalFn: FnMut(&ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
     Fal: IntoView + 'static,
-    Fal::AsyncOutput: Send,
     Chil: IntoView + 'static,
-    Chil::AsyncOutput: Send,
 {
     let hook = Arc::new(ErrorBoundaryErrorHook::default());
     let errors = hook.errors.clone();

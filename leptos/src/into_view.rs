@@ -1,4 +1,5 @@
 use leptos_dom::events::{on, EventDescriptor, On};
+use std::future::Future;
 use tachys::{
     html::attribute::{global::OnAttribute, Attribute},
     hydration::Cursor,
@@ -23,6 +24,7 @@ impl<T> View<T> {
 pub trait IntoView
 where
     Self: Sized + Render<Dom> + RenderHtml<Dom> + Send,
+    <Self::AsyncOutput as Future>::Output: RenderHtml<Dom>,
 {
     fn into_view(self) -> View<Self>;
 }
@@ -30,13 +32,15 @@ where
 impl<T> IntoView for T
 where
     T: Sized + Render<Dom> + RenderHtml<Dom> + Send, //+ AddAnyAttr<Dom>,
+    T::AsyncOutput: Send,
+    <T::AsyncOutput as Future>::Output: RenderHtml<Dom>,
 {
     fn into_view(self) -> View<Self> {
         View(self)
     }
 }
 
-impl<T: Render<Dom>> Render<Dom> for View<T> {
+impl<T: IntoView> Render<Dom> for View<T> {
     type State = T::State;
     type FallibleState = T::FallibleState;
 
@@ -60,7 +64,7 @@ impl<T: Render<Dom>> Render<Dom> for View<T> {
     }
 }
 
-impl<T: RenderHtml<Dom>> RenderHtml<Dom> for View<T> {
+impl<T: IntoView> RenderHtml<Dom> for View<T> {
     type AsyncOutput = T::AsyncOutput;
 
     const MIN_LENGTH: usize = <T as RenderHtml<Dom>>::MIN_LENGTH;

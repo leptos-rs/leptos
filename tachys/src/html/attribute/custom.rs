@@ -106,7 +106,7 @@ where
     }
 }
 
-pub trait CustomAttributeKey: AsRef<str> {
+pub trait CustomAttributeKey: AsRef<str> + Send {
     const KEY: &'static str;
 }
 
@@ -123,10 +123,6 @@ impl CustomAttributeKey for &String {
 }
 
 impl CustomAttributeKey for String {
-    const KEY: &'static str = "";
-}
-
-impl CustomAttributeKey for Rc<str> {
     const KEY: &'static str = "";
 }
 

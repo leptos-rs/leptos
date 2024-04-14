@@ -1,5 +1,6 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
+    into_view::View,
     IntoView,
 };
 use any_spawner::Executor;
@@ -22,9 +23,10 @@ use tachys::{
     either::Either,
     hydration::Cursor,
     reactive_graph::RenderEffectState,
-    renderer::Renderer,
+    renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
     view::{
+        any_view::AnyView,
         either::{EitherKeepAlive, EitherKeepAliveState},
         iterators::OptionState,
         Mountable, Position, PositionState, Render, RenderHtml,
@@ -39,8 +41,7 @@ pub fn Suspense<Chil>(
 ) -> impl IntoView
 where
     Chil: IntoView + Send + 'static,
-    Chil::AsyncOutput: Send + 'static,
-    <Chil::AsyncOutput as Future>::Output: IntoView,
+    SuspenseBoundary<false, AnyView<Dom>, View<Chil>>: IntoView,
 {
     let fallback = fallback.run();
     let children = children.into_inner()();
@@ -113,8 +114,8 @@ where
 impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
     for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
-    Fal: RenderHtml<Rndr> + 'static,
-    Chil: RenderHtml<Rndr> + 'static,
+    Fal: RenderHtml<Rndr> + Send + 'static,
+    Chil: RenderHtml<Rndr> + Send + 'static,
     Chil::AsyncOutput: Send + 'static,
     <Chil::AsyncOutput as Future>::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
