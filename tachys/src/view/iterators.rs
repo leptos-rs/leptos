@@ -364,6 +364,7 @@ where
 impl<T, R> RenderHtml<R> for Vec<T>
 where
     T: RenderHtml<R>,
+    <T::AsyncOutput as Future>::Output: Send,
     R: Renderer,
 {
     type AsyncOutput = JoinAll<T::AsyncOutput>;
