@@ -12,7 +12,7 @@ pub use key::*;
 use std::{fmt::Debug, marker::PhantomData};
 pub use value::*;
 
-pub trait Attribute<R: Renderer>: NextAttribute<R> {
+pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     const MIN_LENGTH: usize;
 
     type State;
@@ -112,8 +112,8 @@ where
 
 impl<K, V, R> Attribute<R> for Attr<K, V, R>
 where
-    K: AttributeKey,
-    V: AttributeValue<R>,
+    K: AttributeKey + Send,
+    V: AttributeValue<R> + Send,
     R: Renderer,
 {
     const MIN_LENGTH: usize = 0;

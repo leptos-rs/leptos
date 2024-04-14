@@ -3,6 +3,7 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
+use send_wrapper::SendWrapper;
 use std::marker::PhantomData;
 use wasm_bindgen::JsValue;
 
@@ -15,7 +16,7 @@ where
 {
     Property {
         key,
-        value,
+        value: SendWrapper::new(value),
         rndr: PhantomData,
     }
 }
@@ -27,13 +28,14 @@ where
     R: DomRenderer,
 {
     key: K,
-    value: P,
+    // property values will only be accessed in the browser
+    value: SendWrapper<P>,
     rndr: PhantomData<R>,
 }
 
 impl<K, P, R> Attribute<R> for Property<K, P, R>
 where
-    K: AsRef<str>,
+    K: AsRef<str> + Send,
     P: IntoProperty<R>,
     R: DomRenderer,
 {
@@ -55,21 +57,23 @@ where
     }
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        self.value.hydrate::<FROM_SERVER>(el, self.key.as_ref())
+        self.value
+            .take()
+            .hydrate::<FROM_SERVER>(el, self.key.as_ref())
     }
 
     fn build(self, el: &R::Element) -> Self::State {
-        self.value.build(el, self.key.as_ref())
+        self.value.take().build(el, self.key.as_ref())
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        self.value.rebuild(state, self.key.as_ref())
+        self.value.take().rebuild(state, self.key.as_ref())
     }
 }
 
 impl<K, P, R> NextAttribute<R> for Property<K, P, R>
 where
-    K: AsRef<str>,
+    K: AsRef<str> + Send,
     P: IntoProperty<R>,
     R: DomRenderer,
 {

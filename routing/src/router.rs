@@ -11,6 +11,7 @@ use crate::{
 use core::marker::PhantomData;
 use either_of::*;
 use once_cell::unsync::Lazy;
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
     effect::RenderEffect,
@@ -27,6 +28,7 @@ use std::{
     future::{ready, Ready},
     iter,
     rc::Rc,
+    sync::{Arc, RwLock},
 };
 use tachys::{
     html::attribute::Attribute,
@@ -192,10 +194,10 @@ where
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
     for Router<Rndr, Loc, Children, FallbackFn>
 where
-    Loc: Location,
-    FallbackFn: Fn() -> Fallback + 'static,
+    Loc: Location + Send,
+    FallbackFn: Fn() -> Fallback + Send + 'static,
     Fallback: RenderHtml<Rndr>,
-    Children: MatchNestedRoutes<Rndr> + 'static,
+    Children: MatchNestedRoutes<Rndr> + Send + 'static,
     Children::View: RenderHtml<Rndr>,
     /*View: Render<Rndr> + IntoAny<Rndr> + 'static,
     View::State: 'static,*/
@@ -269,13 +271,13 @@ where
                 RequestUrl::parse(url.as_ref()).expect("could not parse URL");
             // TODO query params
             let new_match = self.routes.match_route(url.path());
-            match new_match {
+            /*match new_match {
                 Some(matched) => {
                     Either::Left(NestedRouteView::new(&outer_owner, matched))
                 }
                 _ => Either::Right((self.fallback)()),
             }
-            .to_html_with_buf(buf, position)
+            .to_html_with_buf(buf, position)*/
         }
     }
 
@@ -294,13 +296,13 @@ where
         let url = RequestUrl::parse(url.as_ref()).expect("could not parse URL");
         // TODO query params
         let new_match = self.routes.match_route(url.path());
-        match new_match {
+        /*match new_match {
             Some(matched) => {
                 Either::Left(NestedRouteView::new(&outer_owner, matched))
             }
             _ => Either::Right((self.fallback)()),
         }
-        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)*/
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -350,7 +352,7 @@ where
                 }
                 prev
             } else {
-                match new_match {
+                /*match new_match {
                     Some(matched) => {
                         Either::Left(NestedRouteView::new_hydrate(
                             &outer_owner,
@@ -361,7 +363,8 @@ where
                     }
                     _ => Either::Right((self.fallback)()),
                 }
-                .hydrate::<true>(&cursor, &position)
+                .hydrate::<true>(&cursor, &position)*/
+                todo!()
             }
         })
     }
@@ -499,11 +502,11 @@ where
         .map(|child| get_inner_view(outlets, &owner, child))
         .unwrap_or_default();
 
-    let view = Rc::new(Lazy::new({
+    /*let view = Arc::new(Lazy::new({
         let owner = owner.clone();
         let params = params.clone();
         Box::new(move || {
-            RefCell::new(Some(
+            RwLock::new(Some(
                 owner
                     .with(|| {
                         view.choose(RouteData {
@@ -513,22 +516,22 @@ where
                     })
                     .into_any(),
             ))
-        }) as Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>
+        }) as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>
     }));
-    let inner = Rc::new(RefCell::new(OutletStateInner {
+    let inner = Arc::new(RwLock::new(OutletStateInner {
         html_len: {
-            let view = Rc::clone(&view);
-            Box::new(move || view.borrow().html_len())
+            let view = Arc::clone(&view);
+            Box::new(move || view.read().or_poisoned().html_len())
         },
-        view: Rc::clone(&view),
+        view: Arc::clone(&view),
         state: Lazy::new(Box::new(move || view.take().unwrap().build())),
-    }));
+    }));*/
 
     let outlet = Outlet {
         id,
         owner,
         params,
-        inner,
+        rndr: PhantomData, //inner,
     };
     outlets.push_back(outlet.clone());
     outlet
@@ -554,11 +557,11 @@ where
         .map(|child| get_inner_view(outlets, &owner, child))
         .unwrap_or_default();
 
-    let view = Rc::new(Lazy::new({
+    /*let view = Arc::new(Lazy::new({
         let owner = owner.clone();
         let params = params.clone();
         Box::new(move || {
-            RefCell::new(Some(
+            RwLock::new(Some(
                 owner
                     .with(|| {
                         view.choose(RouteData {
@@ -568,26 +571,26 @@ where
                     })
                     .into_any(),
             ))
-        }) as Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>
-    }));
-    let inner = Rc::new(RefCell::new(OutletStateInner {
+        }) as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>
+    }));*/
+    /*let inner = Arc::new(RwLock::new(OutletStateInner {
         html_len: Box::new({
-            let view = Rc::clone(&view);
-            move || view.borrow().html_len()
+            let view = Arc::clone(&view);
+            move || view.read().or_poisoned().html_len()
         }),
-        view: Rc::clone(&view),
+        view: Arc::clone(&view),
         state: Lazy::new(Box::new({
             let cursor = cursor.clone();
             let position = position.clone();
             move || view.take().unwrap().hydrate::<true>(&cursor, &position)
         })),
-    }));
+    }));*/
 
     let outlet = Outlet {
         id,
         owner,
         params,
-        inner,
+        rndr: PhantomData, //inner,
     };
     outlets.push_back(outlet.clone());
     outlet
@@ -601,7 +604,7 @@ where
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    inner: Rc<RefCell<OutletStateInner<R>>>,
+    rndr: PhantomData<R>, //inner: Arc<RwLock<OutletStateInner<R>>>,
 }
 
 impl<R> Clone for Outlet<R>
@@ -613,7 +616,7 @@ where
             id: self.id,
             owner: self.owner.clone(),
             params: self.params.clone(),
-            inner: Rc::clone(&self.inner),
+            rndr: PhantomData, //inner: Arc::clone(&self.inner),
         }
     }
 }
@@ -627,7 +630,7 @@ where
             id: RouteMatchId(0),
             owner: Owner::current().unwrap(),
             params: ArcRwSignal::new(Params::new()),
-            inner: Default::default(),
+            rndr: PhantomData, //inner: Default::default(),
         }
     }
 }
@@ -672,12 +675,13 @@ where
     }
 
     fn html_len(&self) -> usize {
-        (self.inner.borrow().html_len)()
+        todo!()
+        //(self.inner.read().or_poisoned().html_len)()
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        let view = self.inner.borrow().view.take().unwrap();
-        view.to_html_with_buf(buf, position);
+        /*let view = self.inner.read().or_poisoned().view.take().unwrap();
+        view.to_html_with_buf(buf, position);*/
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -687,8 +691,16 @@ where
     ) where
         Self: Sized,
     {
-        let view = self.inner.borrow().view.take().unwrap();
-        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        /*let view = self
+            .inner
+            .read()
+            .or_poisoned()
+            .view
+            .write()
+            .or_poisoned()
+            .take()
+            .unwrap();
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);*/
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -696,9 +708,18 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        let view = self.inner.borrow().view.take().unwrap();
+        todo!()
+        /*let view = self
+            .inner
+            .read()
+            .or_poisoned()
+            .view
+            .write()
+            .or_poisoned()
+            .take()
+            .unwrap();
         let state = view.hydrate::<FROM_SERVER>(cursor, position);
-        self
+        self*/
     }
 }
 
@@ -707,10 +728,10 @@ where
     R: Renderer + 'static,
 {
     html_len: Box<dyn Fn() -> usize>,
-    view: Rc<
+    view: Arc<
         Lazy<
-            RefCell<Option<AnyView<R>>>,
-            Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>,
+            RwLock<Option<AnyView<R>>>,
+            Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>,
         >,
     >,
     state: Lazy<AnyViewState<R>, Box<dyn FnOnce() -> AnyViewState<R>>>,
@@ -728,8 +749,8 @@ where
 {
     fn default() -> Self {
         let view =
-            Rc::new(Lazy::new(Box::new(|| RefCell::new(Some(().into_any())))
-                as Box<dyn FnOnce() -> RefCell<Option<AnyView<R>>>>));
+            Arc::new(Lazy::new(Box::new(|| RwLock::new(Some(().into_any())))
+                as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>));
         Self {
             html_len: Box::new(|| 0),
             view,
@@ -743,7 +764,8 @@ where
     R: Renderer + 'static,
 {
     fn unmount(&mut self) {
-        self.inner.borrow_mut().state.unmount();
+        todo!()
+        //self.inner.write().or_poisoned().state.unmount();
     }
 
     fn mount(
@@ -751,7 +773,8 @@ where
         parent: &<R as Renderer>::Element,
         marker: Option<&<R as Renderer>::Node>,
     ) {
-        self.inner.borrow_mut().state.mount(parent, marker);
+        todo!()
+        //self.inner.write().or_poisoned().state.mount(parent, marker);
     }
 
     fn insert_before_this(
@@ -759,10 +782,12 @@ where
         parent: &<R as Renderer>::Element,
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        self.inner
-            .borrow_mut()
-            .state
-            .insert_before_this(parent, child)
+        /*self.inner
+        .write()
+        .or_poisoned()
+        .state
+        .insert_before_this(parent, child)*/
+        todo!()
     }
 }
 
@@ -845,7 +870,7 @@ fn rebuild_inner<Match, R>(
                     .unwrap_or_default();
 
                 // now, let's update the previou route at this point in the tree
-                let mut prev_state = prev.inner.borrow_mut();
+                /*let mut prev_state = prev.inner.write().or_poisoned();
                 let new_view = prev.owner.with_cleanup(|| {
                     view.choose(RouteData {
                         params: ArcMemo::new({
@@ -856,7 +881,8 @@ fn rebuild_inner<Match, R>(
                     })
                 });
 
-                new_view.into_any().rebuild(&mut prev_state.state);
+                new_view.into_any().rebuild(&mut prev_state.state);*/
+                todo!()
             }
         }
     }
@@ -919,7 +945,7 @@ where
 
 impl<Matcher, R> RenderHtml<R> for NestedRouteView<Matcher, R>
 where
-    Matcher: MatchInterface<R>,
+    Matcher: MatchInterface<R> + Send,
     Matcher::View: Sized + 'static,
     R: Renderer + 'static,
 {
@@ -1192,10 +1218,10 @@ where
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
     for FlatRouter<Rndr, Loc, Children, FallbackFn>
 where
-    Loc: Location,
-    FallbackFn: Fn() -> Fallback + 'static,
+    Loc: Location + Send,
+    FallbackFn: Fn() -> Fallback + Send + 'static,
     Fallback: RenderHtml<Rndr>,
-    Children: MatchNestedRoutes<Rndr> + 'static,
+    Children: MatchNestedRoutes<Rndr> + Send + 'static,
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
 {
