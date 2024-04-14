@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 impl<F, S, R> IntoStyle<R> for (&'static str, F)
 where
-    F: FnMut() -> S + 'static,
+    F: FnMut() -> S + Send + 'static,
     S: Into<Cow<'static, str>>,
     R: DomRenderer,
 {
@@ -80,7 +80,7 @@ where
 
 impl<F, C, R> IntoStyle<R> for F
 where
-    F: FnMut() -> C + 'static,
+    F: FnMut() -> C + Send + 'static,
     C: IntoStyle<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
@@ -189,7 +189,7 @@ mod stable {
         ($sig:ident) => {
             impl<C, R> IntoStyle<R> for $sig<C>
             where
-                C: IntoStyle<R> + Clone + 'static,
+                C: IntoStyle<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
                 R: DomRenderer,
             {

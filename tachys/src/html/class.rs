@@ -96,7 +96,7 @@ where
     }
 }
 
-pub trait IntoClass<R: DomRenderer> {
+pub trait IntoClass<R: DomRenderer>: Send {
     const TEMPLATE: &'static str = "";
     const MIN_LENGTH: usize = Self::TEMPLATE.len();
 
@@ -180,41 +180,6 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev) = state;
         if self != *prev {
-            R::set_attribute(el, "class", &self);
-        }
-        *prev = self;
-    }
-}
-
-impl<R> IntoClass<R> for Rc<str>
-where
-    R: DomRenderer,
-{
-    type State = (R::Element, Self);
-
-    fn html_len(&self) -> usize {
-        self.len()
-    }
-
-    fn to_html(self, class: &mut String) {
-        IntoClass::<R>::to_html(self.as_ref(), class);
-    }
-
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        if !FROM_SERVER {
-            R::set_attribute(el, "class", &self);
-        }
-        (el.clone(), self)
-    }
-
-    fn build(self, el: &R::Element) -> Self::State {
-        R::set_attribute(el, "class", &self);
-        (el.clone(), self)
-    }
-
-    fn rebuild(self, state: &mut Self::State) {
-        let (el, prev) = state;
-        if !Rc::ptr_eq(&self, prev) {
             R::set_attribute(el, "class", &self);
         }
         *prev = self;

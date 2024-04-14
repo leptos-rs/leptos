@@ -6,7 +6,7 @@ use reactive_graph::effect::RenderEffect;
 
 impl<F, V, R> InnerHtmlValue<R> for F
 where
-    F: FnMut() -> V + 'static,
+    F: FnMut() -> V + Send + 'static,
     V: InnerHtmlValue<R>,
     V::State: 'static,
     R: DomRenderer,
@@ -111,7 +111,7 @@ mod stable {
         ($sig:ident) => {
             impl<V, R> InnerHtmlValue<R> for $sig<V>
             where
-                V: InnerHtmlValue<R> + Clone + 'static,
+                V: InnerHtmlValue<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
             {

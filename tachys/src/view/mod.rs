@@ -70,7 +70,7 @@ pub trait RenderHtml<R: Renderer>
 where
     Self: Render<R>,
 {
-    type AsyncOutput: Future; //RenderHtml<R> + Send;
+    type AsyncOutput: Future + Send; //RenderHtml<R> + Send;
 
     const MIN_LENGTH: usize;
 

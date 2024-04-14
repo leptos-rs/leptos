@@ -5,7 +5,7 @@ use std::{borrow::Borrow, ops::Deref};
 
 impl<F, C, R> IntoClass<R> for F
 where
-    F: FnMut() -> C + 'static,
+    F: FnMut() -> C + Send + 'static,
     C: IntoClass<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
@@ -75,7 +75,7 @@ where
 
 impl<F, T, R> IntoClass<R> for (&'static str, F)
 where
-    F: FnMut() -> T + 'static,
+    F: FnMut() -> T + Send + 'static,
     T: Borrow<bool>,
     R: DomRenderer,
 {
@@ -150,7 +150,7 @@ where
 
 impl<G, R> IntoClass<R> for ReadGuard<String, G>
 where
-    G: Deref<Target = String>,
+    G: Deref<Target = String> + Send,
     R: DomRenderer,
 {
     type State = <String as IntoClass<R>>::State;
@@ -184,7 +184,7 @@ where
 
 impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
 where
-    G: Deref<Target = bool>,
+    G: Deref<Target = bool> + Send,
     R: DomRenderer,
 {
     type State = <(&'static str, bool) as IntoClass<R>>::State;
@@ -305,7 +305,7 @@ mod stable {
         ($sig:ident) => {
             impl<C, R> IntoClass<R> for $sig<C>
             where
-                C: IntoClass<R> + Clone + 'static,
+                C: IntoClass<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
                 R: DomRenderer,
             {

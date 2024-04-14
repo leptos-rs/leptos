@@ -10,7 +10,7 @@ use std::{
     },
 };
 
-pub trait AttributeValue<R: Renderer> {
+pub trait AttributeValue<R: Renderer>: Send {
     type State;
 
     fn html_len(&self) -> usize;

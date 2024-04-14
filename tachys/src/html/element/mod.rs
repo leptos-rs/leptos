@@ -35,7 +35,7 @@ pub struct HtmlElement<E, At, Ch, Rndr> {
     pub(crate) children: Ch,
 }
 
-impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
+/*impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
 where
     E: ElementType,
 {
@@ -48,7 +48,7 @@ where
     fn tag(&self) -> &str {
         Self::TAG
     }
-}
+}*/
 
 impl<E, At, Ch, Rndr> HtmlElement<E, At, Ch, Rndr> {
     pub fn children(&self) -> &Ch {
@@ -146,7 +146,7 @@ where
     fn child(self, child: NewChild) -> Self::Output;
 }
 
-pub trait ElementType {
+pub trait ElementType: Send {
     /// The underlying native widget type that this represents.
     type Output;
 
