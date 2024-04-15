@@ -11,6 +11,8 @@ pub struct BodyContext {
     #[cfg(feature = "ssr")]
     class: Rc<RefCell<Option<TextProp>>>,
     #[cfg(feature = "ssr")]
+    id: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     attributes: Rc<RefCell<HashMap<&'static str, Attribute>>>,
 }
 
@@ -21,6 +23,13 @@ impl BodyContext {
         let class = self.class.borrow().as_ref().map(|val| {
             format!(
                 "class=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
+
+        let id = self.id.borrow().as_ref().map(|val| {
+            format!(
+                "id=\"{}\"",
                 leptos::leptos_dom::ssr::escape_attr(&val.get())
             )
         });
@@ -41,7 +50,7 @@ impl BodyContext {
                 .join(" ")
         });
 
-        let mut val = [class, attributes]
+        let mut val = [id, class, attributes]
             .into_iter()
             .flatten()
             .collect::<Vec<_>>()
@@ -92,6 +101,9 @@ pub fn Body(
     /// The `class` attribute on the `<body>`.
     #[prop(optional, into)]
     class: Option<TextProp>,
+    /// The `id` attribute on the `<body>`.
+    #[prop(optional, into)]
+    id: Option<TextProp>,
     /// Arbitrary attributes to add to the `<body>`
     #[prop(attrs)]
     attributes: Vec<(&'static str, Attribute)>,
@@ -112,15 +124,27 @@ pub fn Body(
                 });
             }
 
+
+            if let Some(id) = id {
+                create_render_effect({
+                    let el = el.clone();
+                    move |_| {
+                        let value = id.get();
+                        _ = el.set_attribute("id", &value);
+                    }
+                });
+            }
             for (name, value) in attributes {
                 leptos::leptos_dom::attribute_helper(el.unchecked_ref(), name.into(), value);
             }
         } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head();
             *meta.body.class.borrow_mut() = class;
+            *meta.body.id.borrow_mut() = id;
             meta.body.attributes.borrow_mut().extend(attributes);
         } else {
             _ = class;
+            _ = id;
             _ = attributes;
 
             #[cfg(debug_assertions)]
