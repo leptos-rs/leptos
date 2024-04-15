@@ -488,6 +488,17 @@ where
                 return;
             }
 
+            // <button formmethod="dialog"> should *not* dispatch the action, but should be allowed to
+            // just bubble up and close the <dialog> naturally
+            let is_dialog = ev
+                .submitter()
+                .and_then(|el| el.get_attribute("formmethod"))
+                .as_deref()
+                == Some("dialog");
+            if is_dialog {
+                return;
+            }
+
             ev.prevent_default();
 
             match ServFn::from_event(&ev) {
