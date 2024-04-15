@@ -24,7 +24,6 @@ impl<T> View<T> {
 pub trait IntoView
 where
     Self: Sized + Render<Dom> + RenderHtml<Dom> + Send,
-    <Self::AsyncOutput as Future>::Output: RenderHtml<Dom>,
 {
     fn into_view(self) -> View<Self>;
 }
@@ -32,8 +31,6 @@ where
 impl<T> IntoView for T
 where
     T: Sized + Render<Dom> + RenderHtml<Dom> + Send, //+ AddAnyAttr<Dom>,
-    T::AsyncOutput: Send,
-    <T::AsyncOutput as Future>::Output: RenderHtml<Dom>,
 {
     fn into_view(self) -> View<Self> {
         View(self)
@@ -69,8 +66,8 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
 
     const MIN_LENGTH: usize = <T as RenderHtml<Dom>>::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        self.0.resolve()
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.0.resolve().await
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

@@ -87,7 +87,7 @@ Ok(())
 				R: Renderer,
                 G: Deref<Target = $child_type> + Send
 			{
-                type AsyncOutput = Ready<Self>;
+                type AsyncOutput = Self;
 
 				const MIN_LENGTH: usize = 0;
 
@@ -133,8 +133,8 @@ Ok(())
 					[<ReadGuard $child_type:camel State>](node, *self)
 				}
 
-                fn resolve(self) -> Self::AsyncOutput {
-                    ready(self)
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
                 }
 			}
 
@@ -247,7 +247,7 @@ where
 
     G: Deref<Target = String> + Send,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
@@ -269,8 +269,8 @@ where
         }
     }
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 
