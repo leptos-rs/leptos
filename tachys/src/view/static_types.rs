@@ -161,12 +161,12 @@ where
 
     R::Text: Mountable<R>,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = V.len();
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    fn resolve(self) -> futures::future::Ready<Self::AsyncOutput> {
+        futures::future::ready(self)
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

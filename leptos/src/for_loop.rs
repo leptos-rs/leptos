@@ -1,3 +1,4 @@
+use crate::into_view::IntoView;
 use leptos_macro::component;
 use reactive_graph::owner::Owner;
 use std::{hash::Hash, marker::PhantomData};
@@ -44,7 +45,6 @@ use tachys::{
 /// }
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
-#[component(transparent)]
 pub fn For<Rndr, IF, I, T, EF, N, KF, K>(
     /// Items over which the component should iterate.
     each: IF,
@@ -52,17 +52,15 @@ pub fn For<Rndr, IF, I, T, EF, N, KF, K>(
     key: KF,
     /// A function that takes the item, and returns the view that will be displayed for each item.
     children: EF,
-    #[prop(optional)] _rndr: PhantomData<Rndr>,
-) -> impl RenderHtml<Rndr>
+) -> impl IntoView
 where
-    IF: Fn() -> I + 'static,
-    I: IntoIterator<Item = T>,
-    EF: Fn(T) -> N + Clone + 'static,
-    N: RenderHtml<Rndr> + 'static,
-    KF: Fn(&T) -> K + Clone + 'static,
+    IF: Fn() -> I + Send + 'static,
+    I: IntoIterator<Item = T> + Send,
+    EF: Fn(T) -> N + Send + Clone + 'static,
+    N: IntoView + 'static,
+    KF: Fn(&T) -> K + Send + Clone + 'static,
     K: Eq + Hash + 'static,
-    T: 'static,
-    Rndr: Renderer + 'static,
+    T: Send + 'static,
 {
     // this takes the owner of the For itself
     // this will end up with N + 1 children
@@ -72,13 +70,14 @@ where
     // this means
     // a) the reactive owner for each row will not be cleared when the whole list updates
     // b) context provided in each row will not wipe out the others
-    let parent = Owner::current().expect("no reactive owner");
+    /*let parent = Owner::current().expect("no reactive owner");
     let children = move |child| {
         let owner = parent.with(Owner::new);
         let view = owner.with(|| children(child));
         OwnedView::new_with_owner(view, owner)
     };
-    move || keyed(each(), key.clone(), children.clone())
+    move || keyed(each(), key.clone(), children.clone())*/
+    "todo"
 }
 
 #[component]
@@ -90,7 +89,7 @@ pub fn FlatFor<Rndr, IF, I, T, EF, N, KF, K>(
     /// A function that takes the item, and returns the view that will be displayed for each item.
     children: EF,
     #[prop(optional)] _rndr: PhantomData<Rndr>,
-) -> impl RenderHtml<Rndr>
+) -> impl IntoView
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
@@ -101,7 +100,8 @@ where
     T: 'static,
     Rndr: Renderer + 'static,
 {
-    move || keyed(each(), key.clone(), children.clone())
+    //move || keyed(each(), key.clone(), children.clone())
+    "bar"
 }
 
 #[cfg(test)]
@@ -119,11 +119,7 @@ mod tests {
         let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
         let list: HtmlElement<_, _, _, MockDom> = view! {
             <ol>
-                <For
-                    each=move || values.get()
-                    key=|i| *i
-                    let:i
-                >
+                <For each=move || values.get() key=|i| *i let:i>
                     <li>{i}</li>
                 </For>
             </ol>
