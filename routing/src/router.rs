@@ -207,13 +207,13 @@ where
     Children::Match: std::fmt::Debug,
     <Children::Match as MatchInterface<Rndr>>::Child: std::fmt::Debug,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     // TODO probably pick a max length here
     const MIN_LENGTH: usize = Children::View::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -666,12 +666,12 @@ impl<R> RenderHtml<R> for Outlet<R>
 where
     R: Renderer + 'static,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0; // TODO
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn html_len(&self) -> usize {
@@ -949,12 +949,12 @@ where
     Matcher::View: Sized + 'static,
     R: Renderer + 'static,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = Matcher::View::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn html_len(&self) -> usize {
@@ -1225,13 +1225,13 @@ where
     Fallback::State: 'static,
     Rndr: Renderer + 'static,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize =
         <Children::Match as MatchInterface<Rndr>>::View::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

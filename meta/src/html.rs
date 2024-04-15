@@ -138,12 +138,12 @@ impl Render<Dom> for HtmlView {
 }
 
 impl RenderHtml<Dom> for HtmlView {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {

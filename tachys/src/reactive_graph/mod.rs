@@ -207,7 +207,7 @@ where
 
 impl<F, V, R> RenderHtml<R> for F
 where
-    F: FnMut() -> V + 'static,
+    F: FnMut() -> V + Send + 'static,
     V: RenderHtml<R>,
     V::State: 'static,
     V::FallibleState: 'static,
@@ -217,8 +217,8 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(mut self) -> Self::AsyncOutput {
-        self().resolve()
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        self().resolve().await
     }
 
     fn html_len(&self) -> usize {
@@ -263,7 +263,7 @@ where
 
 impl<F, V, R> AddAnyAttr<R> for F
 where
-    F: FnMut() -> V + 'static,
+    F: FnMut() -> V + Send + 'static,
     V: RenderHtml<R>,
     V::State: 'static,
     V::FallibleState: 'static,
@@ -484,12 +484,12 @@ mod stable {
                 V::FallibleState: 'static,
                 R: Renderer + 'static,
             {
-                type AsyncOutput = Ready<Self>;
+                type AsyncOutput = Self;
 
                 const MIN_LENGTH: usize = 0;
 
-                fn resolve(self) -> Self::AsyncOutput {
-                    ready(self)
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
                 }
 
                 fn html_len(&self) -> usize {
@@ -611,12 +611,12 @@ mod stable {
                 V::FallibleState: 'static,
                 R: Renderer + 'static,
             {
-                type AsyncOutput = Ready<Self>;
+                type AsyncOutput = Self;
 
                 const MIN_LENGTH: usize = 0;
 
-                fn resolve(self) -> Self::AsyncOutput {
-                    ready(self)
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
                 }
 
                 fn html_len(&self) -> usize {
