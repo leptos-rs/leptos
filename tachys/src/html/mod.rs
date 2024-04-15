@@ -52,12 +52,12 @@ impl<R> RenderHtml<R> for Doctype<R>
 where
     R: Renderer + Send,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, buf: &mut String, _position: &mut Position) {

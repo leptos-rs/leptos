@@ -41,7 +41,7 @@ impl<R> RenderHtml<R> for ()
 where
     R: Renderer,
 {
-    type AsyncOutput = Ready<()>;
+    type AsyncOutput = ();
 
     const MIN_LENGTH: usize = 0;
 
@@ -54,9 +54,7 @@ where
     ) -> Self::State {
     }
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(())
-    }
+    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<Rndr> AddAnyAttr<Rndr> for ()
@@ -140,7 +138,7 @@ where
     A: RenderHtml<R>,
     R: Renderer,
 {
-    type AsyncOutput = A::AsyncOutput;
+    type AsyncOutput = (A::AsyncOutput,);
 
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
@@ -170,8 +168,8 @@ where
         self.0.hydrate::<FROM_SERVER>(cursor, position)
     }
 
-    fn resolve(self) -> Self::AsyncOutput {
-        self.0.resolve()
+    async fn resolve(self) -> Self::AsyncOutput {
+        (self.0.resolve().await,)
     }
 }
 
@@ -220,7 +218,7 @@ where
 }
 
 macro_rules! impl_view_for_tuples {
-	($joiner:ident => $first:ident, $($ty:ident),* $(,)?) => {
+	($first:ident, $($ty:ident),* $(,)?) => {
 		impl<$first, $($ty),*, Rndr> Render<Rndr> for ($first, $($ty,)*)
 		where
 			$first: Render<Rndr>,
@@ -274,7 +272,7 @@ macro_rules! impl_view_for_tuples {
 			$($ty: RenderHtml<Rndr>),*,
 			Rndr: Renderer,
 		{
-            type AsyncOutput = $joiner<$first::AsyncOutput, $($ty::AsyncOutput,)*>;
+            type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
 
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
@@ -317,13 +315,13 @@ macro_rules! impl_view_for_tuples {
 				}
 			}
 
-            fn resolve(self) -> Self::AsyncOutput {
+            async fn resolve(self) -> Self::AsyncOutput {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
-                $joiner::from((
+                futures::join!(
                     $first.resolve(),
                     $($ty.resolve()),*
-                ))
+                )
             }
 		}
 
@@ -421,86 +419,46 @@ macro_rules! impl_view_for_tuples {
                 )
             }
         }
-
-        paste::paste! {
-            pin_project! {
-                pub struct $joiner<$first, $($ty,)*> {
-                    #[pin]
-                    [<$first:lower>]: $first,
-                    $(
-                        #[pin]
-                        pub [<$ty:lower>]: $ty,
-                    )*
-                }
-            }
-
-            impl<$first, $($ty,)*> From<($first, $($ty,)*)> for $joiner<$first, $($ty,)*> {
-                fn from(value: ($first, $($ty,)*)) -> Self {
-                    #[allow(non_snake_case)]
-                    let ($first, $($ty,)*) = value;
-                    paste::paste! {
-                        $joiner {
-                            [<$first:lower>]: $first,
-                            $([<$ty:lower>]: $ty,)*
-                        }
-                    }
-                }
-            }
-
-            impl<$first, $($ty,)*> Future for $joiner<$first, $($ty,)*>
-            where $first: Future, $($ty: Future,)*
-            {
-                type Output = ($first::Output, $($ty::Output,)*);
-
-                fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                    let this = self.project();
-                    match (this.[<$first:lower>].poll(cx), $(this.[<$ty:lower>].poll(cx),)*) {
-                        (Poll::Ready($first), $(Poll::Ready($ty),)*) => Poll::Ready(($first, $($ty,)*)),
-                        _ => Poll::Pending
-                    }
-                }
-            }
-        }
-	};
+    };
 }
 
-impl_view_for_tuples!(Join2 => A, B);
-impl_view_for_tuples!(Join3 => A, B, C);
-impl_view_for_tuples!(Join4 => A, B, C, D);
-impl_view_for_tuples!(Join5 => A, B, C, D, E);
-impl_view_for_tuples!(Join6 => A, B, C, D, E, F);
-impl_view_for_tuples!(Join7 => A, B, C, D, E, F, G);
-impl_view_for_tuples!(Join8 => A, B, C, D, E, F, G, H);
-impl_view_for_tuples!(Join9 => A, B, C, D, E, F, G, H, I);
-impl_view_for_tuples!(Join10 => A, B, C, D, E, F, G, H, I, J);
-impl_view_for_tuples!(Join11 => A, B, C, D, E, F, G, H, I, J, K);
-impl_view_for_tuples!(Join12 => A, B, C, D, E, F, G, H, I, J, K, L);
-impl_view_for_tuples!(Join13 => A, B, C, D, E, F, G, H, I, J, K, L, M);
-impl_view_for_tuples!(Join14 => A, B, C, D, E, F, G, H, I, J, K, L, M, N);
-impl_view_for_tuples!(Join15 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
-impl_view_for_tuples!(Join16 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
-impl_view_for_tuples!(Join17 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
-impl_view_for_tuples!(Join18 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
-impl_view_for_tuples!(Join19 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
-impl_view_for_tuples!(Join20 =>
+impl_view_for_tuples!(A, B);
+impl_view_for_tuples!(A, B, C);
+impl_view_for_tuples!(A, B, C, D);
+impl_view_for_tuples!(A, B, C, D, E);
+impl_view_for_tuples!(A, B, C, D, E, F);
+impl_view_for_tuples!(A, B, C, D, E, F, G);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+impl_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T
 );
-impl_view_for_tuples!(Join21 =>
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U
 );
-impl_view_for_tuples!(Join22 =>
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V
 );
-impl_view_for_tuples!(Join23 =>
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W
 );
-impl_view_for_tuples!(Join24 =>
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X
 );
-impl_view_for_tuples!(Join25 =>
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y
 );
-impl_view_for_tuples!(Join26 =>
+impl_view_for_tuples!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y,
     Z
 );
