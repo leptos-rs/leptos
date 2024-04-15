@@ -354,12 +354,12 @@ where
     At: Attribute<Dom>,
     Ch: RenderHtml<Dom> + Send,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
@@ -460,12 +460,12 @@ impl Render<Dom> for MetaTagsView {
 }
 
 impl RenderHtml<Dom> for MetaTagsView {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

@@ -116,18 +116,16 @@ impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
 where
     Fal: RenderHtml<Rndr> + Send + 'static,
     Chil: RenderHtml<Rndr> + Send + 'static,
-    Chil::AsyncOutput: Send + 'static,
-    <Chil::AsyncOutput as Future>::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
 {
     // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
     // itself
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -371,7 +369,7 @@ where
     Fut::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
 {
-    type AsyncOutput = Fut;
+    type AsyncOutput = Fut::Output;
 
     const MIN_LENGTH: usize = Fut::Output::MIN_LENGTH;
 
@@ -425,7 +423,7 @@ where
         SuspendState { inner }
     }
 
-    fn resolve(self) -> Self::AsyncOutput {
-        self.fut
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.fut.await
     }
 }

@@ -51,12 +51,12 @@ impl<'a, R> RenderHtml<R> for &'a str
 where
     R: Renderer,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn html_len(&self) -> usize {
@@ -185,10 +185,10 @@ where
     R: Renderer,
 {
     const MIN_LENGTH: usize = 0;
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn html_len(&self) -> usize {
@@ -291,12 +291,12 @@ impl<R> RenderHtml<R> for Rc<str>
 where
     R: Renderer,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-    ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+    self
     }
 
     fn html_len(&self) -> usize {
@@ -397,12 +397,12 @@ impl<R> RenderHtml<R> for Arc<str>
 where
     R: Renderer,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn html_len(&self) -> usize {
@@ -503,12 +503,12 @@ impl<'a, R> RenderHtml<R> for Cow<'a, str>
 where
     R: Renderer,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn html_len(&self) -> usize {
