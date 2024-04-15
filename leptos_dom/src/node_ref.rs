@@ -2,40 +2,12 @@ use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{create_render_effect, signal_prelude::*};
 use std::cell::Cell;
 
-cfg_if::cfg_if!(
+  cfg_if::cfg_if!(
   if #[cfg(debug_assertions)] {
-    /// Contains a shared reference to a DOM node created while using the `view`
-    /// macro to create your UI.
-    ///
-    /// ```
-    /// # use leptos::{*, logging::log};
-    /// use leptos::html::Input;
-    ///
-    /// #[component]
-    /// pub fn MyComponent() -> impl IntoView {
-    ///     let input_ref = create_node_ref::<Input>();
-    ///
-    ///     let on_click = move |_| {
-    ///         let node =
-    ///             input_ref.get().expect("input_ref should be loaded by now");
-    ///         // `node` is strongly typed
-    ///         // it is dereferenced to an `HtmlInputElement` automatically
-    ///         log!("value is {:?}", node.value())
-    ///     };
-    ///
-    ///     view! {
-    ///       <div>
-    ///       // `node_ref` loads the input
-    ///       <input _ref=input_ref type="text"/>
-    ///       // the button consumes it
-    ///       <button on:click=on_click>"Click me"</button>
-    ///       </div>
-    ///     }
-    /// }
-    /// ```
+    #[allow(missing_docs)]
     pub struct NodeRef<T: ElementDescriptor + 'static> {
-      defined_at: &'static std::panic::Location<'static>,
       element: RwSignal<Option<HtmlElement<T>>>,
+      defined_at: &'static std::panic::Location<'static>,
     }
   } else {
     /// Contains a shared reference to a DOM node created while using the `view`
