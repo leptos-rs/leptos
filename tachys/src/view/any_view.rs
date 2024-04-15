@@ -287,9 +287,9 @@ impl<R> RenderHtml<R> for AnyView<R>
 where
     R: Renderer + 'static,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         // we probably do need a function for this
         todo!()
     }
