@@ -200,7 +200,6 @@ impl<T: ElementDescriptor> Clone for NodeRef<T> {
 impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}
 
 impl<T: ElementDescriptor + 'static> Default for NodeRef<T> {
-    #[track_caller]
     fn default() -> Self {
         Self::new()
     }
