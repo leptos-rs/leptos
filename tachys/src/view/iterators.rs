@@ -85,16 +85,14 @@ where
     T: RenderHtml<R>,
     R: Renderer,
 {
-    type AsyncOutput = OptionFuture<T::AsyncOutput>;
+    type AsyncOutput = Option<T::AsyncOutput>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         match self {
-            None => OptionFuture::None,
-            Some(value) => OptionFuture::Some {
-                inner: value.resolve(),
-            },
+            None => None,
+            Some(value) => Some(value.resolve().await),
         }
     }
 
@@ -196,35 +194,6 @@ where
             true
         } else {
             self.placeholder.insert_before_this(parent, child)
-        }
-    }
-}
-
-pin_project! {
-    #[project = OptionFutureProj]
-    pub enum OptionFuture<T> {
-        None,
-        Some {
-            #[pin]
-            inner: T
-        }
-    }
-}
-
-impl<T> Future for OptionFuture<T>
-where
-    T: Future,
-{
-    type Output = Option<T::Output>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this {
-            OptionFutureProj::None => Poll::Ready(None),
-            OptionFutureProj::Some { inner } => match inner.poll(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(value) => Poll::Ready(Some(value)),
-            },
         }
     }
 }
@@ -364,15 +333,17 @@ where
 impl<T, R> RenderHtml<R> for Vec<T>
 where
     T: RenderHtml<R>,
-    <T::AsyncOutput as Future>::Output: Send,
     R: Renderer,
 {
-    type AsyncOutput = JoinAll<T::AsyncOutput>;
+    type AsyncOutput = Vec<T::AsyncOutput>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         futures::future::join_all(self.into_iter().map(T::resolve))
+            .await
+            .into_iter()
+            .collect()
     }
 
     fn html_len(&self) -> usize {

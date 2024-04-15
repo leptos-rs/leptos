@@ -86,7 +86,7 @@ where
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }
 }

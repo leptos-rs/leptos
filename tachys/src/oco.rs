@@ -47,12 +47,12 @@ impl<R> RenderHtml<R> for Oco<'static, str>
 where
     R: Renderer,
 {
-    type AsyncOutput = Ready<Self>;
+    type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        ready(self)
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

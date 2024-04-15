@@ -99,7 +99,7 @@ where
     R: Renderer,
 {
     // TODO
-    type AsyncOutput = std::future::Ready<OwnedView<T::AsyncOutput, R>>;
+    type AsyncOutput = OwnedView<T::AsyncOutput, R>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
@@ -136,7 +136,7 @@ where
         OwnedViewState::new(state, self.owner)
     }
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }
 }

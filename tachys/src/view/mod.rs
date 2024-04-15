@@ -68,13 +68,13 @@ impl std::error::Error for NeverError {}
 /// whole view piece by piece.
 pub trait RenderHtml<R: Renderer>
 where
-    Self: Render<R>,
+    Self: Render<R> + Send,
 {
-    type AsyncOutput: Future + Send; //RenderHtml<R> + Send;
+    type AsyncOutput: RenderHtml<R>;
 
     const MIN_LENGTH: usize;
 
-    fn resolve(self) -> Self::AsyncOutput;
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 
     /// An estimated length for this view, when rendered to HTML.
     ///

@@ -8,6 +8,7 @@ use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 use indexmap::IndexSet;
 use rustc_hash::FxHasher;
 use std::{
+    future::Future,
     hash::{BuildHasherDefault, Hash},
     marker::PhantomData,
 };
@@ -143,19 +144,25 @@ where
 impl<T, I, K, KF, VF, V, Rndr> RenderHtml<Rndr>
     for Keyed<T, I, K, KF, VF, V, Rndr>
 where
-    I: IntoIterator<Item = T>,
+    I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
-    KF: Fn(&T) -> K,
+    KF: Fn(&T) -> K + Send,
     V: RenderHtml<Rndr>,
-    VF: Fn(T) -> V,
+    VF: Fn(T) -> V + Send,
     Rndr: Renderer,
 {
-    type AsyncOutput = std::future::Ready<()>;
+    type AsyncOutput = Vec<V::AsyncOutput>; // TODO
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+    async fn resolve(self) -> Self::AsyncOutput {
+        futures::future::join_all(self.items.into_iter().map(|item| {
+            let view = (self.view_fn)(item);
+            view.resolve()
+        }))
+        .await
+        .into_iter()
+        .collect()
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

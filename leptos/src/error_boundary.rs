@@ -194,15 +194,30 @@ where
 impl<Chil, Fal, Rndr> RenderHtml<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
 where
     Chil: RenderHtml<Rndr>,
-    Fal: RenderHtml<Rndr>,
+    Fal: RenderHtml<Rndr> + Send,
     Rndr: Renderer,
 {
-    type AsyncOutput = std::future::Ready<()>; //ErrorBoundaryView<Chil::AsyncOutput, Fal, Rndr>;
+    type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, Fal, Rndr>;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+    async fn resolve(self) -> Self::AsyncOutput {
+        let ErrorBoundaryView {
+            errors_empty,
+            children,
+            fallback,
+            ..
+        } = self;
+        let children = match children {
+            None => None,
+            Some(children) => Some(children.resolve().await),
+        };
+        ErrorBoundaryView {
+            errors_empty,
+            children,
+            fallback,
+            rndr: PhantomData,
+        }
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
