@@ -120,9 +120,39 @@ pub fn Todos() -> impl IntoView {
         <div>
 
             // fallback=move || view! { <p>"Loading..."</p> }>
-            <Suspense>
+            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
                 <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
-                    <ul>"foo"// {existing_todos}
+                    // {existing_todos}
+                    <ul>
+                        {move || {
+                            async move {
+                                todos
+                                    .await
+                                    .map(|todos| {
+                                        if todos.is_empty() {
+                                            Either::Left(view! { <p>"No tasks were found."</p> })
+                                        } else {
+                                            Either::Right(
+                                                todos
+                                                    .into_iter()
+                                                    .map(move |todo| {
+                                                        view! {
+                                                            <li>
+                                                                {todo.title} <ActionForm action=delete_todo>
+                                                                    <input type="hidden" name="id" value=todo.id/>
+                                                                    <input type="submit" value="X"/>
+                                                                </ActionForm>
+                                                            </li>
+                                                        }
+                                                    })
+                                                    .collect::<Vec<_>>(),
+                                            )
+                                        }
+                                    })
+                            }
+                                .wait()
+                        }}
+
                     // {pending_todos}
                     </ul>
                 </ErrorBoundary>

@@ -136,16 +136,12 @@ where
     B: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    type AsyncOutput = EitherFuture<A::AsyncOutput, B::AsyncOutput>;
+    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         match self {
-            Either::Left(left) => EitherFuture::Left {
-                inner: left.resolve(),
-            },
-            Either::Right(right) => EitherFuture::Right {
-                inner: right.resolve(),
-            },
+            Either::Left(left) => Either::Left(left.resolve().await),
+            Either::Right(right) => Either::Right(right.resolve().await),
         }
     }
 
@@ -305,11 +301,11 @@ where
     B: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    type AsyncOutput = EitherFuture<A::AsyncOutput, B::AsyncOutput>;
+    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
 
     const MIN_LENGTH: usize = 0;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }
 
@@ -506,13 +502,13 @@ macro_rules! tuples {
                 $($ty: RenderHtml<Rndr>,)*
                 Rndr: Renderer,
             {
-                type AsyncOutput = [<EitherOf $num Future>]<$($ty::AsyncOutput,)*>;
+                type AsyncOutput = [<EitherOf $num>]<$($ty::AsyncOutput,)*>;
 
                 const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
 
-                fn resolve(self) -> Self::AsyncOutput {
+                async fn resolve(self) -> Self::AsyncOutput {
                     match self {
-                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num Future>]::$ty { inner: this.resolve() },)*
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.resolve().await),)*
                     }
                 }
 

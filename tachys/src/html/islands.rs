@@ -83,8 +83,8 @@ where
         + "data-component".len()
         + View::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
-        self.view.resolve()
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.view.resolve().await
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -187,9 +187,9 @@ where
         + "</>".len()
         + View::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         // TODO should this be wrapped?
-        self.view.resolve()
+        self.view.resolve().await
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {

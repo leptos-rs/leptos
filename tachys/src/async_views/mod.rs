@@ -166,11 +166,11 @@ where
     Fut::Output: RenderHtml<Rndr> + Send,
     Rndr: Renderer + 'static,
 {
-    type AsyncOutput = Fut;
+    type AsyncOutput = Fut::Output;
 
     const MIN_LENGTH: usize = Fal::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send {
         self.fut
     }
 

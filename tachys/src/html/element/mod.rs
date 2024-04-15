@@ -98,9 +98,9 @@ where
 
 impl<E, At, Ch, Rndr> AddAnyAttr<Rndr> for HtmlElement<E, At, Ch, Rndr>
 where
-    E: ElementType + CreateElement<Rndr>,
-    At: Attribute<Rndr>,
-    Ch: RenderHtml<Rndr>,
+    E: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     Rndr: Renderer,
 {
     type Output<SomeNewAttr: Attribute<Rndr>> = HtmlElement<
@@ -218,49 +218,15 @@ where
         Ok(())
     }
 }
-pin_project_lite::pin_project! {
-    pub struct HtmlElementFuture<E, At, Ch, Rndr> {
-        sync_fields: Option<(E, At)>,
-        #[pin]
-        children_fut: Ch,
-        rndr: PhantomData<Rndr>,
-    }
-}
-
-impl<E, At, Ch, Rndr> Future for HtmlElementFuture<E, At, Ch, Rndr>
-where
-    Ch: Future,
-{
-    type Output = HtmlElement<E, At, Ch::Output, Rndr>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this.children_fut.poll(cx) {
-            Poll::Ready(children) => {
-                let (tag, attributes) = this.sync_fields.take().expect(
-                    "tried to take synchronous fields from HtmlElementFuture \
-                     more than once",
-                );
-                Poll::Ready(HtmlElement {
-                    tag,
-                    attributes,
-                    children,
-                    rndr: PhantomData,
-                })
-            }
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
 
 impl<E, At, Ch, Rndr> RenderHtml<Rndr> for HtmlElement<E, At, Ch, Rndr>
 where
-    E: ElementType + CreateElement<Rndr>,
-    At: Attribute<Rndr>,
-    Ch: RenderHtml<Rndr>,
+    E: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     Rndr: Renderer,
 {
-    type AsyncOutput = HtmlElementFuture<E, At, Ch::AsyncOutput, Rndr>;
+    type AsyncOutput = HtmlElement<E, At, Ch::AsyncOutput, Rndr>;
 
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
@@ -275,11 +241,12 @@ where
         + E::TAG.len()
     };
 
-    fn resolve(self) -> Self::AsyncOutput {
-        HtmlElementFuture {
-            sync_fields: Some((self.tag, self.attributes)),
-            children_fut: self.children.resolve(),
-            rndr: self.rndr,
+    async fn resolve(self) -> Self::AsyncOutput {
+        HtmlElement {
+            tag: self.tag,
+            rndr: PhantomData,
+            attributes: self.attributes,
+            children: self.children.resolve().await,
         }
     }
 

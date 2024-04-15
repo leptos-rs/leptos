@@ -138,16 +138,14 @@ where
     R: Renderer,
     E: Into<AnyError> + Send + 'static,
 {
-    type AsyncOutput = ResultFuture<T::AsyncOutput, E>;
+    type AsyncOutput = Result<T::AsyncOutput, E>;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         match self {
-            Ok(view) => ResultFuture::Ok {
-                inner: view.resolve(),
-            },
-            Err(e) => ResultFuture::Err { inner: Some(e) },
+            Ok(view) => Ok(view.resolve().await),
+            Err(e) => Err(e),
         }
     }
 
@@ -201,37 +199,6 @@ where
         position.set(Position::NextChild);
 
         ResultState { placeholder, state }
-    }
-}
-
-pin_project! {
-    #[project = ResultFutureProj]
-    pub enum ResultFuture<T, E> {
-        Ok {
-            #[pin]
-            inner: T
-        },
-        Err { inner: Option<E> }
-    }
-}
-
-impl<T, E> Future for ResultFuture<T, E>
-where
-    T: Future,
-{
-    type Output = Result<T::Output, E>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this {
-            ResultFutureProj::Err { inner } => Poll::Ready(Err(inner
-                .take()
-                .expect("ResultFuture polled twice"))),
-            ResultFutureProj::Ok { inner } => match inner.poll(cx) {
-                Poll::Ready(value) => Poll::Ready(Ok(value)),
-                Poll::Pending => Poll::Pending,
-            },
-        }
     }
 }
 
@@ -384,7 +351,7 @@ where
 
     const MIN_LENGTH: usize = Fal::MIN_LENGTH;
 
-    fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }
 
