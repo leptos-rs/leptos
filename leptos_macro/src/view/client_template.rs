@@ -321,14 +321,19 @@ fn attr_to_tokens(
     // Classes
     else if let Some(name) = name.strip_prefix("class:") {
         let value = attribute_value(node);
+        match value {
+            syn::Expr::Lit(value) => {
+                todo!();
+            }
 
-        expressions.push(quote_spanned! {
-            span=> ::leptos::leptos_dom::class_helper(
-                ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
-                #name.into(),
-                ::leptos::IntoClass::into_class(#value),
-            )
-        });
+            _ => expressions.push(quote_spanned! {
+                span=> ::leptos::leptos_dom::class_helper(
+                    ::leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id),
+                    #name.into(),
+                    ::leptos::IntoClass::into_class(#value),
+                )
+            }),
+        };
     }
     // Attributes
     else {
