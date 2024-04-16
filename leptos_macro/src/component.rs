@@ -365,33 +365,6 @@ impl ToTokens for Model {
             })
             .collect::<TokenStream>();
 
-        let dyn_binding_props = props
-            .iter()
-            .filter(
-                |Prop {
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| *attrs,
-            )
-            .filter_map(
-                |Prop {
-                     name,
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| {
-                    let ident = &name.ident;
-
-                    if *attrs {
-                        Some(quote! {
-                            ::leptos::leptos_dom::html::Binding::Attribute { name, value } => self.#ident.push((name, value)),
-                        })
-                    } else {
-                        None
-                    }
-                },
-            )
-            .collect::<TokenStream>();
-
         let body = quote! {
             #destructure_props
             #tracing_span_expr
@@ -527,21 +500,6 @@ impl ToTokens for Model {
             impl #impl_generics ::leptos::DynAttrs for #props_name #generics #where_clause {
                 fn dyn_attrs(mut self, v: Vec<(&'static str, ::leptos::Attribute)>) -> Self {
                     #dyn_attrs_props
-                    self
-                }
-            }
-
-            impl #impl_generics #props_name #generics #where_clause {
-                fn dyn_bindings<B: Into<::leptos::leptos_dom::html::Binding>>(mut self, bindings: impl std::iter::IntoIterator<Item = B>) -> Self {
-                    for binding in bindings.into_iter() {
-                        let binding: ::leptos::leptos_dom::html::Binding = binding.into();
-
-                        match binding {
-                            #dyn_binding_props
-                            _ => {}
-                        }
-                    }
-
                     self
                 }
             }
