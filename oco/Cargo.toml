@@ -5,7 +5,7 @@ version = "0.1.0"
 authors = ["Danik Vitek", "Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
-description = ""
+description = "A smart pointer for storing immutable values with relatively-cheap cloning. (Like a `Cow` meets an `Rc`!)"
 rust-version.workspace = true
 
 [dependencies]
