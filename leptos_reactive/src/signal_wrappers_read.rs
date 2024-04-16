@@ -1345,12 +1345,21 @@ impl From<Oco<'static, str>> for TextProp {
     }
 }
 
-impl<T> From<T> for MaybeProp<TextProp>
-where
-    T: Into<Oco<'static, str>>,
-{
-    fn from(s: T) -> Self {
-        Self(Some(MaybeSignal::from(Some(s.into().into()))))
+impl From<String> for MaybeProp<TextProp> {
+    fn from(s: String) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<Rc<str>> for MaybeProp<TextProp> {
+    fn from(s: Rc<str>) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<&'static str> for MaybeProp<TextProp> {
+    fn from(s: &'static str) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
     }
 }
 

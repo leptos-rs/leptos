@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+  # utilities 
+  "oco",
+
   # core
   "leptos",
   "leptos_dom",
@@ -29,6 +32,7 @@ version = "0.6.11"
 rust-version = "1.75"
 
 [workspace.dependencies]
+oco_ref = { path = "./oco", version = "0.1.0" }
 leptos = { path = "./leptos", version = "0.6.11" }
 leptos_dom = { path = "./leptos_dom", version = "0.6.11" }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.11" }

@@ -1,6 +1,12 @@
 //! This module contains the `Oco` (Owned Clones Once) smart pointer,
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
+//!
+//! Imagine this as an alternative to [`Cow`] with an additional, reference-counted
+//! branch.
+
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -13,16 +19,24 @@ use std::{
     rc::Rc,
 };
 
-/// "Owned Clones Once" - a smart pointer that can be either a reference,
-/// an owned value, or a reference counted pointer. This is useful for
+/// "Owned Clones Once": a smart pointer that can be either a reference,
+/// an owned value, or a reference-counted pointer. This is useful for
 /// storing immutable values, such as strings, in a way that is cheap to
 /// clone and pass around.
 ///
-/// The `Clone` implementation is amortized `O(1)`. Cloning the [`Oco::Borrowed`]
+/// The cost of the `Clone` implementation depends on the branch.  Cloning the [`Oco::Borrowed`]
 /// variant simply copies the references (`O(1)`). Cloning the [`Oco::Counted`]
 /// variant increments a reference count (`O(1)`). Cloning the [`Oco::Owned`]
-/// variant upgrades it to [`Oco::Counted`], which requires an `O(n)` clone of the
-/// data, but all subsequent clones will be `O(1)`.
+/// variant requires an `O(n)` clone of the data.
+///
+/// For an amortized `O(1)` clone, you can use [`Oco::clone_inplace()`]. Using this method,
+/// [`Oco::Borrowed`] and [`Oco::Counted`] are still `O(1)`. [`Oco::Owned`] does a single `O(n)`
+/// clone, but converts the object to the [`Oco::Counted`] branch, which means future clones will
+/// be `O(1)`.
+///
+/// In general, you'll either want to call `clone_inplace()` once, before sharing the `Oco` with
+/// other parts of your application (so that all future clones are `O(1)`), or simply use this as
+/// if it is a [`Cow`] with an additional branch for reference-counted values.
 pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     /// A static reference to a value.
     Borrowed(&'a T),
@@ -46,7 +60,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// # Examples
     /// ```
     /// # use std::rc::Rc;
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// assert!(Oco::<str>::Borrowed("Hello").is_borrowed());
     /// assert!(!Oco::<str>::Counted(Rc::from("Hello")).is_borrowed());
     /// assert!(!Oco::<str>::Owned("Hello".to_string()).is_borrowed());
@@ -59,7 +73,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// # Examples
     /// ```
     /// # use std::rc::Rc;
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// assert!(Oco::<str>::Counted(Rc::from("Hello")).is_counted());
     /// assert!(!Oco::<str>::Borrowed("Hello").is_counted());
     /// assert!(!Oco::<str>::Owned("Hello".to_string()).is_counted());
@@ -72,7 +86,7 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// # Examples
     /// ```
     /// # use std::rc::Rc;
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// assert!(Oco::<str>::Owned("Hello".to_string()).is_owned());
     /// assert!(!Oco::<str>::Borrowed("Hello").is_owned());
     /// assert!(!Oco::<str>::Counted(Rc::from("Hello")).is_owned());
@@ -130,7 +144,7 @@ impl Oco<'_, str> {
     /// Returns a `&str` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// let oco = Oco::<str>::Borrowed("Hello");
     /// let s: &str = oco.as_str();
     /// assert_eq!(s, "Hello");
@@ -145,7 +159,7 @@ impl Oco<'_, CStr> {
     /// Returns a `&CStr` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// use std::ffi::CStr;
     ///
     /// let oco =
@@ -163,7 +177,7 @@ impl Oco<'_, OsStr> {
     /// Returns a `&OsStr` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// use std::ffi::OsStr;
     ///
     /// let oco = Oco::<OsStr>::Borrowed(OsStr::new("Hello"));
@@ -180,7 +194,7 @@ impl Oco<'_, Path> {
     /// Returns a `&Path` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// use std::path::Path;
     ///
     /// let oco = Oco::<Path>::Borrowed(Path::new("Hello"));
@@ -200,7 +214,7 @@ where
     /// Returns a `&[T]` slice of this [`Oco`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// let oco = Oco::<[u8]>::Borrowed(b"Hello");
     /// let s: &[u8] = oco.as_slice();
     /// assert_eq!(s, b"Hello");
@@ -222,7 +236,7 @@ where
     /// # Examples
     /// [`String`] :
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// let oco = Oco::<str>::Owned("Hello".to_string());
     /// let oco2 = oco.clone();
     /// assert_eq!(oco, oco2);
@@ -230,7 +244,7 @@ where
     /// ```
     /// [`Vec`] :
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// let oco = Oco::<[u8]>::Owned(b"Hello".to_vec());
     /// let oco2 = oco.clone();
     /// assert_eq!(oco, oco2);
@@ -254,7 +268,7 @@ where
     /// was previously [`Oco::Owned`].
     /// # Examples
     /// ```
-    /// # use leptos_reactive::oco::Oco;
+    /// # use oco_ref::Oco;
     /// let mut oco1 = Oco::<str>::Owned("Hello".to_string());
     /// let oco2 = oco1.clone_inplace();
     /// assert_eq!(oco1, oco2);

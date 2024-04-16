@@ -9,6 +9,7 @@ description = "Reactive system for the Leptos web framework."
 rust-version.workspace = true
 
 [dependencies]
+oco_ref = { workspace = true }
 slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde-lite = { version = "0.5", optional = true }
