@@ -1,7 +1,7 @@
 [package]
 name = "oco_ref"
 edition = "2021"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Danik Vitek", "Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
