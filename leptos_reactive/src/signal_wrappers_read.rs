@@ -1370,7 +1370,7 @@ impl From<Box<str>> for MaybeProp<TextProp> {
 }
 
 impl From<Cow<'static, str>> for MaybeProp<TextProp> {
-    fn from(s: Box<str>) -> Self {
+    fn from(s: Cow<'static, str>) -> Self {
         Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
     }
 }
