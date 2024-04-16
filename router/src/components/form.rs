@@ -444,9 +444,13 @@ pub fn ActionForm<ServFn>(
         ServFn,
         Result<ServFn::Output, ServerFnError<ServFn::Error>>,
     >,
+    /// Sets the `id` attribute on the underlying `<form>` tag
+    #[prop(optional, into)]
+    id: Option<AttributeValue>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
+
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<html::Form>>,
@@ -481,6 +485,7 @@ where
     let value = action.value();
 
     let class = class.map(|bx| bx.into_attribute_boxed());
+    let id = id.map(|bx| bx.into_attribute_boxed());
 
     let on_submit = {
         move |ev: SubmitEvent| {
@@ -524,6 +529,7 @@ where
     let mut action_form = form()
         .attr("action", action_url)
         .attr("method", "post")
+        .attr("id", id)
         .attr("class", class)
         .on(ev::submit, on_submit)
         .child(children());
@@ -549,6 +555,9 @@ pub fn MultiActionForm<ServFn>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: MultiAction<ServFn, Result<ServFn::Output, ServerFnError>>,
+    /// Sets the `id` attribute on the underlying `<form>` tag
+    #[prop(optional, into)]
+    id: Option<AttributeValue>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
@@ -610,9 +619,12 @@ where
     };
 
     let class = class.map(|bx| bx.into_attribute_boxed());
+
+    let id = id.map(|bx| bx.into_attribute_boxed());
     let mut action_form = form()
         .attr("action", action_url)
         .attr("method", "post")
+        .attr("id", id)
         .attr("class", class)
         .on(ev::submit, on_submit)
         .child(children());
