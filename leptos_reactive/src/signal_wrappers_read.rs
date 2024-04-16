@@ -3,7 +3,7 @@ use crate::{
     Oco, ReadSignal, RwSignal, SignalDispose, SignalGet, SignalGetUntracked,
     SignalStream, SignalWith, SignalWithUntracked, StoredValue,
 };
-use std::{fmt::Debug, rc::Rc};
+use std::{borrow::Cow, fmt::Debug, rc::Rc};
 
 /// Helper trait for converting `Fn() -> T` closures into
 /// [`Signal<T>`].
@@ -1359,6 +1359,18 @@ impl From<Rc<str>> for MaybeProp<TextProp> {
 
 impl From<&'static str> for MaybeProp<TextProp> {
     fn from(s: &'static str) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<Box<str>> for MaybeProp<TextProp> {
+    fn from(s: Box<str>) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<Cow<'static, str>> for MaybeProp<TextProp> {
+    fn from(s: Box<str>) -> Self {
         Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
     }
 }
