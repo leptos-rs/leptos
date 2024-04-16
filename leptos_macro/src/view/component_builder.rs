@@ -27,6 +27,30 @@ pub(crate) fn component_to_tokens(
         }
     });
 
+    let spread_bindings = node.attributes().iter().filter_map(|node| {
+        use rstml::node::NodeBlock;
+        use syn::{Expr, ExprRange, RangeLimits, Stmt};
+
+        if let NodeAttribute::Block(NodeBlock::ValidBlock(block)) = node {
+            match block.stmts.first()? {
+                Stmt::Expr(
+                    Expr::Range(ExprRange {
+                        start: None,
+                        limits: RangeLimits::HalfOpen(_),
+                        end: Some(end),
+                        ..
+                    }),
+                    _,
+                ) => Some(
+                    quote! { .dyn_bindings(#[allow(unused_brace)] {#end}) },
+                ),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    });
+
     let props = attrs
         .clone()
         .filter(|attr| {
@@ -222,7 +246,8 @@ pub(crate) fn component_to_tokens(
             #[allow(clippy::let_unit_value, clippy::unit_arg)]
             let props = props
                 #build
-                #dyn_attrs;
+                #dyn_attrs
+                #(#spread_bindings)*;
 
             #[allow(unreachable_code)]
             ::leptos::component_view(
