@@ -3,7 +3,11 @@ use convert_case::{Case::Snake, Casing};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use rstml::node::{KeyedAttribute, Node, NodeElement, NodeName};
-use syn::{spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprPath, Lit};
+use syn::{
+    spanned::Spanned,
+    Expr::{self, Tuple},
+    ExprArray, ExprLit, ExprPath, Lit,
+};
 
 pub mod client_builder;
 pub mod client_template;
@@ -404,27 +408,72 @@ fn fancy_class_name<'a>(
                     node.key.span()=> .class
                 };
                 let class_name = &tuple.elems[0];
-                let class_name = if let Expr::Lit(ExprLit {
-                    lit: Lit::Str(s),
-                    ..
-                }) = class_name
-                {
-                    s.value()
-                } else {
-                    proc_macro_error::emit_error!(
-                        class_name.span(),
-                        "class name must be a string literal"
-                    );
-                    Default::default()
-                };
                 let value = &tuple.elems[1];
-                return Some((
-                    quote! {
-                        #class(#class_name, #value)
-                    },
-                    class_name,
-                    value,
-                ));
+
+                match class_name {
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }) => {
+                        let class_name = s.value();
+                        return Some((
+                            quote! {
+                                #class(#class_name, #value)
+                            },
+                            class_name,
+                            value,
+                        ));
+                    }
+
+                    Expr::Array(ExprArray { elems, .. }) => {
+                        let (tokens, class_name): (Vec<_>, Vec<_>) = elems
+                            .iter()
+                            .map(|elem| match elem {
+                                Expr::Lit(ExprLit {
+                                    lit: Lit::Str(s), ..
+                                }) => {
+                                    let class_name = s.value();
+                                    let tokens = quote! {
+                                        #class(#class_name, #value)
+                                    };
+                                    (tokens, class_name)
+                                }
+
+                                _ => {
+                                    proc_macro_error::emit_error!(
+                                        elem.span(),
+                                        "class name elements must be string \
+                                         literals"
+                                    );
+
+                                    (TokenStream::new(), Default::default())
+                                }
+                            })
+                            .unzip();
+
+                        let class_name = class_name.join(" ");
+                        return Some((
+                            quote! { #(#tokens)*},
+                            class_name,
+                            value,
+                        ));
+                    }
+
+                    _ => {
+                        proc_macro_error::emit_error!(
+                            class_name.span(),
+                            "class name must be a string literal or array of \
+                             string literals"
+                        );
+                        let class_name = Default::default();
+                        return Some((
+                            quote! {
+                                #class(#class_name, #value)
+                            },
+                            class_name,
+                            value,
+                        ));
+                    }
+                }
             } else {
                 proc_macro_error::emit_error!(
                     tuple.span(),
