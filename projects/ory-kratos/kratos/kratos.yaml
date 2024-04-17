@@ -1,0 +1,113 @@
+version: v1.1.0
+
+dsn: memory
+
+
+serve:
+  public:
+    base_url: http://127.0.0.1:4433/
+    cors:
+      enabled: false
+      allowed_headers:
+        - Cookie
+        - Content-Type
+        - x-csrf-token
+        - accept
+      exposed_headers:  
+        - Cookie
+        - Content-Type 
+        - Set-Cookie
+        - x-csrf-token
+        - accept
+  admin:
+    base_url: http://127.0.0.1:4434/
+
+selfservice:
+  default_browser_return_url: https://127.0.0.1:3000/
+  allowed_return_urls:
+    - https://127.0.0.1:3000
+
+  methods:
+    password:
+      enabled: true
+    totp:
+      config:
+        issuer: Kratos
+      enabled: true
+    code:
+      enabled: true
+    oidc:
+      
+      
+
+  flows:
+    error:
+      ui_url: https://127.0.0.1:3000/kratos_error
+
+    settings:
+      ui_url: https://127.0.0.1:3000/settings
+      privileged_session_max_age: 15m
+      required_aal: aal1
+
+    recovery:
+      enabled: true
+      ui_url: https://127.0.0.1:3000/recovery
+      use: code
+
+    verification:
+      enabled: true
+      ui_url: https://127.0.0.1:3000/verification
+      use: code
+      after:
+        default_browser_return_url: https://127.0.0.1:3000/
+
+    logout:
+      after:
+        default_browser_return_url: https://127.0.0.1:3000/login
+
+    login:
+      ui_url: https://127.0.0.1:3000/login
+      after:
+        default_browser_return_url: https://127.0.0.1:3000
+      lifespan: 10m
+
+    registration:
+      lifespan: 10m
+      ui_url: https://127.0.0.1:3000/registration
+      after:
+        password:
+          hooks:
+            - hook: session
+            - hook: show_verification_ui
+
+log:
+  level: trace
+  format: json
+  leak_sensitive_values: true
+
+secrets:
+  cookie:
+    - PLEASE-CHANGE-ME-I-AM-VERY-INSECURE
+  cipher:
+    - 32-LONG-SECRET-NOT-SECURE-AT-ALL
+
+ciphers:
+  algorithm: xchacha20-poly1305
+
+hashers:
+  algorithm: bcrypt
+  bcrypt:
+    cost: 8
+
+identity:
+  default_schema_id: email_v0
+  schemas:
+    - id: email_v0
+      url: file:///etc/config/kratos/email.schema.json
+
+courier:
+  smtp:
+    connection_uri: smtp://user:pass@mailcrab:1025/?disable_starttls=true&skip_ssl_verify=true
+
+feature_flags:
+  use_continue_with_transitions: true

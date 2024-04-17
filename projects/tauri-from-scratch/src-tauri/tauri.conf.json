@@ -1,0 +1,54 @@
+{
+    "build": {
+      "beforeDevCommand": "",
+      "beforeBuildCommand": "trunk build --no-default-features -v --features \"csr\"",
+      "devPath": "http://127.0.0.1:3000",
+      "distDir": "../src-orig/dist"
+    },
+    "package": {
+      "productName": "leptos_tauri_from_scratch",
+      "version": "0.1.0"
+    },
+    "tauri": {
+      "bundle": {
+        "active": true,
+        "category": "DeveloperTool",
+        "copyright": "",
+        "deb": {
+          "depends": []
+        },
+        "externalBin": [],
+        "icon": [],
+        "identifier": "leptos.chat.app",
+        "longDescription": "",
+        "macOS": {
+          "entitlements": null,
+          "exceptionDomain": "",
+          "frameworks": [],
+          "providerShortName": null,
+          "signingIdentity": null
+        },
+        "resources": [],
+        "shortDescription": "",
+        "targets": "all",
+        "windows": {
+          "certificateThumbprint": null,
+          "digestAlgorithm": "sha256",
+          "timestampUrl": ""
+        }
+      },
+      "security": {
+        "csp": null
+      },
+      "windows": [
+        {
+          "fullscreen": false,
+          "height": 800,
+          "resizable": true,
+          "title": "LeptosChatApp",
+          "width": 1200
+        }
+      ]
+    }
+  }
+  

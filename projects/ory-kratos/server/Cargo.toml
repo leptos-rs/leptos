@@ -1,0 +1,21 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+app = { path = "../app", default-features = false, features = ["ssr"] }
+leptos = { workspace = true, features = [ "ssr" ]}
+leptos_axum.workspace = true
+
+axum.workspace = true
+axum-server.workspace = true
+sqlx.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+ory-kratos-client.workspace = true
