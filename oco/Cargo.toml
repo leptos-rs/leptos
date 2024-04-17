@@ -1,0 +1,16 @@
+[package]
+name = "oco_ref"
+edition = "2021"
+version = "0.1.1"
+authors = ["Danik Vitek", "Greg Johnston"]
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+description = "A smart pointer for storing immutable values with relatively-cheap cloning. (Like a `Cow` meets an `Rc`!)"
+rust-version.workspace = true
+
+[dependencies]
+serde = "1"
+thiserror = "1"
+
+[dev-dependencies]
+serde_json = "1"

@@ -95,7 +95,6 @@ mod hydration;
 pub mod macros;
 mod memo;
 mod node;
-pub mod oco;
 mod resource;
 mod runtime;
 mod selector;
@@ -120,6 +119,7 @@ pub use hydration::{FragmentData, SharedContext};
 pub use memo::*;
 pub use node::Disposer;
 pub use oco::*;
+pub use oco_ref as oco;
 pub use resource::*;
 use runtime::*;
 pub use runtime::{

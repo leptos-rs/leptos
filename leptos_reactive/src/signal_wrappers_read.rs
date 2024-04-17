@@ -3,7 +3,7 @@ use crate::{
     Oco, ReadSignal, RwSignal, SignalDispose, SignalGet, SignalGetUntracked,
     SignalStream, SignalWith, SignalWithUntracked, StoredValue,
 };
-use std::{fmt::Debug, rc::Rc};
+use std::{borrow::Cow, fmt::Debug, rc::Rc};
 
 /// Helper trait for converting `Fn() -> T` closures into
 /// [`Signal<T>`].
@@ -1345,12 +1345,33 @@ impl From<Oco<'static, str>> for TextProp {
     }
 }
 
-impl<T> From<T> for MaybeProp<TextProp>
-where
-    T: Into<Oco<'static, str>>,
-{
-    fn from(s: T) -> Self {
-        Self(Some(MaybeSignal::from(Some(s.into().into()))))
+impl From<String> for MaybeProp<TextProp> {
+    fn from(s: String) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<Rc<str>> for MaybeProp<TextProp> {
+    fn from(s: Rc<str>) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<&'static str> for MaybeProp<TextProp> {
+    fn from(s: &'static str) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<Box<str>> for MaybeProp<TextProp> {
+    fn from(s: Box<str>) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
+    }
+}
+
+impl From<Cow<'static, str>> for MaybeProp<TextProp> {
+    fn from(s: Cow<'static, str>) -> Self {
+        Self(Some(MaybeSignal::from(Some(Oco::from(s).into()))))
     }
 }
 
