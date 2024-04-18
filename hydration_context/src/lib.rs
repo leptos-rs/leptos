@@ -18,6 +18,7 @@ mod csr;
 #[cfg_attr(docsrs, doc(cfg(feature = "browser")))]
 mod hydrate;
 mod ssr;
+use any_error::{Error, ErrorId};
 #[cfg(feature = "browser")]
 pub use csr::*;
 use futures::Stream;
@@ -96,4 +97,18 @@ pub trait SharedContext: Debug {
     /// For example, in an app with "islands," this should be `true` inside islands and
     /// false elsewhere.
     fn set_is_hydrating(&self, is_hydrating: bool);
+
+    /// Returns all errors that have been registered, removing them from the list.
+    fn take_errors(&self) -> Vec<(SerializedDataId, ErrorId, Error)>;
+
+    /// Returns the set of errors that have been registered with a particular boundary.
+    fn errors(&self, boundary_id: &SerializedDataId) -> Vec<(ErrorId, Error)>;
+
+    /// Registers an error with the context to be shared from server to client.
+    fn register_error(
+        &self,
+        error_boundary: SerializedDataId,
+        error_id: ErrorId,
+        error: Error,
+    );
 }

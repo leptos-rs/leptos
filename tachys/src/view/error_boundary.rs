@@ -161,8 +161,11 @@ where
         buf: &mut String,
         position: &mut super::Position,
     ) {
-        if let Ok(inner) = self {
-            inner.to_html_with_buf(buf, position);
+        match self {
+            Ok(inner) => inner.to_html_with_buf(buf, position),
+            Err(e) => {
+                any_error::throw(e);
+            }
         }
     }
 
@@ -173,8 +176,13 @@ where
     ) where
         Self: Sized,
     {
-        if let Ok(inner) = self {
-            inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        match self {
+            Ok(inner) => {
+                inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+            }
+            Err(e) => {
+                any_error::throw(e);
+            }
         }
     }
 
