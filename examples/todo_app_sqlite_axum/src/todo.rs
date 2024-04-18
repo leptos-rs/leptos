@@ -118,9 +118,7 @@ pub fn Todos() -> impl IntoView {
 
     view! {
         <div>
-
-            // fallback=move || view! { <p>"Loading..."</p> }>
-            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+            <Transition fallback=move || view! { <p>"Loading..."</p> }>
                 <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
                     // {existing_todos}
                     <ul>
@@ -156,7 +154,7 @@ pub fn Todos() -> impl IntoView {
                     // {pending_todos}
                     </ul>
                 </ErrorBoundary>
-            </Suspense>
+            </Transition>
         </div>
     }
 }
