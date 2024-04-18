@@ -67,7 +67,11 @@ use server_fn::{
     error::NoCustomError, redirect::REDIRECT_HEADER, ServerFnError,
 };
 use std::{
-    collections::HashSet, fmt::Debug, io, pin::Pin, sync::Arc,
+    collections::HashSet,
+    fmt::{Debug, Write},
+    io,
+    pin::Pin,
+    sync::Arc,
     thread::available_parallelism,
 };
 use tracing::Instrument;
@@ -735,11 +739,13 @@ where
                 // TODO nonce
 
                 let shared_context = Owner::current_shared_context().unwrap();
-                let shared_context = shared_context
-                    .pending_data()
-                    .unwrap()
-                    .map(|chunk| format!("<script>{chunk}</script>"));
-                futures::stream::select(app_stream, shared_context)
+                let chunks = Box::pin(
+                    shared_context
+                        .pending_data()
+                        .unwrap()
+                        .map(|chunk| format!("<script>{chunk}</script>")),
+                );
+                futures::stream::select(app_stream, chunks)
             });
 
             let stream = meta_context.inject_meta_context(stream).await;
