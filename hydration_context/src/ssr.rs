@@ -1,5 +1,6 @@
 use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
+use any_error::{Error, ErrorId};
 use futures::{
     stream::{self, FuturesUnordered},
     StreamExt,
@@ -10,7 +11,7 @@ use std::{
     mem,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        RwLock,
+        Arc, RwLock,
     },
 };
 
@@ -21,6 +22,7 @@ pub struct SsrSharedContext {
     is_hydrating: AtomicBool,
     sync_buf: RwLock<Vec<ResolvedData>>,
     async_buf: RwLock<Vec<(SerializedDataId, PinnedFuture<String>)>>,
+    errors: Arc<RwLock<Vec<(SerializedDataId, ErrorId, Error)>>>,
 }
 
 impl SsrSharedContext {
@@ -75,11 +77,21 @@ impl SharedContext for SsrSharedContext {
 
         // 1) initial, synchronous setup chunk
         let mut initial_chunk = String::new();
-        // resolved synchronous resources
+        // resolved synchronous resources and errors
         initial_chunk.push_str("__RESOLVED_RESOURCES=[");
         for resolved in sync_data {
             resolved.write_to_buf(&mut initial_chunk);
             initial_chunk.push(',');
+        }
+        initial_chunk.push_str("];");
+
+        initial_chunk.push_str("__SERIALIZED_ERRORS=[");
+        for error in mem::take(&mut *self.errors.write().or_poisoned()) {
+            write!(
+                initial_chunk,
+                "[{}, {}, {:?}],",
+                error.0 .0, error.1, error.2
+            );
         }
         initial_chunk.push_str("];");
 
@@ -96,10 +108,24 @@ impl SharedContext for SsrSharedContext {
         // 2) async resources as they resolve
         let async_data = async_data
             .into_iter()
-            .map(|(id, data)| async move {
-                let data = data.await;
-                let data = data.replace('<', "\\u003c");
-                format!("__RESOLVED_RESOURCES[{}] = {:?};", id.0, data)
+            .map(|(id, data)| {
+                let errors = Arc::clone(&self.errors);
+                async move {
+                    let data = data.await;
+                    let data = data.replace('<', "\\u003c");
+                    let mut val =
+                        format!("__RESOLVED_RESOURCES[{}] = {:?};", id.0, data);
+                    for error in mem::take(&mut *errors.write().or_poisoned()) {
+                        write!(
+                            val,
+                            "__SERIALIZED_ERRORS.push([{}, {}, {:?}]);",
+                            error.0 .0,
+                            error.1,
+                            error.2.to_string()
+                        );
+                    }
+                    val
+                }
             })
             .collect::<FuturesUnordered<_>>();
 
@@ -122,6 +148,38 @@ impl SharedContext for SsrSharedContext {
 
     fn set_is_hydrating(&self, is_hydrating: bool) {
         self.is_hydrating.store(is_hydrating, Ordering::Relaxed)
+    }
+
+    fn errors(&self, boundary_id: &SerializedDataId) -> Vec<(ErrorId, Error)> {
+        self.errors
+            .read()
+            .or_poisoned()
+            .iter()
+            .filter_map(|(boundary, id, error)| {
+                if boundary == boundary_id {
+                    Some((id.clone(), error.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn register_error(
+        &self,
+        error_boundary_id: SerializedDataId,
+        error_id: ErrorId,
+        error: Error,
+    ) {
+        self.errors.write().or_poisoned().push((
+            error_boundary_id,
+            error_id,
+            error,
+        ));
+    }
+
+    fn take_errors(&self) -> Vec<(SerializedDataId, ErrorId, Error)> {
+        mem::take(&mut *self.errors.write().or_poisoned())
     }
 }
 

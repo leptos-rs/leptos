@@ -14,7 +14,7 @@ any_error = { workspace = true }
 any_spawner = { workspace = true, features = ["wasm-bindgen"] }
 base64 = { version = "0.22", optional = true }
 cfg-if = "1"
-hydration_context = { workspace = true, optional = true }
+hydration_context = { workspace = true }
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
@@ -54,7 +54,6 @@ futures = "0.3.30"
 default = ["serde"]
 hydration = [
   "leptos_server/hydration",
-  "dep:hydration_context",
   "hydration_context/browser",
 ]
 csr = ["leptos_macro/csr", "leptos_reactive/csr"]

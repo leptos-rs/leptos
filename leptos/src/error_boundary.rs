@@ -1,17 +1,19 @@
 use crate::{children::TypedChildren, IntoView};
 use any_error::{Error, ErrorHook, ErrorId};
+use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
-use leptos_reactive::Effect;
 use reactive_graph::{
     computed::ArcMemo,
+    owner::Owner,
     signal::ArcRwSignal,
-    traits::{Get, Update, With},
+    traits::{Get, Update, With, WithUntracked},
 };
 use rustc_hash::FxHashMap;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::{
     hydration::Cursor,
-    renderer::Renderer,
+    renderer::{CastFrom, Renderer},
+    ssr::StreamBuilder,
     view::{Mountable, Position, PositionState, Render, RenderHtml},
 };
 
@@ -49,7 +51,15 @@ where
     Fal: IntoView + 'static,
     Chil: IntoView + 'static,
 {
-    let hook = Arc::new(ErrorBoundaryErrorHook::default());
+    let sc = Owner::current_shared_context();
+    let boundary_id = sc.as_ref().map(|sc| sc.next_id()).unwrap_or_default();
+    let initial_errors =
+        sc.map(|sc| sc.errors(&boundary_id)).unwrap_or_default();
+
+    let hook = Arc::new(ErrorBoundaryErrorHook::new(
+        boundary_id.clone(),
+        initial_errors,
+    ));
     let errors = hook.errors.clone();
     let errors_empty = ArcMemo::new({
         let errors = errors.clone();
@@ -62,18 +72,22 @@ where
     let mut children = Some(children.into_inner()());
 
     move || ErrorBoundaryView {
+        boundary_id: boundary_id.clone(),
         errors_empty: errors_empty.get(),
         children: children.take(),
         fallback: Some((fallback.clone())(&errors)),
+        errors: errors.clone(),
         rndr: PhantomData,
     }
 }
 
 #[derive(Debug)]
 struct ErrorBoundaryView<Chil, Fal, Rndr> {
+    boundary_id: SerializedDataId,
     errors_empty: bool,
     children: Option<Chil>,
     fallback: Fal,
+    errors: ArcRwSignal<Errors>,
     rndr: PhantomData<Rndr>,
 }
 
@@ -203,9 +217,11 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         let ErrorBoundaryView {
+            boundary_id,
             errors_empty,
             children,
             fallback,
+            errors,
             ..
         } = self;
         let children = match children {
@@ -213,15 +229,52 @@ where
             Some(children) => Some(children.resolve().await),
         };
         ErrorBoundaryView {
+            boundary_id,
             errors_empty,
             children,
             fallback,
+            errors,
             rndr: PhantomData,
         }
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        todo!()
+        // first, attempt to serialize the children to HTML, then check for errors
+        let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
+        let mut new_pos = *position;
+        self.children.to_html_with_buf(&mut new_buf, &mut new_pos);
+
+        // any thrown errors would've been caught here
+        if self.errors.with_untracked(|map| map.is_empty()) {
+            buf.push_str(&new_buf);
+        } else {
+            // otherwise, serialize the fallback instead
+            self.fallback.to_html_with_buf(buf, position);
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+    ) where
+        Self: Sized,
+    {
+        // first, attempt to serialize the children to HTML, then check for errors
+        let mut new_buf = StreamBuilder::new(buf.clone_id());
+        let mut new_pos = *position;
+        self.children
+            .to_html_async_with_buf::<OUT_OF_ORDER>(&mut new_buf, &mut new_pos);
+
+        // any thrown errors would've been caught here
+        if self.errors.with_untracked(|map| map.is_empty()) {
+            buf.append(new_buf);
+        } else {
+            // otherwise, serialize the fallback instead
+            let mut fallback = String::with_capacity(Fal::MIN_LENGTH);
+            self.fallback.to_html_with_buf(&mut fallback, position);
+            buf.push_sync(&fallback);
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -229,21 +282,75 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
-        todo!()
+        let children = self.children.expect(
+            "tried to hydrate ErrorBoundary but children were not present",
+        );
+        let (children, fallback) = if self.errors_empty {
+            (
+                children.hydrate::<FROM_SERVER>(cursor, position),
+                self.fallback.build(),
+            )
+        } else {
+            (
+                children.build(),
+                self.fallback.hydrate::<FROM_SERVER>(cursor, position),
+            )
+        };
+
+        cursor.sibling();
+        let placeholder = cursor.current().to_owned();
+        let placeholder = Rndr::Placeholder::cast_from(placeholder).unwrap();
+        position.set(Position::NextChild);
+
+        ErrorBoundaryViewState {
+            showing_fallback: !self.errors_empty,
+            children,
+            fallback,
+            placeholder,
+        }
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct ErrorBoundaryErrorHook {
     errors: ArcRwSignal<Errors>,
+    id: SerializedDataId,
+    shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
+}
+
+impl ErrorBoundaryErrorHook {
+    pub fn new(
+        id: SerializedDataId,
+        initial_errors: impl IntoIterator<Item = (ErrorId, Error)>,
+    ) -> Self {
+        Self {
+            errors: ArcRwSignal::new(Errors(
+                initial_errors.into_iter().collect(),
+            )),
+            id,
+            shared_context: Owner::current_shared_context(),
+        }
+    }
 }
 
 impl ErrorHook for ErrorBoundaryErrorHook {
     fn throw(&self, error: Error) -> ErrorId {
-        let key = ErrorId::default();
+        // generate a unique ID
+        let key = ErrorId::default(); // TODO unique ID...
+
+        // register it with the shared context, so that it can be serialized from server to client
+        // as needed
+        if let Some(sc) = &self.shared_context {
+            sc.register_error(self.id.clone(), key.clone(), error.clone());
+        }
+
+        // add it to the reactive map of errors
         self.errors.update(|map| {
             map.insert(key.clone(), error);
         });
+
+        // return the key, which will be owned by the Result being rendered and can be used to
+        // unregister this error if it is rebuilt
         key
     }
 

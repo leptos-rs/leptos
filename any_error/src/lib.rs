@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
-    error, fmt,
+    error,
+    fmt::{self, Display},
     future::Future,
     ops,
     pin::Pin,
@@ -68,6 +69,18 @@ pub trait ErrorHook: Send + Sync {
 /// global error handler.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Default)]
 pub struct ErrorId(usize);
+
+impl Display for ErrorId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl From<usize> for ErrorId {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
 
 thread_local! {
     static ERROR_HOOK: RefCell<Option<Arc<dyn ErrorHook>>> = RefCell::new(None);

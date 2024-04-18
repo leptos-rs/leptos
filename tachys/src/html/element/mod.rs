@@ -156,10 +156,21 @@ pub trait ElementType: Send {
     fn tag(&self) -> &str;
 }
 
+pub trait HasElementType {
+    type ElementType;
+}
+
 pub trait ElementWithChildren {}
 
 pub trait CreateElement<R: Renderer> {
     fn create_element(&self) -> R::Element;
+}
+
+impl<E, At, Ch, Rndr> HasElementType for HtmlElement<E, At, Ch, Rndr>
+where
+    E: ElementType,
+{
+    type ElementType = E::Output;
 }
 
 impl<E, At, Ch, Rndr> Render<Rndr> for HtmlElement<E, At, Ch, Rndr>

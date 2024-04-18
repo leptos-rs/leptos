@@ -41,4 +41,28 @@ impl SharedContext for CsrSharedContext {
 
     #[inline(always)]
     fn set_is_hydrating(&self, _is_hydrating: bool) {}
+
+    #[inline(always)]
+    fn errors(
+        &self,
+        _boundary_id: &SerializedDataId,
+    ) -> Vec<(any_error::ErrorId, any_error::Error)> {
+        Vec::new()
+    }
+
+    #[inline(always)]
+    fn take_errors(
+        &self,
+    ) -> Vec<(SerializedDataId, any_error::ErrorId, any_error::Error)> {
+        Vec::new()
+    }
+
+    #[inline(always)]
+    fn register_error(
+        &self,
+        _error_boundary: SerializedDataId,
+        _error_id: any_error::ErrorId,
+        _error: any_error::Error,
+    ) {
+    }
 }

@@ -3,7 +3,7 @@ use crate::{
     html::{
         attribute::*,
         class::{class, Class, IntoClass},
-        element::ElementType,
+        element::{ElementType, HasElementType},
         event::{on, on_target, EventDescriptor, On, Targeted},
         property::{property, IntoProperty, Property},
         style::{style, IntoStyle, Style},
@@ -112,13 +112,13 @@ pub trait OnTargetAttribute<E, F, T, Rndr> {
 
 impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
 where
-    Self: ElementType,
-    T: AddAnyAttr<Rndr>,
+    T: AddAnyAttr<Rndr> + HasElementType,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
-    F: FnMut(Targeted<E::EventType, <Self as ElementType>::Output, Rndr>)
-        + 'static,
+    F: FnMut(
+            Targeted<E::EventType, <Self as HasElementType>::ElementType, Rndr>,
+        ) + 'static,
     Rndr: DomRenderer,
 {
     type Output = <Self as AddAnyAttr<Rndr>>::Output<On<Rndr>>;

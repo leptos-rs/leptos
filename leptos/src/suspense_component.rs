@@ -3,6 +3,7 @@ use crate::{
     into_view::View,
     IntoView,
 };
+use any_error::ErrorHookFuture;
 use any_spawner::Executor;
 use futures::FutureExt;
 use leptos_macro::component;
@@ -141,7 +142,9 @@ where
     {
         buf.next_id();
 
-        let mut fut = Box::pin(self.children.resolve());
+        let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
+            self.children.resolve(),
+        )));
         match fut.as_mut().now_or_never() {
             Some(resolved) => {
                 Either::<Fal, _>::Right(resolved)
