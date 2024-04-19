@@ -1,63 +1,13 @@
 use crate::{
-    computed::AsyncState,
     diagnostics::is_suppressing_resource_load,
     owner::{Owner, StoredValue},
-    signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
-    traits::{DefinedAt, GetUntracked, Set, Update, WithUntracked},
+    signal::{ArcRwSignal, RwSignal},
+    traits::{DefinedAt, GetUntracked, Update},
     unwrap_signal,
 };
 use any_spawner::Executor;
-use futures::{
-    channel::oneshot,
-    select,
-    stream::{AbortRegistration, Abortable},
-    FutureExt,
-};
-use std::{
-    future::Future,
-    mem::swap,
-    panic::Location,
-    pin::Pin,
-    sync::{atomic::AtomicUsize, Arc},
-};
-
-/*enum ActionState<I, O> {
-    Idle,
-    Loading(I),
-    LoadingMultiple(I, usize),
-    Complete(O),
-    Reloading(I, O),
-    ReloadingMultiple(I, O, usize),
-}
-
-impl<I, O> ActionState<I, O> {
-    fn currently_loading(&self) -> usize {
-        match self {
-            ActionState::Idle => 0,
-            ActionState::Loading(_) => 1,
-            ActionState::LoadingMultiple(_, curr) => *curr,
-            ActionState::Complete(_) => 0,
-            ActionState::Reloading(_, _) => 1,
-            ActionState::ReloadingMultiple(_, _, curr) => *curr,
-        }
-    }
-}*/
-
-struct ActionInner<I, O> {
-    input: Option<I>,
-    value: Option<O>,
-    version: usize,
-}
-
-impl<I, O> Default for ActionInner<I, O> {
-    fn default() -> Self {
-        Self {
-            input: Default::default(),
-            value: Default::default(),
-            version: Default::default(),
-        }
-    }
-}
+use futures::{channel::oneshot, select, FutureExt};
+use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 
 pub struct ArcAction<I, O>
 where
