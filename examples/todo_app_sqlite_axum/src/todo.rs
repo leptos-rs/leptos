@@ -106,7 +106,9 @@ pub fn TodoApp() -> impl IntoView {
 
 #[component]
 pub fn Todos() -> impl IntoView {
-    //let add_todo = create_server_multi_action::<AddTodo>();
+    let add_todo = create_server_multi_action::<AddTodo>();
+    let delete_todo = ServerAction::<DeleteTodo>::new();
+    let submissions = add_todo.submissions();
     let delete_todo = ServerAction::<DeleteTodo>::new();
     //let submissions = add_todo.submissions();
 
