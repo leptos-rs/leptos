@@ -271,6 +271,16 @@ where
 ///
 /// Local resources do not load on the server, only in the client’s browser.
 ///
+/// ## When to use a Local Resource
+///
+/// `create_resource` has three different features:
+/// 1. gives a synchronous API for asynchronous things
+/// 2. integrates with `Suspense`/`Transition``
+/// 3. makes your application faster by starting things like DB access or an API request on the server,
+///    rather than waiting until you've fully loaded the client
+///
+/// `create_local_resource` is useful when you can't or don't need to do #3 (serializing data from server
+/// to client), but still want #1 (synchronous API for async) and #2 (integration with `Suspense`).
 /// ```
 /// # use leptos_reactive::*;
 /// # let runtime = create_runtime();
@@ -278,7 +288,9 @@ where
 /// struct ComplicatedUnserializableStruct {
 ///     // something here that can't be serialized
 /// }
-/// // any old async function; maybe this is calling a REST API or something
+///
+/// // an async function whose results can't be serialized from the server to the client
+/// // (for example, opening a connection to the user's device camera)
 /// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
 ///     // do some work
 ///     ComplicatedUnserializableStruct {}
