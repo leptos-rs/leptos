@@ -187,7 +187,7 @@ where
             // 2) we are either in a Suspense (not Transition), or it's the first fallback
             //    (because we initially render the children to register Futures, the "first
             //    fallback" is probably the 2nd run
-            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 2);
+            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 1);
             nth_run += 1;
             EitherKeepAlive {
                 a: children.take(),
