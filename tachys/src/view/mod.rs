@@ -26,21 +26,11 @@ pub trait Render<R: Renderer>: Sized {
     /// and the previous string, to allow for diffing between updates.
     type State: Mountable<R>;
 
-    // TODO remove this, the other ErrorBoundary way is better
-    type FallibleState: Mountable<R>;
-
     /// Creates the view for the first time, without hydrating from existing HTML.
     fn build(self) -> Self::State;
 
     /// Updates the view with new data.
     fn rebuild(self, state: &mut Self::State);
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState>;
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy)]

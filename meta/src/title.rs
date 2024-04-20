@@ -193,7 +193,6 @@ struct TitleViewState {
 
 impl Render<Dom> for TitleView {
     type State = TitleViewState;
-    type FallibleState = TitleViewState;
 
     fn build(self) -> Self::State {
         let el = self.el();
@@ -220,15 +219,6 @@ impl Render<Dom> for TitleView {
 
     fn rebuild(self, _state: &mut Self::State) {
         // TODO  should this rebuild?
-    }
-
-    fn try_build(self) -> Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<()> {
-        self.rebuild(state);
-        Ok(())
     }
 }
 
