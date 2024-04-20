@@ -261,7 +261,6 @@ where
     R: Renderer + 'static,
 {
     type State = AnyViewState<R>;
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {
         (self.build)(self.value)
@@ -269,17 +268,6 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         (self.rebuild)(self.type_id, self.value, state)
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 
