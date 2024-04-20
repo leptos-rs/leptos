@@ -19,7 +19,6 @@ where
     R: Renderer,
 {
     type State = OptionState<T::State, R>;
-    type FallibleState = OptionState<T::FallibleState, R>;
 
     fn build(self) -> Self::State {
         let placeholder = R::create_placeholder();
@@ -48,35 +47,6 @@ where
                 state.state = Some(new_state);
             }
         }
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        match self {
-            None => {
-                let placeholder = R::create_placeholder();
-                Ok(OptionState {
-                    placeholder,
-                    state: None,
-                })
-            }
-            Some(inner) => match inner.try_build() {
-                Err(e) => Err(e),
-                Ok(inner) => {
-                    let placeholder = R::create_placeholder();
-                    Ok(OptionState {
-                        placeholder,
-                        state: Some(inner),
-                    })
-                }
-            },
-        }
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 
@@ -204,7 +174,6 @@ where
     R: Renderer,
 {
     type State = VecState<T::State, R>;
-    type FallibleState = VecState<T::FallibleState, R>;
 
     fn build(self) -> Self::State {
         let marker = R::create_placeholder();
@@ -254,22 +223,6 @@ where
             old.truncate(old.len() - removes_at_end);
             old.append(&mut adds);
         }
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        let states = self
-            .into_iter()
-            .map(T::try_build)
-            .collect::<Result<_, _>>()?;
-        let marker = R::create_placeholder();
-        Ok(VecState { states, marker })
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

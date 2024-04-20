@@ -48,7 +48,6 @@ where
     Rndr: Renderer,
 {
     type State = View::State;
-    type FallibleState = View::FallibleState;
 
     fn build(self) -> Self::State {
         self.view.build()
@@ -56,17 +55,6 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(state);
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        self.view.try_build()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        self.view.try_rebuild(state)
     }
 }
 
@@ -157,22 +145,10 @@ where
     Rndr: Renderer,
 {
     type State = ();
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        Ok(())
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        Ok(())
-    }
 }
 
 impl<Rndr, View> RenderHtml<Rndr> for IslandChildren<Rndr, View>

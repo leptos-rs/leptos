@@ -96,7 +96,6 @@ struct BodyViewState {
 
 impl Render<Dom> for BodyView {
     type State = BodyViewState;
-    type FallibleState = BodyViewState;
 
     fn build(self) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
@@ -112,15 +111,6 @@ impl Render<Dom> for BodyView {
 
     fn rebuild(self, state: &mut Self::State) {
         // TODO rebuilding dynamic things like this
-    }
-
-    fn try_build(self) -> Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<()> {
-        self.rebuild(state);
-        Ok(())
     }
 }
 
