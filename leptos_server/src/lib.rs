@@ -3,6 +3,8 @@
 
 mod action;
 pub use action::*;
+mod multi_action;
+pub use multi_action::*;
 #[cfg(feature = "hydration")]
 mod resource;
 #[cfg(feature = "hydration")]
