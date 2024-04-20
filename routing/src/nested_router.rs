@@ -87,7 +87,7 @@ where
             None => Either::Left(fallback),
             Some(route) => {
                 route.build_nested_route(&mut outlets, &outer_owner);
-                provide_context(outlets[1].clone());
+                provide_context(outlets[0].clone());
                 Either::Right(Outlet(OutletProps::builder().build()).into_any())
             }
         }
@@ -246,16 +246,9 @@ where
             let outlet = outlets.get(current_child + 0).cloned();
             let parent = parent.clone();
             move || {
-                leptos::logging::log!("here");
                 parent.with(|| {
                     if let Some(outlet) = outlet {
-                        leptos::logging::log!(
-                            "providing context on {:?}",
-                            parent.debug_id()
-                        );
                         provide_context(outlet);
-                    } else {
-                        leptos::logging::log!("nothing found");
                     }
                 });
                 owner.with(|| view.choose().into_any())
@@ -294,10 +287,6 @@ where
                     current.tx.send({
                         let owner = owner.clone();
                         Box::new(move || {
-                            leptos::logging::log!(
-                                "running Outlet view in {:?}",
-                                owner.debug_id()
-                            );
                             owner.with(|| view.choose().into_any())
                         })
                     });
@@ -354,7 +343,6 @@ where
 {
     _ = rndr;
     let owner = Owner::current().unwrap();
-    leptos::logging::log!("Outlet owner is {:?}", owner.debug_id());
     let ctx = use_context::<OutletContext<R>>()
         .expect("<Outlet/> used without OutletContext being provided.");
     let OutletContext {
