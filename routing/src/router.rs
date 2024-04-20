@@ -96,7 +96,7 @@ where
     }
 }
 
-pub struct RouteData<R = Dom>
+pub struct 
 where
     R: Renderer + 'static,
 {
@@ -394,14 +394,14 @@ where
             .map(|child| get_inner_view(&mut outlets, &owner, child))
             .unwrap_or_default();
 
-        let route_data = RouteData {
+        let  = RouteData {
             params: ArcMemo::new({
                 let params = params.clone();
                 move |_| params.get()
             }),
             outlet,
         };
-        let view = owner.with(|| view.choose(route_data));
+        let view = owner.with(|| view.choose());
 
         Self {
             id,
@@ -441,14 +441,14 @@ where
             })
             .unwrap_or_default();
 
-        let route_data = RouteData {
+        let  = RouteData {
             params: ArcMemo::new({
                 let params = params.clone();
                 move |_| params.get()
             }),
             outlet,
         };
-        let view = owner.with(|| view.choose(route_data));
+        let view = owner.with(|| view.choose());
 
         Self {
             id,
@@ -1170,14 +1170,14 @@ where
                         );
                     }
 
-                    let route_data = RouteData {
+                    let  = RouteData {
                         params: ArcMemo::new({
                             let params = params.clone();
                             move |_| params.get()
                         }),
                         outlet: Default::default(),
                     };
-                    let view = outer_owner.with(|| view.choose(route_data));
+                    let view = outer_owner.with(|| view.choose());
                     Either::Left::<_, Fallback>(view).rebuild(&mut prev);
                 } else {
                     Either::<<Children::Match as MatchInterface<Rndr>>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
@@ -1199,14 +1199,14 @@ where
                             );
                         }
 
-                        let route_data = RouteData {
+                        let  = RouteData {
                             params: ArcMemo::new({
                                 let params = params.clone();
                                 move |_| params.get()
                             }),
                             outlet: Default::default(),
                         };
-                        let view = outer_owner.with(|| view.choose(route_data));
+                        let view = outer_owner.with(|| view.choose());
                         Either::Left(view)
                     }
                     _ => Either::Right((self.fallback)()),
@@ -1307,14 +1307,14 @@ where
                         );
                     }
 
-                    let route_data = RouteData {
+                    let  = RouteData {
                         params: ArcMemo::new({
                             let params = params.clone();
                             move |_| params.get()
                         }),
                         outlet: Default::default(),
                     };
-                    let view = outer_owner.with(|| view.choose(route_data));
+                    let view = outer_owner.with(|| view.choose());
                     Either::Left(view)
                 }
                 None => Either::Right((self.fallback)()),
@@ -1352,14 +1352,14 @@ where
                     );
                 }
 
-                let route_data = RouteData {
+                let  = RouteData {
                     params: ArcMemo::new({
                         let params = params.clone();
                         move |_| params.get()
                     }),
                     outlet: Default::default(),
                 };
-                let view = outer_owner.with(|| view.choose(route_data));
+                let view = outer_owner.with(|| view.choose());
                 Either::Left(view)
             }
             None => Either::Right((self.fallback)()),
@@ -1407,14 +1407,14 @@ where
                         );
                     }
 
-                    let route_data = RouteData {
+                    let  = RouteData {
                         params: ArcMemo::new({
                             let params = params.clone();
                             move |_| params.get()
                         }),
                         outlet: Default::default(),
                     };
-                    let view = outer_owner.with(|| view.choose(route_data));
+                    let view = outer_owner.with(|| view.choose());
                     Either::Left::<_, Fallback>(view).rebuild(&mut prev);
                 } else {
                     Either::<<Children::Match as MatchInterface<Rndr>>::View, _>::Right((self.fallback)()).rebuild(&mut prev);
@@ -1436,14 +1436,14 @@ where
                             );
                         }
 
-                        let route_data = RouteData {
+                        let  = RouteData {
                             params: ArcMemo::new({
                                 let params = params.clone();
                                 move |_| params.get()
                             }),
                             outlet: Default::default(),
                         };
-                        let view = outer_owner.with(|| view.choose(route_data));
+                        let view = outer_owner.with(|| view.choose());
                         Either::Left(view)
                     }
                     _ => Either::Right((self.fallback)()),
