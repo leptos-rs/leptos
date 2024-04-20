@@ -2,14 +2,6 @@ use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{create_render_effect, signal_prelude::*};
 use std::cell::Cell;
 
-  cfg_if::cfg_if!(
-  if #[cfg(debug_assertions)] {
-    #[allow(missing_docs)]
-    pub struct NodeRef<T: ElementDescriptor + 'static> {
-      element: RwSignal<Option<HtmlElement<T>>>,
-      defined_at: &'static std::panic::Location<'static>,
-    }
-  } else {
     /// Contains a shared reference to a DOM node created while using the `view`
     /// macro to create your UI.
     ///
@@ -39,12 +31,12 @@ use std::cell::Cell;
     ///     }
     /// }
     /// ```
-    #[repr(transparent)]
+    #[cfg_attr(not(debug_assertions), repr(transparent))]
     pub struct NodeRef<T: ElementDescriptor + 'static> {
       element: RwSignal<Option<HtmlElement<T>>>,
+      #[cfg(debug_assertions)]
+      defined_at: &'static std::panic::Location<'static>,
     }
-  }
-);
 
 /// Creates a shared reference to a DOM node created while using the `view`
 /// macro to create your UI.
@@ -79,8 +71,9 @@ use std::cell::Cell;
 #[inline(always)]
 pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
     NodeRef {
-        defined_at: std::panic::Location::caller(),
-        element: create_rw_signal(None),
+      #[cfg(debug_assertions)]
+      defined_at: std::panic::Location::caller(),
+      element: create_rw_signal(None),
     }
 }
 
