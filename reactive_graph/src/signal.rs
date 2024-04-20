@@ -1,5 +1,6 @@
 mod arc_read;
 mod arc_rw;
+mod arc_trigger;
 mod arc_write;
 pub mod guards;
 mod read;
@@ -9,6 +10,7 @@ mod write;
 
 pub use arc_read::*;
 pub use arc_rw::*;
+pub use arc_trigger::*;
 pub use arc_write::*;
 pub use read::*;
 pub use rw::*;

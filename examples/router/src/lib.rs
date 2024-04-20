@@ -11,9 +11,12 @@ use leptos::{
 };
 use log::{debug, info};
 use routing::{
+    components::{ParentRoute, Route, Router},
+    Outlet,
+};
+use routing::{
     location::{BrowserUrl, Location},
-    MatchNestedRoutes, NestedRoute, ParamSegment, RouteData, Router, Routes,
-    StaticSegment,
+    MatchNestedRoutes, NestedRoute, ParamSegment, StaticSegment,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -26,8 +29,7 @@ pub fn RouterExample() -> impl IntoView {
     // contexts are passed down through the route tree
     provide_context(ExampleContext(0));
 
-    let router = Router::new(
-        BrowserUrl::new().unwrap(),
+    /*let router = Router::new(
         Routes::new((
             NestedRoute::new(StaticSegment("contacts"), ContactList).child((
                 NestedRoute::new(StaticSegment(""), |_| "Select a contact."),
@@ -40,7 +42,7 @@ pub fn RouterExample() -> impl IntoView {
             NestedRoute::new(StaticSegment("about"), About),
         )),
         || "This page could not be found.",
-    );
+    );*/
 
     view! {
         <nav>
@@ -48,58 +50,26 @@ pub fn RouterExample() -> impl IntoView {
             // using <A> has two effects:
             // 1) ensuring that relative routing works properly for nested routes
             // 2) setting the `aria-current` attribute on the current link,
-            //    for a11y and styling purposes
-            /*
-            <A exact=true href="/">"Contacts"</A>
-            <A href="about">"About"</A>
-            <A href="settings">"Settings"</A>
-            <A href="redirect-home">"Redirect to Home"</A>
-            */
+            // for a11y and styling purposes
+
             <a href="/contacts">"Contacts"</a>
             <a href="/about">"About"</a>
             <a href="/settings">"Settings"</a>
             <a href="/redirect-home">"Redirect to Home"</a>
         </nav>
-        {router}
-        /*<Router>
-            <nav>
-                // ordinary <a> elements can be used for client-side navigation
-                // using <A> has two effects:
-                // 1) ensuring that relative routing works properly for nested routes
-                // 2) setting the `aria-current` attribute on the current link,
-                //    for a11y and styling purposes
-                <A exact=true href="/">"Contacts"</A>
-                <A href="about">"About"</A>
-                <A href="settings">"Settings"</A>
-                <A href="redirect-home">"Redirect to Home"</A>
-            </nav>
-            <main>
-                <AnimatedRoutes
-                    outro="slideOut"
-                    intro="slideIn"
-                    outro_back="slideOutBack"
-                    intro_back="slideInBack"
-                 >
-                    <ContactRoutes/>
-                    <Route
-                        path="about"
-                        view=|| view! { <About/> }
-                    />
-                    <Route
-                        path="settings"
-                        view=|| view! { <Settings/> }
-                    />
-                    <Route
-                        path="redirect-home"
-                        view=|| view! { <Redirect path="/"/> }
-                    />
-                </AnimatedRoutes>
-            </main>
-        </Router>*/
+        <Router fallback=|| "This page could not be found.">
+            <ParentRoute path=StaticSegment("contacts") view=ContactList>
+                <Route path=StaticSegment("") view=|| "Select a contact."/>
+                <Route path=ParamSegment(":id") view=Contact/>
+            </ParentRoute>
+            <Route path=StaticSegment("settings") view=Settings/>
+            <Route path=StaticSegment("about") view=About/>
+        </Router>
     }
 }
 
-pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
+#[component]
+pub fn ContactList() -> impl IntoView {
     info!("rendering <ContactList/>");
 
     // contexts are passed down through the route tree
@@ -112,10 +82,16 @@ pub fn ContactList(route_data: RouteData<Dom>) -> impl IntoView {
     view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
-            <li><a href="/contacts/1">1</a></li>
-            <li><a href="/contacts/2">2</a></li>
-            <li><a href="/contacts/3">3</a></li>
-            {route_data.outlet}
+            <li>
+                <a href="/contacts/1">1</a>
+            </li>
+            <li>
+                <a href="/contacts/2">2</a>
+            </li>
+            <li>
+                <a href="/contacts/3">3</a>
+            </li>
+            <Outlet/>
         </div>
     }
 
@@ -156,8 +132,7 @@ pub struct ContactParams {
     id: Option<usize>,
 }*/
 
-pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
-    let params = route_data.params;
+pub fn Contact() -> impl IntoView {
     info!("rendering <Contact/>");
 
     info!(
@@ -172,12 +147,12 @@ pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
     view! {
         <div class="contact">
             <h2>"Contact"</h2>
-            {move || format!("{:#?}", params.get())}
+        // {move || format!("{:#?}", params.get())}
         </div>
     }
 
-    /*    let params = use_params::<ContactParams>();
-    let contact = create_resource(
+    //let params = use_params::<ContactParams>();
+    /*let contact = create_resource(
         move || {
             params
                 .get()
@@ -191,7 +166,7 @@ pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
         get_contact,
     );
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         info!("params = {:#?}", params.get());
     });
 
@@ -208,7 +183,7 @@ pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
             view! {
                 <section class="card">
                     <h1>{contact.first_name} " " {contact.last_name}</h1>
-                    <p>{contact.address_1}<br/>{contact.address_2}</p>
+                    <p>{contact.address_1} <br/> {contact.address_2}</p>
                 </section>
             }
             .into_any(),
@@ -217,14 +192,15 @@ pub fn Contact(route_data: RouteData<Dom>) -> impl IntoView {
 
     view! {
         <div class="contact">
-            <Transition fallback=move || view! {  <p>"Loading..."</p> }>
-                {contact_display}
-            </Transition>
+            <Transition fallback=move || {
+                view! { <p>"Loading..."</p> }
+            }>{contact_display}</Transition>
         </div>
     }*/
 }
 
-pub fn About(route_data: RouteData<Dom>) -> impl IntoView {
+#[component]
+pub fn About() -> impl IntoView {
     info!("rendering <About/>");
 
     Owner::on_cleanup(|| {
@@ -241,19 +217,15 @@ pub fn About(route_data: RouteData<Dom>) -> impl IntoView {
     // let navigate = use_navigate();
 
     view! {
-        // note: this is just an illustration of how to use `use_navigate`
-        // <button on:click> to navigate is an *anti-pattern*
-        // you should ordinarily use a link instead,
-        // both semantically and so your link will work before WASM loads
-        /*<button on:click=move |_| navigate("/", Default::default())>
-            "Home"
-        </button>*/
         <h1>"About"</h1>
-        <p>"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."</p>
+        <p>
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+        </p>
     }
 }
 
-pub fn Settings(route_data: RouteData<Dom>) -> impl IntoView {
+#[component]
+pub fn Settings() -> impl IntoView {
     info!("rendering <Settings/>");
 
     Owner::on_cleanup(|| {
