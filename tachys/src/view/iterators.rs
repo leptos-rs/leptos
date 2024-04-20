@@ -105,15 +105,7 @@ where
         // hydrate the state, if it exists
         let state = self.map(|s| s.hydrate::<FROM_SERVER>(cursor, position));
 
-        // pull the placeholder
-        if position.get() == Position::FirstChild {
-            cursor.child();
-        } else {
-            cursor.sibling();
-        }
-        let placeholder = cursor.current().to_owned();
-        let placeholder = R::Placeholder::cast_from(placeholder).unwrap();
-        position.set(Position::NextChild);
+        let placeholder = cursor.next_placeholder(position);
 
         OptionState { placeholder, state }
     }
@@ -327,13 +319,8 @@ where
             .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
             .collect();
 
-        if position.get() == Position::FirstChild {
-            cursor.child();
-        } else {
-            cursor.sibling();
-        }
-        let marker = cursor.current().to_owned();
-        let marker = R::Placeholder::cast_from(marker).unwrap();
+        let marker = cursor.next_placeholder(position);
+
         VecState { states, marker }
     }
 }
