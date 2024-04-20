@@ -92,7 +92,6 @@ where
         >,
     >;
     // TODO fallible state/error
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {
         // poll the future once immediately
@@ -144,17 +143,6 @@ where
                     .rebuild(&mut *state.write());
             }
         });
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

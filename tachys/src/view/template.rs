@@ -37,7 +37,6 @@ where
     R: DomRenderer,
 {
     type State = V::State;
-    type FallibleState = V::FallibleState;
 
     // TODO try_build/try_rebuild()
 
@@ -50,17 +49,6 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(state)
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

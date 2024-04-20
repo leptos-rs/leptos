@@ -19,22 +19,10 @@ use std::{
 
 impl<R: Renderer> Render<R> for () {
     type State = ();
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        Ok(())
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        Ok(())
-    }
 }
 
 impl<R> RenderHtml<R> for ()
@@ -111,7 +99,6 @@ impl ToTemplate for () {
 
 impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
     type State = A::State;
-    type FallibleState = A::FallibleState;
 
     fn build(self) -> Self::State {
         self.0.build()
@@ -119,17 +106,6 @@ impl<A: Render<R>, R: Renderer> Render<R> for (A,) {
 
     fn rebuild(self, state: &mut Self::State) {
         self.0.rebuild(state)
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        self.0.try_build()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        self.0.try_rebuild(state)
     }
 }
 
@@ -226,7 +202,7 @@ macro_rules! impl_view_for_tuples {
 			Rndr: Renderer
 		{
 			type State = ($first::State, $($ty::State,)*);
-			type FallibleState = ($first::FallibleState, $($ty::FallibleState,)*);
+
 
 			fn build(self) -> Self::State {
                 #[allow(non_snake_case)]
@@ -244,25 +220,6 @@ macro_rules! impl_view_for_tuples {
 					[<$first:lower>].rebuild([<view_ $first:lower>]);
 					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
 				}
-			}
-
-			fn try_build(self) -> any_error::Result<Self::FallibleState> {
-                #[allow(non_snake_case)]
-                let ($first, $($ty,)*) = self;
-                Ok((
-                    $first.try_build()?,
-                    $($ty.try_build()?),*
-                ))
-			}
-
-			fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
-					[<$first:lower>].try_rebuild([<view_ $first:lower>])?;
-					$([<$ty:lower>].try_rebuild([<view_ $ty:lower>])?);*
-				}
-				Ok(())
 			}
 		}
 
