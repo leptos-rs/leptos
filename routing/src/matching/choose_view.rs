@@ -1,4 +1,3 @@
-use crate::RouteData;
 use either_of::*;
 use tachys::{renderer::Renderer, view::Render};
 
@@ -9,19 +8,19 @@ where
 {
     type Output: Render<R> + Send;
 
-    fn choose(self, route_data: RouteData<R>) -> Self::Output;
+    fn choose(self) -> Self::Output;
 }
 
 impl<F, View, R> ChooseView<R> for F
 where
-    F: Fn(RouteData<R>) -> View + Send + 'static,
+    F: Fn() -> View + Send + 'static,
     View: Render<R> + Send,
     R: Renderer + 'static,
 {
     type Output = View;
 
-    fn choose(self, route_data: RouteData<R>) -> Self::Output {
-        self(route_data)
+    fn choose(self) -> Self::Output {
+        self()
     }
 }
 
@@ -31,7 +30,7 @@ where
 {
     type Output = ();
 
-    fn choose(self, _route_data: RouteData<R>) -> Self::Output {}
+    fn choose(self) -> Self::Output {}
 }
 
 impl<A, B, Rndr> ChooseView<Rndr> for Either<A, B>
@@ -42,10 +41,10 @@ where
 {
     type Output = Either<A::Output, B::Output>;
 
-    fn choose(self, route_data: RouteData<Rndr>) -> Self::Output {
+    fn choose(self) -> Self::Output {
         match self {
-            Either::Left(f) => Either::Left(f.choose(route_data)),
-            Either::Right(f) => Either::Right(f.choose(route_data)),
+            Either::Left(f) => Either::Left(f.choose()),
+            Either::Right(f) => Either::Right(f.choose()),
         }
     }
 }
@@ -59,9 +58,9 @@ macro_rules! tuples {
         {
             type Output = $either<$($ty::Output,)*>;
 
-            fn choose(self, route_data: RouteData<Rndr>) -> Self::Output {
+            fn choose(self ) -> Self::Output {
                 match self {
-                    $($either::$ty(f) => $either::$ty(f.choose(route_data)),)*
+                    $($either::$ty(f) => $either::$ty(f.choose()),)*
                 }
             }
         }
