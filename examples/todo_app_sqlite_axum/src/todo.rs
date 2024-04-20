@@ -1,9 +1,11 @@
 use crate::error_template::ErrorTemplate;
 use leptos::context::use_context;
-use leptos::server::{Resource, ServerAction};
+use leptos::reactive_graph::effect::Effect;
+use leptos::server::{Resource, ServerAction, ServerMultiAction};
 use leptos::tachys::either::Either;
 use leptos::{
     component, server, suspend, view, ActionForm, ErrorBoundary, IntoView,
+    MultiActionForm,
 };
 use leptos::{prelude::*, Suspense, Transition};
 use serde::{Deserialize, Serialize};
@@ -106,19 +108,27 @@ pub fn TodoApp() -> impl IntoView {
 
 #[component]
 pub fn Todos() -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>();
-    let delete_todo = ServerAction::<DeleteTodo>::new();
+    let add_todo = ServerMultiAction::<AddTodo>::new();
     let submissions = add_todo.submissions();
     let delete_todo = ServerAction::<DeleteTodo>::new();
-    //let submissions = add_todo.submissions();
 
     // list of todos is loaded from the server in reaction to changes
     let todos = Resource::new_serde(
-        move || (delete_todo.version().get()), //(add_todo.version().get(), delete_todo.version().get()),
+        move || {
+            (
+                delete_todo.version().get(),
+                add_todo.version().get(),
+                delete_todo.version().get(),
+            )
+        },
         move |_| get_todos(),
     );
 
     view! {
+        <MultiActionForm action=add_todo>
+            <label>"Add a Todo" <input type="text" name="title"/></label>
+            <input type="submit" value="Add"/>
+        </MultiActionForm>
         <div>
             <Transition fallback=move || view! { <p>"Loading..."</p> }>
                 <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
@@ -152,8 +162,21 @@ pub fn Todos() -> impl IntoView {
                             }
                                 .wait()
                         }}
+                        {move || {
+                            submissions
+                                .get()
+                                .into_iter()
+                                .filter(|submission| submission.pending().get())
+                                .map(|submission| {
+                                    view! {
+                                        <li class="pending">
+                                            {move || submission.input().get().map(|data| data.title)}
+                                        </li>
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        }}
 
-                    // {pending_todos}
                     </ul>
                 </ErrorBoundary>
             </Transition>
