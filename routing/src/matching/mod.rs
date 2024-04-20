@@ -21,6 +21,19 @@ pub struct Routes<Children, Rndr> {
     ty: PhantomData<Rndr>,
 }
 
+impl<Children, Rndr> Clone for Routes<Children, Rndr>
+where
+    Children: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            base: self.base.clone(),
+            children: self.children.clone(),
+            ty: PhantomData,
+        }
+    }
+}
+
 impl<Children, Rndr> Routes<Children, Rndr> {
     pub fn new(children: Children) -> Self {
         Self {
