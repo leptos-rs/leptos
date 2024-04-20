@@ -111,7 +111,7 @@ impl<ParamsIter, Child, ViewFn, View, Rndr> MatchInterface<Rndr>
 where
     Rndr: Renderer + 'static,
     Child: MatchInterface<Rndr> + MatchParams + 'static,
-    ViewFn: Fn(RouteData<Rndr>) -> View + 'static,
+    ViewFn: Fn(RouteData<Rndr>) -> View + Send + 'static,
     View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Child = Child;
@@ -147,7 +147,7 @@ where
    Children::Match: MatchParams,
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
-    ViewFn: Fn(RouteData<Rndr>) -> View + Clone + 'static,
+    ViewFn: Fn(RouteData<Rndr>) -> View + Send + Clone + 'static,
     View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Data = Data;

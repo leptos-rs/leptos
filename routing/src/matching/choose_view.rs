@@ -4,7 +4,7 @@ use tachys::{renderer::Renderer, view::Render};
 
 pub trait ChooseView<R>
 where
-    Self: 'static,
+    Self: Send + 'static,
     R: Renderer + 'static,
 {
     type Output: Render<R> + Send;
@@ -14,7 +14,7 @@ where
 
 impl<F, View, R> ChooseView<R> for F
 where
-    F: Fn(RouteData<R>) -> View + 'static,
+    F: Fn(RouteData<R>) -> View + Send + 'static,
     View: Render<R> + Send,
     R: Renderer + 'static,
 {
