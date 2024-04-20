@@ -2,9 +2,9 @@ use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
     PossibleRouteMatch, RouteMatchId,
 };
-use crate::{ChooseView, MatchParams, RouteData};
+use crate::{ChooseView, MatchParams};
 use core::{fmt, iter};
-use std::{borrow::Cow, marker::PhantomData, any::Any, sync::atomic::{AtomicU16, Ordering}};
+use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}};
 use either_of::Either;
 use tachys::{
     renderer::Renderer,
@@ -15,7 +15,7 @@ mod tuples;
 
 static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, PartialEq, Eq)]
 pub struct NestedRoute<Segments, Children, Data, ViewFn, R> {
     id: u16,
     pub segments: Segments,
@@ -25,10 +25,18 @@ pub struct NestedRoute<Segments, Children, Data, ViewFn, R> {
     pub rndr: PhantomData<R>,
 }
 
+impl<Segments, Children, Data, ViewFn, R> Clone for NestedRoute<Segments, Children, Data, ViewFn, R> where Segments: Clone, Children: Clone, Data: Clone, ViewFn: Clone{
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,segments: self.segments.clone(),children: self.children.clone(),data: self.data.clone(), view: self.view.clone(), rndr: PhantomData
+        }
+    }
+}
+
 impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
     pub fn new<View>(path: Segments, view: ViewFn) -> Self
     where
-        ViewFn: Fn(RouteData<R>) -> View,
+        ViewFn: Fn() -> View,
         R: Renderer + 'static,
     {
         Self {
@@ -111,7 +119,7 @@ impl<ParamsIter, Child, ViewFn, View, Rndr> MatchInterface<Rndr>
 where
     Rndr: Renderer + 'static,
     Child: MatchInterface<Rndr> + MatchParams + 'static,
-    ViewFn: Fn(RouteData<Rndr>) -> View + Send + 'static,
+    ViewFn: Fn() -> View + Send + 'static,
     View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Child = Child;
@@ -147,7 +155,7 @@ where
    Children::Match: MatchParams,
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
-    ViewFn: Fn(RouteData<Rndr>) -> View + Send + Clone + 'static,
+    ViewFn: Fn() -> View + Send + Clone + 'static,
     View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Data = Data;
