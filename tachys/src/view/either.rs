@@ -184,10 +184,8 @@ where
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
         };
-        cursor.sibling();
-        let marker = cursor.current().to_owned();
-        let marker = Rndr::Placeholder::cast_from(marker).unwrap();
-        position.set(Position::NextChild);
+        let marker = cursor.next_placeholder(position);
+
         EitherState { state, marker }
     }
 }
@@ -309,10 +307,8 @@ where
             }
         });
 
-        cursor.sibling();
-        let marker = cursor.current().to_owned();
-        let marker = Rndr::Placeholder::cast_from(marker).unwrap();
-        position.set(Position::NextChild);
+        let marker = cursor.next_placeholder(position);
+
         EitherKeepAliveState {
             showing_b,
             a,
@@ -512,10 +508,7 @@ macro_rules! tuples {
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position)),)*
                     };
-                    cursor.sibling();
-                    let marker = cursor.current().to_owned();
-                    let marker = Rndr::Placeholder::cast_from(marker).unwrap();
-                    position.set(Position::NextChild);
+                    let marker = cursor.next_placeholder(position);
                     Self::State { marker, state }
                 }
             }
