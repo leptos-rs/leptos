@@ -10,7 +10,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 use either_of::*;
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
@@ -19,6 +19,7 @@ use reactive_graph::{
     signal::ArcRwSignal,
     traits::{Get, Read, Set, Track},
 };
+use send_wrapper::SendWrapper;
 use std::{
     any::Any,
     borrow::Cow,
@@ -122,7 +123,6 @@ where
             Rndr,
         >,
     >;
-    // TODO
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -546,7 +546,7 @@ where
         .map(|child| get_inner_view(outlets, &owner, child))
         .unwrap_or_default();
 
-    /*let view = Arc::new(Lazy::new({
+    let view = Arc::new(Lazy::new({
         let owner = owner.clone();
         let params = params.clone();
         Box::new(move || {
@@ -561,8 +561,8 @@ where
                     .into_any(),
             ))
         }) as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>
-    }));*/
-    /*let inner = Arc::new(RwLock::new(OutletStateInner {
+    }));
+    let inner = Arc::new(RwLock::new(OutletStateInner {
         html_len: Box::new({
             let view = Arc::clone(&view);
             move || view.read().or_poisoned().html_len()
@@ -573,13 +573,14 @@ where
             let position = position.clone();
             move || view.take().unwrap().hydrate::<true>(&cursor, &position)
         })),
-    }));*/
+    }));
 
     let outlet = Outlet {
         id,
         owner,
         params,
-        rndr: PhantomData, //inner,
+        rndr: PhantomData,
+        inner,
     };
     outlets.push_back(outlet.clone());
     outlet
@@ -588,12 +589,57 @@ where
 #[derive(Debug)]
 pub struct Outlet<R>
 where
-    R: Renderer + 'static,
+    R: Renderer + Send + 'static,
 {
     id: RouteMatchId,
     owner: Owner,
     params: ArcRwSignal<Params>,
-    rndr: PhantomData<R>, //inner: Arc<RwLock<OutletStateInner<R>>>,
+    rndr: PhantomData<R>,
+    inner: OutletInner<R>,
+}
+
+pub enum OutletInner<R> where R: Renderer + 'static {
+    Server {
+        html_len: Box<dyn Fn() -> usize + Send + Sync>,
+        view: Box<
+    }
+}
+
+/*
+
+    html_len: Box<dyn Fn() -> usize + Send + Sync>,
+    view: Arc<
+        Lazy<
+            RwLock<Option<AnyView<R>>>,
+            Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>> + Send + Sync>,
+        >,
+    >,
+    state: Lazy<
+        SendWrapper<AnyViewState<R>>,
+        Box<dyn FnOnce() -> SendWrapper<AnyViewState<R>> + Send + Sync>,
+    >,
+    */
+
+impl<R: Renderer> Debug for OutletInner<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OutletInner").finish_non_exhaustive()
+    }
+}
+
+impl<R> Default for OutletInner<R>
+where
+    R: Renderer + 'static,
+{
+    fn default() -> Self {
+        let view =
+            Arc::new(Lazy::new(Box::new(|| RwLock::new(Some(().into_any())))
+                as Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>));
+        Self {
+            html_len: Box::new(|| 0),
+            view,
+            state: Lazy::new(Box::new(|| ().into_any().build())),
+        }
+    }
 }
 
 impl<R> Clone for Outlet<R>
@@ -605,7 +651,8 @@ where
             id: self.id,
             owner: self.owner.clone(),
             params: self.params.clone(),
-            rndr: PhantomData, //inner: Arc::clone(&self.inner),
+            rndr: PhantomData,
+            inner: Arc::clone(&self.inner),
         }
     }
 }
@@ -700,19 +747,23 @@ where
     }
 }
 
-pub struct OutletStateInner<R>
+/*pub struct OutletStateInner<R>
 where
     R: Renderer + 'static,
 {
-    html_len: Box<dyn Fn() -> usize>,
+    html_len: Box<dyn Fn() -> usize + Send + Sync>,
     view: Arc<
         Lazy<
             RwLock<Option<AnyView<R>>>,
-            Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>>>,
+            Box<dyn FnOnce() -> RwLock<Option<AnyView<R>>> + Send + Sync>,
         >,
     >,
-    state: Lazy<AnyViewState<R>, Box<dyn FnOnce() -> AnyViewState<R>>>,
+    state: Lazy<
+        SendWrapper<AnyViewState<R>>,
+        Box<dyn FnOnce() -> SendWrapper<AnyViewState<R>> + Send + Sync>,
+    >,
 }
+
 
 impl<R: Renderer> Debug for OutletStateInner<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -735,6 +786,7 @@ where
         }
     }
 }
+*/
 
 impl<R> Mountable<R> for Outlet<R>
 where
@@ -750,8 +802,7 @@ where
         parent: &<R as Renderer>::Element,
         marker: Option<&<R as Renderer>::Node>,
     ) {
-        todo!()
-        //self.inner.write().or_poisoned().state.mount(parent, marker);
+        self.inner.write().or_poisoned().state.mount(parent, marker);
     }
 
     fn insert_before_this(
