@@ -2,10 +2,11 @@ use crate::{
     diagnostics::is_suppressing_resource_load,
     owner::StoredValue,
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
-    traits::{GetUntracked, Set, Update},
+    traits::{DefinedAt, GetUntracked, Set, Update},
+    unwrap_signal,
 };
 use any_spawner::Executor;
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 
 pub struct MultiAction<I, O>
 where
@@ -13,6 +14,25 @@ where
     O: 'static,
 {
     inner: StoredValue<ArcMultiAction<I, O>>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+}
+
+impl<I, O> DefinedAt for MultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
 }
 
 impl<I, O> Copy for MultiAction<I, O>
@@ -38,13 +58,16 @@ where
     O: Send + Sync + 'static,
 {
     #[track_caller]
-    pub fn new<Fut>(action_fn: impl Fn(&I) -> Fut + 'static) -> Self
+    pub fn new<Fut>(
+        action_fn: impl Fn(&I) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
         Fut: Future<Output = O> + Send + 'static,
-        ArcMultiAction<I, O>: Send + Sync,
     {
         Self {
             inner: StoredValue::new(ArcMultiAction::new(action_fn)),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
         }
     }
 
@@ -55,14 +78,28 @@ where
         }
     }
 
+    /// Synchronously adds a submission with the given value.
+    ///
+    /// This can be useful for use cases like handling errors, where the error can already be known
+    /// on the client side.
+    pub fn dispatch_sync(&self, value: O) {
+        self.inner.with_value(|inner| inner.dispatch_sync(value));
+    }
+
     /// The set of all submissions to this multi-action.
     pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>> {
-        todo!()
+        self.inner
+            .with_value(|inner| inner.submissions())
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 
     /// How many times an action has successfully resolved.
     pub fn version(&self) -> RwSignal<usize> {
-        todo!()
+        self.inner
+            .with_value(|inner| inner.version())
+            .unwrap_or_else(unwrap_signal!(self))
+            .into()
     }
 }
 
@@ -74,7 +111,36 @@ where
     version: ArcRwSignal<usize>,
     submissions: ArcRwSignal<Vec<ArcSubmission<I, O>>>,
     #[allow(clippy::complexity)]
-    action_fn: Arc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O> + Send>>>,
+    action_fn: Arc<
+        dyn Fn(&I) -> Pin<Box<dyn Future<Output = O> + Send>> + Send + Sync,
+    >,
+}
+
+impl<I, O> Debug for ArcMultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArcMultiAction")
+            .field("version", &self.version)
+            .field("submissions", &self.submissions)
+            .finish()
+    }
+}
+
+impl<I, O> Clone for ArcMultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            version: self.version.clone(),
+            submissions: self.submissions.clone(),
+            action_fn: Arc::clone(&self.action_fn),
+        }
+    }
 }
 
 impl<I, O> ArcMultiAction<I, O>
@@ -82,7 +148,9 @@ where
     I: 'static,
     O: 'static,
 {
-    pub fn new<Fut>(action_fn: impl Fn(&I) -> Fut + 'static) -> Self
+    pub fn new<Fut>(
+        action_fn: impl Fn(&I) -> Fut + Send + Sync + 'static,
+    ) -> Self
     where
         Fut: Future<Output = O> + Send + 'static,
     {
@@ -125,6 +193,23 @@ where
                 version.try_update(|n| *n += 1);
             })
         }
+    }
+
+    /// Synchronously adds a submission with the given value.
+    ///
+    /// This can be useful for use cases like handling errors, where the error can already be known
+    /// on the client side.
+    pub fn dispatch_sync(&self, value: O) {
+        let submission = ArcSubmission {
+            input: ArcRwSignal::new(None),
+            value: ArcRwSignal::new(Some(value)),
+            pending: ArcRwSignal::new(true),
+            canceled: ArcRwSignal::new(false),
+        };
+
+        self.submissions
+            .try_update(|subs| subs.push(submission.clone()));
+        self.version.try_update(|n| *n += 1);
     }
 
     /// The set of all submissions to this multi-action.
