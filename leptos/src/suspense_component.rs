@@ -73,7 +73,6 @@ where
 {
     type State =
         RenderEffectState<EitherKeepAliveState<Chil::State, Fal::State, Rndr>>;
-    type FallibleState = ();
 
     fn build(self) -> Self::State {
         let mut children = Some(self.children);
@@ -99,17 +98,6 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
-    }
 }
 
 impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
@@ -306,7 +294,6 @@ where
     Rndr: Renderer + 'static,
 {
     type State = SuspendState<Fut::Output, Rndr>;
-    type FallibleState = Self::State;
 
     // TODO cancelation if it fires multiple times
     fn build(self) -> Self::State {
@@ -352,17 +339,6 @@ where
                 Some(value).rebuild(&mut *state.borrow_mut());
             }
         });
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

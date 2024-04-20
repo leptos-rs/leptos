@@ -27,7 +27,6 @@ where
     Rndr: Renderer,
 {
     type State = EitherState<A::State, B::State, Rndr>;
-    type FallibleState = EitherState<A::FallibleState, B::FallibleState, Rndr>;
 
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
@@ -61,17 +60,6 @@ where
                 state.state = Either::Left(new_state);
             }
         }
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 
@@ -229,8 +217,6 @@ where
 {
     type State = EitherKeepAliveState<A::State, B::State, Rndr>;
 
-    type FallibleState = ();
-
     fn build(self) -> Self::State {
         let marker = Rndr::create_placeholder();
         let showing_b = self.show_b;
@@ -281,17 +267,6 @@ where
             _ => {}
         }
         state.showing_b = self.show_b;
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 
@@ -452,7 +427,7 @@ macro_rules! tuples {
                 Rndr: Renderer
             {
                 type State = [<EitherOf $num State>]<$($ty,)* Rndr>;
-                type FallibleState = [<EitherOf $num State>]<$($ty,)* Rndr>;
+
 
                 fn build(self) -> Self::State {
                     let marker = Rndr::create_placeholder();
@@ -483,18 +458,6 @@ macro_rules! tuples {
                     // and store the new state
                     state.state = new_state;
                 }
-
-                fn try_build(self) -> any_error::Result<Self::FallibleState> {
-                    todo!()
-                }
-
-                fn try_rebuild(
-                    self,
-                    _state: &mut Self::FallibleState,
-                    ) -> any_error::Result<()> {
-                    todo!()
-                }
-
             }
 
             impl<Rndr, $($ty,)*> RenderHtml<Rndr> for [<EitherOf $num>]<$($ty,)*>

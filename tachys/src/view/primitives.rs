@@ -47,7 +47,7 @@ macro_rules! render_primitive {
 
 			impl<R: Renderer> Render<R> for $child_type {
 				type State = [<$child_type:camel State>]<R>;
-                type FallibleState = Self::State;
+
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -61,15 +61,6 @@ macro_rules! render_primitive {
 						*this = self;
 					}
 				}
-
-                fn try_build(self) -> any_error::Result<Self::FallibleState> {
-                    Ok(self.build())
-                }
-
-                fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
-                    self.rebuild(state);
-					Ok(())
-                }
 			}
 
 			impl<R> RenderHtml<R> for $child_type

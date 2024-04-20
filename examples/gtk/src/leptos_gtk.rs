@@ -297,7 +297,6 @@ where
     Chil: Render<LeptosGtk>,
 {
     type State = LGtkWidgetState<Widg, Props, Chil>;
-    type FallibleState = ();
 
     fn build(self) -> Self::State {
         let widget = Object::new::<Widg::Widget>();
@@ -317,17 +316,6 @@ where
         self.properties
             .rebuild(&state.widget, &mut state.properties);
         self.children.rebuild(&mut state.children);
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

@@ -324,7 +324,6 @@ where
     Ch: Render<Dom>,
 {
     type State = RegisteredMetaTagState<E, At, Ch>;
-    type FallibleState = RegisteredMetaTagState<E, At, Ch>;
 
     fn build(self) -> Self::State {
         let state = self.el.unwrap().build();
@@ -333,18 +332,6 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.el.unwrap().rebuild(&mut state.state);
-    }
-
-    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::error::Result<()> {
-        self.rebuild(state);
-        Ok(())
     }
 }
 
@@ -441,22 +428,10 @@ struct MetaTagsView {
 // client-side rendering is handled by the individual components
 impl Render<Dom> for MetaTagsView {
     type State = ();
-    type FallibleState = ();
 
     fn build(self) -> Self::State {}
 
     fn rebuild(self, state: &mut Self::State) {}
-
-    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
-        Ok(())
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::error::Result<()> {
-        Ok(())
-    }
 }
 
 impl RenderHtml<Dom> for MetaTagsView {
