@@ -190,8 +190,6 @@ where
         if old.is_empty() {
             let mut new = self.build().states;
             for item in new.iter_mut() {
-                crate::log("mounting before...");
-                R::log_node(marker.as_ref());
                 R::mount_before(item, marker.as_ref());
             }
             *old = new;
@@ -335,7 +333,6 @@ where
             cursor.sibling();
         }
         let marker = cursor.current().to_owned();
-        R::log_node(&marker);
         let marker = R::Placeholder::cast_from(marker).unwrap();
         VecState { states, marker }
     }
