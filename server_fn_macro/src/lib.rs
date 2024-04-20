@@ -112,6 +112,7 @@ pub fn server_macro_impl(
         struct_name,
         prefix,
         input,
+        input_derive,
         output,
         fn_path,
         builtin_encoding,
@@ -402,12 +403,18 @@ pub fn server_macro_impl(
                 Clone, #server_fn_path::serde_lite::Serialize, #server_fn_path::serde_lite::Deserialize
             },
         ),
-        _ => (
-            PathInfo::Serde,
-            quote! {
-                Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
-            },
-        ),
+        _ => match input_derive {
+            Some(derives) => {
+                let d = derives.elems;
+                (PathInfo::None, quote! { #d })
+            }
+            None => (
+                PathInfo::Serde,
+                quote! {
+                    Clone, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize
+                },
+            ),
+        },
     };
     let addl_path = match path {
         PathInfo::Serde => quote! {
@@ -673,6 +680,7 @@ struct ServerFnArgs {
     struct_name: Option<Ident>,
     prefix: Option<Literal>,
     input: Option<Type>,
+    input_derive: Option<ExprTuple>,
     output: Option<Type>,
     fn_path: Option<Literal>,
     req_ty: Option<Type>,
@@ -693,6 +701,7 @@ impl Parse for ServerFnArgs {
 
         // new arguments: can only be keyed by name
         let mut input: Option<Type> = None;
+        let mut input_derive: Option<ExprTuple> = None;
         let mut output: Option<Type> = None;
         let mut req_ty: Option<Type> = None;
         let mut res_ty: Option<Type> = None;
@@ -760,6 +769,14 @@ impl Parse for ServerFnArgs {
                             ));
                         }
                         input = Some(stream.parse()?);
+                    } else if key == "input_derive" {
+                        if input_derive.is_some() {
+                            return Err(syn::Error::new(
+                                key.span(),
+                                "keyword argument repeated: `input_derive`",
+                            ));
+                        }
+                        input_derive = Some(stream.parse()?);
                     } else if key == "output" {
                         if encoding.is_some() {
                             return Err(syn::Error::new(
@@ -902,6 +919,7 @@ impl Parse for ServerFnArgs {
             struct_name,
             prefix,
             input,
+            input_derive,
             output,
             fn_path,
             builtin_encoding,
