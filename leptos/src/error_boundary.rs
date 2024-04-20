@@ -150,7 +150,6 @@ where
     Rndr: Renderer,
 {
     type State = ErrorBoundaryViewState<Chil, Fal, Rndr>;
-    type FallibleState = ();
 
     fn build(self) -> Self::State {
         let placeholder = Rndr::create_placeholder();
@@ -191,17 +190,6 @@ where
             _ => {}
         }
         state.showing_fallback = !self.errors_empty;
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

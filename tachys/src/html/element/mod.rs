@@ -181,7 +181,6 @@ where
     Rndr: Renderer,
 {
     type State = ElementState<At::State, Ch::State, Rndr>;
-    type FallibleState = ElementState<At::State, Ch::FallibleState, Rndr>;
 
     fn rebuild(self, state: &mut Self::State) {
         let ElementState {
@@ -202,31 +201,6 @@ where
             children,
             rndr: PhantomData,
         }
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        let el = Rndr::create_element(self.tag);
-        let attrs = self.attributes.build(&el);
-        let mut children = self.children.try_build()?;
-        children.mount(&el, None);
-        Ok(ElementState {
-            el,
-            attrs,
-            children,
-            rndr: PhantomData,
-        })
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        let ElementState {
-            attrs, children, ..
-        } = state;
-        self.attributes.rebuild(attrs);
-        self.children.try_rebuild(children)?;
-        Ok(())
     }
 }
 

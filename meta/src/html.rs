@@ -107,7 +107,6 @@ struct HtmlViewState {
 
 impl Render<Dom> for HtmlView {
     type State = HtmlViewState;
-    type FallibleState = HtmlViewState;
 
     fn build(self) -> Self::State {
         let el = document()
@@ -125,15 +124,6 @@ impl Render<Dom> for HtmlView {
 
     fn rebuild(self, state: &mut Self::State) {
         // TODO rebuilding dynamic things like this
-    }
-
-    fn try_build(self) -> Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(self, state: &mut Self::FallibleState) -> Result<()> {
-        self.rebuild(state);
-        Ok(())
     }
 }
 

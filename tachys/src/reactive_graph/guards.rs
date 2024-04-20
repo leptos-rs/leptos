@@ -57,7 +57,7 @@ macro_rules! render_primitive {
             where G: Deref<Target = $child_type>
             {
 				type State = [<ReadGuard $child_type:camel State>]<R>;
-                type FallibleState = Self::State;
+
 
 				fn build(self) -> Self::State {
 					let node = R::create_text_node(&self.to_string());
@@ -71,15 +71,6 @@ macro_rules! render_primitive {
 						*this = *self;
 					}
 				}
-
-                fn try_build(self) -> any_error::Result<Self::FallibleState> {
-                    Ok(self.build())
-                }
-
-                fn try_rebuild(self, state: &mut Self::FallibleState) -> any_error::Result<()> {
-                    self.rebuild(state);
-Ok(())
-                }
 			}
 
 			impl<G, R> RenderHtml<R> for ReadGuard<$child_type, G>
@@ -209,7 +200,6 @@ where
     G: Deref<Target = String>,
 {
     type State = ReadGuardStringState<R>;
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -226,18 +216,6 @@ where
             str.clear();
             str.push_str(&self);
         }
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        Ok(self.build())
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        self.rebuild(state);
-        Ok(())
     }
 }
 

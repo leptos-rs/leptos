@@ -68,7 +68,6 @@ where
     R: Renderer,
 {
     type State = OwnedViewState<T::State, R>;
-    type FallibleState = OwnedViewState<T::FallibleState, R>;
 
     fn build(self) -> Self::State {
         let state = self.owner.with(|| self.view.build());
@@ -79,17 +78,6 @@ where
         let OwnedView { owner, view, .. } = self;
         owner.with(|| view.rebuild(&mut state.state));
         state.owner = owner;
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        _state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        todo!()
     }
 }
 

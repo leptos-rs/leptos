@@ -15,7 +15,6 @@ pub struct OcoStrState<R: Renderer> {
 
 impl<R: Renderer> Render<R> for Oco<'static, str> {
     type State = OcoStrState<R>;
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {
         let node = R::create_text_node(&self);
@@ -28,18 +27,6 @@ impl<R: Renderer> Render<R> for Oco<'static, str> {
             R::set_text(node, &self);
             *str = self;
         }
-    }
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        Ok(<Self as Render<R>>::build(self))
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        <Self as Render<R>>::rebuild(self, state);
-        Ok(())
     }
 }
 
