@@ -184,15 +184,7 @@ where
             .map(|s| s.hydrate::<FROM_SERVER>(cursor, position))
             .map_err(|e| any_error::throw(e.into()));
 
-        // pull the placeholder
-        if position.get() == Position::FirstChild {
-            cursor.child();
-        } else {
-            cursor.sibling();
-        }
-        let placeholder = cursor.current().to_owned();
-        let placeholder = R::Placeholder::cast_from(placeholder).unwrap();
-        position.set(Position::NextChild);
+        let placeholder = cursor.next_placeholder(position);
 
         ResultState { placeholder, state }
     }
