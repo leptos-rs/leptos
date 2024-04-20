@@ -50,12 +50,9 @@ where
     F: FnMut() -> V + 'static,
     V: Render<R>,
     V::State: 'static,
-    V::FallibleState: 'static,
     R: Renderer,
 {
     type State = RenderEffectState<V::State>;
-    type FallibleState =
-        RenderEffectState<Result<V::FallibleState, Option<AnyError>>>;
 
     #[track_caller]
     fn build(mut self) -> Self::State {
@@ -71,62 +68,9 @@ where
         .into()
     }
 
-    fn try_build(mut self) -> any_error::Result<Self::FallibleState> {
-        let parent = Observer::get();
-        let effect = RenderEffect::new({
-            move |prev| {
-                let value = self();
-                if let Some(mut state) = prev {
-                    match state {
-                        Ok(ref mut state) => {
-                            if let Err(e) = value.try_rebuild(state) {
-                                if let Some(parent) = &parent {
-                                    parent.mark_check();
-                                }
-                                return Err(Some(e));
-                            }
-                        }
-                        Err(_) => {
-                            if let Some(parent) = &parent {
-                                parent.mark_check();
-                            }
-                            return value.try_build().map_err(Some);
-                        }
-                    }
-                    state
-                } else {
-                    value.try_build().map_err(Some)
-                }
-            }
-        });
-        effect
-            .with_value_mut(|inner| match inner {
-                Err(e) if e.is_some() => Err(e.take().unwrap()),
-                _ => Ok(()),
-            })
-            .expect("RenderEffect should run once synchronously")
-            .map(|_| effect.into())
-    }
-
     #[track_caller]
     fn rebuild(self, _state: &mut Self::State) {
         // TODO rebuild
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        if let Some(inner) = &mut state.0 {
-            inner
-                .with_value_mut(|value| match value {
-                    Err(e) if e.is_some() => Err(e.take().unwrap()),
-                    _ => Ok(()),
-                })
-                .unwrap_or(Ok(()))
-        } else {
-            Ok(())
-        }
     }
 }
 pub struct RenderEffectState<T: 'static>(Option<RenderEffect<T>>);
@@ -210,7 +154,7 @@ where
     F: FnMut() -> V + Send + 'static,
     V: RenderHtml<R>,
     V::State: 'static,
-    V::FallibleState: 'static,
+
     R: Renderer + 'static,
 {
     type AsyncOutput = V::AsyncOutput;
@@ -266,7 +210,7 @@ where
     F: FnMut() -> V + Send + 'static,
     V: RenderHtml<R>,
     V::State: 'static,
-    V::FallibleState: 'static,
+
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: Attribute<R>> = Self;
@@ -448,32 +392,19 @@ mod stable {
             where
                 V: Render<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
-                V::FallibleState: 'static,
+
                 R: Renderer,
             {
                 type State = RenderEffectState<V::State>;
-                type FallibleState = RenderEffectState<
-                    Result<V::FallibleState, Option<AnyError>>,
-                >;
+
                 #[track_caller]
                 fn build(self) -> Self::State {
                     (move || self.get()).build()
                 }
 
-                fn try_build(self) -> any_error::Result<Self::FallibleState> {
-                    (move || self.get()).try_build()
-                }
-
                 #[track_caller]
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild
-                }
-
-                fn try_rebuild(
-                    self,
-                    state: &mut Self::FallibleState,
-                ) -> any_error::Result<()> {
-                    (move || self.get()).try_rebuild(state)
                 }
             }
 
@@ -481,7 +412,7 @@ mod stable {
             where
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
-                V::FallibleState: 'static,
+
                 R: Renderer + 'static,
             {
                 type AsyncOutput = Self;
@@ -574,33 +505,19 @@ mod stable {
             where
                 V: Render<R> + Clone + 'static,
                 V::State: 'static,
-                V::FallibleState: 'static,
+
                 R: Renderer,
             {
                 type State = RenderEffectState<V::State>;
-                type FallibleState = RenderEffectState<
-                    Result<V::FallibleState, Option<AnyError>>,
-                >;
 
                 #[track_caller]
                 fn build(self) -> Self::State {
                     (move || self.get()).build()
                 }
 
-                fn try_build(self) -> any_error::Result<Self::FallibleState> {
-                    (move || self.get()).try_build()
-                }
-
                 #[track_caller]
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild
-                }
-
-                fn try_rebuild(
-                    self,
-                    state: &mut Self::FallibleState,
-                ) -> any_error::Result<()> {
-                    (move || self.get()).try_rebuild(state)
                 }
             }
 
@@ -608,7 +525,7 @@ mod stable {
             where
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
-                V::FallibleState: 'static,
+
                 R: Renderer + 'static,
             {
                 type AsyncOutput = Self;

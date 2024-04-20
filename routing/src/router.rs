@@ -122,7 +122,7 @@ where
             Rndr,
         >,
     >;
-    type FallibleState = (); // TODO
+    // TODO
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -178,17 +178,6 @@ where
     }
 
     fn rebuild(self, state: &mut Self::State) {}
-
-    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::error::Result<()> {
-        todo!()
-    }
 }
 
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
@@ -640,24 +629,12 @@ where
     R: Renderer + 'static,
 {
     type State = Outlet<R>;
-    type FallibleState = ();
 
     fn build(self) -> Self::State {
         self
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        todo!()
-    }
-
-    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::error::Result<()> {
         todo!()
     }
 }
@@ -895,7 +872,6 @@ where
     R: Renderer + 'static,
 {
     type State = NestedRouteState<Matcher, R>;
-    type FallibleState = ();
 
     fn build(self) -> Self::State {
         let NestedRouteView {
@@ -929,17 +905,6 @@ where
         state.params = params;
         state.outlets = outlets;
         view.rebuild(&mut state.view);
-    }
-
-    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::error::Result<()> {
-        todo!()
     }
 }
 
@@ -1119,7 +1084,6 @@ where
                 Rndr,
             >,
         >;
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {
         let location = Loc::new().unwrap(); // TODO
@@ -1202,17 +1166,6 @@ where
     }
 
     fn rebuild(self, state: &mut Self::State) {}
-
-    fn try_build(self) -> leptos::error::Result<Self::FallibleState> {
-        todo!()
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> leptos::error::Result<()> {
-        todo!()
-    }
 }
 
 impl<Rndr, Loc, FallbackFn, Fallback, Children> RenderHtml<Rndr>
