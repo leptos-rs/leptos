@@ -1,4 +1,7 @@
-use crate::renderer::Renderer;
+use crate::{
+    renderer::{CastFrom, Renderer},
+    view::{Position, PositionState},
+};
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
@@ -47,5 +50,16 @@ where
 
     pub fn set(&self, node: R::Node) {
         *self.0.borrow_mut() = node;
+    }
+
+    pub fn next_placeholder(&self, position: &PositionState) -> R::Placeholder {
+        if position.get() == Position::FirstChild {
+            self.child();
+        } else {
+            self.sibling();
+        }
+        let marker = self.current();
+        position.set(Position::NextChild);
+        R::Placeholder::cast_from(marker).unwrap()
     }
 }
