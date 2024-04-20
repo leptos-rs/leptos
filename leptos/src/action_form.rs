@@ -3,7 +3,8 @@ use crate::{
     IntoView,
 };
 use leptos_dom::{events::submit, helpers::window};
-use leptos_server::ServerAction;
+use leptos_server::{ArcServerMultiAction, ServerAction, ServerMultiAction};
+use reactive_graph::actions::{ArcMultiAction, MultiAction};
 use serde::de::DeserializeOwned;
 use server_fn::{
     client::Client, codec::PostUrl, request::ClientReq, ServerFn, ServerFnError,
@@ -108,7 +109,6 @@ where
         }
     });
 
-    let action_url = ServFn::url();
     let version = action.version();
     let value = action.value();
 
@@ -141,6 +141,80 @@ where
     let action_form = form()
         .action(ServFn::url())
         .method("post")
+        .on(submit, on_submit)
+        .child(children());
+    if let Some(node_ref) = node_ref {
+        Either::Left(action_form.node_ref(node_ref))
+    } else {
+        Either::Right(action_form)
+    }
+    // TODO add other attributes
+    /*for (attr_name, attr_value) in attributes {
+        action_form = action_form.attr(attr_name, attr_value);
+    }*/
+}
+
+/// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
+/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
+/// progressively enhanced to use client-side routing.
+#[component]
+pub fn MultiActionForm<ServFn>(
+    /// The action from which to build the form. This should include a URL, which can be generated
+    /// by default using [create_server_action](leptos_server::create_server_action) or added
+    /// manually using [leptos_server::Action::using_server_fn].
+    action: ServerMultiAction<ServFn>,
+    /// A [`NodeRef`] in which the `<form>` element should be stored.
+    #[prop(optional)]
+    node_ref: Option<NodeRef<Form>>,
+    /// Arbitrary attributes to add to the `<form>`
+    #[prop(attrs, optional)]
+    attributes: Vec<AnyAttribute<Dom>>,
+    /// Component children; should include the HTML of the form elements.
+    children: Children,
+) -> impl IntoView
+where
+    ServFn: Send
+        + Sync
+        + Clone
+        + DeserializeOwned
+        + ServerFn<InputEncoding = PostUrl>
+        + 'static,
+    ServFn::Output: Send + Sync + 'static,
+    <<ServFn::Client as Client<ServFn::Error>>::Request as ClientReq<
+        ServFn::Error,
+    >>::FormData: From<FormData>,
+    ServFn::Error: Send + Sync + 'static,
+{
+    // if redirect hook has not yet been set (by a router), defaults to a browser redirect
+    _ = server_fn::redirect::set_redirect_hook(|loc: &str| {
+        if let Some(url) = resolve_redirect_url(loc) {
+            _ = window().location().set_href(&url.href());
+        }
+    });
+
+    let on_submit = move |ev: SubmitEvent| {
+        if ev.default_prevented() {
+            return;
+        }
+
+        ev.prevent_default();
+
+        match ServFn::from_event(&ev) {
+            Ok(new_input) => {
+                action.dispatch(new_input);
+            }
+            Err(err) => {
+                action.dispatch_sync(Err(ServerFnError::Serialization(
+                    err.to_string(),
+                )));
+            }
+        }
+    };
+
+    let action_form = form()
+        .action(ServFn::url())
+        .method("post")
+        .attr("method", "post")
         .on(submit, on_submit)
         .child(children());
     if let Some(node_ref) = node_ref {
