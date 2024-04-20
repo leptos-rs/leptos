@@ -132,7 +132,6 @@ where
     R::Text: Mountable<R>,
 {
     type State = Option<R::Text>;
-    type FallibleState = Self::State;
 
     fn build(self) -> Self::State {
         // a view state has to be returned so it can be mounted
@@ -141,18 +140,6 @@ where
 
     // This type is specified as static, so no rebuilding is done.
     fn rebuild(self, _state: &mut Self::State) {}
-
-    fn try_build(self) -> any_error::Result<Self::FallibleState> {
-        Ok(Render::<R>::build(self))
-    }
-
-    fn try_rebuild(
-        self,
-        state: &mut Self::FallibleState,
-    ) -> any_error::Result<()> {
-        Render::<R>::rebuild(self, state);
-        Ok(())
-    }
 }
 
 impl<const V: &'static str, R> RenderHtml<R> for Static<V>
