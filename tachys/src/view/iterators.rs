@@ -207,27 +207,23 @@ where
     type FallibleState = VecState<T::FallibleState, R>;
 
     fn build(self) -> Self::State {
+        let marker = R::create_placeholder();
         VecState {
             states: self.into_iter().map(T::build).collect(),
-            parent: None,
-            marker: None,
+            marker,
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let VecState {
-            states,
-            parent,
-            marker,
-        } = state;
+        let VecState { states, marker } = state;
         let old = states;
         // this is an unkeyed diff
         if old.is_empty() {
             let mut new = self.build().states;
-            if let Some(parent) = parent {
-                for item in new.iter_mut() {
-                    item.mount(parent, (*marker).as_ref());
-                }
+            for item in new.iter_mut() {
+                crate::log("mounting before...");
+                R::log_node(marker.as_ref());
+                R::mount_before(item, marker.as_ref());
             }
             *old = new;
         } else if self.is_empty() {
@@ -246,9 +242,7 @@ where
                     }
                     itertools::EitherOrBoth::Left(new) => {
                         let mut new_state = new.build();
-                        if let Some(parent) = parent {
-                            new_state.mount(parent, (*marker).as_ref());
-                        }
+                        R::mount_before(&mut new_state, marker.as_ref());
                         adds.push(new_state);
                     }
                     itertools::EitherOrBoth::Right(old) => {
@@ -267,11 +261,8 @@ where
             .into_iter()
             .map(T::try_build)
             .collect::<Result<_, _>>()?;
-        Ok(VecState {
-            states,
-            parent: None,
-            marker: None,
-        })
+        let marker = R::create_placeholder();
+        Ok(VecState { states, marker })
     }
 
     fn try_rebuild(
@@ -288,8 +279,7 @@ where
     R: Renderer,
 {
     states: Vec<T>,
-    parent: Option<R::Element>,
-    marker: Option<R::Node>,
+    marker: R::Placeholder,
 }
 
 impl<T, R> Mountable<R> for VecState<T, R>
@@ -301,8 +291,7 @@ where
         for state in self.states.iter_mut() {
             state.unmount();
         }
-        self.parent = None;
-        self.marker = None;
+        self.marker.unmount();
     }
 
     fn mount(
@@ -313,8 +302,7 @@ where
         for state in self.states.iter_mut() {
             state.mount(parent, marker);
         }
-        self.parent = Some(parent.clone());
-        self.marker = marker.cloned();
+        self.marker.mount(parent, marker);
     }
 
     fn insert_before_this(
@@ -358,6 +346,7 @@ where
         for child in children {
             child.to_html_with_buf(buf, position);
         }
+        buf.push_str("<!>");
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -374,6 +363,7 @@ where
         for child in children {
             child.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
         }
+        buf.push_sync("<!>");
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -381,15 +371,20 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        // TODO does this make sense for hydration from template?
-        VecState {
-            states: self
-                .into_iter()
-                .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
-                .collect(),
-            parent: None,
-            marker: None,
+        let states = self
+            .into_iter()
+            .map(|child| child.hydrate::<FROM_SERVER>(cursor, position))
+            .collect();
+
+        if position.get() == Position::FirstChild {
+            cursor.child();
+        } else {
+            cursor.sibling();
         }
+        let marker = cursor.current().to_owned();
+        R::log_node(&marker);
+        let marker = R::Placeholder::cast_from(marker).unwrap();
+        VecState { states, marker }
     }
 }
 
