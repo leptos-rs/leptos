@@ -1,12 +1,12 @@
 use reactive_graph::{
-    action::ArcAction,
+    actions::{Action, ArcAction},
     owner::StoredValue,
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::DefinedAt,
     unwrap_signal,
 };
 use server_fn::{error::ServerFnUrlError, ServerFn, ServerFnError};
-use std::panic::Location;
+use std::{ops::Deref, panic::Location};
 
 pub struct ArcServerAction<S>
 where
@@ -32,34 +32,17 @@ where
             defined_at: Location::caller(),
         }
     }
-
-    #[track_caller]
-    pub fn dispatch(&self, input: S) {
-        self.inner.dispatch(input);
-    }
 }
 
-impl<S> ArcServerAction<S>
+impl<S> Deref for ArcServerAction<S>
 where
-    S: ServerFn + Clone + Send + Sync + 'static,
+    S: ServerFn + 'static,
     S::Output: 'static,
-    S::Error: 'static,
 {
-    #[track_caller]
-    pub fn version(&self) -> ArcRwSignal<usize> {
-        self.inner.version()
-    }
+    type Target = ArcAction<S, Result<S::Output, ServerFnError<S::Error>>>;
 
-    #[track_caller]
-    pub fn input(&self) -> ArcRwSignal<Option<S>> {
-        self.inner.input()
-    }
-
-    #[track_caller]
-    pub fn value(
-        &self,
-    ) -> ArcRwSignal<Option<Result<S::Output, ServerFnError<S::Error>>>> {
-        self.inner.value()
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
@@ -110,9 +93,24 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    inner: StoredValue<ArcServerAction<S>>,
+    inner: Action<S, Result<S::Output, ServerFnError<S::Error>>>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
+}
+
+impl<S> ServerAction<S>
+where
+    S: ServerFn + Send + Sync + Clone + 'static,
+    S::Output: Send + Sync + 'static,
+    S::Error: Send + Sync + 'static,
+{
+    pub fn new() -> Self {
+        Self {
+            inner: Action::new(|input: &S| S::run_on_client(input.clone())),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
 }
 
 impl<S> Clone for ServerAction<S>
@@ -132,50 +130,27 @@ where
 {
 }
 
-impl<S> ServerAction<S>
+impl<S> Deref for ServerAction<S>
 where
     S: ServerFn + Clone + Send + Sync + 'static,
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
-    #[track_caller]
-    pub fn new() -> Self {
-        Self {
-            inner: StoredValue::new(ArcServerAction::new()),
-            #[cfg(debug_assertions)]
-            defined_at: Location::caller(),
-        }
-    }
+    type Target = Action<S, Result<S::Output, ServerFnError<S::Error>>>;
 
-    #[track_caller]
-    pub fn dispatch(&self, input: S) {
-        self.inner.with_value(|inner| inner.dispatch(input));
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
+}
 
-    #[track_caller]
-    pub fn version(&self) -> RwSignal<usize> {
-        self.inner
-            .with_value(|inner| inner.version())
-            .unwrap_or_else(unwrap_signal!(self))
-            .into()
-    }
-
-    #[track_caller]
-    pub fn input(&self) -> RwSignal<Option<S>> {
-        self.inner
-            .with_value(|inner| inner.input())
-            .unwrap_or_else(unwrap_signal!(self))
-            .into()
-    }
-
-    #[track_caller]
-    pub fn value(
-        &self,
-    ) -> RwSignal<Option<Result<S::Output, ServerFnError<S::Error>>>> {
-        self.inner
-            .with_value(|inner| inner.value())
-            .unwrap_or_else(unwrap_signal!(self))
-            .into()
+impl<S> From<ServerAction<S>>
+    for Action<S, Result<S::Output, ServerFnError<S::Error>>>
+where
+    S: ServerFn + 'static,
+    S::Output: 'static,
+{
+    fn from(value: ServerAction<S>) -> Self {
+        value.inner
     }
 }
 
