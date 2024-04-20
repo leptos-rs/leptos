@@ -1,4 +1,4 @@
-//pub mod components;
+pub mod components;
 mod generate_route_list;
 pub mod location;
 mod matching;
