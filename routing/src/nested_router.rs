@@ -16,11 +16,11 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     cell::RefCell,
-    collections::VecDeque,
     marker::PhantomData,
+    mem,
     rc::Rc,
     sync::{
-        mpsc::{Receiver, Sender},
+        mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
 };
@@ -57,7 +57,7 @@ where
     url: ArcRwSignal<Url>,
     path: ArcMemo<String>,
     search_params: ArcMemo<Params>,
-    outlets: VecDeque<OutletContext<R>>,
+    outlets: Vec<OutletContext<R>>,
     view: EitherState<Fal::State, AnyViewState<R>, R>,
 }
 
@@ -81,14 +81,17 @@ where
             ..
         } = self;
 
-        let mut outlets = VecDeque::new();
+        let mut outlets = Vec::new();
         let new_match = routes.match_route(&path.read());
         let view = match new_match {
             None => Either::Left(fallback),
             Some(route) => {
                 route.build_nested_route(&mut outlets, &outer_owner);
-                provide_context(outlets[0].clone());
-                Either::Right(Outlet(OutletProps::builder().build()).into_any())
+                outer_owner.with(|| {
+                    Either::Right(
+                        Outlet(OutletProps::builder().build()).into_any(),
+                    )
+                })
             }
         }
         .build();
@@ -193,14 +196,14 @@ where
 {
     fn build_nested_route(
         self,
-        outlets: &mut VecDeque<OutletContext<R>>,
+        outlets: &mut Vec<OutletContext<R>>,
         parent: &Owner,
     );
 
     fn rebuild_nested_route(
         self,
         items: &mut usize,
-        outlets: &mut VecDeque<OutletContext<R>>,
+        outlets: &mut Vec<OutletContext<R>>,
         parent: &Owner,
     );
 }
@@ -212,26 +215,51 @@ where
 {
     fn build_nested_route(
         self,
-        outlets: &mut VecDeque<OutletContext<R>>,
+        outlets: &mut Vec<OutletContext<R>>,
         parent: &Owner,
     ) {
+        // each Outlet gets its own owner, so it can inherit context from its parent route,
+        // a new owner will be constructed if a different route replaces this one in the outlet,
+        // so that any signals it creates or context it provides will be cleaned up
         let owner = parent.child();
-        let id = self.as_id();
+
+        // the params signal can be updated to allow the same outlet to update to changes in the
+        // params, even if there's not a route match change
         let params = ArcRwSignal::new(self.to_params().into_iter().collect());
-        let current_child = outlets.len();
 
-        let (tx, rx) = std::sync::mpsc::channel();
+        // the trigger and channel will be used to send new boxed AnyViews to the Outlet;
+        // whenever we match a different route, the trigger will be triggered and a new view will
+        // be sent through the channel to be rendered by the Outlet
+        //
+        // combining a trigger and a channel allows us to pass ownership of the view;
+        // storing a view in a signal would mean we need to keep a copy stored in the signal and
+        // require that we can clone it out
+        let trigger = ArcTrigger::new();
+        let (tx, rx) = mpsc::channel();
 
+        // add this outlet to the end of the outlet stack used for diffing
         let outlet = OutletContext {
-            id,
-            trigger: ArcTrigger::new(),
+            id: self.as_id(),
+            trigger,
             params,
-            owner: parent.clone(),
+            owner: owner.clone(),
             tx: tx.clone(),
             rx: Arc::new(Mutex::new(Some(rx))),
         };
+        outlets.push(outlet.clone());
 
+        // send the initial view through the channel, and recurse through the children
         let (view, child) = self.into_view_and_child();
+
+        tx.send(Box::new({
+            let owner = outlet.owner.clone();
+            move || owner.with(|| view.choose().into_any())
+        }));
+
+        // and share the outlet with the parent via context
+        // we share it with the *parent* because the <Outlet/> is rendered in or below the parent
+        // wherever it appears, <Outlet/> will look for the closest OutletContext
+        parent.with(|| provide_context(outlet));
 
         // recursively continue building the tree
         // this is important because to build the view, we need access to the outlet
@@ -239,29 +267,12 @@ where
         if let Some(child) = child {
             child.build_nested_route(outlets, &owner);
         }
-
-        outlet.trigger.trigger();
-        tx.send(Box::new({
-            let owner = owner.clone();
-            let outlet = outlets.get(current_child + 0).cloned();
-            let parent = parent.clone();
-            move || {
-                parent.with(|| {
-                    if let Some(outlet) = outlet {
-                        provide_context(outlet);
-                    }
-                });
-                owner.with(|| view.choose().into_any())
-            }
-        }));
-
-        outlets.push_back(outlet);
     }
 
     fn rebuild_nested_route(
         self,
         items: &mut usize,
-        outlets: &mut VecDeque<OutletContext<R>>,
+        outlets: &mut Vec<OutletContext<R>>,
         parent: &Owner,
     ) {
         let current = outlets.get_mut(*items);
@@ -271,19 +282,38 @@ where
                 self.build_nested_route(outlets, parent);
             }
             Some(current) => {
+                // a unique ID for each route, which allows us to compare when we get new matches
+                // if two IDs are the same, we do not rerender, but only update the params
+                // if the IDs are different, we need to replace the remainder of the tree
                 let id = self.as_id();
-                // we always need to update the params, so go ahead and do that
+
+                // whether the route is the same or different, we always need to
+                // 1) update the params, and
+                // 2) access the view and children
                 current
                     .params
                     .set(self.to_params().into_iter().collect::<Params>());
                 let (view, child) = self.into_view_and_child();
 
-                // if the IDs don't match, everything below in the tree needs to be swapped
-                // 1) replace this outlet with the next view
-                // 2) remove other outlets
-                // 3) build down the chain
+                // if the IDs don't match, everything below in the tree needs to be swapped:
+                // 1) replace this outlet with the next view, with a new owner
+                // 2) remove other outlets that are lower down in the match tree
+                // 3) build the rest of the list of matched routes, rather than rebuilding,
+                //    as all lower outlets needs to be replaced
                 if id != current.id {
+                    // update the ID of the match at this depth, so that futures rebuilds diff
+                    // against the new ID, not the original one
+                    current.id = id;
+
+                    // assign a new owner, so that contexts and signals owned by the previous route
+                    // in this outlet can be dropped
+                    let old_owner =
+                        mem::replace(&mut current.owner, parent.child());
                     let owner = current.owner.clone();
+
+                    // send the new view, with the new owner, through the channel to the Outlet,
+                    // and notify the trigger so that the reactive view inside the Outlet tracking
+                    // the trigger runs again
                     current.tx.send({
                         let owner = owner.clone();
                         Box::new(move || {
@@ -291,23 +321,27 @@ where
                         })
                     });
                     current.trigger.trigger();
-                    current.id = id;
 
-                    // TODO check this offset
+                    // remove all the items lower in the tree
+                    // if this match is different, all its children will also be different
                     outlets.truncate(*items + 1);
 
+                    // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
-                        child.build_nested_route(outlets, &owner);
+                        let mut new_outlets = Vec::new();
+                        child.build_nested_route(&mut new_outlets, &owner);
+                        outlets.extend(new_outlets);
                     }
 
                     return;
                 }
 
-                // otherwise, just keep rebuilding recursively
+                // otherwise, just keep rebuilding recursively, checking the remaining routes in
+                // the list
                 if let Some(child) = child {
-                    let current = current.clone();
+                    let owner = current.owner.clone();
                     *items += 1;
-                    child.rebuild_nested_route(items, outlets, &current.owner);
+                    child.rebuild_nested_route(items, outlets, &owner);
                 }
             }
         }
@@ -342,7 +376,6 @@ where
     R: Renderer + 'static,
 {
     _ = rndr;
-    let owner = Owner::current().unwrap();
     let ctx = use_context::<OutletContext<R>>()
         .expect("<Outlet/> used without OutletContext being provided.");
     let OutletContext {
@@ -360,7 +393,6 @@ where
     move || {
         trigger.track();
 
-        let x = rx.try_recv().map(|view| view()).unwrap();
-        x
+        rx.try_recv().map(|view| view()).unwrap()
     }
 }
