@@ -1,5 +1,6 @@
 use crate::{
     location::{Location, Url},
+    navigate::{NavigateOptions, UseNavigate},
     params::{Params, ParamsError, ParamsMap},
 };
 use leptos::oco::Oco;
@@ -195,7 +196,6 @@ pub fn use_resolved_path(
     })
 }*/
 
-/*
 /// Returns a function that can be used to navigate to a new route.
 ///
 /// This should only be called on the client; it does nothing during
@@ -212,25 +212,10 @@ pub fn use_resolved_path(
 /// ```
 #[track_caller]
 pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
-    let router = use_router();
-    move |to, options| {
-        let router = Rc::clone(&router.inner);
-        let to = to.to_string();
-        if cfg!(any(feature = "csr", feature = "hydrate")) {
-            request_animation_frame(move || {
-                #[allow(unused_variables)]
-                if let Err(e) = router.navigate_from_route(&to, &options) {
-                    leptos::logging::debug_warn!("use_navigate error: {e:?}");
-                }
-            });
-        } else {
-            leptos::logging::warn!(
-                "The navigation function returned by `use_navigate` should \
-                 not be called during server rendering."
-            );
-        }
-    }
-}*/
+    let UseNavigate(use_navigate) = use_context()
+        .expect("You cannot call `use_navigate` outside a <Router>.");
+    move |path: &str, options: NavigateOptions| use_navigate(path, options)
+}
 
 /*
 /// Returns a signal that tells you whether you are currently navigating backwards.

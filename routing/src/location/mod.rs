@@ -7,7 +7,7 @@ use reactive_graph::{
     traits::With,
 };
 use send_wrapper::SendWrapper;
-use std::{borrow::Cow, future::Future};
+use std::{borrow::Cow, future::Future, sync::Arc};
 use tachys::dom::window;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
