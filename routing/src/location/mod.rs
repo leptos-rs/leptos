@@ -1,7 +1,12 @@
 use any_spawner::Executor;
 use core::fmt::Debug;
 use js_sys::Reflect;
-use reactive_graph::signal::ArcRwSignal;
+use reactive_graph::{
+    computed::Memo,
+    signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
+    traits::With,
+};
+use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
 use tachys::dom::window;
 use wasm_bindgen::{JsCast, JsValue};
@@ -9,7 +14,7 @@ use web_sys::{Event, HtmlAnchorElement, MouseEvent};
 
 mod history;
 mod server;
-use crate::Params;
+use crate::params::ParamsMap;
 pub use history::*;
 pub use server::*;
 
@@ -20,7 +25,7 @@ pub struct Url {
     origin: String,
     path: String,
     search: String,
-    search_params: Params,
+    search_params: ParamsMap,
     hash: String,
 }
 
@@ -37,12 +42,45 @@ impl Url {
         &self.search
     }
 
-    pub fn search_params(&self) -> &Params {
+    pub fn search_params(&self) -> &ParamsMap {
         &self.search_params
     }
 
     pub fn hash(&self) -> &str {
         &self.hash
+    }
+}
+
+/// A reactive description of the current URL, containing equivalents to the local parts of
+/// the browser's [`Location`](https://developer.mozilla.org/en-US/docs/Web/API/Location).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Location {
+    /// The path of the URL, not containing the query string or hash fragment.
+    pub pathname: Memo<String>,
+    /// The raw query string.
+    pub search: Memo<String>,
+    /// The query string parsed into its key-value pairs.
+    pub query: Memo<ParamsMap>,
+    /// The hash fragment.
+    pub hash: Memo<String>,
+    /// The [`state`](https://developer.mozilla.org/en-US/docs/Web/API/History/state) at the top of the history stack.
+    pub state: ReadSignal<State>,
+}
+
+impl Location {
+    pub(crate) fn new(url: ReadSignal<Url>, state: ReadSignal<State>) -> Self {
+        let pathname = Memo::new(move |_| url.with(|url| url.path.clone()));
+        let search = Memo::new(move |_| url.with(|url| url.search.clone()));
+        let hash = Memo::new(move |_| url.with(|url| url.hash.clone()));
+        let query =
+            Memo::new(move |_| url.with(|url| url.search_params.clone()));
+        Location {
+            pathname,
+            search,
+            query,
+            hash,
+            state,
+        }
     }
 }
 
@@ -71,7 +109,7 @@ impl Default for LocationChange {
     }
 }
 
-pub trait Location: Sized {
+pub trait LocationProvider: Sized {
     type Error: Debug;
 
     fn new() -> Result<Self, Self::Error>;
@@ -93,15 +131,31 @@ pub trait Location: Sized {
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct State(pub Option<JsValue>);
+#[derive(Debug, Clone)]
+pub struct State(SendWrapper<Option<JsValue>>);
 
 impl State {
+    pub fn new(state: Option<JsValue>) -> Self {
+        Self(SendWrapper::new(state))
+    }
+
     pub fn to_js_value(&self) -> JsValue {
-        match &self.0 {
+        match &*self.0 {
             Some(v) => v.clone(),
             None => JsValue::UNDEFINED,
         }
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self(SendWrapper::new(None))
+    }
+}
+
+impl PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        &*self.0 == &*other.0
     }
 }
 
@@ -110,7 +164,7 @@ where
     T: Into<JsValue>,
 {
     fn from(value: T) -> Self {
-        State(Some(value.into()))
+        State::new(Some(value.into()))
     }
 }
 
@@ -210,7 +264,7 @@ where
                 value: to,
                 replace,
                 scroll: true,
-                state: State(state),
+                state: State::new(state),
             };
 
             Executor::spawn_local(navigate(url, change));
