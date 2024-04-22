@@ -121,6 +121,16 @@ where
                     &mut state.outlets,
                     &self.outer_owner,
                 );
+
+                // if it was on the fallback, show the view instead
+                if matches!(state.view.state, Either::Left(_)) {
+                    self.outer_owner.with(|| {
+                        Either::<Fal, AnyView<R>>::Right(
+                            Outlet(OutletProps::builder().build()).into_any(),
+                        )
+                        .rebuild(&mut state.view);
+                    })
+                }
             }
         }
     }
