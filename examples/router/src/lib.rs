@@ -16,7 +16,7 @@ use leptos::{
 use log::{debug, info};
 use routing::{
     components::{ParentRoute, Route, Router, Routes},
-    hooks::{use_location, use_params},
+    hooks::{use_location, use_navigate, use_params},
     Outlet,
 };
 use routing::{
@@ -38,6 +38,7 @@ pub fn RouterExample() -> impl IntoView {
     view! {
         <Router>
             <nav>
+                // TODO <A>
                 // ordinary <a> elements can be used for client-side navigation
                 // using <A> has two effects:
                 // 1) ensuring that relative routing works properly for nested routes
@@ -173,10 +174,14 @@ pub fn About() -> impl IntoView {
     );
 
     // use_navigate allows you to navigate programmatically by calling a function
-    // TODO
-    // let navigate = use_navigate();
+    let navigate = use_navigate();
 
+    // note: this is just an illustration of how to use `use_navigate`
+    // <button on:click> to navigate is an *anti-pattern*
+    // you should ordinarily use a link instead,
+    // both semantically and so your link will work before WASM loads
     view! {
+        <button on:click=move |_| navigate("/", Default::default())>"Home"</button>
         <h1>"About"</h1>
         <p>
             "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
