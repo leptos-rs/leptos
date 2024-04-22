@@ -8,6 +8,7 @@ pub mod hooks;
 pub mod location;
 mod matching;
 mod method;
+mod navigate;
 mod nested_router;
 pub mod params;
 //mod router;
