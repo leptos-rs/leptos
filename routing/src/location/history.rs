@@ -1,7 +1,7 @@
 use super::{
     handle_anchor_click, LocationChange, LocationProvider, State, Url, BASE,
 };
-use crate::params::ParamsMap;
+use crate::{navigate::UseNavigate, params::ParamsMap};
 use core::fmt;
 use js_sys::{try_iter, Array, JsString, Reflect};
 use reactive_graph::{signal::ArcRwSignal, traits::Set};
@@ -101,6 +101,7 @@ impl LocationProvider for BrowserUrl {
                 }
             }
         };
+
         let handle_anchor_click =
             handle_anchor_click(base, Self::parse_with_base, navigate);
         let closure = Closure::wrap(Box::new(move |ev: Event| {
