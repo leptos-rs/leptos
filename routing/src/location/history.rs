@@ -1,5 +1,7 @@
-use super::{handle_anchor_click, Location, LocationChange, State, Url, BASE};
-use crate::params::Params;
+use super::{
+    handle_anchor_click, LocationChange, LocationProvider, State, Url, BASE,
+};
+use crate::params::ParamsMap;
 use core::fmt;
 use js_sys::{try_iter, Array, JsString, Reflect};
 use reactive_graph::{signal::ArcRwSignal, traits::Set};
@@ -42,7 +44,7 @@ impl BrowserUrl {
     }
 }
 
-impl Location for BrowserUrl {
+impl LocationProvider for BrowserUrl {
     type Error = JsValue;
 
     fn new() -> Result<Self, JsValue> {
@@ -168,7 +170,7 @@ impl Location for BrowserUrl {
 
 fn search_params_from_web_url(
     params: &web_sys::UrlSearchParams,
-) -> Result<Params, JsValue> {
+) -> Result<ParamsMap, JsValue> {
     try_iter(params)?
         .into_iter()
         .flatten()

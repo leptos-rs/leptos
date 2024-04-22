@@ -1,31 +1,29 @@
 use crate::{
     location::{Location, Url},
     matching::Routes,
-    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Params,
-    RouteMatchId,
+    params::ParamsMap,
+    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, RouteMatchId,
 };
 use either_of::Either;
 use leptos::{component, IntoView};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::ArcMemo,
+    computed::{ArcMemo, Memo},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Read, Set, Track, Trigger},
+    traits::{Get, Read, Set, Track, Trigger},
 };
 use std::{
     borrow::Cow,
-    cell::RefCell,
     marker::PhantomData,
     mem,
-    rc::Rc,
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
 };
 use tachys::{
-    renderer::{dom::Dom, Renderer},
+    renderer::Renderer,
     view::{
         any_view::{AnyView, AnyViewState, IntoAny},
         either::EitherState,
@@ -42,7 +40,7 @@ pub(crate) struct NestedRoutesView<Defs, Fal, R> {
     pub outer_owner: Owner,
     pub url: ArcRwSignal<Url>,
     pub path: ArcMemo<String>,
-    pub search_params: ArcMemo<Params>,
+    pub search_params: ArcMemo<ParamsMap>,
     pub base: Option<Cow<'static, str>>,
     pub fallback: Fal,
     pub rndr: PhantomData<R>,
@@ -56,8 +54,8 @@ where
     outer_owner: Owner,
     url: ArcRwSignal<Url>,
     path: ArcMemo<String>,
-    search_params: ArcMemo<Params>,
-    outlets: Vec<OutletContext<R>>,
+    search_params: ArcMemo<ParamsMap>,
+    outlets: Vec<RouteContext<R>>,
     view: EitherState<Fal::State, AnyViewState<R>, R>,
 }
 
@@ -162,19 +160,29 @@ where
 type OutletViewFn<R> = Box<dyn FnOnce() -> AnyView<R> + Send>;
 
 #[derive(Debug)]
-pub struct OutletContext<R>
+pub struct RouteContext<R>
 where
     R: Renderer,
 {
     id: RouteMatchId,
     trigger: ArcTrigger,
-    params: ArcRwSignal<Params>,
+    params: ArcRwSignal<ParamsMap>,
     owner: Owner,
     tx: Sender<OutletViewFn<R>>,
     rx: Arc<Mutex<Option<Receiver<OutletViewFn<R>>>>>,
 }
 
-impl<R> Clone for OutletContext<R>
+impl<R> RouteContext<R>
+where
+    R: Renderer + 'static,
+{
+    fn provide_contexts(&self) {
+        provide_context(self.params.read_only());
+        provide_context(self.clone());
+    }
+}
+
+impl<R> Clone for RouteContext<R>
 where
     R: Renderer,
 {
@@ -196,14 +204,14 @@ where
 {
     fn build_nested_route(
         self,
-        outlets: &mut Vec<OutletContext<R>>,
+        outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     );
 
     fn rebuild_nested_route(
         self,
         items: &mut usize,
-        outlets: &mut Vec<OutletContext<R>>,
+        outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     );
 }
@@ -215,7 +223,7 @@ where
 {
     fn build_nested_route(
         self,
-        outlets: &mut Vec<OutletContext<R>>,
+        outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
         // each Outlet gets its own owner, so it can inherit context from its parent route,
@@ -238,7 +246,7 @@ where
         let (tx, rx) = mpsc::channel();
 
         // add this outlet to the end of the outlet stack used for diffing
-        let outlet = OutletContext {
+        let outlet = RouteContext {
             id: self.as_id(),
             trigger,
             params,
@@ -258,8 +266,8 @@ where
 
         // and share the outlet with the parent via context
         // we share it with the *parent* because the <Outlet/> is rendered in or below the parent
-        // wherever it appears, <Outlet/> will look for the closest OutletContext
-        parent.with(|| provide_context(outlet));
+        // wherever it appears, <Outlet/> will look for the closest RouteContext
+        parent.with(|| outlet.provide_contexts());
 
         // recursively continue building the tree
         // this is important because to build the view, we need access to the outlet
@@ -272,7 +280,7 @@ where
     fn rebuild_nested_route(
         self,
         items: &mut usize,
-        outlets: &mut Vec<OutletContext<R>>,
+        outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
         let current = outlets.get_mut(*items);
@@ -292,7 +300,7 @@ where
                 // 2) access the view and children
                 current
                     .params
-                    .set(self.to_params().into_iter().collect::<Params>());
+                    .set(self.to_params().into_iter().collect::<ParamsMap>());
                 let (view, child) = self.into_view_and_child();
 
                 // if the IDs don't match, everything below in the tree needs to be swapped:
@@ -376,9 +384,9 @@ where
     R: Renderer + 'static,
 {
     _ = rndr;
-    let ctx = use_context::<OutletContext<R>>()
-        .expect("<Outlet/> used without OutletContext being provided.");
-    let OutletContext {
+    let ctx = use_context::<RouteContext<R>>()
+        .expect("<Outlet/> used without RouteContext being provided.");
+    let RouteContext {
         id,
         trigger,
         params,

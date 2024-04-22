@@ -93,7 +93,9 @@ pub async fn get_contact(id: Option<usize>) -> Option<Contact> {
     }
 }
 
-fn delay(duration: Duration) -> impl Future<Output = Result<(), Canceled>> {
+fn delay(
+    duration: Duration,
+) -> impl Future<Output = Result<(), Canceled>> + Send {
     let (tx, rx) = oneshot::channel();
     set_timeout(
         move || {
