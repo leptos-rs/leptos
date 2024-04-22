@@ -1,5 +1,6 @@
 use crate::{
     location::{BrowserUrl, Location, LocationProvider, State, Url},
+    navigate::{NavigateOptions, UseNavigate},
     MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes,
 };
 use leptos::{
@@ -65,11 +66,19 @@ where
         BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
     location.init(base.clone());
     let url = location.as_url().clone();
+
+    // provides contexts:
+    // 1) the current URL
+    // 2) a Location struct
+    // 3) a UseNavigate
     provide_context(url.clone());
     provide_context(Location::new(
         url.read_only().into(),
         // TODO state
         RwSignal::new(State::new(None)).read_only(),
+    ));
+    provide_context(UseNavigate::new(
+        move |path: &str, options: NavigateOptions| todo!(),
     ));
 
     let children = children.into_inner();
