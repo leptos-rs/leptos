@@ -47,11 +47,11 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 workspace = false
 description = "Generate the list of workspace members"
 script = '''
-examples=$(ls | 
-grep -v .md | 
-grep -v Makefile.toml | 
-grep -v cargo-make | 
-grep -v gtk | 
+examples=$(ls |
+grep -v .md |
+grep -v Makefile.toml |
+grep -v cargo-make |
+grep -v gtk |
 jq -R -s -c 'split("\n")[:-1]')
 echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
 '''
