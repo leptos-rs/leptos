@@ -1,9 +1,10 @@
 use crate::{
+    components::RouterContext,
     location::{Location, Url},
     navigate::{NavigateOptions, UseNavigate},
     params::{Params, ParamsError, ParamsMap},
 };
-use leptos::oco::Oco;
+use leptos::{leptos_dom::helpers::window, oco::Oco};
 use reactive_graph::{
     computed::Memo,
     owner::use_context,
@@ -121,7 +122,9 @@ pub fn use_router() -> RouterContext {
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
 pub fn use_location() -> Location {
-    use_context().expect("Tried to access Location outside a <Router>.")
+    let RouterContext { location, .. } =
+        use_context().expect("Tried to access Location outside a <Router>.");
+    location
 }
 
 #[track_caller]
@@ -152,8 +155,9 @@ where
 
 #[track_caller]
 fn use_url_raw() -> ArcRwSignal<Url> {
-    use_context()
-        .expect("Tried to access reactive URL outside a <Router> component.")
+    let RouterContext { current_url, .. } = use_context()
+        .expect("Tried to access reactive URL outside a <Router> component.");
+    current_url
 }
 
 #[track_caller]
@@ -212,9 +216,9 @@ pub fn use_resolved_path(
 /// ```
 #[track_caller]
 pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
-    let UseNavigate(use_navigate) = use_context()
+    let cx = use_context::<RouterContext>()
         .expect("You cannot call `use_navigate` outside a <Router>.");
-    move |path: &str, options: NavigateOptions| use_navigate(path, options)
+    move |path: &str, options: NavigateOptions| cx.navigate(path, options)
 }
 
 /*
@@ -223,6 +227,7 @@ pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
     let router = use_router();
     router.inner.is_back.read_only()
 }
+*/
 
 /// Resolves a redirect location to an (absolute) URL.
 pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
@@ -248,4 +253,3 @@ pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
         }
     }
 }
-*/

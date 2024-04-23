@@ -1,6 +1,10 @@
 use crate::{
-    location::{BrowserUrl, Location, LocationProvider, State, Url},
+    hooks::use_navigate,
+    location::{
+        BrowserUrl, Location, LocationChange, LocationProvider, State, Url,
+    },
     navigate::{NavigateOptions, UseNavigate},
+    resolve_path::resolve_path,
     MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes,
 };
 use leptos::{
@@ -11,9 +15,10 @@ use reactive_graph::{
     computed::ArcMemo,
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, RwSignal},
-    traits::Read,
+    traits::{GetUntracked, Read, ReadUntracked, Set},
+    untrack,
 };
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc};
 use tachys::renderer::{dom::Dom, Renderer};
 
 #[derive(Debug)]
@@ -65,24 +70,87 @@ where
     let location =
         BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
     location.init(base.clone());
-    let url = location.as_url().clone();
+    let current_url = location.as_url().clone();
 
-    // provides contexts:
-    // 1) the current URL
-    // 2) a Location struct
-    // 3) a UseNavigate
-    provide_context(url.clone());
-    provide_context(Location::new(
-        url.read_only().into(),
-        // TODO state
-        RwSignal::new(State::new(None)).read_only(),
-    ));
-    provide_context(UseNavigate::new(
-        move |path: &str, options: NavigateOptions| todo!(),
-    ));
+    // provide router context
+    let state = ArcRwSignal::new(State::new(None));
+    let location = Location::new(current_url.read_only(), state.read_only());
+
+    // TODO server function redirect hook
+
+    provide_context(RouterContext {
+        base,
+        current_url,
+        location,
+        state,
+    });
 
     let children = children.into_inner();
     children()
+}
+
+#[derive(Clone)]
+pub(crate) struct RouterContext {
+    pub base: Option<Cow<'static, str>>,
+    pub current_url: ArcRwSignal<Url>,
+    pub location: Location,
+    pub state: ArcRwSignal<State>,
+}
+
+impl RouterContext {
+    pub fn navigate(&self, path: &str, options: NavigateOptions) {
+        let current = self.current_url.read_untracked();
+        let resolved_to = if options.resolve {
+            resolve_path(
+                self.base.as_deref().unwrap_or_default(),
+                path,
+                // TODO this should be relative to the current *Route*, I think...
+                Some(current.path()),
+            )
+        } else {
+            resolve_path("", path, None)
+        };
+
+        let url = match resolved_to.map(|to| BrowserUrl::parse(&to)) {
+            Some(Ok(url)) => url,
+            Some(Err(e)) => {
+                leptos::logging::error!("Error parsing URL: {e:?}");
+                return;
+            }
+            None => {
+                leptos::logging::error!("Error resolving relative URL.");
+                return;
+            }
+        };
+
+        // update state signal, if necessary
+        if options.state != self.state.get_untracked() {
+            self.state.set(options.state.clone());
+        }
+
+        // update URL signal, if necessary
+        if current != url {
+            drop(current);
+            self.current_url.set(url);
+        }
+
+        BrowserUrl::complete_navigation(&LocationChange {
+            value: path.to_string(),
+            replace: options.replace,
+            scroll: options.scroll,
+            state: options.state,
+        });
+    }
+}
+
+impl Debug for RouterContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RouterContext")
+            .field("base", &self.base)
+            .field("current_url", &self.current_url)
+            .field("location", &self.location)
+            .finish_non_exhaustive()
+    }
 }
 
 /*
@@ -114,15 +182,15 @@ where
     FallbackFn: Fn() -> Fallback + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    let url = use_context::<ArcRwSignal<Url>>()
+    let RouterContext { current_url, .. } = use_context()
         .expect("<Routes> should be used inside a <Router> component");
     let routes = Routes::new(children.into_inner());
     let path = ArcMemo::new({
-        let url = url.clone();
+        let url = current_url.clone();
         move |_| url.read().path().to_string()
     });
     let search_params = ArcMemo::new({
-        let url = url.clone();
+        let url = current_url.clone();
         move |_| url.read().search_params().clone()
     });
     let outer_owner =
@@ -130,7 +198,7 @@ where
     move || NestedRoutesView {
         routes: routes.clone(),
         outer_owner: outer_owner.clone(),
-        url: url.clone(),
+        url: current_url.clone(),
         path: path.clone(),
         search_params: search_params.clone(),
         base: base.clone(), // TODO is this necessary?
@@ -161,4 +229,66 @@ where
 {
     let children = children.into_inner();
     NestedRoute::new(path, view).child(children)
+}
+
+/// Redirects the user to a new URL, whether on the client side or on the server
+/// side. If rendered on the server, this sets a `302` status code and sets a `Location`
+/// header. If rendered in the browser, it uses client-side navigation to redirect.
+/// In either case, it resolves the route relative to the current route. (To use
+/// an absolute path, prefix it with `/`).
+///
+/// **Note**: Support for server-side redirects is provided by the server framework
+/// integrations ([`leptos_actix`] and [`leptos_axum`]. If you’re not using one of those
+/// integrations, you should manually provide a way of redirecting on the server
+/// using [`provide_server_redirect`].
+///
+/// [`leptos_actix`]: <https://docs.rs/leptos_actix/>
+/// [`leptos_axum`]: <https://docs.rs/leptos_axum/>
+#[component]
+pub fn Redirect<P>(
+    /// The relative path to which the user should be redirected.
+    path: P,
+    /// Navigation options to be used on the client side.
+    #[prop(optional)]
+    #[allow(unused)]
+    options: Option<NavigateOptions>,
+) -> impl IntoView
+where
+    P: core::fmt::Display + 'static,
+{
+    // TODO resolve relative path
+    let path = path.to_string();
+
+    // redirect on the server
+    if let Some(redirect_fn) = use_context::<ServerRedirectFunction>() {
+        (redirect_fn.f)(&path);
+    }
+    // redirect on the client
+    else {
+        let navigate = use_navigate();
+        navigate(&path, options.unwrap_or_default());
+    }
+}
+
+/// Wrapping type for a function provided as context to allow for
+/// server-side redirects. See [`provide_server_redirect`]
+/// and [`Redirect`].
+#[derive(Clone)]
+pub struct ServerRedirectFunction {
+    f: Arc<dyn Fn(&str) + Send + Sync>,
+}
+
+impl core::fmt::Debug for ServerRedirectFunction {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ServerRedirectFunction").finish()
+    }
+}
+
+/// Provides a function that can be used to redirect the user to another
+/// absolute path, on the server. This should set a `302` status code and an
+/// appropriate `Location` header.
+pub fn provide_server_redirect(handler: impl Fn(&str) + Send + Sync + 'static) {
+    provide_context(ServerRedirectFunction {
+        f: Arc::new(handler),
+    })
 }
