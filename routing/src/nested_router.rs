@@ -107,8 +107,6 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let new_match = self.routes.match_route(&self.path.read());
 
-        // TODO handle fallback => real view, fallback => fallback
-
         match new_match {
             None => {
                 Either::<Fal, AnyView<R>>::Left(self.fallback)
