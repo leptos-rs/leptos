@@ -1,5 +1,6 @@
 mod choose_view;
 mod path_segment;
+pub(crate) mod resolve_path;
 pub use choose_view::*;
 pub use path_segment::*;
 mod horizontal;
