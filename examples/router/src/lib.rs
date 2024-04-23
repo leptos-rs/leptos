@@ -15,14 +15,11 @@ use leptos::{
 };
 use log::{debug, info};
 use routing::{
-    components::{ParentRoute, Route, Router, Routes},
+    components::{ParentRoute, Redirect, Route, Router, Routes},
     hooks::{use_location, use_navigate, use_params},
-    Outlet,
-};
-use routing::{
     location::{BrowserUrl, Location},
     params::Params,
-    MatchNestedRoutes, NestedRoute, ParamSegment, StaticSegment,
+    MatchNestedRoutes, NestedRoute, Outlet, ParamSegment, StaticSegment,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -52,9 +49,13 @@ pub fn RouterExample() -> impl IntoView {
             </nav>
             <main>
                 <Routes fallback=|| "This page could not be found.">
-                    <ContactRoutes/>
                     <Route path=StaticSegment("settings") view=Settings/>
                     <Route path=StaticSegment("about") view=About/>
+                    <Route
+                        path=StaticSegment("redirect-home")
+                        view=|| view! { <Redirect path="/"/> }
+                    />
+                    <ContactRoutes/>
                 </Routes>
             </main>
         </Router>
@@ -66,7 +67,7 @@ pub fn RouterExample() -> impl IntoView {
 #[component]
 pub fn ContactRoutes() -> impl MatchNestedRoutes<Dom> + Clone {
     view! {
-        <ParentRoute path=StaticSegment("contacts") view=ContactList>
+        <ParentRoute path=StaticSegment("") view=ContactList>
             <Route path=StaticSegment("") view=|| "Select a contact."/>
             <Route path=ParamSegment("id") view=Contact/>
         </ParentRoute>

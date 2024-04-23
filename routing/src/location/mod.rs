@@ -68,7 +68,12 @@ pub struct Location {
 }
 
 impl Location {
-    pub(crate) fn new(url: ReadSignal<Url>, state: ReadSignal<State>) -> Self {
+    pub(crate) fn new(
+        url: impl Into<ReadSignal<Url>>,
+        state: impl Into<ReadSignal<State>>,
+    ) -> Self {
+        let url = url.into();
+        let state = state.into();
         let pathname = Memo::new(move |_| url.with(|url| url.path.clone()));
         let search = Memo::new(move |_| url.with(|url| url.search.clone()));
         let hash = Memo::new(move |_| url.with(|url| url.hash.clone()));
