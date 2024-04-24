@@ -106,6 +106,38 @@ where
 /// Describes a route that is guarded by a certain condition. This works the same way as
 /// [`<Route/>`](Route), except that if the `condition` function evaluates to `false`, it
 /// redirects to `redirect_path` instead of displaying its `view`.
+///
+/// ## Reactive or Asynchronous Conditions
+///
+/// Note that the condition check happens once, at the time of navigation to the page. It
+/// is not reactive (i.e., it will not cause the user to navigate away from the page if the
+/// condition changes to `false`), which means it does not work well with asynchronous conditions.
+/// If you need to protect a route conditionally or via `Suspense`, you should used nested routing
+/// and wrap the condition around the `<Outlet/>`.
+///
+/// ```rust
+/// # use leptos::*; use leptos_router::*;
+/// # if false {
+/// let has_permission = move || true; // TODO!
+///
+/// view! {
+///  <Routes>
+///    // parent route
+///    <Route path="/" view=move || {
+///      view! {
+///        // only show the outlet when `is_loaded` is `true`, and hide it when it is `false`
+///        <Show when=move || has_permission() fallback=|| "Access denied!">
+///          <Outlet/>
+///        </Show>
+///      }
+///    }>
+///      // nested child route
+///      <Route path="/" view=|| view! { <p>"Protected data" </p> }/>
+///    </Route>
+///  </Routes>
+/// }
+/// # ;}
+/// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
