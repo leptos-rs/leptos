@@ -323,11 +323,16 @@ where
         let (el, prev) = state;
         match (self, prev.as_mut()) {
             (None, None) => {}
-            (None, Some(_)) => R::remove_attribute(el, key),
+            (None, Some(_)) => {
+                R::remove_attribute(el, key);
+                *prev = None;
+            }
             (Some(value), None) => {
                 *prev = Some(value.build(el, key));
             }
-            (Some(new), Some(old)) => new.rebuild(key, old),
+            (Some(new), Some(old)) => {
+                new.rebuild(key, old);
+            }
         }
     }
 }

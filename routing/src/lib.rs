@@ -5,6 +5,7 @@
 pub mod components;
 mod generate_route_list;
 pub mod hooks;
+pub mod link;
 pub mod location;
 mod matching;
 mod method;

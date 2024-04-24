@@ -3,15 +3,17 @@ use crate::{
     location::{Location, Url},
     navigate::{NavigateOptions, UseNavigate},
     params::{Params, ParamsError, ParamsMap},
+    RouteContext,
 };
 use leptos::{leptos_dom::helpers::window, oco::Oco};
 use reactive_graph::{
-    computed::Memo,
+    computed::{ArcMemo, Memo},
     owner::use_context,
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal},
-    traits::{Get, With},
+    traits::{Get, Read, With},
 };
 use std::{rc::Rc, str::FromStr};
+use tachys::renderer::Renderer;
 /*
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
@@ -182,23 +184,28 @@ where
     Memo::new(move |_| url.with(|url| T::from_map(url.search_params())))
 }
 
-/*
 /// Resolves the given path relative to the current route.
 #[track_caller]
-pub fn use_resolved_path(
-    path: impl Fn() -> String + 'static,
-) -> Memo<Option<String>> {
-    let route = use_route();
-
-    create_memo(move |_| {
+pub(crate) fn use_resolved_path<R: Renderer + 'static>(
+    path: impl Fn() -> String + Send + Sync + 'static,
+) -> ArcMemo<Option<String>> {
+    let router = use_context::<RouterContext>()
+        .expect("called use_resolved_path outside a <Router>");
+    let matched = use_context::<RouteContext<R>>().map(|route| route.matched);
+    ArcMemo::new(move |_| {
         let path = path();
         if path.starts_with('/') {
             Some(path)
         } else {
-            route.resolve_path_tracked(&path)
+            router
+                .resolve_path(
+                    &path,
+                    matched.as_ref().map(|n| n.get()).as_deref(),
+                )
+                .map(|n| n.to_string())
         }
     })
-}*/
+}
 
 /// Returns a function that can be used to navigate to a new route.
 ///
