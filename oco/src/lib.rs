@@ -272,6 +272,24 @@ where
             }
         }
     }
+
+    /// Converts the value into its cheaply-clonable form in place.
+    /// In other words, if it is currently [`Oco::Owned`], converts into [`Oco::Counted`]
+    /// in an `O(n)` operation, so that all future clones are `O(1)`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::oco::Oco;
+    /// let mut oco = Oco::<str>::Owned("Hello".to_string());
+    /// oco.upgrade_inplace();
+    /// assert!(oco1.is_counted());
+    /// ```
+    pub fn upgrade_inplace(&mut self) {
+        if let Self::Owned(v) = &*self {
+            let rc = Arc::from(v.borrow());
+            *self = Self::Counted(rc);
+        }
+    }
 }
 
 impl<T: ?Sized> Default for Oco<'_, T>
