@@ -2,16 +2,17 @@ use crate::{
     location::{Location, Url},
     matching::Routes,
     params::ParamsMap,
+    resolve_path::resolve_path,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, RouteMatchId,
 };
 use either_of::Either;
-use leptos::{component, IntoView};
+use leptos::{component, oco::Oco, IntoView};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, Read, Set, Track, Trigger},
+    traits::{Get, Read, ReadUntracked, Set, Track, Trigger},
 };
 use std::{
     borrow::Cow,
@@ -41,7 +42,7 @@ pub(crate) struct NestedRoutesView<Defs, Fal, R> {
     pub url: ArcRwSignal<Url>,
     pub path: ArcMemo<String>,
     pub search_params: ArcMemo<ParamsMap>,
-    pub base: Option<Cow<'static, str>>,
+    pub base: Option<Oco<'static, str>>,
     pub fallback: Fal,
     pub rndr: PhantomData<R>,
 }
@@ -84,7 +85,7 @@ where
         let view = match new_match {
             None => Either::Left(fallback),
             Some(route) => {
-                route.build_nested_route(&mut outlets, &outer_owner);
+                route.build_nested_route(base, &mut outlets, &outer_owner);
                 outer_owner.with(|| {
                     Either::Right(
                         Outlet(OutletProps::builder().build()).into_any(),
@@ -115,6 +116,7 @@ where
             }
             Some(route) => {
                 route.rebuild_nested_route(
+                    self.base,
                     &mut 0,
                     &mut state.outlets,
                     &self.outer_owner,
@@ -168,7 +170,7 @@ where
 type OutletViewFn<R> = Box<dyn FnOnce() -> AnyView<R> + Send>;
 
 #[derive(Debug)]
-pub struct RouteContext<R>
+pub(crate) struct RouteContext<R>
 where
     R: Renderer,
 {
@@ -176,6 +178,8 @@ where
     trigger: ArcTrigger,
     params: ArcRwSignal<ParamsMap>,
     owner: Owner,
+    pub matched: ArcRwSignal<String>,
+    base: Option<Oco<'static, str>>,
     tx: Sender<OutletViewFn<R>>,
     rx: Arc<Mutex<Option<Receiver<OutletViewFn<R>>>>>,
 }
@@ -200,6 +204,8 @@ where
             trigger: self.trigger.clone(),
             params: self.params.clone(),
             owner: self.owner.clone(),
+            matched: self.matched.clone(),
+            base: self.base.clone(),
             tx: self.tx.clone(),
             rx: self.rx.clone(),
         }
@@ -212,12 +218,14 @@ where
 {
     fn build_nested_route(
         self,
+        base: Option<Oco<'static, str>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     );
 
     fn rebuild_nested_route(
         self,
+        base: Option<Oco<'static, str>>,
         items: &mut usize,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
@@ -231,6 +239,7 @@ where
 {
     fn build_nested_route(
         self,
+        base: Option<Oco<'static, str>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
@@ -242,6 +251,10 @@ where
         // the params signal can be updated to allow the same outlet to update to changes in the
         // params, even if there's not a route match change
         let params = ArcRwSignal::new(self.to_params().into_iter().collect());
+
+        // the matched signal will also be updated on every match
+        // it's used for relative route resolution
+        let matched = ArcRwSignal::new(self.as_matched().to_string());
 
         // the trigger and channel will be used to send new boxed AnyViews to the Outlet;
         // whenever we match a different route, the trigger will be triggered and a new view will
@@ -259,8 +272,10 @@ where
             trigger,
             params,
             owner: owner.clone(),
+            matched: ArcRwSignal::new(self.as_matched().to_string()),
             tx: tx.clone(),
             rx: Arc::new(Mutex::new(Some(rx))),
+            base: base.clone(),
         };
         outlets.push(outlet.clone());
 
@@ -281,12 +296,13 @@ where
         // this is important because to build the view, we need access to the outlet
         // and the outlet will be returned from building this child
         if let Some(child) = child {
-            child.build_nested_route(outlets, &owner);
+            child.build_nested_route(base, outlets, &owner);
         }
     }
 
     fn rebuild_nested_route(
         self,
+        base: Option<Oco<'static, str>>,
         items: &mut usize,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
@@ -295,7 +311,7 @@ where
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(outlets, parent);
+                self.build_nested_route(base, outlets, parent);
             }
             Some(current) => {
                 // a unique ID for each route, which allows us to compare when we get new matches
@@ -304,11 +320,20 @@ where
                 let id = self.as_id();
 
                 // whether the route is the same or different, we always need to
-                // 1) update the params, and
+                // 1) update the params (if they've changed),
+                // 2) update the matched path (if it's changed),
                 // 2) access the view and children
-                current
-                    .params
-                    .set(self.to_params().into_iter().collect::<ParamsMap>());
+
+                let new_params =
+                    self.to_params().into_iter().collect::<ParamsMap>();
+                if current.params.read() != new_params {
+                    current.params.set(new_params);
+                }
+                let new_match = self.as_matched();
+                if &*current.matched.read() != new_match {
+                    current.matched.set(new_match);
+                }
+
                 let (view, child) = self.into_view_and_child();
 
                 // if the IDs don't match, everything below in the tree needs to be swapped:
@@ -345,7 +370,11 @@ where
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
                         let mut new_outlets = Vec::new();
-                        child.build_nested_route(&mut new_outlets, &owner);
+                        child.build_nested_route(
+                            base,
+                            &mut new_outlets,
+                            &owner,
+                        );
                         outlets.extend(new_outlets);
                     }
 
@@ -357,7 +386,7 @@ where
                 if let Some(child) = child {
                     let owner = current.owner.clone();
                     *items += 1;
-                    child.rebuild_nested_route(items, outlets, &owner);
+                    child.rebuild_nested_route(base, items, outlets, &owner);
                 }
             }
         }
@@ -401,6 +430,7 @@ where
         owner,
         tx,
         rx,
+        ..
     } = ctx;
     let rx = rx.lock().or_poisoned().take().expect(
         "Tried to render <Outlet/> but could not find the view receiver. Are \

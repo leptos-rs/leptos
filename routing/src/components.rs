@@ -9,7 +9,9 @@ use crate::{
 };
 use leptos::{
     children::{ToChildren, TypedChildren},
-    component, IntoView,
+    component,
+    oco::Oco,
+    IntoView,
 };
 use reactive_graph::{
     computed::ArcMemo,
@@ -141,6 +143,15 @@ impl RouterContext {
             state: options.state,
         });
     }
+
+    pub fn resolve_path<'a>(
+        &'a self,
+        path: &'a str,
+        from: Option<&'a str>,
+    ) -> Option<Cow<'a, str>> {
+        let base = self.base.as_deref().unwrap_or_default();
+        resolve_path(base, path, from)
+    }
 }
 
 impl Debug for RouterContext {
@@ -173,7 +184,6 @@ where
 
 #[component]
 pub fn Routes<Defs, FallbackFn, Fallback>(
-    #[prop(optional, into)] base: Option<Cow<'static, str>>,
     fallback: FallbackFn,
     children: RouteChildren<Defs>,
 ) -> impl IntoView
@@ -182,8 +192,15 @@ where
     FallbackFn: Fn() -> Fallback + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    let RouterContext { current_url, .. } = use_context()
+    let RouterContext {
+        current_url, base, ..
+    } = use_context()
         .expect("<Routes> should be used inside a <Router> component");
+    let base = base.map(|base| {
+        let mut base = Oco::from(base);
+        base.upgrade_inplace();
+        base
+    });
     let routes = Routes::new(children.into_inner());
     let path = ArcMemo::new({
         let url = current_url.clone();
@@ -201,7 +218,7 @@ where
         url: current_url.clone(),
         path: path.clone(),
         search_params: search_params.clone(),
-        base: base.clone(), // TODO is this necessary?
+        base: base.clone(),
         fallback: fallback(),
         rndr: PhantomData,
     }
