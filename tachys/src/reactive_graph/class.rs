@@ -1,7 +1,10 @@
 use super::RenderEffectState;
 use crate::{html::class::IntoClass, renderer::DomRenderer};
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
-use std::{borrow::Borrow, ops::Deref};
+use std::{
+    borrow::{Borrow, Cow},
+    ops::Deref,
+};
 
 impl<F, C, R> IntoClass<R> for F
 where
@@ -135,6 +138,92 @@ where
                 None => {
                     if include {
                         R::add_class(&class_list, name);
+                    }
+                }
+            }
+            (class_list.clone(), include)
+        })
+        .into()
+    }
+
+    fn rebuild(self, _state: &mut Self::State) {
+        // TODO rebuild?
+    }
+}
+
+impl<F, T, R> IntoClass<R> for (Vec<Cow<'static, str>>, F)
+where
+    F: FnMut() -> T + Send + 'static,
+    T: Borrow<bool>,
+    R: DomRenderer,
+{
+    type State = RenderEffectState<(R::ClassList, bool)>;
+
+    fn html_len(&self) -> usize {
+        self.0.iter().map(|n| n.len()).sum()
+    }
+
+    fn to_html(self, class: &mut String) {
+        let (names, mut f) = self;
+        let include = *f().borrow();
+        if include {
+            for name in names {
+                <&str as IntoClass<R>>::to_html(&name, class);
+            }
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+        // TODO FROM_SERVER vs template
+        let (names, mut f) = self;
+        let class_list = R::class_list(el);
+
+        RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
+            let include = *f().borrow();
+            if let Some((class_list, prev)) = prev {
+                if include {
+                    if !prev {
+                        for name in &names {
+                            // TODO multi-class optimizations here
+                            R::add_class(&class_list, name);
+                        }
+                    }
+                } else if prev {
+                    for name in &names {
+                        R::remove_class(&class_list, name);
+                    }
+                }
+            }
+            (class_list.clone(), include)
+        })
+        .into()
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        let (names, mut f) = self;
+        let class_list = R::class_list(el);
+
+        RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
+            let include = *f().borrow();
+            match prev {
+                Some((class_list, prev)) => {
+                    if include {
+                        for name in &names {
+                            if !prev {
+                                R::add_class(&class_list, name);
+                            }
+                        }
+                    } else if prev {
+                        for name in &names {
+                            R::remove_class(&class_list, name);
+                        }
+                    }
+                }
+                None => {
+                    if include {
+                        for name in &names {
+                            R::add_class(&class_list, name);
+                        }
                     }
                 }
             }
