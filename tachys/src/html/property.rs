@@ -150,6 +150,44 @@ macro_rules! prop_type {
                 *prev = value;
             }
         }
+
+        impl<R> IntoProperty<R> for Option<$prop_type>
+        where
+            R: DomRenderer,
+        {
+            type State = (R::Element, JsValue);
+
+            fn hydrate<const FROM_SERVER: bool>(
+                self,
+                el: &R::Element,
+                key: &str,
+            ) -> Self::State {
+                let was_some = self.is_some();
+                let value = self.into();
+                if was_some {
+                    R::set_property(el, key, &value);
+                }
+                (el.clone(), value)
+            }
+
+            fn build(self, el: &R::Element, key: &str) -> Self::State {
+                let was_some = self.is_some();
+                let value = self.into();
+                if was_some {
+                    R::set_property(el, key, &value);
+                }
+                (el.clone(), value)
+            }
+
+            fn rebuild(self, state: &mut Self::State, key: &str) {
+                let (el, prev) = state;
+                let value = self.into();
+                if value != *prev {
+                    R::set_property(el, key, &value);
+                }
+                *prev = value;
+            }
+        }
     };
 }
 

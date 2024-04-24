@@ -17,6 +17,7 @@ use log::{debug, info};
 use routing::{
     components::{ParentRoute, Redirect, Route, Router, Routes},
     hooks::{use_location, use_navigate, use_params},
+    link::A,
     location::{BrowserUrl, Location},
     params::Params,
     MatchNestedRoutes, NestedRoute, Outlet, ParamSegment, StaticSegment,
@@ -35,17 +36,15 @@ pub fn RouterExample() -> impl IntoView {
     view! {
         <Router>
             <nav>
-                // TODO <A>
                 // ordinary <a> elements can be used for client-side navigation
                 // using <A> has two effects:
                 // 1) ensuring that relative routing works properly for nested routes
                 // 2) setting the `aria-current` attribute on the current link,
                 // for a11y and styling purposes
-
-                <a href="/contacts">"Contacts"</a>
-                <a href="/about">"About"</a>
-                <a href="/settings">"Settings"</a>
-                <a href="/redirect-home">"Redirect to Home"</a>
+                <A href="/contacts">"Contacts"</A>
+                <A href="/about">"About"</A>
+                <A href="/settings">"Settings"</A>
+                <A href="/redirect-home">"Redirect to Home"</A>
             </nav>
             <main>
                 <Routes fallback=|| "This page could not be found.">
@@ -67,7 +66,7 @@ pub fn RouterExample() -> impl IntoView {
 #[component]
 pub fn ContactRoutes() -> impl MatchNestedRoutes<Dom> + Clone {
     view! {
-        <ParentRoute path=StaticSegment("") view=ContactList>
+        <ParentRoute path=StaticSegment("contacts") view=ContactList>
             <Route path=StaticSegment("") view=|| "Select a contact."/>
             <Route path=ParamSegment("id") view=Contact/>
         </ParentRoute>
@@ -93,9 +92,8 @@ pub fn ContactList() -> impl IntoView {
             contacts.await
                 .into_iter()
                 .map(|contact| {
-                    // TODO <A>
                     view! {
-                        <li><a href=contact.id.to_string()><span>{contact.first_name} " " {contact.last_name}</span></a></li>
+                        <li><A href=contact.id.to_string()><span>{contact.first_name} " " {contact.last_name}</span></A></li>
                     }
                 })
                 .collect::<Vec<_>>()
