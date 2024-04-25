@@ -39,7 +39,6 @@ ssr = [
 	"dep:tower",
 	"dep:tower-http",
 	"dep:tokio",
-	"dep:sqlx",
 	"leptos/ssr",
 	"dep:leptos_axum",
 ]

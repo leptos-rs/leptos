@@ -6,6 +6,7 @@ pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
+use crate::{Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
 use std::{borrow::Cow, marker::PhantomData};
@@ -91,7 +92,7 @@ where
         &self,
     ) -> (
         Option<&str>,
-        impl IntoIterator<Item = Vec<PathSegment>> + '_,
+        impl IntoIterator<Item = GeneratedRouteData> + '_,
     ) {
         (self.base.as_deref(), self.children.generate_routes())
     }
@@ -137,7 +138,13 @@ where
 
     fn generate_routes(
         &self,
-    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_;
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_;
+}
+
+#[derive(Default)]
+pub(crate) struct GeneratedRouteData {
+    pub segments: Vec<PathSegment>,
+    pub ssr_mode: SsrMode,
 }
 
 #[cfg(test)]
