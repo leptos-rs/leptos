@@ -1,5 +1,5 @@
 use super::{MatchInterface, MatchNestedRoutes, PathSegment, RouteMatchId};
-use crate::{ChooseView, MatchParams};
+use crate::{ChooseView, GeneratedRouteData, MatchParams};
 use core::iter;
 use either_of::*;
 use std::{any::Any, borrow::Cow};
@@ -55,8 +55,11 @@ where
 
     fn generate_routes(
         &self,
-    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
-        iter::once(vec![PathSegment::Unit])
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
+        iter::once(GeneratedRouteData {
+            segments: vec![PathSegment::Unit],
+            ..Default::default()
+        })
     }
 }
 
@@ -115,7 +118,7 @@ where
 
     fn generate_routes(
         &self,
-    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
         self.0.generate_routes()
     }
 }
@@ -207,7 +210,7 @@ where
 
     fn generate_routes(
         &self,
-    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
         #![allow(non_snake_case)]
 
         let (A, B) = &self;
@@ -304,7 +307,7 @@ macro_rules! tuples {
 
             fn generate_routes(
                 &self,
-            ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+            ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
                 #![allow(non_snake_case)]
 
                 let ($($ty,)*) = &self;

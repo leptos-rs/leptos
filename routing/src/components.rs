@@ -1,11 +1,12 @@
 use crate::{
     hooks::use_navigate,
     location::{
-        BrowserUrl, Location, LocationChange, LocationProvider, State, Url,
+        BrowserUrl, Location, LocationChange, LocationProvider, RequestUrl,
+        State, Url,
     },
     navigate::{NavigateOptions, UseNavigate},
     resolve_path::resolve_path,
-    MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes,
+    MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes, SsrMode,
 };
 use leptos::{
     children::{ToChildren, TypedChildren},
@@ -69,10 +70,18 @@ pub fn Router<Chil>(
 where
     Chil: IntoView,
 {
-    let location =
-        BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
-    location.init(base.clone());
-    let current_url = location.as_url().clone();
+    let current_url = if Owner::current_shared_context()
+        .map(|sc| sc.is_browser())
+        .unwrap_or(false)
+    {
+        let location = BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
+        location.init(base.clone());
+        location.as_url().clone()
+    } else {
+        let req = use_context::<RequestUrl>().expect("no RequestUrl provided");
+        let parsed = req.parse().expect("could not parse RequestUrl");
+        ArcRwSignal::new(parsed)
+    };
 
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
@@ -228,11 +237,12 @@ where
 pub fn Route<Segments, View, ViewFn>(
     path: Segments,
     view: ViewFn,
+    #[prop(optional)] ssr: SsrMode,
 ) -> NestedRoute<Segments, (), (), ViewFn, Dom>
 where
     ViewFn: Fn() -> View,
 {
-    NestedRoute::new(path, view)
+    NestedRoute::new(path, view, ssr)
 }
 
 #[component]
@@ -240,12 +250,13 @@ pub fn ParentRoute<Segments, View, Children, ViewFn>(
     path: Segments,
     view: ViewFn,
     children: RouteChildren<Children>,
+    #[prop(optional)] ssr: SsrMode,
 ) -> NestedRoute<Segments, Children, (), ViewFn, Dom>
 where
     ViewFn: Fn() -> View,
 {
     let children = children.into_inner();
-    NestedRoute::new(path, view).child(children)
+    NestedRoute::new(path, view, ssr).child(children)
 }
 
 /// Redirects the user to a new URL, whether on the client side or on the server
