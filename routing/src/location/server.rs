@@ -24,16 +24,13 @@ impl Default for RequestUrl {
 }
 
 impl RequestUrl {
-    pub fn parse(url: &str) -> Result<Url, url::ParseError> {
-        Self::parse_with_base(url, BASE)
+    pub fn parse(&self) -> Result<Url, url::ParseError> {
+        self.parse_with_base(BASE)
     }
 
-    pub fn parse_with_base(
-        url: &str,
-        base: &str,
-    ) -> Result<Url, url::ParseError> {
+    pub fn parse_with_base(&self, base: &str) -> Result<Url, url::ParseError> {
         let base = url::Url::parse(base)?;
-        let url = url::Url::options().base_url(Some(&base)).parse(url)?;
+        let url = url::Url::options().base_url(Some(&base)).parse(&self.0)?;
 
         let search_params = url
             .query_pairs()

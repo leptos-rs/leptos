@@ -53,6 +53,7 @@ use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
     reactive_graph::{computed::ScopedFuture, owner::Owner},
+    tachys::ssr::StreamBuilder,
     IntoView,
 };
 use leptos_meta::{MetaContext, ServerMetaContext};
@@ -458,7 +459,7 @@ pub fn render_app_to_stream<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     render_app_to_stream_with_context(options, || {}, app_fn)
 }
@@ -480,7 +481,7 @@ pub fn render_route<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     render_route_with_context(options, paths, || {}, app_fn)
 }
@@ -549,7 +550,7 @@ pub fn render_app_to_stream_in_order<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     render_app_to_stream_in_order_with_context(options, || {}, app_fn)
 }
@@ -591,7 +592,7 @@ pub fn render_app_to_stream_with_context<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     render_app_to_stream_with_context_and_replace_blocks(
         options,
@@ -619,7 +620,7 @@ pub fn render_route_with_context<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     let ooo = render_app_to_stream_with_context(
         LeptosOptions::from_ref(&options),
@@ -652,11 +653,8 @@ where
             .as_str();
         // 2. Find RouteListing in paths. This should probably be optimized, we probably don't want to
         // search for this every time
-        let listing: &AxumRouteListing = paths
-            .iter()
-            // TODO this should be cached rather than recalculating the Axum version of the path
-            .find(|r| r.path() == path)
-            .unwrap_or_else(|| {
+        let listing: &AxumRouteListing =
+            paths.iter().find(|r| r.path() == path).unwrap_or_else(|| {
                 panic!(
                     "Failed to find the route {path} requested by the user. \
                      This suggests that the routing rules in the Router that \
@@ -706,144 +704,11 @@ pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    move |req: Request<Body>| {
-        let options = options.clone();
-        let app_fn = app_fn.clone();
-        let add_context = additional_context.clone();
-        let default_res_options = ResponseOptions::default();
-        let res_options2 = default_res_options.clone();
-        let res_options3 = default_res_options.clone();
-
-        let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
-        Box::pin(Sandboxed::new(async move {
-            let meta_context = ServerMetaContext::new();
-            let stream = owner.with(|| {
-                // Need to get the path and query string of the Request
-                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                let path = req.uri().path_and_query().unwrap().as_str();
-
-                let full_path = format!("http://leptos.dev{path}");
-                let (_, req_parts) = generate_request_and_parts(req);
-                provide_contexts(
-                    &full_path,
-                    &meta_context,
-                    req_parts,
-                    default_res_options,
-                );
-                add_context();
-
-                // run app
-                let app = app_fn();
-
-                // convert app to appropriate response type
-                let app_stream = app.to_html_stream_out_of_order();
-
-                // TODO nonce
-
-                let shared_context = Owner::current_shared_context().unwrap();
-                let chunks = Box::pin(
-                    shared_context
-                        .pending_data()
-                        .unwrap()
-                        .map(|chunk| format!("<script>{chunk}</script>")),
-                );
-                futures::stream::select(app_stream, chunks)
-            });
-
-            let stream = meta_context.inject_meta_context(stream).await;
-
-            Html(Body::from_stream(Sandboxed::new(
-                stream
-                    .map(|chunk| Ok(chunk) as Result<String, std::io::Error>)
-                    // drop the owner, cleaning up the reactive runtime,
-                    // once the stream is over
-                    .chain(once(async move {
-                        drop(owner);
-                        Ok(Default::default())
-                    })),
-            )))
-            .into_response()
-        }))
-    }
-}
-
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-async fn generate_response(
-    res_options: ResponseOptions,
-    rx: Receiver<String>,
-) -> Response<Body> {
-    todo!() /*
-            let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
-
-            // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
-            let first_chunk = stream.next().await;
-
-            let second_chunk = stream.next().await;
-
-            // Extract the resources now that they've been rendered
-            let res_options = res_options.0.read();
-
-            let complete_stream =
-                futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-                    .chain(stream);
-
-            let mut res =
-                Body::from_stream(Box::pin(complete_stream) as PinnedHtmlStream)
-                    .into_response();
-
-            if let Some(status) = res_options.status {
-                *res.status_mut() = status
-            }
-
-            let headers = res.headers_mut();
-
-            let mut res_headers = res_options.headers.clone();
-            headers.extend(res_headers.drain());
-
-            if !headers.contains_key(header::CONTENT_TYPE) {
-                // Set the Content Type headers on all responses. This makes Firefox show the page source
-                // without complaining
-                headers.insert(
-                    header::CONTENT_TYPE,
-                    HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
-                );
-            }
-            res*/
-}
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-async fn forward_stream(
-    options: &LeptosOptions,
-    res_options2: ResponseOptions,
-    bundle: impl Stream<Item = String> + 'static,
-    mut tx: Sender<String>,
-) {
-    /*let mut shell = Box::pin(bundle);
-    let first_app_chunk = shell.next().await.unwrap_or_default();
-
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>().as_ref());
-
-    _ = tx.send(head).await;
-
-    _ = tx.send(first_app_chunk).await;
-
-    while let Some(fragment) = shell.next().await {
-        _ = tx.send(fragment).await;
-    }
-
-    _ = tx.send(tail.to_string()).await;
-
-    // Extract the value of ResponseOptions from here
-    let res_options = use_context::<ResponseOptions>().unwrap();
-
-    let new_res_parts = res_options.0.read().clone();
-
-    let mut writable = res_options2.0.write();
-    *writable = new_res_parts;
-
-    tx.close_channel();*/
+    handle_response(options, additional_context, app_fn, |app| {
+        Box::pin(app.to_html_stream_out_of_order())
+    })
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -885,55 +750,103 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    |req| todo!()
-    /*
-    move |req: Request<Body>| {
-        Box::pin({
-            let options = options.clone();
-            let app_fn = app_fn.clone();
-            let add_context = additional_context.clone();
-            let default_res_options = ResponseOptions::default();
-            let res_options2 = default_res_options.clone();
-            let res_options3 = default_res_options.clone();
+    handle_response(options, additional_context, app_fn, |app| {
+        Box::pin(app.to_html_stream_in_order())
+    })
+}
 
-            async move {
+fn handle_response<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    stream_builder: fn(IV) -> Pin<Box<dyn Stream<Item = String> + Send>>,
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView + 'static,
+{
+    move |req: Request<Body>| {
+        let options = options.clone();
+        let app_fn = app_fn.clone();
+        let add_context = additional_context.clone();
+        let res_options = ResponseOptions::default();
+
+        let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
+        Box::pin(Sandboxed::new(async move {
+            let meta_context = ServerMetaContext::new();
+            let stream = owner.with(|| {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
                 let path = req.uri().path_and_query().unwrap().as_str();
 
                 let full_path = format!("http://leptos.dev{path}");
+                let (_, req_parts) = generate_request_and_parts(req);
+                provide_contexts(
+                    &full_path,
+                    &meta_context,
+                    req_parts,
+                    res_options.clone(),
+                );
+                add_context();
 
-                let (tx, rx) = futures::channel::mpsc::channel(8);
-                let current_span = tracing::Span::current();
-                spawn_task!(async move {
-                    let app = {
-                        let full_path = full_path.clone();
-                        let (parts, _) = req.into_parts();
-                        move || {
-                            provide_contexts(full_path, parts, default_res_options);
-                            app_fn().into_view()
-                        }
-                    };
+                // run app
+                let app = app_fn();
 
-                    let (bundle, runtime) =
-                        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
-                            app,
-                            || generate_head_metadata_separated().1.into(),
-                            add_context,
-                        );
+                // convert app to appropriate response type
+                let app_stream = stream_builder(app);
 
-                    forward_stream(&options, res_options2, bundle, tx).await;
+                // TODO nonce
 
-                    runtime.dispose();
-                }.instrument(current_span));
+                let shared_context = Owner::current_shared_context().unwrap();
+                let chunks = Box::pin(
+                    shared_context
+                        .pending_data()
+                        .unwrap()
+                        .map(|chunk| format!("<script>{chunk}</script>")),
+                );
+                futures::stream::select(app_stream, chunks)
+            });
 
-                generate_response(res_options3, rx).await
+            let stream = meta_context.inject_meta_context(stream).await;
+
+            // TODO test this
+            /*if let Some(status) = res_options.status {
+                *res.status_mut() = status
             }
-        })
-    }*/
+
+            let headers = res.headers_mut();
+
+            let mut res_headers = res_options.headers.clone();
+            headers.extend(res_headers.drain());
+
+            if !headers.contains_key(header::CONTENT_TYPE) {
+                // Set the Content Type headers on all responses. This makes Firefox show the page source
+                // without complaining
+                headers.insert(
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
+                );
+            }*/
+
+            Html(Body::from_stream(Sandboxed::new(
+                stream
+                    .map(|chunk| Ok(chunk) as Result<String, std::io::Error>)
+                    // drop the owner, cleaning up the reactive runtime,
+                    // once the stream is over
+                    .chain(once(async move {
+                        drop(owner);
+                        Ok(Default::default())
+                    })),
+            )))
+            .into_response()
+        }))
+    }
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
@@ -1012,12 +925,12 @@ pub fn render_app_async<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<String>> + Send + 'static>>
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
        + Clone
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     render_app_async_with_context(options, || {}, app_fn)
 }
@@ -1060,96 +973,15 @@ pub fn render_app_async_stream_with_context<IV>(
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    move |req: Request<Body>| {
-        todo!()
-        /*Box::pin({
-            let options = options.clone();
-            let app_fn = app_fn.clone();
-            let add_context = additional_context.clone();
-            let default_res_options = ResponseOptions::default();
-            let res_options2 = default_res_options.clone();
-            let res_options3 = default_res_options.clone();
+    handle_response(options, additional_context, app_fn, |app| {
+        Box::pin(futures::stream::once(async move {
+            use futures::StreamExt;
 
-            async move {
-                // Need to get the path and query string of the Request
-                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                let path = req.uri().path_and_query().unwrap().as_str();
-
-                let full_path = format!("http://leptos.dev{path}");
-
-                let (tx, rx) = futures::channel::oneshot::channel();
-                spawn_task!(async move {
-                    let app = {
-                        let full_path = full_path.clone();
-                        let (_, req_parts) = generate_request_and_parts(req);
-                        move || {
-                            provide_contexts(
-                                full_path,
-                                req_parts,
-                                default_res_options,
-                            );
-                            app_fn().into_view()
-                        }
-                    };
-
-                    let (stream, runtime) =
-                        render_to_stream_in_order_with_prefix_undisposed_with_context(
-                            app,
-                            || "".into(),
-                            add_context,
-                        );
-
-                    // Extract the value of ResponseOptions from here
-                    let res_options = use_context::<ResponseOptions>().unwrap();
-
-                    let html =
-                        build_async_response(stream, &options, runtime).await;
-
-                    let new_res_parts = res_options.0.read().clone();
-
-                    let mut writable = res_options2.0.write();
-                    *writable = new_res_parts;
-
-                    _ = tx.send(html);
-                });
-
-                let html = rx.await.expect("to complete HTML rendering");
-
-                let res_options = res_options3.0.read();
-
-                let complete_stream =
-                    futures::stream::iter([Ok(Bytes::from(html))]);
-
-                let mut res = Body::from_stream(
-                    Box::pin(complete_stream) as PinnedHtmlStream
-                )
-                .into_response();
-                if let Some(status) = res_options.status {
-                    *res.status_mut() = status
-                }
-                let headers = res.headers_mut();
-                let mut res_headers = res_options.headers.clone();
-
-                headers.extend(res_headers.drain());
-
-                // This one doesn't use generate_response(), so we need to do this separately
-                if !headers.contains_key(header::CONTENT_TYPE) {
-                    // Set the Content Type headers on all responses. This makes Firefox show the page source
-                    // without complaining
-                    headers.insert(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_str("text/html; charset=utf-8")
-                            .unwrap(),
-                    );
-                }
-
-                res
-            }
-        })*/
-    }
+            app.to_html_stream_out_of_order().collect::<String>().await
+        }))
+    })
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1185,84 +1017,20 @@ pub fn render_app_async_with_context<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<String>> + Send + 'static>>
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
        + Clone
        + Send
        + 'static
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    |_| todo!()
-    /*    move |req: Request<Body>| {
-        Box::pin({
-            let options = options.clone();
-            let app_fn = app_fn.clone();
-            let add_context = additional_context.clone();
-            let default_res_options = ResponseOptions::default();
-            let res_options2 = default_res_options.clone();
-            let res_options3 = default_res_options.clone();
+    handle_response(options, additional_context, app_fn, |app| {
+        Box::pin(futures::stream::once(async move {
+            use futures::StreamExt;
 
-            async move {
-                // Need to get the path and query string of the Request
-                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                let path = req.uri().path_and_query().unwrap().as_str();
-
-                let full_path = format!("http://leptos.dev{path}");
-
-                let (tx, rx) = futures::channel::oneshot::channel();
-
-                spawn_task!(async move {
-                    let app = {
-                        let full_path = full_path.clone();
-                        let (_, req_parts) = generate_request_and_parts(req);
-                        move || {
-                            provide_contexts(
-                                full_path,
-                                req_parts,
-                                default_res_options,
-                            );
-                            app_fn().into_view()
-                        }
-                    };
-
-                    let (stream, runtime) =
-                            render_to_stream_in_order_with_prefix_undisposed_with_context(
-                                app,
-                                || "".into(),
-                                add_context,
-                            );
-
-                    // Extract the value of ResponseOptions from here
-                    let res_options = use_context::<ResponseOptions>().unwrap();
-
-                    let html =
-                        build_async_response(stream, &options, runtime).await;
-
-                    let new_res_parts = res_options.0.read().clone();
-
-                    let mut writable = res_options2.0.write();
-                    *writable = new_res_parts;
-
-                    _ = tx.send(html);
-                });
-
-                let html = rx.await.expect("to complete HTML rendering");
-
-                let mut res = Response::new(html);
-
-                let res_options = res_options3.0.read();
-
-                if let Some(status) = res_options.status {
-                    *res.status_mut() = status
-                }
-                let mut res_headers = res_options.headers.clone();
-                res.headers_mut().extend(res_headers.drain());
-
-                res
-            }
-        })
-    }*/
+            app.to_html_stream_out_of_order().collect::<String>().await
+        }))
+    })
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
