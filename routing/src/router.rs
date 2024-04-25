@@ -212,7 +212,7 @@ where
             let (base, routes) = self.routes.generate_routes();
             let mut routes = routes
                 .into_iter()
-                .map(|segments| {
+                .map(|data| {
                     let path = base
                         .into_iter()
                         .flat_map(|base| {
@@ -220,13 +220,13 @@ where
                                 base.to_string().into(),
                             ))
                         })
-                        .chain(segments)
+                        .chain(data.segments)
                         .collect::<Vec<_>>();
                     // TODO add non-defaults for mode, etc.
                     RouteListing::new(
                         path,
-                        SsrMode::OutOfOrder,
-                        [Method::Get],
+                        data.ssr_mode,
+                        data.methods,
                         None,
                     )
                 })
