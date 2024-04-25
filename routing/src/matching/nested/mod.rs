@@ -2,7 +2,7 @@ use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
     PossibleRouteMatch, RouteMatchId,
 };
-use crate::{ChooseView, MatchParams};
+use crate::{ChooseView, MatchParams, SsrMode, GeneratedRouteData};
 use core::{fmt, iter};
 use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}};
 use either_of::Either;
@@ -23,18 +23,19 @@ pub struct NestedRoute<Segments, Children, Data, ViewFn, R> {
     pub data: Data,
     pub view: ViewFn,
     pub rndr: PhantomData<R>,
+    pub ssr_mode: SsrMode
 }
 
 impl<Segments, Children, Data, ViewFn, R> Clone for NestedRoute<Segments, Children, Data, ViewFn, R> where Segments: Clone, Children: Clone, Data: Clone, ViewFn: Clone{
     fn clone(&self) -> Self {
         Self {
-            id: self.id,segments: self.segments.clone(),children: self.children.clone(),data: self.data.clone(), view: self.view.clone(), rndr: PhantomData
+            id: self.id,segments: self.segments.clone(),children: self.children.clone(),data: self.data.clone(), view: self.view.clone(), rndr: PhantomData, ssr_mode: self.ssr_mode
         }
     }
 }
 
 impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
-    pub fn new<View>(path: Segments, view: ViewFn) -> Self
+    pub fn new<View>(path: Segments, view: ViewFn, ssr_mode: SsrMode) -> Self
     where
         ViewFn: Fn() -> View,
         R: Renderer + 'static,
@@ -46,6 +47,7 @@ impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
             data: (),
             view,
             rndr: PhantomData,
+            ssr_mode
         }
     }
 }
@@ -61,6 +63,7 @@ impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
             data,
             view,
             rndr,
+            ssr_mode,
             ..
         } = self;
         NestedRoute {
@@ -69,6 +72,7 @@ impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
             children: Some(child),
             data,
             view,
+            ssr_mode,
             rndr,
         }
     }
@@ -219,14 +223,31 @@ where
 
     fn generate_routes(
         &self,
-    ) -> impl IntoIterator<Item = Vec<PathSegment>> + '_ {
+    ) -> impl IntoIterator<Item = GeneratedRouteData> + '_ {
         let mut segment_routes = Vec::new();
         self.segments.generate_path(&mut segment_routes);
         let children = self.children.as_ref();
+        let ssr_mode = self.ssr_mode;
+
         match children {
-            None => Either::Left(iter::once(segment_routes)),
+            None => Either::Left(iter::once(GeneratedRouteData {
+                segments: segment_routes,
+                    ssr_mode
+            })),
             Some(children) => {
-                Either::Right(children.generate_routes().into_iter())
+                Either::Right(children.generate_routes().into_iter().map(move |child| {
+                    if child.ssr_mode > ssr_mode {
+                        GeneratedRouteData {
+                            segments: child.segments ,
+                            ssr_mode: child.ssr_mode,
+                        }
+                    } else {
+                        GeneratedRouteData {
+                            segments: child.segments ,
+                            ssr_mode,
+                        }
+                    }
+                }))
             }
         }
     }

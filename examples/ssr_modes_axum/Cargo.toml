@@ -13,7 +13,7 @@ lazy_static = "1"
 leptos = { path = "../../leptos"}
 leptos_meta = { path = "../../meta" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
-leptos_router = { path = "../../router" }
+routing = { path = "../../routing" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
@@ -24,16 +24,14 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"], optio
 wasm-bindgen = "0.2"
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+hydrate = ["leptos/hydrate"]
 ssr = [
-  "dep:axum",
-  "dep:tower",
-  "dep:tower-http",
-  "dep:tokio",
-  "leptos/ssr",
-  "leptos_meta/ssr",
-  "leptos_router/ssr",
-  "dep:leptos_axum",
+	"dep:axum",
+	"dep:tower",
+	"dep:tower-http",
+	"dep:tokio",
+	"leptos/ssr",
+	"dep:leptos_axum",
 ]
 
 [package.metadata.cargo-all-features]
