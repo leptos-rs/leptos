@@ -1,9 +1,10 @@
 use crate::{
-    location::{Location, Url},
+    location::{Location, RequestUrl, Url},
     matching::Routes,
     params::ParamsMap,
     resolve_path::resolve_path,
-    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, RouteMatchId,
+    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
+    PathSegment, RouteList, RouteListing, RouteMatchId,
 };
 use either_of::Either;
 use leptos::{component, oco::Oco, IntoView};
@@ -16,6 +17,7 @@ use reactive_graph::{
 };
 use std::{
     borrow::Cow,
+    iter,
     marker::PhantomData,
     mem,
     sync::{
@@ -25,10 +27,11 @@ use std::{
 };
 use tachys::{
     renderer::Renderer,
+    ssr::StreamBuilder,
     view::{
         any_view::{AnyView, AnyViewState, IntoAny},
         either::EitherState,
-        Mountable, Render, RenderHtml,
+        Mountable, Position, Render, RenderHtml,
     },
 };
 
@@ -150,12 +153,86 @@ where
         self
     }
 
-    fn to_html_with_buf(
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        // if this is being run on the server for the first time, generating all possible routes
+        if RouteList::is_generating() {
+            // add routes
+            let (base, routes) = self.routes.generate_routes();
+            let mut routes = routes
+                .into_iter()
+                .map(|data| {
+                    let path = base
+                        .into_iter()
+                        .flat_map(|base| {
+                            iter::once(PathSegment::Static(
+                                base.to_string().into(),
+                            ))
+                        })
+                        .chain(data.segments)
+                        .collect::<Vec<_>>();
+                    RouteListing::new(
+                        path,
+                        data.ssr_mode,
+                        // TODO methods
+                        [Method::Get],
+                        // TODO static data
+                        None,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+                println!("routes = {routes:#?}");
+
+            // add fallback
+            // TODO fix: causes overlapping route issues on Axum
+            /*routes.push(RouteListing::new(
+                [PathSegment::Static(
+                    base.unwrap_or_default().to_string().into(),
+                )],
+                SsrMode::Async,
+                [
+                    Method::Get,
+                    Method::Post,
+                    Method::Put,
+                    Method::Patch,
+                    Method::Delete,
+                ],
+                None,
+            ));*/
+
+            RouteList::register(RouteList::from(routes));
+        } else {
+            let outer_owner = Owner::current()
+                .expect("creating Router, but no Owner was found");
+            let url = use_context::<RequestUrl>()
+                .expect("could not find request URL in context");
+            // TODO base
+            let url = if let Some(base) = &self.base {
+                url.parse_with_base(base.as_ref())
+            } else {
+                url.parse()
+            }
+            .expect("could not parse URL");
+            // TODO query params
+            let new_match = self.routes.match_route(url.path());
+            /*match new_match {
+                Some(matched) => {
+                    Either::Left(NestedRouteView::new(&outer_owner, matched))
+                }
+                _ => Either::Right((self.fallback)()),
+            }
+            .to_html_with_buf(buf, position)*/
+            todo!()
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut String,
-        position: &mut tachys::view::Position,
-    ) {
-        todo!()
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+    ) where
+        Self: Sized,
+    {
     }
 
     fn hydrate<const FROM_SERVER: bool>(
