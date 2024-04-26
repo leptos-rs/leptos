@@ -65,4 +65,7 @@ impl SharedContext for CsrSharedContext {
         _error: any_error::Error,
     ) {
     }
+
+    #[inline(always)]
+    fn seal_errors(&self, boundary_id: &SerializedDataId) {}
 }
