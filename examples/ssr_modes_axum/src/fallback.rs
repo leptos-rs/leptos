@@ -22,7 +22,8 @@ pub async fn file_and_error_handler(
     } else {
         let handler = leptos_axum::render_app_to_stream(
             options.to_owned(),
-            move || view! { <App/> },
+            //move || view! { <App/> },
+            move || "404",
         );
         handler(req).await.into_response()
     }

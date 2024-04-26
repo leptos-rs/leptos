@@ -5,6 +5,7 @@ async fn main() {
     use leptos::{logging::log, config::get_configuration, view, HydrationScripts};
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
+    use leptos_meta::MetaTags;
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
@@ -32,6 +33,7 @@ async fn main() {
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
                             // <AutoReload options=app_state.leptos_options.clone() />
                             <HydrationScripts options=leptos_options.clone()/>
+                            <MetaTags/>
                             <link rel="stylesheet" id="leptos" href="/pkg/benwis_leptos.css"/>
                             <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
                         </head>

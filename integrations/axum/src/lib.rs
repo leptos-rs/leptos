@@ -397,6 +397,7 @@ async fn handle_server_fns_inner(
 
 pub type PinnedHtmlStream =
     Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
+type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
@@ -706,8 +707,11 @@ pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app| {
-        Box::pin(app.to_html_stream_out_of_order())
+    handle_response(options, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            Box::pin(app.to_html_stream_out_of_order().chain(chunks()))
+                as PinnedStream<String>
+        })
     })
 }
 
@@ -752,8 +756,11 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app| {
-        Box::pin(app.to_html_stream_in_order())
+    handle_response(options, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            Box::pin(app.to_html_stream_in_order().chain(chunks()))
+                as PinnedStream<String>
+        })
     })
 }
 
@@ -761,7 +768,15 @@ fn handle_response<IV>(
     options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
-    stream_builder: fn(IV) -> Pin<Box<dyn Stream<Item = String> + Send>>,
+    stream_builder: fn(
+        IV,
+        Box<dyn FnOnce() -> Pin<Box<dyn Stream<Item = String> + Send>> + Send>,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Pin<Box<dyn Stream<Item = String> + Send>>>
+                + Send,
+        >,
+    >,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
@@ -780,7 +795,7 @@ where
         let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
         Box::pin(Sandboxed::new(async move {
             let meta_context = ServerMetaContext::new();
-            let stream = owner.with(|| {
+            let stream = ScopedFuture::new(owner.with(|| {
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
                 let path = req.uri().path_and_query().unwrap().as_str();
@@ -798,21 +813,30 @@ where
                 // run app
                 let app = app_fn();
 
-                // convert app to appropriate response type
-                let app_stream = stream_builder(app);
-
                 // TODO nonce
 
                 let shared_context = Owner::current_shared_context().unwrap();
-                let chunks = Box::pin(
-                    shared_context
-                        .pending_data()
-                        .unwrap()
-                        .map(|chunk| format!("<script>{chunk}</script>")),
-                );
-                futures::stream::select(app_stream, chunks)
-            });
+                let chunks = Box::new(move || {
+                    Box::pin(
+                        shared_context
+                            .pending_data()
+                            .unwrap()
+                            .map(|chunk| format!("<script>{chunk}</script>")),
+                    )
+                        as Pin<Box<dyn Stream<Item = String> + Send>>
+                });
 
+                // convert app to appropriate response type
+                // and chain the app stream, followed by chunks
+                // in theory, we could select here, and intersperse them
+                // the problem is that during the DOM walk, that would be mean random <script> tags
+                // interspersed where we expect other children
+                //
+                // we also don't actually start hydrating until after the whole stream is complete,
+                // so it's not useful to send those scripts down earlier.
+                stream_builder(app, chunks)
+            }));
+            let stream = stream.await;
             let stream = meta_context.inject_meta_context(stream).await;
 
             // TODO test this
@@ -975,12 +999,13 @@ pub fn render_app_async_stream_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app| {
-        Box::pin(futures::stream::once(async move {
-            use futures::StreamExt;
-
-            app.to_html_stream_out_of_order().collect::<String>().await
-        }))
+    handle_response(options, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            let app = app.to_html_stream_in_order().collect::<String>().await;
+            let chunks = chunks();
+            Box::pin(once(async move { app }).chain(chunks))
+                as PinnedStream<String>
+        })
     })
 }
 
@@ -1024,12 +1049,13 @@ pub fn render_app_async_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app| {
-        Box::pin(futures::stream::once(async move {
-            use futures::StreamExt;
-
-            app.to_html_stream_out_of_order().collect::<String>().await
-        }))
+    handle_response(options, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            let app = app.to_html_stream_in_order().collect::<String>().await;
+            let chunks = chunks();
+            Box::pin(once(async move { app }).chain(chunks))
+                as PinnedStream<String>
+        })
     })
 }
 
