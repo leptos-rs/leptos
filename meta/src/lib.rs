@@ -288,6 +288,7 @@ where
 {
     let mut el = Some(el);
 
+    #[cfg(feature = "ssr")]
     if let Some(cx) = use_context::<ServerMetaContext>() {
         let mut inner = cx.inner.write().or_poisoned();
         el.take()
@@ -457,79 +458,4 @@ impl RenderHtml<Dom> for MetaTagsView {
         position: &PositionState,
     ) -> Self::State {
     }
-}
-
-impl MetaContext {
-    // TODO remove the below?
-
-    #[cfg(feature = "ssr")]
-    /// Converts the existing metadata tags into HTML that can be injected into the document head.
-    ///
-    /// This should be called *after* the app’s component tree has been rendered into HTML, so that
-    /// components can set meta tags.
-    ///
-    /// ```
-    /// use leptos::*;
-    /// use leptos_meta::*;
-    ///
-    /// # #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-    /// # let runtime = create_runtime();
-    ///   provide_meta_context();
-    ///
-    ///   let app = view! {
-    ///     <main>
-    ///       <Title text="my title"/>
-    ///       <Stylesheet href="/style.css"/>
-    ///       <p>"Some text"</p>
-    ///     </main>
-    ///   };
-    ///
-    ///   // `app` contains only the body content w/ hydration stuff, not the meta tags
-    ///   assert!(
-    ///      !app.into_view().render_to_string().contains("my title")
-    ///   );
-    ///   // `MetaContext::dehydrate()` gives you HTML that should be in the `<head>`
-    ///   assert!(use_head().dehydrate().contains("<title>my title</title>"));
-    /// # runtime.dispose();
-    /// # }
-    /// ```
-    pub fn dehydrate(&self) -> String {
-        let mut tags = String::new();
-
-        // Title
-        if let Some(title) = self.title.as_string() {
-            tags.push_str("<title>");
-            tags.push_str(&title);
-            tags.push_str("</title>");
-        }
-        tags.push_str(&self.tags.as_string());
-
-        tags
-    }
-}
-
-/// Extracts the metadata that should be used to close the `<head>` tag
-/// and open the `<body>` tag. This is a helper function used in implementing
-/// server-side HTML rendering across crates.
-#[cfg(feature = "ssr")]
-pub fn generate_head_metadata() -> String {
-    let (head, body) = generate_head_metadata_separated();
-    format!("{head}</head>{body}")
-}
-
-/// Extracts the metadata that should be inserted at the beginning of the `<head>` tag
-/// and on the opening `<body>` tag. This is a helper function used in implementing
-/// server-side HTML rendering across crates.
-#[cfg(feature = "ssr")]
-pub fn generate_head_metadata_separated() -> (String, String) {
-    let meta = use_context::<MetaContext>();
-    let head = meta
-        .as_ref()
-        .map(|meta| meta.dehydrate())
-        .unwrap_or_default();
-    let body_meta = meta
-        .as_ref()
-        .and_then(|meta| meta.body.as_string())
-        .unwrap_or_default();
-    (head, format!("<body{body_meta}>"))
 }

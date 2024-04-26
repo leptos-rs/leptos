@@ -39,6 +39,7 @@ base64 = { version = "0.22", optional = true }
 leptos = { path = "../leptos" }
 
 [features]
+ssr = []
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
 hydration = ["reactive_graph/hydration", "dep:serde", "dep:serde_json"]

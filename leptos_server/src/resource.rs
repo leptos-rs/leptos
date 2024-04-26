@@ -187,6 +187,7 @@ where
             source.add_subscriber(data.to_any_subscriber());
         }
 
+        #[cfg(feature = "ssr")]
         if let Some(shared_context) = shared_context {
             let value = data.clone();
             let ready_fut = data.ready();
@@ -408,7 +409,7 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        let ArcResource { ser, data } =
+        let ArcResource { data, .. } =
             ArcResource::new_with_encoding(source, fetcher);
         Resource {
             ser: PhantomData,
