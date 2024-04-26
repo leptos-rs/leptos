@@ -24,6 +24,7 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
 default = []
+ssr = []
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

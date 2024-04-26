@@ -32,10 +32,6 @@ where
     #[allow(clippy::type_complexity)]
     hydrate_from_server:
         fn(Box<dyn Any>, &Cursor<R>, &PositionState) -> AnyViewState<R>,
-    #[cfg(feature = "hydrate")]
-    #[allow(clippy::type_complexity)]
-    hydrate_from_template:
-        fn(Box<dyn Any>, &Cursor<R>, &PositionState) -> AnyViewState<R>,
 }
 
 pub struct AnyViewState<R>
@@ -195,25 +191,7 @@ where
                     insert_before_this: insert_before_this::<R, T>,
                 }
             };
-        #[cfg(feature = "hydrate")]
-        let hydrate_from_template =
-            |value: Box<dyn Any>,
-             cursor: &Cursor<R>,
-             position: &PositionState| {
-                let value = value
-                    .downcast::<T>()
-                    .expect("AnyView::hydrate_from_server couldn't downcast");
-                let state = Box::new(value.hydrate::<true>(cursor, position));
 
-                AnyViewState {
-                    type_id: TypeId::of::<T>(),
-                    state,
-                    rndr: PhantomData,
-                    mount: mount_any::<R, T>,
-                    unmount: unmount_any::<R, T>,
-                    insert_before_this: insert_before_this::<R, T>,
-                }
-            };
         let rebuild = |new_type_id: TypeId,
                        value: Box<dyn Any>,
                        state: &mut AnyViewState<R>| {
@@ -250,8 +228,6 @@ where
             to_html_async_ooo,
             #[cfg(feature = "hydrate")]
             hydrate_from_server,
-            #[cfg(feature = "hydrate")]
-            hydrate_from_template,
         }
     }
 }
@@ -331,7 +307,10 @@ where
         if FROM_SERVER {
             (self.hydrate_from_server)(self.value, cursor, position)
         } else {
-            (self.hydrate_from_template)(self.value, cursor, position)
+            panic!(
+                "hydrating AnyView from inside a ViewTemplate is not \
+                 supported."
+            );
         }
         #[cfg(not(feature = "hydrate"))]
         {

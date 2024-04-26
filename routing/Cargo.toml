@@ -49,4 +49,5 @@ features = [
 
 [features]
 tracing = ["dep:tracing"]
+ssr = []
 nightly = []

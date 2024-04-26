@@ -31,7 +31,9 @@ ssr = [
 	"dep:tower-http",
 	"dep:tokio",
 	"leptos/ssr",
+	"leptos_meta/ssr",
 	"dep:leptos_axum",
+	"routing/ssr",
 ]
 
 [profile.wasm-release]
@@ -60,7 +62,7 @@ style-file = "style/main.scss"
 # Optional. Env: LEPTOS_ASSETS_DIR.
 assets-dir = "assets"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "127.0.0.1:3000"
+site-addr = "127.0.0.1:3007"
 # The port to use for automatic reload monitoring
 reload-port = 3001
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.

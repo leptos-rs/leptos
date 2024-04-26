@@ -6,7 +6,8 @@ use crate::{
     },
     navigate::{NavigateOptions, UseNavigate},
     resolve_path::resolve_path,
-    MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes, SsrMode,
+    FlatRoutesView, MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes,
+    SsrMode,
 };
 use leptos::{
     children::{ToChildren, TypedChildren},
@@ -70,19 +71,20 @@ pub fn Router<Chil>(
 where
     Chil: IntoView,
 {
-    let current_url = if Owner::current_shared_context()
-        .map(|sc| sc.is_browser())
-        .unwrap_or(false)
-    {
-        let location = BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
-        location.init(base.clone());
-        location.as_url().clone()
-    } else {
+    #[cfg(feature = "ssr")]
+    let current_url = {
         let req = use_context::<RequestUrl>().expect("no RequestUrl provided");
         let parsed = req.parse().expect("could not parse RequestUrl");
         ArcRwSignal::new(parsed)
     };
 
+    #[cfg(not(feature = "ssr"))]
+    let current_url = {
+        let location =
+            BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
+        location.init(base.clone());
+        location.as_url().clone()
+    };
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
     let location = Location::new(current_url.read_only(), state.read_only());
@@ -220,7 +222,7 @@ where
         move |_| url.read().search_params().clone()
     });
     let outer_owner =
-        Owner::current().expect("creating Router, but no Owner was found");
+        Owner::current().expect("creating Routes, but no Owner was found");
     move || NestedRoutesView {
         routes: routes.clone(),
         outer_owner: outer_owner.clone(),
@@ -230,6 +232,46 @@ where
         base: base.clone(),
         fallback: fallback(),
         rndr: PhantomData,
+    }
+}
+
+#[component]
+pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
+    fallback: FallbackFn,
+    children: RouteChildren<Defs>,
+) -> impl IntoView
+where
+    Defs: MatchNestedRoutes<Dom> + Clone + Send + 'static,
+    FallbackFn: Fn() -> Fallback + Send + 'static,
+    Fallback: IntoView + 'static,
+{
+    use either_of::Either;
+
+    let RouterContext {
+        current_url, base, ..
+    } = use_context()
+        .expect("<FlatRoutes> should be used inside a <Router> component");
+    let base = base.map(|base| {
+        let mut base = Oco::from(base);
+        base.upgrade_inplace();
+        base
+    });
+    let routes = Routes::new(children.into_inner());
+    let path = ArcMemo::new({
+        let url = current_url.clone();
+        move |_| url.read().path().to_string()
+    });
+    let search_params = ArcMemo::new({
+        let url = current_url.clone();
+        move |_| url.read().search_params().clone()
+    });
+    let outer_owner =
+        Owner::current().expect("creating Router, but no Owner was found");
+    move || FlatRoutesView {
+        routes: routes.clone(),
+        path: path.clone(),
+        fallback: fallback(),
+        outer_owner: outer_owner.clone(),
     }
 }
 
