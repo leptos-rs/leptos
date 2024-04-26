@@ -68,6 +68,7 @@ rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
+  "leptos_server/ssr",
   "server_fn/ssr",
   "hydration",
   "tachys/ssr",
