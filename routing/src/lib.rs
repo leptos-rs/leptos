@@ -3,6 +3,7 @@
 #![cfg_attr(feature = "nightly", feature(negative_impls))]
 
 pub mod components;
+mod flat_router;
 mod generate_route_list;
 pub mod hooks;
 pub mod link;
@@ -16,6 +17,7 @@ pub mod params;
 mod ssr_mode;
 mod static_route;
 
+pub use flat_router::*;
 pub use generate_route_list::*;
 pub use matching::*;
 pub use method::*;

@@ -507,7 +507,9 @@ macro_rules! tuples {
                     position: &PositionState,
                 ) -> Self::State {
                     let state = match self {
-                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position)),)*
+                        $([<EitherOf $num>]::$ty(this) => {
+                            [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position))
+                        })*
                     };
 
                     let marker = cursor.next_placeholder(position);

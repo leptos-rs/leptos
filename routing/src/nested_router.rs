@@ -26,13 +26,13 @@ use std::{
     },
 };
 use tachys::{
-    hydration::Cursor, view::PositionState,
+    hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         any_view::{AnyView, AnyViewState, IntoAny},
         either::EitherState,
-        Mountable, Position, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 
@@ -182,8 +182,6 @@ where
                 })
                 .collect::<Vec<_>>();
 
-                println!("routes = {routes:#?}");
-
             // add fallback
             // TODO fix: causes overlapping route issues on Axum
             /*routes.push(RouteListing::new(
@@ -203,31 +201,31 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-        let NestedRoutesView {
-            routes,
-            outer_owner,
-            url,
-            path,
-            search_params,
-            fallback,
-            base,
-            ..
-        } = self;
+            let NestedRoutesView {
+                routes,
+                outer_owner,
+                url,
+                path,
+                search_params,
+                fallback,
+                base,
+                ..
+            } = self;
 
-        let mut outlets = Vec::new();
-        let new_match = routes.match_route(&path.read());
-        let view = match new_match {
-            None => Either::Left(fallback),
-            Some(route) => {
-                route.build_nested_route(base, &mut outlets, &outer_owner);
-                outer_owner.with(|| {
-                    Either::Right(
-                        Outlet(OutletProps::builder().build()).into_any(),
-                    )
-                })
-            }
-        };
-        view.to_html_with_buf(buf, position);
+            let mut outlets = Vec::new();
+            let new_match = routes.match_route(&path.read());
+            let view = match new_match {
+                None => Either::Left(fallback),
+                Some(route) => {
+                    route.build_nested_route(base, &mut outlets, &outer_owner);
+                    outer_owner.with(|| {
+                        Either::Right(
+                            Outlet(OutletProps::builder().build()).into_any(),
+                        )
+                    })
+                }
+            };
+            view.to_html_with_buf(buf, position);
         }
     }
 
