@@ -1,5 +1,6 @@
 use crate::errors::TodoAppError;
 use leptos::context::use_context;
+use leptos::reactive_graph::effect::Effect;
 use leptos::signals::RwSignal;
 use leptos::{component, server, view, For, IntoView};
 use leptos::{prelude::*, Errors};
@@ -23,11 +24,8 @@ pub fn ErrorTemplate(
 
     // Get Errors from Signal
     // Downcast lets us take a type that implements `std::error::Error`
-    let errors: Vec<TodoAppError> = errors
-        .get()
-        .into_iter()
-        .filter_map(|(_, v)| v.downcast_ref::<TodoAppError>().cloned())
-        .collect();
+    let errors =
+        move || errors.get().into_iter().map(|(_, v)| v).collect::<Vec<_>>();
 
     // Only the response code for the first error is actually sent from the server
     // this may be customized by the specific application
@@ -41,20 +39,13 @@ pub fn ErrorTemplate(
 
     view! {
         <h1>"Errors"</h1>
-        <For
-            // a function that returns the items we're iterating over; a signal is fine
-            each=move || { errors.clone().into_iter().enumerate() }
-            // a unique key for each item as a reference
-            key=|(index, _error)| *index
-            // renders each item to a view
-            children=move |error| {
-                let error_string = error.1.to_string();
-                let error_code = error.1.status_code();
-                view! {
-                    <h2>{error_code.to_string()}</h2>
-                    <p>"Error: " {error_string}</p>
-                }
-            }
-        />
+        {move || {
+            errors()
+                .into_iter()
+                .map(|error| {
+                    view! { <p>"Error: " {error.to_string()}</p> }
+                })
+                .collect::<Vec<_>>()
+        }}
     }
 }
