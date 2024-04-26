@@ -26,6 +26,7 @@ use std::{
     },
 };
 use tachys::{
+    hydration::Cursor, view::PositionState,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -202,27 +203,31 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-            let outer_owner = Owner::current()
-                .expect("creating Router, but no Owner was found");
-            let url = use_context::<RequestUrl>()
-                .expect("could not find request URL in context");
-            // TODO base
-            let url = if let Some(base) = &self.base {
-                url.parse_with_base(base.as_ref())
-            } else {
-                url.parse()
+        let NestedRoutesView {
+            routes,
+            outer_owner,
+            url,
+            path,
+            search_params,
+            fallback,
+            base,
+            ..
+        } = self;
+
+        let mut outlets = Vec::new();
+        let new_match = routes.match_route(&path.read());
+        let view = match new_match {
+            None => Either::Left(fallback),
+            Some(route) => {
+                route.build_nested_route(base, &mut outlets, &outer_owner);
+                outer_owner.with(|| {
+                    Either::Right(
+                        Outlet(OutletProps::builder().build()).into_any(),
+                    )
+                })
             }
-            .expect("could not parse URL");
-            // TODO query params
-            let new_match = self.routes.match_route(url.path());
-            /*match new_match {
-                Some(matched) => {
-                    Either::Left(NestedRouteView::new(&outer_owner, matched))
-                }
-                _ => Either::Right((self.fallback)()),
-            }
-            .to_html_with_buf(buf, position)*/
-            todo!()
+        };
+        view.to_html_with_buf(buf, position);
         }
     }
 
@@ -233,14 +238,72 @@ where
     ) where
         Self: Sized,
     {
+        let NestedRoutesView {
+            routes,
+            outer_owner,
+            url,
+            path,
+            search_params,
+            fallback,
+            base,
+            ..
+        } = self;
+
+        let mut outlets = Vec::new();
+        let new_match = routes.match_route(&path.read());
+        let view = match new_match {
+            None => Either::Left(fallback),
+            Some(route) => {
+                route.build_nested_route(base, &mut outlets, &outer_owner);
+                outer_owner.with(|| {
+                    Either::Right(
+                        Outlet(OutletProps::builder().build()).into_any(),
+                    )
+                })
+            }
+        };
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &tachys::hydration::Cursor<R>,
-        position: &tachys::view::PositionState,
+        cursor: &Cursor<R>,
+        position: &PositionState,
     ) -> Self::State {
-        todo!()
+        let NestedRoutesView {
+            routes,
+            outer_owner,
+            url,
+            path,
+            search_params,
+            fallback,
+            base,
+            ..
+        } = self;
+
+        let mut outlets = Vec::new();
+        let new_match = routes.match_route(&path.read());
+        let view = match new_match {
+            None => Either::Left(fallback),
+            Some(route) => {
+                route.build_nested_route(base, &mut outlets, &outer_owner);
+                outer_owner.with(|| {
+                    Either::Right(
+                        Outlet(OutletProps::builder().build()).into_any(),
+                    )
+                })
+            }
+        }
+        .hydrate::<FROM_SERVER>(cursor, position);
+
+        NestedRouteViewState {
+            outlets,
+            view,
+            outer_owner,
+            url,
+            path,
+            search_params,
+        }
     }
 }
 

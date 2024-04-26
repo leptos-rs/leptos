@@ -1,8 +1,9 @@
 use lazy_static::lazy_static;
 use leptos::prelude::*;
 use leptos::{
-    component, server, server::Resource, server_fn::ServerFnError, suspend,
-    view, ErrorBoundary, IntoView, Params, Suspense,
+    component, reactive_graph::computed::AsyncDerived, server,
+    server::Resource, server_fn::ServerFnError, suspend, view, ErrorBoundary,
+    IntoView, Params, Suspense,
 };
 use leptos_meta::*;
 use routing::{
@@ -117,6 +118,7 @@ fn Post() -> impl IntoView {
     });
 
     view! {
+        <em>"The world's best content."</em>
         <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
             <ErrorBoundary fallback=|errors| {
                 let errors = errors.clone();
@@ -186,7 +188,7 @@ pub struct PostMetadata {
 
 #[server]
 pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    //tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS
         .iter()
         .map(|data| PostMetadata {
@@ -198,6 +200,6 @@ pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
 
 #[server]
 pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    //tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS.iter().find(|post| post.id == id).cloned())
 }

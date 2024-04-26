@@ -7,6 +7,7 @@ use futures::{
 };
 use or_poisoned::OrPoisoned;
 use std::{
+    collections::{HashMap, HashSet},
     fmt::{Debug, Write},
     mem,
     sync::{
@@ -23,6 +24,7 @@ pub struct SsrSharedContext {
     sync_buf: RwLock<Vec<ResolvedData>>,
     async_buf: RwLock<Vec<(SerializedDataId, PinnedFuture<String>)>>,
     errors: Arc<RwLock<Vec<(SerializedDataId, ErrorId, Error)>>>,
+    sealed_error_boundaries: Arc<RwLock<HashSet<SerializedDataId>>>,
 }
 
 impl SsrSharedContext {
@@ -110,19 +112,23 @@ impl SharedContext for SsrSharedContext {
             .into_iter()
             .map(|(id, data)| {
                 let errors = Arc::clone(&self.errors);
+                let sealed = Arc::clone(&self.sealed_error_boundaries);
                 async move {
                     let data = data.await;
                     let data = data.replace('<', "\\u003c");
                     let mut val =
                         format!("__RESOLVED_RESOURCES[{}] = {:?};", id.0, data);
+                    let sealed = sealed.read().or_poisoned();
                     for error in mem::take(&mut *errors.write().or_poisoned()) {
-                        write!(
-                            val,
-                            "__SERIALIZED_ERRORS.push([{}, {}, {:?}]);",
-                            error.0 .0,
-                            error.1,
-                            error.2.to_string()
-                        );
+                        if !sealed.contains(&error.0) {
+                            write!(
+                                val,
+                                "__SERIALIZED_ERRORS.push([{}, {}, {:?}]);",
+                                error.0 .0,
+                                error.1,
+                                error.2.to_string()
+                            );
+                        }
                     }
                     val
                 }
@@ -180,6 +186,13 @@ impl SharedContext for SsrSharedContext {
 
     fn take_errors(&self) -> Vec<(SerializedDataId, ErrorId, Error)> {
         mem::take(&mut *self.errors.write().or_poisoned())
+    }
+
+    fn seal_errors(&self, boundary_id: &SerializedDataId) {
+        self.sealed_error_boundaries
+            .write()
+            .or_poisoned()
+            .insert(boundary_id.clone());
     }
 }
 

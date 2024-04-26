@@ -28,17 +28,27 @@ where
     }
 
     pub fn child(&self) {
+        //crate::log("advancing to next child of ");
+        //R::log_node(&self.current());
         let mut inner = self.0.borrow_mut();
         if let Some(node) = R::first_child(&*inner) {
             *inner = node;
         }
+        //drop(inner);
+        //crate::log(">> which is ");
+        //R::log_node(&self.current());
     }
 
     pub fn sibling(&self) {
+        //crate::log("advancing to next sibling of ");
+        //R::log_node(&self.current());
         let mut inner = self.0.borrow_mut();
         if let Some(node) = R::next_sibling(&*inner) {
             *inner = node;
         }
+        //drop(inner);
+        //crate::log(">> which is ");
+        //R::log_node(&self.current());
     }
 
     pub fn parent(&self) {
@@ -53,6 +63,8 @@ where
     }
 
     pub fn next_placeholder(&self, position: &PositionState) -> R::Placeholder {
+        //crate::dom::log("looking for placeholder after");
+        //R::log_node(&self.current());
         if position.get() == Position::FirstChild {
             self.child();
         } else {
@@ -60,6 +72,13 @@ where
         }
         let marker = self.current();
         position.set(Position::NextChild);
-        R::Placeholder::cast_from(marker).unwrap()
+        R::Placeholder::cast_from(marker)
+            .expect("could not convert current node into marker node")
+        /*let marker2 = marker.clone();
+        R::Placeholder::cast_from(marker).unwrap_or_else(|| {
+            crate::dom::log("expecting to find a marker. instead, found");
+            R::log_node(&marker2);
+            panic!("oops.");
+        })*/
     }
 }

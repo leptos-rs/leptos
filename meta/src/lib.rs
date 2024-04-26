@@ -135,7 +135,11 @@ impl Default for MetaContext {
             }
             SendWrapper::new(Cursor::new(
                 cursor
-                    .expect("no leptos_meta HEAD marker comment found")
+                    .expect(
+                        "no leptos_meta HEAD marker comment found. Did you \
+                         include the <MetaTags/> component in the <head> of \
+                         your server-rendered app?",
+                    )
                     .unchecked_into(),
             ))
         };
@@ -168,7 +172,6 @@ impl ServerMetaContext {
         self,
         mut stream: impl Stream<Item = String> + Send + Unpin,
     ) -> impl Stream<Item = String> + Send {
-        println!("injecting meta context!");
         let mut first_chunk = stream.next().await.unwrap_or_default();
 
         let meta_buf =
@@ -186,7 +189,6 @@ impl ServerMetaContext {
             let mut buf = String::with_capacity(
                 first_chunk.len() + title_len + meta_buf.len(),
             );
-            println!("first_chunk = {first_chunk:?}");
             let head_loc = first_chunk
                 .find("</head>")
                 .expect("you are using leptos_meta without a </head> tag");

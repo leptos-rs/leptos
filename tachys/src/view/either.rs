@@ -184,6 +184,7 @@ where
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
         };
+
         let marker = cursor.next_placeholder(position);
 
         EitherState { state, marker }
@@ -508,6 +509,7 @@ macro_rules! tuples {
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.hydrate::<FROM_SERVER>(cursor, position)),)*
                     };
+
                     let marker = cursor.next_placeholder(position);
                     Self::State { marker, state }
                 }
