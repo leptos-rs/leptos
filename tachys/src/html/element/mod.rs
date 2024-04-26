@@ -401,9 +401,9 @@ where
         // hydrate children
         position.set(Position::FirstChild);
         let children = self.children.hydrate::<FROM_SERVER>(cursor, position);
-        cursor.set(el.as_ref().clone());
 
         // go to next sibling
+        cursor.set(el.as_ref().clone());
         position.set(Position::NextChild);
 
         ElementState {

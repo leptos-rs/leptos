@@ -7,7 +7,7 @@ use leptos::{
 };
 use leptos_meta::*;
 use routing::{
-    components::{Route, Router, Routes},
+    components::{FlatRoutes, Route, Router},
     hooks::use_params,
     params::Params,
     ParamSegment, SsrMode, StaticSegment,
@@ -24,11 +24,10 @@ pub fn App() -> impl IntoView {
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
         <Title text="Welcome to Leptos"/>
-
+        <Meta name="color-scheme" content="dark light"/>
         <Router>
             <main>
-                // TODO should fallback be on Routes or Router?
-                <Routes fallback>
+                <FlatRoutes fallback>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
                     <Route path=StaticSegment("") view=HomePage/>
 
@@ -44,7 +43,7 @@ pub fn App() -> impl IntoView {
                         view=Post
                         ssr=SsrMode::InOrder
                     />
-                </Routes>
+                </FlatRoutes>
             </main>
         </Router>
     }
