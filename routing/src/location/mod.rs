@@ -137,16 +137,16 @@ pub trait LocationProvider: Sized {
 }
 
 #[derive(Debug, Clone)]
-pub struct State(SendWrapper<Option<JsValue>>);
+pub struct State(Option<SendWrapper<JsValue>>);
 
 impl State {
     pub fn new(state: Option<JsValue>) -> Self {
-        Self(SendWrapper::new(state))
+        Self(state.map(SendWrapper::new))
     }
 
     pub fn to_js_value(&self) -> JsValue {
-        match &*self.0 {
-            Some(v) => v.clone(),
+        match &self.0 {
+            Some(v) => v.clone().take(),
             None => JsValue::UNDEFINED,
         }
     }
@@ -154,13 +154,14 @@ impl State {
 
 impl Default for State {
     fn default() -> Self {
-        Self(SendWrapper::new(None))
+        Self(None)
     }
 }
 
 impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
-        &*self.0 == &*other.0
+        self.0.as_ref().map(|n| n.as_ref())
+            == other.0.as_ref().map(|n| n.as_ref())
     }
 }
 

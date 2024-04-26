@@ -6,7 +6,7 @@ use reactive_graph::{
     computed::ArcMemo,
     owner::Owner,
     signal::ArcRwSignal,
-    traits::{Get, Update, With, WithUntracked},
+    traits::{Get, GetUntracked, Update, With, WithUntracked},
 };
 use rustc_hash::FxHashMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -254,6 +254,10 @@ where
         self.children
             .to_html_async_with_buf::<OUT_OF_ORDER>(&mut new_buf, &mut new_pos);
 
+        if let Some(sc) = Owner::current_shared_context() {
+            sc.seal_errors(&self.boundary_id);
+        }
+
         // any thrown errors would've been caught here
         if self.errors.with_untracked(|map| map.is_empty()) {
             buf.append(new_buf);
@@ -285,10 +289,7 @@ where
             )
         };
 
-        cursor.sibling();
-        let placeholder = cursor.current().to_owned();
-        let placeholder = Rndr::Placeholder::cast_from(placeholder).unwrap();
-        position.set(Position::NextChild);
+        let placeholder = cursor.next_placeholder(position);
 
         ErrorBoundaryViewState {
             showing_fallback: !self.errors_empty,
