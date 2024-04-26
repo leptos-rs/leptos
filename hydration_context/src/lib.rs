@@ -104,6 +104,12 @@ pub trait SharedContext: Debug {
     /// Returns the set of errors that have been registered with a particular boundary.
     fn errors(&self, boundary_id: &SerializedDataId) -> Vec<(ErrorId, Error)>;
 
+    /// "Seals" an error boundary, preventing further errors from being registered for it.
+    ///
+    /// This can be used in streaming SSR scenarios in which the final state of the error boundary
+    /// can only be known after the initial state is hydrated.
+    fn seal_errors(&self, boundary_id: &SerializedDataId);
+
     /// Registers an error with the context to be shared from server to client.
     fn register_error(
         &self,

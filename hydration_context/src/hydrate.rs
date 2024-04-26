@@ -141,6 +141,9 @@ impl SharedContext for HydrateSharedContext {
     ) {
     }
 
+    #[inline(always)]
+    fn seal_errors(&self, boundary_id: &SerializedDataId) {}
+
     fn take_errors(&self) -> Vec<(SerializedDataId, ErrorId, Error)> {
         self.errors.clone()
     }
