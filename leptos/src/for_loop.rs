@@ -70,14 +70,13 @@ where
     // this means
     // a) the reactive owner for each row will not be cleared when the whole list updates
     // b) context provided in each row will not wipe out the others
-    /*let parent = Owner::current().expect("no reactive owner");
+    let parent = Owner::current().expect("no reactive owner");
     let children = move |child| {
         let owner = parent.with(Owner::new);
         let view = owner.with(|| children(child));
         OwnedView::new_with_owner(view, owner)
     };
-    move || keyed(each(), key.clone(), children.clone())*/
-    "todo"
+    move || keyed(each(), key.clone(), children.clone())
 }
 
 #[component]
