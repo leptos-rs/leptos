@@ -47,7 +47,7 @@ pub fn ErrorBoundary<FalFn, Fal, Chil>(
     fallback: FalFn,
 ) -> impl IntoView
 where
-    FalFn: FnMut(&ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
+    FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
     Fal: IntoView + 'static,
     Chil: IntoView + 'static,
 {
@@ -75,7 +75,7 @@ where
         boundary_id: boundary_id.clone(),
         errors_empty: errors_empty.get(),
         children: children.take(),
-        fallback: Some((fallback.clone())(&errors)),
+        fallback: Some((fallback.clone())(errors.clone())),
         errors: errors.clone(),
         rndr: PhantomData,
     }
