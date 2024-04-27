@@ -1,4 +1,4 @@
-use oco::Oco;
+use oco_ref::Oco;
 use std::sync::Arc;
 
 /// Describes a value that is either a static or a reactive string, i.e.,
