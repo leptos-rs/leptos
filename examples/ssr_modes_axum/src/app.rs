@@ -1,7 +1,6 @@
 use lazy_static::lazy_static;
-use leptos::prelude::*;
 use leptos::{
-    component, reactive_graph::computed::AsyncDerived, server,
+    component, prelude::*, reactive_graph::computed::AsyncDerived, server,
     server::Resource, server_fn::ServerFnError, suspend, view, ErrorBoundary,
     IntoView, Params, Suspense,
 };
