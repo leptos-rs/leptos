@@ -1,6 +1,5 @@
 use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
-use any_error::{Error, ErrorId};
 use core::fmt::Debug;
 use js_sys::Array;
 use once_cell::sync::Lazy;
@@ -8,6 +7,7 @@ use std::{
     fmt::Display,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
+use throw_error::{Error, ErrorId};
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
 
 #[wasm_bindgen]

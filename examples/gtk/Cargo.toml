@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] }
-any_error = { path = "../../any_error/" }
+throw_error = { path = "../../any_error/" }
 any_spawner = { path = "../../any_spawner/" }
 next_tuple = { path = "../../next_tuple/" }
 gtk = { version = "0.8.0", package = "gtk4", optional = true }

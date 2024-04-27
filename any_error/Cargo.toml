@@ -1,5 +1,5 @@
 [package]
-name = "any_error"
+name = "throw_error"
 edition = "2021"
 version = "0.1.0"
 authors = ["Greg Johnston"]

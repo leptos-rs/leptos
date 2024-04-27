@@ -168,7 +168,6 @@ mod show;
 mod suspense_component;
 pub mod text_prop;
 mod transition;
-pub use any_error as error;
 pub use for_loop::*;
 pub use hydration_scripts::*;
 pub use leptos_macro::*;
@@ -179,6 +178,7 @@ pub use reactive_graph::{
 pub use server_fn;
 pub use show::*;
 pub use suspense_component::Suspense;
+pub use throw_error as error;
 pub use transition::*;
 #[doc(hidden)]
 pub use typed_builder;
