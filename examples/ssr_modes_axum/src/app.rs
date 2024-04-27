@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use leptos::{
     component, prelude::*, reactive_graph::computed::AsyncDerived, server,
     server::Resource, server_fn::ServerFnError, suspend, view, ErrorBoundary,
-    IntoView, Params, Suspense, Suspend
+    IntoView, Params, Suspend, Suspense,
 };
 use leptos_meta::*;
 use leptos_router::{
@@ -119,7 +119,6 @@ fn Post() -> impl IntoView {
         <em>"The world's best content."</em>
         <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
             <ErrorBoundary fallback=|errors| {
-                let errors = errors.clone();
                 view! {
                     <div class="error">
                         <h1>"Something went wrong."</h1>
