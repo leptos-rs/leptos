@@ -1,7 +1,13 @@
 [package]
 name = "hydration_context"
 edition = "2021"
-version.workspace = true
+version = "0.1.0"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Utilities for sharing data between web servers and client-side web applications."
+rust-version.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
