@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 console_error_panic_hook = "0.1"
 console_log = "1"
 lazy_static = "1"
-leptos = { path = "../../leptos"}
+leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_meta = { path = "../../meta" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 routing = { path = "../../routing" }
@@ -41,6 +41,7 @@ inherits = "release"
 opt-level = 'z'
 lto = true
 codegen-units = 1
+panic = "abort"
 
 [package.metadata.cargo-all-features]
 denylist = ["axum", "tower", "tower-http", "tokio", "sqlx", "leptos_axum"]
