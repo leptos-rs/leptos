@@ -60,8 +60,8 @@ leptos_router = { path = "./router", version = "0.7.0-preview" }
 leptos_server = { path = "./leptos_server", version = "0.7.0-preview" }
 leptos_meta = { path = "./meta", version = "0.7.0-preview" }
 oco_ref = { path = "./oco", version = "0.2" }
-or_poisoned = { path = "./or_poisoned" }
-reactive_graph = { path = "./reactive_graph" }
+or_poisoned = { path = "./or_poisoned", version = "0.1" }
+reactive_graph = { path = "./reactive_graph", version = "0.1.0-preview" }
 server_fn = { path = "./server_fn", version = "0.7.0-preview" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.7.0-preview" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.0-preview" }
