@@ -3,7 +3,6 @@ use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
-    future::Ready,
     marker::PhantomData,
 };
 
