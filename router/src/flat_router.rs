@@ -41,6 +41,7 @@ pub(crate) struct FlatRoutesView<Defs, Fal, R> {
     pub path: ArcMemo<String>,
     pub fallback: Fal,
     pub outer_owner: Owner,
+    pub params: ArcRwSignal<ParamsMap>,
 }
 
 impl<Defs, Fal, R> FlatRoutesView<Defs, Fal, R>
@@ -57,14 +58,18 @@ where
             path,
             fallback,
             outer_owner,
+            params,
         } = self;
 
         outer_owner.with(|| {
+            provide_context(params.clone().read_only());
             let new_match = routes.match_route(&path.read());
             match new_match {
                 None => Either::Left(fallback),
                 Some(matched) => {
-                    let params = matched.to_params();
+                    let new_params =
+                        matched.to_params().into_iter().collect::<ParamsMap>();
+                    params.set(new_params);
                     let (view, child) = matched.into_view_and_child();
 
                     #[cfg(debug_assertions)]
