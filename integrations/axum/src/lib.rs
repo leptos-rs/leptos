@@ -57,13 +57,13 @@ use leptos::{
     IntoView,
 };
 use leptos_meta::{MetaContext, ServerMetaContext};
-use once_cell::sync::OnceCell;
-use parking_lot::RwLock;
-use reactive_graph::owner::Sandboxed;
-use routing::{
+use leptos_router::{
     location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
     StaticDataMap, StaticMode,
 };
+use once_cell::sync::OnceCell;
+use parking_lot::RwLock;
+use reactive_graph::owner::Sandboxed;
 use server_fn::{
     
     error::{NoCustomError, ServerFnErrorSerde},
@@ -1149,7 +1149,7 @@ where
 pub struct AxumRouteListing {
     path: String,
     mode: SsrMode,
-    methods: Vec<routing::Method>,
+    methods: Vec<leptos_router::Method>,
     static_mode: Option<(StaticMode, StaticDataMap)>,
 }
 
@@ -1178,7 +1178,7 @@ impl AxumRouteListing {
     pub fn new(
         path: String,
         mode: SsrMode,
-        methods: impl IntoIterator<Item = routing::Method>,
+        methods: impl IntoIterator<Item = leptos_router::Method>,
         static_mode: Option<(StaticMode, StaticDataMap)>,
     ) -> Self {
         Self {
@@ -1200,7 +1200,7 @@ impl AxumRouteListing {
     }
 
     /// The HTTP request methods this path can handle.
-    pub fn methods(&self) -> impl Iterator<Item = routing::Method> + '_ {
+    pub fn methods(&self) -> impl Iterator<Item = leptos_router::Method> + '_ {
         self.methods.iter().copied()
     }
 
@@ -1249,7 +1249,7 @@ where
             vec![AxumRouteListing::new(
                 "/".to_string(),
                 Default::default(),
-                [routing::Method::Get],
+                [leptos_router::Method::Get],
                 None,
             )]
         } else {
@@ -1405,7 +1405,7 @@ fn static_route<IV, S>(
     options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     additional_context: impl Fn() + Clone + Send + 'static,
-    method: routing::Method,
+    method: leptos_router::Method,
     mode: StaticMode,
 ) -> axum::Router<S>
 where
@@ -1449,11 +1449,11 @@ where
             router.route(
                 path,
                 match method {
-                    routing::Method::Get => get(handler),
-                    routing::Method::Post => post(handler),
-                    routing::Method::Put => put(handler),
-                    routing::Method::Delete => delete(handler),
-                    routing::Method::Patch => patch(handler),
+                    leptos_router::Method::Get => get(handler),
+                    leptos_router::Method::Post => post(handler),
+                    leptos_router::Method::Put => put(handler),
+                    leptos_router::Method::Delete => delete(handler),
+                    leptos_router::Method::Patch => patch(handler),
                 },
             )
         }
@@ -1492,11 +1492,11 @@ where
             router.route(
                 path,
                 match method {
-                    routing::Method::Get => get(handler),
-                    routing::Method::Post => post(handler),
-                    routing::Method::Put => put(handler),
-                    routing::Method::Delete => delete(handler),
-                    routing::Method::Patch => patch(handler),
+                    leptos_router::Method::Get => get(handler),
+                    leptos_router::Method::Post => post(handler),
+                    leptos_router::Method::Put => put(handler),
+                    leptos_router::Method::Delete => delete(handler),
+                    leptos_router::Method::Patch => patch(handler),
                 },
             )
         }
@@ -1645,11 +1645,11 @@ where
                                 app_fn.clone(),
                             );
                             match method {
-                                routing::Method::Get => get(s),
-                                routing::Method::Post => post(s),
-                                routing::Method::Put => put(s),
-                                routing::Method::Delete => delete(s),
-                                routing::Method::Patch => patch(s),
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                         SsrMode::PartiallyBlocked => {
@@ -1660,11 +1660,11 @@ where
                                 true
                             );
                             match method {
-                                routing::Method::Get => get(s),
-                                routing::Method::Post => post(s),
-                                routing::Method::Put => put(s),
-                                routing::Method::Delete => delete(s),
-                                routing::Method::Patch => patch(s),
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                         SsrMode::InOrder => {
@@ -1674,11 +1674,11 @@ where
                                 app_fn.clone(),
                             );
                             match method {
-                                routing::Method::Get => get(s),
-                                routing::Method::Post => post(s),
-                                routing::Method::Put => put(s),
-                                routing::Method::Delete => delete(s),
-                                routing::Method::Patch => patch(s),
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                         SsrMode::Async => {
@@ -1688,11 +1688,11 @@ where
                                 app_fn.clone(),
                             );
                             match method {
-                                routing::Method::Get => get(s),
-                                routing::Method::Post => post(s),
-                                routing::Method::Put => put(s),
-                                routing::Method::Delete => delete(s),
-                                routing::Method::Patch => patch(s),
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                     },
@@ -1720,11 +1720,13 @@ where
                 router = router.route(
                     listing.path(),
                     match method {
-                        routing::Method::Get => get(handler.clone()),
-                        routing::Method::Post => post(handler.clone()),
-                        routing::Method::Put => put(handler.clone()),
-                        routing::Method::Delete => delete(handler.clone()),
-                        routing::Method::Patch => patch(handler.clone()),
+                        leptos_router::Method::Get => get(handler.clone()),
+                        leptos_router::Method::Post => post(handler.clone()),
+                        leptos_router::Method::Put => put(handler.clone()),
+                        leptos_router::Method::Delete => {
+                            delete(handler.clone())
+                        }
+                        leptos_router::Method::Patch => patch(handler.clone()),
                     },
                 );
             }
