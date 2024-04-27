@@ -5,6 +5,7 @@ use crate::{
         State, Url,
     },
     navigate::{NavigateOptions, UseNavigate},
+    params::ParamsMap,
     resolve_path::resolve_path,
     FlatRoutesView, MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes,
     SsrMode,
@@ -267,11 +268,13 @@ where
     });
     let outer_owner =
         Owner::current().expect("creating Router, but no Owner was found");
+    let params = ArcRwSignal::new(ParamsMap::new());
     move || FlatRoutesView {
         routes: routes.clone(),
         path: path.clone(),
         fallback: fallback(),
         outer_owner: outer_owner.clone(),
+        params: params.clone(),
     }
 }
 
