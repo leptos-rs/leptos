@@ -1,7 +1,13 @@
 [package]
 name = "any_error"
 edition = "2021"
-version.workspace = true
+version = "0.1.0"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Utilities for wrapping, throwing, and catching errors."
+rust-version.workspace = true
 
 [dependencies]
 pin-project-lite = "0.2"

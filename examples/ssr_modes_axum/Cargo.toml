@@ -10,17 +10,21 @@ crate-type = ["cdylib", "rlib"]
 console_error_panic_hook = "0.1"
 console_log = "1"
 lazy_static = "1"
-leptos = { path = "../../leptos", features = ["nightly"] }
+leptos = { path = "../../leptos", features = ["nightly", "hydration"] }
 leptos_meta = { path = "../../meta" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
-routing = { path = "../../routing" }
+leptos_router = { path = "../../router" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 axum = { version = "0.7", optional = true }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = ["fs"], optional = true }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"], optional = true }
+tokio = { version = "1", features = [
+	"rt-multi-thread",
+	"macros",
+	"time",
+], optional = true }
 wasm-bindgen = "0.2"
 
 [features]
@@ -33,8 +37,11 @@ ssr = [
 	"leptos/ssr",
 	"leptos_meta/ssr",
 	"dep:leptos_axum",
-	"routing/ssr",
+	"leptos_router/ssr",
 ]
+
+[profile.release]
+panic = "abort"
 
 [profile.wasm-release]
 inherits = "release"

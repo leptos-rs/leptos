@@ -5,7 +5,7 @@ use leptos::{
     IntoView, Params, Suspense,
 };
 use leptos_meta::*;
-use routing::{
+use leptos_router::{
     components::{FlatRoutes, Route, Router},
     hooks::use_params,
     params::Params,

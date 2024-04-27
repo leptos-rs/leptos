@@ -1,8 +1,12 @@
 [package]
 name = "const_str_slice_concat"
-version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version = "0.1.0"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Utilities for const concatenation of string slices."
+rust-version.workspace = true
 
 [dependencies]

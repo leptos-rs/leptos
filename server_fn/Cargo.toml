@@ -68,7 +68,7 @@ web-sys = { version = "0.3", optional = true, features = [
   "ReadableStream",
   "ReadableStreamDefaultReader",
   "AbortController",
-  "AbortSignal"
+  "AbortSignal",
 ] }
 
 # reqwest client 
@@ -80,7 +80,7 @@ url = "2"
 pin-project-lite = "0.2.13"
 
 [features]
-default = ["json", "cbor"]
+default = ["json"]
 axum-no-default = [
   "ssr",
   "dep:axum",

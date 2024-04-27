@@ -1,4 +1,7 @@
 #![no_std]
+#![forbid(unsafe_code)]
+
+//! Utilities for working with enumerated types that contain one of `2..n` other types.
 
 use core::{
     fmt::Display,
