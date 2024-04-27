@@ -1,4 +1,8 @@
 #![no_std]
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+
+//! Utilities for const concatenation of string slices.
 
 pub(crate) const MAX_TEMPLATE_SIZE: usize = 4096;
 
@@ -13,7 +17,7 @@ pub const fn str_from_buffer(buf: &[u8; MAX_TEMPLATE_SIZE]) -> &str {
     }
 }
 
-/// Concatenates any number of static strings in a single one.
+/// Concatenates any number of static strings into a single array.
 // credit to Rainer Stropek, "Constant fun," Rust Linz, June 2022
 pub const fn const_concat(
     strs: &'static [&'static str],

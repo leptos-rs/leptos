@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.6.12"
+version = "0.7.0-preview"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
