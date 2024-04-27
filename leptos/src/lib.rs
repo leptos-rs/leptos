@@ -177,7 +177,7 @@ pub use reactive_graph::{
 };
 pub use server_fn;
 pub use show::*;
-pub use suspense_component::Suspense;
+pub use suspense_component::{Suspend, Suspense};
 pub use throw_error as error;
 pub use transition::*;
 #[doc(hidden)]
