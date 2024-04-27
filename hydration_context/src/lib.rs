@@ -18,7 +18,6 @@ mod csr;
 #[cfg_attr(docsrs, doc(cfg(feature = "browser")))]
 mod hydrate;
 mod ssr;
-use any_error::{Error, ErrorId};
 #[cfg(feature = "browser")]
 pub use csr::*;
 use futures::Stream;
@@ -27,6 +26,7 @@ pub use hydrate::*;
 use serde::{Deserialize, Serialize};
 pub use ssr::*;
 use std::{fmt::Debug, future::Future, pin::Pin};
+use throw_error::{Error, ErrorId};
 
 /// Type alias for a boxed [`Future`].
 pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;

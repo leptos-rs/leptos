@@ -1,4 +1,3 @@
-use any_error::Error;
 use serde::{Deserialize, Serialize};
 use std::{
     error, fmt,
@@ -8,6 +7,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+use throw_error::Error;
 use url::Url;
 
 /// A custom header that can be used to indicate a server function returned an error.

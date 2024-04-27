@@ -9,13 +9,13 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
-use any_error::Error as AnyError;
 use reactive_graph::{
     computed::ScopedFuture,
     effect::RenderEffect,
     graph::{Observer, ReactiveNode},
 };
 use std::future::{ready, Ready};
+use throw_error::Error as AnyError;
 
 mod class;
 mod guards;
@@ -377,7 +377,6 @@ mod stable {
         ssr::StreamBuilder,
         view::{Position, PositionState, Render, RenderHtml},
     };
-    use any_error::Error as AnyError;
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
@@ -385,6 +384,7 @@ mod stable {
         wrappers::read::{ArcSignal, Signal},
     };
     use std::future::{ready, Ready};
+    use throw_error::Error as AnyError;
 
     macro_rules! signal_impl {
         ($sig:ident) => {
