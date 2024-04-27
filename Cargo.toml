@@ -47,8 +47,8 @@ rust-version = "1.75"
 throw_error = { path = "./any_error/", version = "0.1" }
 any_spawner = { path = "./any_spawner/", version = "0.1" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
-either_of = { path = "./either_of/" }
-hydration_context = { path = "./hydration_context" }
+either_of = { path = "./either_of/", version = "0.1" }
+hydration_context = { path = "./hydration_context", version = "0.1" }
 leptos = { path = "./leptos", version = "0.7.0-preview" }
 leptos_config = { path = "./leptos_config", version = "0.7.0-preview" }
 leptos_dom = { path = "./leptos_dom", version = "0.7.0-preview" }
@@ -65,7 +65,7 @@ reactive_graph = { path = "./reactive_graph" }
 server_fn = { path = "./server_fn", version = "0.7.0-preview" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.7.0-preview" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.0-preview" }
-tachys = { path = "./tachys", version = "0.1" }
+tachys = { path = "./tachys", version = "0.1.0-preview" }
 
 [profile.release]
 codegen-units = 1
