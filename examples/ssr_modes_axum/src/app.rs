@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use leptos::{
     component, prelude::*, reactive_graph::computed::AsyncDerived, server,
     server::Resource, server_fn::ServerFnError, suspend, view, ErrorBoundary,
-    IntoView, Params, Suspense,
+    IntoView, Params, Suspense, Suspend
 };
 use leptos_meta::*;
 use leptos_router::{
@@ -52,7 +52,7 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     // load the posts
     let posts = Resource::new_serde(|| (), |_| list_post_metadata());
-    let posts_view = suspend!(
+    let posts_view = Suspend(async move {
         posts.await.map(|posts| {
             posts.into_iter()
                 .map(|post| view! {
@@ -64,7 +64,7 @@ fn HomePage() -> impl IntoView {
                 })
                 .collect::<Vec<_>>()
         })
-    );
+    });
 
     view! {
         <h1>"My Great Blog"</h1>
