@@ -21,7 +21,7 @@ leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
-oco = { workspace = true }
+oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
 paste = "1"
 rand = { version = "0.8", optional = true }
@@ -38,7 +38,6 @@ server_fn = { workspace = true, features = [
   "form-redirects",
   "browser",
   "url",
-  "cbor",
 ] }
 web-sys = { version = "0.3.63", features = [
   "ShadowRoot",
@@ -52,10 +51,7 @@ futures = "0.3.30"
 
 [features]
 default = ["serde"]
-hydration = [
-  "leptos_server/hydration",
-  "hydration_context/browser",
-]
+hydration = ["leptos_server/hydration", "hydration_context/browser"]
 csr = ["leptos_macro/csr", "leptos_reactive/csr"]
 hydrate = [
   "leptos_macro/hydrate",

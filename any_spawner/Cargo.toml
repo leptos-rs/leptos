@@ -1,13 +1,20 @@
 [package]
 name = "any_spawner"
 edition = "2021"
-version.workspace = true
+version = "0.1.0"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Spawn asynchronous tasks in an executor-independent way."
 
 [dependencies]
 futures = "0.3"
 glib = { version = "0.19", optional = true }
 thiserror = "1"
-tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
+tokio = { version = "1", optional = true, default-features = false, features = [
+	"rt",
+] }
 tracing = { version = "0.1", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 
