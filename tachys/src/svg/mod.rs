@@ -41,13 +41,13 @@ macro_rules! svg_elements {
 					$(
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
+                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output,
                             Ch, Rndr
                         >
                         where
                             V: AttributeValue<Rndr>,
-                            At: TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            <At as TupleBuilder<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
+                            At: NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
+                            <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
                         {
                             let HtmlElement { tag, rndr, children, attributes } = self;
                             HtmlElement {
