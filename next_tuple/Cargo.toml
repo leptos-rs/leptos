@@ -1,6 +1,12 @@
 [package]
 name = "next_tuple"
-version = "0.1.0"
+version = "0.1.0-preview"
 edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "A trait to build and extend tuples."
+rust-version.workspace = true
 
 [dependencies]

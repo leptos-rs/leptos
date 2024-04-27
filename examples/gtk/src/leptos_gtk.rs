@@ -15,7 +15,7 @@ use leptos::{
         view::{Mountable, Render},
     },
 };
-use next_tuple::TupleBuilder;
+use next_tuple::NextTuple;
 use std::{borrow::Cow, marker::PhantomData};
 
 #[derive(Debug)]
@@ -219,7 +219,7 @@ pub struct LGtkWidget<Widg, Props, Chil> {
 impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
 where
     Widg: WidgetClass,
-    Chil: TupleBuilder,
+    Chil: NextTuple,
 {
     pub fn child<T>(
         self,
@@ -240,7 +240,7 @@ where
 impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
 where
     Widg: WidgetClass,
-    Props: TupleBuilder,
+    Props: NextTuple,
     Chil: Render<LeptosGtk>,
 {
     pub fn connect<F>(
@@ -417,7 +417,7 @@ pub mod properties {
     };
     use gtk::glib::{object::ObjectExt, Value};
     use leptos::tachys::{renderer::Renderer, view::Render};
-    use next_tuple::TupleBuilder;
+    use next_tuple::NextTuple;
 
     pub struct Connect<F>
     where
@@ -468,7 +468,7 @@ pub mod properties {
     impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
     where
         Widg: WidgetClass,
-        Props: TupleBuilder,
+        Props: NextTuple,
         Chil: Render<LeptosGtk>,
     {
         pub fn orientation(
@@ -517,7 +517,7 @@ pub mod properties {
     impl<Widg, Props, Chil> LGtkWidget<Widg, Props, Chil>
     where
         Widg: WidgetClass,
-        Props: TupleBuilder,
+        Props: NextTuple,
         Chil: Render<LeptosGtk>,
     {
         pub fn spacing(

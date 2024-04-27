@@ -8,7 +8,7 @@ use crate::{
     renderer::{dom::Dom, Renderer},
     view::Render,
 };
-use next_tuple::TupleBuilder;
+use next_tuple::NextTuple;
 use once_cell::unsync::Lazy;
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -17,13 +17,13 @@ macro_rules! mathml_global {
 		paste::paste! {
 			pub fn $attr<V>(self, value: V) -> HtmlElement <
 				[<$tag:camel>],
-				<At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
+				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
 				Ch, Rndr
 			>
 			where
 				V: AttributeValue<Rndr>,
-				At: TupleBuilder,
-				<At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+				At: NextTuple,
+				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
 			{
 				let HtmlElement { tag, rndr, children, attributes } = self;
 				HtmlElement {
@@ -75,13 +75,13 @@ macro_rules! mathml_elements {
 					$(
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
-                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
+                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
                             Ch, Rndr
                         >
                         where
                             V: AttributeValue<Rndr>,
-                            At: TupleBuilder,
-                            <At as TupleBuilder>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+                            At: NextTuple,
+                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
                         {
                             let HtmlElement { tag, rndr, children, attributes } = self;
                             HtmlElement {
