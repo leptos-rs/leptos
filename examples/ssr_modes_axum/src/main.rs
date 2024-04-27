@@ -34,8 +34,6 @@ async fn main() {
                             // <AutoReload options=app_state.leptos_options.clone() />
                             <HydrationScripts options=leptos_options.clone()/>
                             <MetaTags/>
-                            <link rel="stylesheet" id="leptos" href="/pkg/benwis_leptos.css"/>
-                            <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
                         </head>
                         <body>
                             <App/>
