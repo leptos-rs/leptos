@@ -1,14 +1,6 @@
 use super::{Mountable, Position, PositionState, Render, RenderHtml};
-use crate::{
-    hydration::Cursor,
-    renderer::{CastFrom, Renderer},
-    ssr::StreamBuilder,
-};
+use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use either_of::*;
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-};
 
 pub struct EitherState<A, B, Rndr>
 where
@@ -283,7 +275,7 @@ where
         todo!()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
         todo!()
     }
 

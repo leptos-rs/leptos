@@ -6,10 +6,7 @@ use crate::{
     hydration::Cursor,
     renderer::Renderer,
 };
-use std::{
-    future::{ready, Ready},
-    marker::PhantomData,
-};
+use std::marker::PhantomData;
 
 /// An attribute for which both the key and the value are known at compile time,
 /// i.e., as `&'static str`s.

@@ -8,7 +8,6 @@ use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 use indexmap::IndexSet;
 use rustc_hash::FxHasher;
 use std::{
-    future::Future,
     hash::{BuildHasherDefault, Hash},
     marker::PhantomData,
 };
