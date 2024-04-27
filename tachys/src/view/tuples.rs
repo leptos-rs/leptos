@@ -10,12 +10,6 @@ use crate::{
 use const_str_slice_concat::{
     const_concat, const_concat_with_separator, str_from_buffer,
 };
-use pin_project_lite::pin_project;
-use std::{
-    future::{ready, Future, Ready},
-    pin::Pin,
-    task::{Context, Poll},
-};
 
 impl<R: Renderer> Render<R> for () {
     type State = ();

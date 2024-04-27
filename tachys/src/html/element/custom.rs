@@ -3,7 +3,7 @@ use crate::{
     html::element::{CreateElement, ElementType, HtmlElement},
     renderer::{dom::Dom, Renderer},
 };
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData, rc::Rc, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // FIXME custom element HTML rendering is broken because tag names aren't static
 pub fn custom<E, Rndr>(tag: E) -> HtmlElement<Custom<E>, (), (), Rndr>

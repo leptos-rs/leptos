@@ -12,7 +12,6 @@ use crate::{
 use reactive_graph::signal::guards::ReadGuard;
 use std::{
     fmt::Write,
-    future::{ready, Ready},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,

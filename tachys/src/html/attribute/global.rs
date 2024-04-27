@@ -3,7 +3,7 @@ use crate::{
     html::{
         attribute::*,
         class::{class, Class, IntoClass},
-        element::{ElementType, HasElementType},
+        element::HasElementType,
         event::{on, on_target, EventDescriptor, On, Targeted},
         property::{property, IntoProperty, Property},
         style::{style, IntoStyle, Style},
