@@ -19,7 +19,7 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 				let span = field.span();
 
 				quote_spanned! {
-					span=> #ident: <#ty as ::routing::params::IntoParam>::into_param(
+					span=> #ident: <#ty as ::leptos_router::params::IntoParam>::into_param(
                         map.get(#field_name_string),
                         #field_name_string
                     )?
@@ -32,7 +32,7 @@ pub fn params_impl(ast: &syn::DeriveInput) -> proc_macro::TokenStream {
 
     let gen = quote! {
         impl Params for #name {
-            fn from_map(map: &::routing::params::ParamsMap) -> Result<Self, ::routing::params::ParamsError> {
+            fn from_map(map: &::leptos_router::params::ParamsMap) -> Result<Self, ::leptos_router::params::ParamsError> {
                 Ok(Self {
                     #(#fields,)*
                 })
