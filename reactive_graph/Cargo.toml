@@ -1,13 +1,19 @@
 [package]
 name = "reactive_graph"
+version = "0.1.0-preview"
 edition = "2021"
-version.workspace = true
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "A fine-grained reactive graph for building user interfaces."
+rust-version.workspace = true
 
 [dependencies]
 any_spawner = { workspace = true }
 or_poisoned = { workspace = true }
 futures = "0.3"
-hydration_context = { workspace = true, optional = true } 
+hydration_context = { workspace = true, optional = true }
 pin-project-lite = "0.2"
 rustc-hash = "1.1.0"
 serde = { version = "1", features = ["derive"], optional = true }
