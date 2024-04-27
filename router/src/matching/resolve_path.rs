@@ -1,9 +1,5 @@
-// Implementation based on Solid Router
-// see <https://github.com/solidjs/solid-router/blob/main/src/utils.ts>
-
 use std::borrow::Cow;
 
-#[doc(hidden)]
 pub fn resolve_path<'a>(
     base: &'a str,
     path: &'a str,
@@ -17,9 +13,7 @@ pub fn resolve_path<'a>(
         let result = if let Some(from_path) = from_path {
             if path.starts_with('/') {
                 base_path
-            } else if from_path.to_lowercase().find(&base_path.to_lowercase())
-                != Some(0)
-            {
+            } else if from_path.find(base_path.as_ref()) != Some(0) {
                 base_path + from_path
             } else {
                 from_path
