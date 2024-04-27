@@ -34,7 +34,6 @@ members = [
   # libraries
   "meta",
   "router",
-  "is_server",
   "router_macro",
   "any_error",
 ]
