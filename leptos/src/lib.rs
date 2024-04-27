@@ -194,7 +194,7 @@ pub use leptos_config as config;
 #[cfg(feature = "hydrate")]
 pub use mount::hydrate_body;
 pub use mount::mount_to_body;
-pub use oco;
+pub use oco_ref as oco;
 pub mod from_form_data;
 
 pub mod signals {

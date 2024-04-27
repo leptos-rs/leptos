@@ -5,7 +5,7 @@ use crate::{
     renderer::{DomRenderer, Renderer},
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
-use oco::Oco;
+use oco_ref::Oco;
 use std::future::{ready, Ready};
 
 pub struct OcoStrState<R: Renderer> {
