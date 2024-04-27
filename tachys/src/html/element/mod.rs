@@ -12,12 +12,7 @@ use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
 use next_tuple::NextTuple;
-use std::{
-    future::Future,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::marker::PhantomData;
 
 mod custom;
 mod elements;

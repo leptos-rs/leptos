@@ -2,10 +2,7 @@ use crate::{
     renderer::Renderer,
     view::{Position, Render, RenderHtml},
 };
-use std::{
-    future::{ready, Ready},
-    marker::PhantomData,
-};
+use std::marker::PhantomData;
 
 pub mod attribute;
 pub mod class;

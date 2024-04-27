@@ -1,11 +1,9 @@
 use super::{CastFrom, DomRenderer, Renderer};
 use crate::{
-    dom::{document, window},
-    ok_or_debug, or_debug,
+    dom::window,
     view::{Mountable, ToTemplate},
 };
 use linear_map::LinearMap;
-use once_cell::sync::Lazy;
 use rustc_hash::FxHashSet;
 use sledgehammer_bindgen::bindgen;
 use std::{
@@ -15,7 +13,6 @@ use std::{
     rc::Rc,
 };
 use wasm_bindgen::{
-    intern,
     prelude::{wasm_bindgen, Closure},
     JsCast, JsValue,
 };

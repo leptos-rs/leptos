@@ -4,7 +4,7 @@ use crate::{
     renderer::{DomRenderer, Renderer},
     view::add_attr::AddAnyAttr,
 };
-use std::{marker::PhantomData, rc::Rc, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 #[inline(always)]
 pub fn inner_html<T, R>(value: T) -> InnerHtml<T, R>

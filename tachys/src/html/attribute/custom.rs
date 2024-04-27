@@ -4,7 +4,7 @@ use crate::{
     renderer::DomRenderer,
     view::{add_attr::AddAnyAttr, Position, ToTemplate},
 };
-use std::{borrow::Cow, marker::PhantomData, rc::Rc, sync::Arc};
+use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 
 #[inline(always)]
 pub fn custom_attribute<K, V, R>(key: K, value: V) -> CustomAttr<K, V, R>

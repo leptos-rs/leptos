@@ -1,5 +1,4 @@
 use crate::{
-    async_views::Suspend,
     html::attribute::{Attribute, AttributeValue},
     hydration::Cursor,
     renderer::Renderer,
@@ -9,13 +8,7 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
-use reactive_graph::{
-    computed::ScopedFuture,
-    effect::RenderEffect,
-    graph::{Observer, ReactiveNode},
-};
-use std::future::{ready, Ready};
-use throw_error::Error as AnyError;
+use reactive_graph::effect::RenderEffect;
 
 mod class;
 mod guards;
@@ -371,7 +364,7 @@ where
 mod stable {
     use super::RenderEffectState;
     use crate::{
-        html::attribute::{Attribute, AttributeValue},
+        html::attribute::AttributeValue,
         hydration::Cursor,
         renderer::Renderer,
         ssr::StreamBuilder,
@@ -383,8 +376,6 @@ mod stable {
         traits::Get,
         wrappers::read::{ArcSignal, Signal},
     };
-    use std::future::{ready, Ready};
-    use throw_error::Error as AnyError;
 
     macro_rules! signal_impl {
         ($sig:ident) => {
@@ -477,7 +468,7 @@ mod stable {
                 fn to_template(_key: &str, _buf: &mut String) {}
 
                 fn hydrate<const FROM_SERVER: bool>(
-                    mut self,
+                    self,
                     key: &str,
                     el: &<R as Renderer>::Element,
                 ) -> Self::State {
