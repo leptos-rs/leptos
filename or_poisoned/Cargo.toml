@@ -1,6 +1,12 @@
 [package]
 name = "or_poisoned"
 edition = "2021"
-version.workspace = true
+version = "0.1.0"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Unwrap std lock guards in a semantic way."
+rust-version.workspace = true
 
 [dependencies]
