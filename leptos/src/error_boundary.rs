@@ -1,5 +1,4 @@
 use crate::{children::TypedChildren, IntoView};
-use any_error::{Error, ErrorHook, ErrorId};
 use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
 use reactive_graph::{
@@ -16,6 +15,7 @@ use tachys::{
     ssr::StreamBuilder,
     view::{Mountable, Position, PositionState, Render, RenderHtml},
 };
+use throw_error::{Error, ErrorHook, ErrorId};
 
 ///
 /// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::error::Error.
@@ -68,7 +68,7 @@ where
     let hook = hook as Arc<dyn ErrorHook>;
 
     // provide the error hook and render children
-    any_error::set_error_hook(Arc::clone(&hook));
+    throw_error::set_error_hook(Arc::clone(&hook));
     let mut children = Some(children.into_inner()());
 
     move || ErrorBoundaryView {
@@ -343,7 +343,7 @@ impl ErrorHook for ErrorBoundaryErrorHook {
         key
     }
 
-    fn clear(&self, id: &any_error::ErrorId) {
+    fn clear(&self, id: &throw_error::ErrorId) {
         self.errors.update(|map| {
             map.remove(id);
         });
