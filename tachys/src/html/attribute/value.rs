@@ -1,7 +1,6 @@
 use crate::renderer::Renderer;
 use std::{
     borrow::Cow,
-    fmt::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,

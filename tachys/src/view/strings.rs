@@ -5,12 +5,7 @@ use crate::{
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
 };
-use std::{
-    borrow::Cow,
-    future::{ready, Ready},
-    rc::Rc,
-    sync::Arc,
-};
+use std::{borrow::Cow, rc::Rc, sync::Arc};
 
 pub struct StrState<'a, R: Renderer> {
     pub node: R::Text,

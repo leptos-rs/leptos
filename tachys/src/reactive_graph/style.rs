@@ -45,7 +45,6 @@ where
                 (style.clone(), value)
             }
         })
-        .into()
     }
 
     fn build(self, el: &R::Element) -> Self::State {
@@ -70,7 +69,6 @@ where
                 (style.clone(), value)
             }
         })
-        .into()
     }
 
     fn rebuild(self, _state: &mut Self::State) {
