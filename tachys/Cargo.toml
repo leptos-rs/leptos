@@ -1,7 +1,13 @@
 [package]
 name = "tachys"
-version = "0.1.0"
+version = "0.1.0-preview"
 edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Tools for building reactivity-agnostic, renderer-generic, statically-typed view trees for user interface libraries."
+rust-version.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
