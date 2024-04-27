@@ -234,7 +234,7 @@ pub trait FutureViewExt: Sized {
     where
         Self: Future,
     {
-        Suspend { fut: self }
+        Suspend(self)
     }
 }
 
@@ -247,9 +247,7 @@ macro_rules! suspend {
     };
 }
 
-pub struct Suspend<Fut> {
-    pub fut: Fut,
-}
+pub struct Suspend<Fut>(pub Fut);
 
 impl<Fut> Debug for Suspend<Fut> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -300,7 +298,7 @@ where
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(ScopedFuture::new(self.fut));
+        let mut fut = Box::pin(ScopedFuture::new(self.0));
         let initial = fut.as_mut().now_or_never();
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(initial.build()));
@@ -327,7 +325,7 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         // get a unique ID if there's a SuspenseContext
-        let fut = ScopedFuture::new(self.fut);
+        let fut = ScopedFuture::new(self.0);
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
 
         // spawn the future, and rebuild the state when it resolves
@@ -375,7 +373,7 @@ where
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(ScopedFuture::new(self.fut));
+        let mut fut = Box::pin(ScopedFuture::new(self.0));
         let initial = fut.as_mut().now_or_never();
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(
@@ -403,6 +401,6 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self.fut.await
+        self.0.await
     }
 }
