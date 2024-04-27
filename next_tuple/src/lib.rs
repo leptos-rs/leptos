@@ -1,21 +1,19 @@
 #![no_std]
 #![allow(non_snake_case)]
+#![forbid(unsafe_code)]
 
-pub trait TupleBuilder {
+/// Allows extending a tuple, or creating a new tuple, by adding the next value.
+pub trait NextTuple {
+    /// The type that will be returned by adding another value of type `Next` to the end of the current type.
     type Output<Next>;
 
+    /// Adds the next value and returns the result.
     fn next_tuple<Next>(self, next: Next) -> Self::Output<Next>;
-}
-
-pub trait ConcatTuples<Next> {
-    type Output;
-
-    fn concat(self, next: Next) -> Self::Output;
 }
 
 macro_rules! impl_tuple_builder {
     ($($ty:ident),*) => {
-		impl<$($ty),*> TupleBuilder for ($($ty,)*) {
+		impl<$($ty),*> NextTuple for ($($ty,)*) {
 			type Output<Next> = ($($ty,)* Next);
 
 			fn next_tuple<Next>(self, next: Next) -> Self::Output<Next> {
@@ -26,7 +24,7 @@ macro_rules! impl_tuple_builder {
     };
 }
 
-impl TupleBuilder for () {
+impl NextTuple for () {
     type Output<Next> = (Next,);
 
     fn next_tuple<Next>(self, next: Next) -> Self::Output<Next> {

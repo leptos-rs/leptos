@@ -11,7 +11,7 @@ use crate::{
 use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
-use next_tuple::TupleBuilder;
+use next_tuple::NextTuple;
 use std::{
     future::Future,
     marker::PhantomData,
@@ -72,13 +72,12 @@ impl<E, At, Ch, NewChild, Rndr> ElementChild<Rndr, NewChild>
     for HtmlElement<E, At, Ch, Rndr>
 where
     E: ElementWithChildren,
-    Ch: Render<Rndr> + TupleBuilder,
-    <Ch as TupleBuilder>::Output<NewChild>: Render<Rndr>,
+    Ch: Render<Rndr> + NextTuple,
+    <Ch as NextTuple>::Output<NewChild>: Render<Rndr>,
     Rndr: Renderer,
     NewChild: Render<Rndr>,
 {
-    type Output =
-        HtmlElement<E, At, <Ch as TupleBuilder>::Output<NewChild>, Rndr>;
+    type Output = HtmlElement<E, At, <Ch as NextTuple>::Output<NewChild>, Rndr>;
 
     fn child(self, child: NewChild) -> Self::Output {
         let HtmlElement {
