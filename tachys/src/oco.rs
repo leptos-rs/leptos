@@ -6,7 +6,6 @@ use crate::{
     view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;
-use std::future::{ready, Ready};
 
 pub struct OcoStrState<R: Renderer> {
     node: R::Text,
