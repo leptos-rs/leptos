@@ -1,6 +1,5 @@
 use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
-use any_error::{Error, ErrorId};
 use futures::{
     stream::{self, FuturesUnordered},
     StreamExt,
@@ -15,6 +14,7 @@ use std::{
         Arc, RwLock,
     },
 };
+use throw_error::{Error, ErrorId};
 
 #[derive(Default)]
 /// The shared context that should be used on the server side.

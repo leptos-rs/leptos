@@ -46,14 +46,14 @@ impl SharedContext for CsrSharedContext {
     fn errors(
         &self,
         _boundary_id: &SerializedDataId,
-    ) -> Vec<(any_error::ErrorId, any_error::Error)> {
+    ) -> Vec<(throw_error::ErrorId, throw_error::Error)> {
         Vec::new()
     }
 
     #[inline(always)]
     fn take_errors(
         &self,
-    ) -> Vec<(SerializedDataId, any_error::ErrorId, any_error::Error)> {
+    ) -> Vec<(SerializedDataId, throw_error::ErrorId, throw_error::Error)> {
         Vec::new()
     }
 
@@ -61,8 +61,8 @@ impl SharedContext for CsrSharedContext {
     fn register_error(
         &self,
         _error_boundary: SerializedDataId,
-        _error_id: any_error::ErrorId,
-        _error: any_error::Error,
+        _error_id: throw_error::ErrorId,
+        _error: throw_error::Error,
     ) {
     }
 

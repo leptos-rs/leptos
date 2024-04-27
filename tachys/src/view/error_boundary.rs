@@ -5,7 +5,6 @@ use crate::{
     ssr::StreamBuilder,
     view::{Mountable, Render, Renderer},
 };
-use any_error::Error as AnyError;
 use pin_project_lite::pin_project;
 use std::{
     future::{Future, Ready},
@@ -13,6 +12,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+use throw_error::Error as AnyError;
 
 impl<R, T, E> Render<R> for Result<T, E>
 where
@@ -26,7 +26,7 @@ where
         let placeholder = R::create_placeholder();
         let state = match self {
             Ok(view) => Ok(view.build()),
-            Err(e) => Err(any_error::throw(e.into())),
+            Err(e) => Err(throw_error::throw(e.into())),
         };
         ResultState { placeholder, state }
     }
@@ -35,7 +35,7 @@ where
         match (&mut state.state, self) {
             // both errors: throw the new error and replace
             (Err(prev), Err(new)) => {
-                *prev = any_error::throw(new.into());
+                *prev = throw_error::throw(new.into());
             }
             // both Ok: need to rebuild child
             (Ok(old), Ok(new)) => {
@@ -44,11 +44,11 @@ where
             // Ok => Err: unmount, replace with marker, and throw
             (Ok(old), Err(err)) => {
                 old.unmount();
-                state.state = Err(any_error::throw(err));
+                state.state = Err(throw_error::throw(err));
             }
             // Err => Ok: clear error and build
             (Err(err), Ok(new)) => {
-                any_error::clear(err);
+                throw_error::clear(err);
                 let mut new_state = new.build();
                 R::try_mount_before(&mut new_state, state.placeholder.as_ref());
                 state.state = Ok(new_state);
@@ -66,7 +66,7 @@ where
     /// Marks the location of this view.
     placeholder: R::Placeholder,
     /// The view state.
-    state: Result<T, any_error::ErrorId>,
+    state: Result<T, throw_error::ErrorId>,
 }
 
 impl<T, R> Drop for ResultState<T, R>
@@ -78,7 +78,7 @@ where
         // when the state is cleared, unregister this error; this item is being dropped and its
         // error should no longer be shown
         if let Err(e) = &self.state {
-            any_error::clear(e);
+            throw_error::clear(e);
         }
     }
 }
@@ -152,7 +152,7 @@ where
         match self {
             Ok(inner) => inner.to_html_with_buf(buf, position),
             Err(e) => {
-                any_error::throw(e);
+                throw_error::throw(e);
             }
         }
     }
@@ -169,7 +169,7 @@ where
                 inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
             }
             Err(e) => {
-                any_error::throw(e);
+                throw_error::throw(e);
             }
         }
     }
@@ -182,7 +182,7 @@ where
         // hydrate the state, if it exists
         let state = self
             .map(|s| s.hydrate::<FROM_SERVER>(cursor, position))
-            .map_err(|e| any_error::throw(e.into()));
+            .map_err(|e| throw_error::throw(e.into()));
 
         let placeholder = cursor.next_placeholder(position);
 

@@ -45,7 +45,7 @@ version = "0.7.0-preview"
 rust-version = "1.75"
 
 [workspace.dependencies]
-any_error = { path = "./any_error/", version = "0.1" }
+throw_error = { path = "./any_error/", version = "0.1" }
 any_spawner = { path = "./any_spawner/", version = "0.1" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
 either_of = { path = "./either_of/" }

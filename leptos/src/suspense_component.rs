@@ -3,7 +3,6 @@ use crate::{
     into_view::View,
     IntoView,
 };
-use any_error::ErrorHookFuture;
 use any_spawner::Executor;
 use futures::FutureExt;
 use leptos_macro::component;
@@ -33,6 +32,7 @@ use tachys::{
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
+use throw_error::ErrorHookFuture;
 
 /// TODO docs!
 #[component]
