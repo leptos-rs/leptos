@@ -1,12 +1,20 @@
 use crate::{
-    Location, NavigateOptions, Params, ParamsError, ParamsMap, RouteContext,
-    RouterContext,
+    components::RouterContext,
+    location::{Location, Url},
+    navigate::{NavigateOptions, UseNavigate},
+    params::{Params, ParamsError, ParamsMap},
+    RouteContext,
 };
-use leptos::{
-    request_animation_frame, signal_prelude::*, use_context, window, Oco,
+use leptos::{leptos_dom::helpers::window, oco::Oco};
+use reactive_graph::{
+    computed::{ArcMemo, Memo},
+    owner::use_context,
+    signal::{ArcReadSignal, ArcRwSignal, ReadSignal},
+    traits::{Get, Read, With},
 };
 use std::{rc::Rc, str::FromStr};
-
+use tachys::renderer::Renderer;
+/*
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
 /// The function creates a bidirectional sync mechanism between the state encapsulated in a signal and a URL query parameter.
@@ -111,76 +119,90 @@ pub fn use_router() -> RouterContext {
         );
         panic!("You must call use_router() within a <Router/> component");
     }
-}
-
-/// Returns the current [`RouteContext`], containing information about the matched route.
-#[track_caller]
-pub fn use_route() -> RouteContext {
-    use_context::<RouteContext>().unwrap_or_else(|| use_router().base())
-}
-
-/// Returns the data for the current route, which is provided by the `data` prop on `<Route/>`.
-#[track_caller]
-pub fn use_route_data<T: Clone + 'static>() -> Option<T> {
-    let route = use_context::<RouteContext>()?;
-    let data = route.inner.data.borrow();
-    let data = data.clone()?;
-    let downcast = data.downcast_ref::<T>().cloned();
-    downcast
-}
+}*/
 
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
 pub fn use_location() -> Location {
-    use_router().inner.location.clone()
+    let RouterContext { location, .. } =
+        use_context().expect("Tried to access Location outside a <Router>.");
+    location
+}
+
+#[track_caller]
+fn use_params_raw() -> ArcReadSignal<ParamsMap> {
+    use_context().expect(
+        "Tried to access params outside the context of a matched <Route>.",
+    )
 }
 
 /// Returns a raw key-value map of route params.
 #[track_caller]
 pub fn use_params_map() -> Memo<ParamsMap> {
-    let route = use_route();
-    route.params()
+    // TODO this can be optimized in future to map over the signal, rather than cloning
+    let params = use_params_raw();
+    Memo::new(move |_| params.get())
 }
 
 /// Returns the current route params, parsed into the given type, or an error.
 #[track_caller]
 pub fn use_params<T>() -> Memo<Result<T, ParamsError>>
 where
-    T: Params + PartialEq,
+    T: Params + PartialEq + Send + Sync,
 {
-    let route = use_route();
-    create_memo(move |_| route.params().with(T::from_map))
+    // TODO this can be optimized in future to map over the signal, rather than cloning
+    let params = use_params_raw();
+    Memo::new(move |_| params.with(T::from_map))
+}
+
+#[track_caller]
+fn use_url_raw() -> ArcRwSignal<Url> {
+    let RouterContext { current_url, .. } = use_context()
+        .expect("Tried to access reactive URL outside a <Router> component.");
+    current_url
+}
+
+#[track_caller]
+pub fn use_url() -> ReadSignal<Url> {
+    use_url_raw().read_only().into()
 }
 
 /// Returns a raw key-value map of the URL search query.
 #[track_caller]
 pub fn use_query_map() -> Memo<ParamsMap> {
-    use_router().inner.location.query
+    let url = use_url_raw();
+    Memo::new(move |_| url.with(|url| url.search_params().clone()))
 }
 
 /// Returns the current URL search query, parsed into the given type, or an error.
 #[track_caller]
 pub fn use_query<T>() -> Memo<Result<T, ParamsError>>
 where
-    T: Params + PartialEq,
+    T: Params + PartialEq + Send + Sync,
 {
-    let router = use_router();
-    create_memo(move |_| router.inner.location.query.with(|m| T::from_map(m)))
+    let url = use_url_raw();
+    Memo::new(move |_| url.with(|url| T::from_map(url.search_params())))
 }
 
 /// Resolves the given path relative to the current route.
 #[track_caller]
-pub fn use_resolved_path(
-    path: impl Fn() -> String + 'static,
-) -> Memo<Option<String>> {
-    let route = use_route();
-
-    create_memo(move |_| {
+pub(crate) fn use_resolved_path<R: Renderer + 'static>(
+    path: impl Fn() -> String + Send + Sync + 'static,
+) -> ArcMemo<Option<String>> {
+    let router = use_context::<RouterContext>()
+        .expect("called use_resolved_path outside a <Router>");
+    let matched = use_context::<RouteContext<R>>().map(|route| route.matched);
+    ArcMemo::new(move |_| {
         let path = path();
         if path.starts_with('/') {
             Some(path)
         } else {
-            route.resolve_path_tracked(&path)
+            router
+                .resolve_path(
+                    &path,
+                    matched.as_ref().map(|n| n.get()).as_deref(),
+                )
+                .map(|n| n.to_string())
         }
     })
 }
@@ -201,31 +223,18 @@ pub fn use_resolved_path(
 /// ```
 #[track_caller]
 pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {
-    let router = use_router();
-    move |to, options| {
-        let router = Rc::clone(&router.inner);
-        let to = to.to_string();
-        if cfg!(any(feature = "csr", feature = "hydrate")) {
-            request_animation_frame(move || {
-                #[allow(unused_variables)]
-                if let Err(e) = router.navigate_from_route(&to, &options) {
-                    leptos::logging::debug_warn!("use_navigate error: {e:?}");
-                }
-            });
-        } else {
-            leptos::logging::warn!(
-                "The navigation function returned by `use_navigate` should \
-                 not be called during server rendering."
-            );
-        }
-    }
+    let cx = use_context::<RouterContext>()
+        .expect("You cannot call `use_navigate` outside a <Router>.");
+    move |path: &str, options: NavigateOptions| cx.navigate(path, options)
 }
 
+/*
 /// Returns a signal that tells you whether you are currently navigating backwards.
 pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
     let router = use_router();
     router.inner.is_back.read_only()
 }
+*/
 
 /// Resolves a redirect location to an (absolute) URL.
 pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
