@@ -18,6 +18,8 @@ pub fn SimpleCounter(
             <button on:click=move |_| set_value.update(|value| *value -= step)>"-1"</button>
             <span>"Value: " {value} "!"</span>
             <button on:click=move |_| {
+                // Test Panic
+                //panic!("Test Panic");
                 // In order to breakpoint the below, the code needs to be on it's own line
                 set_value.update(|value| *value += step)
             }

@@ -1,8 +1,7 @@
-# Leptos Counter Example
+# Debugging Leptos Counter Example in Browser and VSCode
 
-This example builds on the simple counter example by adding breakpoints, single stepping the source code and variable inspection.
-Both within the browser and VSCode.
-
+This example builds on the simple counter by adding breakpoints and single stepping the source code for debugging.  
+Both within the browser and VSCode.  
 This uses a new feature of wasm called Dwarf which is a form of source code mapping.
 
 
@@ -24,7 +23,7 @@ To this
 
 This instructs the rust `trunk` utility to pass a long an option to `wasm-bindgen` called `--keep-debug`  
 This option bundles in a type of sourcemap into the built wasm file.  
-Be aware that this will make the wasm file much larger however.
+Be aware that this will make the wasm file much larger.
 
 ### Browser Changes
 
@@ -35,17 +34,17 @@ For Chrome / Opera there's an extension here that needs to be installed.
 
 ## Debugging within the Browser
 
-Within the browser's dev console it should now be possible to view the rust source code add breakpoints etc.
+Within the browser's dev console it should now be possible to view the rust source code and add breakpoints.
 
 ![Chrome Debug Image](./img/breakpoint1.png)
 
 ## Debugging within VSCode
 
-Note this is still experimental, although I have managed to get breakpoints working under VSCode.
+Note this is still experimental, although I have managed to get breakpoints working under VSCode.  
 So far I've only tried this within a windows environment.
 
-In order to have the breakpoints land at the correct position within VSCode.  
-We need to install the following extension
+In order to have the breakpoints land at the correct position.  
+We need to install the following VSCode extension.
 
   * [WebAssembly DWARF Debugging](https://marketplace.visualstudio.com/items?itemName=ms-vscode.wasm-dwarf-debugging)
 
@@ -61,3 +60,7 @@ Within the browser launch section under `launch.json` we need to set userDataDir
     "userDataDir": false,
   },
 ```
+
+Now we should be able to add breakpoints within visual studio code while debugging the rust wasm.
+
+![Chrome Debug Image](./img/breakpoint2.png)

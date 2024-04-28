@@ -12,7 +12,8 @@
             "webRoot": "${workspaceFolder}/dist",
             // Needed to keep the dwarf extension in the browser
             "userDataDir": false,
-            //"preLaunchTask": "Trunk: Serve"
+            "preLaunchTask": "trunk: serve",
+            "postDebugTask": "postdebugKill"
         },
     ]
 }
