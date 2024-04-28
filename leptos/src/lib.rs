@@ -146,40 +146,82 @@
 
 extern crate self as leptos;
 
+/// Exports all the core types of the library.
 pub mod prelude {
+    // Traits
+    // These should always be exported from the prelude
     pub use crate::suspense_component::FutureViewExt;
     pub use reactive_graph::prelude::*;
     pub use tachys::prelude::*;
+
+    // Structs
+    // In the future, maybe we should remove this blanket export
+    // However, it is definitely useful relative to looking up every struct etc.
+    mod export_types {
+        #[cfg(feature = "nonce")]
+        pub use crate::nonce::*;
+        pub use crate::{
+            callback::*, children::*, component::*, context::*,
+            control_flow::*, error::*, form::*, hydration::*, into_view::*,
+        };
+        pub use leptos_config::*;
+        pub use leptos_dom::*;
+        pub use leptos_macro::*;
+        pub use leptos_server::*;
+        pub use reactive_graph::*;
+        pub use server_fn::*;
+        pub use tachys;
+    }
+    pub use export_types::*;
 }
 
-mod action_form;
-pub use action_form::*;
+/// Components used for working with HTML forms, like `<ActionForm>`.
+pub mod form;
+
+/// A standard way to wrap functions and closures to pass them to components.
 pub mod callback;
+
+/// Types that can be passed as the `children` prop of a component.
 pub mod children;
+
+#[doc(hidden)]
+/// Traits used to implement component constructors.
 pub mod component;
 mod error_boundary;
-pub use error_boundary::*;
+
+/// Tools for handling errors.
+pub mod error {
+    pub use crate::error_boundary::*;
+    pub use throw_error::*;
+}
+
+/// Control-flow components like `<Show>` and `<For>`.
+pub mod control_flow {
+    pub use crate::{for_loop::*, show::*};
+}
 mod for_loop;
-mod hydration_scripts;
+mod show;
+
+/// Components to enable server-side rendering and client-side hydration.
+pub mod hydration;
+
+/// Utilities for exporting nonces to be used for a Content Security Policy.
 #[cfg(feature = "nonce")]
 pub mod nonce;
-mod show;
+
+/// Components to load asynchronous data.
+pub mod suspense {
+    pub use crate::{suspense_component::*, transition::*};
+}
+
 #[macro_use]
 mod suspense_component;
+
+/// Types for reactive string properties for components.
 pub mod text_prop;
 mod transition;
-pub use for_loop::*;
-pub use hydration_scripts::*;
-pub use leptos_macro::*;
-pub use reactive_graph::{
-    self,
-    signal::{arc_signal, create_signal, signal},
-};
+pub use leptos_macro;
 pub use server_fn;
-pub use show::*;
-pub use suspense_component::{Suspend, Suspense};
-pub use throw_error as error;
-pub use transition::*;
 #[doc(hidden)]
 pub use typed_builder;
 #[doc(hidden)]
@@ -188,35 +230,24 @@ mod into_view;
 pub use into_view::IntoView;
 pub use leptos_dom;
 pub use tachys;
+/// Tools to mount an application to the DOM, or to hydrate it from server-rendered HTML.
 pub mod mount;
-pub use any_spawner::Executor;
 pub use leptos_config as config;
-#[cfg(feature = "hydrate")]
-pub use mount::hydrate_body;
-pub use mount::mount_to_body;
 pub use oco_ref as oco;
-pub mod from_form_data;
+mod from_form_data;
+pub use reactive_graph as reactive;
 
-pub mod signals {
-    pub use reactive_graph::signal::{
-        arc_signal, signal, ArcReadSignal, ArcRwSignal, ArcWriteSignal,
-        ReadSignal, RwSignal, WriteSignal,
-    };
-}
-
+/// Provide and access data along the reactive graph, sharing data without directly passing arguments.
 pub mod context {
     pub use reactive_graph::owner::{provide_context, use_context};
 }
 
-pub mod ev {
-    pub use tachys::html::event::*;
-}
-
-pub mod html {
-    pub use tachys::html::element::*;
-}
-
 pub use leptos_server as server;
+/// HTML element types.
+pub use tachys::html::element as html;
+/// HTML event types.
+#[doc(no_inline)]
+pub use tachys::html::event as ev;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {

@@ -462,6 +462,7 @@ generate_event_types! {
 
 // Export `web_sys` event types
 use super::attribute::NextAttribute;
+#[doc(no_inline)]
 pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
     DeviceMotionEvent, DeviceOrientationEvent, DragEvent, ErrorEvent, Event,

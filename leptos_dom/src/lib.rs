@@ -1,17 +1,9 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
-//! The DOM implementation for `leptos`.
+//! DOM helpers for Leptos.
 
-use reactive_graph::owner::Owner;
-use tachys::{
-    dom::body,
-    renderer::dom::Dom,
-    view::{Mountable, Render},
-};
-use web_sys::HtmlElement;
 pub mod helpers;
-pub use tachys::html::event as events;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
 #[macro_use]
