@@ -1,14 +1,8 @@
-use leptos_dom::events::{on, EventDescriptor, On};
-use std::future::Future;
 use tachys::{
-    html::attribute::{global::OnAttribute, Attribute},
     hydration::Cursor,
-    renderer::{dom::Dom, DomRenderer, Renderer},
+    renderer::dom::Dom,
     ssr::StreamBuilder,
-    view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml,
-    },
+    view::{Position, PositionState, Render, RenderHtml},
 };
 
 pub struct View<T>(T)
