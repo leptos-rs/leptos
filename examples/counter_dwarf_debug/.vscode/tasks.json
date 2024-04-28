@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Trunk: Build",
+			"type": "cargo",
+			"command": "make",
+			"args": ["build"],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+		},
+		{
+			"label": "Trunk: Serve",
+			"type": "cargo",
+			"command": "make",
+			"args": ["start-client"],
+			//"problemMatcher": [
+			//	"$rustc"
+			//],
+			"isBackground": true
+		}
+	]
+}
