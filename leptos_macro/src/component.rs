@@ -236,7 +236,7 @@ impl ToTokens for Model {
         let body_name = unmodified_fn_name_from_fn_name(&body_name);
         let body_expr = if *is_island {
             quote! {
-                ::leptos::reactive_graph::Owner::with_hydration(move || {
+                ::leptos::reactive::Owner::with_hydration(move || {
                     #body_name(#prop_names)
                 })
             }
@@ -247,7 +247,7 @@ impl ToTokens for Model {
         };
 
         let component = quote! {
-            ::leptos::reactive_graph::untrack(
+            ::leptos::reactive::untrack(
                 move || {
                     #tracing_guard_expr
                     #tracing_props_expr
