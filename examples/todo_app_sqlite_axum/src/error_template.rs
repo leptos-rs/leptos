@@ -1,9 +1,5 @@
 use crate::errors::TodoAppError;
-use leptos::context::use_context;
-use leptos::reactive_graph::effect::Effect;
-use leptos::signals::RwSignal;
-use leptos::{component, server, view, For, IntoView};
-use leptos::{prelude::*, Errors};
+use leptos::prelude::*;
 #[cfg(feature = "ssr")]
 use leptos_axum::ResponseOptions;
 

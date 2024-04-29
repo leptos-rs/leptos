@@ -7,11 +7,7 @@ use axum::{
     routing::get,
     Router,
 };
-use leptos::{
-    config::{get_configuration, LeptosOptions},
-    view,
-};
-use leptos::{context::provide_context, HydrationScripts};
+use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use todo_app_sqlite_axum::*;
 
