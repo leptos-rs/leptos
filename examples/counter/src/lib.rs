@@ -1,4 +1,4 @@
-use leptos::{component, create_signal, prelude::*, view, IntoView};
+use leptos::prelude::*;
 
 /// A simple counter component.
 ///
@@ -10,7 +10,7 @@ pub fn SimpleCounter(
     /// The change that should be applied each time the button is clicked.
     step: i32,
 ) -> impl IntoView {
-    let (value, set_value) = create_signal(initial_value);
+    let (value, set_value) = signal(initial_value);
 
     view! {
         <div>

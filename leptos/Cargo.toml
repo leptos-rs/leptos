@@ -15,6 +15,7 @@ any_spawner = { workspace = true, features = ["wasm-bindgen"] }
 base64 = { version = "0.22", optional = true }
 cfg-if = "1"
 hydration_context = { workspace = true }
+either_of = { workspace = true }
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }

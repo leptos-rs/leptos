@@ -2,7 +2,8 @@
 #[tokio::main]
 async fn main() {
     use axum::Router;
-    use leptos::{logging::log, config::get_configuration, view, HydrationScripts};
+    use leptos::prelude::*;
+    use leptos::logging;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
     use leptos_meta::MetaTags;

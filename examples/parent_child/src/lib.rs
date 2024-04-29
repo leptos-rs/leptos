@@ -1,13 +1,4 @@
-use leptos::{
-    callback::{Callback, UnsyncCallback},
-    component,
-    prelude::*,
-    reactive_graph::{
-        owner::{provide_context, use_context},
-        signal::{signal, WriteSignal},
-    },
-    view, IntoView,
-};
+use leptos::prelude::*;
 use web_sys::MouseEvent;
 
 // This highlights four different ways that child components can communicate
@@ -56,7 +47,10 @@ pub fn App() -> impl IntoView {
             // Button C: use a regular event listener
             // setting an event listener on a component like this applies it
             // to each of the top-level elements the component returns
-            <ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
+            //
+            // TODO sorry <ButtonC/> I need to take another crack at `on:` here!
+            //
+            // <ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
 
             // Button D gets its setter from context rather than props
             <ButtonD/>
@@ -70,14 +64,7 @@ pub fn ButtonA(
     /// Signal that will be toggled when the button is clicked.
     setter: WriteSignal<bool>,
 ) -> impl IntoView {
-    view! {
-
-        <button
-            on:click=move |_| setter.update(|value| *value = !*value)
-        >
-            "Toggle Red"
-        </button>
-    }
+    view! { <button on:click=move |_| setter.update(|value| *value = !*value)>"Toggle Red"</button> }
 }
 
 /// Button B receives a closure
@@ -89,13 +76,7 @@ pub fn ButtonB<F>(
 where
     F: FnMut(MouseEvent) + 'static,
 {
-    view! {
-        <button
-            on:click=on_click
-        >
-            "Toggle Right"
-        </button>
-    }
+    view! { <button on:click=on_click>"Toggle Right"</button> }
 }
 
 use leptos::tachys::view::add_attr::AddAnyAttr;
@@ -104,11 +85,7 @@ use leptos::tachys::view::add_attr::AddAnyAttr;
 /// its click. Instead, the parent component adds an event listener.
 #[component]
 pub fn ButtonC() -> impl IntoView + AddAnyAttr<Dom> {
-    view! {
-        <button>
-            "Toggle Italics"
-        </button>
-    }
+    view! { <button>"Toggle Italics"</button> }
 }
 
 /// Button D is very similar to Button A, but instead of passing the setter as a prop
@@ -118,10 +95,8 @@ pub fn ButtonD() -> impl IntoView {
     let setter = use_context::<SmallcapsContext>().unwrap().0;
 
     view! {
-        <button
-            on:click=move |_| setter.update(|value| *value = !*value)
-        >
-            "Toggle Small Caps"
-        </button>
+        <button on:click=move |_| {
+            setter.update(|value| *value = !*value)
+        }>"Toggle Small Caps"</button>
     }
 }
