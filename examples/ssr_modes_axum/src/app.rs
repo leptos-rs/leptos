@@ -1,9 +1,5 @@
 use lazy_static::lazy_static;
-use leptos::{
-    component, prelude::*, reactive_graph::computed::AsyncDerived, server,
-    server::Resource, server_fn::ServerFnError, suspend, view, ErrorBoundary,
-    IntoView, Params, Suspend, Suspense,
-};
+use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::{
     components::{FlatRoutes, Route, Router},
@@ -99,7 +95,7 @@ fn Post() -> impl IntoView {
         }
     });
 
-    let post_view = suspend!({
+    let post_view = Suspend(async move {
         match post_resource.await {
             Ok(Ok(post)) => Ok(view! {
                 <h1>{post.title.clone()}</h1>
