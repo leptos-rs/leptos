@@ -23,12 +23,14 @@
 			"isBackground": true,
 			"problemMatcher": {
 				"pattern": {
-					"regexp": "$rustc",
+					"regexp": ".",
+					"file": 1,"line": 1,
+					"column": 1,"message": 1
 				},
 				"background": {
 					"activeOnStart": true,
-					"beginsPattern": "^.*server listening at.*",
-					"endsPattern": "^.*error.*"
+					"beginsPattern": ".",
+					"endsPattern": "."
 				}
 			}
 		},
