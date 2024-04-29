@@ -5,8 +5,7 @@ use axum::{
     http::{Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::config::LeptosOptions;
-use leptos::{view, Errors};
+use leptos::prelude::*;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
@@ -25,7 +24,7 @@ pub async fn file_and_error_handler(
         errors.insert_with_default_key(TodoAppError::NotFound);
         let handler = leptos_axum::render_app_to_stream(
             options.to_owned(),
-            move || view! {<ErrorTemplate outside_errors=errors.clone()/>},
+            move || view! { <ErrorTemplate outside_errors=errors.clone()/> },
         );
         handler(req).await.into_response()
     }

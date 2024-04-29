@@ -237,9 +237,9 @@ pub async fn handle_server_fns(req: Request<Body>) -> impl IntoResponse {
 
 fn init_executor() {
     #[cfg(feature = "wasm")]
-    let _ = leptos::Executor::init_wasm_bindgen();
+    let _ = any_spawner::Executor::init_wasm_bindgen();
     #[cfg(all(not(feature = "wasm"), feature = "default"))]
-    let _ = leptos::Executor::init_tokio();
+    let _ = any_spawner::Executor::init_tokio();
     #[cfg(all(not(feature = "wasm"), not(feature = "default")))]
     {
         eprintln!(
