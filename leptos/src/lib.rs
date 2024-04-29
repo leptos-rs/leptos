@@ -163,11 +163,13 @@ pub mod prelude {
         pub use crate::{
             callback::*, children::*, component::*, context::*,
             control_flow::*, error::*, form::*, hydration::*, into_view::*,
+            suspense::*,
         };
         pub use leptos_config::*;
         pub use leptos_dom::*;
         pub use leptos_macro::*;
         pub use leptos_server::*;
+        pub use oco_ref::*;
         pub use reactive_graph::*;
         pub use server_fn::*;
         pub use tachys;
@@ -220,7 +222,7 @@ mod suspense_component;
 /// Types for reactive string properties for components.
 pub mod text_prop;
 mod transition;
-pub use leptos_macro;
+pub use leptos_macro::*;
 pub use server_fn;
 #[doc(hidden)]
 pub use typed_builder;
@@ -235,7 +237,7 @@ pub mod mount;
 pub use leptos_config as config;
 pub use oco_ref as oco;
 mod from_form_data;
-pub use reactive_graph as reactive;
+pub use reactive_graph;
 
 /// Provide and access data along the reactive graph, sharing data without directly passing arguments.
 pub mod context {
