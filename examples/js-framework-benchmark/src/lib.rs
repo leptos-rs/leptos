@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use rand::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 static ADJECTIVES: &[&str] = &[
@@ -86,13 +86,8 @@ fn Button(
     text: &'static str,
 ) -> impl IntoView {
     view! {
-
         <div class="col-sm-6 smallpad">
-            <button
-                id=id
-                class="btn btn-primary btn-block"
-                type="button"
-            >
+            <button id=id class="btn btn-primary btn-block" type="button">
                 {text}
             </button>
         </div>
@@ -146,19 +141,20 @@ pub fn App() -> impl IntoView {
     let is_selected = create_selector(move || selected.get());
 
     view! {
-
         <div class="container">
             <div class="jumbotron">
                 <div class="row">
-                    <div class="col-md-6"><h1>"Leptos"</h1></div>
+                    <div class="col-md-6">
+                        <h1>"Leptos"</h1>
+                    </div>
                     <div class="col-md-6">
                         <div class="row">
-                            <Button id="run" text="Create 1,000 rows" on:click=run />
-                            <Button id="runlots" text="Create 10,000 rows" on:click=run_lots />
-                            <Button id="add" text="Append 1,000 rows" on:click=add />
-                            <Button id="update" text="Update every 10th row" on:click=update />
-                            <Button id="clear" text="Clear" on:click=clear />
-                            <Button id="swaprows" text="Swap Rows" on:click=swap_rows />
+                            <Button id="run" text="Create 1,000 rows" on:click=run/>
+                            <Button id="runlots" text="Create 10,000 rows" on:click=run_lots/>
+                            <Button id="add" text="Append 1,000 rows" on:click=add/>
+                            <Button id="update" text="Update every 10th row" on:click=update/>
+                            <Button id="clear" text="Clear" on:click=clear/>
+                            <Button id="swaprows" text="Swap Rows" on:click=swap_rows/>
                         </div>
                     </div>
                 </div>
@@ -167,7 +163,7 @@ pub fn App() -> impl IntoView {
                 <tbody>
                     <For
                         each=move || data.get()
-                        key={|row| row.id}
+                        key=|row| row.id
                         children=move |row: RowData| {
                             let row_id = row.id;
                             let (label, _) = row.label;
@@ -189,9 +185,10 @@ pub fn App() -> impl IntoView {
                             }
                         }
                     />
+
                 </tbody>
             </table>
-            <span class="preloadicon glyphicon glyphicon-remove" aria-hidden="true" />
+            <span class="preloadicon glyphicon glyphicon-remove" aria-hidden="true"></span>
         </div>
     }
 }

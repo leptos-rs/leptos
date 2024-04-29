@@ -1,12 +1,4 @@
-use leptos::{
-    error::Result,
-    prelude::*,
-    reactive_graph::{
-        computed::AsyncDerived,
-        signal::{signal, ArcRwSignal},
-    },
-    suspend, view, ErrorBoundary, Errors, IntoView, Transition,
-};
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -55,8 +47,7 @@ pub fn fetch_example() -> impl IntoView {
     // 2) we'd need to make sure there was a thread-local spawner set up
     let cats = AsyncDerived::new_unsync(move || fetch_cats(cat_count.get()));
 
-    let fallback = move |errors: &ArcRwSignal<Errors>| {
-        let errors = errors.clone();
+    let fallback = move |errors: ArcRwSignal<Errors>| {
         let error_list = move || {
             errors.with(|errors| {
                 errors
@@ -86,16 +77,27 @@ pub fn fetch_example() -> impl IntoView {
                         set_cat_count.set(val);
                     }
                 />
+
             </label>
             <Transition fallback=|| view! { <div>"Loading..."</div> }>
                 <ErrorBoundary fallback>
-                        <ul>
-                            {suspend!(cats.await.map(|cats| {
-                                cats.into_iter()
-                                    .map(|s| view! { <li><img src={s}/></li> })
-                                    .collect::<Vec<_>>()
-                            }))}
-                        </ul>
+                    <ul>
+                        {move || Suspend(async move {
+                            cats.await
+                                .map(|cats| {
+                                    cats.into_iter()
+                                        .map(|s| {
+                                            view! {
+                                                <li>
+                                                    <img src=s/>
+                                                </li>
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                })
+                        })}
+
+                    </ul>
                 </ErrorBoundary>
             </Transition>
         </div>

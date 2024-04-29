@@ -1,14 +1,5 @@
-use leptos::{
-    component,
-    prelude::*,
-    reactive_graph::{
-        owner::{provide_context, use_context},
-        signal::{
-            create_signal, ArcRwSignal, ReadSignal, RwSignal, WriteSignal,
-        },
-    },
-    view, For, IntoView,
-};
+use leptos::prelude::signal::*;
+use leptos::prelude::*;
 
 const MANY_COUNTERS: usize = 1000;
 
@@ -49,26 +40,17 @@ pub fn Counters() -> impl IntoView {
 
     view! {
         <div>
-            <button on:click=add_counter>
-                "Add Counter"
-            </button>
-            <button on:click=add_many_counters>
-                {format!("Add {MANY_COUNTERS} Counters")}
-            </button>
-            <button on:click=clear_counters>
-                "Clear Counters"
-            </button>
+            <button on:click=add_counter>"Add Counter"</button>
+            <button on:click=add_many_counters>{format!("Add {MANY_COUNTERS} Counters")}</button>
+            <button on:click=clear_counters>"Clear Counters"</button>
             <p>
                 "Total: "
-                <span>{move ||
-                    counters.get()
-                        .iter()
-                        .map(|(_, count)| count.get())
-                        .sum::<i32>()
-                        .to_string()
-                }</span>
-                " from "
-                <span>{move || counters.get().len().to_string()}</span>
+                <span>
+                    {move || {
+                        counters.get().iter().map(|(_, count)| count.get()).sum::<i32>().to_string()
+                    }}
+
+                </span> " from " <span>{move || counters.get().len().to_string()}</span>
                 " counters."
             </p>
             <ul>
@@ -76,11 +58,10 @@ pub fn Counters() -> impl IntoView {
                     each=move || counters.get()
                     key=|counter| counter.0
                     children=move |(id, value)| {
-                        view! {
-                            <Counter id value/>
-                        }
+                        view! { <Counter id value/> }
                     }
                 />
+
             </ul>
         </div>
     }
@@ -94,13 +75,20 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
     view! {
         <li>
             <button on:click=move |_| value.update(move |value| *value -= 1)>"-1"</button>
-            <input type="text"
+            <input
+                type="text"
                 prop:value=value
-                on:input:target=move |ev| { value.set(ev.target().value().parse::<i32>().unwrap_or_default()) }
+                on:input:target=move |ev| {
+                    value.set(ev.target().value().parse::<i32>().unwrap_or_default())
+                }
             />
+
             <span>{value.clone()}</span>
             <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>
-            <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
+            <button on:click=move |_| {
+                set_counters
+                    .update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))
+            }>"x"</button>
         </li>
     }
 }
