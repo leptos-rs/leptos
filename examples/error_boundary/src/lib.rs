@@ -1,4 +1,4 @@
-use leptos::{component, prelude::*, signal, view, ErrorBoundary, IntoView};
+use leptos::prelude::*;
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -40,8 +40,8 @@ pub fn App() -> impl IntoView {
 
                 <p>
                     // because `value` is `Result<i32, _>`,
-                    "You entered " // it will render the `i32` if it is `Ok`,
-                    // and render nothing and trigger the error boundary
+                    // it will render the `i32` if it is `Ok`,
+                    "You entered " // and render nothing and trigger the error boundary
                     // if it is `Err`. It's a signal, so this will dynamically
                     // update when `value` changes
                     <strong>{value}</strong>

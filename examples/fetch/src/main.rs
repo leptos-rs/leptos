@@ -1,5 +1,5 @@
 use fetch::fetch_example;
-use leptos::*;
+use leptos::prelude::*;
 
 pub fn main() {
     use tracing_subscriber::fmt;
