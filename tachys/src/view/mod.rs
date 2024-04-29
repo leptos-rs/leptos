@@ -60,10 +60,12 @@ pub trait RenderHtml<R: Renderer>
 where
     Self: Render<R> + Send,
 {
+    /// The type of the view after waiting for all asynchronous data to load.
     type AsyncOutput: RenderHtml<R>;
 
     const MIN_LENGTH: usize;
 
+    /// Waits for any asynchronous sections of the view to load and returns the output.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 
     /// An estimated length for this view, when rendered to HTML.
