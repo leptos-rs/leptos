@@ -1,8 +1,9 @@
 use tachys::{
+    html::attribute::Attribute,
     hydration::Cursor,
     renderer::dom::Dom,
     ssr::StreamBuilder,
-    view::{Position, PositionState, Render, RenderHtml},
+    view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
 
 pub struct View<T>(T)
@@ -75,7 +76,7 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
     }
 }
 
-/*impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
+impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
     type Output<SomeNewAttr: Attribute<Dom>> =
         <T as AddAnyAttr<Dom>>::Output<SomeNewAttr>;
 
@@ -98,4 +99,4 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
     {
         self.0.add_any_attr_by_ref(attr)
     }
-}*/
+}
