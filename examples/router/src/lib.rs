@@ -1,20 +1,8 @@
 mod api;
 use crate::api::*;
-use leptos::{
-    component,
-    prelude::*,
-    reactive_graph::{
-        computed::AsyncDerived,
-        effect::Effect,
-        owner::{provide_context, use_context, Owner},
-        signal::ArcRwSignal,
-    },
-    suspend,
-    tachys::either::Either,
-    view, IntoView, Params, Suspense, Transition,
-};
-use log::{debug, info};
-use routing::{
+use leptos::either::Either;
+use leptos::prelude::*;
+use leptos_router::{
     components::{ParentRoute, Redirect, Route, Router, Routes},
     hooks::{use_location, use_navigate, use_params},
     link::A,
@@ -22,6 +10,7 @@ use routing::{
     params::Params,
     MatchNestedRoutes, NestedRoute, Outlet, ParamSegment, StaticSegment,
 };
+use log::{debug, info};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct ExampleContext(i32);
@@ -66,7 +55,7 @@ pub fn RouterExample() -> impl IntoView {
 #[component]
 pub fn ContactRoutes() -> impl MatchNestedRoutes<Dom> + Clone {
     view! {
-        <ParentRoute path=StaticSegment("contacts") view=ContactList>
+        <ParentRoute path=StaticSegment("") view=ContactList>
             <Route path=StaticSegment("") view=|| "Select a contact."/>
             <Route path=ParamSegment("id") view=Contact/>
         </ParentRoute>
@@ -87,17 +76,23 @@ pub fn ContactList() -> impl IntoView {
     let location = use_location();
     let contacts =
         AsyncDerived::new(move || get_contacts(location.search.get()));
-    let contacts = suspend!(
+    let contacts = move || {
+        Suspend(async move {
             // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
             contacts.await
                 .into_iter()
                 .map(|contact| {
                     view! {
-                        <li><A href=contact.id.to_string()><span>{contact.first_name} " " {contact.last_name}</span></A></li>
+                        <li>
+                            <A href=contact.id.to_string()>
+                                <span>{contact.first_name} " " {contact.last_name}</span>
+                            </A>
+                        </li>
                     }
                 })
                 .collect::<Vec<_>>()
-    );
+        })
+    };
     view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
@@ -139,16 +134,21 @@ pub fn Contact() -> impl IntoView {
         )
     });
 
-    let contact_display = suspend!(match contact.await {
-        None =>
-            Either::Left(view! { <p>"No contact with this ID was found."</p> }),
-        Some(contact) => Either::Right(view! {
-            <section class="card">
-                <h1>{contact.first_name} " " {contact.last_name}</h1>
-                <p>{contact.address_1} <br/> {contact.address_2}</p>
-            </section>
-        }),
-    });
+    let contact_display = move || {
+        Suspend(async move {
+            match contact.await {
+                None => Either::Left(
+                    view! { <p>"No contact with this ID was found."</p> },
+                ),
+                Some(contact) => Either::Right(view! {
+                    <section class="card">
+                        <h1>{contact.first_name} " " {contact.last_name}</h1>
+                        <p>{contact.address_1} <br/> {contact.address_2}</p>
+                    </section>
+                }),
+            }
+        })
+    };
 
     view! {
         <div class="contact">
