@@ -39,6 +39,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
     type State = V::State;
+    type Cloneable = CustomAttr<K, V::Cloneable, R>;
 
     fn html_len(&self) -> usize {
         self.key.as_ref().len() + 3 + self.value.html_len()
@@ -68,6 +69,14 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.value.rebuild(self.key.as_ref(), state);
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        CustomAttr {
+            key: self.key,
+            value: self.value.into_cloneable(),
+            rndr: self.rndr,
+        }
     }
 }
 

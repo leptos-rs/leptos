@@ -4,16 +4,18 @@ use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
     borrow::{Borrow, Cow},
     ops::Deref,
+    sync::{Arc, RwLock},
 };
 
 impl<F, C, R> IntoClass<R> for F
 where
-    F: FnMut() -> C + Send + 'static,
+    F: FnMut() -> C + Send + Sync + 'static,
     C: IntoClass<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
 {
     type State = RenderEffectState<C::State>;
+    type Cloneable = Arc<dyn FnMut() -> C + Send + Sync + 'static>;
 
     fn html_len(&self) -> usize {
         0
