@@ -36,6 +36,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = T::State;
+    type Cloneable = InnerHtml<T::Cloneable, R>;
 
     fn html_len(&self) -> usize {
         self.value.html_len()
@@ -64,6 +65,13 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.value.rebuild(state);
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        InnerHtml {
+            value: self.value.into_cloneable(),
+            rndr: self.rndr,
+        }
     }
 }
 
@@ -115,6 +123,7 @@ where
 
 pub trait InnerHtmlValue<R: DomRenderer>: Send {
     type State;
+    type Cloneable: InnerHtmlValue<R> + Clone;
 
     fn html_len(&self) -> usize;
 
@@ -127,6 +136,8 @@ pub trait InnerHtmlValue<R: DomRenderer>: Send {
     fn build(self, el: &R::Element) -> Self::State;
 
     fn rebuild(self, state: &mut Self::State);
+
+    fn into_cloneable(self) -> Self::Cloneable;
 }
 
 impl<R> InnerHtmlValue<R> for String
@@ -134,6 +145,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -166,6 +178,10 @@ where
             state.1 = self;
         }
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into()
+    }
 }
 
 impl<R> InnerHtmlValue<R> for Arc<str>
@@ -173,6 +189,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -205,6 +222,10 @@ where
             state.1 = self;
         }
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> InnerHtmlValue<R> for &'a str
@@ -212,6 +233,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -244,6 +266,10 @@ where
             state.1 = self;
         }
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<T, R> InnerHtmlValue<R> for Option<T>
@@ -252,6 +278,7 @@ where
     R: DomRenderer,
 {
     type State = Option<T::State>;
+    type Cloneable = Option<T::Cloneable>;
 
     fn html_len(&self) -> usize {
         match self {
@@ -281,5 +308,9 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         todo!()
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.map(|inner| inner.into_cloneable())
     }
 }
