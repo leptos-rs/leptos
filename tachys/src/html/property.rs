@@ -4,7 +4,7 @@ use crate::{
     view::{Position, ToTemplate},
 };
 use send_wrapper::SendWrapper;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 use wasm_bindgen::JsValue;
 
 #[inline(always)]
@@ -40,7 +40,9 @@ where
     R: DomRenderer,
 {
     const MIN_LENGTH: usize = 0;
+
     type State = P::State;
+    type Cloneable = Property<Arc<str>, P::Cloneable, R>;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -68,6 +70,14 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.value.take().rebuild(state, self.key.as_ref())
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        Property {
+            key: self.key.as_ref().into(),
+            value: SendWrapper::new(self.value.take().into_cloneable()),
+            rndr: self.rndr,
+        }
     }
 }
 
@@ -105,6 +115,7 @@ where
 
 pub trait IntoProperty<R: DomRenderer> {
     type State;
+    type Cloneable: IntoProperty<R> + Clone;
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
@@ -115,6 +126,8 @@ pub trait IntoProperty<R: DomRenderer> {
     fn build(self, el: &R::Element, key: &str) -> Self::State;
 
     fn rebuild(self, state: &mut Self::State, key: &str);
+
+    fn into_cloneable(self) -> Self::Cloneable;
 }
 
 macro_rules! prop_type {
@@ -124,6 +137,7 @@ macro_rules! prop_type {
             R: DomRenderer,
         {
             type State = (R::Element, JsValue);
+            type Cloneable = Self;
 
             fn hydrate<const FROM_SERVER: bool>(
                 self,
@@ -148,6 +162,10 @@ macro_rules! prop_type {
                     R::set_property(el, key, &value);
                 }
                 *prev = value;
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
             }
         }
 
@@ -156,6 +174,7 @@ macro_rules! prop_type {
             R: DomRenderer,
         {
             type State = (R::Element, JsValue);
+            type Cloneable = Self;
 
             fn hydrate<const FROM_SERVER: bool>(
                 self,
@@ -186,6 +205,10 @@ macro_rules! prop_type {
                     R::set_property(el, key, &value);
                 }
                 *prev = value;
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
             }
         }
     };

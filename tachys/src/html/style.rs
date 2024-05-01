@@ -3,7 +3,7 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 
 /// Adds to the style attribute of the parent element.
 ///
@@ -35,7 +35,9 @@ where
     R: DomRenderer,
 {
     const MIN_LENGTH: usize = 0;
+
     type State = S::State;
+    type Cloneable = Style<S::Cloneable, R>;
 
     // TODO
     #[inline(always)]
@@ -63,6 +65,13 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.style.rebuild(state)
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        Style {
+            style: self.style.into_cloneable(),
+            rndr: self.rndr,
+        }
     }
 }
 
@@ -101,6 +110,7 @@ where
 /// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
 pub trait IntoStyle<R: DomRenderer>: Send {
     type State;
+    type Cloneable: IntoStyle<R> + Clone;
 
     fn to_html(self, style: &mut String);
 
@@ -109,6 +119,8 @@ pub trait IntoStyle<R: DomRenderer>: Send {
     fn build(self, el: &R::Element) -> Self::State;
 
     fn rebuild(self, state: &mut Self::State);
+
+    fn into_cloneable(self) -> Self::Cloneable;
 }
 
 pub trait StylePropertyValue<R: DomRenderer> {
@@ -130,6 +142,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, &'a str);
+    type Cloneable = Self;
 
     fn to_html(self, style: &mut String) {
         style.push_str(self);
@@ -152,6 +165,10 @@ where
         }
         *prev = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<R> IntoStyle<R> for String
@@ -159,6 +176,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, String);
+    type Cloneable = String; // TODO can do Arc<str> here I guess
 
     fn to_html(self, style: &mut String) {
         style.push_str(&self);
@@ -181,6 +199,10 @@ where
         }
         *prev = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> IntoStyle<R> for (&'a str, &'a str)
@@ -188,6 +210,7 @@ where
     R: DomRenderer,
 {
     type State = (R::CssStyleDeclaration, &'a str);
+    type Cloneable = Self;
 
     fn to_html(self, style: &mut String) {
         let (name, value) = self;
@@ -217,6 +240,10 @@ where
         }
         *prev = value;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> IntoStyle<R> for (&'a str, String)
@@ -224,6 +251,7 @@ where
     R: DomRenderer,
 {
     type State = (R::CssStyleDeclaration, String);
+    type Cloneable = Self; // TODO can use Arc<str> here
 
     fn to_html(self, style: &mut String) {
         let (name, value) = self;
@@ -253,6 +281,10 @@ where
         }
         *prev = value;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -262,6 +294,7 @@ where
     R: DomRenderer,
 {
     type State = ();
+    type Cloneable = Self;
 
     fn to_html(self, style: &mut String) {
         style.push_str(V);
@@ -279,6 +312,10 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 /*
