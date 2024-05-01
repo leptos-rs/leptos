@@ -102,6 +102,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, Oco<'static, str>);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.as_str().len()
@@ -138,6 +139,12 @@ where
         }
         *prev_value = self;
     }
+
+    fn into_cloneable(mut self) -> Self::Cloneable {
+        // ensure it's reference-counted
+        self.upgrade_inplace();
+        self
+    }
 }
 
 impl<R> IntoClass<R> for Oco<'static, str>
@@ -145,6 +152,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.as_str().len()
@@ -172,5 +180,11 @@ where
             R::set_attribute(el, "class", &self);
         }
         *prev = self;
+    }
+
+    fn into_cloneable(mut self) -> Self::Cloneable {
+        // ensure it's reference-counted
+        self.upgrade_inplace();
+        self
     }
 }

@@ -34,6 +34,7 @@ where
     const MIN_LENGTH: usize = C::MIN_LENGTH;
 
     type State = C::State;
+    type Cloneable = Class<C::Cloneable, R>;
 
     fn html_len(&self) -> usize {
         self.class.html_len() + 1
@@ -60,6 +61,13 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.class.rebuild(state)
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        Class {
+            class: self.class.into_cloneable(),
+            rndr: self.rndr,
+        }
     }
 }
 
@@ -101,6 +109,7 @@ pub trait IntoClass<R: DomRenderer>: Send {
     const MIN_LENGTH: usize = Self::TEMPLATE.len();
 
     type State;
+    type Cloneable: IntoClass<R> + Clone;
 
     fn html_len(&self) -> usize;
 
@@ -114,6 +123,8 @@ pub trait IntoClass<R: DomRenderer>: Send {
     fn build(self, el: &R::Element) -> Self::State;
 
     fn rebuild(self, state: &mut Self::State);
+
+    fn into_cloneable(self) -> Self::Cloneable;
 }
 
 impl<'a, R> IntoClass<R> for &'a str
@@ -121,6 +132,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -149,6 +161,10 @@ where
         }
         *prev = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for String
@@ -156,6 +172,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -184,6 +201,10 @@ where
         }
         *prev = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into()
+    }
 }
 
 impl<R> IntoClass<R> for Arc<str>
@@ -191,6 +212,7 @@ where
     R: DomRenderer,
 {
     type State = (R::Element, Self);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -219,6 +241,10 @@ where
         }
         *prev = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for (&'static str, bool)
@@ -226,6 +252,7 @@ where
     R: DomRenderer,
 {
     type State = (R::ClassList, bool);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.0.len()
@@ -268,6 +295,10 @@ where
         }
         *prev_include = include;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -279,6 +310,7 @@ where
     const TEMPLATE: &'static str = V;
 
     type State = ();
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         V.len()
@@ -300,6 +332,10 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 /* #[cfg(test)]
