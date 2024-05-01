@@ -16,6 +16,7 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     const MIN_LENGTH: usize;
 
     type State;
+    type Cloneable;
 
     fn html_len(&self) -> usize;
 
@@ -32,6 +33,8 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     fn build(self, el: &R::Element) -> Self::State;
 
     fn rebuild(self, state: &mut Self::State);
+
+    fn into_cloneable(self) -> Self::Cloneable;
 }
 
 pub trait NextAttribute<R: Renderer> {
@@ -50,6 +53,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = ();
+    type Cloneable = ();
 
     fn html_len(&self) -> usize {
         0
@@ -70,6 +74,10 @@ where
     fn build(self, _el: &R::Element) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<R> NextAttribute<R> for ()
@@ -119,6 +127,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = V::State;
+    type Cloneable = Attr<K, V::Cloneable, R>;
 
     fn html_len(&self) -> usize {
         K::KEY.len() + 3 + self.1.html_len()
@@ -144,6 +153,10 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         V::rebuild(self.1, K::KEY, state);
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        Attr(self.0, self.1.into_cloneable(), PhantomData)
     }
 }
 
@@ -174,6 +187,7 @@ macro_rules! impl_attr_for_tuples {
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
 			type State = ($first::State, $($ty::State,)*);
+            type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
 
             fn html_len(&self) -> usize {
                 #[allow(non_snake_case)]
@@ -217,6 +231,14 @@ macro_rules! impl_attr_for_tuples {
 					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
 				}
 			}
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_cloneable(),
+                    $($ty.into_cloneable()),*
+                )
+            }
         }
 
 		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
@@ -250,6 +272,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
 			type State = ($first::State, $($ty::State,)*);
+            type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
 
             fn html_len(&self) -> usize {
                 #[allow(non_snake_case)]
@@ -293,6 +316,14 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
 					$([<$ty:lower>].rebuild([<view_ $ty:lower>]));*
 				}
 			}
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_cloneable(),
+                    $($ty.into_cloneable()),*
+                )
+            }
         }
 
 		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
@@ -322,6 +353,7 @@ where
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
     type State = A::State;
+    type Cloneable = (A::Cloneable,);
 
     fn html_len(&self) -> usize {
         self.0.html_len()
@@ -350,6 +382,10 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.0.rebuild(state);
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0.into_cloneable(),)
     }
 }
 

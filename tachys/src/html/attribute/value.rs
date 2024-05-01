@@ -7,10 +7,19 @@ use std::{
         NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
         NonZeroU8, NonZeroUsize,
     },
+    sync::Arc,
 };
 
 pub trait AttributeValue<R: Renderer>: Send {
     type State;
+
+    /// A version of the value that can be cloned. This can be the same type, or a
+    /// reference-counted type. Generally speaking, this does *not* need to refer to the same data,
+    /// but should behave in the same way. So for example, making an event handler cloneable should
+    /// probably make it reference-counted (so that a `FnMut()` continues mutating the same
+    /// closure), but making a `String` cloneable does not necessarily need to make it an
+    /// `Arc<str>`, as two different clones of a `String` will still have the same value.
+    type Cloneable: AttributeValue<R> + Clone;
 
     fn html_len(&self) -> usize;
 
@@ -27,6 +36,8 @@ pub trait AttributeValue<R: Renderer>: Send {
     fn build(self, el: &R::Element, key: &str) -> Self::State;
 
     fn rebuild(self, key: &str, state: &mut Self::State);
+
+    fn into_cloneable(self) -> Self::Cloneable;
 }
 
 impl<R> AttributeValue<R> for ()
@@ -34,6 +45,7 @@ where
     R: Renderer,
 {
     type State = ();
+    type Cloneable = ();
 
     fn html_len(&self) -> usize {
         0
@@ -48,6 +60,10 @@ where
     fn build(self, _el: &R::Element, _key: &str) -> Self::State {}
 
     fn rebuild(self, _key: &str, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> AttributeValue<R> for &'a str
@@ -55,6 +71,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, &'a str);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -95,6 +112,10 @@ where
         }
         *prev_value = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -104,6 +125,7 @@ where
     R: Renderer,
 {
     type State = ();
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         V.len()
@@ -133,6 +155,10 @@ where
     }
 
     fn rebuild(self, _key: &str, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> AttributeValue<R> for &'a String
@@ -140,6 +166,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, &'a String);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -176,6 +203,10 @@ where
         }
         *prev_value = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<R> AttributeValue<R> for String
@@ -183,6 +214,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, String);
+    type Cloneable = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -219,8 +251,59 @@ where
         }
         *prev_value = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into()
+    }
 }
 
+impl<R> AttributeValue<R> for Arc<str>
+where
+    R: Renderer,
+{
+    type State = (R::Element, Arc<str>);
+    type Cloneable = Arc<str>;
+
+    fn html_len(&self) -> usize {
+        self.len()
+    }
+
+    fn to_html(self, key: &str, buf: &mut String) {
+        <&str as AttributeValue<R>>::to_html(self.as_ref(), key, buf);
+    }
+
+    fn to_template(_key: &str, _buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        key: &str,
+        el: &R::Element,
+    ) -> Self::State {
+        let (el, _) = <&str as AttributeValue<R>>::hydrate::<FROM_SERVER>(
+            self.as_ref(),
+            key,
+            el,
+        );
+        (el, self)
+    }
+
+    fn build(self, el: &R::Element, key: &str) -> Self::State {
+        R::set_attribute(el, key, &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, key: &str, state: &mut Self::State) {
+        let (el, prev_value) = state;
+        if self != *prev_value {
+            R::set_attribute(el, key, &self);
+        }
+        *prev_value = self;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+}
 // TODO impl AttributeValue for Rc<str> and Arc<str> too
 
 impl<R> AttributeValue<R> for bool
@@ -228,6 +311,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, bool);
+    type Cloneable = Self;
 
     fn html_len(&self) -> usize {
         0
@@ -273,6 +357,10 @@ where
         }
         *prev_value = self;
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<V, R> AttributeValue<R> for Option<V>
@@ -281,6 +369,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, Option<V::State>);
+    type Cloneable = Option<V::Cloneable>;
 
     fn html_len(&self) -> usize {
         match self {
@@ -334,6 +423,10 @@ where
             }
         }
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.map(|value| value.into_cloneable())
+    }
 }
 
 fn escape_attr(value: &str) -> Cow<'_, str> {
@@ -348,6 +441,7 @@ macro_rules! render_primitive {
             R: Renderer,
         {
             type State = (R::Element, $child_type);
+            type Cloneable = Self;
 
             fn html_len(&self) -> usize {
                 0
@@ -383,6 +477,10 @@ macro_rules! render_primitive {
                     R::set_attribute(el, key, &self.to_string());
                 }
                 *prev_value = self;
+            }
+
+            fn into_cloneable(self) -> Self::Cloneable {
+                self
             }
         }
       )*

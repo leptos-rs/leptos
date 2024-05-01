@@ -108,7 +108,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Static<const V: &'static str>;
 
 impl<const V: &'static str> PartialEq for Static<V> {
