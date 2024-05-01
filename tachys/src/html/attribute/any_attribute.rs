@@ -161,6 +161,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = AnyAttributeState<R>;
+    type Cloneable = ();
 
     fn html_len(&self) -> usize {
         self.html_len
@@ -193,5 +194,9 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         (self.rebuild)(self.type_id, self.value, state)
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        todo!()
     }
 }
