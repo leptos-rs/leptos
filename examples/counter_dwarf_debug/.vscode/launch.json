@@ -8,7 +8,7 @@
             "name": "Launch Browser Chrome",
             "request": "launch",
             "type": "chrome",
-            "url": "http://localhost:8080",
+            "url": "http://localhost:4001",
             "webRoot": "${workspaceFolder}/dist",
             // Needed to keep the dwarf extension in the browser
             "userDataDir": false,
