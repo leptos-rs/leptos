@@ -125,7 +125,7 @@ where
 ///    // parent route
 ///    <Route path="/" view=move || {
 ///      view! {
-///        // only show the outlet when `is_loaded` is `true`, and hide it when it is `false`
+///        // only show the outlet when `has_permission` is `true`, and hide it when it is `false`
 ///        <Show when=move || has_permission() fallback=|| "Access denied!">
 ///          <Outlet/>
 ///        </Show>
