@@ -49,6 +49,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
     type State = ();
+    type Cloneable = Self;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -76,6 +77,10 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        panic!("node_ref should not be spread across multiple elements.");
+    }
 }
 
 impl<E, C, Rndr> NextAttribute<Rndr> for NodeRefAttr<E, C, Rndr>
