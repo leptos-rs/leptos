@@ -1,3 +1,4 @@
+use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{
     html::property::IntoProperty,
     renderer::{DomRenderer, Renderer},
@@ -7,12 +8,13 @@ use reactive_graph::effect::RenderEffect;
 // These do update during hydration because properties don't exist in the DOM
 impl<F, V, R> IntoProperty<R> for F
 where
-    F: FnMut() -> V + 'static,
-    V: IntoProperty<R>,
+    F: ReactiveFunction<Output = V>,
+    V: IntoProperty<R> + 'static,
     V::State: 'static,
     R: DomRenderer,
 {
     type State = RenderEffect<V::State>;
+    type Cloneable = SharedReactiveFunction<V>;
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
@@ -24,7 +26,7 @@ where
         let el = el.to_owned();
 
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state, &key);
                 state
@@ -44,7 +46,7 @@ where
         let el = el.to_owned();
 
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state, &key);
                 state
@@ -56,6 +58,10 @@ where
 
     fn rebuild(self, _state: &mut Self::State, _key: &str) {
         // TODO rebuild
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
     }
 }
 

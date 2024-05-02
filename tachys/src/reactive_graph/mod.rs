@@ -8,7 +8,9 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
+use or_poisoned::OrPoisoned;
 use reactive_graph::effect::RenderEffect;
+use std::sync::{Arc, Mutex};
 
 mod class;
 mod guards;
@@ -295,19 +297,20 @@ where
 // Dynamic attributes
 impl<F, V, R> AttributeValue<R> for F
 where
-    F: FnMut() -> V + Send + 'static,
-    V: AttributeValue<R>,
+    F: ReactiveFunction<Output = V>,
+    V: AttributeValue<R> + 'static,
     V::State: 'static,
     R: Renderer,
 {
     type State = RenderEffectState<V::State>;
+    type Cloneable = SharedReactiveFunction<V>;
 
     fn html_len(&self) -> usize {
         0
     }
 
     fn to_html(mut self, key: &str, buf: &mut String) {
-        let value = self();
+        let value = self.invoke();
         value.to_html(key, buf);
     }
 
@@ -323,7 +326,7 @@ where
         let el = el.to_owned();
 
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&key, &mut state);
                 state
@@ -344,7 +347,7 @@ where
         let el = el.to_owned();
 
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&key, &mut state);
                 state
@@ -357,6 +360,48 @@ where
 
     fn rebuild(self, _key: &str, _state: &mut Self::State) {
         // TODO rebuild
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
+}
+
+pub type SharedReactiveFunction<T> = Arc<Mutex<dyn FnMut() -> T + Send>>;
+
+pub trait ReactiveFunction: Send + 'static {
+    type Output;
+
+    fn invoke(&mut self) -> Self::Output;
+
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>>;
+}
+
+impl<T: 'static> ReactiveFunction for Arc<Mutex<dyn FnMut() -> T + Send>> {
+    type Output = T;
+
+    fn invoke(&mut self) -> Self::Output {
+        let mut fun = self.lock().expect("lock poisoned");
+        fun()
+    }
+
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>> {
+        self
+    }
+}
+
+impl<F, T> ReactiveFunction for F
+where
+    F: FnMut() -> T + Send + 'static,
+{
+    type Output = T;
+
+    fn invoke(&mut self) -> Self::Output {
+        self()
+    }
+
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>> {
+        Arc::new(Mutex::new(self))
     }
 }
 
