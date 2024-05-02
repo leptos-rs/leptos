@@ -67,6 +67,7 @@ where
     const MIN_LENGTH: usize = K::KEY.len() + 3 + V.len(); // K::KEY + ="..." + V
 
     type State = ();
+    type Cloneable = Self;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -91,6 +92,10 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<K, const V: &'static str, R> NextAttribute<R> for StaticAttr<K, V>

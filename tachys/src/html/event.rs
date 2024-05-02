@@ -1,13 +1,18 @@
 use crate::{
     html::attribute::Attribute,
-    renderer::{CastFrom, DomRenderer},
+    renderer::{CastFrom, DomRenderer, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
+use or_poisoned::OrPoisoned;
+use send_wrapper::SendWrapper;
 use std::{
     borrow::Cow,
+    cell::RefCell,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    rc::Rc,
+    sync::{Arc, Mutex},
 };
 use wasm_bindgen::convert::FromWasmAbi;
 
@@ -58,73 +63,103 @@ impl<E, T, R> From<E> for Targeted<E, T, R> {
     }
 }
 
-pub fn on<E, R>(event: E, cb: impl FnMut(E::EventType) + 'static) -> On<R>
+pub fn on<E, R, F>(event: E, cb: F) -> On<E, F, R>
 where
+    F: FnMut(E::EventType) + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,
     E::EventType: From<R::Event>,
 {
-    let mut cb = send_wrapper::SendWrapper::new(cb);
     On {
-        name: event.name(),
-        setup: Box::new(move |el| {
-            let cb = Box::new(move |ev: R::Event| {
-                let ev = E::EventType::from(ev);
-                cb(ev);
-            }) as Box<dyn FnMut(R::Event) + Send>;
-
-            if E::BUBBLES && cfg!(feature = "delegation") {
-                R::add_event_listener_delegated(
-                    el,
-                    event.name(),
-                    event.event_delegation_key(),
-                    cb,
-                )
-            } else {
-                R::add_event_listener(el, &event.name(), cb)
-            }
-        }),
+        event,
+        cb: SendWrapper::new(cb),
         ty: PhantomData,
     }
 }
 
-pub fn on_target<E, T, R>(
+pub fn on_target<E, T, R, F>(
     event: E,
-    mut cb: impl FnMut(Targeted<E::EventType, T, R>) + 'static,
-) -> On<R>
+    mut cb: F,
+) -> On<E, Box<dyn FnMut(E::EventType)>, R>
 where
+    T: HasElementType,
+    F: FnMut(Targeted<E::EventType, <T as HasElementType>::ElementType, R>)
+        + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,
     E::EventType: From<R::Event>,
 {
-    on(event, move |ev| cb(ev.into()))
+    on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
 }
 
-pub struct On<R: DomRenderer> {
-    name: Cow<'static, str>,
-    #[allow(clippy::type_complexity)]
-    setup: Box<dyn FnOnce(&R::Element) -> Box<dyn FnOnce(&R::Element)> + Send>,
+#[derive(Clone)]
+pub struct On<E, F, R> {
+    event: E,
+    cb: SendWrapper<F>,
     ty: PhantomData<R>,
 }
 
-impl<R> Debug for On<R>
+impl<E, F, R> On<E, F, R>
 where
+    F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
     R: DomRenderer,
+    E::EventType: From<R::Event>,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("On").field(&self.name).finish()
+    pub fn attach(self, el: &R::Element) -> RemoveEventHandler<R::Element> {
+        fn attach_inner<R: DomRenderer>(
+            el: &R::Element,
+            cb: Box<dyn FnMut(R::Event)>,
+            name: Cow<'static, str>,
+            delegation_key: Option<Cow<'static, str>>,
+        ) -> RemoveEventHandler<R::Element> {
+            match delegation_key {
+                None => R::add_event_listener(el, &name, cb),
+                Some(key) => R::add_event_listener_delegated(el, name, key, cb),
+            }
+        }
+
+        let mut cb = self.cb.take();
+        let cb = Box::new(move |ev: R::Event| {
+            let ev = E::EventType::from(ev);
+            cb(ev);
+        }) as Box<dyn FnMut(R::Event)>;
+
+        attach_inner::<R>(
+            el,
+            cb,
+            self.event.name(),
+            (E::BUBBLES && cfg!(feature = "event-delegation"))
+                .then(|| self.event.event_delegation_key()),
+        )
     }
 }
 
-impl<R> Attribute<R> for On<R>
+impl<E, F, R> Debug for On<E, F, R>
 where
+    E: Debug,
     R: DomRenderer,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("On").field(&self.event).finish()
+    }
+}
+
+impl<E, F, R> Attribute<R> for On<E, F, R>
+where
+    F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
+    R: DomRenderer,
+    E::EventType: From<R::Event>,
 {
     const MIN_LENGTH: usize = 0;
     // a function that can be called once to remove the event listener
     type State = (R::Element, Option<Box<dyn FnOnce(&R::Element)>>);
+    type Cloneable = On<E, Arc<dyn FnMut(E::EventType)>, R>;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -143,13 +178,13 @@ where
 
     #[inline(always)]
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        let cleanup = (self.setup)(el);
+        let cleanup = self.attach(el);
         (el.clone(), Some(cleanup))
     }
 
     #[inline(always)]
     fn build(self, el: &R::Element) -> Self::State {
-        let cleanup = (self.setup)(el);
+        let cleanup = self.attach(el);
         (el.clone(), Some(cleanup))
     }
 
@@ -159,13 +194,29 @@ where
         if let Some(prev) = prev_cleanup.take() {
             prev(el);
         }
-        *prev_cleanup = Some((self.setup)(el));
+        *prev_cleanup = Some(self.attach(el));
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        let cb = Rc::new(RefCell::new(self.cb));
+        On {
+            cb: SendWrapper::new(Arc::new(move |ev| {
+                let mut cb = cb.borrow_mut();
+                cb(ev)
+            })),
+            event: self.event,
+            ty: self.ty,
+        }
     }
 }
 
-impl<R> NextAttribute<R> for On<R>
+impl<E, F, R> NextAttribute<R> for On<E, F, R>
 where
+    F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
     R: DomRenderer,
+    E::EventType: From<R::Event>,
 {
     type Output<NewAttr: Attribute<R>> = (Self, NewAttr);
 
@@ -177,10 +228,7 @@ where
     }
 }
 
-impl<R> ToTemplate for On<R>
-where
-    R: DomRenderer,
-{
+impl<E, F, R> ToTemplate for On<E, F, R> {
     #[inline(always)]
     fn to_template(
         _buf: &mut String,
@@ -461,7 +509,7 @@ generate_event_types! {
 }
 
 // Export `web_sys` event types
-use super::attribute::NextAttribute;
+use super::{attribute::NextAttribute, element::HasElementType};
 #[doc(no_inline)]
 pub use web_sys::{
     AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
