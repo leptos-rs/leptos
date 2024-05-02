@@ -97,7 +97,7 @@ where
     F: FnMut(E::EventType) + 'static,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<On<Rndr>>;
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<On<E, F, Rndr>>;
 
     fn on(self, event: E, cb: F) -> Self::Output {
         self.add_any_attr(on(event, cb))
@@ -121,10 +121,12 @@ where
         ) + 'static,
     Rndr: DomRenderer,
 {
-    type Output = <Self as AddAnyAttr<Rndr>>::Output<On<Rndr>>;
+    type Output = <Self as AddAnyAttr<Rndr>>::Output<
+        On<E, Box<dyn FnMut(E::EventType)>, Rndr>,
+    >;
 
     fn on_target(self, event: E, cb: F) -> Self::Output {
-        self.add_any_attr(on_target(event, cb))
+        self.add_any_attr(on_target::<E, T, Rndr, F>(event, cb))
     }
 }
 

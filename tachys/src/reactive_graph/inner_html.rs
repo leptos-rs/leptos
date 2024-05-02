@@ -1,3 +1,4 @@
+use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{
     html::element::InnerHtmlValue,
     renderer::{DomRenderer, Renderer},
@@ -6,19 +7,20 @@ use reactive_graph::effect::RenderEffect;
 
 impl<F, V, R> InnerHtmlValue<R> for F
 where
-    F: FnMut() -> V + Send + 'static,
-    V: InnerHtmlValue<R>,
+    F: ReactiveFunction<Output = V>,
+    V: InnerHtmlValue<R> + 'static,
     V::State: 'static,
     R: DomRenderer,
 {
     type State = RenderEffect<V::State>;
+    type Cloneable = SharedReactiveFunction<V>;
 
     fn html_len(&self) -> usize {
         0
     }
 
     fn to_html(mut self, buf: &mut String) {
-        let value = self();
+        let value = self.invoke();
         value.to_html(buf);
     }
 
@@ -30,7 +32,7 @@ where
     ) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -43,7 +45,7 @@ where
     fn build(mut self, el: &<R as Renderer>::Element) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -54,6 +56,10 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
