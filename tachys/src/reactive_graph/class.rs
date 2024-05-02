@@ -1,28 +1,28 @@
-use super::RenderEffectState;
+use super::{ReactiveFunction, RenderEffectState, SharedReactiveFunction};
 use crate::{html::class::IntoClass, renderer::DomRenderer};
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
     borrow::{Borrow, Cow},
     ops::Deref,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 impl<F, C, R> IntoClass<R> for F
 where
-    F: FnMut() -> C + Send + Sync + 'static,
+    F: ReactiveFunction<Output = C>,
     C: IntoClass<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
 {
     type State = RenderEffectState<C::State>;
-    type Cloneable = Arc<dyn FnMut() -> C + Send + Sync + 'static>;
+    type Cloneable = SharedReactiveFunction<C>;
 
     fn html_len(&self) -> usize {
         0
     }
 
     fn to_html(mut self, class: &mut String) {
-        let value = self();
+        let value = self.invoke();
         value.to_html(class);
     }
 
@@ -33,7 +33,7 @@ where
         // TODO FROM_SERVER vs template
         let el = el.clone();
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -47,7 +47,7 @@ where
     fn build(mut self, el: &R::Element) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -64,7 +64,7 @@ where
         drop(prev_effect);
         *state = RenderEffect::new_with_value(
             move |prev| {
-                let value = self();
+                let value = self.invoke();
                 if let Some(mut state) = prev {
                     value.rebuild(&mut state);
                     state
@@ -76,15 +76,20 @@ where
         )
         .into();
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
 }
 
 impl<F, T, R> IntoClass<R> for (&'static str, F)
 where
-    F: FnMut() -> T + Send + 'static,
-    T: Borrow<bool>,
+    F: ReactiveFunction<Output = T>,
+    T: Borrow<bool> + 'static,
     R: DomRenderer,
 {
     type State = RenderEffectState<(R::ClassList, bool)>;
+    type Cloneable = (&'static str, SharedReactiveFunction<T>);
 
     fn html_len(&self) -> usize {
         self.0.len()
@@ -92,7 +97,7 @@ where
 
     fn to_html(self, class: &mut String) {
         let (name, mut f) = self;
-        let include = *f().borrow();
+        let include = *f.invoke().borrow();
         if include {
             <&str as IntoClass<R>>::to_html(name, class);
         }
@@ -105,7 +110,7 @@ where
         let name = R::intern(name);
 
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = *f().borrow();
+            let include = *f.invoke().borrow();
             if let Some((class_list, prev)) = prev {
                 if include {
                     if !prev {
@@ -126,7 +131,7 @@ where
         let name = R::intern(name);
 
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = *f().borrow();
+            let include = *f.invoke().borrow();
             match prev {
                 Some((class_list, prev)) => {
                     if include {
@@ -151,15 +156,20 @@ where
     fn rebuild(self, _state: &mut Self::State) {
         // TODO rebuild?
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0, self.1.into_shared())
+    }
 }
 
 impl<F, T, R> IntoClass<R> for (Vec<Cow<'static, str>>, F)
 where
-    F: FnMut() -> T + Send + 'static,
-    T: Borrow<bool>,
+    F: ReactiveFunction<Output = T>,
+    T: Borrow<bool> + 'static,
     R: DomRenderer,
 {
     type State = RenderEffectState<(R::ClassList, bool)>;
+    type Cloneable = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
 
     fn html_len(&self) -> usize {
         self.0.iter().map(|n| n.len()).sum()
@@ -167,7 +177,7 @@ where
 
     fn to_html(self, class: &mut String) {
         let (names, mut f) = self;
-        let include = *f().borrow();
+        let include = *f.invoke().borrow();
         if include {
             for name in names {
                 <&str as IntoClass<R>>::to_html(&name, class);
@@ -181,7 +191,7 @@ where
         let class_list = R::class_list(el);
 
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = *f().borrow();
+            let include = *f.invoke().borrow();
             if let Some((class_list, prev)) = prev {
                 if include {
                     if !prev {
@@ -206,7 +216,7 @@ where
         let class_list = R::class_list(el);
 
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
-            let include = *f().borrow();
+            let include = *f.invoke().borrow();
             match prev {
                 Some((class_list, prev)) => {
                     if include {
@@ -237,6 +247,10 @@ where
     fn rebuild(self, _state: &mut Self::State) {
         // TODO rebuild?
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0.clone(), self.1.into_shared())
+    }
 }
 
 impl<G, R> IntoClass<R> for ReadGuard<String, G>
@@ -245,6 +259,7 @@ where
     R: DomRenderer,
 {
     type State = <String as IntoClass<R>>::State;
+    type Cloneable = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -271,6 +286,10 @@ where
     fn rebuild(self, state: &mut Self::State) {
         <String as IntoClass<R>>::rebuild(self.deref().to_owned(), state)
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.as_str().into()
+    }
 }
 
 impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
@@ -279,6 +298,7 @@ where
     R: DomRenderer,
 {
     type State = <(&'static str, bool) as IntoClass<R>>::State;
+    type Cloneable = (&'static str, bool);
 
     fn html_len(&self) -> usize {
         self.0.len()
@@ -313,6 +333,10 @@ where
             (self.0, *self.1.deref()),
             state,
         )
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0, *self.1)
     }
 }
 
