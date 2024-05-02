@@ -1,18 +1,24 @@
+use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{html::style::IntoStyle, renderer::DomRenderer};
+use or_poisoned::OrPoisoned;
 use reactive_graph::effect::RenderEffect;
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    sync::{Arc, Mutex},
+};
 
 impl<F, S, R> IntoStyle<R> for (&'static str, F)
 where
-    F: FnMut() -> S + Send + 'static,
-    S: Into<Cow<'static, str>>,
+    F: ReactiveFunction<Output = S>,
+    S: Into<Cow<'static, str>> + 'static,
     R: DomRenderer,
 {
     type State = RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+    type Cloneable = (&'static str, SharedReactiveFunction<S>);
 
     fn to_html(self, style: &mut String) {
         let (name, mut f) = self;
-        let value = f();
+        let value = f.invoke();
         style.push_str(name);
         style.push(':');
         style.push_str(&value.into());
@@ -25,7 +31,7 @@ where
         // TODO FROM_SERVER vs template
         let style = R::style(el);
         RenderEffect::new(move |prev| {
-            let value = f().into();
+            let value = f.invoke().into();
             if let Some(mut state) = prev {
                 let (style, prev): &mut (
                     R::CssStyleDeclaration,
@@ -52,7 +58,7 @@ where
         let name = R::intern(name);
         let style = R::style(el);
         RenderEffect::new(move |prev| {
-            let value = f().into();
+            let value = f.invoke().into();
             if let Some(mut state) = prev {
                 let (style, prev): &mut (
                     R::CssStyleDeclaration,
@@ -74,19 +80,24 @@ where
     fn rebuild(self, _state: &mut Self::State) {
         // TODO rebuild
     }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0, self.1.into_shared())
+    }
 }
 
 impl<F, C, R> IntoStyle<R> for F
 where
-    F: FnMut() -> C + Send + 'static,
+    F: ReactiveFunction<Output = C>,
     C: IntoStyle<R> + 'static,
     C::State: 'static,
     R: DomRenderer,
 {
     type State = RenderEffect<C::State>;
+    type Cloneable = SharedReactiveFunction<C>;
 
     fn to_html(mut self, style: &mut String) {
-        let value = self();
+        let value = self.invoke();
         value.to_html(style);
     }
 
@@ -97,7 +108,7 @@ where
         // TODO FROM_SERVER vs template
         let el = el.clone();
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -107,11 +118,24 @@ where
         })
     }
 
-    fn build(self, _el: &R::Element) -> Self::State {
-        todo!()
+    fn build(mut self, el: &R::Element) -> Self::State {
+        let el = el.clone();
+        RenderEffect::new(move |prev| {
+            let value = self.invoke();
+            if let Some(mut state) = prev {
+                value.rebuild(&mut state);
+                state
+            } else {
+                value.build(&el)
+            }
+        })
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -125,6 +149,7 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffect<C::State>;
+                type Cloneable = Self;
 
                 fn to_html(self, style: &mut String) {
                     let value = self.get();
@@ -145,6 +170,10 @@ mod stable {
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
                 }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
             }
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
@@ -154,6 +183,7 @@ mod stable {
             {
                 type State =
                     RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+                type Cloneable = Self;
 
                 fn to_html(self, style: &mut String) {
                     IntoStyle::<R>::to_html(
@@ -178,6 +208,10 @@ mod stable {
 
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
                 }
             }
         };
@@ -192,6 +226,7 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffect<C::State>;
+                type Cloneable = Self;
 
                 fn to_html(self, style: &mut String) {
                     let value = self.get();
@@ -212,6 +247,10 @@ mod stable {
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
                 }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
             }
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
@@ -221,6 +260,7 @@ mod stable {
             {
                 type State =
                     RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
+                type Cloneable = Self;
 
                 fn to_html(self, style: &mut String) {
                     IntoStyle::<R>::to_html(
@@ -245,6 +285,10 @@ mod stable {
 
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
                 }
             }
         };
