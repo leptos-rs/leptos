@@ -15,6 +15,7 @@ any_spawner = { workspace = true }
 const_str_slice_concat = { workspace = true }
 either_of = { workspace = true }
 next_tuple = { workspace = true }
+or_poisoned = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
 slotmap = { version = "1", optional = true }
 oco_ref = { workspace = true, optional = true }
