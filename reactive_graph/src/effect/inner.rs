@@ -25,6 +25,7 @@ impl ToAnySubscriber for Arc<RwLock<EffectInner>> {
 impl ReactiveNode for RwLock<EffectInner> {
     fn mark_subscribers_check(&self) {}
 
+    // TODO check if this actually works for memos
     fn update_if_necessary(&self) -> bool {
         let sources = {
             let guard = self.read().or_poisoned();

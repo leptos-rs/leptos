@@ -20,13 +20,22 @@ where
     }
 }
 
-pub struct Style<S, R>
-where
-    S: IntoStyle<R>,
-    R: DomRenderer,
-{
+#[derive(Debug)]
+pub struct Style<S, R> {
     style: S,
     rndr: PhantomData<R>,
+}
+
+impl<S, R> Clone for Style<S, R>
+where
+    S: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            style: self.style.clone(),
+            rndr: PhantomData,
+        }
+    }
 }
 
 impl<S, R> Attribute<R> for Style<S, R>
@@ -38,6 +47,7 @@ where
 
     type State = S::State;
     type Cloneable = Style<S::Cloneable, R>;
+    type CloneableOwned = Style<S::CloneableOwned, R>;
 
     // TODO
     #[inline(always)]
@@ -70,6 +80,13 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         Style {
             style: self.style.into_cloneable(),
+            rndr: self.rndr,
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        Style {
+            style: self.style.into_cloneable_owned(),
             rndr: self.rndr,
         }
     }
@@ -111,6 +128,7 @@ where
 pub trait IntoStyle<R: DomRenderer>: Send {
     type State;
     type Cloneable: IntoStyle<R> + Clone;
+    type CloneableOwned: IntoStyle<R> + Clone + 'static;
 
     fn to_html(self, style: &mut String);
 
@@ -121,6 +139,8 @@ pub trait IntoStyle<R: DomRenderer>: Send {
     fn rebuild(self, state: &mut Self::State);
 
     fn into_cloneable(self) -> Self::Cloneable;
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned;
 }
 
 pub trait StylePropertyValue<R: DomRenderer> {
@@ -143,6 +163,7 @@ where
 {
     type State = (R::Element, &'a str);
     type Cloneable = Self;
+    type CloneableOwned = Arc<str>;
 
     fn to_html(self, style: &mut String) {
         style.push_str(self);
@@ -169,14 +190,19 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
 }
 
-impl<R> IntoStyle<R> for String
+impl<R> IntoStyle<R> for Arc<str>
 where
     R: DomRenderer,
 {
-    type State = (R::Element, String);
-    type Cloneable = String; // TODO can do Arc<str> here I guess
+    type State = (R::Element, Arc<str>);
+    type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn to_html(self, style: &mut String) {
         style.push_str(&self);
@@ -203,6 +229,95 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+}
+
+impl<R> IntoStyle<R> for String
+where
+    R: DomRenderer,
+{
+    type State = (R::Element, String);
+    type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
+
+    fn to_html(self, style: &mut String) {
+        style.push_str(&self);
+        style.push(';');
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+        (el.clone(), self)
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        R::set_attribute(el, "style", &self);
+        (el.clone(), self)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (el, prev) = state;
+        if self != *prev {
+            R::set_attribute(el, "style", &self);
+        }
+        *prev = self;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
+}
+
+impl<R> IntoStyle<R> for (Arc<str>, Arc<str>)
+where
+    R: DomRenderer,
+{
+    type State = (R::CssStyleDeclaration, Arc<str>);
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn to_html(self, style: &mut String) {
+        let (name, value) = self;
+        style.push_str(&name);
+        style.push(':');
+        style.push_str(&value);
+        style.push(';');
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+        let style = R::style(el);
+        (style, self.1)
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        let (name, value) = self;
+        let style = R::style(el);
+        R::set_css_property(&style, &name, &value);
+        (style, value)
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let (name, value) = self;
+        let (style, prev) = state;
+        if value != *prev {
+            R::set_css_property(style, &name, &value);
+        }
+        *prev = value;
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> IntoStyle<R> for (&'a str, &'a str)
@@ -211,6 +326,7 @@ where
 {
     type State = (R::CssStyleDeclaration, &'a str);
     type Cloneable = Self;
+    type CloneableOwned = (Arc<str>, Arc<str>);
 
     fn to_html(self, style: &mut String) {
         let (name, value) = self;
@@ -244,6 +360,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0.into(), self.1.into())
+    }
 }
 
 impl<'a, R> IntoStyle<R> for (&'a str, String)
@@ -251,7 +371,8 @@ where
     R: DomRenderer,
 {
     type State = (R::CssStyleDeclaration, String);
-    type Cloneable = Self; // TODO can use Arc<str> here
+    type Cloneable = (Arc<str>, Arc<str>);
+    type CloneableOwned = (Arc<str>, Arc<str>);
 
     fn to_html(self, style: &mut String) {
         let (name, value) = self;
@@ -283,7 +404,11 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        self
+        (self.0.into(), self.1.into())
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0.into(), self.1.into())
     }
 }
 
@@ -295,6 +420,7 @@ where
 {
     type State = ();
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn to_html(self, style: &mut String) {
         style.push_str(V);
@@ -314,6 +440,10 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 
     fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
 }

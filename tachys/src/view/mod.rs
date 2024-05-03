@@ -1,3 +1,4 @@
+use self::add_attr::AddAnyAttr;
 use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use parking_lot::RwLock;
 use std::{future::Future, sync::Arc};
@@ -19,6 +20,12 @@ pub mod tuples;
 ///
 /// It is generic over the renderer itself, as long as that implements the [`Renderer`]
 /// trait.
+#[diagnostic::on_unimplemented(
+    message = "`Render<{R}>` is not implemented for `{Self}`",
+    label = "My Label",
+    note = "Note 1",
+    note = "Note 2"
+)]
 pub trait Render<R: Renderer>: Sized {
     /// The “view state” for this type, which can be retained between updates.
     ///
@@ -58,7 +65,7 @@ impl std::error::Error for NeverError {}
 /// whole view piece by piece.
 pub trait RenderHtml<R: Renderer>
 where
-    Self: Render<R> + Send,
+    Self: Render<R> + AddAnyAttr<R> + Send,
 {
     /// The type of the view after waiting for all asynchronous data to load.
     type AsyncOutput: RenderHtml<R>;

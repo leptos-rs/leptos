@@ -16,7 +16,8 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     const MIN_LENGTH: usize;
 
     type State;
-    type Cloneable;
+    type Cloneable: Attribute<R> + Clone;
+    type CloneableOwned: Attribute<R> + Clone + 'static;
 
     fn html_len(&self) -> usize;
 
@@ -35,6 +36,8 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     fn rebuild(self, state: &mut Self::State);
 
     fn into_cloneable(self) -> Self::Cloneable;
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned;
 }
 
 pub trait NextAttribute<R: Renderer> {
@@ -54,6 +57,7 @@ where
 
     type State = ();
     type Cloneable = ();
+    type CloneableOwned = ();
 
     fn html_len(&self) -> usize {
         0
@@ -78,6 +82,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<R> NextAttribute<R> for ()
@@ -100,6 +108,17 @@ where
     K: AttributeKey,
     V: AttributeValue<R>,
     R: Renderer;
+
+impl<K, V, R> Clone for Attr<K, V, R>
+where
+    K: AttributeKey,
+    V: AttributeValue<R> + Clone,
+    R: Renderer,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), self.1.clone(), PhantomData)
+    }
+}
 
 impl<K, V, R> ToTemplate for Attr<K, V, R>
 where
@@ -128,6 +147,7 @@ where
 
     type State = V::State;
     type Cloneable = Attr<K, V::Cloneable, R>;
+    type CloneableOwned = Attr<K, V::CloneableOwned, R>;
 
     fn html_len(&self) -> usize {
         K::KEY.len() + 3 + self.1.html_len()
@@ -157,6 +177,10 @@ where
 
     fn into_cloneable(self) -> Self::Cloneable {
         Attr(self.0, self.1.into_cloneable(), PhantomData)
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        Attr(self.0, self.1.into_cloneable_owned(), PhantomData)
     }
 }
 
@@ -188,6 +212,7 @@ macro_rules! impl_attr_for_tuples {
 
 			type State = ($first::State, $($ty::State,)*);
             type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
+            type CloneableOwned = ($first::CloneableOwned, $($ty::CloneableOwned,)*);
 
             fn html_len(&self) -> usize {
                 #[allow(non_snake_case)]
@@ -237,6 +262,14 @@ macro_rules! impl_attr_for_tuples {
                 (
                     $first.into_cloneable(),
                     $($ty.into_cloneable()),*
+                )
+            }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_cloneable_owned(),
+                    $($ty.into_cloneable_owned()),*
                 )
             }
         }
@@ -273,6 +306,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
 
 			type State = ($first::State, $($ty::State,)*);
             type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
+            type CloneableOwned = ($first::CloneableOwned, $($ty::CloneableOwned,)*);
 
             fn html_len(&self) -> usize {
                 #[allow(non_snake_case)]
@@ -324,6 +358,14 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                     $($ty.into_cloneable()),*
                 )
             }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.into_cloneable_owned(),
+                    $($ty.into_cloneable_owned()),*
+                )
+            }
         }
 
 		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
@@ -354,6 +396,7 @@ where
 
     type State = A::State;
     type Cloneable = (A::Cloneable,);
+    type CloneableOwned = (A::CloneableOwned,);
 
     fn html_len(&self) -> usize {
         self.0.html_len()
@@ -386,6 +429,10 @@ where
 
     fn into_cloneable(self) -> Self::Cloneable {
         (self.0.into_cloneable(),)
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0.into_cloneable_owned(),)
     }
 }
 

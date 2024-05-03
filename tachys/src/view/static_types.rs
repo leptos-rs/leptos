@@ -1,5 +1,6 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml, ToTemplate,
 };
 use crate::{
     html::attribute::{Attribute, AttributeKey, AttributeValue, NextAttribute},
@@ -26,6 +27,12 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub struct StaticAttr<K: AttributeKey, const V: &'static str> {
     ty: PhantomData<K>,
+}
+
+impl<K: AttributeKey, const V: &'static str> Clone for StaticAttr<K, V> {
+    fn clone(&self) -> Self {
+        Self { ty: PhantomData }
+    }
 }
 
 impl<K: AttributeKey, const V: &'static str> PartialEq for StaticAttr<K, V> {
@@ -68,6 +75,7 @@ where
 
     type State = ();
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -94,6 +102,10 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 
     fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
 }
@@ -184,6 +196,25 @@ where
 
         // no view state is created when hydrating, because this is static
         None
+    }
+}
+
+impl<R, const V: &'static str> AddAnyAttr<R> for Static<V>
+where
+    R: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<R>> = Static<V>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        // TODO: there is a strange compiler thing that seems to prevent us returning Self here,
+        // even though we've already said that Output is always the same as Self
+        todo!()
     }
 }
 

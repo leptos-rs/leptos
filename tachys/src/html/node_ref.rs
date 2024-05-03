@@ -8,7 +8,7 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-pub trait NodeRefContainer<E, Rndr>: Send
+pub trait NodeRefContainer<E, Rndr>: Send + Clone
 where
     E: ElementType,
     Rndr: Renderer,
@@ -16,15 +16,24 @@ where
     fn load(self, el: &Rndr::Element);
 }
 
-pub struct NodeRefAttr<E, C, Rndr>
-where
-    E: ElementType,
-    C: NodeRefContainer<E, Rndr>,
-    Rndr: Renderer,
-{
+#[derive(Debug)]
+pub struct NodeRefAttr<E, C, Rndr> {
     container: C,
     ty: PhantomData<E>,
     rndr: PhantomData<Rndr>,
+}
+
+impl<E, C, Rndr> Clone for NodeRefAttr<E, C, Rndr>
+where
+    C: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            container: self.container.clone(),
+            ty: PhantomData,
+            rndr: PhantomData,
+        }
+    }
 }
 
 pub fn node_ref<E, C, Rndr>(container: C) -> NodeRefAttr<E, C, Rndr>
@@ -49,7 +58,8 @@ where
 {
     const MIN_LENGTH: usize = 0;
     type State = ();
-    type Cloneable = Self;
+    type Cloneable = ();
+    type CloneableOwned = ();
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -79,6 +89,10 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 
     fn into_cloneable(self) -> Self::Cloneable {
+        panic!("node_ref should not be spread across multiple elements.");
+    }
+
+    fn into_cloneable_owned(self) -> Self::Cloneable {
         panic!("node_ref should not be spread across multiple elements.");
     }
 }

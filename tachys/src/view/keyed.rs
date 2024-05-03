@@ -1,5 +1,9 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
+use super::{
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
+};
 use crate::{
+    html::attribute::Attribute,
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
@@ -40,7 +44,6 @@ where
     I: IntoIterator<Item = T>,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K,
-    V: Render<Rndr>,
     VF: Fn(T) -> V,
     Rndr: Renderer,
 {
@@ -128,14 +131,68 @@ where
     }
 }
 
-impl<T, I, K, KF, VF, V, Rndr> RenderHtml<Rndr>
+impl<T, I, K, KF, VF, V, Rndr> AddAnyAttr<Rndr>
     for Keyed<T, I, K, KF, VF, V, Rndr>
 where
     I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K + Send,
     V: RenderHtml<Rndr>,
-    VF: Fn(T) -> V + Send,
+    V: 'static,
+    VF: Fn(T) -> V + Send + 'static,
+    T: 'static,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = Keyed<
+        T,
+        I,
+        K,
+        KF,
+        Box<
+            dyn Fn(
+                    T,
+                ) -> <V as AddAnyAttr<Rndr>>::Output<
+                    SomeNewAttr::CloneableOwned,
+                > + Send,
+        >,
+        V::Output<SomeNewAttr::CloneableOwned>,
+        Rndr,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let Keyed {
+            items,
+            key_fn,
+            view_fn,
+            rndr,
+        } = self;
+        let attr = attr.into_cloneable_owned();
+        Keyed {
+            items,
+            key_fn,
+            view_fn: Box::new(move |item| {
+                view_fn(item).add_any_attr(attr.clone())
+            }),
+            rndr,
+        }
+    }
+}
+
+impl<T, I, K, KF, VF, V, Rndr> RenderHtml<Rndr>
+    for Keyed<T, I, K, KF, VF, V, Rndr>
+where
+    I: IntoIterator<Item = T> + Send,
+    K: Eq + Hash + 'static,
+    KF: Fn(&T) -> K + Send,
+    V: RenderHtml<Rndr> + 'static,
+    VF: Fn(T) -> V + Send + 'static,
+    T: 'static,
     Rndr: Renderer,
 {
     type AsyncOutput = Vec<V::AsyncOutput>; // TODO

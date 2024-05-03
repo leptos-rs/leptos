@@ -18,14 +18,22 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct InnerHtml<T, R>
-where
-    T: InnerHtmlValue<R>,
-    R: DomRenderer,
-{
+#[derive(Debug)]
+pub struct InnerHtml<T, R> {
     value: T,
     rndr: PhantomData<R>,
+}
+
+impl<T, R> Clone for InnerHtml<T, R>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            rndr: PhantomData,
+        }
+    }
 }
 
 impl<T, R> Attribute<R> for InnerHtml<T, R>
@@ -37,6 +45,7 @@ where
 
     type State = T::State;
     type Cloneable = InnerHtml<T::Cloneable, R>;
+    type CloneableOwned = InnerHtml<T::CloneableOwned, R>;
 
     fn html_len(&self) -> usize {
         self.value.html_len()
@@ -70,6 +79,13 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         InnerHtml {
             value: self.value.into_cloneable(),
+            rndr: self.rndr,
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        InnerHtml {
+            value: self.value.into_cloneable_owned(),
             rndr: self.rndr,
         }
     }
@@ -124,6 +140,7 @@ where
 pub trait InnerHtmlValue<R: DomRenderer>: Send {
     type State;
     type Cloneable: InnerHtmlValue<R> + Clone;
+    type CloneableOwned: InnerHtmlValue<R> + Clone + 'static;
 
     fn html_len(&self) -> usize;
 
@@ -138,6 +155,8 @@ pub trait InnerHtmlValue<R: DomRenderer>: Send {
     fn rebuild(self, state: &mut Self::State);
 
     fn into_cloneable(self) -> Self::Cloneable;
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned;
 }
 
 impl<R> InnerHtmlValue<R> for String
@@ -146,6 +165,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -182,6 +202,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.into()
     }
+
+    fn into_cloneable_owned(self) -> Self::Cloneable {
+        self.into()
+    }
 }
 
 impl<R> InnerHtmlValue<R> for Arc<str>
@@ -190,6 +214,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -226,6 +251,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::Cloneable {
+        self
+    }
 }
 
 impl<'a, R> InnerHtmlValue<R> for &'a str
@@ -234,6 +263,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Self;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -270,6 +300,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
 }
 
 impl<T, R> InnerHtmlValue<R> for Option<T>
@@ -279,6 +313,7 @@ where
 {
     type State = Option<T::State>;
     type Cloneable = Option<T::Cloneable>;
+    type CloneableOwned = Option<T::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         match self {
@@ -312,5 +347,9 @@ where
 
     fn into_cloneable(self) -> Self::Cloneable {
         self.map(|inner| inner.into_cloneable())
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.map(|inner| inner.into_cloneable_owned())
     }
 }
