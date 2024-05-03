@@ -1,12 +1,13 @@
 //! Implements the [`Render`] and [`RenderHtml`] traits for signal guard types.
 
 use crate::{
+    html::attribute::Attribute,
     hydration::Cursor,
     prelude::RenderHtml,
     renderer::{CastFrom, Renderer},
     view::{
-        strings::StrState, Mountable, Position, PositionState, Render,
-        ToTemplate,
+        add_attr::AddAnyAttr, strings::StrState, Mountable, Position,
+        PositionState, Render, ToTemplate,
     },
 };
 use reactive_graph::signal::guards::ReadGuard;
@@ -71,6 +72,26 @@ macro_rules! render_primitive {
 					}
 				}
 			}
+
+            impl<G, R> AddAnyAttr<R> for ReadGuard<$child_type, G>
+			where
+				R: Renderer,
+                G: Deref<Target = $child_type> + Send
+            {
+                type Output<SomeNewAttr: Attribute<R>> = ReadGuard<$child_type, G>;
+
+                fn add_any_attr<NewAttr: Attribute<R>>(
+                    self,
+                    attr: NewAttr,
+                ) -> Self::Output<NewAttr>
+                where
+                    Self::Output<NewAttr>: RenderHtml<R>,
+                {
+                    // TODO: there is a strange compiler thing that seems to prevent us returning Self here,
+                    // even though we've already said that Output is always the same as Self
+                    todo!()
+                }
+            }
 
 			impl<G, R> RenderHtml<R> for ReadGuard<$child_type, G>
 			where
@@ -218,10 +239,29 @@ where
     }
 }
 
+impl<G, R> AddAnyAttr<R> for ReadGuard<String, G>
+where
+    G: Deref<Target = String> + Send,
+    R: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<R>> = ReadGuard<String, G>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        // TODO: there is a strange compiler thing that seems to prevent us returning Self here,
+        // even though we've already said that Output is always the same as Self
+        todo!()
+    }
+}
+
 impl<G, R> RenderHtml<R> for ReadGuard<String, G>
 where
     R: Renderer,
-
     G: Deref<Target = String> + Send,
 {
     type AsyncOutput = Self;

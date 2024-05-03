@@ -1,9 +1,13 @@
 use crate::{
     html::{attribute::AttributeValue, class::IntoClass},
     hydration::Cursor,
+    no_attrs,
     prelude::{Mountable, Render, RenderHtml},
     renderer::{DomRenderer, Renderer},
-    view::{strings::StrState, Position, PositionState, ToTemplate},
+    view::{
+        add_attr::AddAnyAttr, strings::StrState, Position, PositionState,
+        ToTemplate,
+    },
 };
 use oco_ref::Oco;
 
@@ -28,6 +32,8 @@ impl<R: Renderer> Render<R> for Oco<'static, str> {
         }
     }
 }
+
+no_attrs!(Oco<'static, str>);
 
 impl<R> RenderHtml<R> for Oco<'static, str>
 where

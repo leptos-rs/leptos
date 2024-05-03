@@ -162,6 +162,7 @@ where
 
     type State = AnyAttributeState<R>;
     type Cloneable = ();
+    type CloneableOwned = ();
 
     fn html_len(&self) -> usize {
         self.html_len
@@ -197,6 +198,10 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
+        todo!()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         todo!()
     }
 }

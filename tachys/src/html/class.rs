@@ -17,13 +17,22 @@ where
     }
 }
 
-pub struct Class<C, R>
-where
-    C: IntoClass<R>,
-    R: DomRenderer,
-{
+#[derive(Debug)]
+pub struct Class<C, R> {
     class: C,
     rndr: PhantomData<R>,
+}
+
+impl<C, R> Clone for Class<C, R>
+where
+    C: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            class: self.class.clone(),
+            rndr: PhantomData,
+        }
+    }
 }
 
 impl<C, R> Attribute<R> for Class<C, R>
@@ -35,6 +44,7 @@ where
 
     type State = C::State;
     type Cloneable = Class<C::Cloneable, R>;
+    type CloneableOwned = Class<C::CloneableOwned, R>;
 
     fn html_len(&self) -> usize {
         self.class.html_len() + 1
@@ -66,6 +76,13 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         Class {
             class: self.class.into_cloneable(),
+            rndr: self.rndr,
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        Class {
+            class: self.class.into_cloneable_owned(),
             rndr: self.rndr,
         }
     }
@@ -110,6 +127,7 @@ pub trait IntoClass<R: DomRenderer>: Send {
 
     type State;
     type Cloneable: IntoClass<R> + Clone;
+    type CloneableOwned: IntoClass<R> + Clone + 'static;
 
     fn html_len(&self) -> usize;
 
@@ -125,6 +143,8 @@ pub trait IntoClass<R: DomRenderer>: Send {
     fn rebuild(self, state: &mut Self::State);
 
     fn into_cloneable(self) -> Self::Cloneable;
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned;
 }
 
 impl<'a, R> IntoClass<R> for &'a str
@@ -133,6 +153,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Self;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -165,6 +186,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
 }
 
 impl<R> IntoClass<R> for String
@@ -173,6 +198,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -205,6 +231,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.into()
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
 }
 
 impl<R> IntoClass<R> for Arc<str>
@@ -213,6 +243,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -245,6 +276,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for (&'static str, bool)
@@ -253,6 +288,7 @@ where
 {
     type State = (R::ClassList, bool);
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         self.0.len()
@@ -299,6 +335,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::Cloneable {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -311,6 +351,7 @@ where
 
     type State = ();
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         V.len()
@@ -334,6 +375,10 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 
     fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
 }

@@ -1,6 +1,7 @@
 use super::{Mountable, Position, PositionState, Render, RenderHtml};
 use crate::{
     hydration::Cursor,
+    no_attrs,
     renderer::{CastFrom, Renderer},
     view::ToTemplate,
 };
@@ -61,6 +62,8 @@ macro_rules! render_primitive {
 					}
 				}
 			}
+
+            no_attrs!($child_type);
 
 			impl<R> RenderHtml<R> for $child_type
 			where
