@@ -23,7 +23,7 @@ pub use owned::*;
 
 impl<F, V> ToTemplate for F
 where
-    F: FnMut() -> V,
+    F: ReactiveFunction<Output = V>,
     V: ToTemplate,
 {
     const TEMPLATE: &'static str = V::TEMPLATE;
@@ -42,7 +42,7 @@ where
 
 impl<F, V, R> Render<R> for F
 where
-    F: FnMut() -> V + 'static,
+    F: ReactiveFunction<Output = V>,
     V: Render<R>,
     V::State: 'static,
     R: Renderer,
@@ -52,7 +52,7 @@ where
     #[track_caller]
     fn build(mut self) -> Self::State {
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -146,7 +146,7 @@ where
 
 impl<F, V, R> RenderHtml<R> for F
 where
-    F: FnMut() -> V + Send + 'static,
+    F: ReactiveFunction<Output = V>,
     V: RenderHtml<R>,
     V::State: 'static,
 
@@ -157,7 +157,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     async fn resolve(mut self) -> Self::AsyncOutput {
-        self().resolve().await
+        self.invoke().resolve().await
     }
 
     fn html_len(&self) -> usize {
@@ -165,7 +165,7 @@ where
     }
 
     fn to_html_with_buf(mut self, buf: &mut String, position: &mut Position) {
-        let value = self();
+        let value = self.invoke();
         value.to_html_with_buf(buf, position)
     }
 
@@ -176,7 +176,7 @@ where
     ) where
         Self: Sized,
     {
-        let value = self();
+        let value = self.invoke();
         value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
     }
 
@@ -188,7 +188,7 @@ where
         let cursor = cursor.clone();
         let position = position.clone();
         RenderEffect::new(move |prev| {
-            let value = self();
+            let value = self.invoke();
             if let Some(mut state) = prev {
                 value.rebuild(&mut state);
                 state
@@ -202,13 +202,12 @@ where
 
 impl<F, V, R> AddAnyAttr<R> for F
 where
-    F: FnMut() -> V + Send + 'static,
-    V: RenderHtml<R>,
-    V::State: 'static,
-
+    F: ReactiveFunction<Output = V>,
+    V: AddAnyAttr<R>,
     R: Renderer + 'static,
 {
-    type Output<SomeNewAttr: Attribute<R>> = Self;
+    type Output<SomeNewAttr: Attribute<R>> =
+        SharedReactiveFunction<V::Output<SomeNewAttr>>;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
@@ -217,17 +216,9 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
-        self
-    }
-
-    fn add_any_attr_by_ref<NewAttr: Attribute<R>>(
-        self,
-        attr: &NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml<R>,
-    {
-        self
+        /*let attr = attr.into_cloneable_owned();
+        Arc::new(Mutex::new(move || self.invoke().add_any_attr(attr.clone())));*/
+        todo!()
     }
 }
 
@@ -304,6 +295,7 @@ where
 {
     type State = RenderEffectState<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
+    type CloneableOwned = SharedReactiveFunction<V>;
 
     fn html_len(&self) -> usize {
         0
@@ -363,6 +355,10 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
     }
 }

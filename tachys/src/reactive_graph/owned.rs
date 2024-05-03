@@ -1,9 +1,10 @@
 use crate::{
+    html::attribute::Attribute,
     hydration::Cursor,
     prelude::Mountable,
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{Position, PositionState, Render, RenderHtml},
+    view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
 use reactive_graph::owner::Owner;
 use std::marker::PhantomData;
@@ -78,6 +79,30 @@ where
         let OwnedView { owner, view, .. } = self;
         owner.with(|| view.rebuild(&mut state.state));
         state.owner = owner;
+    }
+}
+
+impl<T, R> AddAnyAttr<R> for OwnedView<T, R>
+where
+    T: AddAnyAttr<R>,
+    R: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<R>> =
+        OwnedView<T::Output<SomeNewAttr>, R>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        let OwnedView { owner, view, rndr } = self;
+        OwnedView {
+            owner,
+            view: view.add_any_attr(attr),
+            rndr,
+        }
     }
 }
 
