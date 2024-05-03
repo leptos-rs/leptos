@@ -3,9 +3,15 @@ use super::{
 };
 use crate::{
     hydration::Cursor,
+    no_attrs,
     renderer::{CastFrom, Renderer},
 };
 use std::{borrow::Cow, rc::Rc, sync::Arc};
+
+no_attrs!(&'a str);
+no_attrs!(String);
+no_attrs!(Arc<str>);
+no_attrs!(Cow<'a, str>);
 
 pub struct StrState<'a, R: Renderer> {
     pub node: R::Text,

@@ -121,13 +121,6 @@ where
             rndr,
         }
     }
-
-    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
-        self,
-        attr: &NewAttr,
-    ) -> Self::Output<NewAttr> {
-        todo!()
-    }
 }
 
 pub trait ElementChild<Rndr, NewChild>

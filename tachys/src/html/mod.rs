@@ -1,6 +1,8 @@
+use self::attribute::Attribute;
 use crate::{
+    no_attrs,
     renderer::Renderer,
-    view::{Position, Render, RenderHtml},
+    view::{add_attr::AddAnyAttr, Position, Render, RenderHtml},
 };
 use std::marker::PhantomData;
 
@@ -32,6 +34,8 @@ impl<R: Renderer> Render<R> for Doctype<R> {
 
     fn rebuild(self, _state: &mut Self::State) {}
 }
+
+no_attrs!(Doctype<R>);
 
 impl<R> RenderHtml<R> for Doctype<R>
 where

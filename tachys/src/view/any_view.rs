@@ -1,5 +1,11 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
-use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
+use super::{
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
+};
+use crate::{
+    html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
+    ssr::StreamBuilder,
+};
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -243,6 +249,23 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         (self.rebuild)(self.type_id, self.value, state)
+    }
+}
+
+impl<R> AddAnyAttr<R> for AnyView<R>
+where
+    R: Renderer + 'static,
+{
+    type Output<SomeNewAttr: Attribute<R>> = Self;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        todo!()
     }
 }
 

@@ -1,10 +1,11 @@
 use crate::{
+    html::attribute::Attribute,
     hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
-        either::EitherState, Mountable, Position, PositionState, Render,
-        RenderHtml,
+        add_attr::AddAnyAttr, either::EitherState, Mountable, Position,
+        PositionState, Render, RenderHtml,
     },
 };
 use any_spawner::Executor;
@@ -143,6 +144,27 @@ where
                     .rebuild(&mut *state.write());
             }
         });
+    }
+}
+
+impl<const TRANSITION: bool, Fal, Fut, Rndr> AddAnyAttr<Rndr>
+    for Suspend<TRANSITION, Fal, Fut>
+where
+    Fal: RenderHtml<Rndr> + 'static,
+    Fut: Future + Send + 'static,
+    Fut::Output: RenderHtml<Rndr> + Send,
+    Rndr: Renderer + 'static,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = Self;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        _attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        todo!()
     }
 }
 

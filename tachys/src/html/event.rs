@@ -3,7 +3,6 @@ use crate::{
     renderer::{CastFrom, DomRenderer, RemoveEventHandler},
     view::{Position, ToTemplate},
 };
-use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     borrow::Cow,
@@ -12,9 +11,40 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
     rc::Rc,
-    sync::{Arc, Mutex},
 };
 use wasm_bindgen::convert::FromWasmAbi;
+
+pub type SharedEventCallback<E> = Rc<RefCell<dyn FnMut(E)>>;
+
+pub trait EventCallback<E>: 'static {
+    fn invoke(&mut self, event: E);
+
+    fn into_shared(self) -> SharedEventCallback<E>;
+}
+
+impl<E: 'static> EventCallback<E> for SharedEventCallback<E> {
+    fn invoke(&mut self, event: E) {
+        let mut fun = self.borrow_mut();
+        fun(event)
+    }
+
+    fn into_shared(self) -> SharedEventCallback<E> {
+        self
+    }
+}
+
+impl<F, E> EventCallback<E> for F
+where
+    F: FnMut(E) + 'static,
+{
+    fn invoke(&mut self, event: E) {
+        self(event)
+    }
+
+    fn into_shared(self) -> SharedEventCallback<E> {
+        Rc::new(RefCell::new(self))
+    }
+}
 
 pub struct Targeted<E, T, R> {
     event: E,
@@ -94,16 +124,29 @@ where
     on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
 }
 
-#[derive(Clone)]
 pub struct On<E, F, R> {
     event: E,
     cb: SendWrapper<F>,
     ty: PhantomData<R>,
 }
 
+impl<E, F, R> Clone for On<E, F, R>
+where
+    E: Clone,
+    F: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            event: self.event.clone(),
+            cb: self.cb.clone(),
+            ty: PhantomData,
+        }
+    }
+}
+
 impl<E, F, R> On<E, F, R>
 where
-    F: FnMut(E::EventType) + 'static,
+    F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,
@@ -125,7 +168,7 @@ where
         let mut cb = self.cb.take();
         let cb = Box::new(move |ev: R::Event| {
             let ev = E::EventType::from(ev);
-            cb(ev);
+            cb.invoke(ev);
         }) as Box<dyn FnMut(R::Event)>;
 
         attach_inner::<R>(
@@ -150,7 +193,7 @@ where
 
 impl<E, F, R> Attribute<R> for On<E, F, R>
 where
-    F: FnMut(E::EventType) + 'static,
+    F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,
@@ -159,7 +202,8 @@ where
     const MIN_LENGTH: usize = 0;
     // a function that can be called once to remove the event listener
     type State = (R::Element, Option<Box<dyn FnOnce(&R::Element)>>);
-    type Cloneable = On<E, Arc<dyn FnMut(E::EventType)>, R>;
+    type Cloneable = On<E, SharedEventCallback<E::EventType>, R>;
+    type CloneableOwned = On<E, SharedEventCallback<E::EventType>, R>;
 
     #[inline(always)]
     fn html_len(&self) -> usize {
@@ -198,12 +242,16 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
-        let cb = Rc::new(RefCell::new(self.cb));
         On {
-            cb: SendWrapper::new(Arc::new(move |ev| {
-                let mut cb = cb.borrow_mut();
-                cb(ev)
-            })),
+            cb: SendWrapper::new(self.cb.take().into_shared()),
+            event: self.event,
+            ty: self.ty,
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        On {
+            cb: SendWrapper::new(self.cb.take().into_shared()),
             event: self.event,
             ty: self.ty,
         }
@@ -212,7 +260,7 @@ where
 
 impl<E, F, R> NextAttribute<R> for On<E, F, R>
 where
-    F: FnMut(E::EventType) + 'static,
+    F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     R: DomRenderer,

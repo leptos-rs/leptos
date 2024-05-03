@@ -52,15 +52,7 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
-    }
-
-    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
-        self,
-        _attr: &NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
-    {
+        ().add_any_attr(_attr)
     }
 }
 
@@ -174,16 +166,6 @@ where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
         (self.0.add_any_attr(attr),)
-    }
-
-    fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
-        self,
-        attr: &NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml<Rndr>,
-    {
-        (self.0.add_any_attr_by_ref(attr),)
     }
 }
 
@@ -343,7 +325,7 @@ macro_rules! impl_view_for_tuples {
 			$($ty: AddAnyAttr<Rndr>),*,
             Rndr: Renderer,
         {
-            type Output<SomeNewAttr: Attribute<Rndr>> = ($first::Output<SomeNewAttr>, $($ty::Output<SomeNewAttr>,)*);
+            type Output<SomeNewAttr: Attribute<Rndr>> = ($first::Output<SomeNewAttr::Cloneable>, $($ty::Output<SomeNewAttr::Cloneable>,)*);
 
             fn add_any_attr<NewAttr: Attribute<Rndr>>(
                 self,
@@ -352,22 +334,9 @@ macro_rules! impl_view_for_tuples {
             where
                 Self::Output<NewAttr>: RenderHtml<Rndr>,
             {
-                self.add_any_attr_by_ref(&attr)
-            }
-
-            fn add_any_attr_by_ref<NewAttr: Attribute<Rndr>>(
-                self,
-                attr: &NewAttr,
-            ) -> Self::Output<NewAttr>
-            where
-                Self::Output<NewAttr>: RenderHtml<Rndr>,
-            {
-                #[allow(non_snake_case)]
+                let shared = attr.into_cloneable();
                 let ($first, $($ty,)*) = self;
-                (
-                    $first.add_any_attr_by_ref(&attr),
-                    $($ty.add_any_attr_by_ref(&attr)),*
-                )
+                ($first.add_any_attr(shared.clone()), $($ty.add_any_attr(shared.clone()),)*)
             }
         }
     };

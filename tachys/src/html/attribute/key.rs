@@ -2,7 +2,7 @@ use super::{Attr, AttributeValue};
 use crate::renderer::Renderer;
 use std::{fmt::Debug, marker::PhantomData};
 
-pub trait AttributeKey: Send {
+pub trait AttributeKey: Clone + Send + 'static {
     const KEY: &'static str;
 }
 
