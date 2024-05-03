@@ -16,6 +16,7 @@ where
 {
     type State = RenderEffectState<C::State>;
     type Cloneable = SharedReactiveFunction<C>;
+    type CloneableOwned = SharedReactiveFunction<C>;
 
     fn html_len(&self) -> usize {
         0
@@ -80,6 +81,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.into_shared()
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into_shared()
+    }
 }
 
 impl<F, T, R> IntoClass<R> for (&'static str, F)
@@ -90,6 +95,7 @@ where
 {
     type State = RenderEffectState<(R::ClassList, bool)>;
     type Cloneable = (&'static str, SharedReactiveFunction<T>);
+    type CloneableOwned = (&'static str, SharedReactiveFunction<T>);
 
     fn html_len(&self) -> usize {
         self.0.len()
@@ -160,6 +166,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         (self.0, self.1.into_shared())
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0, self.1.into_shared())
+    }
 }
 
 impl<F, T, R> IntoClass<R> for (Vec<Cow<'static, str>>, F)
@@ -170,6 +180,7 @@ where
 {
     type State = RenderEffectState<(R::ClassList, bool)>;
     type Cloneable = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
+    type CloneableOwned = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
 
     fn html_len(&self) -> usize {
         self.0.iter().map(|n| n.len()).sum()
@@ -251,6 +262,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         (self.0.clone(), self.1.into_shared())
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0.clone(), self.1.into_shared())
+    }
 }
 
 impl<G, R> IntoClass<R> for ReadGuard<String, G>
@@ -260,6 +275,7 @@ where
 {
     type State = <String as IntoClass<R>>::State;
     type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -290,6 +306,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.as_str().into()
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.as_str().into()
+    }
 }
 
 impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
@@ -299,6 +319,7 @@ where
 {
     type State = <(&'static str, bool) as IntoClass<R>>::State;
     type Cloneable = (&'static str, bool);
+    type CloneableOwned = (&'static str, bool);
 
     fn html_len(&self) -> usize {
         self.0.len()
@@ -336,6 +357,10 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
+        (self.0, *self.1)
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0, *self.1)
     }
 }
