@@ -1,14 +1,13 @@
 use super::{
-    Mountable, Position, PositionState, Render, RenderHtml, ToTemplate,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml, ToTemplate,
 };
-use crate::{hydration::Cursor, renderer::DomRenderer};
+use crate::{
+    html::attribute::Attribute, hydration::Cursor, renderer::DomRenderer,
+};
 use std::marker::PhantomData;
 
-pub struct ViewTemplate<V, R>
-where
-    V: Render<R> + ToTemplate,
-    R: DomRenderer,
-{
+pub struct ViewTemplate<V, R> {
     view: V,
     rndr: PhantomData<R>,
 }
@@ -49,6 +48,25 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(state)
+    }
+}
+
+impl<V, R> AddAnyAttr<R> for ViewTemplate<V, R>
+where
+    V: RenderHtml<R> + ToTemplate + 'static,
+    V::State: Mountable<R>,
+    R: DomRenderer,
+{
+    type Output<SomeNewAttr: Attribute<R>> = ViewTemplate<V, R>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        panic!("AddAnyAttr not supported on ViewTemplate");
     }
 }
 

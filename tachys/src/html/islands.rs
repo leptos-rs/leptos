@@ -1,9 +1,10 @@
+use super::attribute::Attribute;
 use crate::{
     hydration::Cursor,
     prelude::{Render, RenderHtml},
     renderer::Renderer,
     ssr::StreamBuilder,
-    view::{Position, PositionState},
+    view::{add_attr::AddAnyAttr, Position, PositionState},
 };
 use std::marker::PhantomData;
 
@@ -55,6 +56,34 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         self.view.rebuild(state);
+    }
+}
+
+impl<Rndr, View> AddAnyAttr<Rndr> for Island<Rndr, View>
+where
+    View: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> =
+        Island<Rndr, <View as AddAnyAttr<Rndr>>::Output<SomeNewAttr>>;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let Island {
+            component,
+            view,
+            rndr,
+        } = self;
+        Island {
+            component,
+            view: view.add_any_attr(attr),
+            rndr,
+        }
     }
 }
 
@@ -149,6 +178,29 @@ where
     fn build(self) -> Self::State {}
 
     fn rebuild(self, _state: &mut Self::State) {}
+}
+
+impl<Rndr, View> AddAnyAttr<Rndr> for IslandChildren<Rndr, View>
+where
+    View: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> =
+        IslandChildren<Rndr, <View as AddAnyAttr<Rndr>>::Output<SomeNewAttr>>;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let IslandChildren { view, rndr } = self;
+        IslandChildren {
+            view: view.add_any_attr(attr),
+            rndr,
+        }
+    }
 }
 
 impl<Rndr, View> RenderHtml<Rndr> for IslandChildren<Rndr, View>

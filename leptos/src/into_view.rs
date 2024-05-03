@@ -76,8 +76,7 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
     }
 }
 
-/*
-impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
+impl<T: IntoView> AddAnyAttr<Dom> for View<T> {
     type Output<SomeNewAttr: Attribute<Dom>> =
         <T as AddAnyAttr<Dom>>::Output<SomeNewAttr>;
 
@@ -90,14 +89,4 @@ impl<T: AddAnyAttr<Dom>> AddAnyAttr<Dom> for View<T> {
     {
         self.0.add_any_attr(attr)
     }
-
-    fn add_any_attr_by_ref<NewAttr: Attribute<Dom>>(
-        self,
-        attr: &NewAttr,
-    ) -> Self::Output<NewAttr>
-    where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
-    {
-        self.0.add_any_attr_by_ref(attr)
-    }
-}*/
+}

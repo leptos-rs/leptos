@@ -15,6 +15,7 @@ where
 {
     type State = RenderEffect<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
+    type CloneableOwned = SharedReactiveFunction<V>;
 
     fn hydrate<const FROM_SERVER: bool>(
         mut self,
@@ -61,6 +62,10 @@ where
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
     }
 }

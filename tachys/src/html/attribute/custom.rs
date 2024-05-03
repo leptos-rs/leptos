@@ -20,6 +20,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct CustomAttr<K, V, R>
 where
     K: CustomAttributeKey,
@@ -31,6 +32,21 @@ where
     rndr: PhantomData<R>,
 }
 
+impl<K, V, R> Clone for CustomAttr<K, V, R>
+where
+    K: CustomAttributeKey,
+    V: AttributeValue<R> + Clone,
+    R: DomRenderer,
+{
+    fn clone(&self) -> Self {
+        Self {
+            key: self.key.clone(),
+            value: self.value.clone(),
+            rndr: self.rndr.clone(),
+        }
+    }
+}
+
 impl<K, V, R> Attribute<R> for CustomAttr<K, V, R>
 where
     K: CustomAttributeKey,
@@ -40,6 +56,7 @@ where
     const MIN_LENGTH: usize = 0;
     type State = V::State;
     type Cloneable = CustomAttr<K, V::Cloneable, R>;
+    type CloneableOwned = CustomAttr<K, V::CloneableOwned, R>;
 
     fn html_len(&self) -> usize {
         self.key.as_ref().len() + 3 + self.value.html_len()
@@ -75,6 +92,14 @@ where
         CustomAttr {
             key: self.key,
             value: self.value.into_cloneable(),
+            rndr: self.rndr,
+        }
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        CustomAttr {
+            key: self.key,
+            value: self.value.into_cloneable_owned(),
             rndr: self.rndr,
         }
     }
@@ -115,19 +140,16 @@ where
     }
 }
 
-pub trait CustomAttributeKey: AsRef<str> + Send {
+// TODO this needs to be a method, not a const
+pub trait CustomAttributeKey: Clone + AsRef<str> + Send + 'static {
     const KEY: &'static str;
 }
 
-impl<'a> CustomAttributeKey for &'a str {
+impl CustomAttributeKey for &'static str {
     const KEY: &'static str = "";
 }
 
-impl<'a> CustomAttributeKey for Cow<'a, str> {
-    const KEY: &'static str = "";
-}
-
-impl CustomAttributeKey for &String {
+impl CustomAttributeKey for Cow<'static, str> {
     const KEY: &'static str = "";
 }
 

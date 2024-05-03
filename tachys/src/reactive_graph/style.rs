@@ -15,6 +15,7 @@ where
 {
     type State = RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
     type Cloneable = (&'static str, SharedReactiveFunction<S>);
+    type CloneableOwned = (&'static str, SharedReactiveFunction<S>);
 
     fn to_html(self, style: &mut String) {
         let (name, mut f) = self;
@@ -84,6 +85,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         (self.0, self.1.into_shared())
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0, self.1.into_shared())
+    }
 }
 
 impl<F, C, R> IntoStyle<R> for F
@@ -95,6 +100,7 @@ where
 {
     type State = RenderEffect<C::State>;
     type Cloneable = SharedReactiveFunction<C>;
+    type CloneableOwned = SharedReactiveFunction<C>;
 
     fn to_html(mut self, style: &mut String) {
         let value = self.invoke();
@@ -136,6 +142,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.into_shared()
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into_shared()
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -150,6 +160,7 @@ mod stable {
             {
                 type State = RenderEffect<C::State>;
                 type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
                     let value = self.get();
@@ -174,6 +185,10 @@ mod stable {
                 fn into_cloneable(self) -> Self::Cloneable {
                     self
                 }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
@@ -184,6 +199,7 @@ mod stable {
                 type State =
                     RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
                 type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
                     IntoStyle::<R>::to_html(
@@ -211,6 +227,10 @@ mod stable {
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
                     self
                 }
             }
@@ -227,6 +247,7 @@ mod stable {
             {
                 type State = RenderEffect<C::State>;
                 type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
                     let value = self.get();
@@ -251,6 +272,10 @@ mod stable {
                 fn into_cloneable(self) -> Self::Cloneable {
                     self
                 }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
@@ -261,6 +286,7 @@ mod stable {
                 type State =
                     RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
                 type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn to_html(self, style: &mut String) {
                     IntoStyle::<R>::to_html(
@@ -288,6 +314,10 @@ mod stable {
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
                     self
                 }
             }

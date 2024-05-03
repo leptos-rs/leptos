@@ -3,6 +3,7 @@ use core::{fmt::Debug, hash::Hash};
 use std::{cell::RefCell, mem, sync::Weak};
 
 thread_local! {
+    // TODO this can be a Cell
     static OBSERVER: RefCell<Option<AnySubscriber>> = const { RefCell::new(None) };
 }
 
