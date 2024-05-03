@@ -24,6 +24,18 @@ impl<T, Inner> ReadGuard<T, Inner> {
     }
 }
 
+impl<T, Inner> Clone for ReadGuard<T, Inner>
+where
+    Inner: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            ty: self.ty,
+            inner: self.inner.clone(),
+        }
+    }
+}
+
 impl<T, Inner> Deref for ReadGuard<T, Inner>
 where
     Inner: Deref<Target = T>,
