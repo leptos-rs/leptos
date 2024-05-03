@@ -21,6 +21,11 @@ pub trait AttributeValue<R: Renderer>: Send {
     /// `Arc<str>`, as two different clones of a `String` will still have the same value.
     type Cloneable: AttributeValue<R> + Clone;
 
+    /// A cloneable type that is also `'static`. This is used for spreading across types when the
+    /// spreadable attribute needs to be owned. In some cases (`&'a str` to `Arc<str>`, etc.) the owned
+    /// cloneable type has worse performance than the cloneable type, so they are separate.
+    type CloneableOwned: AttributeValue<R> + Clone + 'static;
+
     fn html_len(&self) -> usize;
 
     fn to_html(self, key: &str, buf: &mut String);
@@ -38,6 +43,8 @@ pub trait AttributeValue<R: Renderer>: Send {
     fn rebuild(self, key: &str, state: &mut Self::State);
 
     fn into_cloneable(self) -> Self::Cloneable;
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned;
 }
 
 impl<R> AttributeValue<R> for ()
@@ -46,6 +53,7 @@ where
 {
     type State = ();
     type Cloneable = ();
+    type CloneableOwned = ();
 
     fn html_len(&self) -> usize {
         0
@@ -64,6 +72,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
 }
 
 impl<'a, R> AttributeValue<R> for &'a str
@@ -71,7 +83,8 @@ where
     R: Renderer,
 {
     type State = (R::Element, &'a str);
-    type Cloneable = Self;
+    type Cloneable = &'a str;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -116,6 +129,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -126,6 +143,7 @@ where
 {
     type State = ();
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         V.len()
@@ -159,6 +177,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
 }
 
 impl<'a, R> AttributeValue<R> for &'a String
@@ -167,6 +189,7 @@ where
 {
     type State = (R::Element, &'a String);
     type Cloneable = Self;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -207,6 +230,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.as_str().into()
+    }
 }
 
 impl<R> AttributeValue<R> for String
@@ -215,6 +242,7 @@ where
 {
     type State = (R::Element, String);
     type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -255,6 +283,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.into()
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into()
+    }
 }
 
 impl<R> AttributeValue<R> for Arc<str>
@@ -263,6 +295,7 @@ where
 {
     type State = (R::Element, Arc<str>);
     type Cloneable = Arc<str>;
+    type CloneableOwned = Arc<str>;
 
     fn html_len(&self) -> usize {
         self.len()
@@ -303,6 +336,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
 }
 // TODO impl AttributeValue for Rc<str> and Arc<str> too
 
@@ -312,6 +349,7 @@ where
 {
     type State = (R::Element, bool);
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         0
@@ -361,6 +399,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
 }
 
 impl<V, R> AttributeValue<R> for Option<V>
@@ -370,6 +412,7 @@ where
 {
     type State = (R::Element, Option<V::State>);
     type Cloneable = Option<V::Cloneable>;
+    type CloneableOwned = Option<V::CloneableOwned>;
 
     fn html_len(&self) -> usize {
         match self {
@@ -427,6 +470,10 @@ where
     fn into_cloneable(self) -> Self::Cloneable {
         self.map(|value| value.into_cloneable())
     }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.map(|value| value.into_cloneable_owned())
+    }
 }
 
 fn escape_attr(value: &str) -> Cow<'_, str> {
@@ -442,6 +489,7 @@ macro_rules! render_primitive {
         {
             type State = (R::Element, $child_type);
             type Cloneable = Self;
+            type CloneableOwned = Self;
 
             fn html_len(&self) -> usize {
                 0
@@ -480,6 +528,10 @@ macro_rules! render_primitive {
             }
 
             fn into_cloneable(self) -> Self::Cloneable {
+                self
+            }
+
+            fn into_cloneable_owned(self) -> Self::CloneableOwned {
                 self
             }
         }

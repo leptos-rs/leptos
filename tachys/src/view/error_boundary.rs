@@ -1,5 +1,6 @@
-use super::{Position, PositionState, RenderHtml};
+use super::{add_attr::AddAnyAttr, Position, PositionState, RenderHtml};
 use crate::{
+    html::attribute::Attribute,
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{Mountable, Render, Renderer},
@@ -109,6 +110,26 @@ where
         } else {
             self.placeholder.insert_before_this(parent, child)
         }
+    }
+}
+
+impl<R, T, E> AddAnyAttr<R> for Result<T, E>
+where
+    T: AddAnyAttr<R>,
+    R: Renderer,
+    E: Into<AnyError> + Send + 'static,
+{
+    type Output<SomeNewAttr: Attribute<R>> =
+        Result<<T as AddAnyAttr<R>>::Output<SomeNewAttr>, E>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        todo!()
     }
 }
 

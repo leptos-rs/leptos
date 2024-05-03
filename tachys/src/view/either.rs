@@ -1,5 +1,11 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
-use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
+use super::{
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
+};
+use crate::{
+    html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
+    ssr::StreamBuilder,
+};
 use either_of::*;
 
 pub struct EitherState<A, B, Rndr>
@@ -93,6 +99,31 @@ where
         match &self.state {
             Either::Left(left) => left.insert_before_this(parent, child),
             Either::Right(right) => right.insert_before_this(parent, child),
+        }
+    }
+}
+
+impl<A, B, Rndr> AddAnyAttr<Rndr> for Either<A, B>
+where
+    A: RenderHtml<Rndr>,
+    B: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = Either<
+        <A as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,
+        <B as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        match self {
+            Either::Left(i) => Either::Left(i.add_any_attr(attr)),
+            Either::Right(i) => Either::Right(i.add_any_attr(attr)),
         }
     }
 }
@@ -258,6 +289,28 @@ where
             _ => {}
         }
         state.showing_b = self.show_b;
+    }
+}
+
+impl<A, B, Rndr> AddAnyAttr<Rndr> for EitherKeepAlive<A, B>
+where
+    A: RenderHtml<Rndr>,
+    B: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = EitherKeepAlive<
+        <A as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,
+        <B as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        todo!()
     }
 }
 
@@ -446,6 +499,28 @@ macro_rules! tuples {
 
                     // and store the new state
                     state.state = new_state;
+                }
+            }
+
+            impl<Rndr, $($ty,)*> AddAnyAttr<Rndr> for [<EitherOf $num>]<$($ty,)*>
+            where
+                $($ty: RenderHtml<Rndr>,)*
+                Rndr: Renderer,
+            {
+                type Output<SomeNewAttr: Attribute<Rndr>> = [<EitherOf $num>]<
+                    $(<$ty as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,)*
+                >;
+
+                fn add_any_attr<NewAttr: Attribute<Rndr>>(
+                    self,
+                    attr: NewAttr,
+                ) -> Self::Output<NewAttr>
+                where
+                    Self::Output<NewAttr>: RenderHtml<Rndr>,
+                {
+                    match self {
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.add_any_attr(attr)),)*
+                    }
                 }
             }
 

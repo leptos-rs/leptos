@@ -1,5 +1,11 @@
-use super::{Mountable, Position, PositionState, Render, RenderHtml};
-use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
+use super::{
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
+};
+use crate::{
+    html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
+    ssr::StreamBuilder,
+};
 use itertools::Itertools;
 
 impl<T, R> Render<R> for Option<T>
@@ -36,6 +42,25 @@ where
                 state.state = Some(new_state);
             }
         }
+    }
+}
+
+impl<T, R> AddAnyAttr<R> for Option<T>
+where
+    T: AddAnyAttr<R>,
+    R: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<R>> =
+        Option<<T as AddAnyAttr<R>>::Output<SomeNewAttr>>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        self.map(|n| n.add_any_attr(attr))
     }
 }
 
@@ -247,6 +272,28 @@ where
         } else {
             false
         }
+    }
+}
+
+impl<T, R> AddAnyAttr<R> for Vec<T>
+where
+    T: AddAnyAttr<R>,
+    R: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<R>> =
+        Vec<<T as AddAnyAttr<R>>::Output<SomeNewAttr::Cloneable>>;
+
+    fn add_any_attr<NewAttr: Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        let attr = attr.into_cloneable();
+        self.into_iter()
+            .map(|n| n.add_any_attr(attr.clone()))
+            .collect()
     }
 }
 

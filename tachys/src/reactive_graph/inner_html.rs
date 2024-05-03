@@ -14,6 +14,7 @@ where
 {
     type State = RenderEffect<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
+    type CloneableOwned = SharedReactiveFunction<V>;
 
     fn html_len(&self) -> usize {
         0
@@ -58,6 +59,10 @@ where
     fn rebuild(self, _state: &mut Self::State) {}
 
     fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
     }
 }
