@@ -393,6 +393,17 @@ pub(crate) fn event_to_tokens(
     name: &str,
     node: &KeyedAttribute,
 ) -> TokenStream {
+    let (on, event_type, handler) = event_type_and_handler(name, node);
+
+    quote! {
+        .#on(#event_type, #handler)
+    }
+}
+
+pub(crate) fn event_type_and_handler(
+    name: &str,
+    node: &KeyedAttribute,
+) -> (TokenStream, TokenStream, TokenStream) {
     let handler = attribute_value(node);
 
     let (event_type, is_custom, is_force_undelegated, is_targeted) =
@@ -443,15 +454,12 @@ pub(crate) fn event_to_tokens(
         } else {
             quote! { undelegated }
         };
-        // TODO undelegated
         quote! { ::leptos::tachys::html::event::#undelegated(::leptos::tachys::html::event::#event_type) }
     } else {
         quote! { ::leptos::tachys::html::event::#event_type }
     };
 
-    quote! {
-        .#on(#event_type, #handler)
-    }
+    (on, event_type, handler)
 }
 
 fn class_to_tokens(
