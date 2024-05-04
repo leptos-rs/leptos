@@ -376,6 +376,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffectState<C::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     0
@@ -400,6 +402,14 @@ mod stable {
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
                 }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
 
             impl<R> IntoClass<R> for (&'static str, $sig<bool>)
@@ -407,6 +417,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffectState<(R::ClassList, bool)>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     self.0.len()
@@ -436,6 +448,14 @@ mod stable {
 
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
                 }
             }
         };
@@ -450,6 +470,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffectState<C::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     0
@@ -474,6 +496,14 @@ mod stable {
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
                 }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
 
             impl<R> IntoClass<R> for (&'static str, $sig<bool>)
@@ -481,6 +511,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffectState<(R::ClassList, bool)>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     self.0.len()
@@ -510,6 +542,14 @@ mod stable {
 
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild here?
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
                 }
             }
         };
