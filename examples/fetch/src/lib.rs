@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use leptos::tachys::html::style::style;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -65,6 +66,8 @@ pub fn fetch_example() -> impl IntoView {
         }
     };
 
+    let spreadable = style(("background-color", "AliceBlue"));
+
     view! {
         <div>
             <label>
@@ -79,7 +82,7 @@ pub fn fetch_example() -> impl IntoView {
                 />
 
             </label>
-            <Transition fallback=|| view! { <div>"Loading..."</div> }>
+            <Transition fallback=|| view! { <div>"Loading..."</div> } {..spreadable}>
                 <ErrorBoundary fallback>
                     <ul>
                         {move || Suspend(async move {

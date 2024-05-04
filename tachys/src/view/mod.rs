@@ -20,12 +20,6 @@ pub mod tuples;
 ///
 /// It is generic over the renderer itself, as long as that implements the [`Renderer`]
 /// trait.
-#[diagnostic::on_unimplemented(
-    message = "`Render<{R}>` is not implemented for `{Self}`",
-    label = "My Label",
-    note = "Note 1",
-    note = "Note 2"
-)]
 pub trait Render<R: Renderer>: Sized {
     /// The “view state” for this type, which can be retained between updates.
     ///
