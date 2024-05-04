@@ -30,6 +30,7 @@ use tachys::{
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
+        add_attr::AddAnyAttr,
         any_view::{AnyView, AnyViewState, IntoAny},
         either::EitherState,
         Mountable, Position, PositionState, Render, RenderHtml,
@@ -137,6 +138,26 @@ where
                 }
             }
         }
+    }
+}
+
+impl<Defs, Fal, R> AddAnyAttr<R> for NestedRoutesView<Defs, Fal, R>
+where
+    Defs: MatchNestedRoutes<R> + Send,
+    Fal: RenderHtml<R>,
+    R: Renderer + 'static,
+{
+    type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
+        NestedRoutesView<Defs, Fal, R>;
+
+    fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<R>,
+    {
+        todo!()
     }
 }
 
