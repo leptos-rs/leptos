@@ -93,6 +93,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffect<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
@@ -112,6 +114,14 @@ mod stable {
 
                 fn rebuild(self, _state: &mut Self::State, _key: &str) {
                     // TODO rebuild
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
                 }
             }
         };
@@ -121,11 +131,13 @@ mod stable {
         ($sig:ident) => {
             impl<V, R> IntoProperty<R> for $sig<V>
             where
-                V: IntoProperty<R> + Clone + 'static,
+                V: IntoProperty<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
             {
                 type State = RenderEffect<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn hydrate<const FROM_SERVER: bool>(
                     self,
@@ -145,6 +157,14 @@ mod stable {
 
                 fn rebuild(self, _state: &mut Self::State, _key: &str) {
                     // TODO rebuild
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
                 }
             }
         };

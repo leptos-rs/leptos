@@ -147,7 +147,7 @@ where
 impl<F, V, R> RenderHtml<R> for F
 where
     F: ReactiveFunction<Output = V>,
-    V: RenderHtml<R>,
+    V: RenderHtml<R> + 'static,
     V::State: 'static,
 
     R: Renderer + 'static,
@@ -203,22 +203,21 @@ where
 impl<F, V, R> AddAnyAttr<R> for F
 where
     F: ReactiveFunction<Output = V>,
-    V: AddAnyAttr<R>,
+    V: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: Attribute<R>> =
-        SharedReactiveFunction<V::Output<SomeNewAttr>>;
+        Box<dyn FnMut() -> V::Output<SomeNewAttr::CloneableOwned> + Send>;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
-        self,
+        mut self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
-        /*let attr = attr.into_cloneable_owned();
-        Arc::new(Mutex::new(move || self.invoke().add_any_attr(attr.clone())));*/
-        todo!()
+        let attr = attr.into_cloneable_owned();
+        Box::new(move || self.invoke().add_any_attr(attr.clone()))
     }
 }
 
@@ -405,11 +404,13 @@ where
 mod stable {
     use super::RenderEffectState;
     use crate::{
-        html::attribute::AttributeValue,
+        html::attribute::{Attribute, AttributeValue},
         hydration::Cursor,
         renderer::Renderer,
         ssr::StreamBuilder,
-        view::{Position, PositionState, Render, RenderHtml},
+        view::{
+            add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
+        },
     };
     use reactive_graph::{
         computed::{ArcMemo, Memo},
@@ -437,6 +438,25 @@ mod stable {
                 #[track_caller]
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild
+                }
+            }
+
+            impl<V, R> AddAnyAttr<R> for $sig<V>
+            where
+                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V::State: 'static,
+                R: Renderer + 'static,
+            {
+                type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
+
+                fn add_any_attr<NewAttr: Attribute<R>>(
+                    mut self,
+                    attr: NewAttr,
+                ) -> Self::Output<NewAttr>
+                where
+                    Self::Output<NewAttr>: RenderHtml<R>,
+                {
+                    todo!()
                 }
             }
 
@@ -496,6 +516,8 @@ mod stable {
                 R: Renderer,
             {
                 type State = RenderEffectState<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     0
@@ -527,6 +549,14 @@ mod stable {
                 fn rebuild(self, _key: &str, _state: &mut Self::State) {
                     // TODO rebuild
                 }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
         };
     }
@@ -535,7 +565,7 @@ mod stable {
         ($sig:ident) => {
             impl<V, R> Render<R> for $sig<V>
             where
-                V: Render<R> + Clone + 'static,
+                V: Render<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
 
                 R: Renderer,
@@ -550,6 +580,25 @@ mod stable {
                 #[track_caller]
                 fn rebuild(self, _state: &mut Self::State) {
                     // TODO rebuild
+                }
+            }
+
+            impl<V, R> AddAnyAttr<R> for $sig<V>
+            where
+                V: RenderHtml<R> + Clone + Send + Sync + 'static,
+                V::State: 'static,
+                R: Renderer + 'static,
+            {
+                type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
+
+                fn add_any_attr<NewAttr: Attribute<R>>(
+                    mut self,
+                    attr: NewAttr,
+                ) -> Self::Output<NewAttr>
+                where
+                    Self::Output<NewAttr>: RenderHtml<R>,
+                {
+                    todo!()
                 }
             }
 
@@ -609,6 +658,8 @@ mod stable {
                 R: Renderer,
             {
                 type State = RenderEffectState<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     0
@@ -639,6 +690,14 @@ mod stable {
 
                 fn rebuild(self, _key: &str, _state: &mut Self::State) {
                     // TODO rebuild
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
                 }
             }
         };
