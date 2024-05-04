@@ -104,6 +104,37 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
+    let spreads = node.attributes().iter().filter_map(|attr| {
+        use rstml::node::NodeBlock;
+        use syn::{Expr, ExprRange, RangeLimits, Stmt};
+
+        if let NodeAttribute::Block(block) = attr {
+            let dotted = if let NodeBlock::ValidBlock(block) = block {
+                match block.stmts.first() {
+                    Some(Stmt::Expr(
+                        Expr::Range(ExprRange {
+                            start: None,
+                            limits: RangeLimits::HalfOpen(_),
+                            end: Some(end),
+                            ..
+                        }),
+                        _,
+                    )) => Some(quote! { .add_any_attr(#end) }),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            Some(dotted.unwrap_or_else(|| {
+                quote! {
+                    .add_any_attr(#[allow(unused_braces)] { #node })
+                }
+            }))
+        } else {
+            None
+        }
+    });
+
     /*let directives = attrs
         .clone()
         .filter_map(|attr| {
@@ -246,6 +277,7 @@ pub(crate) fn component_to_tokens(
                 #name_ref,
                 props
             )
+            #(#spreads)*
         }
     };
 

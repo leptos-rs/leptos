@@ -19,7 +19,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
 ) -> impl IntoView
 where
     IF: Fn() -> I + Send + 'static,
-    I: IntoIterator<Item = T> + Send,
+    I: IntoIterator<Item = T> + Send + 'static,
     EF: Fn(T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
     KF: Fn(&T) -> K + Send + Clone + 'static,
