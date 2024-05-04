@@ -8,7 +8,7 @@ use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 use wasm_bindgen::JsValue;
 
 #[inline(always)]
-pub fn property<K, P, R>(key: K, value: P) -> Property<K, P, R>
+pub fn prop<K, P, R>(key: K, value: P) -> Property<K, P, R>
 where
     K: AsRef<str>,
     P: IntoProperty<R>,
