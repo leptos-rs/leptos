@@ -109,6 +109,7 @@ where
 {
     type State = (R::Element, Oco<'static, str>);
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         self.as_str().len()
@@ -151,6 +152,12 @@ where
         self.upgrade_inplace();
         self
     }
+
+    fn into_cloneable_owned(mut self) -> Self::CloneableOwned {
+        // ensure it's reference-counted
+        self.upgrade_inplace();
+        self
+    }
 }
 
 impl<R> IntoClass<R> for Oco<'static, str>
@@ -159,6 +166,7 @@ where
 {
     type State = (R::Element, Self);
     type Cloneable = Self;
+    type CloneableOwned = Self;
 
     fn html_len(&self) -> usize {
         self.as_str().len()
@@ -189,6 +197,12 @@ where
     }
 
     fn into_cloneable(mut self) -> Self::Cloneable {
+        // ensure it's reference-counted
+        self.upgrade_inplace();
+        self
+    }
+
+    fn into_cloneable_owned(mut self) -> Self::CloneableOwned {
         // ensure it's reference-counted
         self.upgrade_inplace();
         self
