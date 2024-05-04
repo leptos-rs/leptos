@@ -5,7 +5,7 @@ use crate::{
         class::{class, Class, IntoClass},
         element::HasElementType,
         event::{on, on_target, EventDescriptor, On, Targeted},
-        property::{property, IntoProperty, Property},
+        property::{prop, IntoProperty, Property},
         style::{style, IntoStyle, Style},
     },
     renderer::DomRenderer,
@@ -55,7 +55,7 @@ where
 {
     type Output = <Self as AddAnyAttr<Rndr>>::Output<Property<K, P, Rndr>>;
     fn prop(self, key: K, value: P) -> Self::Output {
-        self.add_any_attr(property(key, value))
+        self.add_any_attr(prop(key, value))
     }
 }
 
