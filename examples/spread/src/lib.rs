@@ -57,6 +57,23 @@ pub fn SpreadingExample() -> impl IntoView {
         <div {partial_attrs} {partial_event_handlers}>
             "<div {partial_attrs} {partial_event_handlers} />"
         </div>
+
+        <hr/>
+
+        // the class:, style:, prop:, and on: syntaxes can be used with components just as they are
+        // used with elements
+        //
+        // to add an HTML attribute that is not a component prop, use attr:
+        //
+        // these attributes will be applied to *all* elements returned as part of the component's
+        // view. to apply attributes to a subset of the component, pass them via a component prop
+        <ComponentThatTakesSpread
+            attr:id="foo"
+            class:foo=true
+            style:font-weight="bold"
+            prop:cool=42
+            on:click=move |_| alert("clicked ComponentThatTakesSpread")
+        />
     }
     // TODO check below
     // Overwriting an event handler, here on:click, will result in a panic in debug builds. In release builds, the initial handler is kept.
@@ -64,4 +81,14 @@ pub fn SpreadingExample() -> impl IntoView {
     //<div {..mixed} on:click=|_e| { alert("I will never be seen..."); }>
     //    "with overwritten click handler"
     //</div>
+}
+
+#[component]
+pub fn ComponentThatTakesSpread() -> impl IntoView {
+    view! {
+        <button>"<ComponentThatTakesSpread/>"</button>
+        <p>
+            "Attributes applied to a component apply to all top-level elements returned by a component."
+        </p>
+    }
 }
