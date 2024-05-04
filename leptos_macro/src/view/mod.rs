@@ -6,9 +6,13 @@ use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error::abort;
 use quote::{quote, quote_spanned, ToTokens};
-use rstml::node::{KeyedAttribute, Node, NodeAttribute, NodeElement, NodeName};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
+};
 use std::collections::HashMap;
-use syn::{spanned::Spanned, Expr, ExprPath, Lit, LitStr};
+use syn::{
+    spanned::Spanned, Expr, ExprPath, ExprRange, Lit, LitStr, RangeLimits, Stmt,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TagType {
@@ -300,7 +304,29 @@ fn attribute_to_tokens(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     match node {
-        NodeAttribute::Block(_) => todo!(),
+        NodeAttribute::Block(node) => {
+            let dotted = if let NodeBlock::ValidBlock(block) = node {
+                match block.stmts.first() {
+                    Some(Stmt::Expr(
+                        Expr::Range(ExprRange {
+                            start: None,
+                            limits: RangeLimits::HalfOpen(_),
+                            end: Some(end),
+                            ..
+                        }),
+                        _,
+                    )) => Some(quote! { .add_any_attr(#end) }),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            dotted.unwrap_or_else(|| {
+                quote! {
+                    .add_any_attr(#[allow(unused_braces)] { #node })
+                }
+            })
+        }
         NodeAttribute::Attribute(node) => {
             let name = node.key.to_string();
             if name == "node_ref" {
