@@ -90,6 +90,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffect<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     0
@@ -114,6 +116,14 @@ mod stable {
                 }
 
                 fn rebuild(self, _state: &mut Self::State) {}
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
         };
     }
@@ -127,6 +137,8 @@ mod stable {
                 R: DomRenderer,
             {
                 type State = RenderEffect<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
 
                 fn html_len(&self) -> usize {
                     0
@@ -151,6 +163,14 @@ mod stable {
                 }
 
                 fn rebuild(self, _state: &mut Self::State) {}
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
             }
         };
     }
