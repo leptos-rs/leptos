@@ -10,10 +10,14 @@ use reactive_graph::{
 use rustc_hash::FxHashMap;
 use std::{marker::PhantomData, sync::Arc};
 use tachys::{
+    html::attribute::Attribute,
     hydration::Cursor,
     renderer::{CastFrom, Renderer},
     ssr::StreamBuilder,
-    view::{Mountable, Position, PositionState, Render, RenderHtml},
+    view::{
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml,
+    },
 };
 use throw_error::{Error, ErrorHook, ErrorId};
 
@@ -190,6 +194,41 @@ where
             _ => {}
         }
         state.showing_fallback = !self.errors_empty;
+    }
+}
+
+impl<Chil, Fal, Rndr> AddAnyAttr<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
+where
+    Chil: RenderHtml<Rndr>,
+    Fal: RenderHtml<Rndr> + Send,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> =
+        ErrorBoundaryView<Chil::Output<SomeNewAttr>, Fal, Rndr>;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let ErrorBoundaryView {
+            boundary_id,
+            errors_empty,
+            children,
+            fallback,
+            errors,
+            rndr,
+        } = self;
+        ErrorBoundaryView {
+            boundary_id,
+            errors_empty,
+            children: children.add_any_attr(attr),
+            fallback,
+            errors,
+            rndr,
+        }
     }
 }
 

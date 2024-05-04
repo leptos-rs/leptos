@@ -17,15 +17,18 @@ use std::{
     cell::RefCell,
     fmt::Debug,
     future::{ready, Future, Ready},
+    pin::Pin,
     rc::Rc,
 };
 use tachys::{
     either::Either,
+    html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::RenderEffectState,
     renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
     view::{
+        add_attr::AddAnyAttr,
         any_view::AnyView,
         either::{EitherKeepAlive, EitherKeepAliveState},
         iterators::OptionState,
@@ -67,8 +70,8 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
 impl<const TRANSITION: bool, Fal, Chil, Rndr> Render<Rndr>
     for SuspenseBoundary<TRANSITION, Fal, Chil>
 where
-    Fal: Render<Rndr> + 'static,
-    Chil: Render<Rndr> + 'static,
+    Fal: Render<Rndr> + Send + 'static,
+    Chil: Render<Rndr> + Send + 'static,
     Rndr: Renderer + 'static,
 {
     type State =
@@ -98,6 +101,40 @@ where
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
+}
+
+impl<const TRANSITION: bool, Fal, Chil, Rndr> AddAnyAttr<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
+where
+    Fal: RenderHtml<Rndr> + Send + 'static,
+    Chil: RenderHtml<Rndr> + Send + 'static,
+    Rndr: Renderer + 'static,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = SuspenseBoundary<
+        TRANSITION,
+        Fal,
+        Chil::Output<SomeNewAttr::CloneableOwned>,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let attr = attr.into_cloneable_owned();
+        let SuspenseBoundary {
+            none_pending,
+            fallback,
+            children,
+        } = self;
+        SuspenseBoundary {
+            none_pending,
+            fallback,
+            children: children.add_any_attr(attr),
+        }
+    }
 }
 
 impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
@@ -338,6 +375,39 @@ where
                 Some(value).rebuild(&mut *state.borrow_mut());
             }
         });
+    }
+}
+
+impl<Fut, Rndr> AddAnyAttr<Rndr> for Suspend<Fut>
+where
+    Fut: Future + Send + 'static,
+    Fut::Output: AddAnyAttr<Rndr>,
+    Rndr: Renderer + 'static,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = Suspend<
+        Pin<
+            Box<
+                dyn Future<
+                        Output = <Fut::Output as AddAnyAttr<Rndr>>::Output<
+                            SomeNewAttr::CloneableOwned,
+                        >,
+                    > + Send,
+            >,
+        >,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let attr = attr.into_cloneable_owned();
+        Suspend(Box::pin(async move {
+            let this = self.0.await;
+            this.add_any_attr(attr)
+        }))
     }
 }
 
