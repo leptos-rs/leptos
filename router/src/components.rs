@@ -79,6 +79,7 @@ where
         let location =
             BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
+        provide_context(location.clone());
         location.as_url().clone()
     };
     // provide router context
@@ -199,6 +200,7 @@ where
     FallbackFn: Fn() -> Fallback + Send + 'static,
     Fallback: IntoView + 'static,
 {
+    let location = use_context::<BrowserUrl>();
     let RouterContext {
         current_url, base, ..
     } = use_context()
@@ -220,6 +222,7 @@ where
     let outer_owner =
         Owner::current().expect("creating Routes, but no Owner was found");
     move || NestedRoutesView {
+        location: location.clone(),
         routes: routes.clone(),
         outer_owner: outer_owner.clone(),
         url: current_url.clone(),
@@ -241,8 +244,7 @@ where
     FallbackFn: Fn() -> Fallback + Send + 'static,
     Fallback: IntoView + 'static,
 {
-    use either_of::Either;
-
+    let location = use_context::<BrowserUrl>();
     let RouterContext {
         current_url, base, ..
     } = use_context()
@@ -264,12 +266,16 @@ where
     let outer_owner =
         Owner::current().expect("creating Router, but no Owner was found");
     let params = ArcRwSignal::new(ParamsMap::new());
-    move || FlatRoutesView {
-        routes: routes.clone(),
-        path: path.clone(),
-        fallback: fallback(),
-        outer_owner: outer_owner.clone(),
-        params: params.clone(),
+    move || {
+        path.track();
+        FlatRoutesView {
+            location: location.clone(),
+            routes: routes.clone(),
+            path: path.clone(),
+            fallback: fallback(),
+            outer_owner: outer_owner.clone(),
+            params: params.clone(),
+        }
     }
 }
 

@@ -16,6 +16,7 @@ either_of = { workspace = true }
 or_poisoned = { workspace = true }
 reactive_graph = { workspace = true }
 tachys = { workspace = true, features = ["reactive_graph"] }
+futures = "0.3"
 url = "2"
 js-sys = { version = "0.3" }
 wasm-bindgen = { version = "0.2" }

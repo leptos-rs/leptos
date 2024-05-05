@@ -1,25 +1,30 @@
 use crate::{
-    location::{Location, RequestUrl, Url},
+    location::{Location, LocationProvider, RequestUrl, Url},
     matching::Routes,
     params::ParamsMap,
     resolve_path::resolve_path,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
     PathSegment, RouteList, RouteListing, RouteMatchId,
 };
-use either_of::Either;
+use any_spawner::Executor;
+use either_of::{Either, EitherOf3};
+use futures::future::join_all;
 use leptos::{component, oco::Oco, IntoView};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::{ArcMemo, Memo},
+    computed::{ArcMemo, Memo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, Read, ReadUntracked, Set, Track, Trigger},
 };
 use std::{
-    borrow::Cow,
+    cell::RefCell,
+    future::Future,
     iter,
     marker::PhantomData,
     mem,
+    pin::Pin,
+    rc::Rc,
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
@@ -32,7 +37,7 @@ use tachys::{
     view::{
         add_attr::AddAnyAttr,
         any_view::{AnyView, AnyViewState, IntoAny},
-        either::EitherState,
+        either::{EitherOf3State, EitherState},
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
@@ -41,7 +46,8 @@ pub struct Outlet<R> {
     rndr: PhantomData<R>,
 }
 
-pub(crate) struct NestedRoutesView<Defs, Fal, R> {
+pub(crate) struct NestedRoutesView<Loc, Defs, Fal, R> {
+    pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
     pub outer_owner: Owner,
     pub url: ArcRwSignal<Url>,
@@ -62,15 +68,18 @@ where
     path: ArcMemo<String>,
     search_params: ArcMemo<ParamsMap>,
     outlets: Vec<RouteContext<R>>,
-    view: EitherState<Fal::State, AnyViewState<R>, R>,
+    // TODO loading fallback
+    view: Rc<RefCell<EitherOf3State<(), Fal, AnyView<R>, R>>>,
 }
 
-impl<Defs, Fal, R> Render<R> for NestedRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> Render<R> for NestedRoutesView<Loc, Defs, Fal, R>
 where
+    Loc: LocationProvider,
     Defs: MatchNestedRoutes<R>,
-    Fal: Render<R>,
+    Fal: Render<R> + 'static,
     R: Renderer + 'static,
 {
+    // TODO support fallback while loading
     type State = NestedRouteViewState<Fal, R>;
 
     fn build(self) -> Self::State {
@@ -85,20 +94,41 @@ where
             ..
         } = self;
 
+        let mut loaders = Vec::new();
         let mut outlets = Vec::new();
         let new_match = routes.match_route(&path.read());
-        let view = match new_match {
-            None => Either::Left(fallback),
+
+        // start with an empty view because we'll be loading routes async
+        let view = EitherOf3::A(()).build();
+        let view = Rc::new(RefCell::new(view));
+        let matched_view = match new_match {
+            None => EitherOf3::B(fallback),
             Some(route) => {
-                route.build_nested_route(base, &mut outlets, &outer_owner);
+                route.build_nested_route(
+                    base,
+                    &mut loaders,
+                    &mut outlets,
+                    &outer_owner,
+                );
                 outer_owner.with(|| {
-                    Either::Right(
+                    EitherOf3::C(
                         Outlet(OutletProps::builder().build()).into_any(),
                     )
                 })
             }
-        }
-        .build();
+        };
+
+        Executor::spawn_local({
+            let view = Rc::clone(&view);
+            let loaders = mem::take(&mut loaders);
+            async move {
+                let triggers = join_all(loaders).await;
+                for trigger in triggers {
+                    trigger.trigger();
+                }
+                matched_view.rebuild(&mut *view.borrow_mut());
+            }
+        });
 
         NestedRouteViewState {
             outlets,
@@ -115,25 +145,40 @@ where
 
         match new_match {
             None => {
-                Either::<Fal, AnyView<R>>::Left(self.fallback)
-                    .rebuild(&mut state.view);
+                EitherOf3::<(), Fal, AnyView<R>>::B(self.fallback)
+                    .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
             }
             Some(route) => {
+                let mut loaders = Vec::new();
                 route.rebuild_nested_route(
                     self.base,
                     &mut 0,
+                    &mut loaders,
                     &mut state.outlets,
                     &self.outer_owner,
                 );
 
+                // hmm...
+                let location = self.location.clone();
+                Executor::spawn_local(async move {
+                    let triggers = join_all(loaders).await;
+                    // tell each one of the outlet triggers that it's ready
+                    for trigger in triggers {
+                        trigger.trigger();
+                    }
+                    if let Some(loc) = location {
+                        loc.ready_to_complete();
+                    }
+                });
+
                 // if it was on the fallback, show the view instead
-                if matches!(state.view.state, Either::Left(_)) {
+                if matches!(state.view.borrow().state, EitherOf3::B(_)) {
                     self.outer_owner.with(|| {
-                        Either::<Fal, AnyView<R>>::Right(
+                        EitherOf3::<(), Fal, AnyView<R>>::C(
                             Outlet(OutletProps::builder().build()).into_any(),
                         )
-                        .rebuild(&mut state.view);
+                        .rebuild(&mut *state.view.borrow_mut());
                     })
                 }
             }
@@ -141,14 +186,15 @@ where
     }
 }
 
-impl<Defs, Fal, R> AddAnyAttr<R> for NestedRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> AddAnyAttr<R> for NestedRoutesView<Loc, Defs, Fal, R>
 where
+    Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send,
-    Fal: RenderHtml<R>,
+    Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
-        NestedRoutesView<Defs, Fal, R>;
+        NestedRoutesView<Loc, Defs, Fal, R>;
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
         self,
@@ -161,10 +207,11 @@ where
     }
 }
 
-impl<Defs, Fal, R> RenderHtml<R> for NestedRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> RenderHtml<R> for NestedRoutesView<Loc, Defs, Fal, R>
 where
+    Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send,
-    Fal: RenderHtml<R>,
+    Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type AsyncOutput = Self;
@@ -238,7 +285,13 @@ where
             let view = match new_match {
                 None => Either::Left(fallback),
                 Some(route) => {
-                    route.build_nested_route(base, &mut outlets, &outer_owner);
+                    route.build_nested_route(
+                        base,
+                        // TODO loaders here
+                        &mut Vec::new(),
+                        &mut outlets,
+                        &outer_owner,
+                    );
                     outer_owner.with(|| {
                         Either::Right(
                             Outlet(OutletProps::builder().build()).into_any(),
@@ -273,7 +326,13 @@ where
         let view = match new_match {
             None => Either::Left(fallback),
             Some(route) => {
-                route.build_nested_route(base, &mut outlets, &outer_owner);
+                route.build_nested_route(
+                    base,
+                    // TODO loaders
+                    &mut Vec::new(),
+                    &mut outlets,
+                    &outer_owner,
+                );
                 outer_owner.with(|| {
                     Either::Right(
                         Outlet(OutletProps::builder().build()).into_any(),
@@ -302,18 +361,26 @@ where
 
         let mut outlets = Vec::new();
         let new_match = routes.match_route(&path.read());
-        let view = match new_match {
-            None => Either::Left(fallback),
-            Some(route) => {
-                route.build_nested_route(base, &mut outlets, &outer_owner);
-                outer_owner.with(|| {
-                    Either::Right(
-                        Outlet(OutletProps::builder().build()).into_any(),
-                    )
-                })
+        let view = Rc::new(RefCell::new(
+            match new_match {
+                None => EitherOf3::B(fallback),
+                Some(route) => {
+                    route.build_nested_route(
+                        base,
+                        // TODO loaders in hydration
+                        &mut Vec::new(),
+                        &mut outlets,
+                        &outer_owner,
+                    );
+                    outer_owner.with(|| {
+                        EitherOf3::C(
+                            Outlet(OutletProps::builder().build()).into_any(),
+                        )
+                    })
+                }
             }
-        }
-        .hydrate::<FROM_SERVER>(cursor, position);
+            .hydrate::<FROM_SERVER>(cursor, position),
+        ));
 
         NestedRouteViewState {
             outlets,
@@ -378,6 +445,7 @@ where
     fn build_nested_route(
         self,
         base: Option<Oco<'static, str>>,
+        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     );
@@ -386,6 +454,7 @@ where
         self,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
+        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     );
@@ -399,6 +468,7 @@ where
     fn build_nested_route(
         self,
         base: Option<Oco<'static, str>>,
+        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
@@ -428,7 +498,7 @@ where
         // add this outlet to the end of the outlet stack used for diffing
         let outlet = RouteContext {
             id: self.as_id(),
-            trigger,
+            trigger: trigger.clone(),
             params,
             owner: owner.clone(),
             matched: ArcRwSignal::new(self.as_matched().to_string()),
@@ -441,9 +511,14 @@ where
         // send the initial view through the channel, and recurse through the children
         let (view, child) = self.into_view_and_child();
 
-        tx.send(Box::new({
+        loaders.push(Box::pin({
             let owner = outlet.owner.clone();
-            move || owner.with(|| view.choose().into_any())
+            async move {
+                let view =
+                    owner.with(|| ScopedFuture::new(view.choose())).await;
+                tx.send(Box::new(move || owner.with(|| view.into_any())));
+                trigger
+            }
         }));
 
         // and share the outlet with the parent via context
@@ -455,7 +530,7 @@ where
         // this is important because to build the view, we need access to the outlet
         // and the outlet will be returned from building this child
         if let Some(child) = child {
-            child.build_nested_route(base, outlets, &owner);
+            child.build_nested_route(base, loaders, outlets, &owner);
         }
     }
 
@@ -463,6 +538,7 @@ where
         self,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
+        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
@@ -470,7 +546,7 @@ where
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(base, outlets, parent);
+                self.build_nested_route(base, loaders, outlets, parent);
             }
             Some(current) => {
                 // a unique ID for each route, which allows us to compare when we get new matches
@@ -514,13 +590,21 @@ where
                     // send the new view, with the new owner, through the channel to the Outlet,
                     // and notify the trigger so that the reactive view inside the Outlet tracking
                     // the trigger runs again
-                    current.tx.send({
+                    loaders.push(Box::pin({
                         let owner = owner.clone();
-                        Box::new(move || {
-                            owner.with(|| view.choose().into_any())
-                        })
-                    });
-                    current.trigger.trigger();
+                        let trigger = current.trigger.clone();
+                        let tx = current.tx.clone();
+                        async move {
+                            let view = owner
+                                .with(|| ScopedFuture::new(view.choose()))
+                                .await;
+                            tx.send(Box::new(move || {
+                                owner.with(|| view.into_any())
+                            }));
+                            drop(old_owner);
+                            trigger
+                        }
+                    }));
 
                     // remove all the items lower in the tree
                     // if this match is different, all its children will also be different
@@ -531,6 +615,7 @@ where
                         let mut new_outlets = Vec::new();
                         child.build_nested_route(
                             base,
+                            loaders,
                             &mut new_outlets,
                             &owner,
                         );
@@ -545,7 +630,9 @@ where
                 if let Some(child) = child {
                     let owner = current.owner.clone();
                     *items += 1;
-                    child.rebuild_nested_route(base, items, outlets, &owner);
+                    child.rebuild_nested_route(
+                        base, items, loaders, outlets, &owner,
+                    );
                 }
             }
         }
@@ -597,7 +684,6 @@ where
     );
     move || {
         trigger.track();
-
-        rx.try_recv().map(|view| view()).unwrap()
+        rx.try_recv().map(|view| view())
     }
 }

@@ -305,31 +305,3 @@ where
         self.write().insert_before_this(parent, child)
     }
 }
-
-impl<Rndr, Fal, Output> Mountable<Rndr>
-    for Rc<RefCell<EitherState<Fal, Output, Rndr>>>
-where
-    Fal: Mountable<Rndr>,
-    Output: Mountable<Rndr>,
-    Rndr: Renderer,
-{
-    fn unmount(&mut self) {
-        self.borrow_mut().unmount();
-    }
-
-    fn mount(
-        &mut self,
-        parent: &<Rndr as Renderer>::Element,
-        marker: Option<&<Rndr as Renderer>::Node>,
-    ) {
-        self.borrow_mut().mount(parent, marker);
-    }
-
-    fn insert_before_this(
-        &self,
-        parent: &<Rndr as Renderer>::Element,
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
-        self.borrow_mut().insert_before_this(parent, child)
-    }
-}

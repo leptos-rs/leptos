@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{ChooseView, MatchParams, SsrMode, GeneratedRouteData};
 use core::{fmt, iter};
-use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}};
+use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}, future::Future};
 use either_of::Either;
 use tachys::{
     renderer::Renderer,
@@ -118,16 +118,17 @@ where
     }
 }
 
-impl<ParamsIter, Child, ViewFn, View, Rndr> MatchInterface<Rndr>
+impl<ParamsIter, Child, ViewFn, ViewFut, Rndr> MatchInterface<Rndr>
     for NestedMatch<ParamsIter, Child, ViewFn>
 where
     Rndr: Renderer + 'static,
     Child: MatchInterface<Rndr> + MatchParams + 'static,
-    ViewFn: Fn() -> View + Send + 'static,
-    View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
+    ViewFn: Fn() -> ViewFut + Send + 'static,
+    ViewFut: Future,
+    ViewFut::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Child = Child;
-    type View = ViewFn::Output;
+    type View = ViewFut::Output;
 
     fn as_id(&self) -> RouteMatchId {
         self.id
@@ -147,7 +148,7 @@ where
     }
 }
 
-impl<Segments, Children, Data, ViewFn, View, Rndr> MatchNestedRoutes<Rndr>
+impl<Segments, Children, Data, ViewFn, ViewFut, Rndr> MatchNestedRoutes<Rndr>
     for NestedRoute<Segments, Children, Data, ViewFn, Rndr>
 where
     Self: 'static,
@@ -159,11 +160,12 @@ where
    Children::Match: MatchParams,
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
-    ViewFn: Fn() -> View + Send + Clone + 'static,
-    View: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
+    ViewFn: Fn() -> ViewFut + Send + Clone + 'static,
+    ViewFut: Future,
+    ViewFut::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Data = Data;
-    type View = View;
+    type View = ViewFut::Output;
     type Match = NestedMatch<iter::Chain<
         <Segments::ParamsIter as IntoIterator>::IntoIter,
         Either<iter::Empty::<

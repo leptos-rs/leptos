@@ -1,4 +1,5 @@
 use either_of::*;
+use std::future::Future;
 use tachys::{renderer::Renderer, view::Render};
 
 pub trait ChooseView<R>
@@ -6,21 +7,22 @@ where
     Self: Send + 'static,
     R: Renderer + 'static,
 {
-    type Output: Render<R> + Send;
+    type Output;
 
-    fn choose(self) -> Self::Output;
+    fn choose(self) -> impl Future<Output = Self::Output>;
 }
 
-impl<F, View, R> ChooseView<R> for F
+impl<F, ViewFut, R> ChooseView<R> for F
 where
-    F: Fn() -> View + Send + 'static,
-    View: Render<R> + Send,
+    F: Fn() -> ViewFut + Send + 'static,
+    ViewFut: Future,
+    ViewFut::Output: Render<R> + Send,
     R: Renderer + 'static,
 {
-    type Output = View;
+    type Output = ViewFut::Output;
 
-    fn choose(self) -> Self::Output {
-        self()
+    async fn choose(self) -> Self::Output {
+        self().await
     }
 }
 
@@ -30,7 +32,7 @@ where
 {
     type Output = ();
 
-    fn choose(self) -> Self::Output {}
+    async fn choose(self) -> Self::Output {}
 }
 
 impl<A, B, Rndr> ChooseView<Rndr> for Either<A, B>
@@ -41,10 +43,10 @@ where
 {
     type Output = Either<A::Output, B::Output>;
 
-    fn choose(self) -> Self::Output {
+    async fn choose(self) -> Self::Output {
         match self {
-            Either::Left(f) => Either::Left(f.choose()),
-            Either::Right(f) => Either::Right(f.choose()),
+            Either::Left(f) => Either::Left(f.choose().await),
+            Either::Right(f) => Either::Right(f.choose().await),
         }
     }
 }
@@ -58,9 +60,9 @@ macro_rules! tuples {
         {
             type Output = $either<$($ty::Output,)*>;
 
-            fn choose(self ) -> Self::Output {
+            async fn choose(self ) -> Self::Output {
                 match self {
-                    $($either::$ty(f) => $either::$ty(f.choose()),)*
+                    $($either::$ty(f) => $either::$ty(f.choose().await),)*
                 }
             }
         }
