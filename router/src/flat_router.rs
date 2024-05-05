@@ -1,25 +1,28 @@
 use crate::{
-    location::{Location, RequestUrl, Url},
+    location::{Location, LocationProvider, RequestUrl, Url},
     matching::Routes,
     params::ParamsMap,
     resolve_path::resolve_path,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
     PathSegment, RouteList, RouteListing, RouteMatchId,
 };
-use either_of::Either;
+use any_spawner::Executor;
+use either_of::{Either, EitherFuture, EitherOf3};
 use leptos::{component, oco::Oco, IntoView};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::{ArcMemo, Memo},
+    computed::{ArcMemo, Memo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, Read, ReadUntracked, Set, Track, Trigger},
+    traits::{Get, GetUntracked, Read, ReadUntracked, Set, Track, Trigger},
 };
 use std::{
     borrow::Cow,
+    cell::RefCell,
     iter,
     marker::PhantomData,
     mem,
+    rc::Rc,
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
@@ -37,7 +40,8 @@ use tachys::{
     },
 };
 
-pub(crate) struct FlatRoutesView<Defs, Fal, R> {
+pub(crate) struct FlatRoutesView<Loc, Defs, Fal, R> {
+    pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
     pub path: ArcMemo<String>,
     pub fallback: Fal,
@@ -45,13 +49,14 @@ pub(crate) struct FlatRoutesView<Defs, Fal, R> {
     pub params: ArcRwSignal<ParamsMap>,
 }
 
-impl<Defs, Fal, R> FlatRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> FlatRoutesView<Loc, Defs, Fal, R>
 where
+    Loc: LocationProvider,
     Defs: MatchNestedRoutes<R>,
     Fal: Render<R>,
     R: Renderer + 'static,
 {
-    pub fn choose(
+    pub async fn choose(
         self,
     ) -> Either<Fal, <Defs::Match as MatchInterface<R>>::View> {
         let FlatRoutesView {
@@ -60,60 +65,121 @@ where
             fallback,
             outer_owner,
             params,
+            ..
         } = self;
 
-        outer_owner.with(|| {
-            provide_context(params.clone().read_only());
-            let new_match = routes.match_route(&path.read());
-            match new_match {
-                None => Either::Left(fallback),
-                Some(matched) => {
-                    let new_params =
-                        matched.to_params().into_iter().collect::<ParamsMap>();
-                    params.set(new_params);
-                    let (view, child) = matched.into_view_and_child();
+        outer_owner
+            .with(|| {
+                provide_context(params.clone().read_only());
+                let new_match = routes.match_route(&path.read());
+                match new_match {
+                    None => EitherFuture::Left {
+                        inner: async move { fallback },
+                    },
+                    Some(matched) => {
+                        let new_params = matched
+                            .to_params()
+                            .into_iter()
+                            .collect::<ParamsMap>();
+                        params.set(new_params);
+                        let (view, child) = matched.into_view_and_child();
 
-                    #[cfg(debug_assertions)]
-                    if child.is_some() {
-                        panic!(
-                            "<FlatRoutes> should not be used with nested \
-                             routes."
-                        );
+                        #[cfg(debug_assertions)]
+                        if child.is_some() {
+                            panic!(
+                                "<FlatRoutes> should not be used with nested \
+                                 routes."
+                            );
+                        }
+
+                        EitherFuture::Right {
+                            inner: ScopedFuture::new(view.choose()),
+                        }
                     }
-
-                    let view = view.choose();
-                    Either::Right(view)
                 }
-            }
-        })
+            })
+            .await
     }
 }
 
-impl<Defs, Fal, R> Render<R> for FlatRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> Render<R> for FlatRoutesView<Loc, Defs, Fal, R>
 where
-    Defs: MatchNestedRoutes<R>,
-    Fal: Render<R>,
+    Loc: LocationProvider,
+    Defs: MatchNestedRoutes<R> + 'static,
+    Fal: Render<R> + 'static,
     R: Renderer + 'static,
 {
-    type State = <Either<Fal, <Defs::Match as MatchInterface<R>>::View> as Render<R>>::State;
+    type State = Rc<
+        RefCell<
+            // TODO loading indicator
+            <EitherOf3<(), Fal, <Defs::Match as MatchInterface<R>>::View> as Render<
+                R,
+            >>::State,
+        >,
+    >;
 
     fn build(self) -> Self::State {
-        self.choose().build()
+        let state = Rc::new(RefCell::new(EitherOf3::A(()).build()));
+        let spawned_path = self.path.get_untracked();
+        let current_path = self.path.clone();
+        let location = self.location.clone();
+        let route = self.choose();
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                let loaded_route = route.await;
+                // only update the route if it's still the current path
+                // i.e., if we've navigated away before this has loaded, do nothing
+                if &spawned_path == &*current_path.read_untracked() {
+                    let new_view = match loaded_route {
+                        Either::Left(i) => EitherOf3::B(i),
+                        Either::Right(i) => EitherOf3::C(i),
+                    };
+                    new_view.rebuild(&mut state.borrow_mut());
+                    if let Some(location) = location {
+                        location.ready_to_complete();
+                    }
+                }
+            }
+        });
+        state
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        self.choose().rebuild(state);
+        let spawned_path = self.path.get_untracked();
+        let current_path = self.path.clone();
+        let location = self.location.clone();
+        let route = self.choose();
+        Executor::spawn_local({
+            let state = Rc::clone(&*state);
+            async move {
+                let loaded_route = route.await;
+                // only update the route if it's still the current path
+                // i.e., if we've navigated away before this has loaded, do nothing
+                if &spawned_path == &*current_path.read_untracked() {
+                    let new_view = match loaded_route {
+                        Either::Left(i) => EitherOf3::B(i),
+                        Either::Right(i) => EitherOf3::C(i),
+                    };
+                    new_view.rebuild(&mut state.borrow_mut());
+                    if let Some(location) = location {
+                        location.ready_to_complete();
+                    }
+                }
+            }
+        });
     }
 }
 
-impl<Defs, Fal, R> AddAnyAttr<R> for FlatRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> AddAnyAttr<R> for FlatRoutesView<Loc, Defs, Fal, R>
 where
-    Defs: MatchNestedRoutes<R> + Send,
-    Fal: RenderHtml<R>,
+    Loc: LocationProvider + Send,
+    Defs: MatchNestedRoutes<R> + Send + 'static,
+    Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
-        FlatRoutesView<Defs, Fal, R>;
+        FlatRoutesView<Loc, Defs, Fal, R>;
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
         self,
@@ -126,10 +192,11 @@ where
     }
 }
 
-impl<Defs, Fal, R> RenderHtml<R> for FlatRoutesView<Defs, Fal, R>
+impl<Loc, Defs, Fal, R> RenderHtml<R> for FlatRoutesView<Loc, Defs, Fal, R>
 where
-    Defs: MatchNestedRoutes<R> + Send,
-    Fal: RenderHtml<R>,
+    Loc: LocationProvider + Send,
+    Defs: MatchNestedRoutes<R> + Send + 'static,
+    Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type AsyncOutput = Self;
@@ -190,7 +257,8 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-            self.choose().to_html_with_buf(buf, position);
+            todo!()
+            // self.choose().to_html_with_buf(buf, position);
         }
     }
 
@@ -201,8 +269,9 @@ where
     ) where
         Self: Sized,
     {
-        self.choose()
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        todo!()
+        //    self.choose()
+        //       .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -210,6 +279,7 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        self.choose().hydrate::<FROM_SERVER>(cursor, position)
+        todo!()
+        // self.choose().hydrate::<FROM_SERVER>(cursor, position)
     }
 }
