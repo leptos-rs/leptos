@@ -425,8 +425,8 @@ macro_rules! tuples {
                 $($ty: Render<Rndr>,)*
                 Rndr: Renderer
             {
-                state: [<EitherOf $num>]<$($ty::State,)*>,
-                marker: Rndr::Placeholder,
+                pub state: [<EitherOf $num>]<$($ty::State,)*>,
+                pub marker: Rndr::Placeholder,
             }
 
             impl<$($ty,)* Rndr> Mountable<Rndr> for [<EitherOf $num State>]<$($ty,)* Rndr>

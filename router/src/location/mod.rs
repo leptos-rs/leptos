@@ -114,7 +114,7 @@ impl Default for LocationChange {
     }
 }
 
-pub trait LocationProvider: Sized {
+pub trait LocationProvider: Clone + 'static {
     type Error: Debug;
 
     fn new() -> Result<Self, Self::Error>;
@@ -125,6 +125,10 @@ pub trait LocationProvider: Sized {
 
     /// Sets up any global event listeners or other initialization needed.
     fn init(&self, base: Option<Cow<'static, str>>);
+
+    /// Should be called after a navigation when all route components and data have been loaded and
+    /// the URL can be updated.
+    fn ready_to_complete(&self);
 
     /// Update the browser's history to reflect a new location.
     fn complete_navigation(loc: &LocationChange);
