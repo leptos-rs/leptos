@@ -1,7 +1,7 @@
 use self::add_attr::AddAnyAttr;
 use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use parking_lot::RwLock;
-use std::{future::Future, sync::Arc};
+use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
 pub mod add_attr;
 pub mod any_view;
@@ -253,6 +253,28 @@ where
         self.as_ref()
             .map(|inner| inner.insert_before_this(parent, child))
             .unwrap_or(false)
+    }
+}
+
+impl<T, R> Mountable<R> for Rc<RefCell<T>>
+where
+    T: Mountable<R>,
+    R: Renderer,
+{
+    fn unmount(&mut self) {
+        self.borrow_mut().unmount()
+    }
+
+    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
+        self.borrow_mut().mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<R as Renderer>::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        self.borrow().insert_before_this(parent, child)
     }
 }
 

@@ -3,9 +3,18 @@ use super::{
 };
 use crate::{navigate::UseNavigate, params::ParamsMap};
 use core::fmt;
+use futures::channel::oneshot;
 use js_sys::{try_iter, Array, JsString, Reflect};
+use or_poisoned::OrPoisoned;
 use reactive_graph::{signal::ArcRwSignal, traits::Set};
-use std::{borrow::Cow, boxed::Box, rc::Rc, string::String};
+use std::{
+    borrow::Cow,
+    boxed::Box,
+    cell::RefCell,
+    rc::Rc,
+    string::String,
+    sync::{Arc, Mutex},
+};
 use tachys::dom::{document, window};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent, UrlSearchParams};
@@ -13,6 +22,7 @@ use web_sys::{Event, HtmlAnchorElement, MouseEvent, UrlSearchParams};
 #[derive(Clone)]
 pub struct BrowserUrl {
     url: ArcRwSignal<Url>,
+    pending_navigation: Arc<Mutex<Option<oneshot::Sender<()>>>>,
 }
 
 impl fmt::Debug for BrowserUrl {
@@ -49,7 +59,11 @@ impl LocationProvider for BrowserUrl {
 
     fn new() -> Result<Self, JsValue> {
         let url = ArcRwSignal::new(Self::current()?);
-        Ok(Self { url })
+        let pending_navigation = Default::default();
+        Ok(Self {
+            url,
+            pending_navigation,
+        })
     }
 
     fn as_url(&self) -> &ArcRwSignal<Url> {
@@ -94,10 +108,17 @@ impl LocationProvider for BrowserUrl {
         let window = window();
         let navigate = {
             let url = self.url.clone();
+            let pending = Arc::clone(&self.pending_navigation);
             move |new_url, loc| {
+                let (tx, rx) = oneshot::channel::<()>();
+                *pending.lock().or_poisoned() = Some(tx);
                 url.set(new_url);
                 async move {
-                    Self::complete_navigation(&loc);
+                    // if it has been canceled, ignore
+                    // otherwise, complete navigation -- i.e., set URL in address bar
+                    if rx.await.is_ok() {
+                        Self::complete_navigation(&loc);
+                    }
                 }
             }
         };
@@ -144,6 +165,12 @@ impl LocationProvider for BrowserUrl {
                 closure.as_ref().unchecked_ref(),
             )
             .expect("couldn't add `popstate` listener to `window`");
+    }
+
+    fn ready_to_complete(&self) {
+        if let Some(tx) = self.pending_navigation.lock().or_poisoned().take() {
+            tx.send(());
+        }
     }
 
     fn complete_navigation(loc: &LocationChange) {
