@@ -110,3 +110,14 @@ impl ToAnySubscriber for Effect {
             .expect("tried to subscribe to effect that has been stopped")
     }
 }
+
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust \
+                idioms.Please use `Effect::new()` instead."]
+pub fn create_effect<T>(mut fun: impl FnMut(Option<T>) -> T + 'static) -> Effect
+where
+    T: 'static,
+{
+    Effect::new(fun)
+}
