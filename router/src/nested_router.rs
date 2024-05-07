@@ -561,11 +561,11 @@ where
 
                 let new_params =
                     self.to_params().into_iter().collect::<ParamsMap>();
-                if current.params.read() != new_params {
+                if current.params.read_untracked() != new_params {
                     current.params.set(new_params);
                 }
                 let new_match = self.as_matched();
-                if &*current.matched.read() != new_match {
+                if &*current.matched.read_untracked() != new_match {
                     current.matched.set(new_match);
                 }
 
