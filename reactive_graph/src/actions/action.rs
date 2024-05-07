@@ -245,3 +245,17 @@ where
     O: 'static,
 {
 }
+
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust \
+                idioms.Please use `Action::new()` instead."]
+pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O>
+where
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
+    F: Fn(&I) -> Fu + Send + Sync + 'static,
+    Fu: Future<Output = O> + Send + 'static,
+{
+    Action::new(action_fn)
+}
