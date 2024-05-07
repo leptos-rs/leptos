@@ -3,7 +3,7 @@ pub mod read {
         computed::ArcMemo,
         owner::StoredValue,
         signal::ArcReadSignal,
-        traits::{DefinedAt, Get, GetUntracked},
+        traits::{DefinedAt, Get, GetUntracked, With, WithUntracked},
         untrack,
     };
     use std::{panic::Location, sync::Arc};
@@ -98,32 +98,38 @@ pub mod read {
         }
     }
 
-    impl<T> GetUntracked for ArcSignal<T>
+    impl<T> WithUntracked for ArcSignal<T>
     where
-        T: Send + Sync + Clone,
+        T: Send + Sync,
     {
         type Value = T;
 
-        fn try_get_untracked(&self) -> Option<Self::Value> {
+        fn try_with_untracked<U>(
+            &self,
+            fun: impl FnOnce(&Self::Value) -> U,
+        ) -> Option<U> {
             match &self.inner {
-                SignalTypes::ReadSignal(i) => i.try_get_untracked(),
-                SignalTypes::Memo(i) => i.try_get_untracked(),
-                SignalTypes::DerivedSignal(i) => Some(untrack(|| i())),
+                SignalTypes::ReadSignal(i) => i.try_with_untracked(fun),
+                SignalTypes::Memo(i) => i.try_with_untracked(fun),
+                SignalTypes::DerivedSignal(i) => Some(untrack(|| fun(&i()))),
             }
         }
     }
 
-    impl<T> Get for ArcSignal<T>
+    impl<T> With for ArcSignal<T>
     where
         T: Send + Sync + Clone,
     {
         type Value = T;
 
-        fn try_get(&self) -> Option<Self::Value> {
+        fn try_with<U>(
+            &self,
+            fun: impl FnOnce(&Self::Value) -> U,
+        ) -> Option<U> {
             match &self.inner {
-                SignalTypes::ReadSignal(i) => i.try_get(),
-                SignalTypes::Memo(i) => i.try_get(),
-                SignalTypes::DerivedSignal(i) => Some(i()),
+                SignalTypes::ReadSignal(i) => i.try_with(fun),
+                SignalTypes::Memo(i) => i.try_with(fun),
+                SignalTypes::DerivedSignal(i) => Some(fun(&i())),
             }
         }
     }
