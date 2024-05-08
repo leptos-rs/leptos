@@ -4,6 +4,14 @@ This example builds on the simple counter by adding breakpoints and single stepp
 Both within the browser and VSCode.  
 This uses a new feature of wasm called Dwarf which is a form of source code mapping.
 
+Note variable inspection during the breakpoints doesn't seem to work at this stage.
+
+## Quick Start
+
+  * Install the requirements below
+  * Open this directory within visual studio code
+  * Add a breakpoint to the code
+  * Launch the example using the visual studio code debug launcher
 
 ## How This Works
 

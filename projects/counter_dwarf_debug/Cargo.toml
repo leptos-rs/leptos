@@ -1,3 +1,6 @@
+[workspace]
+# The empty workspace here is to keep rust-analyzer satisfied
+
 [package]
 name = "counter_dwarf_debug"
 version = "0.1.0"
