@@ -3,6 +3,7 @@ use crate::{
     owner::{StoredData, StoredValue},
     signal::guards::{Mapped, Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked, Track},
+    unwrap_signal,
 };
 use std::{fmt::Debug, hash::Hash, panic::Location};
 
@@ -110,5 +111,12 @@ impl<T: Send + Sync + 'static> ReadUntracked for Memo<T> {
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.get_value().map(|inner| inner.read_untracked())
+    }
+}
+
+impl<T: Send + Sync + 'static> From<Memo<T>> for ArcMemo<T> {
+    #[track_caller]
+    fn from(value: Memo<T>) -> Self {
+        value.get_value().unwrap_or_else(unwrap_signal!(value))
     }
 }
