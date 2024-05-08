@@ -294,10 +294,12 @@ impl Runtime {
                 drop(node);
             }
             ScopeProperty::Resource(id) => {
-                self.resources.borrow_mut().remove(id);
+                let value = self.resources.borrow_mut().remove(id);
+                drop(value);
             }
             ScopeProperty::StoredValue(id) => {
-                self.stored_values.borrow_mut().remove(id);
+                let value = self.stored_values.borrow_mut().remove(id);
+                drop(value);
             }
         }
     }
