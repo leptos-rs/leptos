@@ -237,25 +237,17 @@ pub(crate) fn component_to_tokens(
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {node.span()=>
-        {
-            let props = #component_props_builder
+        ::leptos::component_view(
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            #name_ref,
+            #component_props_builder
                 #(#props)*
                 #(#slots)*
-                #children;
-
-            #[allow(clippy::let_unit_value, clippy::unit_arg)]
-            let props = props
+                #children
                 #build
                 #dyn_attrs
-                #(#spread_bindings)*;
-
-            #[allow(unreachable_code)]
-            ::leptos::component_view(
-                #[allow(clippy::needless_borrows_for_generic_args)]
-                #name_ref,
-                props
-            )
-        }
+                #(#spread_bindings)*
+        )
     };
 
     // (Temporarily?) removed
