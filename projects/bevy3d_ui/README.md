@@ -7,10 +7,9 @@ The wgpu library in turn can target the newer webgpu standard or the older webgl
 In the case of a desktop application, if you wanted to use a styled ui via leptos and a 3d view via bevy
 you could also combine this with tauri.  
 
-## Getting Started
-
-See the [Examples README](../README.md) for setup and run instructions.
-
 ## Quick Start
 
-Run `trunk serve --open` to run this example.
+  * Run `trunk serve to run the example.
+  * Browse to http://127.0.0.1:8080/
+
+It's best to use a web browser with webgpu capability for best results such as Chrome or Opera.
