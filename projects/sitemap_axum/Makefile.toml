@@ -1,0 +1,36 @@
+[tasks.run]
+command = "cargo"
+args = ["leptos", "watch"]
+dependencies = ["start-db"]
+
+[tasks.start-db]
+command = "docker"
+args = ["start", "blog_db"]
+
+[tasks.run-db]
+command = "docker"
+args = [
+    "run",
+    "-d",
+    "--name",
+    "blog_db",
+    "-p",
+    "5432:5432",
+    "--env-file",
+    "./.env",
+    "-v",
+    "./init:/docker-entrypoint-initdb.d",
+    "postgres:latest",
+]
+
+[tasks.stop-db]
+command = "docker"
+args = ["stop", "blog_db"]
+
+[tasks.drop-db]
+command = "docker"
+args = ["rm", "blog_db"]
+dependencies = ["stop-db"]
+
+[tasks.restart-db]
+dependencies = ["drop-db", "start-db"]

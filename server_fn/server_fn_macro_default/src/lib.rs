@@ -33,6 +33,7 @@ use syn::__private::ToTokens;
 /// - `endpoint`: specifies the exact path at which the server function handler will be mounted,
 ///   relative to the prefix (defaults to the function name followed by unique hash)
 /// - `input`: the encoding for the arguments (defaults to `PostUrl`)
+/// - `input_derive`: a list of derives to be added on the generated input struct (defaults to `(Clone, serde::Serialize, serde::Deserialize)` if `input` is set to a custom struct, won't have an effect otherwise)
 /// - `output`: the encoding for the response (defaults to `Json`)
 /// - `client`: a custom `Client` implementation that will be used for this server fn
 /// - `encoding`: (legacy, may be deprecated in future) specifies the encoding, which may be one

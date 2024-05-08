@@ -178,6 +178,18 @@ impl ToTokens for Model {
         );
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
+        let docs_and_prop_docs = if component_fn_prop_docs.is_empty() {
+            // Avoid generating an empty doc line in case the component has no doc and no props.
+            quote! {
+                #docs
+            }
+        } else {
+            quote! {
+                #docs
+                #[doc = ""]
+                #component_fn_prop_docs
+            }
+        };
 
         let (
             tracing_instrument_attr,
@@ -502,9 +514,7 @@ impl ToTokens for Model {
         let output = quote! {
             #[doc = #builder_name_doc]
             #[doc = ""]
-            #docs
-            #[doc = ""]
-            #component_fn_prop_docs
+            #docs_and_prop_docs
             #[derive(::leptos::typed_builder_macro::TypedBuilder #props_derive_serialize)]
             //#[builder(doc)]
             #[builder(crate_module_path=::leptos::typed_builder)]
@@ -548,9 +558,7 @@ impl ToTokens for Model {
 
             #into_view
 
-            #docs
-            #[doc = ""]
-            #component_fn_prop_docs
+            #docs_and_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #[allow(clippy::needless_lifetimes)]
             #tracing_instrument_attr

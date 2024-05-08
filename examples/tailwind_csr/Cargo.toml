@@ -8,7 +8,7 @@ leptos = { path = "../../leptos", features = ["csr"] }
 leptos_meta = { path = "../../meta", features = ["csr"] }
 leptos_router = { path = "../../router", features = ["csr"] }
 log = "0.4"
-gloo-net = { version = "0.2", features = ["http"] }
+gloo-net = { version = "0.5", features = ["http"] }
 
 # dependencies for client (enable when csr or hydrate set)
 wasm-bindgen = { version = "0.2" }

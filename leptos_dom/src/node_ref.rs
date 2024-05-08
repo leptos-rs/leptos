@@ -31,10 +31,12 @@ use std::cell::Cell;
 ///     }
 /// }
 /// ```
-#[repr(transparent)]
-pub struct NodeRef<T: ElementDescriptor + 'static>(
-    RwSignal<Option<HtmlElement<T>>>,
-);
+#[cfg_attr(not(debug_assertions), repr(transparent))]
+pub struct NodeRef<T: ElementDescriptor + 'static> {
+    element: RwSignal<Option<HtmlElement<T>>>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static std::panic::Location<'static>,
+}
 
 /// Creates a shared reference to a DOM node created while using the `view`
 /// macro to create your UI.
@@ -65,9 +67,14 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 ///     }
 /// }
 /// ```
+#[track_caller]
 #[inline(always)]
 pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
-    NodeRef(create_rw_signal(None))
+    NodeRef {
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
+        element: create_rw_signal(None),
+    }
 }
 
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
@@ -120,7 +127,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     where
         T: Clone,
     {
-        self.0.get()
+        self.element.get()
     }
 
     /// Gets the element that is currently stored in the reference.
@@ -132,7 +139,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     where
         T: Clone,
     {
-        self.0.get_untracked()
+        self.element.get_untracked()
     }
 
     #[doc(hidden)]
@@ -144,13 +151,14 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     where
         T: Clone,
     {
-        self.0.update(|current| {
+        self.element.update(|current| {
             if current.is_some() {
                 crate::debug_warn!(
-                    "You are setting a NodeRef that has already been filled. \
-                     It’s possible this is intentional, but it’s also \
-                     possible that you’re accidentally using the same NodeRef \
-                     for multiple _ref attributes."
+                    "You are setting the NodeRef defined at {}, which has \
+                     already been filled It’s possible this is intentional, \
+                     but it’s also possible that you’re accidentally using \
+                     the same NodeRef for multiple _ref attributes.",
+                    self.defined_at
                 );
             }
             *current = Some(node.clone());
