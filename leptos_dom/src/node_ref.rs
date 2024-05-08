@@ -2,41 +2,41 @@ use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{create_render_effect, signal_prelude::*};
 use std::cell::Cell;
 
-    /// Contains a shared reference to a DOM node created while using the `view`
-    /// macro to create your UI.
-    ///
-    /// ```
-    /// # use leptos::{*, logging::log};
-    /// use leptos::html::Input;
-    ///
-    /// #[component]
-    /// pub fn MyComponent() -> impl IntoView {
-    ///     let input_ref = create_node_ref::<Input>();
-    ///
-    ///     let on_click = move |_| {
-    ///         let node =
-    ///             input_ref.get().expect("input_ref should be loaded by now");
-    ///         // `node` is strongly typed
-    ///         // it is dereferenced to an `HtmlInputElement` automatically
-    ///         log!("value is {:?}", node.value())
-    ///     };
-    ///
-    ///     view! {
-    ///       <div>
-    ///       // `node_ref` loads the input
-    ///       <input _ref=input_ref type="text"/>
-    ///       // the button consumes it
-    ///       <button on:click=on_click>"Click me"</button>
-    ///       </div>
-    ///     }
-    /// }
-    /// ```
-    #[cfg_attr(not(debug_assertions), repr(transparent))]
-    pub struct NodeRef<T: ElementDescriptor + 'static> {
-      element: RwSignal<Option<HtmlElement<T>>>,
-      #[cfg(debug_assertions)]
-      defined_at: &'static std::panic::Location<'static>,
-    }
+/// Contains a shared reference to a DOM node created while using the `view`
+/// macro to create your UI.
+///
+/// ```
+/// # use leptos::{*, logging::log};
+/// use leptos::html::Input;
+///
+/// #[component]
+/// pub fn MyComponent() -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>();
+///
+///     let on_click = move |_| {
+///         let node =
+///             input_ref.get().expect("input_ref should be loaded by now");
+///         // `node` is strongly typed
+///         // it is dereferenced to an `HtmlInputElement` automatically
+///         log!("value is {:?}", node.value())
+///     };
+///
+///     view! {
+///       <div>
+///       // `node_ref` loads the input
+///       <input _ref=input_ref type="text"/>
+///       // the button consumes it
+///       <button on:click=on_click>"Click me"</button>
+///       </div>
+///     }
+/// }
+/// ```
+#[cfg_attr(not(debug_assertions), repr(transparent))]
+pub struct NodeRef<T: ElementDescriptor + 'static> {
+    element: RwSignal<Option<HtmlElement<T>>>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static std::panic::Location<'static>,
+}
 
 /// Creates a shared reference to a DOM node created while using the `view`
 /// macro to create your UI.
@@ -71,9 +71,9 @@ use std::cell::Cell;
 #[inline(always)]
 pub fn create_node_ref<T: ElementDescriptor + 'static>() -> NodeRef<T> {
     NodeRef {
-      #[cfg(debug_assertions)]
-      defined_at: std::panic::Location::caller(),
-      element: create_rw_signal(None),
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
+        element: create_rw_signal(None),
     }
 }
 
@@ -155,10 +155,9 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
             if current.is_some() {
                 crate::debug_warn!(
                     "You are setting the NodeRef defined at {}, which has \
-                     already been filled \
-                     It’s possible this is intentional, but it’s also \
-                     possible that you’re accidentally using the same NodeRef \
-                     for multiple _ref attributes.",
+                     already been filled It’s possible this is intentional, \
+                     but it’s also possible that you’re accidentally using \
+                     the same NodeRef for multiple _ref attributes.",
                     self.defined_at
                 );
             }
