@@ -18,7 +18,8 @@ use self::arena::Arena;
 pub use arena::sandboxed::Sandboxed;
 use arena::NodeId;
 pub use context::*;
-pub use stored_value::StoredValue;
+#[allow(deprecated)] // allow exporting deprecated fn
+pub use stored_value::{store_value, StoredValue};
 
 #[derive(Debug, Clone, Default)]
 #[must_use]

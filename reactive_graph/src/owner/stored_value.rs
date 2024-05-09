@@ -153,8 +153,8 @@ impl<T> Dispose for StoredValue<T> {
 
 #[inline(always)]
 #[track_caller]
-#[deprecated = "This function is being removed to conform to Rust \
-                idioms.Please use `StoredValue::new()` instead."]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `StoredValue::new()` instead."]
 pub fn store_value<T>(value: T) -> StoredValue<T>
 where
     T: Send + Sync + 'static,
