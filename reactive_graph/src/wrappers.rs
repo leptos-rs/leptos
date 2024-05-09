@@ -3,7 +3,7 @@ pub mod read {
         computed::{ArcMemo, Memo},
         owner::StoredValue,
         signal::{ArcReadSignal, ReadSignal, RwSignal},
-        traits::{DefinedAt, Dispose, Get, GetUntracked, With, WithUntracked},
+        traits::{DefinedAt, Dispose, Get, With, WithUntracked},
         untrack,
     };
     use std::{panic::Location, sync::Arc};
@@ -237,7 +237,7 @@ pub mod read {
         /// # use leptos_reactive::*;
         /// # let runtime = create_runtime();
         /// let (count, set_count) = create_signal(2);
-        /// let double_count = Signal::derive(move || count.get() * 2);
+        /// let double_count = Signal::derive(move || count.() * 2);
         ///
         /// // this function takes any kind of wrapped signal
         /// fn above_3(arg: &Signal<i32>) -> bool {

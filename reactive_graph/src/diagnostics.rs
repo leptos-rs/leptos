@@ -33,6 +33,9 @@ thread_local! {
 }
 
 impl SpecialNonReactiveZone {
+    // TODO: the fact that this is unused probably means we haven't set diagnostics up at all
+    // we should do that! (i.e., warn if you're doing a reactive access with no owner but you're not
+    // inside a special zone)
     #[inline(always)]
     pub(crate) fn is_inside() -> bool {
         if cfg!(debug_assertions) {

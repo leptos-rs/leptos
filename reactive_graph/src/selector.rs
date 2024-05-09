@@ -1,7 +1,7 @@
 use crate::{
     effect::RenderEffect,
     signal::ArcRwSignal,
-    traits::{Track, Update, With},
+    traits::{Track, Update},
 };
 use or_poisoned::OrPoisoned;
 use rustc_hash::FxHashMap;
@@ -21,6 +21,8 @@ where
     v: Arc<RwLock<Option<T>>>,
     #[allow(clippy::type_complexity)]
     f: Arc<dyn Fn(&T, &T) -> bool>,
+    // owning the effect keeps it alive, to keep updating the selector
+    #[allow(dead_code)]
     effect: Arc<RenderEffect<T>>,
 }
 
