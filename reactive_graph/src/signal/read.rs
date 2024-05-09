@@ -5,8 +5,8 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    owner::{StoredData, StoredValue},
-    traits::{DefinedAt, IsDisposed, ReadUntracked},
+    owner::StoredValue,
+    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -20,6 +20,12 @@ pub struct ReadSignal<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: StoredValue<ArcReadSignal<T>>,
+}
+
+impl<T: Send + Sync + 'static> Dispose for ReadSignal<T> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
 }
 
 impl<T: Send + Sync + 'static> Copy for ReadSignal<T> {}
@@ -72,24 +78,12 @@ impl<T: Send + Sync + 'static> IsDisposed for ReadSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> StoredData for ReadSignal<T> {
-    type Data = ArcReadSignal<T>;
-
-    fn get_value(&self) -> Option<Self::Data> {
-        self.inner.get()
-    }
-
-    fn dispose(&self) {
-        self.inner.dispose();
-    }
-}
-
 impl<T: Send + Sync + 'static> AsSubscriberSet for ReadSignal<T> {
     type Output = Arc<RwLock<SubscriberSet>>;
 
     fn as_subscriber_set(&self) -> Option<Self::Output> {
         self.inner
-            .with_value(|inner| inner.as_subscriber_set())
+            .try_with_value(|inner| inner.as_subscriber_set())
             .flatten()
     }
 }
@@ -98,7 +92,9 @@ impl<T: Send + Sync + 'static> ReadUntracked for ReadSignal<T> {
     type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read_untracked())
+        self.inner
+            .try_get_value()
+            .map(|inner| inner.read_untracked())
     }
 }
 
@@ -116,6 +112,6 @@ impl<T: Send + Sync + 'static> From<ArcReadSignal<T>> for ReadSignal<T> {
 impl<T: Send + Sync + 'static> From<ReadSignal<T>> for ArcReadSignal<T> {
     #[track_caller]
     fn from(value: ReadSignal<T>) -> Self {
-        value.get_value().unwrap_or_else(unwrap_signal!(value))
+        value.inner.get().unwrap_or_else(unwrap_signal!(value))
     }
 }

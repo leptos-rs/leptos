@@ -2,7 +2,7 @@ use crate::{
     diagnostics::is_suppressing_resource_load,
     owner::{Owner, StoredValue},
     signal::{ArcRwSignal, RwSignal},
-    traits::{DefinedAt, GetUntracked, Update},
+    traits::{DefinedAt, Dispose, GetUntracked, Update},
     unwrap_signal,
 };
 use any_spawner::Executor;
@@ -161,6 +161,12 @@ where
     defined_at: &'static Location<'static>,
 }
 
+impl<I: 'static, O: 'static> Dispose for Action<I, O> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
+}
+
 impl<I, O> Action<I, O>
 where
     I: Send + Sync + 'static,
@@ -183,7 +189,7 @@ where
     pub fn version(&self) -> RwSignal<usize> {
         let inner = self
             .inner
-            .with_value(|inner| inner.version())
+            .try_with_value(|inner| inner.version())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
     }
@@ -192,7 +198,7 @@ where
     pub fn input(&self) -> RwSignal<Option<I>> {
         let inner = self
             .inner
-            .with_value(|inner| inner.input())
+            .try_with_value(|inner| inner.input())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
     }
@@ -201,7 +207,7 @@ where
     pub fn value(&self) -> RwSignal<Option<O>> {
         let inner = self
             .inner
-            .with_value(|inner| inner.value())
+            .try_with_value(|inner| inner.value())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
     }
