@@ -12,11 +12,11 @@ use crate::{
     },
     owner::Owner,
     signal::guards::{Plain, ReadGuard},
-    traits::{DefinedAt, ReadUntracked, Track},
+    traits::{DefinedAt, ReadUntracked},
 };
 use any_spawner::Executor;
 use core::fmt::Debug;
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use or_poisoned::OrPoisoned;
 use std::{
     future::Future,

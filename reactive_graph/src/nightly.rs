@@ -46,44 +46,6 @@ macro_rules! impl_get_fn_traits_read {
     };
 }
 
-macro_rules! impl_get_fn_traits_get {
-    ($($ty:ident $(($method_name:ident))?),*) => {
-        $(
-            #[cfg(feature = "nightly")]
-            impl<T: 'static> FnOnce<()> for $ty<T> {
-                type Output = <Self as Get>::Value;
-
-                #[inline(always)]
-                extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
-                }
-            }
-
-            #[cfg(feature = "nightly")]
-            impl<T: 'static> FnMut<()> for $ty<T> {
-                #[inline(always)]
-                extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
-                }
-            }
-
-            #[cfg(feature = "nightly")]
-            impl<T: 'static> Fn<()> for $ty<T> {
-                #[inline(always)]
-                extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-                    impl_get_fn_traits_read!(@method_name self $($method_name)?)
-                }
-            }
-        )*
-    };
-    (@method_name $self:ident) => {
-        $self.get()
-    };
-    (@method_name $self:ident $ident:ident) => {
-        $self.$ident()
-    };
-}
-
 macro_rules! impl_set_fn_traits {
     ($($ty:ident $($method_name:ident)?),*) => {
         $(
