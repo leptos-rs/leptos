@@ -96,5 +96,5 @@ pub type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 
 pub mod prelude {
-    pub use crate::{owner::StoredData, traits::*};
+    pub use crate::traits::*;
 }
