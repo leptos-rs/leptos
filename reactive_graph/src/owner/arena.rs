@@ -1,9 +1,8 @@
-use super::OWNER;
 use or_poisoned::OrPoisoned;
 use slotmap::{new_key_type, SlotMap};
 #[cfg(not(feature = "sandboxed-arenas"))]
 use std::sync::OnceLock;
-use std::{any::Any, hash::Hash, marker::PhantomData, sync::RwLock};
+use std::{any::Any, hash::Hash, sync::RwLock};
 #[cfg(feature = "sandboxed-arenas")]
 use std::{cell::RefCell, sync::Arc};
 

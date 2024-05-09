@@ -42,7 +42,7 @@ fn effect_base() -> (Receiver, Owner, Arc<RwLock<EffectInner>>) {
 
 impl Effect {
     pub fn stop(self) {
-        drop(self.inner.update_value(|inner| inner.take()));
+        drop(self.inner.try_update_value(|inner| inner.take()));
     }
 
     pub fn new<T>(mut fun: impl FnMut(Option<T>) -> T + 'static) -> Self
@@ -122,7 +122,7 @@ impl ToAnySubscriber for Effect {
 #[track_caller]
 #[deprecated = "This function is being removed to conform to Rust \
                 idioms.Please use `Effect::new()` instead."]
-pub fn create_effect<T>(mut fun: impl FnMut(Option<T>) -> T + 'static) -> Effect
+pub fn create_effect<T>(fun: impl FnMut(Option<T>) -> T + 'static) -> Effect
 where
     T: 'static,
 {

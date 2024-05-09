@@ -1,7 +1,7 @@
 use super::{ArcAsyncDerived, AsyncState};
 use crate::{
     graph::{AnySource, ToAnySource},
-    signal::guards::{Mapped, Plain, ReadGuard},
+    signal::guards::Plain,
     traits::Track,
 };
 use or_poisoned::OrPoisoned;
