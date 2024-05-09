@@ -3,6 +3,7 @@ use crate::{
     effect::inner::EffectInner,
     graph::{AnySubscriber, SourceSet, Subscriber, ToAnySubscriber},
     owner::{Owner, StoredValue},
+    traits::Dispose,
 };
 use any_spawner::Executor;
 use futures::StreamExt;
@@ -14,6 +15,12 @@ use std::{
 
 pub struct Effect {
     inner: StoredValue<Option<Arc<RwLock<EffectInner>>>>,
+}
+
+impl Dispose for Effect {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
 }
 
 fn effect_base() -> (Receiver, Owner, Arc<RwLock<EffectInner>>) {
@@ -103,7 +110,7 @@ impl Effect {
 impl ToAnySubscriber for Effect {
     fn to_any_subscriber(&self) -> AnySubscriber {
         self.inner
-            .with_value(|inner| {
+            .try_with_value(|inner| {
                 inner.as_ref().map(|inner| inner.to_any_subscriber())
             })
             .flatten()
