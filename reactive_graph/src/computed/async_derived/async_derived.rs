@@ -6,9 +6,9 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{StoredData, StoredValue},
+    owner::StoredValue,
     signal::guards::{Mapped, Plain, ReadGuard},
-    traits::{DefinedAt, ReadUntracked},
+    traits::{DefinedAt, Dispose, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -23,6 +23,12 @@ pub struct AsyncDerived<T: Send + Sync + 'static> {
     inner: StoredValue<ArcAsyncDerived<T>>,
 }
 
+impl<T: Send + Sync + 'static> Dispose for AsyncDerived<T> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
+}
+
 impl<T: Send + Sync + 'static> From<ArcAsyncDerived<T>> for AsyncDerived<T> {
     fn from(value: ArcAsyncDerived<T>) -> Self {
         #[cfg(debug_assertions)]
@@ -32,18 +38,6 @@ impl<T: Send + Sync + 'static> From<ArcAsyncDerived<T>> for AsyncDerived<T> {
             defined_at,
             inner: StoredValue::new(value),
         }
-    }
-}
-
-impl<T: Send + Sync + 'static> StoredData for AsyncDerived<T> {
-    type Data = ArcAsyncDerived<T>;
-
-    fn get_value(&self) -> Option<Self::Data> {
-        self.inner.get()
-    }
-
-    fn dispose(&self) {
-        self.inner.dispose();
     }
 }
 
@@ -165,13 +159,14 @@ impl<T: Send + Sync + 'static> ReadUntracked for AsyncDerived<T> {
     type Value = ReadGuard<AsyncState<T>, Plain<AsyncState<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read_untracked())
+        self.inner.get().map(|inner| inner.read_untracked())
     }
 }
 
 impl<T: Send + Sync + 'static> ToAnySource for AsyncDerived<T> {
     fn to_any_source(&self) -> AnySource {
-        self.get_value()
+        self.inner
+            .get()
             .map(|inner| inner.to_any_source())
             .unwrap_or_else(unwrap_signal!(self))
     }
@@ -179,7 +174,8 @@ impl<T: Send + Sync + 'static> ToAnySource for AsyncDerived<T> {
 
 impl<T: Send + Sync + 'static> ToAnySubscriber for AsyncDerived<T> {
     fn to_any_subscriber(&self) -> AnySubscriber {
-        self.get_value()
+        self.inner
+            .get()
             .map(|inner| inner.to_any_subscriber())
             .unwrap_or_else(unwrap_signal!(self))
     }
@@ -187,19 +183,19 @@ impl<T: Send + Sync + 'static> ToAnySubscriber for AsyncDerived<T> {
 
 impl<T: Send + Sync + 'static> Source for AsyncDerived<T> {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.add_subscriber(subscriber);
         }
     }
 
     fn remove_subscriber(&self, subscriber: &AnySubscriber) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.remove_subscriber(subscriber);
         }
     }
 
     fn clear_subscribers(&self) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.clear_subscribers();
         }
     }
@@ -207,25 +203,25 @@ impl<T: Send + Sync + 'static> Source for AsyncDerived<T> {
 
 impl<T: Send + Sync + 'static> ReactiveNode for AsyncDerived<T> {
     fn mark_dirty(&self) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.mark_dirty();
         }
     }
 
     fn mark_check(&self) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.mark_check();
         }
     }
 
     fn mark_subscribers_check(&self) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.mark_subscribers_check();
         }
     }
 
     fn update_if_necessary(&self) -> bool {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.update_if_necessary()
         } else {
             false
@@ -235,13 +231,13 @@ impl<T: Send + Sync + 'static> ReactiveNode for AsyncDerived<T> {
 
 impl<T: Send + Sync + 'static> Subscriber for AsyncDerived<T> {
     fn add_source(&self, source: AnySource) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.add_source(source);
         }
     }
 
     fn clear_sources(&self, subscriber: &AnySubscriber) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.clear_sources(subscriber);
         }
     }

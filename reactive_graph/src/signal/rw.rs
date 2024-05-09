@@ -5,8 +5,10 @@ use super::{
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    owner::{StoredData, StoredValue},
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Trigger, UpdateUntracked},
+    owner::StoredValue,
+    traits::{
+        DefinedAt, Dispose, IsDisposed, ReadUntracked, Trigger, UpdateUntracked,
+    },
     unwrap_signal,
 };
 use core::fmt::Debug;
@@ -20,6 +22,12 @@ pub struct RwSignal<T: 'static> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcRwSignal<T>>,
+}
+
+impl<T: Send + Sync + 'static> Dispose for RwSignal<T> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
 }
 
 impl<T: Send + Sync + 'static> RwSignal<T> {
@@ -41,7 +49,8 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
             inner: StoredValue::new(
-                self.get_value()
+                self.inner
+                    .get()
                     .map(|inner| inner.read_only())
                     .unwrap_or_else(unwrap_signal!(self)),
             ),
@@ -54,7 +63,8 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
             inner: StoredValue::new(
-                self.get_value()
+                self.inner
+                    .get()
                     .map(|inner| inner.write_only())
                     .unwrap_or_else(unwrap_signal!(self)),
             ),
@@ -140,24 +150,12 @@ impl<T: Send + Sync + 'static> IsDisposed for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> StoredData for RwSignal<T> {
-    type Data = ArcRwSignal<T>;
-
-    fn get_value(&self) -> Option<Self::Data> {
-        self.inner.get()
-    }
-
-    fn dispose(&self) {
-        self.inner.dispose();
-    }
-}
-
 impl<T: Send + Sync + 'static> AsSubscriberSet for RwSignal<T> {
     type Output = Arc<RwLock<SubscriberSet>>;
 
     fn as_subscriber_set(&self) -> Option<Self::Output> {
         self.inner
-            .with_value(|inner| inner.as_subscriber_set())
+            .try_with_value(|inner| inner.as_subscriber_set())
             .flatten()
     }
 }
@@ -166,7 +164,7 @@ impl<T: Send + Sync + 'static> ReadUntracked for RwSignal<T> {
     type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read_untracked())
+        self.inner.get().map(|inner| inner.read_untracked())
     }
 }
 
@@ -183,7 +181,7 @@ impl<T: Send + Sync + 'static> UpdateUntracked for RwSignal<T> {
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
     ) -> Option<U> {
-        self.get_value().and_then(|n| n.try_update_untracked(fun))
+        self.inner.get().and_then(|n| n.try_update_untracked(fun))
     }
 }
 
@@ -208,6 +206,6 @@ impl<'a, T: Send + Sync + 'static> From<&'a ArcRwSignal<T>> for RwSignal<T> {
 impl<T: Send + Sync + 'static> From<RwSignal<T>> for ArcRwSignal<T> {
     #[track_caller]
     fn from(value: RwSignal<T>) -> Self {
-        value.get_value().unwrap_or_else(unwrap_signal!(value))
+        value.inner.get().unwrap_or_else(unwrap_signal!(value))
     }
 }

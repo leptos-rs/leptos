@@ -3,7 +3,7 @@ pub mod read {
         computed::{ArcMemo, Memo},
         owner::StoredValue,
         signal::{ArcReadSignal, ReadSignal, RwSignal},
-        traits::{DefinedAt, Get, GetUntracked, With, WithUntracked},
+        traits::{DefinedAt, Dispose, Get, GetUntracked, With, WithUntracked},
         untrack,
     };
     use std::{panic::Location, sync::Arc};
@@ -140,6 +140,12 @@ pub mod read {
         inner: StoredValue<SignalTypes<T>>,
     }
 
+    impl<T: Send + Sync + 'static> Dispose for Signal<T> {
+        fn dispose(self) {
+            self.inner.dispose()
+        }
+    }
+
     impl<T> Clone for Signal<T> {
         fn clone(&self) -> Self {
             *self
@@ -190,7 +196,7 @@ pub mod read {
             fun: impl FnOnce(&Self::Value) -> U,
         ) -> Option<U> {
             self.inner
-                .with_value(|inner| match &inner {
+                .try_with_value(|inner| match &inner {
                     SignalTypes::ReadSignal(i) => i.try_with_untracked(fun),
                     SignalTypes::Memo(i) => i.try_with_untracked(fun),
                     SignalTypes::DerivedSignal(i) => {
@@ -212,7 +218,7 @@ pub mod read {
             fun: impl FnOnce(&Self::Value) -> U,
         ) -> Option<U> {
             self.inner
-                .with_value(|inner| match &inner {
+                .try_with_value(|inner| match &inner {
                     SignalTypes::ReadSignal(i) => i.try_with(fun),
                     SignalTypes::Memo(i) => i.try_with(fun),
                     SignalTypes::DerivedSignal(i) => Some(fun(&i())),

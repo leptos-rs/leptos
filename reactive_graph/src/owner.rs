@@ -12,12 +12,13 @@ use std::{
 
 mod arena;
 mod context;
+mod stored_value;
 use self::arena::Arena;
 #[cfg(feature = "sandboxed-arenas")]
 pub use arena::sandboxed::Sandboxed;
 use arena::NodeId;
-pub use arena::{StoredData, StoredValue};
 pub use context::*;
+pub use stored_value::StoredValue;
 
 #[derive(Debug, Clone, Default)]
 #[must_use]
