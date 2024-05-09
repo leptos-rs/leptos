@@ -1,8 +1,8 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::{StoredData, StoredValue},
+    owner::StoredValue,
     signal::guards::{Mapped, Plain, ReadGuard},
-    traits::{DefinedAt, ReadUntracked, Track},
+    traits::{DefinedAt, Dispose, ReadUntracked, Track},
     unwrap_signal,
 };
 use std::{fmt::Debug, hash::Hash, panic::Location};
@@ -11,6 +11,12 @@ pub struct Memo<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcMemo<T>>,
+}
+
+impl<T: Send + Sync + 'static> Dispose for Memo<T> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
 }
 
 impl<T: Send + Sync + 'static> From<ArcMemo<T>> for Memo<T> {
@@ -73,18 +79,6 @@ impl<T: Send + Sync + 'static> Hash for Memo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> StoredData for Memo<T> {
-    type Data = ArcMemo<T>;
-
-    fn get_value(&self) -> Option<Self::Data> {
-        self.inner.get()
-    }
-
-    fn dispose(&self) {
-        self.inner.dispose();
-    }
-}
-
 impl<T: Send + Sync + 'static> DefinedAt for Memo<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
@@ -100,7 +94,7 @@ impl<T: Send + Sync + 'static> DefinedAt for Memo<T> {
 
 impl<T: Send + Sync + 'static> Track for Memo<T> {
     fn track(&self) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.track();
         }
     }
@@ -110,13 +104,13 @@ impl<T: Send + Sync + 'static> ReadUntracked for Memo<T> {
     type Value = ReadGuard<T, Mapped<Plain<MemoInner<T>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.get_value().map(|inner| inner.read_untracked())
+        self.inner.get().map(|inner| inner.read_untracked())
     }
 }
 
 impl<T: Send + Sync + 'static> From<Memo<T>> for ArcMemo<T> {
     #[track_caller]
     fn from(value: Memo<T>) -> Self {
-        value.get_value().unwrap_or_else(unwrap_signal!(value))
+        value.inner.get().unwrap_or_else(unwrap_signal!(value))
     }
 }

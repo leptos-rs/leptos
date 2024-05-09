@@ -2,7 +2,7 @@ use crate::{
     diagnostics::is_suppressing_resource_load,
     owner::StoredValue,
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
-    traits::{DefinedAt, GetUntracked, Set, Update},
+    traits::{DefinedAt, Dispose, GetUntracked, Set, Update},
     unwrap_signal,
 };
 use any_spawner::Executor;
@@ -16,6 +16,12 @@ where
     inner: StoredValue<ArcMultiAction<I, O>>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
+}
+
+impl<I: 'static, O: 'static> Dispose for MultiAction<I, O> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
 }
 
 impl<I, O> DefinedAt for MultiAction<I, O>
@@ -89,7 +95,7 @@ where
     /// The set of all submissions to this multi-action.
     pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>> {
         self.inner
-            .with_value(|inner| inner.submissions())
+            .try_with_value(|inner| inner.submissions())
             .unwrap_or_else(unwrap_signal!(self))
             .into()
     }
@@ -97,7 +103,7 @@ where
     /// How many times an action has successfully resolved.
     pub fn version(&self) -> RwSignal<usize> {
         self.inner
-            .with_value(|inner| inner.version())
+            .try_with_value(|inner| inner.version())
             .unwrap_or_else(unwrap_signal!(self))
             .into()
     }

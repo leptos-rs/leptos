@@ -1,7 +1,7 @@
 use super::ArcWriteSignal;
 use crate::{
-    owner::{StoredData, StoredValue},
-    traits::{DefinedAt, IsDisposed, Trigger, UpdateUntracked},
+    owner::StoredValue,
+    traits::{DefinedAt, Dispose, IsDisposed, Trigger, UpdateUntracked},
 };
 use core::fmt::Debug;
 use std::{hash::Hash, panic::Location};
@@ -10,6 +10,12 @@ pub struct WriteSignal<T: Send + Sync + 'static> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: StoredValue<ArcWriteSignal<T>>,
+}
+
+impl<T: Send + Sync + 'static> Dispose for WriteSignal<T> {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
 }
 
 impl<T: Send + Sync + 'static> Copy for WriteSignal<T> {}
@@ -62,21 +68,9 @@ impl<T: Send + Sync + 'static> IsDisposed for WriteSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> StoredData for WriteSignal<T> {
-    type Data = ArcWriteSignal<T>;
-
-    fn get_value(&self) -> Option<Self::Data> {
-        self.inner.get()
-    }
-
-    fn dispose(&self) {
-        self.inner.dispose();
-    }
-}
-
 impl<T: Send + Sync + 'static> Trigger for WriteSignal<T> {
     fn trigger(&self) {
-        if let Some(inner) = self.get_value() {
+        if let Some(inner) = self.inner.get() {
             inner.trigger();
         }
     }
@@ -89,6 +83,6 @@ impl<T: Send + Sync + 'static> UpdateUntracked for WriteSignal<T> {
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
     ) -> Option<U> {
-        self.get_value().and_then(|n| n.try_update_untracked(fun))
+        self.inner.get().and_then(|n| n.try_update_untracked(fun))
     }
 }

@@ -81,6 +81,10 @@ macro_rules! unwrap_signal {
     }};
 }
 
+pub trait Dispose {
+    fn dispose(self);
+}
+
 pub trait Track {
     fn track(&self);
 }
