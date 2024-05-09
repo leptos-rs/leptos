@@ -28,10 +28,6 @@ pub(crate) trait AsSubscriberSet {
     fn as_subscriber_set(&self) -> Option<Self::Output>;
 }
 
-pub(crate) trait ToSubscriberSet {
-    fn to_subscriber_set(&self) -> RwLock<SubscriberSet>;
-}
-
 impl<'a> AsSubscriberSet for &'a RwLock<SubscriberSet> {
     type Output = &'a RwLock<SubscriberSet>;
 

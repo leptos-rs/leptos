@@ -1,5 +1,6 @@
 mod arc_async_derived;
 pub use arc_async_derived::*;
+#[allow(clippy::module_inception)] // not a pub mod, who cares?
 mod async_derived;
 mod future_impls;
 mod inner;

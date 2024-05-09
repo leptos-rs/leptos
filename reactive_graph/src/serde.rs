@@ -2,7 +2,7 @@ use crate::{
     computed::{ArcMemo, Memo},
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::With,
-    wrappers::read::{MaybeSignal, Signal},
+    wrappers::read::{MaybeProp, MaybeSignal, Signal},
 };
 use serde::{Deserialize, Serialize};
 
@@ -69,7 +69,7 @@ impl<T: Send + Sync + Serialize> Serialize for MaybeSignal<T> {
     }
 }
 
-impl<T: Serialize> Serialize for MaybeProp<T> {
+impl<T: Send + Sync + Serialize> Serialize for MaybeProp<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
