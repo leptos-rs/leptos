@@ -7,7 +7,7 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     owner::StoredValue,
-    signal::guards::{Mapped, Plain, ReadGuard},
+    signal::guards::{Plain, ReadGuard},
     traits::{DefinedAt, Dispose, ReadUntracked},
     unwrap_signal,
 };
