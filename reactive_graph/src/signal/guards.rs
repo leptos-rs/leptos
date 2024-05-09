@@ -129,15 +129,6 @@ where
     map_fn: fn(&Inner::Target) -> &U,
 }
 
-impl<Inner, U> Mapped<Inner, U>
-where
-    Inner: Deref,
-{
-    pub(crate) fn new(inner: Inner, map_fn: fn(&Inner::Target) -> &U) -> Self {
-        Self { inner, map_fn }
-    }
-}
-
 impl<T: 'static, U> Mapped<Plain<T>, U> {
     pub(crate) fn try_new(
         inner: Arc<RwLock<T>>,
