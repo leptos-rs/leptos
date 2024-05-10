@@ -170,7 +170,7 @@ pub mod prelude {
         pub use leptos_server::*;
         pub use oco_ref::*;
         pub use reactive_graph::{
-            computed::*, effect::*, owner::*, signal::*, *,
+            computed::*, effect::*, owner::*, signal::*, wrappers::read::*, *,
         };
         pub use server_fn::{self, ServerFnError};
         pub use tachys::{self, reactive_graph::node_ref::*};
