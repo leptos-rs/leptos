@@ -130,12 +130,16 @@ where
 ///
 /// If you are using it to create the root of an application, you should use
 /// [`UnmountHandle::forget`] to leak it.
-#[must_use]
+#[must_use = "Dropping an `UnmountHandle` will unmount the view and cancel the \
+              reactive system. You should either call `.forget()` to keep the \
+              view permanently mounted, or store the `UnmountHandle` somewhere \
+              and drop it when you'd like to unmount the view."]
 pub struct UnmountHandle<M, R>
 where
     M: Mountable<R>,
     R: Renderer,
 {
+    #[allow(dead_code)]
     owner: Owner,
     mountable: M,
     rndr: PhantomData<R>,
