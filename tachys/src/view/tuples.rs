@@ -217,11 +217,10 @@ macro_rules! impl_view_for_tuples {
             }
 
 			fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
-					[<$first:lower>].to_html_with_buf(buf, position);
-					$([<$ty:lower>].to_html_with_buf(buf, position));*
-				}
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)* ) = self;
+                $first.to_html_with_buf(buf, position);
+                $($ty.to_html_with_buf(buf, position));*
 			}
 
 			fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -231,21 +230,19 @@ macro_rules! impl_view_for_tuples {
 			) where
 				Self: Sized,
 			{
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
-					[<$first:lower>].to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
-					$([<$ty:lower>].to_html_async_with_buf::<OUT_OF_ORDER>(buf, position));*
-				}
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)* ) = self;
+                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position));*
 			}
 
 			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor<Rndr>, position: &PositionState) -> Self::State {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
+                #[allow(non_snake_case)]
+					let ($first, $($ty,)* ) = self;
 					(
-						[<$first:lower>].hydrate::<FROM_SERVER>(cursor, position),
-						$([<$ty:lower>].hydrate::<FROM_SERVER>(cursor, position)),*
+						$first.hydrate::<FROM_SERVER>(cursor, position),
+						$($ty.hydrate::<FROM_SERVER>(cursor, position)),*
 					)
-				}
 			}
 
             async fn resolve(self) -> Self::AsyncOutput {
@@ -274,10 +271,8 @@ macro_rules! impl_view_for_tuples {
 			], ";"));
 
 			fn to_template(buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String, position: &mut Position)  {
-				paste::paste! {
-					$first ::to_template(buf, class, style, inner_html, position);
-					$($ty::to_template(buf, class, style, inner_html, position));*;
-				}
+                $first ::to_template(buf, class, style, inner_html, position);
+                $($ty::to_template(buf, class, style, inner_html, position));*;
 			}
 		}
 
@@ -287,11 +282,10 @@ macro_rules! impl_view_for_tuples {
 			Rndr: Renderer
 		{
 			fn unmount(&mut self) {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					[<$first:lower>].unmount();
-					$([<$ty:lower>].unmount());*
-				}
+                #[allow(non_snake_case)] // better macro performance
+                let ($first, $($ty,)*) = self;
+                $first.unmount();
+                $($ty.unmount());*
 			}
 
 			fn mount(
@@ -299,11 +293,10 @@ macro_rules! impl_view_for_tuples {
 				parent: &Rndr::Element,
 				marker: Option<&Rndr::Node>,
 			) {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					[<$first:lower>].mount(parent, marker);
-					$([<$ty:lower>].mount(parent, marker));*
-				}
+                #[allow(non_snake_case)] // better macro performance
+                let ($first, $($ty,)*) = self;
+                $first.mount(parent, marker);
+                $($ty.mount(parent, marker));*
 			}
 
 			fn insert_before_this(
@@ -311,11 +304,10 @@ macro_rules! impl_view_for_tuples {
 				parent: &Rndr::Element,
 				child: &mut dyn Mountable<Rndr>,
 			) -> bool {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-					[<$first:lower>].insert_before_this(parent, child)
-					$(|| [<$ty:lower>].insert_before_this(parent, child))*
-				}
+                #[allow(non_snake_case)] // better macro performance
+                let ($first, $($ty,)*) = self;
+                $first.insert_before_this(parent, child)
+                $(|| $ty.insert_before_this(parent, child))*
 			}
 		}
 
@@ -335,6 +327,7 @@ macro_rules! impl_view_for_tuples {
                 Self::Output<NewAttr>: RenderHtml<Rndr>,
             {
                 let shared = attr.into_cloneable();
+                #[allow(non_snake_case)] // better macro performance
                 let ($first, $($ty,)*) = self;
                 ($first.add_any_attr(shared.clone()), $($ty.add_any_attr(shared.clone()),)*)
             }
