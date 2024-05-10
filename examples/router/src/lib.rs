@@ -6,11 +6,10 @@ use leptos_router::{
     components::{ParentRoute, Redirect, Route, Router, Routes},
     hooks::{use_location, use_navigate, use_params},
     link::A,
-    location::{BrowserUrl, Location},
     params::Params,
-    MatchNestedRoutes, NestedRoute, Outlet, ParamSegment, StaticSegment,
+    MatchNestedRoutes, Outlet, ParamSegment, StaticSegment,
 };
-use log::{debug, info};
+use tracing::info;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct ExampleContext(i32);
@@ -30,7 +29,7 @@ pub fn RouterExample() -> impl IntoView {
                 // 1) ensuring that relative routing works properly for nested routes
                 // 2) setting the `aria-current` attribute on the current link,
                 // for a11y and styling purposes
-                <A href="/contacts">"Contacts"</A>
+                <A href="/">"Contacts"</A>
                 <A href="/about">"About"</A>
                 <A href="/settings">"Settings"</A>
                 <A href="/redirect-home">"Redirect to Home"</A>
@@ -93,6 +92,7 @@ pub fn ContactList() -> impl IntoView {
                 .collect::<Vec<_>>()
         })
     };
+
     view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
