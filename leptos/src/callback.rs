@@ -191,7 +191,7 @@ impl<In, Out> fmt::Debug for Callback<In, Out> {
 impl<In, Out> Callable<In, Out> for Callback<In, Out> {
     fn call(&self, input: In) -> Out {
         self.0
-            .with_value(|f| f(input))
+            .try_with_value(|f| f(input))
             .expect("called a callback that has been disposed")
     }
 }
