@@ -205,6 +205,9 @@ pub mod control_flow {
 mod for_loop;
 mod show;
 
+/// A component that allows rendering a component somewhere else.
+pub mod portal;
+
 /// Components to enable server-side rendering and client-side hydration.
 pub mod hydration;
 
@@ -247,10 +250,10 @@ pub mod context {
 }
 
 pub use leptos_server as server;
-/// HTML element types.
-pub use tachys::html::element as html;
 /// HTML attribute types.
 pub use tachys::html::attribute as attr;
+/// HTML element types.
+pub use tachys::html::element as html;
 /// HTML event types.
 #[doc(no_inline)]
 pub use tachys::html::event as ev;
