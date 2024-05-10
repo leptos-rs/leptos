@@ -7,8 +7,8 @@ use crate::{
     navigate::{NavigateOptions, UseNavigate},
     params::ParamsMap,
     resolve_path::resolve_path,
-    FlatRoutesView, MatchNestedRoutes, NestedRoute, NestedRoutesView, Routes,
-    SsrMode,
+    ChooseView, FlatRoutesView, MatchNestedRoutes, NestedRoute,
+    NestedRoutesView, Routes, SsrMode,
 };
 use leptos::prelude::*;
 use reactive_graph::{
@@ -280,26 +280,26 @@ where
 }
 
 #[component]
-pub fn Route<Segments, View, ViewFn>(
+pub fn Route<Segments, View>(
     path: Segments,
-    view: ViewFn,
+    view: View,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<Segments, (), (), ViewFn, Dom>
+) -> NestedRoute<Segments, (), (), View, Dom>
 where
-    ViewFn: Fn() -> View,
+    View: ChooseView<Dom>,
 {
     NestedRoute::new(path, view, ssr)
 }
 
 #[component]
-pub fn ParentRoute<Segments, View, Children, ViewFn>(
+pub fn ParentRoute<Segments, View, Children>(
     path: Segments,
-    view: ViewFn,
+    view: View,
     children: RouteChildren<Children>,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<Segments, Children, (), ViewFn, Dom>
+) -> NestedRoute<Segments, Children, (), View, Dom>
 where
-    ViewFn: Fn() -> View,
+    View: ChooseView<Dom>,
 {
     let children = children.into_inner();
     NestedRoute::new(path, view, ssr).child(children)
