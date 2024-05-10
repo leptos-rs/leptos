@@ -121,13 +121,13 @@ where
         Executor::spawn_local({
             let view = Rc::clone(&view);
             let loaders = mem::take(&mut loaders);
-            async move {
+            ScopedFuture::new(async move {
                 let triggers = join_all(loaders).await;
                 for trigger in triggers {
                     trigger.trigger();
                 }
                 matched_view.rebuild(&mut *view.borrow_mut());
-            }
+            })
         });
 
         NestedRouteViewState {
@@ -513,12 +513,12 @@ where
 
         loaders.push(Box::pin({
             let owner = outlet.owner.clone();
-            async move {
+            ScopedFuture::new(async move {
                 let view =
                     owner.with(|| ScopedFuture::new(view.choose())).await;
                 tx.send(Box::new(move || owner.with(|| view.into_any())));
                 trigger
-            }
+            })
         }));
 
         // and share the outlet with the parent via context
@@ -594,7 +594,7 @@ where
                         let owner = owner.clone();
                         let trigger = current.trigger.clone();
                         let tx = current.tx.clone();
-                        async move {
+                        ScopedFuture::new(async move {
                             let view = owner
                                 .with(|| ScopedFuture::new(view.choose()))
                                 .await;
@@ -603,7 +603,7 @@ where
                             }));
                             drop(old_owner);
                             trigger
-                        }
+                        })
                     }));
 
                     // remove all the items lower in the tree
