@@ -1,9 +1,11 @@
-use leptos::*;
+use leptos::control_flow::Show;
+use leptos::portal::Portal;
+use leptos::prelude::*;
 
 #[component]
 pub fn App() -> impl IntoView {
-    let (show_overlay, set_show_overlay) = create_signal(false);
-    let (show_inside_overlay, set_show_inside_overlay) = create_signal(false);
+    let (show_overlay, set_show_overlay) = signal(false);
+    let (show_inside_overlay, set_show_inside_overlay) = signal(false);
 
     view! {
         <div>
