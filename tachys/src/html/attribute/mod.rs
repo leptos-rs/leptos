@@ -221,35 +221,32 @@ macro_rules! impl_attr_for_tuples {
             }
 
 			fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
-					[<$first:lower>].to_html(buf, class, style, inner_html);
-					$([<$ty:lower>].to_html(buf, class, style, inner_html));*
-				}
+                #[allow(non_snake_case)]
+					let ($first, $($ty,)* ) = self;
+					$first.to_html(buf, class, style, inner_html);
+					$($ty.to_html(buf, class, style, inner_html));*
 			}
 
 			fn hydrate<const FROM_SERVER: bool>(self, el: &Rndr::Element) -> Self::State {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
+                #[allow(non_snake_case)]
+					let ($first, $($ty,)* ) = self;
 					(
-						[<$first:lower>].hydrate::<FROM_SERVER>(el),
-						$([<$ty:lower>].hydrate::<FROM_SERVER>(el)),*
+						$first.hydrate::<FROM_SERVER>(el),
+						$($ty.hydrate::<FROM_SERVER>(el)),*
 					)
-				}
 			}
 
             fn build(self, el: &Rndr::Element) -> Self::State {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
+                #[allow(non_snake_case)]
+					let ($first, $($ty,)*) = self;
                     (
-                        [<$first:lower>].build(el),
-                        $([<$ty:lower>].build(el)),*
+                        $first.build(el),
+                        $($ty.build(el)),*
                     )
-				}
 			}
 
 			fn rebuild(self, state: &mut Self::State) {
-				paste::paste! {
+                paste::paste! {
 					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
 					let ([<view_ $first:lower>], $([<view_ $ty:lower>],)*) = state;
 					[<$first:lower>].rebuild([<view_ $first:lower>]);
@@ -258,6 +255,7 @@ macro_rules! impl_attr_for_tuples {
 			}
 
             fn into_cloneable(self) -> Self::Cloneable {
+                #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
                     $first.into_cloneable(),
@@ -266,6 +264,7 @@ macro_rules! impl_attr_for_tuples {
             }
 
             fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
                     $first.into_cloneable_owned(),
@@ -315,31 +314,28 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             }
 
 			fn to_html(self, buf: &mut String, class: &mut String, style: &mut String, inner_html: &mut String,) {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
-					[<$first:lower>].to_html(buf, class, style, inner_html);
-					$([<$ty:lower>].to_html(buf, class, style, inner_html));*
-				}
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)* ) = self;
+                $first.to_html(buf, class, style, inner_html);
+                $($ty.to_html(buf, class, style, inner_html));*
 			}
 
 			fn hydrate<const FROM_SERVER: bool>(self, el: &Rndr::Element) -> Self::State {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)* ) = self;
-					(
-						[<$first:lower>].hydrate::<FROM_SERVER>(el),
-						$([<$ty:lower>].hydrate::<FROM_SERVER>(el)),*
-					)
-				}
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)* ) = self;
+                (
+                    $first.hydrate::<FROM_SERVER>(el),
+                    $($ty.hydrate::<FROM_SERVER>(el)),*
+                )
 			}
 
             fn build(self, el: &Rndr::Element) -> Self::State {
-				paste::paste! {
-					let ([<$first:lower>], $([<$ty:lower>],)*) = self;
-                    (
-                        [<$first:lower>].build(el),
-                        $([<$ty:lower>].build(el)),*
-                    )
-				}
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                (
+                    $first.build(el),
+                    $($ty.build(el)),*
+                )
 			}
 
 			fn rebuild(self, state: &mut Self::State) {
@@ -352,6 +348,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
 			}
 
             fn into_cloneable(self) -> Self::Cloneable {
+                #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
                     $first.into_cloneable(),
@@ -360,6 +357,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
             }
 
             fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 (
                     $first.into_cloneable_owned(),
