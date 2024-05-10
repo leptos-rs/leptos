@@ -1,6 +1,9 @@
 use either_of::*;
-use std::future::Future;
-use tachys::{renderer::Renderer, view::Render};
+use std::{future::Future, marker::PhantomData};
+use tachys::{
+    renderer::Renderer,
+    view::{any_view::AnyView, Render},
+};
 
 pub trait ChooseView<R>
 where
@@ -12,17 +15,56 @@ where
     fn choose(self) -> impl Future<Output = Self::Output>;
 }
 
-impl<F, ViewFut, R> ChooseView<R> for F
+impl<F, View, R> ChooseView<R> for F
 where
-    F: Fn() -> ViewFut + Send + 'static,
-    ViewFut: Future,
-    ViewFut::Output: Render<R> + Send,
+    F: Fn() -> View + Send + 'static,
+    View: Render<R> + Send,
     R: Renderer + 'static,
 {
-    type Output = ViewFut::Output;
+    type Output = View;
 
     async fn choose(self) -> Self::Output {
-        self().await
+        self()
+    }
+}
+
+impl<T, R> ChooseView<R> for Lazy<T>
+where
+    T: LazyRoute<R>,
+    R: Renderer + 'static,
+{
+    type Output = AnyView<R>;
+
+    async fn choose(self) -> Self::Output {
+        T::data().view().await
+    }
+}
+
+pub trait LazyRoute<R>: Send + 'static
+where
+    R: Renderer,
+{
+    fn data() -> Self;
+
+    fn view(self) -> impl Future<Output = AnyView<R>>;
+}
+
+#[derive(Debug, Clone)]
+pub struct Lazy<T> {
+    ty: PhantomData<T>,
+}
+
+impl<T> Lazy<T> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<T> Default for Lazy<T> {
+    fn default() -> Self {
+        Self {
+            ty: Default::default(),
+        }
     }
 }
 

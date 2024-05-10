@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{ChooseView, MatchParams, SsrMode, GeneratedRouteData};
 use core::{fmt, iter};
-use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}, future::Future};
+use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}};
 use either_of::Either;
 use tachys::{
     renderer::Renderer,
@@ -16,17 +16,17 @@ mod tuples;
 static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 
 #[derive(Debug, Copy, PartialEq, Eq)]
-pub struct NestedRoute<Segments, Children, Data, ViewFn, R> {
+pub struct NestedRoute<Segments, Children, Data, View, R> {
     id: u16,
     pub segments: Segments,
     pub children: Option<Children>,
     pub data: Data,
-    pub view: ViewFn,
+    pub view: View,
     pub rndr: PhantomData<R>,
     pub ssr_mode: SsrMode
 }
 
-impl<Segments, Children, Data, ViewFn, R> Clone for NestedRoute<Segments, Children, Data, ViewFn, R> where Segments: Clone, Children: Clone, Data: Clone, ViewFn: Clone{
+impl<Segments, Children, Data, View, R> Clone for NestedRoute<Segments, Children, Data, View, R> where Segments: Clone, Children: Clone, Data: Clone, View: Clone{
     fn clone(&self) -> Self {
         Self {
             id: self.id,segments: self.segments.clone(),children: self.children.clone(),data: self.data.clone(), view: self.view.clone(), rndr: PhantomData, ssr_mode: self.ssr_mode
@@ -34,10 +34,10 @@ impl<Segments, Children, Data, ViewFn, R> Clone for NestedRoute<Segments, Childr
     }
 }
 
-impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
-    pub fn new<View>(path: Segments, view: ViewFn, ssr_mode: SsrMode) -> Self
+impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
+    pub fn new(path: Segments, view: View, ssr_mode: SsrMode) -> Self
     where
-        ViewFn: Fn() -> View,
+        View: ChooseView<R>,
         R: Renderer + 'static,
     {
         Self {
@@ -52,11 +52,11 @@ impl<Segments, ViewFn, R> NestedRoute<Segments, (), (), ViewFn, R> {
     }
 }
 
-impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
+impl<Segments, Data, View, R> NestedRoute<Segments, (), Data, View, R> {
     pub fn child<Children>(
         self,
         child: Children,
-    ) -> NestedRoute<Segments, Children, Data, ViewFn, R> {
+    ) -> NestedRoute<Segments, Children, Data, View, R> {
         let Self {
             id,
             segments,
@@ -79,7 +79,7 @@ impl<Segments, Data, ViewFn, R> NestedRoute<Segments, (), Data, ViewFn, R> {
 }
 
 #[derive(PartialEq, Eq)]
-pub struct NestedMatch<ParamsIter, Child, ViewFn> {
+pub struct NestedMatch<ParamsIter, Child, View> {
     id: RouteMatchId,
     /// The portion of the full path matched only by this nested route.
     matched: String,
@@ -87,11 +87,11 @@ pub struct NestedMatch<ParamsIter, Child, ViewFn> {
     params: ParamsIter,
     /// The nested route.
     child: Option<Child>,
-    view_fn: ViewFn,
+    view_fn: View,
 }
 
-impl<ParamsIter, Child, ViewFn> fmt::Debug
-    for NestedMatch<ParamsIter, Child, ViewFn>
+impl<ParamsIter, Child, View> fmt::Debug
+    for NestedMatch<ParamsIter, Child, View>
 where
     ParamsIter: fmt::Debug,
     Child: fmt::Debug,
@@ -105,8 +105,8 @@ where
     }
 }
 
-impl<ParamsIter, Child, ViewFn> MatchParams
-    for NestedMatch<ParamsIter, Child, ViewFn>
+impl<ParamsIter, Child, View> MatchParams
+    for NestedMatch<ParamsIter, Child, View>
 where
     ParamsIter: IntoIterator<Item = (Cow<'static, str>, String)> + Clone,
 {
@@ -118,17 +118,16 @@ where
     }
 }
 
-impl<ParamsIter, Child, ViewFn, ViewFut, Rndr> MatchInterface<Rndr>
-    for NestedMatch<ParamsIter, Child, ViewFn>
+impl<ParamsIter, Child, View, Rndr> MatchInterface<Rndr>
+    for NestedMatch<ParamsIter, Child, View>
 where
     Rndr: Renderer + 'static,
     Child: MatchInterface<Rndr> + MatchParams + 'static,
-    ViewFn: Fn() -> ViewFut + Send + 'static,
-    ViewFut: Future,
-    ViewFut::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
+    View: ChooseView<Rndr>,
+    View::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Child = Child;
-    type View = ViewFut::Output;
+    type View = View::Output;
 
     fn as_id(&self) -> RouteMatchId {
         self.id
@@ -148,8 +147,8 @@ where
     }
 }
 
-impl<Segments, Children, Data, ViewFn, ViewFut, Rndr> MatchNestedRoutes<Rndr>
-    for NestedRoute<Segments, Children, Data, ViewFn, Rndr>
+impl<Segments, Children, Data, View, Rndr> MatchNestedRoutes<Rndr>
+    for NestedRoute<Segments, Children, Data, View, Rndr>
 where
     Self: 'static,
     Rndr: Renderer + 'static,
@@ -160,18 +159,17 @@ where
    Children::Match: MatchParams,
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
-    ViewFn: Fn() -> ViewFut + Send + Clone + 'static,
-    ViewFut: Future,
-    ViewFut::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
+    View: ChooseView<Rndr> + Clone,
+    View::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Data = Data;
-    type View = ViewFut::Output;
+    type View = View::Output;
     type Match = NestedMatch<iter::Chain<
         <Segments::ParamsIter as IntoIterator>::IntoIter,
         Either<iter::Empty::<
 (Cow<'static, str>, String)
             >, <<Children::Match as MatchParams>::Params as IntoIterator>::IntoIter>
-    >, Children::Match, ViewFn>;
+    >, Children::Match, View>;
 
     fn match_nested<'a>(
         &'a self,
