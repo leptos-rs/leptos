@@ -11,17 +11,14 @@ panic = "abort"
 
 [dependencies]
 console_log = "1"
-log = "0.4"
-leptos = { path = "../../leptos", features = ["csr"] } #, "tracing"] }
+leptos = { path = "../../leptos", features = ["csr", "tracing"] }
 leptos_router = { path = "../../router" }              #, features = ["tracing"] }
-#leptos_router = { path = "../../router", features = ["csr", "nightly"] }
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 console_error_panic_hook = "0.1.7"
 tracing-subscriber = "0.3.18"
 tracing-subscriber-wasm = "0.1.0"
 tracing = "0.1.40"
-#leptos_meta = { path = "../../meta", features = ["csr", "nightly"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
