@@ -13,13 +13,7 @@ use reactive_graph::{
     traits::{Get, Update, With, Writeable},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{
-    cell::RefCell,
-    fmt::Debug,
-    future::{ready, Future, Ready},
-    pin::Pin,
-    rc::Rc,
-};
+use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
 use tachys::{
     either::Either,
     html::attribute::Attribute,
