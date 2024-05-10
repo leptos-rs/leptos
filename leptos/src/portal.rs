@@ -1,7 +1,12 @@
-use crate::ChildrenFn;
+use crate::{
+    children::{ChildrenFn, TypedChildrenFn},
+    mount, IntoView,
+};
 use cfg_if::cfg_if;
-use leptos_dom::IntoView;
+use leptos_dom::helpers::document;
 use leptos_macro::component;
+use reactive_graph::{effect::Effect, owner::Owner};
+use std::sync::Arc;
 
 /// Renders components somewhere else in the DOM.
 ///
@@ -14,7 +19,7 @@ use leptos_macro::component;
     tracing::instrument(level = "trace", skip_all)
 )]
 #[component]
-pub fn Portal(
+pub fn Portal<V>(
     /// Target element where the children will be appended
     #[prop(into, optional)]
     mount: Option<web_sys::Element>,
@@ -25,17 +30,25 @@ pub fn Portal(
     #[prop(optional)]
     is_svg: bool,
     /// The children to teleport into the `mount` element
-    children: ChildrenFn,
-) -> impl IntoView {
-    cfg_if! { if #[cfg(all(target_arch = "wasm32", any(feature = "hydrate", feature = "csr")))] {
-        use leptos_dom::{document, Mountable};
-        use leptos_reactive::{create_effect, on_cleanup};
+    children: TypedChildrenFn<V>,
+) -> impl IntoView
+where
+    V: IntoView + 'static,
+{
+    if cfg!(target_arch = "wasm32")
+        && Owner::current_shared_context()
+            .map(|sc| sc.is_browser())
+            .unwrap_or(true)
+    {
+        use send_wrapper::SendWrapper;
         use wasm_bindgen::JsCast;
 
-        let mount = mount
-            .unwrap_or_else(|| document().body().expect("body to exist").unchecked_into());
+        let mount = mount.unwrap_or_else(|| {
+            document().body().expect("body to exist").unchecked_into()
+        });
+        let children = children.into_inner();
 
-        create_effect(move |_| {
+        Effect::new(move |_| {
             let tag = if is_svg { "g" } else { "div" };
 
             let container = document()
@@ -53,22 +66,24 @@ pub fn Portal(
                 container.clone()
             };
 
-            let _ = render_root.append_child(&children().into_view().get_mountable_node());
-
+            // SendWrapper: this is only created in a single-threaded browser environment
             let _ = mount.append_child(&container);
+            let handle = SendWrapper::new((
+                mount::mount_to(render_root.unchecked_into(), {
+                    let children = Arc::clone(&children);
+                    move || children()
+                }),
+                mount.clone(),
+                container,
+            ));
 
-            on_cleanup({
-                let mount = mount.clone();
-
+            Owner::on_cleanup({
                 move || {
+                    let (handle, mount, container) = handle.take();
+                    drop(handle);
                     let _ = mount.remove_child(&container);
                 }
             })
         });
-    } else {
-        let _ = mount;
-        let _ = use_shadow;
-        let _ = is_svg;
-        let _ = children;
-    }}
+    }
 }
