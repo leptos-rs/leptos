@@ -1,10 +1,4 @@
-use leptos::{
-    leptos_dom::helpers::{set_interval_with_handle, IntervalHandle},
-    prelude::*,
-    reactive_graph::effect::Effect,
-    signals::RwSignal,
-    *,
-};
+use leptos::prelude::*;
 use std::time::Duration;
 
 /// Timer example, demonstrating the use of `use_interval`.
@@ -31,7 +25,7 @@ pub fn TimerDemo() -> impl IntoView {
             <div>"Count B (dynamic interval, currently " {interval} " ms)"</div>
             <div>{count_b}</div>
             <input prop:value=interval on:input:target=move |ev| {
-                if let Ok(value) = ev.target().value().parse::<i32>() {
+                if let Ok(value) = ev.target().value().parse::<u64>() {
                     interval.set(value);
                 }
             }/>
