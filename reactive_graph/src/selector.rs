@@ -20,7 +20,7 @@ where
     subs: Arc<RwLock<FxHashMap<T, ArcRwSignal<bool>>>>,
     v: Arc<RwLock<Option<T>>>,
     #[allow(clippy::type_complexity)]
-    f: Arc<dyn Fn(&T, &T) -> bool>,
+    f: Arc<dyn Fn(&T, &T) -> bool + Send + Sync>,
     // owning the effect keeps it alive, to keep updating the selector
     #[allow(dead_code)]
     effect: Arc<RenderEffect<T>>,
@@ -36,12 +36,12 @@ where
 
     pub fn new_with_fn(
         source: impl Fn() -> T + Clone + 'static,
-        f: impl Fn(&T, &T) -> bool + Clone + 'static,
+        f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
     ) -> Self {
         let subs: Arc<RwLock<FxHashMap<T, ArcRwSignal<bool>>>> =
             Default::default();
         let v: Arc<RwLock<Option<T>>> = Default::default();
-        let f = Arc::new(f) as Arc<dyn Fn(&T, &T) -> bool>;
+        let f = Arc::new(f) as Arc<dyn Fn(&T, &T) -> bool + Send + Sync>;
 
         let effect = Arc::new(RenderEffect::new({
             let subs = Arc::clone(&subs);
