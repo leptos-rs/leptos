@@ -132,6 +132,8 @@ impl<T: Send + Sync + 'static> ToAnySource for ArcMemo<T> {
         AnySource(
             Arc::as_ptr(&self.inner) as usize,
             Arc::downgrade(&self.inner) as Weak<dyn Source + Send + Sync>,
+            #[cfg(debug_assertions)]
+            self.defined_at,
         )
     }
 }
