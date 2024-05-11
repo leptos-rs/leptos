@@ -31,10 +31,7 @@ impl<T: Send + Sync + 'static> Dispose for RwSignal<T> {
 }
 
 impl<T: Send + Sync + 'static> RwSignal<T> {
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
-    )]
+    #[track_caller]
     pub fn new(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]
@@ -44,6 +41,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
     }
 
     #[inline(always)]
+    #[track_caller]
     pub fn read_only(&self) -> ReadSignal<T> {
         ReadSignal {
             #[cfg(debug_assertions)]
@@ -58,6 +56,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
     }
 
     #[inline(always)]
+    #[track_caller]
     pub fn write_only(&self) -> WriteSignal<T> {
         WriteSignal {
             #[cfg(debug_assertions)]
@@ -71,6 +70,7 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
         }
     }
 
+    #[track_caller]
     #[inline(always)]
     pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
         (self.read_only(), self.write_only())

@@ -1,6 +1,7 @@
 use super::{node::ReactiveNode, AnySubscriber};
+use crate::traits::DefinedAt;
 use core::{fmt::Debug, hash::Hash};
-use std::sync::Weak;
+use std::{panic::Location, sync::Weak};
 
 pub trait ToAnySource {
     /// Converts this type to its type-erased equivalent.
@@ -20,7 +21,24 @@ pub trait Source: ReactiveNode {
 }
 
 #[derive(Clone)]
-pub struct AnySource(pub usize, pub Weak<dyn Source + Send + Sync>);
+pub struct AnySource(
+    pub(crate) usize,
+    pub(crate) Weak<dyn Source + Send + Sync>,
+    #[cfg(debug_assertions)] pub(crate) &'static Location<'static>,
+);
+
+impl DefinedAt for AnySource {
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.2)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
+}
 
 impl Debug for AnySource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

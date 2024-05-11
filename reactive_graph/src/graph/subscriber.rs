@@ -3,39 +3,50 @@ use core::{fmt::Debug, hash::Hash};
 use std::{cell::RefCell, mem, sync::Weak};
 
 thread_local! {
-    // TODO this can be a Cell
     static OBSERVER: RefCell<Option<AnySubscriber>> = const { RefCell::new(None) };
 }
 
 pub struct Observer;
 
+struct SetObserverOnDrop(Option<AnySubscriber>);
+
+impl Drop for SetObserverOnDrop {
+    fn drop(&mut self) {
+        Observer::set(self.0.take());
+    }
+}
+
 impl Observer {
     pub fn get() -> Option<AnySubscriber> {
-        OBSERVER.with(|o| o.borrow().clone())
+        OBSERVER.with_borrow(Clone::clone)
     }
 
     pub(crate) fn is(observer: &AnySubscriber) -> bool {
-        OBSERVER.with(|o| o.borrow().as_ref() == Some(observer))
+        OBSERVER.with_borrow(|o| o.as_ref() == Some(observer))
     }
 
-    fn take() -> Option<AnySubscriber> {
-        OBSERVER.with(|o| o.borrow_mut().take())
+    fn take() -> SetObserverOnDrop {
+        SetObserverOnDrop(OBSERVER.with_borrow_mut(Option::take))
     }
 
     fn set(observer: Option<AnySubscriber>) {
-        OBSERVER.with(|o| *o.borrow_mut() = observer);
+        OBSERVER.with_borrow_mut(|o| *o = observer);
     }
 
-    fn replace(observer: AnySubscriber) -> Option<AnySubscriber> {
-        OBSERVER.with(|o| mem::replace(&mut *o.borrow_mut(), Some(observer)))
+    fn replace(observer: AnySubscriber) -> SetObserverOnDrop {
+        SetObserverOnDrop(
+            OBSERVER
+                .with(|o| mem::replace(&mut *o.borrow_mut(), Some(observer))),
+        )
     }
 }
 
 pub fn untrack<T>(fun: impl FnOnce() -> T) -> T {
-    let prev = Observer::take();
-    let value = fun();
-    Observer::set(prev);
-    value
+    #[cfg(debug_assertions)]
+    let _warning_guard = crate::diagnostics::SpecialNonReactiveZone::enter();
+
+    let _prev = Observer::take();
+    fun()
 }
 
 /// Converts a [`Subscriber`] to a type-erased [`AnySubscriber`].
@@ -107,10 +118,8 @@ impl ReactiveNode for AnySubscriber {
 
 impl AnySubscriber {
     pub fn with_observer<T>(&self, fun: impl FnOnce() -> T) -> T {
-        let prev = Observer::replace(self.clone());
-        let val = fun();
-        Observer::set(prev);
-        val
+        let _prev = Observer::replace(self.clone());
+        fun()
     }
 }
 

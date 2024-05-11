@@ -89,12 +89,40 @@ pub trait Track {
     fn track(&self);
 }
 
-impl<T: Source + ToAnySource> Track for T {
+impl<T: Source + ToAnySource + DefinedAt> Track for T {
     #[track_caller]
     fn track(&self) {
         if let Some(subscriber) = Observer::get() {
             subscriber.add_source(self.to_any_source());
             self.add_subscriber(subscriber);
+        } else {
+            #[cfg(debug_assertions)]
+            {
+                use crate::diagnostics::SpecialNonReactiveZone;
+
+                //if !SpecialNonReactiveZone::is_inside() {
+                let called_at = Location::caller();
+                let ty = std::any::type_name::<T>();
+                let defined_at = self
+                    .defined_at()
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| String::from("{unknown}"));
+                crate::log_warning(format_args!(
+                    "At {called_at}, you access a {ty} (defined at \
+                     {defined_at}) outside a reactive tracking context. This \
+                     might mean your app is not responding to changes in \
+                     signal values in the way you expect.\n\nHere’s how to \
+                     fix it:\n\n1. If this is inside a `view!` macro, make \
+                     sure you are passing a function, not a value.\n  ❌ NO  \
+                     <p>{{x.get() * 2}}</p>\n  ✅ YES <p>{{move || x.get() * \
+                     2}}</p>\n\n2. If it’s in the body of a component, try \
+                     wrapping this access in a closure: \n  ❌ NO  let y = \
+                     x.get() * 2\n  ✅ YES let y = move || x.get() * 2.\n\n3. \
+                     If you’re *trying* to access the value without tracking, \
+                     use `.get_untracked()` or `.with_untracked()` instead."
+                ));
+                //}
+            }
         }
     }
 }
@@ -254,6 +282,7 @@ where
 {
     type Value = <T as With>::Value;
 
+    #[track_caller]
     fn try_get(&self) -> Option<Self::Value> {
         self.try_with(Self::Value::clone)
     }
@@ -266,6 +295,7 @@ pub trait Trigger {
 pub trait UpdateUntracked: DefinedAt {
     type Value;
 
+    #[track_caller]
     fn update_untracked<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
@@ -286,6 +316,7 @@ where
 {
     type Value = <Self as Writeable>::Value;
 
+    #[track_caller]
     fn try_update_untracked<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
@@ -298,10 +329,12 @@ where
 pub trait Update {
     type Value;
 
+    #[track_caller]
     fn update(&self, fun: impl FnOnce(&mut Self::Value)) {
         self.try_update(fun);
     }
 
+    #[track_caller]
     fn maybe_update(&self, fun: impl FnOnce(&mut Self::Value) -> bool) {
         self.try_maybe_update(|val| {
             let did_update = fun(val);
@@ -309,6 +342,7 @@ pub trait Update {
         });
     }
 
+    #[track_caller]
     fn try_update<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> U,
@@ -328,6 +362,7 @@ where
 {
     type Value = <Self as UpdateUntracked>::Value;
 
+    #[track_caller]
     fn try_maybe_update<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> (bool, U),
@@ -340,11 +375,26 @@ where
     }
 }
 
-pub trait Set: Update + IsDisposed {
+pub trait Set {
+    type Value;
+
+    fn set(&self, value: impl Into<Self::Value>);
+
+    fn try_set(&self, value: impl Into<Self::Value>) -> Option<Self::Value>;
+}
+
+impl<T> Set for T
+where
+    T: Update + IsDisposed,
+{
+    type Value = <Self as Update>::Value;
+
+    #[track_caller]
     fn set(&self, value: impl Into<Self::Value>) {
         self.update(|n| *n = value.into());
     }
 
+    #[track_caller]
     fn try_set(&self, value: impl Into<Self::Value>) -> Option<Self::Value> {
         if self.is_disposed() {
             Some(value.into())
@@ -354,8 +404,6 @@ pub trait Set: Update + IsDisposed {
         }
     }
 }
-
-impl<T> Set for T where T: Update + IsDisposed {}
 
 pub trait IsDisposed {
     fn is_disposed(&self) -> bool;
