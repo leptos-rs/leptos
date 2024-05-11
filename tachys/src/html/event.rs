@@ -166,7 +166,17 @@ where
         }
 
         let mut cb = self.cb.take();
+
+        #[cfg(feature = "tracing")]
+        let span = tracing::Span::current();
+
         let cb = Box::new(move |ev: R::Event| {
+            #[cfg(all(debug_assertions, feature = "reactive_graph"))]
+            let _rx_guard =
+                reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+            #[cfg(feature = "tracing")]
+            let _tracing_guard = span.enter();
+
             let ev = E::EventType::from(ev);
             cb.invoke(ev);
         }) as Box<dyn FnMut(R::Event)>;
