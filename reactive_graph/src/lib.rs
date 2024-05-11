@@ -13,6 +13,7 @@
 //! nodes, because they can listen to changes in other values.
 //!
 //! ```rust
+//! # any_spawner::Executor::init_futures_executor();
 //! use reactive_graph::{
 //!     computed::ArcMemo,
 //!     effect::Effect,
