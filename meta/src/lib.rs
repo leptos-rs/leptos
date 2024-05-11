@@ -49,6 +49,7 @@
 
 use futures::{Stream, StreamExt};
 use leptos::{
+    attr::NextAttribute,
     component,
     logging::debug_warn,
     reactive_graph::owner::{provide_context, use_context},
@@ -60,7 +61,10 @@ use leptos::{
         },
         hydration::Cursor,
         renderer::{dom::Dom, Renderer},
-        view::{Mountable, Position, PositionState, Render, RenderHtml},
+        view::{
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
+        },
     },
     IntoView,
 };
@@ -340,6 +344,31 @@ where
     }
 }
 
+impl<E, At, Ch> AddAnyAttr<Dom> for RegisteredMetaTag<E, At, Ch>
+where
+    E: ElementType + CreateElement<Dom> + Send,
+    At: Attribute<Dom> + Send,
+    Ch: RenderHtml<Dom> + Send,
+{
+    type Output<SomeNewAttr: Attribute<Dom>> = RegisteredMetaTag<
+        E,
+        <At as NextAttribute<Dom>>::Output<SomeNewAttr>,
+        Ch,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Dom>>(
+        mut self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
+    {
+        RegisteredMetaTag {
+            el: self.el.map(|inner| inner.add_any_attr(attr)),
+        }
+    }
+}
+
 impl<E, At, Ch> RenderHtml<Dom> for RegisteredMetaTag<E, At, Ch>
 where
     E: ElementType + CreateElement<Dom>,
@@ -437,6 +466,20 @@ impl Render<Dom> for MetaTagsView {
     fn build(self) -> Self::State {}
 
     fn rebuild(self, state: &mut Self::State) {}
+}
+
+impl AddAnyAttr<Dom> for MetaTagsView {
+    type Output<SomeNewAttr: Attribute<Dom>> = MetaTagsView;
+
+    fn add_any_attr<NewAttr: Attribute<Dom>>(
+        self,
+        _attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
+    {
+        self
+    }
 }
 
 impl RenderHtml<Dom> for MetaTagsView {
