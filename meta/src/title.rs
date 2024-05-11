@@ -1,5 +1,6 @@
 use crate::{use_head, MetaContext, ServerMetaContext};
 use leptos::{
+    attr::Attribute,
     component,
     error::Result,
     oco::Oco,
@@ -11,7 +12,10 @@ use leptos::{
         dom::document,
         hydration::Cursor,
         renderer::{dom::Dom, Renderer},
-        view::{Mountable, Position, PositionState, Render, RenderHtml},
+        view::{
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
+        },
     },
     text_prop::TextProp,
     IntoView,
@@ -219,6 +223,20 @@ impl Render<Dom> for TitleView {
 
     fn rebuild(self, _state: &mut Self::State) {
         // TODO  should this rebuild?
+    }
+}
+
+impl AddAnyAttr<Dom> for TitleView {
+    type Output<SomeNewAttr: Attribute<Dom>> = TitleView;
+
+    fn add_any_attr<NewAttr: Attribute<Dom>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
+    {
+        self
     }
 }
 
