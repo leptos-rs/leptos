@@ -22,6 +22,9 @@ thiserror = "1"
 tracing = { version = "0.1", optional = true }
 guardian = "1"
 
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+web-sys = "0.3"
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "time", "macros"] }
 any_spawner = { workspace = true, features = ["tokio"] }
