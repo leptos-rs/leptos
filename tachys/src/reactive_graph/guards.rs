@@ -107,12 +107,7 @@ macro_rules! render_primitive {
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")
 					}
-					if let Err(e) = write!(buf, "{}", self) {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!(e);
-                        #[cfg(not(feature = "tracing"))]
-                        { _ = e;}
-                    }
+					_ = write!(buf, "{}", self);
 					*position = Position::NextChildAfterText;
 				}
 
