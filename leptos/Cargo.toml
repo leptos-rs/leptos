@@ -83,6 +83,7 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv", "server_fn/rkyv"]
 tracing = [
   "reactive_graph/tracing",
+  "tachys/tracing"
 ] #, "leptos_macro/tracing", "leptos_dom/tracing"]
 nonce = ["base64", "leptos_dom/nonce", "rand"]
 spin = ["leptos_reactive/spin", "leptos-spin-macro"]
