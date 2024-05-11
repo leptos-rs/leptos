@@ -231,23 +231,6 @@ pub mod read {
     where
         T: Send + Sync + 'static,
     {
-        /// Wraps a derived signal, i.e., any computation that accesses one or more
-        /// reactive signals.
-        /// ```rust
-        /// # use leptos_reactive::*;
-        /// # let runtime = create_runtime();
-        /// let (count, set_count) = create_signal(2);
-        /// let double_count = Signal::derive(move || count.() * 2);
-        ///
-        /// // this function takes any kind of wrapped signal
-        /// fn above_3(arg: &Signal<i32>) -> bool {
-        ///     arg.get() > 3
-        /// }
-        ///
-        /// assert_eq!(above_3(&count.into()), false);
-        /// assert_eq!(above_3(&double_count), true);
-        /// # runtime.dispose();
-        /// ```
         #[track_caller]
         pub fn derive(
             derived_signal: impl Fn() -> T + Send + Sync + 'static,
