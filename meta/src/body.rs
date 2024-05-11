@@ -19,7 +19,10 @@ use leptos::{
         hydration::Cursor,
         reactive_graph::RenderEffectState,
         renderer::{dom::Dom, Renderer},
-        view::{Mountable, Position, PositionState, Render, RenderHtml},
+        view::{
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
+        },
     },
     text_prop::TextProp,
     IntoView,
@@ -111,6 +114,20 @@ impl Render<Dom> for BodyView {
 
     fn rebuild(self, state: &mut Self::State) {
         // TODO rebuilding dynamic things like this
+    }
+}
+
+impl AddAnyAttr<Dom> for BodyView {
+    type Output<SomeNewAttr: Attribute<Dom>> = BodyView;
+
+    fn add_any_attr<NewAttr: Attribute<Dom>>(
+        mut self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
+    {
+        todo!()
     }
 }
 
