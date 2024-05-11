@@ -242,7 +242,7 @@ where
     }
 }
 
-/// Creates an [MultiAction] to synchronize an imperative `async` call to the synchronous reactive system.
+/// Creates a [MultiAction] to synchronize an imperative `async` call to the synchronous reactive system.
 ///
 /// If you’re trying to load data by running an `async` function reactively, you probably
 /// want to use a [create_resource](leptos_reactive::create_resource) instead. If you’re trying
@@ -319,7 +319,7 @@ where
     }))
 }
 
-/// Creates an [MultiAction] that can be used to call a server function.
+/// Creates a [MultiAction] that can be used to call a server function.
 ///
 /// ```rust,ignore
 /// # use leptos::*;
