@@ -93,6 +93,7 @@ impl<T: Send + Sync + 'static> DefinedAt for Memo<T> {
 }
 
 impl<T: Send + Sync + 'static> Track for Memo<T> {
+    #[track_caller]
     fn track(&self) {
         if let Some(inner) = self.inner.get() {
             inner.track();

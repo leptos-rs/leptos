@@ -70,7 +70,7 @@
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 
 use futures::Stream;
-use std::{future::Future, pin::Pin};
+use std::{fmt::Arguments, future::Future, pin::Pin};
 
 pub mod actions;
 pub(crate) mod channel;
@@ -97,4 +97,26 @@ pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 
 pub mod prelude {
     pub use crate::traits::*;
+}
+
+fn log_warning(text: Arguments) {
+    #[cfg(feature = "tracing")]
+    {
+        tracing::warn!(text);
+    }
+    #[cfg(all(
+        not(feature = "tracing"),
+        target_arch = "wasm32",
+        target_os = "unknown"
+    ))]
+    {
+        web_sys::console::warn_1(&text.to_string().into());
+    }
+    #[cfg(all(
+        not(feature = "tracing"),
+        not(all(target_arch = "wasm32", target_os = "unknown"))
+    ))]
+    {
+        eprintln!("{}", text);
+    }
 }
