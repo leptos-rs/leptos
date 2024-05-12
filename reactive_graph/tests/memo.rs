@@ -1,7 +1,7 @@
 use any_spawner::Executor;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
-    effect::Effect,
+    effect::{Effect, RenderEffect},
     prelude::*,
     signal::RwSignal,
 };
@@ -9,6 +9,7 @@ use std::{
     mem,
     sync::{Arc, RwLock},
 };
+use tokio::task;
 
 pub async fn tick() {
     tokio::time::sleep(std::time::Duration::from_micros(1)).await;
@@ -236,4 +237,70 @@ async fn dynamic_dependencies() {
     assert_eq!(name.get(), "Bob Stevens");
 
     assert_eq!(*combined_count.read().unwrap(), 5);
+}
+
+#[tokio::test]
+async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
+    _ = Executor::init_tokio();
+
+    task::LocalSet::new()
+        .run_until(async {
+            let count = RwSignal::new(1);
+            let even = Memo::new(move |_| *count.read() % 2 == 0);
+
+            let combined_count = Arc::new(RwLock::new(0));
+
+            mem::forget(RenderEffect::new({
+                let combined_count = Arc::clone(&combined_count);
+                move |_| {
+                    *combined_count.write().unwrap() += 1;
+                    println!("even = {}", even.get());
+                }
+            }));
+
+            tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 1);
+
+            count.set(2);
+            tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 2);
+
+            count.set(4);
+            tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 2);
+        })
+        .await
+}
+
+#[tokio::test]
+async fn effect_doesnt_rerun_if_memo_didnt_change() {
+    _ = Executor::init_tokio();
+
+    task::LocalSet::new()
+        .run_until(async {
+            let count = RwSignal::new(1);
+            let even = Memo::new(move |_| *count.read() % 2 == 0);
+
+            let combined_count = Arc::new(RwLock::new(0));
+
+            Effect::new({
+                let combined_count = Arc::clone(&combined_count);
+                move |_| {
+                    *combined_count.write().unwrap() += 1;
+                    println!("even = {}", even.get());
+                }
+            });
+
+            tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 1);
+
+            count.set(2);
+            tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 2);
+
+            count.set(4);
+            tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 2);
+        })
+        .await
 }
