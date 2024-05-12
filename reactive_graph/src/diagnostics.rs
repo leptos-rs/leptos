@@ -1,24 +1,14 @@
-// The point of these diagnostics is to give useful error messages when someone
-// tries to access a reactive variable outside the reactive scope. They track when
-// you create a signal/memo, and where you access it non-reactively.
+//! By default, attempting to [`Track`](crate::traits::Track) a signal when you are not in a
+//! reactive tracking context will cause a warning when you are in debug mode.
+//!
+//! In some cases, this warning is a false positive. For example, inside an event listener in a
+//! user interface, you never want to read from a signal reactively; the event listener should run
+//! when the event fires, not when a signal read in the event listener changes.
+//!
+//! This module provides utilities to suppress those warnings by entering a
+//! [`SpecialNonReactiveZone`].
 
-#[cfg(debug_assertions)]
-#[allow(dead_code)] // allowed for SSR
-#[derive(Copy, Clone)]
-pub(crate) struct AccessDiagnostics {
-    pub defined_at: &'static std::panic::Location<'static>,
-    pub called_at: &'static std::panic::Location<'static>,
-}
-
-#[cfg(not(debug_assertions))]
-#[derive(Copy, Clone, Default)]
-pub(crate) struct AccessDiagnostics;
-
-/// This just tracks whether we're currently in a context in which it really doesn't
-/// matter whether something is reactive: for example, in an event listener or timeout.
-/// Entering this zone basically turns off the warnings, and exiting it turns them back on.
-/// All of this is a no-op in release mode.
-#[doc(hidden)]
+/// Marks an execution block that is known not to be reactive, and suppresses warnings.
 #[derive(Debug)]
 pub struct SpecialNonReactiveZone;
 
@@ -33,6 +23,13 @@ thread_local! {
 }
 
 impl SpecialNonReactiveZone {
+    /// Suppresses warnings about non-reactive accesses until the guard is dropped.
+    pub fn enter() -> SpecialNonReactiveZoneGuard {
+        IS_SPECIAL_ZONE.set(true);
+        SpecialNonReactiveZoneGuard
+    }
+
+    #[cfg(debug_assertions)]
     #[inline(always)]
     pub(crate) fn is_inside() -> bool {
         if cfg!(debug_assertions) {
@@ -41,35 +38,12 @@ impl SpecialNonReactiveZone {
             false
         }
     }
-
-    pub fn enter() -> SpecialNonReactiveZoneGuard {
-        IS_SPECIAL_ZONE.set(true);
-        SpecialNonReactiveZoneGuard
-    }
 }
 
 impl Drop for SpecialNonReactiveZoneGuard {
     fn drop(&mut self) {
         IS_SPECIAL_ZONE.set(false);
     }
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! diagnostics {
-    ($this:ident) => {{
-        #[cfg(debug_assertions)]
-        {
-            AccessDiagnostics {
-                defined_at: $this.defined_at,
-                called_at: std::panic::Location::caller(),
-            }
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            AccessDiagnostics
-        }
-    }};
 }
 
 thread_local! {
