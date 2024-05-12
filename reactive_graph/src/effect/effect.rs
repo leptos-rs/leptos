@@ -1,7 +1,9 @@
 use crate::{
     channel::{channel, Receiver},
     effect::inner::EffectInner,
-    graph::{AnySubscriber, SourceSet, Subscriber, ToAnySubscriber},
+    graph::{
+        AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
+    },
     owner::{Owner, StoredValue},
     traits::Dispose,
 };
@@ -51,6 +53,7 @@ impl Effect {
     {
         let (mut rx, owner, inner) = effect_base();
         let value = Arc::new(RwLock::new(None));
+        let mut first_run = true;
 
         Executor::spawn_local({
             let value = Arc::clone(&value);
@@ -58,14 +61,17 @@ impl Effect {
 
             async move {
                 while rx.next().await.is_some() {
-                    subscriber.clear_sources(&subscriber);
+                    if first_run || subscriber.update_if_necessary() {
+                        first_run = false;
+                        subscriber.clear_sources(&subscriber);
 
-                    let old_value =
-                        mem::take(&mut *value.write().or_poisoned());
-                    let new_value = owner.with_cleanup(|| {
-                        subscriber.with_observer(|| fun(old_value))
-                    });
-                    *value.write().or_poisoned() = Some(new_value);
+                        let old_value =
+                            mem::take(&mut *value.write().or_poisoned());
+                        let new_value = owner.with_cleanup(|| {
+                            subscriber.with_observer(|| fun(old_value))
+                        });
+                        *value.write().or_poisoned() = Some(new_value);
+                    }
                 }
             }
         });
@@ -82,6 +88,7 @@ impl Effect {
         T: Send + Sync + 'static,
     {
         let (mut rx, owner, inner) = effect_base();
+        let mut first_run = true;
         let value = Arc::new(RwLock::new(None));
 
         Executor::spawn({
@@ -90,14 +97,17 @@ impl Effect {
 
             async move {
                 while rx.next().await.is_some() {
-                    subscriber.clear_sources(&subscriber);
+                    if first_run || subscriber.update_if_necessary() {
+                        first_run = false;
+                        subscriber.clear_sources(&subscriber);
 
-                    let old_value =
-                        mem::take(&mut *value.write().or_poisoned());
-                    let new_value = owner.with_cleanup(|| {
-                        subscriber.with_observer(|| fun(old_value))
-                    });
-                    *value.write().or_poisoned() = Some(new_value);
+                        let old_value =
+                            mem::take(&mut *value.write().or_poisoned());
+                        let new_value = owner.with_cleanup(|| {
+                            subscriber.with_observer(|| fun(old_value))
+                        });
+                        *value.write().or_poisoned() = Some(new_value);
+                    }
                 }
             }
         });
