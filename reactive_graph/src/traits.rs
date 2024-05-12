@@ -100,28 +100,30 @@ impl<T: Source + ToAnySource + DefinedAt> Track for T {
             {
                 use crate::diagnostics::SpecialNonReactiveZone;
 
-                //if !SpecialNonReactiveZone::is_inside() {
-                let called_at = Location::caller();
-                let ty = std::any::type_name::<T>();
-                let defined_at = self
-                    .defined_at()
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| String::from("{unknown}"));
-                crate::log_warning(format_args!(
-                    "At {called_at}, you access a {ty} (defined at \
-                     {defined_at}) outside a reactive tracking context. This \
-                     might mean your app is not responding to changes in \
-                     signal values in the way you expect.\n\nHere’s how to \
-                     fix it:\n\n1. If this is inside a `view!` macro, make \
-                     sure you are passing a function, not a value.\n  ❌ NO  \
-                     <p>{{x.get() * 2}}</p>\n  ✅ YES <p>{{move || x.get() * \
-                     2}}</p>\n\n2. If it’s in the body of a component, try \
-                     wrapping this access in a closure: \n  ❌ NO  let y = \
-                     x.get() * 2\n  ✅ YES let y = move || x.get() * 2.\n\n3. \
-                     If you’re *trying* to access the value without tracking, \
-                     use `.get_untracked()` or `.with_untracked()` instead."
-                ));
-                //}
+                if !SpecialNonReactiveZone::is_inside() {
+                    let called_at = Location::caller();
+                    let ty = std::any::type_name::<T>();
+                    let defined_at = self
+                        .defined_at()
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| String::from("{unknown}"));
+                    crate::log_warning(format_args!(
+                        "At {called_at}, you access a {ty} (defined at \
+                         {defined_at}) outside a reactive tracking context. \
+                         This might mean your app is not responding to \
+                         changes in signal values in the way you \
+                         expect.\n\nHere’s how to fix it:\n\n1. If this is \
+                         inside a `view!` macro, make sure you are passing a \
+                         function, not a value.\n  ❌ NO  <p>{{x.get() * \
+                         2}}</p>\n  ✅ YES <p>{{move || x.get() * \
+                         2}}</p>\n\n2. If it’s in the body of a component, \
+                         try wrapping this access in a closure: \n  ❌ NO  \
+                         let y = x.get() * 2\n  ✅ YES let y = move || \
+                         x.get() * 2.\n\n3. If you’re *trying* to access the \
+                         value without tracking, use `.get_untracked()` or \
+                         `.with_untracked()` instead."
+                    ));
+                }
             }
         }
     }
