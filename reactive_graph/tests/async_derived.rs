@@ -18,7 +18,6 @@ async fn arc_async_derived_calculates_eagerly() {
     });
 
     assert_eq!(value.clone().await, 42);
-    std::mem::forget(value);
 }
 
 #[tokio::test]
@@ -41,7 +40,6 @@ async fn arc_async_derived_tracks_signal_change() {
     signal.set(50);
     sleep(Duration::from_millis(5)).await;
     assert_eq!(value.clone().await, 50);
-    std::mem::forget(value);
 }
 
 #[tokio::test]
