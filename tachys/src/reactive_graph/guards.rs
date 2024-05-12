@@ -1,4 +1,8 @@
-//! Implements the [`Render`] and [`RenderHtml`] traits for signal guard types.
+/* The implementations here are no longer valid because the read guards are not Send.
+ * If we switch to using some kind of Send async lock, it would be possible to restore them.
+ *
+ *
+ * //! Implements the [`Render`] and [`RenderHtml`] traits for signal guard types.
 
 use crate::{
     html::attribute::Attribute,
@@ -21,68 +25,67 @@ use std::{
     },
     ops::Deref,
 };
-
 // any changes here should also be made in src/view/primitives.rs
 // TODO should also apply to mapped signal read guards
 macro_rules! render_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
-		paste::paste! {
-			pub struct [<ReadGuard $child_type:camel State>]<R>(R::Text, $child_type) where R: Renderer;
+        paste::paste! {
+            pub struct [<ReadGuard $child_type:camel State>]<R>(R::Text, $child_type) where R: Renderer;
 
-			impl<'a, R: Renderer> Mountable<R> for [<ReadGuard $child_type:camel State>]<R> {
-					fn unmount(&mut self) {
-						self.0.unmount()
-					}
+            impl<'a, R: Renderer> Mountable<R> for [<ReadGuard $child_type:camel State>]<R> {
+                    fn unmount(&mut self) {
+                        self.0.unmount()
+                    }
 
-					fn mount(
-						&mut self,
-						parent: &<R as Renderer>::Element,
-						marker: Option<&<R as Renderer>::Node>,
-					) {
-						R::insert_node(parent, self.0.as_ref(), marker);
-					}
+                    fn mount(
+                        &mut self,
+                        parent: &<R as Renderer>::Element,
+                        marker: Option<&<R as Renderer>::Node>,
+                    ) {
+                        R::insert_node(parent, self.0.as_ref(), marker);
+                    }
 
-					fn insert_before_this(
-						&self,
-						parent: &<R as Renderer>::Element,
-						child: &mut dyn Mountable<R>,
-					) -> bool {
-						child.mount(parent, Some(self.0.as_ref()));
-						true
-					}
-			}
+                    fn insert_before_this(
+                        &self,
+                        parent: &<R as Renderer>::Element,
+                        child: &mut dyn Mountable<R>,
+                    ) -> bool {
+                        child.mount(parent, Some(self.0.as_ref()));
+                        true
+                    }
+            }
 
-			impl<G, R: Renderer> Render<R> for ReadGuard<$child_type, G>
+            impl<G, R: Renderer> Render<R> for ReadGuard<$child_type, G>
             where G: Deref<Target = $child_type>
             {
-				type State = [<ReadGuard $child_type:camel State>]<R>;
+                type State = [<ReadGuard $child_type:camel State>]<R>;
 
 
-				fn build(self) -> Self::State {
-					let node = R::create_text_node(&self.to_string());
-					[<ReadGuard $child_type:camel State>](node, *self)
-				}
+                fn build(self) -> Self::State {
+                    let node = R::create_text_node(&self.to_string());
+                    [<ReadGuard $child_type:camel State>](node, *self)
+                }
 
-				fn rebuild(self, state: &mut Self::State) {
-					let [<ReadGuard $child_type:camel State>](node, this) = state;
-					if &self != this {
-						R::set_text(node, &self.to_string());
-						*this = *self;
-					}
-				}
-			}
+                fn rebuild(self, state: &mut Self::State) {
+                    let [<ReadGuard $child_type:camel State>](node, this) = state;
+                    if &self != this {
+                        R::set_text(node, &self.to_string());
+                        *this = *self;
+                    }
+                }
+            }
 
             impl<G, R> AddAnyAttr<R> for ReadGuard<$child_type, G>
-			where
-				R: Renderer,
+            where
+                R: Renderer,
                 G: Deref<Target = $child_type> + Send
             {
                 type Output<SomeNewAttr: Attribute<R>> = ReadGuard<$child_type, G>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
                     self,
-                    attr: NewAttr,
+                    _attr: NewAttr,
                 ) -> Self::Output<NewAttr>
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,
@@ -93,76 +96,76 @@ macro_rules! render_primitive {
                 }
             }
 
-			impl<G, R> RenderHtml<R> for ReadGuard<$child_type, G>
-			where
-				R: Renderer,
+            impl<G, R> RenderHtml<R> for ReadGuard<$child_type, G>
+            where
+                R: Renderer,
                 G: Deref<Target = $child_type> + Send
-			{
+            {
                 type AsyncOutput = Self;
 
-				const MIN_LENGTH: usize = 0;
+                const MIN_LENGTH: usize = 0;
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-					// add a comment node to separate from previous sibling, if any
-					if matches!(position, Position::NextChildAfterText) {
-						buf.push_str("<!>")
-					}
-					_ = write!(buf, "{}", self);
-					*position = Position::NextChildAfterText;
-				}
+                fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+                    // add a comment node to separate from previous sibling, if any
+                    if matches!(position, Position::NextChildAfterText) {
+                        buf.push_str("<!>")
+                    }
+                    _ = write!(buf, "{}", self);
+                    *position = Position::NextChildAfterText;
+                }
 
-				fn hydrate<const FROM_SERVER: bool>(
-					self,
-					cursor: &Cursor<R>,
-					position: &PositionState,
-				) -> Self::State {
-					if position.get() == Position::FirstChild {
-						cursor.child();
-					} else {
-						cursor.sibling();
-					}
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    cursor: &Cursor<R>,
+                    position: &PositionState,
+                ) -> Self::State {
+                    if position.get() == Position::FirstChild {
+                        cursor.child();
+                    } else {
+                        cursor.sibling();
+                    }
 
-					// separating placeholder marker comes before text node
-					if matches!(position.get(), Position::NextChildAfterText) {
-						cursor.sibling();
-					}
+                    // separating placeholder marker comes before text node
+                    if matches!(position.get(), Position::NextChildAfterText) {
+                        cursor.sibling();
+                    }
 
-					let node = cursor.current();
-					let node = R::Text::cast_from(node)
-						.expect("couldn't cast text node from node");
+                    let node = cursor.current();
+                    let node = R::Text::cast_from(node)
+                        .expect("couldn't cast text node from node");
 
-					if !FROM_SERVER {
-						R::set_text(&node, &self.to_string());
-					}
-					position.set(Position::NextChildAfterText);
+                    if !FROM_SERVER {
+                        R::set_text(&node, &self.to_string());
+                    }
+                    position.set(Position::NextChildAfterText);
 
-					[<ReadGuard $child_type:camel State>](node, *self)
-				}
+                    [<ReadGuard $child_type:camel State>](node, *self)
+                }
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
-			}
+            }
 
-		    impl<'a, G> ToTemplate for ReadGuard<$child_type, G>
+            impl<'a, G> ToTemplate for ReadGuard<$child_type, G>
             {
-				const TEMPLATE: &'static str = " <!>";
+                const TEMPLATE: &'static str = " <!>";
 
-				fn to_template(
-					buf: &mut String,
-					_class: &mut String,
-					_style: &mut String,
-					_inner_html: &mut String,
-					position: &mut Position,
-				) {
-					if matches!(*position, Position::NextChildAfterText) {
-						buf.push_str("<!>")
-					}
-					buf.push(' ');
-					*position = Position::NextChildAfterText;
-				}
-			}
-		}
+                fn to_template(
+                    buf: &mut String,
+                    _class: &mut String,
+                    _style: &mut String,
+                    _inner_html: &mut String,
+                    position: &mut Position,
+                ) {
+                    if matches!(*position, Position::NextChildAfterText) {
+                        buf.push_str("<!>")
+                    }
+                    buf.push(' ');
+                    *position = Position::NextChildAfterText;
+                }
+            }
+        }
     )*
   };
 }
@@ -323,4 +326,4 @@ impl<R: Renderer> Mountable<R> for ReadGuardStringState<R> {
         child.mount(parent, Some(self.node.as_ref()));
         true
     }
-}
+}*/
