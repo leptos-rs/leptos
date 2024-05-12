@@ -1,4 +1,6 @@
 use super::attribute::{Attribute, NextAttribute};
+#[cfg(feature = "nightly")]
+use crate::view::static_types::Static;
 use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
@@ -409,6 +411,80 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0.into(), self.1.into())
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'a, const V: &'static str, R> IntoStyle<R> for (&'a str, Static<V>)
+where
+    R: DomRenderer,
+{
+    type State = ();
+    type Cloneable = (Arc<str>, Static<V>);
+    type CloneableOwned = (Arc<str>, Static<V>);
+
+    fn to_html(self, style: &mut String) {
+        let (name, _) = self;
+        style.push_str(name);
+        style.push(':');
+        style.push_str(V);
+        style.push(';');
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        let (name, _) = &self;
+        let style = R::style(el);
+        R::set_css_property(&style, name, V);
+    }
+
+    fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0.into(), self.1)
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0.into(), self.1)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'a, const V: &'static str, R> IntoStyle<R> for (Arc<str>, Static<V>)
+where
+    R: DomRenderer,
+{
+    type State = ();
+    type Cloneable = (Arc<str>, Static<V>);
+    type CloneableOwned = (Arc<str>, Static<V>);
+
+    fn to_html(self, style: &mut String) {
+        let (name, _) = self;
+        style.push_str(&name);
+        style.push(':');
+        style.push_str(V);
+        style.push(';');
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(self, _el: &R::Element) -> Self::State {
+    }
+
+    fn build(self, el: &R::Element) -> Self::State {
+        let (name, _) = &self;
+        let style = R::style(el);
+        R::set_css_property(&style, &name, V);
+    }
+
+    fn rebuild(self, _state: &mut Self::State) {}
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        (self.0, self.1)
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        (self.0, self.1)
     }
 }
 
