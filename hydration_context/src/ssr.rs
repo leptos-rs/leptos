@@ -149,11 +149,11 @@ impl SharedContext for SsrSharedContext {
     }
 
     fn get_is_hydrating(&self) -> bool {
-        self.is_hydrating.load(Ordering::Relaxed)
+        self.is_hydrating.load(Ordering::SeqCst)
     }
 
     fn set_is_hydrating(&self, is_hydrating: bool) {
-        self.is_hydrating.store(is_hydrating, Ordering::Relaxed)
+        self.is_hydrating.store(is_hydrating, Ordering::SeqCst)
     }
 
     fn errors(&self, boundary_id: &SerializedDataId) -> Vec<(ErrorId, Error)> {

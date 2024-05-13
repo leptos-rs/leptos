@@ -1,0 +1,94 @@
+[package]
+name = "todo_app_sqlite_axum"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+console_log = "1.0"
+console_error_panic_hook = "0.1"
+futures = "0.3"
+http = "1.0"
+leptos = { path = "../../leptos", features = ["tracing", "experimental-islands"] }
+server_fn = { path = "../../server_fn", features = ["serde-lite"] }
+leptos_axum = { path = "../../integrations/axum", optional = true }
+log = "0.4"
+simple_logger = "4.0"
+serde = { version = "1", features = ["derive"] }
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+sqlx = { version = "0.7", features = [
+	"runtime-tokio-rustls",
+	"sqlite",
+], optional = true }
+thiserror = "1.0"
+wasm-bindgen = "0.2"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-subscriber-wasm = "0.1"
+
+[features]
+hydrate = ["leptos/hydrate"]
+ssr = [
+	"dep:axum",
+	"dep:tower",
+	"dep:tower-http",
+	"dep:tokio",
+	"dep:sqlx",
+	"leptos/ssr",
+	"dep:leptos_axum",
+]
+
+[package.metadata.cargo-all-features]
+denylist = ["axum", "tower", "tower-http", "tokio", "sqlx", "leptos_axum"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
+output-name = "todo_app_sqlite_axum"
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site-root = "target/site"
+# The site-root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg
+site-pkg-dir = "pkg"
+# [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
+style-file = "./style.css"
+# [Optional] Files in the asset-dir will be copied to the site-root directory
+assets-dir = "public"
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+site-addr = "127.0.0.1:3000"
+# The port to use for automatic reload monitoring
+reload-port = 3001
+# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
+end2end-cmd = "cargo make test-ui"
+end2end-dir = "e2e"
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults"
+# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
+watch = false
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"
+# The features to use when compiling the bin target
+#
+# Optional. Can be over-ridden with the command line parameter --bin-features
+bin-features = ["ssr"]
+
+# If the --no-default-features flag should be used when compiling the bin target
+#
+# Optional. Defaults to false.
+bin-default-features = false
+
+# The features to use when compiling the lib target
+#
+# Optional. Can be over-ridden with the command line parameter --lib-features
+lib-features = ["hydrate"]
+
+# If the --no-default-features flag should be used when compiling the lib target
+#
+# Optional. Defaults to false.
+lib-default-features = false
