@@ -263,6 +263,11 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
+#[doc(hidden)]
+pub use wasm_bindgen; // used in islands
+#[doc(hidden)]
+pub use web_sys; // used in islands
+
 /*mod additional_attributes;
 pub use additional_attributes::*;
 mod await_;
