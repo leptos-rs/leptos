@@ -13,18 +13,18 @@ use tachys::{
 
 /// The most common type for the `children` property on components,
 /// which can only be called once.
-pub type Children = Box<dyn FnOnce() -> AnyView<Dom>>;
+pub type Children = Box<dyn FnOnce() -> AnyView<Dom> + Send>;
 
 /// A type for the `children` property on components that can be called
 /// more than once.
-pub type ChildrenFn = Arc<dyn Fn() -> AnyView<Dom>>;
+pub type ChildrenFn = Arc<dyn Fn() -> AnyView<Dom> + Send + Sync>;
 
 /// A type for the `children` property on components that can be called
 /// more than once, but may mutate the children.
-pub type ChildrenFnMut = Box<dyn FnMut() -> AnyView<Dom>>;
+pub type ChildrenFnMut = Box<dyn FnMut() -> AnyView<Dom> + Send>;
 
 // This is to still support components that accept `Box<dyn Fn() -> AnyView>` as a children.
-type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom>>;
+type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom> + Send>;
 
 /// This trait can be used when constructing a component that takes children without needing
 /// to know exactly what children type the component expects. This is used internally by the
@@ -116,7 +116,7 @@ where
 
 impl<F, C> ToChildren<F> for ChildrenFn
 where
-    F: Fn() -> C + Send + 'static,
+    F: Fn() -> C + Send + Sync + 'static,
     C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
@@ -138,7 +138,7 @@ where
 
 impl<F, C> ToChildren<F> for BoxedChildrenFn
 where
-    F: Fn() -> C + 'static,
+    F: Fn() -> C + Send + 'static,
     C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
