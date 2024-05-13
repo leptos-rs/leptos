@@ -8,6 +8,43 @@ use crate::{
 use any_spawner::Executor;
 use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 
+/// An action that synchronizes multiple imperative `async` calls to the reactive system,
+/// tracking the progress of each one.
+///
+/// Where an [`Action`](super::Action) fires a single call, a `MultiAction` allows you to
+/// keep track of multiple in-flight actions.
+///
+/// If you’re trying to load data by running an `async` function reactively, you probably
+/// want to use an [`AsyncDerived`](crate::computed::AsyncDerived) instead.
+/// If you’re trying to occasionally run an `async` function in response to something
+/// like a user adding a task to a todo list, you’re in the right place.
+///
+/// The reference-counted, `Clone` (but not `Copy` version of a `MultiAction` is an [`ArcMultiAction`].
+///
+/// ```rust
+/// # use reactive_graph::actions::*;
+/// # use reactive_graph::prelude::*;
+/// # tokio_test::block_on(async move {
+/// # any_spawner::Executor::init_tokio();
+/// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+/// async fn send_new_todo_to_api(task: String) -> usize {
+///   // do something...
+///   // return a task id
+///   42
+/// }
+/// let add_todo = MultiAction::new(|task: &String| {
+///   // `task` is given as `&String` because its value is available in `input`
+///   send_new_todo_to_api(task.clone())
+/// });
+///
+/// add_todo.dispatch("Buy milk".to_string());
+/// add_todo.dispatch("???".to_string());
+/// add_todo.dispatch("Profit!!!".to_string());
+///
+/// let submissions = add_todo.submissions();
+/// assert_eq!(submissions.with(Vec::len), 3);
+/// # });
+/// ```
 pub struct MultiAction<I, O>
 where
     I: 'static,
@@ -63,6 +100,32 @@ where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
 {
+    /// Creates a new multi-action.
+    ///
+    /// The input to the `async` function should always be a single value,
+    /// but it can be of any type. The argument is always passed by reference to the
+    /// function, because it is stored in [Submission::input] as well.
+    ///
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// // if there's a single argument, just use that
+    /// let action1 = MultiAction::new(|input: &String| {
+    ///     let input = input.clone();
+    ///     async move { todo!() }
+    /// });
+    ///
+    /// // if there are no arguments, use the unit type `()`
+    /// let action2 = MultiAction::new(|input: &()| async { todo!() });
+    ///
+    /// // if there are multiple arguments, use a tuple
+    /// let action3 =
+    ///     MultiAction::new(|input: &(usize, String)| async { todo!() });
+    /// # });
+    /// ```
     #[track_caller]
     pub fn new<Fut>(
         action_fn: impl Fn(&I) -> Fut + Send + Sync + 'static,
@@ -78,6 +141,48 @@ where
     }
 
     /// Calls the `async` function with a reference to the input type as its argument.
+    ///
+    /// This can be called any number of times: each submission will be dispatched, running
+    /// concurrently, and its status can be checked via the
+    /// [`submissions()`](MultiAction::submissions) signal.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = MultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let submissions = add_todo.submissions();
+    /// let pending_submissions = move || {
+    ///   submissions.with(|subs| subs.iter().filter(|sub| sub.pending().get()).count())
+    /// };
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// assert_eq!(submissions.with(Vec::len), 1);
+    /// assert_eq!(pending_submissions(), 1);
+    ///
+    /// add_todo.dispatch("???".to_string());
+    /// add_todo.dispatch("Profit!!!".to_string());
+    ///
+    /// assert_eq!(submissions.with(Vec::len), 3);
+    /// assert_eq!(pending_submissions(), 3);
+    ///
+    /// // when submissions resolve, they are not removed from the set
+    /// // however, their `pending` signal is now `false`, and this can be used to filter them
+    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    /// assert_eq!(submissions.with(Vec::len), 3);
+    /// assert_eq!(pending_submissions(), 0);
+    /// # });
+    /// ```
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
             self.inner.with_value(|inner| inner.dispatch(input));
@@ -86,13 +191,72 @@ where
 
     /// Synchronously adds a submission with the given value.
     ///
+    /// This takes the output value, rather than the input, because it is adding a result, not an
+    /// input.
+    ///
     /// This can be useful for use cases like handling errors, where the error can already be known
     /// on the client side.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = MultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let submissions = add_todo.submissions();
+    /// let pending_submissions = move || {
+    ///   submissions.with(|subs| subs.iter().filter(|sub| sub.pending().get()).count())
+    /// };
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// assert_eq!(submissions.with(Vec::len), 1);
+    /// assert_eq!(pending_submissions(), 1);
+    ///
+    /// add_todo.dispatch_sync(42);
+    ///
+    /// assert_eq!(submissions.with(Vec::len), 2);
+    /// assert_eq!(pending_submissions(), 1);
+    /// # });
+    /// ```
     pub fn dispatch_sync(&self, value: O) {
         self.inner.with_value(|inner| inner.dispatch_sync(value));
     }
 
     /// The set of all submissions to this multi-action.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = MultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let submissions = add_todo.submissions();
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// add_todo.dispatch("???".to_string());
+    /// add_todo.dispatch("Profit!!!".to_string());
+    ///
+    /// assert_eq!(submissions.with(Vec::len), 3);
+    /// # });
+    /// ```
     pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>> {
         self.inner
             .try_with_value(|inner| inner.submissions())
@@ -101,6 +265,35 @@ where
     }
 
     /// How many times an action has successfully resolved.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = MultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let version = add_todo.version();
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// add_todo.dispatch("???".to_string());
+    /// add_todo.dispatch("Profit!!!".to_string());
+    ///
+    /// assert_eq!(version.get(), 0);
+    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    ///
+    /// // when they've all resolved
+    /// assert_eq!(version.get(), 3);
+    /// # });
+    /// ```
     pub fn version(&self) -> RwSignal<usize> {
         self.inner
             .try_with_value(|inner| inner.version())
@@ -109,6 +302,43 @@ where
     }
 }
 
+/// An action that synchronizes multiple imperative `async` calls to the reactive system,
+/// tracking the progress of each one.
+///
+/// Where an [`Action`](super::Action) fires a single call, a `MultiAction` allows you to
+/// keep track of multiple in-flight actions.
+///
+/// If you’re trying to load data by running an `async` function reactively, you probably
+/// want to use an [`AsyncDerived`](crate::computed::AsyncDerived) instead.
+/// If you’re trying to occasionally run an `async` function in response to something
+/// like a user adding a task to a todo list, you’re in the right place.
+///
+/// The arena-allocated, `Copy` version of an `ArcMultiAction` is a [`MultiAction`].
+///
+/// ```rust
+/// # use reactive_graph::actions::*;
+/// # use reactive_graph::prelude::*;
+/// # tokio_test::block_on(async move {
+/// # any_spawner::Executor::init_tokio();
+/// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+/// async fn send_new_todo_to_api(task: String) -> usize {
+///   // do something...
+///   // return a task id
+///   42
+/// }
+/// let add_todo = ArcMultiAction::new(|task: &String| {
+///   // `task` is given as `&String` because its value is available in `input`
+///   send_new_todo_to_api(task.clone())
+/// });
+///
+/// add_todo.dispatch("Buy milk".to_string());
+/// add_todo.dispatch("???".to_string());
+/// add_todo.dispatch("Profit!!!".to_string());
+///
+/// let submissions = add_todo.submissions();
+/// assert_eq!(submissions.with(Vec::len), 3);
+/// # });
+/// ```
 pub struct ArcMultiAction<I, O>
 where
     I: 'static,
@@ -151,9 +381,36 @@ where
 
 impl<I, O> ArcMultiAction<I, O>
 where
-    I: 'static,
-    O: 'static,
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
 {
+    /// Creates a new multi-action.
+    ///
+    /// The input to the `async` function should always be a single value,
+    /// but it can be of any type. The argument is always passed by reference to the
+    /// function, because it is stored in [Submission::input] as well.
+    ///
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// // if there's a single argument, just use that
+    /// let action1 = ArcMultiAction::new(|input: &String| {
+    ///     let input = input.clone();
+    ///     async move { todo!() }
+    /// });
+    ///
+    /// // if there are no arguments, use the unit type `()`
+    /// let action2 = ArcMultiAction::new(|input: &()| async { todo!() });
+    ///
+    /// // if there are multiple arguments, use a tuple
+    /// let action3 =
+    ///     ArcMultiAction::new(|input: &(usize, String)| async { todo!() });
+    /// # });
+    /// ```
+    #[track_caller]
     pub fn new<Fut>(
         action_fn: impl Fn(&I) -> Fut + Send + Sync + 'static,
     ) -> Self
@@ -172,6 +429,51 @@ where
     }
 
     /// Calls the `async` function with a reference to the input type as its argument.
+    ///
+    /// This can be called any number of times: each submission will be dispatched, running
+    /// concurrently, and its status can be checked via the
+    /// [`submissions()`](MultiAction::submissions) signal.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = ArcMultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let submissions = add_todo.submissions();
+    /// let pending_submissions = {
+    ///     let submissions = submissions.clone();
+    ///     move || {
+    ///         submissions.with(|subs| subs.iter().filter(|sub| sub.pending().get()).count())
+    ///     }
+    /// };
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// assert_eq!(submissions.with(Vec::len), 1);
+    /// assert_eq!(pending_submissions(), 1);
+    ///
+    /// add_todo.dispatch("???".to_string());
+    /// add_todo.dispatch("Profit!!!".to_string());
+    ///
+    /// assert_eq!(submissions.with(Vec::len), 3);
+    /// assert_eq!(pending_submissions(), 3);
+    ///
+    /// // when submissions resolve, they are not removed from the set
+    /// // however, their `pending` signal is now `false`, and this can be used to filter them
+    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    /// assert_eq!(submissions.with(Vec::len), 3);
+    /// assert_eq!(pending_submissions(), 0);
+    /// # });
+    /// ```
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
             let fut = (self.action_fn)(&input);
@@ -188,7 +490,7 @@ where
 
             let version = self.version.clone();
 
-            Executor::spawn_local(async move {
+            Executor::spawn(async move {
                 let new_value = fut.await;
                 let canceled = submission.canceled.get_untracked();
                 if !canceled {
@@ -203,13 +505,50 @@ where
 
     /// Synchronously adds a submission with the given value.
     ///
+    /// This takes the output value, rather than the input, because it is adding a result, not an
+    /// input.
+    ///
     /// This can be useful for use cases like handling errors, where the error can already be known
     /// on the client side.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = ArcMultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let submissions = add_todo.submissions();
+    /// let pending_submissions = {
+    ///     let submissions = submissions.clone();
+    ///     move || {
+    ///         submissions.with(|subs| subs.iter().filter(|sub| sub.pending().get()).count())
+    ///     }
+    /// };
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// assert_eq!(submissions.with(Vec::len), 1);
+    /// assert_eq!(pending_submissions(), 1);
+    ///
+    /// add_todo.dispatch_sync(42);
+    ///
+    /// assert_eq!(submissions.with(Vec::len), 2);
+    /// assert_eq!(pending_submissions(), 1);
+    /// # });
+    /// ```
     pub fn dispatch_sync(&self, value: O) {
         let submission = ArcSubmission {
             input: ArcRwSignal::new(None),
             value: ArcRwSignal::new(Some(value)),
-            pending: ArcRwSignal::new(true),
+            pending: ArcRwSignal::new(false),
             canceled: ArcRwSignal::new(false),
         };
 
@@ -219,11 +558,65 @@ where
     }
 
     /// The set of all submissions to this multi-action.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = ArcMultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let submissions = add_todo.submissions();
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// add_todo.dispatch("???".to_string());
+    /// add_todo.dispatch("Profit!!!".to_string());
+    ///
+    /// assert_eq!(submissions.with(Vec::len), 3);
+    /// # });
+    /// ```
     pub fn submissions(&self) -> ArcReadSignal<Vec<ArcSubmission<I, O>>> {
         self.submissions.read_only()
     }
 
     /// How many times an action has successfully resolved.
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// async fn send_new_todo_to_api(task: String) -> usize {
+    ///   // do something...
+    ///   // return a task id
+    ///   42
+    /// }
+    /// let add_todo = ArcMultiAction::new(|task: &String| {
+    ///   // `task` is given as `&String` because its value is available in `input`
+    ///   send_new_todo_to_api(task.clone())
+    /// });
+    ///
+    /// let version = add_todo.version();
+    ///
+    /// add_todo.dispatch("Buy milk".to_string());
+    /// add_todo.dispatch("???".to_string());
+    /// add_todo.dispatch("Profit!!!".to_string());
+    ///
+    /// assert_eq!(version.get(), 0);
+    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    ///
+    /// // when they've all resolved
+    /// assert_eq!(version.get(), 3);
+    /// # });
+    /// ```
     pub fn version(&self) -> ArcRwSignal<usize> {
         self.version.clone()
     }
@@ -251,23 +644,37 @@ where
     I: 'static,
     O: 'static,
 {
+    /// The current argument that was dispatched to the `async` function.
+    /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    #[track_caller]
     pub fn input(&self) -> ArcReadSignal<Option<I>> {
         self.input.read_only()
     }
 
+    /// The most recent return value of the `async` function.
+    #[track_caller]
     pub fn value(&self) -> ArcReadSignal<Option<O>> {
         self.value.read_only()
     }
 
+    /// Whether this submision is still waiting to resolve.
+    #[track_caller]
     pub fn pending(&self) -> ArcReadSignal<bool> {
         self.pending.read_only()
     }
 
+    /// Whether this submission has been canceled.
+    #[track_caller]
     pub fn canceled(&self) -> ArcReadSignal<bool> {
         self.canceled.read_only()
     }
 
+    /// Cancels the submission. This will not necessarily prevent the `Future`
+    /// from continuing to run, but it will update the returned value.
+    #[track_caller]
     pub fn cancel(&self) {
+        // TODO if we set these up to race against a cancel signal, we could actually drop the
+        // futures
         self.canceled.try_set(true);
     }
 }
@@ -325,22 +732,34 @@ where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
 {
+    /// The current argument that was dispatched to the `async` function.
+    /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    #[track_caller]
     pub fn input(&self) -> ReadSignal<Option<I>> {
         self.input.read_only()
     }
 
+    /// The most recent return value of the `async` function.
+    #[track_caller]
     pub fn value(&self) -> ReadSignal<Option<O>> {
         self.value.read_only()
     }
 
+    /// Whether this submision is still waiting to resolve.
+    #[track_caller]
     pub fn pending(&self) -> ReadSignal<bool> {
         self.pending.read_only()
     }
 
+    /// Whether this submission has been canceled.
+    #[track_caller]
     pub fn canceled(&self) -> ReadSignal<bool> {
         self.canceled.read_only()
     }
 
+    /// Cancels the submission. This will not necessarily prevent the `Future`
+    /// from continuing to run, but it will update the returned value.
+    #[track_caller]
     pub fn cancel(&self) {
         self.canceled.try_set(true);
     }
