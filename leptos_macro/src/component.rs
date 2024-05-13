@@ -236,7 +236,7 @@ impl ToTokens for Model {
         let body_name = unmodified_fn_name_from_fn_name(&body_name);
         let body_expr = if *is_island {
             quote! {
-                ::leptos::reactive_graph::Owner::with_hydration(move || {
+                ::leptos::reactive_graph::owner::Owner::with_hydration(move || {
                     #body_name(#prop_names)
                 })
             }
@@ -447,9 +447,9 @@ impl ToTokens for Model {
             // TODO
 
             quote! {
-                #[::leptos::tachys::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
+                #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
                 #[allow(non_snake_case)]
-                pub fn #hydrate_fn_name(el: ::leptos::tachys::web_sys::HtmlElement) {
+                pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
                     #deserialize_island_props
                     let island = #name(#island_props);
                     let state = island.hydrate_from_position::<true>(&el, ::leptos::tachys::view::Position::Current);
