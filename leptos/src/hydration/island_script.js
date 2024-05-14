@@ -1,4 +1,4 @@
-(function (pkg_path, output_name, wasm_output_name) {
+((pkg_path, output_name, wasm_output_name) => {
 	function idle(c) {
 		if ("requestIdleCallback" in window) {
 			window.requestIdleCallback(c);
@@ -6,20 +6,55 @@
 			c();
 		}
 	}
+	function islandTree(rootNode) {
+		const tree = [];
+
+		function traverse(node, parent) {
+			if (node.nodeType === Node.ELEMENT_NODE) {
+				if(node.tagName.toLowerCase() === 'leptos-island') {
+					const children = [];
+					const id = node.dataset.component || null;
+					const data = { id, node, children };
+					
+					for(const child of node.children) {
+						traverse(child, children);
+					}
+
+					(parent || tree).push(data);
+				} else {
+					for(const child of node.children) {
+						traverse(child, parent);
+					};
+				}
+			}
+		}
+
+		traverse(rootNode, null);
+
+		return { el: null, id: null, children: tree };
+	}
+	function hydrateIsland(el, id, mod) {
+		const islandFn = mod[`_island_${id}`];
+		if (islandFn) {
+			islandFn(el);
+		} else {
+			console.warn(`Could not find WASM function for the island ${l}.`);
+		}
+	}
+	function hydrateIslands(entry, mod) {
+		if(entry.node) {
+			hydrateIsland(entry.node, entry.id, mod);
+		}
+		for (const island of entry.children) {
+			hydrateIslands(island, mod);
+		}
+	}
 	idle(() => {
 		import(`/${pkg_path}/${output_name}.js`)
 			.then(mod => {
 				mod.default(`/${pkg_path}/${wasm_output_name}.wasm`).then(() => {
 					mod.hydrate();
-					for (let e of document.querySelectorAll("leptos-island")) {
-						const l = e.dataset.component;
-						const islandFn = mod["_island_" + l];
-						if (islandFn) {
-							islandFn(e);
-						} else {
-							console.warn(`Could not find WASM function for the island ${l}.`);
-						}
-					}
+					hydrateIslands(islandTree(document.body, null), mod);
 				});
 			})
 	});

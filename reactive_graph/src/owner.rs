@@ -93,6 +93,10 @@ impl Owner {
         }
     }
 
+    pub fn set(&self) {
+        OWNER.with_borrow_mut(|owner| *owner = Some(self.clone()));
+    }
+
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         let prev = {
             OWNER.with(|o| {
