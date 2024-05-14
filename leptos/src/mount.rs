@@ -125,6 +125,21 @@ where
     }
 }
 
+/// Runs the provided closure and mounts the result to the provided element.
+#[cfg(feature = "hydrate")]
+pub fn hydrate_islands() {
+    use hydration_context::HydrateSharedContext;
+    use std::sync::Arc;
+
+    // use wasm-bindgen-futures to drive the reactive system
+    Executor::init_wasm_bindgen();
+
+    // create a new reactive owner and use it as the root node to run the app
+    let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
+    owner.set();
+    std::mem::forget(owner);
+}
+
 /// On drop, this will clean up the reactive [`Owner`] and unmount the view created by
 /// [`mount_to`].
 ///
