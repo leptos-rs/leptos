@@ -8,6 +8,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherFuture, EitherOf3};
+use futures::FutureExt;
 use leptos::{component, oco::Oco, IntoView};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -257,8 +258,11 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-            todo!()
-            // self.choose().to_html_with_buf(buf, position);
+            let route = Box::pin(self.choose());
+            route
+                .now_or_never()
+                .expect("async route used in SSR")
+                .to_html_with_buf(buf, position);
         }
     }
 
@@ -269,9 +273,11 @@ where
     ) where
         Self: Sized,
     {
-        todo!()
-        //    self.choose()
-        //       .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        let route = Box::pin(self.choose());
+        route
+            .now_or_never()
+            .expect("async route used in SSR")
+            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -279,7 +285,21 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        todo!()
-        // self.choose().hydrate::<FROM_SERVER>(cursor, position)
+        let spawned_path = self.path.get_untracked();
+        let current_path = self.path.clone();
+        let location = self.location.clone();
+        let route = Box::pin(self.choose());
+        match route.now_or_never() {
+            None => {
+                todo!()
+            }
+            Some(matched) => Rc::new(RefCell::new(
+                match matched {
+                    Either::Left(inner) => EitherOf3::B(inner),
+                    Either::Right(inner) => EitherOf3::C(inner),
+                }
+                .hydrate::<FROM_SERVER>(cursor, position),
+            )),
+        }
     }
 }
