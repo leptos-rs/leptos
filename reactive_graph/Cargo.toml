@@ -36,6 +36,7 @@ nightly = []
 serde = ["dep:serde"]
 tracing = ["dep:tracing"]
 hydration = ["dep:hydration_context"]
+effects = [] # whether to run effects: should be disabled for something like server rendering
 sandboxed-arenas = []
 
 [package.metadata.docs.rs]
