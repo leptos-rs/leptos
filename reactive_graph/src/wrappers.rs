@@ -196,14 +196,16 @@ pub mod read {
             fun: impl FnOnce(&Self::Value) -> U,
         ) -> Option<U> {
             self.inner
-                .try_with_value(|inner| match &inner {
+                // clone the inner Arc type and release the lock
+                // prevents deadlocking if the derived value includes taking a lock on the arena
+                .try_with_value(Clone::clone)
+                .and_then(|inner| match &inner {
                     SignalTypes::ReadSignal(i) => i.try_with_untracked(fun),
                     SignalTypes::Memo(i) => i.try_with_untracked(fun),
                     SignalTypes::DerivedSignal(i) => {
                         Some(untrack(|| fun(&i())))
                     }
                 })
-                .flatten()
         }
     }
 
@@ -218,12 +220,14 @@ pub mod read {
             fun: impl FnOnce(&Self::Value) -> U,
         ) -> Option<U> {
             self.inner
-                .try_with_value(|inner| match &inner {
+                // clone the inner Arc type and release the lock
+                // prevents deadlocking if the derived value includes taking a lock on the arena
+                .try_with_value(Clone::clone)
+                .and_then(|inner| match &inner {
                     SignalTypes::ReadSignal(i) => i.try_with(fun),
                     SignalTypes::Memo(i) => i.try_with(fun),
                     SignalTypes::DerivedSignal(i) => Some(fun(&i())),
                 })
-                .flatten()
         }
     }
 
