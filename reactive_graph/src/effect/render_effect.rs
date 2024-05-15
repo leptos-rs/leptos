@@ -44,39 +44,42 @@ where
         initial_value: Option<T>,
     ) -> Self {
         let (observer, mut rx) = channel();
-        let value = Arc::new(RwLock::new(None));
+        let value = Arc::new(RwLock::new(None::<T>));
         let owner = Owner::new();
         let inner = Arc::new(RwLock::new(EffectInner {
             observer,
             sources: SourceSet::new(),
         }));
 
-        let initial_value = Some(owner.with(|| {
-            inner
-                .to_any_subscriber()
-                .with_observer(|| fun(initial_value))
-        }));
-        *value.write().or_poisoned() = initial_value;
+        #[cfg(feature = "effects")]
+        {
+            let initial_value = Some(owner.with(|| {
+                inner
+                    .to_any_subscriber()
+                    .with_observer(|| fun(initial_value))
+            }));
+            *value.write().or_poisoned() = initial_value;
 
-        Executor::spawn_local({
-            let value = Arc::clone(&value);
-            let subscriber = inner.to_any_subscriber();
+            Executor::spawn_local({
+                let value = Arc::clone(&value);
+                let subscriber = inner.to_any_subscriber();
 
-            async move {
-                while rx.next().await.is_some() {
-                    if subscriber.update_if_necessary() {
-                        subscriber.clear_sources(&subscriber);
+                async move {
+                    while rx.next().await.is_some() {
+                        if subscriber.update_if_necessary() {
+                            subscriber.clear_sources(&subscriber);
 
-                        let old_value =
-                            mem::take(&mut *value.write().or_poisoned());
-                        let new_value = owner.with_cleanup(|| {
-                            subscriber.with_observer(|| fun(old_value))
-                        });
-                        *value.write().or_poisoned() = Some(new_value);
+                            let old_value =
+                                mem::take(&mut *value.write().or_poisoned());
+                            let new_value = owner.with_cleanup(|| {
+                                subscriber.with_observer(|| fun(old_value))
+                            });
+                            *value.write().or_poisoned() = Some(new_value);
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
         RenderEffect { value, inner }
     }
 
