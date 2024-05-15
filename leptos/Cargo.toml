@@ -54,12 +54,13 @@ send_wrapper = "0.6.0"
 [features]
 default = ["serde"]
 hydration = ["leptos_server/hydration", "hydration_context/browser"]
-csr = ["leptos_macro/csr", "leptos_reactive/csr"]
+csr = ["leptos_macro/csr", "leptos_reactive/csr", "reactive_graph/effects"]
 hydrate = [
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "hydration",
   "tachys/hydrate",
+  "reactive_graph/effects"
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]

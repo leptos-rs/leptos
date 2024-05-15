@@ -52,9 +52,10 @@ impl Effect {
         T: 'static,
     {
         let (mut rx, owner, inner) = effect_base();
-        let value = Arc::new(RwLock::new(None));
+        let value = Arc::new(RwLock::new(None::<T>));
         let mut first_run = true;
 
+        #[cfg(feature = "effects")]
         Executor::spawn_local({
             let value = Arc::clone(&value);
             let subscriber = inner.to_any_subscriber();
@@ -89,8 +90,9 @@ impl Effect {
     {
         let (mut rx, owner, inner) = effect_base();
         let mut first_run = true;
-        let value = Arc::new(RwLock::new(None));
+        let value = Arc::new(RwLock::new(None::<T>));
 
+        #[cfg(feature = "effects")]
         Executor::spawn({
             let value = Arc::clone(&value);
             let subscriber = inner.to_any_subscriber();
