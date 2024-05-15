@@ -11,6 +11,8 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
 };
+#[cfg(feature = "ssr")]
+use std::{future::Future, pin::Pin};
 
 pub struct AnyView<R>
 where
@@ -33,6 +35,9 @@ where
     to_html_async_ooo: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
+    #[cfg(feature = "ssr")]
+    resolve:
+        fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView<R>> + Send>>,
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
     hydrate_from_server:
@@ -135,6 +140,14 @@ where
         let value = Box::new(self) as Box<dyn Any + Send>;
 
         #[cfg(feature = "ssr")]
+        let resolve = |value: Box<dyn Any>| {
+            let value = value
+                .downcast::<T>()
+                .expect("AnyView::resolve could not be downcast");
+            Box::pin(async move { value.resolve().await.into_any() })
+                as Pin<Box<dyn Future<Output = AnyView<R>> + Send>>
+        };
+        #[cfg(feature = "ssr")]
         let to_html =
             |value: Box<dyn Any>, buf: &mut String, position: &mut Position| {
                 let value = value
@@ -224,6 +237,8 @@ where
             build,
             rebuild,
             #[cfg(feature = "ssr")]
+            resolve,
+            #[cfg(feature = "ssr")]
             html_len,
             #[cfg(feature = "ssr")]
             to_html,
@@ -276,8 +291,15 @@ where
     type AsyncOutput = Self;
 
     async fn resolve(self) -> Self::AsyncOutput {
-        // we probably do need a function for this
-        todo!()
+        #[cfg(feature = "ssr")]
+        {
+            (self.resolve)(self.value).await
+        }
+        #[cfg(not(feature = "ssr"))]
+        panic!(
+            "You are rendering AnyView to HTML without the `ssr` feature \
+             enabled."
+        );
     }
 
     const MIN_LENGTH: usize = 0;
