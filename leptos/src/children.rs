@@ -7,21 +7,38 @@ use tachys::{
     renderer::dom::Dom,
     view::{
         any_view::{AnyView, IntoAny},
+        fragment::{Fragment, IntoFragment},
         RenderHtml,
     },
 };
 
 /// The most common type for the `children` property on components,
 /// which can only be called once.
+///
+/// This does not support iterating over individual nodes within the children.
+/// To iterate over children, use [`ChildrenFragment`].
 pub type Children = Box<dyn FnOnce() -> AnyView<Dom> + Send>;
+
+/// A type for the `children` property on components that can be called only once,
+/// and provides a collection of all the children passed to this component.
+pub type ChildrenFragment = Box<dyn FnOnce() -> Fragment<Dom> + Send>;
 
 /// A type for the `children` property on components that can be called
 /// more than once.
 pub type ChildrenFn = Arc<dyn Fn() -> AnyView<Dom> + Send + Sync>;
 
+/// A type for the `children` property on components that can be called more than once,
+/// and provides a collection of all the children passed to this component.
+pub type ChildrenFragmentFn = Arc<dyn Fn() -> Fragment<Dom> + Send>;
+
 /// A type for the `children` property on components that can be called
 /// more than once, but may mutate the children.
 pub type ChildrenFnMut = Box<dyn FnMut() -> AnyView<Dom> + Send>;
+
+/// A type for the `children` property on components that can be called more than once,
+/// but may mutate the children, and provides a collection of all the children
+/// passed to this component.
+pub type ChildrenFragmentMut = Box<dyn FnMut() -> Fragment<Dom> + Send>;
 
 // This is to still support components that accept `Box<dyn Fn() -> AnyView>` as a children.
 type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom> + Send>;
@@ -72,6 +89,39 @@ where
     #[inline]
     fn to_children(f: F) -> Self {
         Box::new(move || f().into_any())
+    }
+}
+
+impl<F, C> ToChildren<F> for ChildrenFragment
+where
+    F: FnOnce() -> C + Send + 'static,
+    C: IntoFragment<Dom>,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        Box::new(move || f().into_fragment())
+    }
+}
+
+impl<F, C> ToChildren<F> for ChildrenFragmentFn
+where
+    F: Fn() -> C + Send + 'static,
+    C: IntoFragment<Dom>,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        Arc::new(move || f().into_fragment())
+    }
+}
+
+impl<F, C> ToChildren<F> for ChildrenFragmentMut
+where
+    F: FnMut() -> C + Send + 'static,
+    C: IntoFragment<Dom>,
+{
+    #[inline]
+    fn to_children(mut f: F) -> Self {
+        Box::new(move || f().into_fragment())
     }
 }
 
