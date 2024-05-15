@@ -96,7 +96,7 @@ impl<T: Source + ToAnySource + DefinedAt> Track for T {
             subscriber.add_source(self.to_any_source());
             self.add_subscriber(subscriber);
         } else {
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, feature = "effects"))]
             {
                 use crate::diagnostics::SpecialNonReactiveZone;
 
