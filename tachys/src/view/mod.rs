@@ -1,4 +1,4 @@
-use self::add_attr::AddAnyAttr;
+use self::{add_attr::AddAnyAttr, fragment::Fragment};
 use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use parking_lot::RwLock;
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
@@ -7,6 +7,7 @@ pub mod add_attr;
 pub mod any_view;
 pub mod either;
 pub mod error_boundary;
+pub mod fragment;
 pub mod iterators;
 pub mod keyed;
 mod primitives;
