@@ -17,7 +17,7 @@ pub mod prelude {
             node_ref::NodeRefAttribute,
         },
         renderer::{dom::Dom, Renderer},
-        view::{add_attr::AddAnyAttr, Mountable, Render, RenderHtml},
+        view::{any_view::IntoAny, add_attr::AddAnyAttr, Mountable, Render, RenderHtml},
     };
 }
 
