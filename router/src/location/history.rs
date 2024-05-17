@@ -6,7 +6,10 @@ use core::fmt;
 use futures::channel::oneshot;
 use js_sys::{try_iter, Array, JsString, Reflect};
 use or_poisoned::OrPoisoned;
-use reactive_graph::{signal::ArcRwSignal, traits::Set};
+use reactive_graph::{
+    signal::ArcRwSignal,
+    traits::{ReadUntracked, Set},
+};
 use std::{
     borrow::Cow,
     boxed::Box,
@@ -109,15 +112,26 @@ impl LocationProvider for BrowserUrl {
         let navigate = {
             let url = self.url.clone();
             let pending = Arc::clone(&self.pending_navigation);
-            move |new_url, loc| {
-                let (tx, rx) = oneshot::channel::<()>();
-                *pending.lock().or_poisoned() = Some(tx);
+            move |new_url: Url, loc| {
+                let same_path = {
+                    let curr = url.read_untracked();
+                    curr.origin() == new_url.origin()
+                        && curr.path() == new_url.path()
+                };
                 url.set(new_url);
+                if same_path {
+                    Self::complete_navigation(&loc);
+                }
+                let pending = Arc::clone(&pending);
                 async move {
-                    // if it has been canceled, ignore
-                    // otherwise, complete navigation -- i.e., set URL in address bar
-                    if rx.await.is_ok() {
-                        Self::complete_navigation(&loc);
+                    if !same_path {
+                        let (tx, rx) = oneshot::channel::<()>();
+                        *pending.lock().or_poisoned() = Some(tx);
+                        // if it has been canceled, ignore
+                        // otherwise, complete navigation -- i.e., set URL in address bar
+                        if rx.await.is_ok() {
+                            Self::complete_navigation(&loc);
+                        }
                     }
                 }
             }
