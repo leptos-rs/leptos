@@ -311,7 +311,7 @@ where
     T: InnerHtmlValue<R>,
     R: DomRenderer,
 {
-    type State = Option<T::State>;
+    type State = (R::Element, Option<T::State>);
     type Cloneable = Option<T::Cloneable>;
     type CloneableOwned = Option<T::CloneableOwned>;
 
@@ -334,15 +334,29 @@ where
         self,
         el: &<R as Renderer>::Element,
     ) -> Self::State {
-        self.map(|n| n.hydrate::<FROM_SERVER>(el))
+        (el.clone(), self.map(|n| n.hydrate::<FROM_SERVER>(el)))
     }
 
     fn build(self, el: &<R as Renderer>::Element) -> Self::State {
-        self.map(|n| n.build(el))
+        (el.clone(), self.map(|n| n.build(el)))
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        todo!()
+        let new_state = match (self, &mut state.1) {
+            (None, None) => None,
+            (None, Some(_)) => {
+                R::set_inner_html(&state.0, "");
+                Some(None)
+            }
+            (Some(new), None) => Some(Some(new.build(&state.0))),
+            (Some(new), Some(state)) => {
+                new.rebuild(state);
+                None
+            }
+        };
+        if let Some(new_state) = new_state {
+            state.1 = new_state;
+        }
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
