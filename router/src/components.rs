@@ -1,3 +1,4 @@
+pub use super::link::*;
 use crate::{
     hooks::use_navigate,
     location::{
@@ -87,6 +88,10 @@ where
     let location = Location::new(current_url.read_only(), state.read_only());
 
     // TODO server function redirect hook
+    Effect::new({
+        let current_url = current_url.clone();
+        move |_| leptos::logging::log!("{:#?}", current_url.get())
+    });
 
     provide_context(RouterContext {
         base,
@@ -265,6 +270,7 @@ where
     });
     let outer_owner =
         Owner::current().expect("creating Router, but no Owner was found");
+    leptos::logging::log!("outer_owner = {:?}", outer_owner.debug_id());
     let params = ArcRwSignal::new(ParamsMap::new());
     move || {
         path.track();
