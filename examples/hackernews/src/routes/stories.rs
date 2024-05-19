@@ -1,6 +1,9 @@
 use crate::api;
-use leptos::*;
-use leptos_router::*;
+use leptos::{either::Either, prelude::*};
+use leptos_router::{
+    components::A,
+    hooks::{use_params_map, use_query_map},
+};
 
 fn category(from: &str) -> &'static str {
     match from {
@@ -18,15 +21,19 @@ pub fn Stories() -> impl IntoView {
     let params = use_params_map();
     let page = move || {
         query
-            .with(|q| q.get("page").and_then(|page| page.parse::<usize>().ok()))
+            .read()
+            .get("page")
+            .and_then(|page| page.parse::<usize>().ok())
             .unwrap_or(1)
     };
     let story_type = move || {
         params
-            .with(|p| p.get("stories").cloned())
+            .read()
+            .get("stories")
+            .map(ToOwned::to_owned)
             .unwrap_or_else(|| "top".to_string())
     };
-    let stories = create_resource(
+    let stories = Resource::new_serde(
         move || (page(), story_type()),
         move |(page, story_type)| async move {
             let path = format!("{}?page={}", category(&story_type), page);
@@ -36,8 +43,9 @@ pub fn Stories() -> impl IntoView {
     let (pending, set_pending) = create_signal(false);
 
     let hide_more_link = move || {
-        stories.get().unwrap_or(None).unwrap_or_default().len() < 28
-            || pending.get()
+        Suspend(async move {
+            stories.await.unwrap_or_default().len() < 28 || pending.get()
+        })
     };
 
     view! {
@@ -45,27 +53,28 @@ pub fn Stories() -> impl IntoView {
             <div class="news-list-nav">
                 <span>
                     {move || if page() > 1 {
-                        view! {
+                        Either::Left(view! {
                             <a class="page-link"
                                 href=move || format!("/{}?page={}", story_type(), page() - 1)
-                                attr:aria_label="Previous Page"
+                                aria-label="Previous Page"
                             >
                                 "< prev"
                             </a>
-                        }.into_any()
+                        })
                     } else {
-                        view! {
+                        Either::Right(view! {
                             <span class="page-link disabled" aria-hidden="true">
                                 "< prev"
                             </span>
-                        }.into_any()
+                        })
                     }}
                 </span>
                 <span>"page " {page}</span>
                 <Suspense>
                     <span class="page-link"
-                        class:disabled=hide_more_link
-                        aria-hidden=hide_more_link
+                        // TODO support Suspense in attributes
+                        /*class:disabled=Suspend(hide_more_link)
+                        aria-hidden=Suspend(hide_more_link)*/
                     >
                         <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                             aria-label="Next Page"
@@ -79,25 +88,19 @@ pub fn Stories() -> impl IntoView {
                 <div>
                     <Transition
                         fallback=move || view! { <p>"Loading..."</p> }
-                        set_pending
+                        // TODO set_pending on Transition
+                        //set_pending
                     >
-                        {move || match stories.get() {
-                            None => None,
-                            Some(None) => Some(view! { <p>"Error loading stories."</p> }.into_any()),
-                            Some(Some(stories)) => {
-                                Some(view! {
+                        {move || Suspend(async move { match stories.await {
+                            None => Either::Left(view! { <p>"Error loading stories."</p> }),
+                            Some(stories) => {
+                                Either::Right(view! {
                                     <ul>
-                                        <For
-                                            each=move || stories.clone()
-                                            key=|story| story.id
-                                            let:story
-                                        >
-                                            <Story story/>
-                                        </For>
+                                    {stories.into_iter().map(|story| view! { <Story story/> }).collect::<Vec<_>>()}
                                     </ul>
-                                }.into_any())
+                                })
                             }
-                        }}
+                        }})}
                     </Transition>
                 </div>
             </main>
@@ -112,23 +115,23 @@ fn Story(story: api::Story) -> impl IntoView {
             <span class="score">{story.points}</span>
             <span class="title">
                 {if !story.url.starts_with("item?id=") {
-                    view! {
+                    Either::Left(view! {
                         <span>
                             <a href=story.url target="_blank" rel="noreferrer">
                                 {story.title.clone()}
                             </a>
                             <span class="host">"("{story.domain}")"</span>
                         </span>
-                    }.into_view()
+                    })
                 } else {
                     let title = story.title.clone();
-                    view! { <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
+                    Either::Right(view! { <A href=format!("/stories/{}", story.id)>{title}</A> })
                 }}
             </span>
             <br />
             <span class="meta">
                 {if story.story_type != "job" {
-                    view! {
+                    Either::Left(view! {
                         <span>
                             {"by "}
                             {story.user.map(|user| view ! {  <A href=format!("/users/{user}")>{user.clone()}</A>})}
@@ -141,10 +144,10 @@ fn Story(story: api::Story) -> impl IntoView {
                                 }}
                             </A>
                         </span>
-                    }.into_view()
+                    })
                 } else {
                     let title = story.title.clone();
-                    view! { <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
+                    Either::Right(view! { <A href=format!("/item/{}", story.id)>{title}</A> })
                 }}
             </span>
             {(story.story_type != "link").then(|| view! {
