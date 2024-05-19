@@ -64,7 +64,7 @@ pub async fn refresh_token(email: String) -> Result<u64, ServerFnError> {
         .execute(&pool)
         .await?;
     sqlx::query(
-        "INSERT INTO google_tokens (user_id,access_secret,refresh_secret) \
+        "INSERT OR REPLACE INTO google_tokens (user_id,access_secret,refresh_secret) \
          VALUES (?,?,?)",
     )
     .bind(user.id)
