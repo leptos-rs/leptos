@@ -1,8 +1,11 @@
-use leptos::*;
-use leptos_meta::*;
-use leptos_router::*;
+use leptos::prelude::*;
 mod api;
 mod routes;
+use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
+use leptos_router::{
+    components::{FlatRoutes, Route, Router},
+    ParamSegment, StaticSegment,
+};
 use routes::{nav::*, stories::*, story::*, users::*};
 
 #[component]
@@ -15,18 +18,19 @@ pub fn App() -> impl IntoView {
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
         // adding `set_is_routing` causes the router to wait for async data to load on new pages
-        <Router set_is_routing>
+        <Router> // TODO set_is_routing>
             // shows a progress bar while async data are loading
-            <div class="routing-progress">
+            // TODO
+            /*<div class="routing-progress">
                 <RoutingProgress is_routing max_time=std::time::Duration::from_millis(250)/>
-            </div>
+            </div>*/
             <Nav />
             <main>
-                <Routes>
-                    <Route path="users/:id" view=User/>
-                    <Route path="stories/:id" view=Story/>
-                    <Route path=":stories?" view=Stories/>
-                </Routes>
+                <FlatRoutes fallback=|| "Not found.">
+                    <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
+                    <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
+                    <Route path=ParamSegment("stories") view=Stories/>
+                </FlatRoutes>
             </main>
         </Router>
     }
