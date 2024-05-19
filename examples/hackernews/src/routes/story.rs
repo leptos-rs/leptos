@@ -1,13 +1,21 @@
 use crate::api;
-use leptos::*;
-use leptos_meta::*;
-use leptos_router::*;
+use leptos::either::Either;
+use leptos::prelude::*;
+use leptos_meta::Meta;
+use leptos_router::components::A;
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
-    let story = create_resource(
-        move || params.get().get("id").cloned().unwrap_or_default(),
+    let story = Resource::new_serde(
+        move || {
+            params
+                .get()
+                .get("id")
+                .map(ToOwned::to_owned)
+                .unwrap_or_default()
+        },
         move |id| async move {
             if id.is_empty() {
                 None
@@ -17,19 +25,13 @@ pub fn Story() -> impl IntoView {
             }
         },
     );
-    let meta_description = move || {
-        story
-            .get()
-            .and_then(|story| story.map(|story| story.title))
-            .unwrap_or_else(|| "Loading story...".to_string())
-    };
 
-    view! {
-        <Suspense fallback=|| view! { "Loading..." }>
-            <Meta name="description" content=meta_description/>
-            {move || story.get().map(|story| match story {
-                None => view! {  <div class="item-view">"Error loading this story."</div> },
-                Some(story) => view! {
+    Suspense(SuspenseProps::builder().fallback(|| "Loading...").children(ToChildren::to_children(move || Suspend(async move {
+        match story.await {
+            None => Either::Left("Story not found."),
+            Some(story) => {
+                Either::Right(view! {
+                    <Meta name="description" content=story.title.clone()/>
                     <div class="item-view">
                         <div class="item-view-header">
                         <a href=story.url target="_blank">
@@ -46,27 +48,28 @@ pub fn Story() -> impl IntoView {
                         </p>})}
                         </div>
                         <div class="item-view-comments">
-                        <p class="item-view-comments-header">
-                            {if story.comments_count.unwrap_or_default() > 0 {
-                                format!("{} comments", story.comments_count.unwrap_or_default())
-                            } else {
-                                "No comments yet.".into()
-                            }}
-                        </p>
-                        <ul class="comment-children">
-                            <For
-                                each=move || story.comments.clone().unwrap_or_default()
-                                key=|comment| comment.id
-                                let:comment
-                            >
-                                <Comment comment />
-                            </For>
-                        </ul>
+                            <p class="item-view-comments-header">
+                                {if story.comments_count.unwrap_or_default() > 0 {
+                                    format!("{} comments", story.comments_count.unwrap_or_default())
+                                } else {
+                                    "No comments yet.".into()
+                                }}
+                            </p>
+                            <ul class="comment-children">
+                                <For
+                                    each=move || story.comments.clone().unwrap_or_default()
+                                    key=|comment| comment.id
+                                    let:comment
+                                >
+                                    <Comment comment />
+                                </For>
+                            </ul>
+                        </div>
                     </div>
-                </div>
-            }})}
-        </Suspense>
-    }
+                })
+            }
+        }
+    }))).build())
 }
 
 #[component]
@@ -113,7 +116,7 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
             }
         })}
         </li>
-    }
+    }.into_any()
 }
 
 fn pluralize(n: usize) -> &'static str {
