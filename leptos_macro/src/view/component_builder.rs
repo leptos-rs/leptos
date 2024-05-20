@@ -140,7 +140,11 @@ pub(crate) fn component_to_tokens(
                             match id {
                                 NodeNameFragment::Ident(id) => {
                                     let value = attribute_value(node);
-                                    if id == "attr" {
+                                    // ignore `let:`
+                                    if id == "let" {
+                                        None
+                                    }
+                                    else if id == "attr" {
                                         let key = &parts[1];
                                         Some(quote! { #key(#value) })
                                     } else if id == "style" || id == "class" {
