@@ -18,7 +18,7 @@ use tachys::{
     either::Either,
     html::attribute::Attribute,
     hydration::Cursor,
-    reactive_graph::RenderEffectState,
+    reactive_graph::{OwnedView, RenderEffectState},
     renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
     view::{
@@ -48,11 +48,12 @@ where
         tasks: tasks.clone(),
     });
     let none_pending = ArcMemo::new(move |_| tasks.with(SlotMap::is_empty));
-    SuspenseBoundary::<false, _, _> {
+
+    OwnedView::new(SuspenseBoundary::<false, _, _> {
         none_pending,
         fallback,
         children,
-    }
+    })
 }
 
 pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
