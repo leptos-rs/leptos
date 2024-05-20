@@ -20,6 +20,7 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     cell::RefCell,
+    future::Future,
     iter,
     marker::PhantomData,
     mem,
@@ -42,14 +43,14 @@ use tachys::{
 };
 
 pub(crate) struct FlatRoutesView<Loc, Defs, Fal, R> {
+    pub current_url: ArcRwSignal<Url>,
     pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
-    pub path: ArcMemo<String>,
     pub fallback: Fal,
     pub outer_owner: Owner,
-    pub params: ArcRwSignal<ParamsMap>,
 }
 
+/*
 impl<Loc, Defs, Fal, R> FlatRoutesView<Loc, Defs, Fal, R>
 where
     Loc: LocationProvider,
@@ -57,32 +58,65 @@ where
     Fal: Render<R>,
     R: Renderer + 'static,
 {
-    pub async fn choose(
+    pub fn choose(
         self,
-    ) -> Either<Fal, <Defs::Match as MatchInterface<R>>::View> {
+        prev_owner: Option<&Owner>,
+        prev_id: Option<RouteMatchId>,
+        prev_params: Option<ArcRwSignal<ParamsMap>>
+    ) -> (
+        Owner,
+        Option<RouteMatchId>,
+        ArcRwSignal<ParamsMap>,
+        impl Future<Output = Either<Fal, <Defs::Match as MatchInterface<R>>::View>>,
+    ) {
         let FlatRoutesView {
             routes,
             path,
             fallback,
             outer_owner,
-            params,
             ..
         } = self;
+        let new_match = routes.match_route(&path.read());
+        let new_id = new_match.as_ref().map(|n| n.as_id());
 
-        outer_owner
-            .with(|| {
-                provide_context(params.clone().read_only());
-                let new_match = routes.match_route(&path.read());
-                match new_match {
+        // update params or replace with new params signal
+        // switching out the signal for a newly-created signal here means that navigating from,
+        // for example, /foo/42 to /bar does not cause /foo/:id to respond to a change in `id`,
+        // because the new set of params is set on a new signal
+        let new_params = new_match
+            .as_ref()
+            .map(|matched| matched
+                 .to_params()
+                 .into_iter()
+                 .collect::<ParamsMap>()).unwrap_or_default();
+        let new_params_signal = match prev_params {
+            Some(prev_params) if prev_id == new_id => {
+                prev_params.set(new_params);
+                prev_params.clone()
+            }
+            _ => {
+                let new_params_signal = ArcRwSignal::new(new_params);
+                provide_context(ArcRwSignal::new(new_params_signal.clone()));
+                                new_params_signal
+            }
+        };
+
+        let owner = match prev_owner {
+            Some(prev_owner) if prev_id == new_id => {
+                prev_owner.clone()
+            },
+            _ => outer_owner.child()
+        };
+
+        let (id, fut) = owner.with(|| {
+            let id = new_match.as_ref().map(|n| n.as_id());
+            (
+                id,
+                ScopedFuture::new(match new_match {
                     None => EitherFuture::Left {
                         inner: async move { fallback },
                     },
                     Some(matched) => {
-                        let new_params = matched
-                            .to_params()
-                            .into_iter()
-                            .collect::<ParamsMap>();
-                        params.set(new_params);
                         let (view, child) = matched.into_view_and_child();
 
                         #[cfg(debug_assertions)]
@@ -94,12 +128,58 @@ where
                         }
 
                         EitherFuture::Right {
-                            inner: ScopedFuture::new(view.choose()),
+                            inner: ScopedFuture::new({ let new_params_signal = new_params_signal.clone(); async move {
+                                provide_context(new_params_signal.clone());
+                                view.choose().await
+                            }}),
                         }
                     }
-                }
-            })
-            .await
+                }),
+            )
+        });
+        (owner, id, new_params_signal, fut)
+    }
+}
+*/
+
+pub struct FlatRoutesViewState<Defs, Fal, R> 
+where
+    Defs: MatchNestedRoutes<R> + 'static,
+    Fal: Render<R> + 'static,
+    R: Renderer + 'static
+{
+    view: <EitherOf3<(), Fal, <Defs::Match as MatchInterface<R>>::View> as Render<R>>::State,
+    id: Option<RouteMatchId>,
+    owner: Owner,
+    params: ArcRwSignal<ParamsMap>,
+    path: String,
+    url: ArcRwSignal<Url>
+}
+
+impl<Defs, Fal, R> Mountable<R> for FlatRoutesViewState<Defs, Fal, R>
+where
+    Defs: MatchNestedRoutes<R> + 'static,
+    Fal: Render<R> + 'static,
+    R: Renderer + 'static,
+{
+    fn unmount(&mut self) {
+        self.view.unmount();
+    }
+
+    fn mount(
+        &mut self,
+        parent: &<R as Renderer>::Element,
+        marker: Option<&<R as Renderer>::Node>,
+    ) {
+        self.view.mount(parent, marker);
+    }
+
+    fn insert_before_this(
+        &self,
+        parent: &<R as Renderer>::Element,
+        child: &mut dyn Mountable<R>,
+    ) -> bool {
+        self.view.insert_before_this(parent, child)
     }
 }
 
@@ -110,65 +190,205 @@ where
     Fal: Render<R> + 'static,
     R: Renderer + 'static,
 {
-    type State = Rc<
-        RefCell<
-            // TODO loading indicator
-            <EitherOf3<(), Fal, <Defs::Match as MatchInterface<R>>::View> as Render<
-                R,
-            >>::State,
-        >,
-    >;
+    type State = Rc<RefCell<FlatRoutesViewState<Defs, Fal, R>>>;
 
     fn build(self) -> Self::State {
-        let state = Rc::new(RefCell::new(EitherOf3::A(()).build()));
-        let spawned_path = self.path.get_untracked();
-        let current_path = self.path.clone();
-        let location = self.location.clone();
-        let route = self.choose();
-        Executor::spawn_local({
-            let state = Rc::clone(&state);
-            async move {
-                let loaded_route = route.await;
-                // only update the route if it's still the current path
-                // i.e., if we've navigated away before this has loaded, do nothing
-                if &spawned_path == &*current_path.read_untracked() {
-                    let new_view = match loaded_route {
-                        Either::Left(i) => EitherOf3::B(i),
-                        Either::Right(i) => EitherOf3::C(i),
-                    };
-                    new_view.rebuild(&mut state.borrow_mut());
-                    if let Some(location) = location {
-                        location.ready_to_complete();
+        let FlatRoutesView {
+            current_url,
+            location,
+            routes,
+            fallback,
+            outer_owner,
+        } = self;
+        let current_url = current_url.read_untracked();
+
+        // we always need to match the new route
+        let new_match = routes.match_route(&current_url.path());
+        let id = new_match.as_ref().map(|n| n.as_id());
+
+        // create default starting points for owner, url, path, and params
+        // these will be held in state so that future navigations can update or replace them
+        let owner = outer_owner.child();
+        let url = ArcRwSignal::new(current_url.to_owned());
+        let path = current_url.path().to_string();
+        let params = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.to_params().into_iter().collect())
+                .unwrap_or_default(),
+        );
+
+        match new_match {
+            None => {
+                Rc::new(RefCell::new(FlatRoutesViewState {
+                    view: EitherOf3::B(fallback).build(),
+                    id,
+                    owner,
+                    params, 
+                    path,
+                    url
+                }))
+            }
+            Some(matched) => {
+                let (view, child) = matched.into_view_and_child();
+
+                #[cfg(debug_assertions)]
+                if child.is_some() {
+                    panic!(
+                        "<FlatRoutes> should not be used with nested \
+                                 routes."
+                          );
+                }
+
+                let mut view = Box::pin(owner.with(|| ScopedFuture::new({
+                    let params = params.clone();
+                    let url = url.clone();
+                    async move {
+                        provide_context(params);
+                        provide_context(url);
+                        view.choose().await
+                    }
+                })));
+
+                match view.as_mut().now_or_never() {
+                    Some(view) => {
+                        Rc::new(RefCell::new(FlatRoutesViewState {
+                            view: EitherOf3::C(view).build(),
+                            id,
+                            owner,
+                            params,
+                            path,
+                            url
+                        }))
+                    }
+                    None => {
+                        let state = Rc::new(RefCell::new(FlatRoutesViewState {
+                            view: EitherOf3::A(()).build(),
+                            id,
+                            owner,
+                            params,
+                            path,
+                            url,
+                        }));
+
+                        Executor::spawn_local({
+                            let state = Rc::clone(&state);
+                            async move {
+                                let view = view.await;
+                                EitherOf3::C(view).rebuild(&mut state.borrow_mut().view);
+                            }
+                        });
+
+                        state
                     }
                 }
             }
-        });
-        state
+        }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let spawned_path = self.path.get_untracked();
-        let current_path = self.path.clone();
-        let location = self.location.clone();
-        let route = self.choose();
-        Executor::spawn_local({
-            let state = Rc::clone(&*state);
-            async move {
-                let loaded_route = route.await;
-                // only update the route if it's still the current path
-                // i.e., if we've navigated away before this has loaded, do nothing
-                if &spawned_path == &*current_path.read_untracked() {
-                    let new_view = match loaded_route {
-                        Either::Left(i) => EitherOf3::B(i),
-                        Either::Right(i) => EitherOf3::C(i),
-                    };
-                    new_view.rebuild(&mut state.borrow_mut());
-                    if let Some(location) = location {
-                        location.ready_to_complete();
-                    }
+        let FlatRoutesView {
+            current_url,
+            location,
+            routes,
+            fallback,
+            outer_owner,
+        } = self;
+        let owner = outer_owner.child();
+        let url_snapshot = current_url.get_untracked();
+
+        // if the path is the same, we do not need to re-route
+        // we can just update the search query and go about our day
+        let mut initial_state = state.borrow_mut();
+        if url_snapshot.path() == initial_state.path {
+            initial_state.url.set(url_snapshot.to_owned());
+            return;
+        }
+
+        // since the path didn't match, we'll update the retained path for future diffing
+        initial_state.path.clear();
+        initial_state.path.push_str(url_snapshot.path());
+
+        // otherwise, match the new route
+        let new_match = routes.match_route(url_snapshot.path());
+        let new_id = new_match.as_ref().map(|n| n.as_id());
+        let matched_params = 
+            new_match
+                .as_ref()
+                .map(|n| n.to_params().into_iter().collect())
+                .unwrap_or_default();
+
+
+        // if it's the same route, we just update the params
+        if new_id == initial_state.id {
+            initial_state.params.set(matched_params);
+            return;
+        }
+
+        // otherwise, we need to update the retained path for diffing 
+        initial_state.id = new_id;
+
+        // otherwise, it's a new route, so we'll need to 
+        // 1) create a new owner, URL signal, and params signal 
+        // 2) render the fallback or new route
+        let owner = outer_owner.child();
+        let url = ArcRwSignal::new(url_snapshot.to_owned());
+        let params = ArcRwSignal::new(matched_params);
+        let old_owner = mem::replace(&mut initial_state.owner, owner.clone());
+        let old_url = mem::replace(&mut initial_state.url, url.clone());
+        let old_params = mem::replace(&mut initial_state.params, params.clone());
+
+        // we drop the route state here, in case there is a <Redirect/> or similar that occurs
+        // while rendering either the fallback or the new route
+        drop(initial_state);
+
+        match new_match {
+            // render fallback
+            None => {
+                owner.with(|| {
+                    provide_context(url);
+                    provide_context(params);
+                    EitherOf3::B(fallback).rebuild(&mut state.borrow_mut().view)
+                });
+            },
+            Some(matched) => {
+                let (view, child) = matched.into_view_and_child();
+
+                #[cfg(debug_assertions)]
+                if child.is_some() {
+                    panic!(
+                        "<FlatRoutes> should not be used with nested \
+                                 routes."
+                          );
                 }
+
+                let spawned_path = url_snapshot.path().to_string();
+
+                Executor::spawn_local(owner.with(|| ScopedFuture::new({
+                    let state = Rc::clone(&state);
+                    async move {
+                        provide_context(url);
+                        provide_context(params);
+                        // TODO if we want, we could resolve() this here to wait for data to load
+                        let view = view.choose().await;
+
+                        // only update the route if it's still the current path
+                        // i.e., if we've navigated away before this has loaded, do nothing
+                        if current_url.read_untracked().path() == spawned_path {
+                            EitherOf3::C(view).rebuild(&mut state.borrow_mut().view);
+                        }
+
+                        if let Some(location) = location {
+                            location.ready_to_complete();
+                        }
+
+                        drop(old_owner);
+                        drop(old_params);
+                        drop(old_url);
+                    }
+                })));
             }
-        });
+        }
     }
 }
 
@@ -190,6 +410,42 @@ where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
         todo!()
+    }
+}
+
+
+impl<Loc, Defs, Fal, R> FlatRoutesView<Loc, Defs, Fal, R>
+where
+    Loc: LocationProvider + Send,
+    Defs: MatchNestedRoutes<R> + Send + 'static,
+    Fal: RenderHtml<R> + 'static,
+    R: Renderer + 'static,
+{
+    fn choose_ssr(self) -> Either<Fal, <Defs::Match as MatchInterface<R>>::View> {
+            let current_url = self.current_url.read_untracked();
+            let new_match = self.routes.match_route(&current_url.path());
+            let owner = self.outer_owner.child();
+            let url = ArcRwSignal::new(current_url.to_owned());
+            let params = ArcRwSignal::new(
+                new_match
+                .as_ref()
+                .map(|n| n.to_params().into_iter().collect::<ParamsMap>())
+                .unwrap_or_default(),
+                );
+            match new_match {
+                None => Either::Left(self.fallback),
+                Some(matched) => {
+                    let (view, _) = matched.into_view_and_child();
+                    let view = owner.with(|| ScopedFuture::new(async move {
+                        provide_context(url);
+                        provide_context(params);
+                        view.choose().await
+                    }))
+                        .now_or_never()
+                        .expect("async route used in SSR");
+                    Either::Right(view)
+                }
+            }
     }
 }
 
@@ -258,10 +514,7 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-            let route = Box::pin(self.choose());
-            route
-                .now_or_never()
-                .expect("async route used in SSR")
+            self.choose_ssr()
                 .to_html_with_buf(buf, position);
         }
     }
@@ -273,10 +526,7 @@ where
     ) where
         Self: Sized,
     {
-        let route = Box::pin(self.choose());
-        route
-            .now_or_never()
-            .expect("async route used in SSR")
+        self.choose_ssr()
             .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
     }
 
@@ -285,21 +535,86 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        let spawned_path = self.path.get_untracked();
-        let current_path = self.path.clone();
-        let location = self.location.clone();
-        let route = Box::pin(self.choose());
-        match route.now_or_never() {
+        // this can be mostly the same as the build() implementation, but with hydrate()
+        //
+        // however, the big TODO is that we need to support lazy hydration in the case that the
+        // route is lazy-loaded on the client -- in this case, we actually can't initially hydrate
+        // at all, but need to skip, because the HTML will contain the route even though the
+        // client-side route component code is not yet loaded
+        let FlatRoutesView {
+            current_url,
+            location,
+            routes,
+            fallback,
+            outer_owner,
+        } = self;
+        let current_url = current_url.read_untracked();
+
+        // we always need to match the new route
+        let new_match = routes.match_route(&current_url.path());
+        let id = new_match.as_ref().map(|n| n.as_id());
+
+        // create default starting points for owner, url, path, and params
+        // these will be held in state so that future navigations can update or replace them
+        let owner = outer_owner.child();
+        let url = ArcRwSignal::new(current_url.to_owned());
+        let path = current_url.path().to_string();
+        let params = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.to_params().into_iter().collect())
+                .unwrap_or_default(),
+        );
+
+        match new_match {
             None => {
-                todo!()
+                Rc::new(RefCell::new(FlatRoutesViewState {
+                    view: EitherOf3::B(fallback).hydrate::<FROM_SERVER>(cursor, position),
+                    id,
+                    owner,
+                    params, 
+                    path,
+                    url
+                }))
             }
-            Some(matched) => Rc::new(RefCell::new(
-                match matched {
-                    Either::Left(inner) => EitherOf3::B(inner),
-                    Either::Right(inner) => EitherOf3::C(inner),
+            Some(matched) => {
+                let (view, child) = matched.into_view_and_child();
+
+                #[cfg(debug_assertions)]
+                if child.is_some() {
+                    panic!(
+                        "<FlatRoutes> should not be used with nested \
+                                 routes."
+                          );
                 }
-                .hydrate::<FROM_SERVER>(cursor, position),
-            )),
+
+                let mut view = Box::pin(owner.with(|| ScopedFuture::new({
+                    let params = params.clone();
+                    let url = url.clone();
+                    async move {
+                        provide_context(params);
+                        provide_context(url);
+                        view.choose().await
+                    }
+                })));
+
+                match view.as_mut().now_or_never() {
+                    Some(view) => {
+                        Rc::new(RefCell::new(FlatRoutesViewState {
+                            view: EitherOf3::C(view).hydrate::<FROM_SERVER>(cursor, position),
+                            id,
+                            owner,
+                            params,
+                            path,
+                            url
+                        }))
+                    }
+                    None => {
+                        // see comment at the top of this function
+                        todo!()
+                    }
+                }
+            }
         }
     }
 }

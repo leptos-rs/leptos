@@ -130,7 +130,7 @@ pub fn use_location() -> Location {
 }
 
 #[track_caller]
-fn use_params_raw() -> ArcReadSignal<ParamsMap> {
+fn use_params_raw() -> ArcRwSignal<ParamsMap> {
     use_context().expect(
         "Tried to access params outside the context of a matched <Route>.",
     )
@@ -157,9 +157,12 @@ where
 
 #[track_caller]
 fn use_url_raw() -> ArcRwSignal<Url> {
-    let RouterContext { current_url, .. } = use_context()
-        .expect("Tried to access reactive URL outside a <Router> component.");
-    current_url
+    use_context().unwrap_or_else(|| {
+        let RouterContext { current_url, .. } = use_context().expect(
+            "Tried to access reactive URL outside a <Router> component.",
+        );
+        current_url
+    })
 }
 
 #[track_caller]
