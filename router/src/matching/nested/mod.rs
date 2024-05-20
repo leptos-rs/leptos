@@ -2,10 +2,14 @@ use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
     PossibleRouteMatch, RouteMatchId,
 };
-use crate::{ChooseView, MatchParams, SsrMode, GeneratedRouteData};
+use crate::{ChooseView, GeneratedRouteData, MatchParams, SsrMode};
 use core::{fmt, iter};
-use std::{borrow::Cow, marker::PhantomData, sync::atomic::{AtomicU16, Ordering}};
 use either_of::Either;
+use std::{
+    borrow::Cow,
+    marker::PhantomData,
+    sync::atomic::{AtomicU16, Ordering},
+};
 use tachys::{
     renderer::Renderer,
     view::{Render, RenderHtml},
@@ -23,13 +27,26 @@ pub struct NestedRoute<Segments, Children, Data, View, R> {
     pub data: Data,
     pub view: View,
     pub rndr: PhantomData<R>,
-    pub ssr_mode: SsrMode
+    pub ssr_mode: SsrMode,
 }
 
-impl<Segments, Children, Data, View, R> Clone for NestedRoute<Segments, Children, Data, View, R> where Segments: Clone, Children: Clone, Data: Clone, View: Clone{
+impl<Segments, Children, Data, View, R> Clone
+    for NestedRoute<Segments, Children, Data, View, R>
+where
+    Segments: Clone,
+    Children: Clone,
+    Data: Clone,
+    View: Clone,
+{
     fn clone(&self) -> Self {
         Self {
-            id: self.id,segments: self.segments.clone(),children: self.children.clone(),data: self.data.clone(), view: self.view.clone(), rndr: PhantomData, ssr_mode: self.ssr_mode
+            id: self.id,
+            segments: self.segments.clone(),
+            children: self.children.clone(),
+            data: self.data.clone(),
+            view: self.view.clone(),
+            rndr: PhantomData,
+            ssr_mode: self.ssr_mode,
         }
     }
 }
@@ -47,7 +64,7 @@ impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
             data: (),
             view,
             rndr: PhantomData,
-            ssr_mode
+            ssr_mode,
         }
     }
 }
