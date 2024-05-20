@@ -12,7 +12,8 @@ use futures::Future;
 use hydration_context::SerializedDataId;
 use reactive_graph::{
     computed::{
-        ArcAsyncDerived, ArcMemo, AsyncDerived, AsyncDerivedFuture, AsyncState,
+        ArcAsyncDerived, ArcAsyncDerivedFuture, ArcMemo, AsyncDerived,
+        AsyncDerivedFuture, AsyncState,
     },
     graph::{Source, ToAnySource, ToAnySubscriber},
     owner::Owner,
@@ -157,6 +158,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_with_encoding<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -241,7 +243,7 @@ where
     T: Clone + 'static,
 {
     type Output = T;
-    type IntoFuture = AsyncDerivedFuture<T>;
+    type IntoFuture = ArcAsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
@@ -281,6 +283,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -300,6 +303,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_serde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -320,6 +324,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_serde_wb<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -340,6 +345,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_miniserde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -360,6 +366,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_serde_lite<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -380,6 +387,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_rkyv<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -400,6 +408,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
     pub fn new_with_encoding<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -425,6 +434,7 @@ where
     type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
+    #[track_caller]
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
     }
