@@ -6,12 +6,15 @@ use crate::{
 };
 use leptos_macro::component;
 use reactive_graph::{
-    computed::ArcMemo, owner::provide_context, signal::ArcRwSignal,
+    computed::ArcMemo,
+    owner::{provide_context, Owner},
+    signal::ArcRwSignal,
     traits::With,
 };
 use slotmap::{DefaultKey, SlotMap};
 use std::future::Future;
 use tachys::{
+    reactive_graph::OwnedView,
     renderer::dom::Dom,
     view::{any_view::AnyView, RenderHtml},
 };
@@ -32,9 +35,10 @@ where
         tasks: tasks.clone(),
     });
     let none_pending = ArcMemo::new(move |_| tasks.with(SlotMap::is_empty));
-    SuspenseBoundary::<true, _, _> {
+
+    OwnedView::new(SuspenseBoundary::<true, _, _> {
         none_pending,
         fallback,
         children,
-    }
+    })
 }
