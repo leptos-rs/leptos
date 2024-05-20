@@ -9,6 +9,7 @@ use or_poisoned::OrPoisoned;
 use std::sync::{Arc, RwLock, Weak};
 
 pub(crate) struct EffectInner {
+    pub dirty: bool,
     pub observer: Sender,
     pub sources: SourceSet,
 }
@@ -25,14 +26,18 @@ impl ToAnySubscriber for Arc<RwLock<EffectInner>> {
 impl ReactiveNode for RwLock<EffectInner> {
     fn mark_subscribers_check(&self) {}
 
-    // TODO check if this actually works for memos
     fn update_if_necessary(&self) -> bool {
-        let sources = {
-            let guard = self.read().or_poisoned();
-            guard.sources.clone()
-        };
+        let mut guard = self.write().or_poisoned();
+        let (is_dirty, sources) =
+            (guard.dirty, (!guard.dirty).then(|| guard.sources.clone()));
 
-        for source in sources {
+        if is_dirty {
+            guard.dirty = false;
+            return true;
+        }
+
+        drop(guard);
+        for source in sources.into_iter().flatten() {
             if source.update_if_necessary() {
                 return true;
             }
@@ -45,7 +50,9 @@ impl ReactiveNode for RwLock<EffectInner> {
     }
 
     fn mark_dirty(&self) {
-        self.write().or_poisoned().observer.notify()
+        let mut lock = self.write().or_poisoned();
+        lock.dirty = true;
+        lock.observer.notify()
     }
 }
 
