@@ -21,5 +21,8 @@ Feel free to submit projects to this directory via PR!
 ### tauri-from-scratch
 This example walks you through in explicit detail how to use [Tauri](https://tauri.app/) to render your Leptos App on non web targets using [WebView](https://en.wikipedia.org/wiki/WebView) while communicating with your leptos server and servering an SSR supported web experience. TODO: It could be simplified since part of the readme includes copying and pasting boilerplate.
 
+### counter_dwarf_debug
+This example shows how to add breakpoints within the browser or visual studio code for debugging.
+
 ### bevy3d_ui
 This example uses the bevy 3d game engine with leptos within webassembly.

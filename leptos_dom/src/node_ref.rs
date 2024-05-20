@@ -153,6 +153,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     {
         self.element.update(|current| {
             if current.is_some() {
+                #[cfg(debug_assertions)]
                 crate::debug_warn!(
                     "You are setting the NodeRef defined at {}, which has \
                      already been filled It’s possible this is intentional, \

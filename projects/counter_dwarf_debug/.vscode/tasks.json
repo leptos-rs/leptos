@@ -1,0 +1,53 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+
+		// Task to build the sources
+		{
+			"label": "trunk: build",
+			"type": "shell",
+			"command": "trunk",
+			"args": ["build"],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+		},
+
+		// Task to launch trunk serve for debugging
+		{
+			"label": "trunk: serve",
+			"type": "shell",
+			"command": "trunk",
+			"args": ["serve"],
+			"isBackground": true,
+			"problemMatcher": {
+				"pattern": {
+					"regexp": ".",
+					"file": 1,"line": 1,
+					"column": 1,"message": 1
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".",
+					"endsPattern": "."
+				}
+			}
+		},
+
+		// Terminate the trunk serve task
+		{
+			"label": "postdebugKill",
+			"type": "shell",
+			"command": "echo ${input:terminate}",
+		},
+	],
+	"inputs": [
+		{
+			"id": "terminate",
+			"type": "command",
+			"command": "workbench.action.tasks.terminate",
+			"args": "terminateAll"
+		}
+	]
+}
