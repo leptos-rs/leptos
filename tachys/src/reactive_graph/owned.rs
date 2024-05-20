@@ -6,7 +6,7 @@ use crate::{
     ssr::StreamBuilder,
     view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
 };
-use reactive_graph::owner::Owner;
+use reactive_graph::{computed::ScopedFuture, owner::Owner};
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
@@ -150,7 +150,11 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+        let OwnedView { owner, view, rndr } = self;
+        let view = owner
+            .with(|| ScopedFuture::new(async move { view.resolve().await }))
+            .await;
+        OwnedView { owner, view, rndr }
     }
 }
 
