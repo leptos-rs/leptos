@@ -53,7 +53,7 @@ send_wrapper = "0.6.0"
 
 [features]
 default = ["serde"]
-hydration = ["hydration_context/browser"]
+hydration = ["leptos_server/hydration", "hydration_context/browser"]
 csr = ["leptos_macro/csr", "leptos_reactive/csr", "reactive_graph/effects"]
 hydrate = [
   "leptos_macro/hydrate",
