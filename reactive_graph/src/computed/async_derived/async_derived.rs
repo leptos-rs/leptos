@@ -1,5 +1,6 @@
 use super::{
-    ArcAsyncDerived, AsyncDerivedFuture, AsyncDerivedReadyFuture, AsyncState,
+    ArcAsyncDerived, ArcAsyncDerivedFuture, ArcAsyncDerivedReadyFuture,
+    AsyncState,
 };
 use crate::{
     graph::{
@@ -17,10 +18,10 @@ use std::{
     panic::Location,
 };
 
-pub struct AsyncDerived<T: Send + Sync + 'static> {
+pub struct AsyncDerived<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcAsyncDerived<T>>,
+    pub(crate) inner: StoredValue<ArcAsyncDerived<T>>,
 }
 
 impl<T: Send + Sync + 'static> Dispose for AsyncDerived<T> {
@@ -104,7 +105,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     }
 
     #[track_caller]
-    pub fn ready(&self) -> AsyncDerivedReadyFuture<T> {
+    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture<T> {
         let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
         this.ready()
     }
@@ -138,20 +139,6 @@ impl<T: Send + Sync + 'static> DefinedAt for AsyncDerived<T> {
         {
             None
         }
-    }
-}
-
-impl<T: Send + Sync + Clone + 'static> IntoFuture for AsyncDerived<T>
-where
-    T: Clone,
-{
-    type Output = T;
-    type IntoFuture = AsyncDerivedFuture<T>;
-
-    #[track_caller]
-    fn into_future(self) -> Self::IntoFuture {
-        let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
-        this.into_future()
     }
 }
 
