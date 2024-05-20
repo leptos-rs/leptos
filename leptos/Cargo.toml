@@ -53,14 +53,14 @@ send_wrapper = "0.6.0"
 
 [features]
 default = ["serde"]
-hydration = ["leptos_server/hydration", "hydration_context/browser"]
+hydration = ["hydration_context/browser"]
 csr = ["leptos_macro/csr", "leptos_reactive/csr", "reactive_graph/effects"]
 hydrate = [
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "hydration",
   "tachys/hydrate",
-  "reactive_graph/effects"
+  "reactive_graph/effects",
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]
@@ -84,7 +84,7 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv", "server_fn/rkyv"]
 tracing = [
   "reactive_graph/tracing",
-  "tachys/tracing"
+  "tachys/tracing",
 ] #, "leptos_macro/tracing", "leptos_dom/tracing"]
 nonce = ["base64", "leptos_dom/nonce", "rand"]
 spin = ["leptos_reactive/spin", "leptos-spin-macro"]
