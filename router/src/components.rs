@@ -260,27 +260,18 @@ where
         base
     });
     let routes = Routes::new(children.into_inner());
-    let path = ArcMemo::new({
-        let url = current_url.clone();
-        move |_| url.read().path().to_string()
-    });
-    let search_params = ArcMemo::new({
-        let url = current_url.clone();
-        move |_| url.read().search_params().clone()
-    });
+
     let outer_owner =
         Owner::current().expect("creating Router, but no Owner was found");
-    leptos::logging::log!("outer_owner = {:?}", outer_owner.debug_id());
-    let params = ArcRwSignal::new(ParamsMap::new());
+
     move || {
-        path.track();
+        current_url.track();
         FlatRoutesView {
+            current_url: current_url.clone(),
             location: location.clone(),
             routes: routes.clone(),
-            path: path.clone(),
             fallback: fallback(),
             outer_owner: outer_owner.clone(),
-            params: params.clone(),
         }
     }
 }
