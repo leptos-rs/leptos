@@ -37,6 +37,28 @@ impl Owner {
     pub fn debug_id(&self) -> usize {
         Arc::as_ptr(&self.inner) as usize
     }
+
+    pub fn ancestry(&self) -> Vec<usize> {
+        let mut ancestors = Vec::new();
+        let mut curr_parent = self
+            .inner
+            .read()
+            .or_poisoned()
+            .parent
+            .as_ref()
+            .and_then(|n| n.upgrade());
+        while let Some(parent) = curr_parent {
+            ancestors.push(Arc::as_ptr(&parent) as usize);
+            curr_parent = parent
+                .read()
+                .or_poisoned()
+                .parent
+                .as_ref()
+                .and_then(|n| n.upgrade());
+        }
+        ancestors
+    }
+
     pub fn new() -> Self {
         #[cfg(not(feature = "hydration"))]
         let parent = OWNER
@@ -49,16 +71,25 @@ impl Owner {
                 })
             })
             .unwrap_or((None, None));
-        Self {
+        let this = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
-                parent,
+                parent: parent.clone(),
                 nodes: Default::default(),
                 contexts: Default::default(),
                 cleanups: Default::default(),
+                children: Default::default(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
+        };
+        if let Some(parent) = parent.and_then(|n| n.upgrade()) {
+            parent
+                .write()
+                .or_poisoned()
+                .children
+                .push(Arc::downgrade(&this.inner));
         }
+        this
     }
 
     #[cfg(feature = "hydration")]
@@ -73,6 +104,7 @@ impl Owner {
                 nodes: Default::default(),
                 contexts: Default::default(),
                 cleanups: Default::default(),
+                children: Default::default(),
             })),
             #[cfg(feature = "hydration")]
             shared_context,
@@ -81,16 +113,23 @@ impl Owner {
 
     pub fn child(&self) -> Self {
         let parent = Some(Arc::downgrade(&self.inner));
-        Self {
+        let child = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent,
                 nodes: Default::default(),
                 contexts: Default::default(),
                 cleanups: Default::default(),
+                children: Default::default(),
             })),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
-        }
+        };
+        self.inner
+            .write()
+            .or_poisoned()
+            .children
+            .push(Arc::downgrade(&child.inner));
+        child
     }
 
     pub fn set(&self) {
@@ -111,23 +150,12 @@ impl Owner {
     }
 
     pub fn with_cleanup<T>(&self, fun: impl FnOnce() -> T) -> T {
-        let (cleanups, nodes) = {
-            let mut lock = self.inner.write().or_poisoned();
-            (mem::take(&mut lock.cleanups), mem::take(&mut lock.nodes))
-        };
-        for cleanup in cleanups {
-            cleanup();
-        }
-
-        if !nodes.is_empty() {
-            Arena::with_mut(|arena| {
-                for node in nodes {
-                    _ = arena.remove(node);
-                }
-            });
-        }
-
+        self.cleanup();
         self.with(fun)
+    }
+
+    pub fn cleanup(&self) {
+        self.inner.cleanup();
     }
 
     pub fn on_cleanup(fun: impl FnOnce() + Send + Sync + 'static) {
@@ -189,6 +217,7 @@ pub(crate) struct OwnerInner {
     nodes: Vec<NodeId>,
     pub contexts: FxHashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,
+    pub children: Vec<Weak<RwLock<OwnerInner>>>,
 }
 
 impl Debug for OwnerInner {
@@ -204,11 +233,50 @@ impl Debug for OwnerInner {
 
 impl Drop for OwnerInner {
     fn drop(&mut self) {
+        for child in std::mem::take(&mut self.children) {
+            if let Some(child) = child.upgrade() {
+                child.cleanup();
+            }
+        }
+
         for cleanup in mem::take(&mut self.cleanups) {
             cleanup();
         }
 
         let nodes = mem::take(&mut self.nodes);
+        if !nodes.is_empty() {
+            Arena::with_mut(|arena| {
+                for node in nodes {
+                    _ = arena.remove(node);
+                }
+            });
+        }
+    }
+}
+
+trait Cleanup {
+    fn cleanup(&self);
+}
+
+impl Cleanup for RwLock<OwnerInner> {
+    fn cleanup(&self) {
+        let (cleanups, nodes, children) = {
+            let mut lock = self.write().or_poisoned();
+            (
+                mem::take(&mut lock.cleanups),
+                mem::take(&mut lock.nodes),
+                mem::take(&mut lock.children),
+            )
+        };
+        for child in children {
+            if let Some(child) = child.upgrade() {
+                child.cleanup();
+            }
+        }
+        for cleanup in cleanups {
+            cleanup();
+        }
+
         if !nodes.is_empty() {
             Arena::with_mut(|arena| {
                 for node in nodes {
