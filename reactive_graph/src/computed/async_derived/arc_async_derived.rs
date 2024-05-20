@@ -13,10 +13,11 @@ use crate::{
     owner::Owner,
     signal::guards::{Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
+    transition::AsyncTransition,
 };
 use any_spawner::Executor;
 use core::fmt::Debug;
-use futures::StreamExt;
+use futures::{channel::oneshot, StreamExt};
 use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
@@ -102,7 +103,9 @@ macro_rules! spawn_derived {
             inner: Arc::clone(&inner),
         };
         let any_subscriber = this.to_any_subscriber();
-        let mut first_run = true;
+        let (ready_tx, ready_rx) = oneshot::channel();
+        AsyncTransition::register(ready_rx);
+        let mut first_run = Some(ready_tx);
 
         $spawner({
             let value = Arc::downgrade(&this.value);
@@ -110,8 +113,7 @@ macro_rules! spawn_derived {
             let wakers = Arc::downgrade(&this.wakers);
             let fut = async move {
                 while rx.next().await.is_some() {
-                    if first_run || any_subscriber.update_if_necessary() {
-                        first_run = false;
+                    if first_run.is_some() || any_subscriber.update_if_necessary() {
                         match (value.upgrade(), inner.upgrade(), wakers.upgrade()) {
                             (Some(value), Some(inner), Some(wakers)) => {
                                 // generate new Future
@@ -122,6 +124,13 @@ macro_rules! spawn_derived {
                                 });
                                 #[cfg(feature = "sandboxed-arenas")]
                                 let fut = Sandboxed::new(fut);
+
+                                // register with global transition listener, if any
+                                let ready_tx = first_run.take().unwrap_or_else(|| {
+                                    let (ready_tx, ready_rx) = oneshot::channel();
+                                    AsyncTransition::register(ready_rx);
+                                    ready_tx
+                                });
 
                                 // update state from Complete to Reloading
                                 {
@@ -142,6 +151,7 @@ macro_rules! spawn_derived {
                                 // generate and assign new value
                                 let new_value = fut.await;
                                 *value.write().or_poisoned() = AsyncState::Complete(new_value);
+                                ready_tx.send(());
 
                                 // notify reactive subscribers that we're not loading any more
                                 for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
