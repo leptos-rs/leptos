@@ -40,6 +40,7 @@ leptos = { path = "../leptos" }
 
 [features]
 ssr = []
+hydration = []
 default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
 rkyv = ["dep:rkyv", "dep:base64"]
