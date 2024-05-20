@@ -15,7 +15,7 @@ use reactive_graph::{
     computed::{ArcMemo, Memo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Read, ReadUntracked, Set, Track, Trigger},
+    traits::{Get, GetUntracked, Read, ReadUntracked, Set, Track, Trigger}, transition::AsyncTransition,
 };
 use std::{
     borrow::Cow,
@@ -367,8 +367,7 @@ where
                         async move {
                             provide_context(url);
                             provide_context(params);
-                            // TODO if we want, we could resolve() this here to wait for data to load
-                            let view = view.choose().await;
+                            let view = AsyncTransition::run(|| view.choose()).await;
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
