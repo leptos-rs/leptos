@@ -35,6 +35,7 @@ fn effect_base() -> (Receiver, Owner, Arc<RwLock<EffectInner>>) {
 
     let owner = Owner::new();
     let inner = Arc::new(RwLock::new(EffectInner {
+        dirty: true,
         observer,
         sources: SourceSet::new(),
     }));
