@@ -18,8 +18,11 @@ use reactive_graph::{
     signal::{ArcRwSignal, RwSignal},
     traits::{GetUntracked, Read, ReadUntracked, Set},
     untrack,
+    wrappers::write::SignalSetter,
 };
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{
+    borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc, time::Duration,
+};
 use tachys::renderer::{dom::Dom, Renderer};
 
 #[derive(Debug)]
@@ -46,13 +49,12 @@ pub fn Router<Chil>(
     #[prop(optional, into)]
     base: Option<Cow<'static, str>>,
 
-    // TODO these prop
+    // TODO these props
     ///// A fallback that should be shown if no route is matched.
     //#[prop(optional)]
     //fallback: Option<fn() -> View>,
     ///// A signal that will be set while the navigation process is underway.
-    //#[prop(optional, into)]
-    //set_is_routing: Option<SignalSetter<bool>>,
+    #[prop(optional, into)] set_is_routing: Option<SignalSetter<bool>>,
     ///// How trailing slashes should be handled in [`Route`] paths.
     //#[prop(optional)]
     //trailing_slash: TrailingSlash,
@@ -98,6 +100,7 @@ where
         current_url,
         location,
         state,
+        set_is_routing,
     });
 
     let children = children.into_inner();
@@ -110,6 +113,7 @@ pub(crate) struct RouterContext {
     pub current_url: ArcRwSignal<Url>,
     pub location: Location,
     pub state: ArcRwSignal<State>,
+    pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
 impl RouterContext {
@@ -251,7 +255,10 @@ where
 {
     let location = use_context::<BrowserUrl>();
     let RouterContext {
-        current_url, base, ..
+        current_url,
+        base,
+        set_is_routing,
+        ..
     } = use_context()
         .expect("<FlatRoutes> should be used inside a <Router> component");
     let base = base.map(|base| {
@@ -272,6 +279,7 @@ where
             routes: routes.clone(),
             fallback: fallback(),
             outer_owner: outer_owner.clone(),
+            set_is_routing,
         }
     }
 }
@@ -362,4 +370,70 @@ pub fn provide_server_redirect(handler: impl Fn(&str) + Send + Sync + 'static) {
     provide_context(ServerRedirectFunction {
         f: Arc::new(handler),
     })
+}
+
+/// A visible indicator that the router is in the process of navigating
+/// to another route.
+///
+/// This is used when `<Router set_is_routing>` has been provided, to
+/// provide some visual indicator that the page is currently loading
+/// async data, so that it is does not appear to have frozen. It can be
+/// styled independently.
+#[component]
+pub fn RoutingProgress(
+    /// Whether the router is currently loading the new page.
+    #[prop(into)]
+    is_routing: Signal<bool>,
+    /// The maximum expected time for loading, which is used to
+    /// calibrate the animation process.
+    #[prop(optional, into)]
+    max_time: std::time::Duration,
+    /// The time to show the full progress bar after page has loaded, before hiding it. (Defaults to 100ms.)
+    #[prop(default = std::time::Duration::from_millis(250))]
+    before_hiding: std::time::Duration,
+) -> impl IntoView {
+    const INCREMENT_EVERY_MS: f32 = 5.0;
+    let expected_increments =
+        max_time.as_secs_f32() / (INCREMENT_EVERY_MS / 1000.0);
+    let percent_per_increment = 100.0 / expected_increments;
+
+    let (is_showing, set_is_showing) = signal(false);
+    let (progress, set_progress) = signal(0.0);
+
+    StoredValue::new(RenderEffect::new(
+        move |prev: Option<Option<IntervalHandle>>| {
+            if is_routing.get() && !is_showing.get() {
+                set_is_showing.set(true);
+                set_interval_with_handle(
+                    move || {
+                        set_progress.update(|n| *n += percent_per_increment);
+                    },
+                    Duration::from_millis(INCREMENT_EVERY_MS as u64),
+                )
+                .ok()
+            } else if is_routing.get() && is_showing.get() {
+                set_progress.set(0.0);
+                prev?
+            } else {
+                set_progress.set(100.0);
+                set_timeout(
+                    move || {
+                        set_progress.set(0.0);
+                        set_is_showing.set(false);
+                    },
+                    before_hiding,
+                );
+                if let Some(Some(interval)) = prev {
+                    interval.clear();
+                }
+                None
+            }
+        },
+    ));
+
+    view! {
+        <Show when=move || is_showing.get() fallback=|| ()>
+            <progress min="0" max="100" value=move || progress.get()/>
+        </Show>
+    }
 }
