@@ -52,8 +52,6 @@ impl AsyncTransition {
             .map(|n| &n.tx)
         {
             tx.send(rx);
-        } else {
-            crate::log_warning(format_args!("no global transition"));
         }
     }
 }
