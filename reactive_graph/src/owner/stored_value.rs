@@ -76,7 +76,9 @@ where
             defined_at: Location::caller(),
         }
     }
+}
 
+impl<T: 'static> StoredValue<T> {
     pub fn try_with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> Option<U> {
         Arena::with(|arena| {
             let m = arena.get(self.node);
@@ -130,7 +132,7 @@ where
 
 impl<T> StoredValue<T>
 where
-    T: Send + Sync + Clone + 'static,
+    T: Clone + 'static,
 {
     pub fn try_get_value(&self) -> Option<T> {
         self.try_with_value(T::clone)
