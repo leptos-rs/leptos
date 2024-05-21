@@ -544,3 +544,228 @@ pub mod read {
         }
     }
 }
+
+pub mod write {
+    use crate::{
+        owner::StoredValue,
+        signal::{RwSignal, WriteSignal},
+        traits::Set,
+    };
+
+    /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
+    pub trait IntoSignalSetter<T>: Sized {
+        /// Consumes `self`, returning [`SignalSetter<T>`].
+        fn into_signal_setter(self) -> SignalSetter<T>;
+    }
+
+    impl<F, T> IntoSignalSetter<T> for F
+    where
+        F: Fn(T) + 'static + Send + Sync,
+        T: Send + Sync,
+    {
+        fn into_signal_setter(self) -> SignalSetter<T> {
+            SignalSetter::map(self)
+        }
+    }
+
+    /// A wrapper for any kind of settable reactive signal: a [`WriteSignal`](crate::WriteSignal),
+    /// [`RwSignal`](crate::RwSignal), or closure that receives a value and sets a signal depending
+    /// on it.
+    ///
+    /// This allows you to create APIs that take any kind of `SignalSetter<T>` as an argument,
+    /// rather than adding a generic `F: Fn(T)`. Values can be set with the same
+    /// function call or `set()`, API as other signals.
+    ///
+    /// ## Core Trait Implementations
+    /// - [`.set()`](#impl-SignalSet<T>-for-SignalSetter<T>) (or calling the setter as a function)
+    ///   sets the signal’s value, and notifies all subscribers that the signal’s value has changed.
+    ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+    ///
+    /// ## Examples
+    /// ```rust
+    /// # use leptos_reactive::*;
+    /// # let runtime = create_runtime();
+    /// let (count, set_count) = create_signal(2);
+    /// let set_double_input = SignalSetter::map(move |n| set_count.set(n * 2));
+    ///
+    /// // this function takes any kind of signal setter
+    /// fn set_to_4(setter: &SignalSetter<i32>) {
+    ///     // ✅ calling the signal sets the value
+    ///     //    can be `setter(4)` on nightly
+    ///     setter.set(4);
+    /// }
+    ///
+    /// set_to_4(&set_count.into());
+    /// assert_eq!(count.get(), 4);
+    /// set_to_4(&set_double_input);
+    /// assert_eq!(count.get(), 8);
+    /// # runtime.dispose();
+    /// ```
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct SignalSetter<T>
+    where
+        T: 'static,
+    {
+        inner: SignalSetterTypes<T>,
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        defined_at: &'static std::panic::Location<'static>,
+    }
+
+    impl<T> Clone for SignalSetter<T> {
+        fn clone(&self) -> Self {
+            *self
+        }
+    }
+
+    impl<T: Default + 'static> Default for SignalSetter<T> {
+        #[track_caller]
+        fn default() -> Self {
+            Self {
+                inner: SignalSetterTypes::Default,
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> Copy for SignalSetter<T> {}
+
+    impl<T> Set for SignalSetter<T> {
+        type Value = T;
+
+        fn set(&self, new_value: impl Into<Self::Value>) {
+            let new_value = new_value.into();
+            match self.inner {
+                SignalSetterTypes::Default => {}
+                SignalSetterTypes::Write(w) => w.set(new_value),
+                SignalSetterTypes::Mapped(s) => {
+                    s.with_value(|setter| setter(new_value))
+                }
+            }
+        }
+
+        fn try_set(
+            &self,
+            new_value: impl Into<Self::Value>,
+        ) -> Option<Self::Value> {
+            let new_value = new_value.into();
+            match self.inner {
+                SignalSetterTypes::Default => Some(new_value),
+                SignalSetterTypes::Write(w) => w.try_set(new_value),
+                SignalSetterTypes::Mapped(s) => {
+                    let mut new_value = Some(new_value);
+
+                    let _ = s.try_with_value(|setter| {
+                        setter(new_value.take().unwrap())
+                    });
+
+                    new_value
+                }
+            }
+        }
+    }
+
+    impl<T> SignalSetter<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        pub fn map(mapped_setter: impl Fn(T) + Send + Sync + 'static) -> Self {
+            Self {
+                inner: SignalSetterTypes::Mapped(StoredValue::new(Box::new(
+                    mapped_setter,
+                ))),
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> SignalSetter<T>
+    where
+        T: 'static,
+    {
+        #[track_caller]
+        pub fn set(&self, value: T) {
+            match &self.inner {
+                SignalSetterTypes::Write(s) => s.set(value),
+                SignalSetterTypes::Mapped(s) => s.with_value(|s| s(value)),
+                SignalSetterTypes::Default => {}
+            }
+        }
+    }
+
+    impl<T> From<WriteSignal<T>> for SignalSetter<T> {
+        #[track_caller]
+        fn from(value: WriteSignal<T>) -> Self {
+            Self {
+                inner: SignalSetterTypes::Write(value),
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<RwSignal<T>> for SignalSetter<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: RwSignal<T>) -> Self {
+            Self {
+                inner: SignalSetterTypes::Write(value.write_only()),
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    enum SignalSetterTypes<T>
+    where
+        T: 'static,
+    {
+        Write(WriteSignal<T>),
+        Mapped(StoredValue<Box<dyn Fn(T) + Send + Sync>>),
+        Default,
+    }
+
+    impl<T> Clone for SignalSetterTypes<T> {
+        fn clone(&self) -> Self {
+            *self
+        }
+    }
+
+    impl<T> Copy for SignalSetterTypes<T> {}
+
+    impl<T> core::fmt::Debug for SignalSetterTypes<T>
+    where
+        T: core::fmt::Debug,
+    {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            match self {
+                Self::Write(arg0) => {
+                    f.debug_tuple("WriteSignal").field(arg0).finish()
+                }
+                Self::Mapped(_) => f.debug_tuple("Mapped").finish(),
+                Self::Default => {
+                    f.debug_tuple("SignalSetter<Default>").finish()
+                }
+            }
+        }
+    }
+
+    impl<T> PartialEq for SignalSetterTypes<T>
+    where
+        T: PartialEq,
+    {
+        fn eq(&self, other: &Self) -> bool {
+            match (self, other) {
+                (Self::Write(l0), Self::Write(r0)) => l0 == r0,
+                (Self::Mapped(l0), Self::Mapped(r0)) => std::ptr::eq(l0, r0),
+                _ => false,
+            }
+        }
+    }
+
+    impl<T> Eq for SignalSetterTypes<T> where T: PartialEq {}
+}
