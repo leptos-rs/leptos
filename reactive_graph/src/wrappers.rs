@@ -2,7 +2,7 @@ pub mod read {
     use crate::{
         computed::{ArcMemo, Memo},
         owner::StoredValue,
-        signal::{ArcReadSignal, ReadSignal, RwSignal},
+        signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::{DefinedAt, Dispose, Get, With, WithUntracked},
         untrack,
     };
@@ -82,6 +82,73 @@ pub mod read {
     impl<T> PartialEq for ArcSignal<T> {
         fn eq(&self, other: &Self) -> bool {
             self.inner == other.inner
+        }
+    }
+
+    impl<T> ArcSignal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        pub fn derive(
+            derived_signal: impl Fn() -> T + Send + Sync + 'static,
+        ) -> Self {
+            #[cfg(feature = "tracing")]
+            let span = ::tracing::Span::current();
+
+            let derived_signal = move || {
+                #[cfg(feature = "tracing")]
+                let _guard = span.enter();
+                derived_signal()
+            };
+
+            Self {
+                inner: SignalTypes::DerivedSignal(Arc::new(derived_signal)),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> Default for ArcSignal<T>
+    where
+        T: Default + Send + Sync + 'static,
+    {
+        fn default() -> Self {
+            Self::derive(|| Default::default())
+        }
+    }
+
+    impl<T: Send + Sync> From<ArcReadSignal<T>> for ArcSignal<T> {
+        #[track_caller]
+        fn from(value: ArcReadSignal<T>) -> Self {
+            Self {
+                inner: SignalTypes::ReadSignal(value),
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T: Send + Sync> From<ArcRwSignal<T>> for ArcSignal<T> {
+        #[track_caller]
+        fn from(value: ArcRwSignal<T>) -> Self {
+            Self {
+                inner: SignalTypes::ReadSignal(value.read_only()),
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T: Send + Sync> From<ArcMemo<T>> for ArcSignal<T> {
+        #[track_caller]
+        fn from(value: ArcMemo<T>) -> Self {
+            Self {
+                inner: SignalTypes::Memo(value),
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }
         }
     }
 
