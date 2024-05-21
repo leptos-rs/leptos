@@ -7,13 +7,13 @@ use crate::{
 };
 use std::{fmt::Debug, hash::Hash, panic::Location};
 
-pub struct Memo<T: Send + Sync + 'static> {
+pub struct Memo<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcMemo<T>>,
 }
 
-impl<T: Send + Sync + 'static> Dispose for Memo<T> {
+impl<T: 'static> Dispose for Memo<T> {
     fn dispose(self) {
         self.inner.dispose()
     }
@@ -48,15 +48,15 @@ impl<T: Send + Sync + 'static> Memo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Copy for Memo<T> {}
+impl<T> Copy for Memo<T> {}
 
-impl<T: Send + Sync + 'static> Clone for Memo<T> {
+impl<T> Clone for Memo<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: Send + Sync + 'static> Debug for Memo<T> {
+impl<T> Debug for Memo<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Memo")
             .field("type", &std::any::type_name::<T>())
@@ -65,21 +65,21 @@ impl<T: Send + Sync + 'static> Debug for Memo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> PartialEq for Memo<T> {
+impl<T> PartialEq for Memo<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T: Send + Sync + 'static> Eq for Memo<T> {}
+impl<T> Eq for Memo<T> {}
 
-impl<T: Send + Sync + 'static> Hash for Memo<T> {
+impl<T> Hash for Memo<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T: Send + Sync + 'static> DefinedAt for Memo<T> {
+impl<T> DefinedAt for Memo<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
