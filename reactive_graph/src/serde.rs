@@ -99,7 +99,9 @@ impl<T: Send + Sync + Clone + Serialize> Serialize for Signal<T> {
 
 /* Deserialization for signal types */
 
-impl<'de, T: Send + Sync + Deserialize<'de>> Deserialize<'de> for RwSignal<T> {
+impl<'de, T: Send + Sync + Deserialize<'de> + 'static> Deserialize<'de>
+    for RwSignal<T>
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
