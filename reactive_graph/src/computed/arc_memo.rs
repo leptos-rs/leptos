@@ -109,7 +109,7 @@ impl<T> Hash for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ReactiveNode for ArcMemo<T> {
+impl<T: 'static> ReactiveNode for ArcMemo<T> {
     fn mark_dirty(&self) {
         self.inner.mark_dirty();
     }
@@ -138,7 +138,7 @@ impl<T: Send + Sync + 'static> ToAnySource for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Source for ArcMemo<T> {
+impl<T: 'static> Source for ArcMemo<T> {
     fn add_subscriber(&self, subscriber: AnySubscriber) {
         self.inner.add_subscriber(subscriber);
     }
@@ -161,7 +161,7 @@ impl<T: Send + Sync + 'static> ToAnySubscriber for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Subscriber for ArcMemo<T> {
+impl<T: 'static> Subscriber for ArcMemo<T> {
     fn add_source(&self, source: AnySource) {
         self.inner.write().or_poisoned().sources.insert(source);
     }
@@ -175,7 +175,7 @@ impl<T: Send + Sync + 'static> Subscriber for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ReadUntracked for ArcMemo<T> {
+impl<T: 'static> ReadUntracked for ArcMemo<T> {
     type Value = ReadGuard<T, Mapped<Plain<MemoInner<T>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {

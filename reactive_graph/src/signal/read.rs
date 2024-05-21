@@ -16,27 +16,27 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub struct ReadSignal<T: Send + Sync + 'static> {
+pub struct ReadSignal<T: 'static> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
     pub(crate) inner: StoredValue<ArcReadSignal<T>>,
 }
 
-impl<T: Send + Sync + 'static> Dispose for ReadSignal<T> {
+impl<T: 'static> Dispose for ReadSignal<T> {
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<T: Send + Sync + 'static> Copy for ReadSignal<T> {}
+impl<T> Copy for ReadSignal<T> {}
 
-impl<T: Send + Sync + 'static> Clone for ReadSignal<T> {
+impl<T> Clone for ReadSignal<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: Send + Sync + 'static> Debug for ReadSignal<T> {
+impl<T> Debug for ReadSignal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ReadSignal")
             .field("type", &std::any::type_name::<T>())
@@ -45,21 +45,21 @@ impl<T: Send + Sync + 'static> Debug for ReadSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> PartialEq for ReadSignal<T> {
+impl<T> PartialEq for ReadSignal<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T: Send + Sync + 'static> Eq for ReadSignal<T> {}
+impl<T> Eq for ReadSignal<T> {}
 
-impl<T: Send + Sync + 'static> Hash for ReadSignal<T> {
+impl<T> Hash for ReadSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T: Send + Sync + 'static> DefinedAt for ReadSignal<T> {
+impl<T> DefinedAt for ReadSignal<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -72,13 +72,13 @@ impl<T: Send + Sync + 'static> DefinedAt for ReadSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> IsDisposed for ReadSignal<T> {
+impl<T: 'static> IsDisposed for ReadSignal<T> {
     fn is_disposed(&self) -> bool {
         self.inner.exists()
     }
 }
 
-impl<T: Send + Sync + 'static> AsSubscriberSet for ReadSignal<T> {
+impl<T> AsSubscriberSet for ReadSignal<T> {
     type Output = Arc<RwLock<SubscriberSet>>;
 
     fn as_subscriber_set(&self) -> Option<Self::Output> {
@@ -88,7 +88,7 @@ impl<T: Send + Sync + 'static> AsSubscriberSet for ReadSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ReadUntracked for ReadSignal<T> {
+impl<T: 'static> ReadUntracked for ReadSignal<T> {
     type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {

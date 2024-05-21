@@ -18,7 +18,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub struct RwSignal<T: 'static> {
+pub struct RwSignal<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcRwSignal<T>>,
@@ -100,15 +100,15 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
     }
 }
 
-impl<T: 'static> Copy for RwSignal<T> {}
+impl<T> Copy for RwSignal<T> {}
 
-impl<T: 'static> Clone for RwSignal<T> {
+impl<T> Clone for RwSignal<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: 'static> Debug for RwSignal<T> {
+impl<T> Debug for RwSignal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RwSignal")
             .field("type", &std::any::type_name::<T>())
@@ -117,21 +117,21 @@ impl<T: 'static> Debug for RwSignal<T> {
     }
 }
 
-impl<T: 'static> PartialEq for RwSignal<T> {
+impl<T> PartialEq for RwSignal<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T: 'static> Eq for RwSignal<T> {}
+impl<T> Eq for RwSignal<T> {}
 
-impl<T: 'static> Hash for RwSignal<T> {
+impl<T> Hash for RwSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T: 'static> DefinedAt for RwSignal<T> {
+impl<T> DefinedAt for RwSignal<T> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -144,13 +144,13 @@ impl<T: 'static> DefinedAt for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> IsDisposed for RwSignal<T> {
+impl<T: 'static> IsDisposed for RwSignal<T> {
     fn is_disposed(&self) -> bool {
         self.inner.exists()
     }
 }
 
-impl<T: Send + Sync + 'static> AsSubscriberSet for RwSignal<T> {
+impl<T: 'static> AsSubscriberSet for RwSignal<T> {
     type Output = Arc<RwLock<SubscriberSet>>;
 
     fn as_subscriber_set(&self) -> Option<Self::Output> {
@@ -160,7 +160,7 @@ impl<T: Send + Sync + 'static> AsSubscriberSet for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ReadUntracked for RwSignal<T> {
+impl<T: 'static> ReadUntracked for RwSignal<T> {
     type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
@@ -168,13 +168,13 @@ impl<T: Send + Sync + 'static> ReadUntracked for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Trigger for RwSignal<T> {
+impl<T: 'static> Trigger for RwSignal<T> {
     fn trigger(&self) {
         self.mark_dirty();
     }
 }
 
-impl<T: Send + Sync + 'static> UpdateUntracked for RwSignal<T> {
+impl<T: 'static> UpdateUntracked for RwSignal<T> {
     type Value = T;
 
     fn try_update_untracked<U>(
