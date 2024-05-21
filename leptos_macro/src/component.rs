@@ -8,10 +8,11 @@ use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, spanned::Spanned,
-    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
-    ItemFn, LitStr, Meta, Pat, PatIdent, Path, PathArguments, ReturnType,
-    Signature, Stmt, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, spanned::Spanned, token::Colon,
+    visit_mut::VisitMut, AngleBracketedGenericArguments, Attribute, FnArg,
+    GenericArgument, GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent,
+    Path, PathArguments, ReturnType, Signature, Stmt, Type, TypeImplTrait,
+    TypeParam, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -28,6 +29,7 @@ pub struct Model {
 impl Parse for Model {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut item = ItemFn::parse(input)?;
+        convert_impl_trait_to_generic(&mut item.sig);
 
         let docs = Docs::new(&item.attrs);
 
@@ -1228,4 +1230,58 @@ fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
 
 pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
     Ident::new(&format!("__{ident}"), ident.span())
+}
+
+/// Converts all `impl Trait`s in a function signature to use generic params instead.
+fn convert_impl_trait_to_generic(sig: &mut Signature) {
+    fn new_generic_ident(i: usize, span: Span) -> Ident {
+        Ident::new(&format!("__ImplTrait{}", i), span)
+    }
+
+    // First: visit all `impl Trait`s and replace them with new generic params.
+    #[derive(Default)]
+    struct RemoveImplTrait(Vec<TypeImplTrait>);
+    impl VisitMut for RemoveImplTrait {
+        fn visit_type_mut(&mut self, ty: &mut Type) {
+            syn::visit_mut::visit_type_mut(self, ty);
+            if matches!(ty, Type::ImplTrait(_)) {
+                let ident = new_generic_ident(self.0.len(), ty.span());
+                let generic_type = Type::Path(TypePath {
+                    qself: None,
+                    path: Path::from(ident),
+                });
+                let Type::ImplTrait(impl_trait) =
+                    std::mem::replace(ty, generic_type)
+                else {
+                    unreachable!();
+                };
+                self.0.push(impl_trait);
+            }
+        }
+
+        // Early exits.
+        fn visit_attribute_mut(&mut self, _: &mut Attribute) {}
+        fn visit_pat_mut(&mut self, _: &mut Pat) {}
+    }
+    let mut visitor = RemoveImplTrait::default();
+    for fn_arg in sig.inputs.iter_mut() {
+        visitor.visit_fn_arg_mut(fn_arg);
+    }
+    let RemoveImplTrait(impl_traits) = visitor;
+
+    // Second: Add the new generic params into the signature.
+    for (i, impl_trait) in impl_traits.into_iter().enumerate() {
+        let span = impl_trait.span();
+        let ident = new_generic_ident(i, span);
+        // We can simply append to the end (only lifetime params must be first).
+        // Note currently default generics are not allowed in `fn`, so not a concern.
+        sig.generics.params.push(GenericParam::Type(TypeParam {
+            attrs: vec![],
+            ident,
+            colon_token: Some(Colon { spans: [span] }),
+            bounds: impl_trait.bounds,
+            eq_token: None,
+            default: None,
+        }));
+    }
 }
