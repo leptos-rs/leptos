@@ -355,7 +355,7 @@ html_elements! {
     /// The `<pre>` HTML element represents preformatted text which is to be presented exactly as written in the HTML file. The text is typically rendered using a non-proportional, or "monospaced, font. Whitespace inside this element is displayed as written.
     pre HtmlPreElement [],
     /// The `<progress>` HTML element displays an indicator showing the completion progress of a task, typically displayed as a progress bar.
-    progress HtmlProgressElement [max, value],
+    progress HtmlProgressElement [min, max, value],
     /// The `<q>` HTML element indicates that the enclosed text is a short inline quotation. Most modern browsers implement this by surrounding the text in quotation marks. This element is intended for short quotations that don't require paragraph breaks; for long quotations use the blockquote element.
     q HtmlQuoteElement [cite],
     /// The `<rp>` HTML element is used to provide fall-back parentheses for browsers that do not support display of ruby annotations using the ruby element. One `<rp>` element should enclose each of the opening and closing parentheses that wrap the rt element that contains the annotation's text.
