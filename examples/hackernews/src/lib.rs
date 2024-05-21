@@ -3,10 +3,11 @@ mod api;
 mod routes;
 use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
 use leptos_router::{
-    components::{FlatRoutes, Route, Router},
+    components::{FlatRoutes, Route, Router, RoutingProgress},
     ParamSegment, StaticSegment,
 };
 use routes::{nav::*, stories::*, story::*, users::*};
+use std::time::Duration;
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -17,13 +18,11 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
-        // adding `set_is_routing` causes the router to wait for async data to load on new pages
-        <Router> // TODO set_is_routing>
+        <Router set_is_routing>
             // shows a progress bar while async data are loading
-            // TODO
-            /*<div class="routing-progress">
-                <RoutingProgress is_routing max_time=std::time::Duration::from_millis(250)/>
-            </div>*/
+            <div class="routing-progress">
+                <RoutingProgress is_routing max_time=Duration::from_millis(250)/>
+            </div>
             <Nav />
             <main>
                 <FlatRoutes fallback=|| "Not found.">
