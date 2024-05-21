@@ -15,7 +15,7 @@ use reactive_graph::{
     computed::{ArcMemo, Memo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Read, ReadUntracked, Set, Track, Trigger}, transition::AsyncTransition,
+    traits::{Get, GetUntracked, Read, ReadUntracked, Set, Track, Trigger}, transition::AsyncTransition, wrappers::write::SignalSetter,
 };
 use std::{
     borrow::Cow,
@@ -48,6 +48,7 @@ pub(crate) struct FlatRoutesView<Loc, Defs, Fal, R> {
     pub routes: Routes<Defs, R>,
     pub fallback: Fal,
     pub outer_owner: Owner,
+    pub set_is_routing: Option<SignalSetter<bool>>
 }
 
 /*
@@ -199,6 +200,7 @@ where
             routes,
             fallback,
             outer_owner,
+            ..
         } = self;
         let current_url = current_url.read_untracked();
 
@@ -292,6 +294,7 @@ where
             routes,
             fallback,
             outer_owner,
+            set_is_routing
         } = self;
         let owner = outer_owner.child();
         let url_snapshot = current_url.get_untracked();
@@ -367,7 +370,14 @@ where
                         async move {
                             provide_context(url);
                             provide_context(params);
-                            let view = AsyncTransition::run(|| view.choose()).await;
+                            let view = if let Some(set_is_routing) = set_is_routing {
+                                set_is_routing.set(true);
+                                let value = AsyncTransition::run(|| view.choose()).await;
+                                set_is_routing.set(false);
+                                value
+                            } else {
+                                view.choose().await
+                            };
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
@@ -551,6 +561,7 @@ where
             routes,
             fallback,
             outer_owner,
+            ..
         } = self;
         let current_url = current_url.read_untracked();
 
