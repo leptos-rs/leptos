@@ -148,7 +148,7 @@ pub fn use_params_map() -> Memo<ParamsMap> {
 #[track_caller]
 pub fn use_params<T>() -> Memo<Result<T, ParamsError>>
 where
-    T: Params + PartialEq + Send + Sync,
+    T: Params + PartialEq + Send + Sync + 'static,
 {
     // TODO this can be optimized in future to map over the signal, rather than cloning
     let params = use_params_raw();
@@ -181,7 +181,7 @@ pub fn use_query_map() -> Memo<ParamsMap> {
 #[track_caller]
 pub fn use_query<T>() -> Memo<Result<T, ParamsError>>
 where
-    T: Params + PartialEq + Send + Sync,
+    T: Params + PartialEq + Send + Sync + 'static,
 {
     let url = use_url_raw();
     Memo::new(move |_| url.with(|url| T::from_map(url.search_params())))
