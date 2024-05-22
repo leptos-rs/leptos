@@ -4,7 +4,7 @@ pub mod read {
         owner::StoredValue,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::{DefinedAt, Dispose, Get, With, WithUntracked},
-        untrack,
+        untrack, unwrap_signal,
     };
     use std::{panic::Location, sync::Arc};
 
@@ -331,6 +331,28 @@ pub mod read {
     {
         fn default() -> Self {
             Self::derive(|| Default::default())
+        }
+    }
+
+    impl<T: Send + Sync + 'static> From<ArcSignal<T>> for Signal<T> {
+        #[track_caller]
+        fn from(value: ArcSignal<T>) -> Self {
+            Signal {
+                #[cfg(debug_assertions)]
+                defined_at: Location::caller(),
+                inner: StoredValue::new(value.inner),
+            }
+        }
+    }
+
+    impl<T: Send + Sync + 'static> From<Signal<T>> for ArcSignal<T> {
+        #[track_caller]
+        fn from(value: Signal<T>) -> Self {
+            ArcSignal {
+                #[cfg(debug_assertions)]
+                defined_at: Location::caller(),
+                inner: value.inner.get().unwrap_or_else(unwrap_signal!(value)),
+            }
         }
     }
 
