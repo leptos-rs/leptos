@@ -71,7 +71,7 @@ pub fn Script(
     blocking: Option<Oco<'static, str>>,
     /// The content of the `<script>` tag.
     #[prop(optional)]
-    children: Option<Box<dyn FnOnce() -> AnyView<Dom>>>,
+    children: Option<Children>,
     /// Custom attributes.
     #[prop(attrs, optional)]
     attrs: Vec<AnyAttribute<Dom>>,
