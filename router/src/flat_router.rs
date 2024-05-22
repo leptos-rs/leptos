@@ -296,7 +296,6 @@ where
             outer_owner,
             set_is_routing
         } = self;
-        let owner = outer_owner.child();
         let url_snapshot = current_url.get_untracked();
 
         // if the path is the same, we do not need to re-route
