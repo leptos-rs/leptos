@@ -412,7 +412,7 @@ where
     Fut::Output: RenderHtml<Rndr>,
     Rndr: Renderer + 'static,
 {
-    type AsyncOutput = Fut::Output;
+    type AsyncOutput = Option<Fut::Output>;
 
     const MIN_LENGTH: usize = Fut::Output::MIN_LENGTH;
 
@@ -467,6 +467,6 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self.0.await
+        Some(self.0.await)
     }
 }
