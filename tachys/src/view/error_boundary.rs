@@ -152,7 +152,7 @@ where
 
     fn html_len(&self) -> usize {
         match self {
-            Ok(i) => i.html_len(),
+            Ok(i) => i.html_len() + 3,
             Err(_) => 0,
         }
     }
@@ -168,6 +168,7 @@ where
                 throw_error::throw(e);
             }
         }
+        buf.push_str("<!>");
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -185,6 +186,7 @@ where
                 throw_error::throw(e);
             }
         }
+        buf.push_sync("<!>");
     }
 
     fn hydrate<const FROM_SERVER: bool>(
