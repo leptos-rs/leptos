@@ -82,8 +82,8 @@ where
 
     fn html_len(&self) -> usize {
         match self {
-            Some(i) => i.html_len(),
-            None => 0,
+            Some(i) => i.html_len() + 3,
+            None => 3,
         }
     }
 
@@ -111,6 +111,7 @@ where
         *position = Position::NextChild;
     }
 
+    #[track_caller]
     fn hydrate<const FROM_SERVER: bool>(
         self,
         cursor: &Cursor<R>,
@@ -314,7 +315,7 @@ where
     }
 
     fn html_len(&self) -> usize {
-        self.iter().map(|n| n.html_len()).sum()
+        self.iter().map(|n| n.html_len()).sum::<usize>() + 3
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
