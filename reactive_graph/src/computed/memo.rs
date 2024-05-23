@@ -46,6 +46,43 @@ impl<T: Send + Sync + 'static> Memo<T> {
             inner: StoredValue::new(ArcMemo::new(fun)),
         }
     }
+
+    #[track_caller]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn new_with_compare(
+        fun: impl Fn(Option<&T>) -> T + Send + Sync + 'static,
+        changed: fn(Option<&T>, Option<&T>) -> bool,
+    ) -> Self
+    where
+        T: PartialEq,
+    {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new(ArcMemo::new_with_compare(fun, changed)),
+        }
+    }
+
+    #[track_caller]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn new_owning(
+        fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
+    ) -> Self
+    where
+        T: PartialEq,
+    {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new(ArcMemo::new_owning(fun)),
+        }
+    }
 }
 
 impl<T> Copy for Memo<T> {}
