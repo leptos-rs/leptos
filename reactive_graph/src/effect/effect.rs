@@ -63,7 +63,10 @@ impl Effect {
 
             async move {
                 while rx.next().await.is_some() {
-                    if first_run || subscriber.update_if_necessary() {
+                    if first_run
+                        || subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                    {
                         first_run = false;
                         subscriber.clear_sources(&subscriber);
 
@@ -100,7 +103,10 @@ impl Effect {
 
             async move {
                 while rx.next().await.is_some() {
-                    if first_run || subscriber.update_if_necessary() {
+                    if first_run
+                        || subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                    {
                         first_run = false;
                         subscriber.clear_sources(&subscriber);
 
