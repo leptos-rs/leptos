@@ -14,6 +14,7 @@ pub async fn tick() {
     tokio::time::sleep(std::time::Duration::from_micros(1)).await;
 }
 
+#[cfg(feature = "effects")]
 #[tokio::test]
 async fn render_effect_runs() {
     _ = Executor::init_tokio();
@@ -46,6 +47,7 @@ async fn render_effect_runs() {
         .await;
 }
 
+#[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_runs() {
     _ = Executor::init_tokio();
@@ -77,6 +79,7 @@ async fn effect_runs() {
         .await
 }
 
+#[cfg(feature = "effects")]
 #[tokio::test]
 async fn dynamic_dependencies() {
     _ = Executor::init_tokio();
