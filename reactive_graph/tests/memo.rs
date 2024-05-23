@@ -25,7 +25,7 @@ fn memo_calculates_value() {
     assert_eq!(d.read(), 6);
     assert_eq!(d.with_untracked(|n| *n), 6);
     assert_eq!(d.with(|n| *n), 6);
-    assert_eq!(d.get(), 6);
+    assert_eq!(d.get_untracked(), 6);
 }
 
 #[test]
@@ -53,14 +53,14 @@ fn memo_doesnt_repeat_calculation_per_get() {
             a.get() + b.get() + c.get()
         }
     });
-    assert_eq!(d.get(), 6);
-    assert_eq!(d.get(), 6);
-    assert_eq!(d.get(), 6);
+    assert_eq!(d.get_untracked(), 6);
+    assert_eq!(d.get_untracked(), 6);
+    assert_eq!(d.get_untracked(), 6);
     assert_eq!(*calculations.read().unwrap(), 1);
 
     println!("\n\n**setting to 0**");
     a.set(0);
-    assert_eq!(d.get(), 5);
+    assert_eq!(d.get_untracked(), 5);
     assert_eq!(*calculations.read().unwrap(), 2);
 }
 
@@ -80,19 +80,21 @@ fn nested_memos() {
         println!("calculating E");
         d.get() + 1
     }); // 5
-    assert_eq!(e.get(), 1);
-    assert_eq!(d.get(), 0);
-    assert_eq!(c.get(), 0);
+    assert_eq!(e.get_untracked(), 1);
+    assert_eq!(d.get_untracked(), 0);
+    assert_eq!(c.get_untracked(), 0);
+
     println!("\n\nFirst Set\n\n");
     a.set(5);
-    assert_eq!(c.get(), 5);
-    assert_eq!(d.get(), 10);
-    assert_eq!(e.get(), 11);
+    assert_eq!(c.get_untracked(), 5);
+    assert_eq!(d.get_untracked(), 10);
+    assert_eq!(e.get_untracked(), 11);
+
     println!("\n\nSecond Set\n\n");
     b.set(1);
-    assert_eq!(e.get(), 13);
-    assert_eq!(d.get(), 12);
-    assert_eq!(c.get(), 6);
+    assert_eq!(e.get_untracked(), 13);
+    assert_eq!(d.get_untracked(), 12);
+    assert_eq!(c.get_untracked(), 6);
 }
 
 #[test]
@@ -119,18 +121,18 @@ fn memo_runs_only_when_inputs_change() {
     assert_eq!(*call_count.read().unwrap(), 0);
 
     // here we access the value a bunch of times
-    assert_eq!(c.get(), 0);
-    assert_eq!(c.get(), 0);
-    assert_eq!(c.get(), 0);
-    assert_eq!(c.get(), 0);
-    assert_eq!(c.get(), 0);
+    assert_eq!(c.get_untracked(), 0);
+    assert_eq!(c.get_untracked(), 0);
+    assert_eq!(c.get_untracked(), 0);
+    assert_eq!(c.get_untracked(), 0);
+    assert_eq!(c.get_untracked(), 0);
 
     // we've still only called the memo calculation once
     assert_eq!(*call_count.read().unwrap(), 1);
 
     // and we only call it again when an input changes
     a.set(1);
-    assert_eq!(c.get(), 1);
+    assert_eq!(c.get_untracked(), 1);
     assert_eq!(*call_count.read().unwrap(), 2);
 }
 
@@ -158,18 +160,19 @@ fn diamond_problem() {
         }
     });
 
-    assert_eq!(first.get(), "Greg");
-    assert_eq!(last.get(), "Johnston");
+    assert_eq!(first.get_untracked(), "Greg");
+    assert_eq!(last.get_untracked(), "Johnston");
 
     name.set("Will Smith".to_string());
-    assert_eq!(first.get(), "Will");
-    assert_eq!(last.get(), "Smith");
-    assert_eq!(combined.get(), "Will Smith");
+    assert_eq!(first.get_untracked(), "Will");
+    assert_eq!(last.get_untracked(), "Smith");
+    assert_eq!(combined.get_untracked(), "Will Smith");
     // should not have run the memo logic twice, even
     // though both paths have been updated
     assert_eq!(*combined_count.read().unwrap(), 1);
 }
 
+#[cfg(feature = "effects")]
 #[tokio::test]
 async fn dynamic_dependencies() {
     _ = Executor::init_tokio();
@@ -189,24 +192,29 @@ async fn dynamic_dependencies() {
 
     // we forget it so it continues running
     // if it's dropped, it will stop listening
+    println!("[Initial]");
     mem::forget(Effect::new_sync({
         let combined_count = Arc::clone(&combined_count);
         move |_| {
+            println!("Effect running.");
             _ = name.get();
             *combined_count.write().unwrap() += 1;
         }
     }));
     tick().await;
+    println!("[After 1 tick]");
 
     assert_eq!(*combined_count.read().unwrap(), 1);
 
+    println!("[Set 'Bob']");
     first.set("Bob");
     tick().await;
 
-    assert_eq!(name.get(), "Bob Johnston");
+    assert_eq!(name.get_untracked(), "Bob Johnston");
 
     assert_eq!(*combined_count.read().unwrap(), 2);
 
+    println!("[Set 'Thompson']");
     last.set("Thompson");
     tick().await;
 
@@ -215,7 +223,7 @@ async fn dynamic_dependencies() {
     use_last.set(false);
     tick().await;
 
-    assert_eq!(name.get(), "Bob");
+    assert_eq!(name.get_untracked(), "Bob");
     assert_eq!(*combined_count.read().unwrap(), 4);
 
     assert_eq!(*combined_count.read().unwrap(), 4);
@@ -234,11 +242,12 @@ async fn dynamic_dependencies() {
 
     use_last.set(true);
     tick().await;
-    assert_eq!(name.get(), "Bob Stevens");
+    assert_eq!(name.get_untracked(), "Bob Stevens");
 
     assert_eq!(*combined_count.read().unwrap(), 5);
 }
 
+#[cfg(feature = "effects")]
 #[tokio::test]
 async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
     _ = Executor::init_tokio();
@@ -250,9 +259,11 @@ async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
 
             let combined_count = Arc::new(RwLock::new(0));
 
+            println!("[Initial]");
             mem::forget(RenderEffect::new({
                 let combined_count = Arc::clone(&combined_count);
                 move |_| {
+                    println!("INSIDE RENDEREFFECT");
                     *combined_count.write().unwrap() += 1;
                     println!("even = {}", even.get());
                 }
@@ -260,18 +271,24 @@ async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
 
             tick().await;
             assert_eq!(*combined_count.read().unwrap(), 1);
+            println!("[done]\n");
 
+            println!("\n[Set Signal to 2]");
             count.set(2);
             tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
+            println!("[done]\n");
 
+            println!("\n[Set Signal to 4]");
             count.set(4);
             tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
+            println!("[done]\n");
         })
         .await
 }
 
+#[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_doesnt_rerun_if_memo_didnt_change() {
     _ = Executor::init_tokio();
