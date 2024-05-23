@@ -65,7 +65,9 @@ where
 
             async move {
                 while rx.next().await.is_some() {
-                    if subscriber.update_if_necessary() {
+                    if subscriber
+                        .with_observer(|| subscriber.update_if_necessary())
+                    {
                         subscriber.clear_sources(&subscriber);
 
                         let old_value =
