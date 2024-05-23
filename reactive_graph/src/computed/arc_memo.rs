@@ -31,7 +31,7 @@ impl<T: Send + Sync + 'static> ArcMemo<T> {
     where
         T: PartialEq,
     {
-        Self::new_with_compare(fun, |lhs, rhs| lhs.as_ref() == rhs.as_ref())
+        Self::new_with_compare(fun, |lhs, rhs| lhs.as_ref() != rhs.as_ref())
     }
 
     #[track_caller]
@@ -41,7 +41,25 @@ impl<T: Send + Sync + 'static> ArcMemo<T> {
     )]
     pub fn new_with_compare(
         fun: impl Fn(Option<&T>) -> T + Send + Sync + 'static,
-        is_same: fn(Option<&T>, Option<&T>) -> bool,
+        changed: fn(Option<&T>, Option<&T>) -> bool,
+    ) -> Self
+    where
+        T: PartialEq,
+    {
+        Self::new_owning(move |prev: Option<T>| {
+            let new_value = fun(prev.as_ref());
+            let changed = changed(prev.as_ref(), Some(&new_value));
+            (new_value, changed)
+        })
+    }
+
+    #[track_caller]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    pub fn new_owning(
+        fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
     ) -> Self
     where
         T: PartialEq,
@@ -52,7 +70,7 @@ impl<T: Send + Sync + 'static> ArcMemo<T> {
                 Weak::clone(weak) as Weak<dyn Subscriber + Send + Sync>,
             );
 
-            RwLock::new(MemoInner::new(Arc::new(fun), is_same, subscriber))
+            RwLock::new(MemoInner::new(Arc::new(fun), subscriber))
         });
         Self {
             #[cfg(debug_assertions)]
