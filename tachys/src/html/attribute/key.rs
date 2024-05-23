@@ -169,6 +169,8 @@ attributes! {
     placeholder "placeholder", // [],
     playsinline "playsinline", // [],
     popover "popover", // [], // [GlobalAttribute]
+    popovertarget "popovertarget",
+    popovertargetaction "popovertargetaction",
     poster "poster", // [],
     preload "preload", // [],
     radiogroup "radiogroup", // [],
