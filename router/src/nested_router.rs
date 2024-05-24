@@ -16,6 +16,7 @@ use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, Read, ReadUntracked, Set, Track, Trigger},
+    wrappers::write::SignalSetter,
 };
 use std::{
     cell::RefCell,
@@ -50,11 +51,10 @@ pub(crate) struct NestedRoutesView<Loc, Defs, Fal, R> {
     pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
     pub outer_owner: Owner,
-    pub url: ArcRwSignal<Url>,
-    pub path: ArcMemo<String>,
-    pub search_params: ArcMemo<ParamsMap>,
+    pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
     pub fallback: Fal,
+    pub set_is_routing: Option<SignalSetter<bool>>,
     pub rndr: PhantomData<R>,
 }
 
@@ -63,10 +63,9 @@ where
     Fal: Render<R>,
     R: Renderer + 'static,
 {
+    path: String,
+    current_url: ArcRwSignal<Url>,
     outer_owner: Owner,
-    url: ArcRwSignal<Url>,
-    path: ArcMemo<String>,
-    search_params: ArcMemo<ParamsMap>,
     outlets: Vec<RouteContext<R>>,
     // TODO loading fallback
     view: Rc<RefCell<EitherOf3State<(), Fal, AnyView<R>, R>>>,
@@ -86,17 +85,20 @@ where
         let NestedRoutesView {
             routes,
             outer_owner,
-            url,
-            path,
-            search_params,
+            current_url,
             fallback,
             base,
+            set_is_routing,
             ..
         } = self;
 
         let mut loaders = Vec::new();
         let mut outlets = Vec::new();
-        let new_match = routes.match_route(&path.read());
+        let url = current_url.read_untracked();
+
+        // match the route
+        let new_match = routes.match_route(&url.path());
+        let id = new_match.as_ref().map(|n| n.as_id());
 
         // start with an empty view because we'll be loading routes async
         let view = EitherOf3::A(()).build();
@@ -105,6 +107,7 @@ where
             None => EitherOf3::B(fallback),
             Some(route) => {
                 route.build_nested_route(
+                    &*url,
                     base,
                     &mut loaders,
                     &mut outlets,
@@ -131,17 +134,30 @@ where
         });
 
         NestedRouteViewState {
+            path: url.path().to_string(),
+            current_url,
             outlets,
             view,
             outer_owner,
-            url,
-            path,
-            search_params,
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let new_match = self.routes.match_route(&self.path.read());
+        let url_snapshot = self.current_url.read_untracked();
+
+        // if the path is the same, we do not need to re-route
+        // we can just update the search query and go about our day
+        if url_snapshot.path() == state.path {
+            for outlet in &state.outlets {
+                outlet.url.set(url_snapshot.to_owned());
+            }
+            return;
+        }
+        // since the path didn't match, we'll update the retained path for future diffing
+        state.path.clear();
+        state.path.push_str(url_snapshot.path());
+
+        let new_match = self.routes.match_route(&url_snapshot.path());
 
         match new_match {
             None => {
@@ -152,6 +168,7 @@ where
             Some(route) => {
                 let mut loaders = Vec::new();
                 route.rebuild_nested_route(
+                    &*self.current_url.read_untracked(),
                     self.base,
                     &mut 0,
                     &mut loaders,
@@ -159,7 +176,6 @@ where
                     &self.outer_owner,
                 );
 
-                // hmm...
                 let location = self.location.clone();
                 Executor::spawn_local(async move {
                     let triggers = join_all(loaders).await;
@@ -272,34 +288,33 @@ where
             let NestedRoutesView {
                 routes,
                 outer_owner,
-                url,
-                path,
-                search_params,
+                current_url: url,
                 fallback,
                 base,
                 ..
             } = self;
 
-            let mut outlets = Vec::new();
-            let new_match = routes.match_route(&path.read());
-            let view = match new_match {
-                None => Either::Left(fallback),
-                Some(route) => {
-                    route.build_nested_route(
-                        base,
-                        // TODO loaders here
-                        &mut Vec::new(),
-                        &mut outlets,
-                        &outer_owner,
-                    );
-                    outer_owner.with(|| {
-                        Either::Right(
-                            Outlet(OutletProps::builder().build()).into_any(),
-                        )
-                    })
-                }
-            };
-            view.to_html_with_buf(buf, position);
+            todo!() /*
+                    let mut outlets = Vec::new();
+                    let new_match = routes.match_route(&path.read());
+                    let view = match new_match {
+                        None => Either::Left(fallback),
+                        Some(route) => {
+                            route.build_nested_route(
+                                base,
+                                // TODO loaders here
+                                &mut Vec::new(),
+                                &mut outlets,
+                                &outer_owner,
+                            );
+                            outer_owner.with(|| {
+                                Either::Right(
+                                    Outlet(OutletProps::builder().build()).into_any(),
+                                )
+                            })
+                        }
+                    };
+                    view.to_html_with_buf(buf, position);*/
         }
     }
 
@@ -313,34 +328,35 @@ where
         let NestedRoutesView {
             routes,
             outer_owner,
-            url,
-            path,
-            search_params,
+            current_url: url,
             fallback,
             base,
             ..
         } = self;
+        todo!() /*
 
-        let mut outlets = Vec::new();
-        let new_match = routes.match_route(&path.read());
-        let view = match new_match {
-            None => Either::Left(fallback),
-            Some(route) => {
-                route.build_nested_route(
-                    base,
-                    // TODO loaders
-                    &mut Vec::new(),
-                    &mut outlets,
-                    &outer_owner,
-                );
-                outer_owner.with(|| {
-                    Either::Right(
-                        Outlet(OutletProps::builder().build()).into_any(),
-                    )
-                })
-            }
-        };
-        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                let mut outlets = Vec::new();
+                let new_match = routes.match_route(&path.read());
+                let view = match new_match {
+                    None => Either::Left(fallback),
+                    Some(route) => {
+                        route.build_nested_route(
+                            base,
+
+                            // TODO loaders
+                            &mut Vec::new(),
+                            &mut outlets,
+                            &outer_owner,
+                        );
+                        outer_owner.with(|| {
+                            Either::Right(
+                                Outlet(OutletProps::builder().build()).into_any(),
+                            )
+                        })
+                    }
+                };
+                view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                */
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -348,17 +364,17 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
+        /*
         let NestedRoutesView {
             routes,
             outer_owner,
-            url,
-            path,
-            search_params,
+            current_url,
             fallback,
             base,
             ..
         } = self;
 
+        let current_url =
         let mut outlets = Vec::new();
         let new_match = routes.match_route(&path.read());
         let view = Rc::new(RefCell::new(
@@ -387,9 +403,9 @@ where
             view,
             outer_owner,
             url,
-            path,
-            search_params,
         }
+        */
+        todo!()
     }
 }
 
@@ -402,6 +418,7 @@ where
 {
     id: RouteMatchId,
     trigger: ArcTrigger,
+    url: ArcRwSignal<Url>,
     params: ArcRwSignal<ParamsMap>,
     owner: Owner,
     pub matched: ArcRwSignal<String>,
@@ -415,7 +432,6 @@ where
     R: Renderer + 'static,
 {
     fn provide_contexts(&self) {
-        provide_context(self.params.read_only());
         provide_context(self.clone());
     }
 }
@@ -426,6 +442,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
+            url: self.url.clone(),
             id: self.id.clone(),
             trigger: self.trigger.clone(),
             params: self.params.clone(),
@@ -444,6 +461,7 @@ where
 {
     fn build_nested_route(
         self,
+        url: &Url,
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext<R>>,
@@ -452,6 +470,7 @@ where
 
     fn rebuild_nested_route(
         self,
+        url: &Url,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
@@ -467,11 +486,14 @@ where
 {
     fn build_nested_route(
         self,
+        url: &Url,
         base: Option<Oco<'static, str>>,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
+        let orig_url = url;
+
         // each Outlet gets its own owner, so it can inherit context from its parent route,
         // a new owner will be constructed if a different route replaces this one in the outlet,
         // so that any signals it creates or context it provides will be cleaned up
@@ -480,6 +502,12 @@ where
         // the params signal can be updated to allow the same outlet to update to changes in the
         // params, even if there's not a route match change
         let params = ArcRwSignal::new(self.to_params().into_iter().collect());
+
+        // the URL signal is used for access to things like search query
+        // this is provided per nested route, specifically so that navigating *away* from a route
+        // does not continuing updating its URL signal, which could do things like triggering
+        // resources to run again
+        let url = ArcRwSignal::new(url.to_owned());
 
         // the matched signal will also be updated on every match
         // it's used for relative route resolution
@@ -498,10 +526,11 @@ where
         // add this outlet to the end of the outlet stack used for diffing
         let outlet = RouteContext {
             id: self.as_id(),
+            url,
             trigger: trigger.clone(),
             params,
             owner: owner.clone(),
-            matched: ArcRwSignal::new(self.as_matched().to_string()),
+            matched,
             tx: tx.clone(),
             rx: Arc::new(Mutex::new(Some(rx))),
             base: base.clone(),
@@ -511,15 +540,21 @@ where
         // send the initial view through the channel, and recurse through the children
         let (view, child) = self.into_view_and_child();
 
-        loaders.push(Box::pin({
-            let owner = outlet.owner.clone();
-            ScopedFuture::new(async move {
-                let view =
-                    owner.with(|| ScopedFuture::new(view.choose())).await;
-                tx.send(Box::new(move || owner.with(|| view.into_any())));
-                trigger
+        loaders.push(Box::pin(owner.with(|| {
+            ScopedFuture::new({
+                let owner = outlet.owner.clone();
+                let params = outlet.params.clone();
+                let url = outlet.url.clone();
+                async move {
+                    provide_context(params);
+                    provide_context(url);
+                    let view =
+                        owner.with(|| ScopedFuture::new(view.choose())).await;
+                    tx.send(Box::new(move || owner.with(|| view.into_any())));
+                    trigger
+                }
             })
-        }));
+        })));
 
         // and share the outlet with the parent via context
         // we share it with the *parent* because the <Outlet/> is rendered in or below the parent
@@ -530,12 +565,13 @@ where
         // this is important because to build the view, we need access to the outlet
         // and the outlet will be returned from building this child
         if let Some(child) = child {
-            child.build_nested_route(base, loaders, outlets, &owner);
+            child.build_nested_route(orig_url, base, loaders, outlets, &owner);
         }
     }
 
     fn rebuild_nested_route(
         self,
+        url: &Url,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
@@ -546,7 +582,7 @@ where
         match current {
             // if there's nothing currently in the routes at this point, build from here
             None => {
-                self.build_nested_route(base, loaders, outlets, parent);
+                self.build_nested_route(url, base, loaders, outlets, parent);
             }
             Some(current) => {
                 // a unique ID for each route, which allows us to compare when we get new matches
@@ -554,25 +590,16 @@ where
                 // if the IDs are different, we need to replace the remainder of the tree
                 let id = self.as_id();
 
-                // whether the route is the same or different, we always need to
-                // 1) update the params (if they've changed),
-                // 2) update the matched path (if it's changed),
-                // 2) access the view and children
-
+                // build new params and matched strings
                 let new_params =
                     self.to_params().into_iter().collect::<ParamsMap>();
-                if current.params.read_untracked() != new_params {
-                    current.params.set(new_params);
-                }
-                let new_match = self.as_matched();
-                if &*current.matched.read_untracked() != new_match {
-                    current.matched.set(new_match);
-                }
+                let new_match = self.as_matched().to_owned();
 
                 let (view, child) = self.into_view_and_child();
 
                 // if the IDs don't match, everything below in the tree needs to be swapped:
-                // 1) replace this outlet with the next view, with a new owner
+                // 1) replace this outlet with the next view, with a new owner and new signals for
+                //    URL/params
                 // 2) remove other outlets that are lower down in the match tree
                 // 3) build the rest of the list of matched routes, rather than rebuilding,
                 //    as all lower outlets needs to be replaced
@@ -580,6 +607,20 @@ where
                     // update the ID of the match at this depth, so that futures rebuilds diff
                     // against the new ID, not the original one
                     current.id = id;
+
+                    // create new URL and params signals
+                    let old_url = mem::replace(
+                        &mut current.url,
+                        ArcRwSignal::new(url.to_owned()),
+                    );
+                    let old_params = mem::replace(
+                        &mut current.params,
+                        ArcRwSignal::new(new_params),
+                    );
+                    let old_matched = mem::replace(
+                        &mut current.matched,
+                        ArcRwSignal::new(new_match),
+                    );
 
                     // assign a new owner, so that contexts and signals owned by the previous route
                     // in this outlet can be dropped
@@ -590,21 +631,30 @@ where
                     // send the new view, with the new owner, through the channel to the Outlet,
                     // and notify the trigger so that the reactive view inside the Outlet tracking
                     // the trigger runs again
-                    loaders.push(Box::pin({
-                        let owner = owner.clone();
-                        let trigger = current.trigger.clone();
-                        let tx = current.tx.clone();
-                        ScopedFuture::new(async move {
-                            let view = owner
-                                .with(|| ScopedFuture::new(view.choose()))
-                                .await;
-                            tx.send(Box::new(move || {
-                                owner.with(|| view.into_any())
-                            }));
-                            drop(old_owner);
-                            trigger
+                    loaders.push(Box::pin(owner.with(|| {
+                        ScopedFuture::new({
+                            let owner = owner.clone();
+                            let trigger = current.trigger.clone();
+                            let tx = current.tx.clone();
+                            let url = current.url.clone();
+                            let params = current.params.clone();
+                            async move {
+                                provide_context(params);
+                                provide_context(url);
+                                let view = owner
+                                    .with(|| ScopedFuture::new(view.choose()))
+                                    .await;
+                                tx.send(Box::new(move || {
+                                    owner.with(|| view.into_any())
+                                }));
+                                drop(old_owner);
+                                drop(old_params);
+                                drop(old_url);
+                                drop(old_matched);
+                                trigger
+                            }
                         })
-                    }));
+                    })));
 
                     // remove all the items lower in the tree
                     // if this match is different, all its children will also be different
@@ -614,6 +664,7 @@ where
                     if let Some(child) = child {
                         let mut new_outlets = Vec::new();
                         child.build_nested_route(
+                            url,
                             base,
                             loaders,
                             &mut new_outlets,
@@ -625,13 +676,16 @@ where
                     return;
                 }
 
-                // otherwise, just keep rebuilding recursively, checking the remaining routes in
-                // the list
+                // otherwise, set the params and URL signals,
+                // then just keep rebuilding recursively, checking the remaining routes in the list
+                current.matched.set(new_match);
+                current.params.set(new_params);
+                current.url.set(url.to_owned());
                 if let Some(child) = child {
                     let owner = current.owner.clone();
                     *items += 1;
                     child.rebuild_nested_route(
-                        base, items, loaders, outlets, &owner,
+                        url, base, items, loaders, outlets, &owner,
                     );
                 }
             }

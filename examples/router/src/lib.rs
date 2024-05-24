@@ -3,9 +3,8 @@ use crate::api::*;
 use leptos::either::Either;
 use leptos::prelude::*;
 use leptos_router::{
-    components::{ParentRoute, Redirect, Route, Router, Routes},
-    hooks::{use_location, use_navigate, use_params},
-    link::A,
+    components::{ParentRoute, Redirect, Route, Router, Routes, A},
+    hooks::{use_location, use_navigate, use_params, use_query_map},
     params::Params,
     MatchNestedRoutes, Outlet, ParamSegment, StaticSegment,
 };
@@ -72,9 +71,12 @@ pub fn ContactList() -> impl IntoView {
         info!("cleaning up <ContactList/>");
     });
 
-    let location = use_location();
-    let contacts =
-        AsyncDerived::new(move || get_contacts(location.search.get()));
+    let query = use_query_map();
+    let search = Memo::new(move |_| query.read().get("q").unwrap_or_default());
+    let contacts = AsyncDerived::new(move || {
+        leptos::logging::log!("reloading contacts");
+        get_contacts(search.get())
+    });
     let contacts = move || {
         Suspend(async move {
             // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
