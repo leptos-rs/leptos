@@ -27,9 +27,17 @@ impl ParamsMap {
     }
     */
 
-    /// Gets a value from the map.
+    /// Gets an owned value from the map.
     #[inline(always)]
-    pub fn get(&self, key: &str) -> Option<&str> {
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.0
+            .iter()
+            .find_map(|(k, v)| (k == key).then_some(v.to_owned()))
+    }
+
+    /// Gets a referenc to a value from the map.
+    #[inline(always)]
+    pub fn get_str(&self, key: &str) -> Option<&str> {
         self.0
             .iter()
             .find_map(|(k, v)| (k == key).then_some(v.as_str()))
