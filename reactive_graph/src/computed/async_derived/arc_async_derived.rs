@@ -91,6 +91,7 @@ macro_rules! spawn_derived {
             notifier,
             sources: SourceSet::new(),
             subscribers: SubscriberSet::new(),
+            dirty: false
         }));
         let value = Arc::new(RwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));

@@ -18,11 +18,14 @@ pub(crate) struct ArcAsyncDerivedInner {
     pub subscribers: SubscriberSet,
     // when a source changes, notifying this will cause the async work to rerun
     pub notifier: Sender,
+    pub dirty: bool,
 }
 
 impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     fn mark_dirty(&self) {
-        self.write().or_poisoned().notifier.notify();
+        let mut lock = self.write().or_poisoned();
+        lock.dirty = true;
+        lock.notifier.notify();
     }
 
     fn mark_check(&self) {
@@ -37,23 +40,22 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     }
 
     fn update_if_necessary(&self) -> bool {
-        // if update_is_necessary is being called, that mean that a subscriber
-        // wants to know if our latest value has changed
-        //
-        // this could be the case either because
-        // 1) we have updated, and asynchronously woken the subscriber back up
-        // 2) a different source has woken up the subscriber, and it's now asking us
-        //    if we've changed
-        //
-        // if we return `false` it will short-circuit that subscriber
-        // if we return `true` it means "yes, we may have changed"
-        //
-        // returning `true` here means that an AsyncDerived behaves like a signal (it always says
-        // "sure, I"ve changed) and not like a memo (checks whether it has *actually* changed)
-        //
-        // TODO is there a dirty-checking mechanism that would work here? we would need a
-        // memoization process like a memo has, to ensure we don't over-notify
-        true
+        let mut guard = self.write().or_poisoned();
+        let (is_dirty, sources) =
+            (guard.dirty, (!guard.dirty).then(|| guard.sources.clone()));
+
+        if is_dirty {
+            guard.dirty = false;
+            return true;
+        }
+
+        drop(guard);
+        for source in sources.into_iter().flatten() {
+            if source.update_if_necessary() {
+                return true;
+            }
+        }
+        false
     }
 }
 
