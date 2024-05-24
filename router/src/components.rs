@@ -211,7 +211,10 @@ where
 {
     let location = use_context::<BrowserUrl>();
     let RouterContext {
-        current_url, base, ..
+        current_url,
+        base,
+        set_is_routing,
+        ..
     } = use_context()
         .expect("<Routes> should be used inside a <Router> component");
     let base = base.map(|base| {
@@ -220,26 +223,20 @@ where
         base
     });
     let routes = Routes::new(children.into_inner());
-    let path = ArcMemo::new({
-        let url = current_url.clone();
-        move |_| url.read().path().to_string()
-    });
-    let search_params = ArcMemo::new({
-        let url = current_url.clone();
-        move |_| url.read().search_params().clone()
-    });
     let outer_owner =
         Owner::current().expect("creating Routes, but no Owner was found");
-    move || NestedRoutesView {
-        location: location.clone(),
-        routes: routes.clone(),
-        outer_owner: outer_owner.clone(),
-        url: current_url.clone(),
-        path: path.clone(),
-        search_params: search_params.clone(),
-        base: base.clone(),
-        fallback: fallback(),
-        rndr: PhantomData,
+    move || {
+        current_url.track();
+        NestedRoutesView {
+            location: location.clone(),
+            routes: routes.clone(),
+            outer_owner: outer_owner.clone(),
+            current_url: current_url.clone(),
+            base: base.clone(),
+            fallback: fallback(),
+            rndr: PhantomData,
+            set_is_routing: set_is_routing.clone(),
+        }
     }
 }
 
