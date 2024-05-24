@@ -196,7 +196,6 @@ where
     fn build(self) -> Self::State {
         let FlatRoutesView {
             current_url,
-            location,
             routes,
             fallback,
             outer_owner,
@@ -296,7 +295,7 @@ where
             outer_owner,
             set_is_routing
         } = self;
-        let url_snapshot = current_url.get_untracked();
+        let url_snapshot = current_url.read_untracked();
 
         // if the path is the same, we do not need to re-route
         // we can just update the search query and go about our day
