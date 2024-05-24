@@ -4,6 +4,7 @@ use or_poisoned::OrPoisoned;
 #[cfg(debug_assertions)]
 use reactive_graph::diagnostics::SpecialNonReactiveZone;
 use reactive_graph::owner::Owner;
+use send_wrapper::SendWrapper;
 use std::time::Duration;
 use tachys::html::event::EventDescriptor;
 #[cfg(feature = "tracing")]
@@ -468,6 +469,7 @@ pub fn window_event_listener_untyped(
                 cb.unchecked_ref(),
             );
             let event_name = event_name.to_string();
+            let cb = SendWrapper::new(cb);
             WindowListenerHandle(Box::new(move || {
                 _ = window().remove_event_listener_with_callback(
                     &event_name,
@@ -511,7 +513,7 @@ where
 }
 
 /// A handle that can be called to remove a global event listener.
-pub struct WindowListenerHandle(Box<dyn FnOnce()>);
+pub struct WindowListenerHandle(Box<dyn FnOnce() + Send + Sync>);
 
 impl core::fmt::Debug for WindowListenerHandle {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
