@@ -21,6 +21,7 @@ pub use flat_router::*;
 pub use generate_route_list::*;
 pub use matching::*;
 pub use method::*;
+pub use navigate::*;
 pub use nested_router::*;
 //pub use router::*;
 pub use ssr_mode::*;
