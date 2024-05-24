@@ -288,33 +288,33 @@ where
             let NestedRoutesView {
                 routes,
                 outer_owner,
-                current_url: url,
+                current_url,
                 fallback,
                 base,
                 ..
             } = self;
+            let current_url = current_url.read_untracked();
 
-            todo!() /*
-                    let mut outlets = Vec::new();
-                    let new_match = routes.match_route(&path.read());
-                    let view = match new_match {
-                        None => Either::Left(fallback),
-                        Some(route) => {
-                            route.build_nested_route(
-                                base,
-                                // TODO loaders here
-                                &mut Vec::new(),
-                                &mut outlets,
-                                &outer_owner,
-                            );
-                            outer_owner.with(|| {
-                                Either::Right(
-                                    Outlet(OutletProps::builder().build()).into_any(),
-                                )
-                            })
-                        }
-                    };
-                    view.to_html_with_buf(buf, position);*/
+            let mut outlets = Vec::new();
+            let new_match = routes.match_route(current_url.path());
+            let view = match new_match {
+                None => Either::Left(fallback),
+                Some(route) => {
+                    route.build_nested_route(
+                        &*current_url,
+                        base,
+                        &mut Vec::new(),
+                        &mut outlets,
+                        &outer_owner,
+                    );
+                    outer_owner.with(|| {
+                        Either::Right(
+                            Outlet(OutletProps::builder().build()).into_any(),
+                        )
+                    })
+                }
+            };
+            view.to_html_with_buf(buf, position);
         }
     }
 
@@ -328,35 +328,33 @@ where
         let NestedRoutesView {
             routes,
             outer_owner,
-            current_url: url,
+            current_url,
             fallback,
             base,
             ..
         } = self;
-        todo!() /*
+        let current_url = current_url.read_untracked();
 
-                let mut outlets = Vec::new();
-                let new_match = routes.match_route(&path.read());
-                let view = match new_match {
-                    None => Either::Left(fallback),
-                    Some(route) => {
-                        route.build_nested_route(
-                            base,
-
-                            // TODO loaders
-                            &mut Vec::new(),
-                            &mut outlets,
-                            &outer_owner,
-                        );
-                        outer_owner.with(|| {
-                            Either::Right(
-                                Outlet(OutletProps::builder().build()).into_any(),
-                            )
-                        })
-                    }
-                };
-                view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
-                */
+        let mut outlets = Vec::new();
+        let new_match = routes.match_route(&current_url.path());
+        let view = match new_match {
+            None => Either::Left(fallback),
+            Some(route) => {
+                route.build_nested_route(
+                    &*current_url,
+                    base,
+                    &mut Vec::new(),
+                    &mut outlets,
+                    &outer_owner,
+                );
+                outer_owner.with(|| {
+                    Either::Right(
+                        Outlet(OutletProps::builder().build()).into_any(),
+                    )
+                })
+            }
+        };
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -364,27 +362,33 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        /*
         let NestedRoutesView {
             routes,
             outer_owner,
             current_url,
             fallback,
             base,
+            set_is_routing,
             ..
         } = self;
 
-        let current_url =
+        let mut loaders = Vec::new();
         let mut outlets = Vec::new();
-        let new_match = routes.match_route(&path.read());
+        let url = current_url.read_untracked();
+
+        // match the route
+        let new_match = routes.match_route(&url.path());
+        let id = new_match.as_ref().map(|n| n.as_id());
+
+        // start with an empty view because we'll be loading routes async
         let view = Rc::new(RefCell::new(
             match new_match {
                 None => EitherOf3::B(fallback),
                 Some(route) => {
                     route.build_nested_route(
+                        &*url,
                         base,
-                        // TODO loaders in hydration
-                        &mut Vec::new(),
+                        &mut loaders,
                         &mut outlets,
                         &outer_owner,
                     );
@@ -399,13 +403,12 @@ where
         ));
 
         NestedRouteViewState {
+            path: url.path().to_string(),
+            current_url,
             outlets,
             view,
             outer_owner,
-            url,
         }
-        */
-        todo!()
     }
 }
 
