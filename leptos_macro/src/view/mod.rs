@@ -8,6 +8,7 @@ use proc_macro_error::abort;
 use quote::{quote, quote_spanned, ToTokens};
 use rstml::node::{
     KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
+    NodeNameFragment,
 };
 use std::collections::HashMap;
 use syn::{
@@ -202,6 +203,44 @@ pub(crate) fn element_to_tokens(
         } else { */
         Some(component_to_tokens(node, global_class))
         //}
+    } else if is_spread_marker(node) {
+        let mut attributes = Vec::new();
+        let mut additions = Vec::new();
+        for node in node.attributes() {
+            match node {
+                NodeAttribute::Block(block) => {
+                    if let NodeBlock::ValidBlock(block) = block {
+                        match block.stmts.first() {
+                            Some(Stmt::Expr(
+                                Expr::Range(ExprRange {
+                                    start: None,
+                                    limits: RangeLimits::HalfOpen(_),
+                                    end: Some(end),
+                                    ..
+                                }),
+                                _,
+                            )) => {
+                                additions.push(quote! { #end });
+                            }
+                            _ => {
+                                additions.push(quote! { #block });
+                            }
+                        }
+                    } else {
+                        additions.push(quote! { #block });
+                    }
+                }
+                NodeAttribute::Attribute(node) => {
+                    if let Some(content) = attribute_absolute(node, true) {
+                        attributes.push(content);
+                    }
+                }
+            }
+        }
+        Some(quote! {
+            (#(#attributes,)*)
+            #(.add_any_attr(#additions))*
+        })
     } else {
         let tag = name.to_string();
         // collect close_tag name to emit semantic information for IDE.
@@ -298,6 +337,24 @@ pub(crate) fn element_to_tokens(
     }
 }
 
+fn is_spread_marker(node: &NodeElement) -> bool {
+    match node.name() {
+        NodeName::Block(block) => matches!(
+            block.stmts.first(),
+            Some(Stmt::Expr(
+                Expr::Range(ExprRange {
+                    start: None,
+                    limits: RangeLimits::HalfOpen(_),
+                    end: None,
+                    ..
+                }),
+                _,
+            ))
+        ),
+        _ => false,
+    }
+}
+
 fn attribute_to_tokens(
     tag_type: TagType,
     node: &NodeAttribute,
@@ -386,6 +443,89 @@ fn attribute_to_tokens(
                 }
             }
         }
+    }
+}
+
+/// Returns attribute values with an absolute path
+pub(crate) fn attribute_absolute(
+    node: &KeyedAttribute,
+    after_spread: bool,
+) -> Option<TokenStream> {
+    let contains_dash = node.key.to_string().contains('-');
+    // anything that follows the x:y pattern
+    match &node.key {
+        NodeName::Punctuated(parts) if !contains_dash => {
+            if parts.len() >= 2 {
+                let id = &parts[0];
+                match id {
+                    NodeNameFragment::Ident(id) => {
+                        let value = attribute_value(node);
+                        // ignore `let:`
+                        if id == "let" {
+                            None
+                        } else if id == "attr" {
+                            let key = &parts[1];
+                            Some(
+                                quote! { ::leptos::tachys::html::attribute::#key(#value) },
+                            )
+                        } else if id == "style" || id == "class" {
+                            let key = &node.key.to_string();
+                            let key = key
+                                .replacen("style:", "", 1)
+                                .replacen("class:", "", 1);
+                            Some(
+                                quote! { ::leptos::tachys::html::#id::#id((#key, #value)) },
+                            )
+                        } else if id == "prop" {
+                            let key = &node.key.to_string();
+                            let key = key.replacen("prop:", "", 1);
+                            Some(
+                                quote! { ::leptos::tachys::html::property::#id(#key, #value) },
+                            )
+                        } else if id == "on" {
+                            let key = &node.key.to_string();
+                            let key = key.replacen("on:", "", 1);
+                            let (on, ty, handler) =
+                                event_type_and_handler(&key, node);
+                            Some(
+                                quote! { ::leptos::tachys::html::event::#on(#ty, #handler) },
+                            )
+                        } else {
+                            proc_macro_error::abort!(
+                                id.span(),
+                                &format!(
+                                    "`{id}:` syntax is not supported on \
+                                     components"
+                                )
+                            );
+                        }
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        _ => after_spread.then(|| {
+            let key = attribute_name(&node.key);
+            let value = &node.value();
+            let name = &node.key.to_string();
+            if name == "class" || name == "style" {
+                quote! {
+                    ::leptos::tachys::html::#key::#key(#value)
+                }
+            } 
+            else if name.contains('-') && !name.starts_with("aria-") {
+                quote! {
+                    ::leptos::tachys::html::attribute::custom::custom_attribute(#name, #value)
+                }
+            }
+            else {
+                quote! {
+                    ::leptos::tachys::html::attribute::#key(#value)
+                }
+            }
+        }),
     }
 }
 
