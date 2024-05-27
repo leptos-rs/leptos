@@ -120,6 +120,7 @@ impl ToTokens for Model {
                 #prop_builder_fields
             }
 
+            /*
             impl #generics From<#name #generics> for Vec<#name #generics> #where_clause {
                 fn from(value: #name #generics) -> Self {
                     vec![value]
@@ -139,6 +140,7 @@ impl ToTokens for Model {
                     self
                 }
             }
+            */
         };
 
         tokens.append_all(output)
