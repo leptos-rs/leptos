@@ -1,7 +1,5 @@
-use super::{
-    client_builder::{fragment_to_tokens, TagType},
-    convert_to_snake_case, ident_from_tag_name,
-};
+use super::{convert_to_snake_case, ident_from_tag_name};
+use crate::view::{fragment_to_tokens, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{KeyedAttribute, NodeAttribute, NodeElement};
@@ -114,14 +112,15 @@ pub(crate) fn slot_to_tokens(
     } else {
         let children = fragment_to_tokens(
             &node.children,
-            true,
             TagType::Unknown,
             Some(&mut slots),
             global_class,
             None,
         );
 
-        cfg_if::cfg_if! {
+        // TODO view markers for hot-reloading
+        /*
+         cfg_if::cfg_if! {
             if #[cfg(debug_assertions)] {
                 let marker = format!("<{component_name}/>-children");
                 // For some reason spanning for `.children` breaks, unless `#view_marker`
@@ -131,6 +130,8 @@ pub(crate) fn slot_to_tokens(
                 let view_marker = quote! {};
             }
         }
+        */
+        let view_marker = quote! {};
 
         if let Some(children) = children {
             let bindables =
@@ -154,7 +155,7 @@ pub(crate) fn slot_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        ::leptos::ToChildren::to_children(move || #children #view_marker)
+                        ::leptos::children::ToChildren::to_children(move || #children #view_marker)
                     })
                 }
             }

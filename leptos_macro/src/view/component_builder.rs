@@ -17,7 +17,7 @@ pub(crate) fn component_to_tokens(
 ) -> TokenStream {
     let name = node.name();
     #[cfg(debug_assertions)]
-    let component_name = ident_from_tag_name(node.name());
+    let component_name = super::ident_from_tag_name(node.name());
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes
@@ -311,29 +311,4 @@ pub(crate) fn component_to_tokens(
     IdeTagHelper::add_component_completion(&mut component, node); */
 
     component
-}
-
-#[cfg(debug_assertions)]
-fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
-    match tag_name {
-        NodeName::Path(path) => path
-            .path
-            .segments
-            .iter()
-            .last()
-            .map(|segment| segment.ident.clone())
-            .expect("element needs to have a name"),
-        NodeName::Block(_) => {
-            let span = tag_name.span();
-            proc_macro_error::emit_error!(
-                span,
-                "blocks not allowed in tag-name position"
-            );
-            Ident::new("", span)
-        }
-        _ => Ident::new(
-            &tag_name.to_string().replace(['-', ':'], "_"),
-            tag_name.span(),
-        ),
-    }
 }
