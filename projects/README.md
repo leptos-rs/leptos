@@ -23,3 +23,6 @@ This example walks you through in explicit detail how to use [Tauri](https://tau
 
 ### counter_dwarf_debug
 This example shows how to add breakpoints within the browser or visual studio code for debugging.
+
+### bevy3d_ui
+This example uses the bevy 3d game engine with leptos within webassembly.
