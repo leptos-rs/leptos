@@ -30,8 +30,6 @@ impl ParamsMap {
     /// Inserts a value into the map.
     #[inline(always)]
     pub fn insert(&mut self, key: String, value: String) -> Option<String> {
-        use crate::history::url::unescape;
-        let value = unescape(&value);
         self.0.insert(key, value)
     }
 
