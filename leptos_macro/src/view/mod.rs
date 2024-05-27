@@ -1,6 +1,7 @@
 mod component_builder;
+mod slot_helper;
 
-use self::component_builder::component_to_tokens;
+use self::{component_builder::component_to_tokens, slot_helper::{get_slot, slot_to_tokens}};
 use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
@@ -94,7 +95,8 @@ fn fragment_to_tokens(
         global_class,
         view_marker,
     );
-    if children.len() == 1 {
+    if children.is_empty() { None }
+    else if children.len() == 1 {
         children.into_iter().next()
     } else {
         Some(quote! {
@@ -122,18 +124,28 @@ fn children_to_tokens(
             None => vec![],
         }
     } else {
-        nodes
+        let mut slots = HashMap::new();
+        let nodes = nodes
             .iter()
             .filter_map(|node| {
                 node_to_tokens(
                     node,
                     TagType::Unknown,
-                    None,
+                    Some(&mut slots),
                     global_class,
                     view_marker,
                 )
             })
-            .collect()
+            .collect();
+        if let Some(parent_slots) = parent_slots {
+            for (slot, mut values) in slots.drain() {
+                parent_slots
+                    .entry(slot)
+                    .and_modify(|entry| entry.append(&mut values))
+                    .or_insert(values);
+            }
+        }
+        nodes
     }
 }
 
@@ -196,13 +208,12 @@ pub(crate) fn element_to_tokens(
 ) -> Option<TokenStream> {
     let name = node.name();
     if is_component_node(node) {
-        // TODO slots
-        /* if let Some(slot) = get_slot(node) {
+        if let Some(slot) = get_slot(node) {
             slot_to_tokens(node, slot, parent_slots, global_class);
             None
-        } else { */
-        Some(component_to_tokens(node, global_class))
-        //}
+        } else { 
+            Some(component_to_tokens(node, global_class))
+        }
     } else if is_spread_marker(node) {
         let mut attributes = Vec::new();
         let mut additions = Vec::new();
@@ -987,5 +998,29 @@ fn convert_to_snake_case(name: String) -> String {
         name.to_case(Snake)
     } else {
         name
+    }
+}
+
+pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
+    match tag_name {
+        NodeName::Path(path) => path
+            .path
+            .segments
+            .iter()
+            .last()
+            .map(|segment| segment.ident.clone())
+            .expect("element needs to have a name"),
+        NodeName::Block(_) => {
+            let span = tag_name.span();
+            proc_macro_error::emit_error!(
+                span,
+                "blocks not allowed in tag-name position"
+            );
+            Ident::new("", span)
+        }
+        _ => Ident::new(
+            &tag_name.to_string().replace(['-', ':'], "_"),
+            tag_name.span(),
+        ),
     }
 }
