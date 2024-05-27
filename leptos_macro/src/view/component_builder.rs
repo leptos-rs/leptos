@@ -1,10 +1,15 @@
 use super::{event_to_tokens, fragment_to_tokens, TagType};
-use crate::view::{attribute_value, event_type_and_handler};
+use crate::view::{
+    attribute_absolute, attribute_to_tokens, attribute_value,
+    event_type_and_handler,
+};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{NodeAttribute, NodeElement, NodeName, NodeNameFragment};
+use rstml::node::{
+    NodeAttribute, NodeBlock, NodeElement, NodeName, NodeNameFragment,
+};
 use std::collections::HashMap;
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, Expr, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
     node: &NodeElement,
@@ -13,6 +18,32 @@ pub(crate) fn component_to_tokens(
     let name = node.name();
     #[cfg(debug_assertions)]
     let component_name = ident_from_tag_name(node.name());
+
+    // an attribute that contains {..} can be used to split props from attributes
+    // anything before it is a prop, unless it uses the special attribute syntaxes
+    // (attr:, style:, on:, prop:, etc.)
+    // anything after it is a plain HTML attribute to be spread onto the prop
+    let spread_marker = node
+        .attributes()
+        .iter()
+        .position(|node| match node {
+            NodeAttribute::Block(NodeBlock::ValidBlock(block)) => {
+                matches!(
+                    block.stmts.first(),
+                    Some(Stmt::Expr(
+                        Expr::Range(ExprRange {
+                            start: None,
+                            limits: RangeLimits::HalfOpen(_),
+                            end: None,
+                            ..
+                        }),
+                        _,
+                    ))
+                )
+            }
+            _ => false,
+        })
+        .unwrap_or_else(|| node.attributes().len());
 
     let attrs = node.attributes().iter().filter_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
@@ -48,18 +79,21 @@ pub(crate) fn component_to_tokens(
 
     let props = attrs
         .clone()
-        .filter(|attr| {
-            let attr_key = attr.key.to_string();
-            !attr_key.starts_with("let:")
-                && !attr_key.starts_with("clone:")
-                && !attr_key.starts_with("class:")
-                && !attr_key.starts_with("style:")
-                && !attr_key.starts_with("attr:")
-                && !attr_key.starts_with("prop:")
-                && !attr_key.starts_with("on:")
-                && !attr_key.starts_with("use:")
+        .enumerate()
+        .filter(|(idx, attr)| {
+            idx < &spread_marker && {
+                let attr_key = attr.key.to_string();
+                !attr_key.starts_with("let:")
+                    && !attr_key.starts_with("clone:")
+                    && !attr_key.starts_with("class:")
+                    && !attr_key.starts_with("style:")
+                    && !attr_key.starts_with("attr:")
+                    && !attr_key.starts_with("prop:")
+                    && !attr_key.starts_with("on:")
+                    && !attr_key.starts_with("use:")
+            }
         })
-        .map(|attr| {
+        .map(|(_, attr)| {
             let name = &attr.key;
 
             let value = attr
@@ -105,7 +139,11 @@ pub(crate) fn component_to_tokens(
     let spreads = node
         .attributes()
         .iter()
-        .filter_map(|attr| {
+        .enumerate()
+        .filter_map(|(idx, attr)| {
+            if idx == spread_marker {
+                return None;
+            }
             use rstml::node::NodeBlock;
             use syn::{Expr, ExprRange, RangeLimits, Stmt};
 
@@ -120,7 +158,7 @@ pub(crate) fn component_to_tokens(
                                 ..
                             }),
                             _,
-                        )) => Some(quote! { .add_any_attr(#end) }),
+                        )) => Some(quote! { #end }),
                         _ => None,
                     }
                 } else {
@@ -128,59 +166,17 @@ pub(crate) fn component_to_tokens(
                 };
                 Some(dotted.unwrap_or_else(|| {
                     quote! {
-                        .add_any_attr(#[allow(unused_braces)] { #node })
+                        #node
                     }
                 }))
             } else if let NodeAttribute::Attribute(node) = attr {
-                // anything that follows the x:y pattern
-                match &node.key {
-                    NodeName::Punctuated(parts) => {
-                        if parts.len() >= 2 {
-                            let id = &parts[0];
-                            match id {
-                                NodeNameFragment::Ident(id) => {
-                                    let value = attribute_value(node);
-                                    // ignore `let:`
-                                    if id == "let" {
-                                        None
-                                    }
-                                    else if id == "attr" {
-                                        let key = &parts[1];
-                                        Some(quote! { #key(#value) })
-                                    } else if id == "style" || id == "class" {
-                                        let key = &node.key.to_string();
-                                        let key = key
-                                            .replacen("style:", "", 1)
-                                            .replacen("class:", "", 1);
-                                        Some(quote! { ::leptos::tachys::html::#id::#id((#key, #value)) })
-                                    } else if id == "prop" {
-                                        let key = &node.key.to_string();
-                                        let key = key
-                                            .replacen("prop:", "", 1);
-                                        Some(quote! { ::leptos::tachys::html::property::#id(#key, #value) })
-                                    } else if id == "on" {
-                                        let key = &node.key.to_string();
-                                        let key = key
-                                            .replacen("on:", "", 1);
-                                        let (on, ty, handler) = event_type_and_handler(&key, node);
-                                        Some(quote! { ::leptos::tachys::html::event::#on(#ty, #handler) })
-                                    } else {
-                                        proc_macro_error::abort!(id.span(), &format!("`{id}:` syntax is not supported on components"));
-                                    }
-                                }
-                                _ => None,
-                            }
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                }
+                attribute_absolute(node, idx >= spread_marker)
             } else {
                 None
             }
         })
         .collect::<Vec<_>>();
+
     let spreads = (!(spreads.is_empty())).then(|| {
         quote! {
             .add_any_attr((#(#spreads,)*))
@@ -294,23 +290,16 @@ pub(crate) fn component_to_tokens(
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {node.span()=>
-        ::leptos::component_view(
-            #[allow(clippy::needless_borrows_for_generic_args)]
-            #name_ref,
-            #component_props_builder
-                #(#props)*
-                #(#slots)*
-                #children;
-
-            #[allow(clippy::let_unit_value, clippy::unit_arg)]
-            let props = props
-                #build;
-
+        {
             #[allow(unreachable_code)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
                 #name_ref,
-                props
+                #component_props_builder
+                    #(#props)*
+                    #(#slots)*
+                    #children
+                    #build
             )
             #spreads
         }
