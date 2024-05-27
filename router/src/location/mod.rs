@@ -237,7 +237,6 @@ where
 
             let url = parse_with_base(href.as_str(), &origin).unwrap();
             let path_name = unescape(&url.path);
-            ev.prevent_default();
 
             // let browser handle this event if it leaves our domain
             // or our base path
@@ -251,6 +250,9 @@ where
                 return Ok(());
             }
 
+            // we've passed all the checks to navigate on the client side, so we prevent the
+            // default behavior of the click
+            ev.prevent_default();
             let to = path_name
                 + if url.search.is_empty() { "" } else { "?" }
                 + &unescape(&url.search)
