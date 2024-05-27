@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 
 // Slots are created in similar manner to components, except that they use the #[slot] macro.
 #[slot]
@@ -29,13 +29,13 @@ fn SlotIf(
 ) -> impl IntoView {
     move || {
         if cond.get() {
-            (then.children)().into_view()
+            (then.children)().into_any()
         } else if let Some(else_if) = else_if.iter().find(|i| i.cond.get()) {
-            (else_if.children)().into_view()
+            (else_if.children)().into_any()
         } else if let Some(fallback) = &fallback {
-            (fallback.children)().into_view()
+            (fallback.children)().into_any()
         } else {
-            ().into_view()
+            ().into_any()
         }
     }
 }
