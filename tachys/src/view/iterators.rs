@@ -73,6 +73,12 @@ where
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) {
+        if let Some(inner) = self.as_mut() {
+            inner.dry_resolve();
+        }
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         match self {
             None => None,
@@ -306,6 +312,12 @@ where
     type AsyncOutput = Vec<T::AsyncOutput>;
 
     const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {
+        for inner in self.iter_mut() {
+            inner.dry_resolve();
+        }
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         futures::future::join_all(self.into_iter().map(T::resolve))

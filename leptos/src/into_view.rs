@@ -53,6 +53,10 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
         self.0.resolve().await
     }
 
+    fn dry_resolve(&mut self) {
+        self.0.dry_resolve();
+    }
+
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
         self.0.to_html_with_buf(buf, position);
     }

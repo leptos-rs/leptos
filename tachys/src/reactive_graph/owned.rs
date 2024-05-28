@@ -156,6 +156,10 @@ where
             .await;
         OwnedView { owner, view, rndr }
     }
+
+    fn dry_resolve(&mut self) {
+        self.owner.with(|| self.view.dry_resolve());
+    }
 }
 
 impl<T, R> Mountable<R> for OwnedViewState<T, R>

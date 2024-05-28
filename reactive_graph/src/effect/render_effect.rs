@@ -95,6 +95,53 @@ where
     }
 }
 
+impl<T> RenderEffect<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[doc(hidden)]
+    pub fn new_isomorphic(
+        mut fun: impl FnMut(Option<T>) -> T + Send + 'static,
+    ) -> Self {
+        let (mut observer, mut rx) = channel();
+        observer.notify();
+
+        let value = Arc::new(RwLock::new(None::<T>));
+        let owner = Owner::new();
+        let inner = Arc::new(RwLock::new(EffectInner {
+            dirty: false,
+            observer,
+            sources: SourceSet::new(),
+        }));
+        let mut first_run = true;
+
+        Executor::spawn({
+            let value = Arc::clone(&value);
+            let subscriber = inner.to_any_subscriber();
+
+            async move {
+                while rx.next().await.is_some() {
+                    if first_run
+                        || subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                    {
+                        first_run = false;
+                        subscriber.clear_sources(&subscriber);
+
+                        let old_value =
+                            mem::take(&mut *value.write().or_poisoned());
+                        let new_value = owner.with(|| {
+                            subscriber.with_observer(|| fun(old_value))
+                        });
+                        *value.write().or_poisoned() = Some(new_value);
+                    }
+                }
+            }
+        });
+        RenderEffect { value, inner }
+    }
+}
+
 impl<T> ToAnySubscriber for RenderEffect<T> {
     fn to_any_subscriber(&self) -> AnySubscriber {
         AnySubscriber(
