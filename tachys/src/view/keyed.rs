@@ -204,16 +204,13 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        let rows =
-            futures::future::join_all(self.items.into_iter().map(|item| {
-                let view = (self.view_fn)(item);
-                view.resolve()
-            }))
-            .await
-            .into_iter()
-            .collect::<Vec<_>>();
-        println!("resolved with rows = {:?}", rows.len());
-        rows
+        futures::future::join_all(self.items.into_iter().map(|item| {
+            let view = (self.view_fn)(item);
+            view.resolve()
+        }))
+        .await
+        .into_iter()
+        .collect::<Vec<_>>()
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
