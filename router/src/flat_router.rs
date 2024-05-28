@@ -476,6 +476,8 @@ where
         <Defs::Match as MatchInterface<R>>::View,
     > as RenderHtml<R>>::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) { }
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }

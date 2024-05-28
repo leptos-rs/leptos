@@ -213,6 +213,10 @@ where
         + E::TAG.len()
     };
 
+    fn dry_resolve(&mut self) {
+        self.children.dry_resolve()
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         HtmlElement {
             tag: self.tag,

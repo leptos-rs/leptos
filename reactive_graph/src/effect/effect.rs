@@ -124,6 +124,44 @@ impl Effect {
             inner: StoredValue::new(Some(inner)),
         }
     }
+
+    pub fn new_isomorphic<T>(
+        mut fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
+    ) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
+        let (mut rx, owner, inner) = effect_base();
+        let mut first_run = true;
+        let value = Arc::new(RwLock::new(None::<T>));
+
+        Executor::spawn({
+            let value = Arc::clone(&value);
+            let subscriber = inner.to_any_subscriber();
+
+            async move {
+                while rx.next().await.is_some() {
+                    if first_run
+                        || subscriber
+                            .with_observer(|| subscriber.update_if_necessary())
+                    {
+                        first_run = false;
+                        subscriber.clear_sources(&subscriber);
+
+                        let old_value =
+                            mem::take(&mut *value.write().or_poisoned());
+                        let new_value = owner.with_cleanup(|| {
+                            subscriber.with_observer(|| fun(old_value))
+                        });
+                        *value.write().or_poisoned() = Some(new_value);
+                    }
+                }
+            }
+        });
+        Self {
+            inner: StoredValue::new(Some(inner)),
+        }
+    }
 }
 
 impl ToAnySubscriber for Effect {

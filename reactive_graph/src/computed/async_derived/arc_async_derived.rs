@@ -6,11 +6,12 @@ use super::{
 use crate::owner::Sandboxed;
 use crate::{
     channel::channel,
+    computed::suspense::SuspenseContext,
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet, ToAnySource, ToAnySubscriber,
     },
-    owner::Owner,
+    owner::{use_context, Owner},
     signal::guards::{Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
     transition::AsyncTransition,
@@ -235,10 +236,21 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
+impl<T: Send + Sync + 'static> ReadUntracked for ArcAsyncDerived<T> {
     type Value = ReadGuard<AsyncState<T>, Plain<AsyncState<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
+        if let Some(suspense_context) = use_context::<SuspenseContext>() {
+            if matches!(&*self.value.read().or_poisoned(), AsyncState::Loading)
+            {
+                let handle = suspense_context.task_id();
+                let ready = self.ready();
+                Executor::spawn(async move {
+                    ready.await;
+                    drop(handle);
+                });
+            }
+        }
         Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
     }
 }

@@ -67,6 +67,8 @@ where
 
     const MIN_LENGTH: usize;
 
+    fn dry_resolve(&mut self);
+
     /// Waits for any asynchronous sections of the view to load and returns the output.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 

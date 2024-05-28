@@ -379,8 +379,12 @@ where
 
     const MIN_LENGTH: usize = 0;
 
+    fn dry_resolve(&mut self) {
+        self.el.dry_resolve()
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
-        self
+        self // TODO?
     }
 
     fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
@@ -486,6 +490,8 @@ impl RenderHtml<Dom> for MetaTagsView {
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self

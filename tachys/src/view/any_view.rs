@@ -38,6 +38,9 @@ where
     #[cfg(feature = "ssr")]
     resolve:
         fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView<R>> + Send>>,
+    #[cfg(feature = "ssr")]
+    dry_resolve: fn(&mut Box<dyn Any + Send>),
+    #[cfg(feature = "hydrate")]
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
     hydrate_from_server:
@@ -140,6 +143,14 @@ where
         let value = Box::new(self) as Box<dyn Any + Send>;
 
         #[cfg(feature = "ssr")]
+        let dry_resolve = |value: &mut Box<dyn Any + Send>| {
+            let value = value
+                .downcast_mut::<T>()
+                .expect("AnyView::resolve could not be downcast");
+            value.dry_resolve();
+        };
+
+        #[cfg(feature = "ssr")]
         let resolve = |value: Box<dyn Any>| {
             let value = value
                 .downcast::<T>()
@@ -239,6 +250,8 @@ where
             #[cfg(feature = "ssr")]
             resolve,
             #[cfg(feature = "ssr")]
+            dry_resolve,
+            #[cfg(feature = "ssr")]
             html_len,
             #[cfg(feature = "ssr")]
             to_html,
@@ -289,6 +302,18 @@ where
     R: Renderer + 'static,
 {
     type AsyncOutput = Self;
+
+    fn dry_resolve(&mut self) {
+        #[cfg(feature = "ssr")]
+        {
+            (self.dry_resolve)(&mut self.value)
+        }
+        #[cfg(not(feature = "ssr"))]
+        panic!(
+            "You are rendering AnyView to HTML without the `ssr` feature \
+             enabled."
+        );
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         #[cfg(feature = "ssr")]
