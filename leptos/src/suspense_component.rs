@@ -4,16 +4,23 @@ use crate::{
     IntoView,
 };
 use any_spawner::Executor;
-use futures::FutureExt;
+use futures::{pin_mut, FutureExt};
 use leptos_macro::component;
 use reactive_graph::{
-    computed::{ArcMemo, ScopedFuture},
+    computed::{suspense::SuspenseContext, ArcMemo, ScopedFuture},
     owner::{provide_context, use_context},
     signal::ArcRwSignal,
-    traits::{Get, Update, With, Writeable},
+    traits::{Get, Read, Track, Update, With, Writeable},
+    transition::AsyncTransition,
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
+use std::{
+    cell::RefCell,
+    fmt::Debug,
+    future::{ready, Future},
+    pin::Pin,
+    rc::Rc,
+};
 use tachys::{
     either::Either,
     html::attribute::Attribute,
@@ -145,6 +152,8 @@ where
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) {}
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
@@ -154,17 +163,55 @@ where
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-        self,
+        mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
     ) where
         Self: Sized,
     {
         buf.next_id();
+        let suspense_context = use_context::<SuspenseContext>().unwrap();
 
-        let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
-            self.children.resolve(),
-        )));
+        let tasks = suspense_context.tasks.clone();
+        let (tx, rx) = futures::channel::oneshot::channel::<()>();
+        let mut tx = Some(tx);
+        let eff =
+            reactive_graph::effect::RenderEffect::new_isomorphic(move |prev| {
+                tasks.track();
+                println!("tasks.len() == {}", tasks.read().len());
+                if prev.is_some() && tasks.get().is_empty() {
+                    if let Some(tx) = tx.take() {
+                        tx.send(());
+                    }
+                }
+            });
+
+        // this "dry run" will iterate through the whole tree
+        // the key here is that it will cause any reactive accessess to run, reading async resource
+        // reads with the Suspense. As a result, we can wait for those to load before we actually
+        // try to "resolve" anything
+        self.children.dry_resolve();
+
+        let mut fut =
+            Box::pin(ScopedFuture::new(ErrorHookFuture::new(async {
+                // wait for all the resources to have loaded before trying to resolve the body
+                // this is *less efficient* than just resolving the body
+                // however, it means that you can use reactive accesses to resources/async derived
+                // inside component props, at any level, and have those picked up by Suspense, and
+                // that it will wait for those to resolve
+                _ = rx.await;
+
+                // if we ran this earlier, reactive reads would always be registered as None
+                // this is fine in the case where we want to use Suspend and .await on some future
+                // but in situations like a <For each=|| some_resource.snapshot()/> we actually
+                // want to be able to 1) synchronously read a resource's value, but still 2) wait
+                // for it to load before we render everything
+                let children = self.children.resolve().await;
+
+                // clean up the (now useless) effect
+                drop(eff);
+                children
+            })));
         match fut.as_mut().now_or_never() {
             Some(resolved) => {
                 Either::<Fal, _>::Right(resolved)
@@ -187,6 +234,7 @@ where
                             let mut position = *position;
                             async move {
                                 let value = fut.await;
+                                println!("value is ready...");
                                 let mut builder = StreamBuilder::new(id);
                                 Either::<Fal, _>::Right(value)
                                     .to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -228,36 +276,6 @@ where
             }
         })
         .hydrate::<FROM_SERVER>(cursor, position)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct SuspenseContext {
-    pub tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
-}
-
-impl SuspenseContext {
-    pub fn task_id(&self) -> TaskHandle {
-        let key = self.tasks.write().insert(());
-        TaskHandle {
-            tasks: self.tasks.clone(),
-            key,
-        }
-    }
-}
-
-/// A unique identifier that removes itself from the set of tasks when it is dropped.
-#[derive(Debug)]
-pub(crate) struct TaskHandle {
-    tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
-    key: DefaultKey,
-}
-
-impl Drop for TaskHandle {
-    fn drop(&mut self) {
-        self.tasks.update(|tasks| {
-            tasks.remove(self.key);
-        });
     }
 }
 
@@ -469,4 +487,6 @@ where
     async fn resolve(self) -> Self::AsyncOutput {
         Some(self.0.await)
     }
+
+    fn dry_resolve(&mut self) {}
 }

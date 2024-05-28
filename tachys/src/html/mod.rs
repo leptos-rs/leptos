@@ -45,6 +45,8 @@ where
 
     const MIN_LENGTH: usize = "<!DOCTYPE html>".len();
 
+    fn dry_resolve(&mut self) {}
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
