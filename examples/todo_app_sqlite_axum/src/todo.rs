@@ -124,7 +124,7 @@ pub fn Todos() -> impl IntoView {
         </MultiActionForm>
         <div>
             <Transition fallback=move || view! { <p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
+                //<ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
                     // {existing_todos}
                     <ul>
                         {move || {
@@ -171,7 +171,7 @@ pub fn Todos() -> impl IntoView {
                         }}
 
                     </ul>
-                </ErrorBoundary>
+                //</ErrorBoundary>
             </Transition>
         </div>
     }
