@@ -166,6 +166,8 @@ where
 
     const MIN_LENGTH: usize = V.len();
 
+    fn dry_resolve(&mut self) {}
+
     fn resolve(self) -> futures::future::Ready<Self::AsyncOutput> {
         futures::future::ready(self)
     }
