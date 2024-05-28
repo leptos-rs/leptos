@@ -174,23 +174,17 @@ where
 
         let tasks = suspense_context.tasks.clone();
         let (tx, rx) = futures::channel::oneshot::channel::<()>();
+
         let mut tx = Some(tx);
         let eff =
             reactive_graph::effect::RenderEffect::new_isomorphic(move |prev| {
                 tasks.track();
-                println!("tasks.len() == {}", tasks.read().len());
-                if prev.is_some() && tasks.get().is_empty() {
+                if tasks.read().is_empty() {
                     if let Some(tx) = tx.take() {
                         tx.send(());
                     }
                 }
             });
-
-        // this "dry run" will iterate through the whole tree
-        // the key here is that it will cause any reactive accessess to run, reading async resource
-        // reads with the Suspense. As a result, we can wait for those to load before we actually
-        // try to "resolve" anything
-        self.children.dry_resolve();
 
         let mut fut =
             Box::pin(ScopedFuture::new(ErrorHookFuture::new(async {
@@ -234,7 +228,6 @@ where
                             let mut position = *position;
                             async move {
                                 let value = fut.await;
-                                println!("value is ready...");
                                 let mut builder = StreamBuilder::new(id);
                                 Either::<Fal, _>::Right(value)
                                     .to_html_async_with_buf::<OUT_OF_ORDER>(

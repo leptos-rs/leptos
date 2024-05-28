@@ -48,7 +48,13 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     // load the posts
     let posts = Resource::new_serde(|| (), |_| list_post_metadata());
-    let posts_view = Suspend(async move {
+    let posts = move || match posts.get() {
+        AsyncState::Complete(posts) | AsyncState::Reloading(posts) => {
+            posts.unwrap_or_default()
+        }
+        _ => vec![],
+    };
+    /*let posts_view = Suspend(async move {
         posts.await.map(|posts| {
             posts.into_iter()
                 .map(|post| view! {
@@ -60,12 +66,17 @@ fn HomePage() -> impl IntoView {
                 })
                 .collect::<Vec<_>>()
         })
-    });
+    });*/
 
     view! {
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            <ul>{posts_view}</ul>
+            //<ul>{posts_view}</ul>
+            <ul>
+                <For each=posts key=|post| post.id let:post>
+                    <li>{post.title}</li>
+                </For>
+            </ul>
         </Suspense>
     }
 }
