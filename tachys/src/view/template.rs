@@ -92,6 +92,10 @@ where
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
 
+    fn dry_resolve(&mut self) {
+        todo!()
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         todo!()
     }

@@ -75,3 +75,41 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
         }
     }
 }
+
+pub mod suspense {
+    use crate::{
+        signal::ArcRwSignal,
+        traits::{Update, Writeable},
+    };
+    use slotmap::{DefaultKey, SlotMap};
+
+    #[derive(Clone, Debug)]
+    pub struct SuspenseContext {
+        pub tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+    }
+
+    impl SuspenseContext {
+        pub fn task_id(&self) -> TaskHandle {
+            let key = self.tasks.write().insert(());
+            TaskHandle {
+                tasks: self.tasks.clone(),
+                key,
+            }
+        }
+    }
+
+    /// A unique identifier that removes itself from the set of tasks when it is dropped.
+    #[derive(Debug)]
+    pub struct TaskHandle {
+        tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+        key: DefaultKey,
+    }
+
+    impl Drop for TaskHandle {
+        fn drop(&mut self) {
+            self.tasks.update(|tasks| {
+                tasks.remove(self.key);
+            });
+        }
+    }
+}

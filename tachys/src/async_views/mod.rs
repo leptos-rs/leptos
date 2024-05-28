@@ -180,6 +180,8 @@ where
 
     const MIN_LENGTH: usize = Fal::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) {}
+
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send {
         self.fut
     }
