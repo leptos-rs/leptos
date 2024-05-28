@@ -100,6 +100,10 @@ where
         + "data-component".len()
         + View::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve()
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         self.view.resolve().await
     }
@@ -214,6 +218,10 @@ where
         + "<>".len()
         + "</>".len()
         + View::MIN_LENGTH;
+
+    fn dry_resolve(&mut self) {
+        self.view.dry_resolve()
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         // TODO should this be wrapped?

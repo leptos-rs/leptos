@@ -245,6 +245,8 @@ impl RenderHtml<Dom> for TitleView {
 
     const MIN_LENGTH: usize = 0;
 
+    fn dry_resolve(&mut self) {}
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }

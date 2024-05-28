@@ -143,6 +143,13 @@ where
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) {
+        match self.as_mut() {
+            Ok(inner) => inner.dry_resolve(),
+            _ => {}
+        }
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         match self {
             Ok(view) => Ok(view.resolve().await),

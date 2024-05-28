@@ -43,6 +43,8 @@ where
 
     const MIN_LENGTH: usize = 0;
 
+    fn dry_resolve(&mut self) {}
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
@@ -161,6 +163,8 @@ where
 {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
+
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
@@ -350,6 +354,8 @@ where
 
     const MIN_LENGTH: usize = 0;
 
+    fn dry_resolve(&mut self) {}
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
@@ -442,6 +448,8 @@ where
     type AsyncOutput = Self;
 
     const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self

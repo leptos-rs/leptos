@@ -242,6 +242,10 @@ where
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
+    fn dry_resolve(&mut self) {
+        self.children.dry_resolve();
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         let ErrorBoundaryView {
             boundary_id,

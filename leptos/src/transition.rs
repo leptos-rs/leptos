@@ -1,12 +1,12 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
     into_view::View,
-    suspense_component::{SuspenseBoundary, SuspenseContext},
+    suspense_component::SuspenseBoundary,
     IntoView,
 };
 use leptos_macro::component;
 use reactive_graph::{
-    computed::ArcMemo,
+    computed::{suspense::SuspenseContext, ArcMemo},
     owner::{provide_context, Owner},
     signal::ArcRwSignal,
     traits::With,
