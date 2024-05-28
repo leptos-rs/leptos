@@ -156,6 +156,10 @@ where
 
     const MIN_LENGTH: usize = 0;
 
+    fn dry_resolve(&mut self) {
+        self.invoke().dry_resolve();
+    }
+
     async fn resolve(mut self) -> Self::AsyncOutput {
         self.invoke().resolve().await
     }
@@ -471,6 +475,8 @@ mod stable {
 
                 const MIN_LENGTH: usize = 0;
 
+                fn dry_resolve(&mut self) {}
+
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
@@ -612,6 +618,8 @@ mod stable {
                 type AsyncOutput = Self;
 
                 const MIN_LENGTH: usize = 0;
+
+                fn dry_resolve(&mut self) {}
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self

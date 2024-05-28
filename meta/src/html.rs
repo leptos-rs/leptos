@@ -149,6 +149,8 @@ impl RenderHtml<Dom> for HtmlView {
 
     const MIN_LENGTH: usize = 0;
 
+    fn dry_resolve(&mut self) {}
+
     async fn resolve(self) -> Self::AsyncOutput {
         self
     }
