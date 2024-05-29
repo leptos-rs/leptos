@@ -10,8 +10,11 @@ pub struct OuterState {
 #[derive(Clone, PartialEq, Default)]
 pub struct InnerState {
     inner_count: i32,
-    inner_name: String,
+    inner_tuple: InnerTuple,
 }
+
+#[derive(Clone, PartialEq, Default)]
+pub struct InnerTuple(String);
 
 #[test]
 fn green() {
@@ -22,7 +25,7 @@ fn green() {
     let (_, _) = slice!(outer_signal.count);
 
     let (_, _) = slice!(outer_signal.inner.inner_count);
-    let (_, _) = slice!(outer_signal.inner.inner_name);
+    let (_, _) = slice!(outer_signal.inner.inner_tuple.0);
 }
 
 #[test]

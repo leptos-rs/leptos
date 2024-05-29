@@ -14,7 +14,7 @@ error: expected `.`
    |
    = note: this error originates in the macro `slice` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: unexpected end of input, expected identifier
+error: unexpected end of input, expected identifier or integer
   --> tests/slice/red.rs:25:18
    |
 25 |     let (_, _) = slice!(outer_signal.);
@@ -22,7 +22,7 @@ error: unexpected end of input, expected identifier
    |
    = note: this error originates in the macro `slice` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: unexpected end of input, expected identifier
+error: unexpected end of input, expected identifier or integer
   --> tests/slice/red.rs:27:18
    |
 27 |     let (_, _) = slice!(outer_signal.inner.);
