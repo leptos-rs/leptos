@@ -19,7 +19,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use core::fmt::Debug;
-use futures::{channel::oneshot, StreamExt};
+use futures::{channel::oneshot, FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
 use std::{
     future::Future,
@@ -82,14 +82,11 @@ macro_rules! spawn_derived {
     ($spawner:expr, $initial:ident, $fun:ident) => {{
         let (mut notifier, mut rx) = channel();
 
-        // begin loading eagerly but asynchronously, if not already loaded
-        if matches!($initial, AsyncState::Loading) {
-            notifier.notify();
-        }
         let is_ready = matches!($initial, AsyncState::Complete(_));
 
+        let owner = Owner::new();
         let inner = Arc::new(RwLock::new(ArcAsyncDerivedInner {
-            owner: Owner::new(),
+            owner: owner.clone(),
             notifier,
             sources: SourceSet::new(),
             subscribers: SubscriberSet::new(),
@@ -101,14 +98,49 @@ macro_rules! spawn_derived {
         let this = ArcAsyncDerived {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            value,
+            value: Arc::clone(&value),
             wakers,
             inner: Arc::clone(&inner),
         };
         let any_subscriber = this.to_any_subscriber();
-        let (ready_tx, ready_rx) = oneshot::channel();
-        AsyncTransition::register(ready_rx);
-        let mut first_run = Some(ready_tx);
+
+        let was_ready = {
+            if is_ready {
+                true
+            } else {
+                // if we don't already know that it's ready, we need to poll once, initially
+                // so that the correct value is set synchronously
+                let fut = owner.with_cleanup(|| {
+                    any_subscriber
+                        .with_observer(|| ScopedFuture::new($fun()))
+                });
+                #[cfg(feature = "sandboxed-arenas")]
+                let fut = Sandboxed::new(fut);
+                let mut fut = Box::pin(fut);
+                let initial = fut.as_mut().now_or_never();
+                match initial {
+                    None => false,
+                    Some(orig_value) => {
+                        let mut guard = this.inner.write().or_poisoned();
+
+                        guard.dirty = false;
+                        *value.write().or_poisoned() = AsyncState::Complete(orig_value);
+                        true
+                    }
+                }
+            }
+        };
+
+        let mut first_run = {
+            let (ready_tx, ready_rx) = oneshot::channel();
+            AsyncTransition::register(ready_rx);
+            Some(ready_tx)
+        };
+
+        // begin loading eagerly but asynchronously, if not already loaded
+        if !was_ready {
+            any_subscriber.mark_dirty();
+        }
 
         $spawner({
             let value = Arc::downgrade(&this.value);
