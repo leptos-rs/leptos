@@ -48,8 +48,8 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
             guard.dirty = false;
             return true;
         }
-
         drop(guard);
+
         for source in sources.into_iter().flatten() {
             if source.update_if_necessary() {
                 return true;
