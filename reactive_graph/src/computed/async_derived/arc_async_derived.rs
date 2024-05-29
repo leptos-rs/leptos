@@ -7,6 +7,7 @@ use crate::owner::Sandboxed;
 use crate::{
     channel::channel,
     computed::suspense::SuspenseContext,
+    diagnostics::SpecialNonReactiveFuture,
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet, ToAnySource, ToAnySubscriber,
@@ -146,6 +147,7 @@ macro_rules! spawn_derived {
                                 }
 
                                 // notify reactive subscribers that we're now loading
+                                inner.write().or_poisoned().dirty = true;
                                 for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
                                     sub.mark_check();
                                 }
@@ -153,6 +155,7 @@ macro_rules! spawn_derived {
                                 // generate and assign new value
                                 let new_value = fut.await;
                                 *value.write().or_poisoned() = AsyncState::Complete(new_value);
+                                inner.write().or_poisoned().dirty = true;
                                 ready_tx.send(());
 
                                 // notify reactive subscribers that we're not loading any more
@@ -244,7 +247,7 @@ impl<T: Send + Sync + 'static> ReadUntracked for ArcAsyncDerived<T> {
             if matches!(&*self.value.read().or_poisoned(), AsyncState::Loading)
             {
                 let handle = suspense_context.task_id();
-                let ready = self.ready();
+                let ready = SpecialNonReactiveFuture::new(self.ready());
                 Executor::spawn(async move {
                     ready.await;
                     drop(handle);
