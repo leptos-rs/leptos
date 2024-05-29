@@ -16,7 +16,13 @@ pub struct SpecialNonReactiveZone;
 #[derive(Debug)]
 pub struct SpecialNonReactiveZoneGuard;
 
-use std::cell::Cell;
+use pin_project_lite::pin_project;
+use std::{
+    cell::Cell,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 thread_local! {
     static IS_SPECIAL_ZONE: Cell<bool> = const { Cell::new(false) };
@@ -43,6 +49,33 @@ impl SpecialNonReactiveZone {
 impl Drop for SpecialNonReactiveZoneGuard {
     fn drop(&mut self) {
         IS_SPECIAL_ZONE.set(false);
+    }
+}
+
+pin_project! {
+    pub(crate) struct SpecialNonReactiveFuture<Fut> {
+        #[pin]
+        inner: Fut
+    }
+}
+
+impl<Fut> SpecialNonReactiveFuture<Fut> {
+    pub fn new(inner: Fut) -> Self {
+        Self { inner }
+    }
+}
+
+impl<Fut> Future for SpecialNonReactiveFuture<Fut>
+where
+    Fut: Future,
+{
+    type Output = Fut::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        #[cfg(debug_assertions)]
+        let _rw = SpecialNonReactiveZone::enter();
+        let this = self.project();
+        this.inner.poll(cx)
     }
 }
 
