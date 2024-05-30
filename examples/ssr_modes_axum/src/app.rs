@@ -1,3 +1,5 @@
+use std::future::IntoFuture;
+
 use lazy_static::lazy_static;
 use leptos::prelude::*;
 use leptos_meta::*;
@@ -48,12 +50,19 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     // load the posts
     let posts = Resource::new_serde(|| (), |_| list_post_metadata());
-    let posts = move || match posts.get() {
-        AsyncState::Complete(posts) | AsyncState::Reloading(posts) => {
-            posts.unwrap_or_default()
-        }
-        _ => vec![],
+    let posts = move || {
+        posts
+            .get()
+            .map(|n| n.unwrap_or_default())
+            .unwrap_or_default()
     };
+
+    let posts2 = Resource::new_serde(|| (), |_| list_post_metadata());
+    let posts2 = Resource::new(
+        || (),
+        move |_| async move { posts2.await.unwrap_or_default().len() },
+    );
+
     /*let posts_view = Suspend(async move {
         posts.await.map(|posts| {
             posts.into_iter()
@@ -70,6 +79,9 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"My Great Blog"</h1>
+            <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+            <p>"number of posts: " {Suspend(posts2.into_future())}</p>
+            </Suspense>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
             //<ul>{posts_view}</ul>
             <ul>

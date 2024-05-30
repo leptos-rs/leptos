@@ -1,6 +1,5 @@
 use super::{
-    inner::ArcAsyncDerivedInner, ArcAsyncDerivedReadyFuture, AsyncState,
-    ScopedFuture,
+    inner::ArcAsyncDerivedInner, ArcAsyncDerivedReadyFuture, ScopedFuture,
 };
 #[cfg(feature = "sandboxed-arenas")]
 use crate::owner::Sandboxed;
@@ -25,7 +24,10 @@ use std::{
     future::Future,
     mem,
     panic::Location,
-    sync::{Arc, RwLock, Weak},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock, Weak,
+    },
     task::Waker,
 };
 
@@ -33,10 +35,11 @@ pub struct ArcAsyncDerived<T> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
-    pub(crate) value: Arc<RwLock<AsyncState<T>>>,
+    pub(crate) value: Arc<RwLock<Option<T>>>,
     // holds wakers generated when you .await this
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
     pub(crate) inner: Arc<RwLock<ArcAsyncDerivedInner>>,
+    pub(crate) loading: Arc<AtomicBool>,
 }
 
 impl<T> Clone for ArcAsyncDerived<T> {
@@ -47,6 +50,7 @@ impl<T> Clone for ArcAsyncDerived<T> {
             value: Arc::clone(&self.value),
             wakers: Arc::clone(&self.wakers),
             inner: Arc::clone(&self.inner),
+            loading: Arc::clone(&self.loading),
         }
     }
 }
@@ -82,7 +86,7 @@ macro_rules! spawn_derived {
     ($spawner:expr, $initial:ident, $fun:ident) => {{
         let (mut notifier, mut rx) = channel();
 
-        let is_ready = matches!($initial, AsyncState::Complete(_));
+        let is_ready = matches!($initial, Some(_));
 
         let owner = Owner::new();
         let inner = Arc::new(RwLock::new(ArcAsyncDerivedInner {
@@ -101,6 +105,7 @@ macro_rules! spawn_derived {
             value: Arc::clone(&value),
             wakers,
             inner: Arc::clone(&inner),
+            loading: Arc::new(AtomicBool::new(!is_ready)),
         };
         let any_subscriber = this.to_any_subscriber();
 
@@ -124,7 +129,8 @@ macro_rules! spawn_derived {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.dirty = false;
-                        *value.write().or_poisoned() = AsyncState::Complete(orig_value);
+                        *value.write().or_poisoned() = Some(orig_value);
+                        this.loading.store(false, Ordering::Relaxed);
                         true
                     }
                 }
@@ -146,11 +152,12 @@ macro_rules! spawn_derived {
             let value = Arc::downgrade(&this.value);
             let inner = Arc::downgrade(&this.inner);
             let wakers = Arc::downgrade(&this.wakers);
+            let loading = Arc::downgrade(&this.loading);
             let fut = async move {
                 while rx.next().await.is_some() {
                     if first_run.is_some() || any_subscriber.update_if_necessary() {
-                        match (value.upgrade(), inner.upgrade(), wakers.upgrade()) {
-                            (Some(value), Some(inner), Some(wakers)) => {
+                        match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
+                            (Some(value), Some(inner), Some(wakers), Some(loading)) => {
                                 // generate new Future
                                 let owner = inner.read().or_poisoned().owner.clone();
                                 let fut = owner.with_cleanup(|| {
@@ -167,18 +174,9 @@ macro_rules! spawn_derived {
                                     ready_tx
                                 });
 
-                                // update state from Complete to Reloading
-                                {
-                                    let mut value = value.write().or_poisoned();
-                                    // if it's initial Loading, it will just reset to Loading
-                                    if let AsyncState::Complete(old) =
-                                        mem::take(&mut *value)
-                                    {
-                                        *value = AsyncState::Reloading(old);
-                                    }
-                                }
 
                                 // notify reactive subscribers that we're now loading
+                                loading.store(true, Ordering::Relaxed);
                                 inner.write().or_poisoned().dirty = true;
                                 for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
                                     sub.mark_check();
@@ -186,7 +184,8 @@ macro_rules! spawn_derived {
 
                                 // generate and assign new value
                                 let new_value = fut.await;
-                                *value.write().or_poisoned() = AsyncState::Complete(new_value);
+                                loading.store(false, Ordering::Relaxed);
+                                *value.write().or_poisoned() = Some(new_value);
                                 inner.write().or_poisoned().dirty = true;
                                 ready_tx.send(());
 
@@ -223,12 +222,12 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Self::new_with_initial(AsyncState::Loading, fun)
+        Self::new_with_initial(None, fun)
     }
 
     #[track_caller]
     pub fn new_with_initial<Fut>(
-        initial_value: AsyncState<T>,
+        initial_value: Option<T>,
         fun: impl Fn() -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -245,12 +244,12 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
-        Self::new_unsync_with_initial(AsyncState::Loading, fun)
+        Self::new_unsync_with_initial(None, fun)
     }
 
     #[track_caller]
     pub fn new_unsync_with_initial<Fut>(
-        initial_value: AsyncState<T>,
+        initial_value: Option<T>,
         fun: impl Fn() -> Fut + 'static,
     ) -> Self
     where
@@ -262,22 +261,21 @@ impl<T: 'static> ArcAsyncDerived<T> {
         this
     }
 
-    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture<T> {
+    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture {
         ArcAsyncDerivedReadyFuture {
             source: self.to_any_source(),
-            value: Arc::clone(&self.value),
+            loading: Arc::clone(&self.loading),
             wakers: Arc::clone(&self.wakers),
         }
     }
 }
 
 impl<T: Send + Sync + 'static> ReadUntracked for ArcAsyncDerived<T> {
-    type Value = ReadGuard<AsyncState<T>, Plain<AsyncState<T>>>;
+    type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if matches!(&*self.value.read().or_poisoned(), AsyncState::Loading)
-            {
+            if self.value.read().or_poisoned().is_none() {
                 let handle = suspense_context.task_id();
                 let ready = SpecialNonReactiveFuture::new(self.ready());
                 Executor::spawn(async move {
