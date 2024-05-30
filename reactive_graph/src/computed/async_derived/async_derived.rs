@@ -1,6 +1,5 @@
 use super::{
     ArcAsyncDerived, ArcAsyncDerivedFuture, ArcAsyncDerivedReadyFuture,
-    AsyncState,
 };
 use crate::{
     graph::{
@@ -57,7 +56,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     }
 
     pub fn new_with_initial<Fut>(
-        initial_value: AsyncState<T>,
+        initial_value: Option<T>,
         fun: impl Fn() -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -87,7 +86,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     }
 
     pub fn new_unsync_with_initial<Fut>(
-        initial_value: AsyncState<T>,
+        initial_value: Option<T>,
         fun: impl Fn() -> Fut + 'static,
     ) -> Self
     where
@@ -105,7 +104,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     }
 
     #[track_caller]
-    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture<T> {
+    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture {
         let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
         this.ready()
     }
@@ -143,7 +142,7 @@ impl<T: Send + Sync + 'static> DefinedAt for AsyncDerived<T> {
 }
 
 impl<T: Send + Sync + 'static> ReadUntracked for AsyncDerived<T> {
-    type Value = ReadGuard<AsyncState<T>, Plain<AsyncState<T>>>;
+    type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner.get().map(|inner| inner.read_untracked())
