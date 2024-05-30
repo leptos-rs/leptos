@@ -4,6 +4,7 @@ use reactive_graph::{
     signal::RwSignal,
     traits::{Get, Read, Set, With, WithUntracked},
 };
+use std::future::pending;
 
 #[tokio::test]
 async fn arc_async_derived_calculates_eagerly() {
@@ -83,7 +84,7 @@ async fn async_derived_tracks_signal_change() {
 async fn read_signal_traits_on_arc() {
     _ = Executor::init_tokio();
 
-    let value = ArcAsyncDerived::new(move || async {});
+    let value = ArcAsyncDerived::new(pending::<()>);
     assert_eq!(value.read(), AsyncState::Loading);
     assert_eq!(value.with_untracked(|n| *n), AsyncState::Loading);
     assert_eq!(value.with(|n| *n), AsyncState::Loading);
@@ -94,7 +95,7 @@ async fn read_signal_traits_on_arc() {
 async fn read_signal_traits_on_arena() {
     _ = Executor::init_tokio();
 
-    let value = AsyncDerived::new(move || async {});
+    let value = AsyncDerived::new(pending::<()>);
     println!("{:?}", value.read());
     assert_eq!(value.read(), AsyncState::Loading);
     assert_eq!(value.with_untracked(|n| *n), AsyncState::Loading);
