@@ -13,7 +13,7 @@ use hydration_context::SerializedDataId;
 use reactive_graph::{
     computed::{
         ArcAsyncDerived, ArcAsyncDerivedFuture, ArcMemo, AsyncDerived,
-        AsyncDerivedFuture, AsyncState,
+        AsyncDerivedFuture,
     },
     graph::{Source, ToAnySource, ToAnySubscriber},
     owner::Owner,
@@ -175,7 +175,7 @@ where
             .unwrap_or_default();
 
         let initial = Self::initial_value(&id);
-        let is_ready = matches!(initial, AsyncState::Complete(_));
+        let is_ready = matches!(initial, Some(_));
 
         let source = ArcMemo::new(move |_| source());
         let fun = {
@@ -200,7 +200,7 @@ where
                     ready_fut.await;
                     value
                         .with_untracked(|data| match &data {
-                            AsyncState::Complete(val) => val.ser(),
+                            Some(val) => val.ser(),
                             _ => unreachable!(),
                         })
                         .unwrap() // TODO handle
@@ -215,7 +215,7 @@ where
     }
 
     #[inline(always)]
-    fn initial_value(id: &SerializedDataId) -> AsyncState<T> {
+    fn initial_value(id: &SerializedDataId) -> Option<T> {
         #[cfg(feature = "hydration")]
         {
             let shared_context = Owner::current_shared_context();
@@ -223,7 +223,7 @@ where
                 let value = shared_context.read_data(id);
                 if let Some(value) = value {
                     match T::de(&value) {
-                        Ok(value) => return AsyncState::Complete(value),
+                        Ok(value) => return Some(value),
                         Err(e) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!(
@@ -234,7 +234,7 @@ where
                 }
             }
         }
-        AsyncState::Loading
+        None
     }
 }
 

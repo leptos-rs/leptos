@@ -1,6 +1,4 @@
-use super::{
-    suspense::SuspenseContext, ArcAsyncDerived, AsyncDerived, AsyncState,
-};
+use super::{suspense::SuspenseContext, ArcAsyncDerived, AsyncDerived};
 use crate::{
     graph::{AnySource, ToAnySource},
     owner::use_context,
@@ -13,30 +11,32 @@ use pin_project_lite::pin_project;
 use std::{
     future::{Future, IntoFuture},
     pin::Pin,
-    sync::{Arc, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock,
+    },
     task::{Context, Poll, Waker},
 };
 
 /// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
 /// but does not contain its value.
-pub struct ArcAsyncDerivedReadyFuture<T> {
+pub struct ArcAsyncDerivedReadyFuture {
     pub(crate) source: AnySource,
-    pub(crate) value: Arc<RwLock<AsyncState<T>>>,
+    pub(crate) loading: Arc<AtomicBool>,
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
-impl<T: 'static> Future for ArcAsyncDerivedReadyFuture<T> {
+impl Future for ArcAsyncDerivedReadyFuture {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let waker = cx.waker();
         self.source.track();
-        match &*self.value.read().or_poisoned() {
-            AsyncState::Loading | AsyncState::Reloading(_) => {
-                self.wakers.write().or_poisoned().push(waker.clone());
-                Poll::Pending
-            }
-            AsyncState::Complete(_) => Poll::Ready(()),
+        if self.loading.load(Ordering::Relaxed) {
+            self.wakers.write().or_poisoned().push(waker.clone());
+            Poll::Pending
+        } else {
+            Poll::Ready(())
         }
     }
 }
@@ -45,7 +45,8 @@ impl<T: 'static> Future for ArcAsyncDerivedReadyFuture<T> {
 /// and contains its value.
 pub struct ArcAsyncDerivedFuture<T> {
     source: AnySource,
-    value: Arc<RwLock<AsyncState<T>>>,
+    value: Arc<RwLock<Option<T>>>,
+    loading: Arc<AtomicBool>,
     wakers: Arc<RwLock<Vec<Waker>>>,
 }
 
@@ -60,6 +61,7 @@ where
         ArcAsyncDerivedFuture {
             source: self.to_any_source(),
             value: Arc::clone(&self.value),
+            loading: Arc::clone(&self.loading),
             wakers: Arc::clone(&self.wakers),
         }
     }
@@ -76,14 +78,11 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let waker = cx.waker();
         self.source.track();
-        let value =
-            Plain::try_new(Arc::clone(&self.value)).expect("lock poisoned");
-        match &*value {
-            AsyncState::Loading | AsyncState::Reloading(_) => {
-                self.wakers.write().or_poisoned().push(waker.clone());
-                Poll::Pending
-            }
-            AsyncState::Complete(value) => Poll::Ready(value.clone()),
+        if self.loading.load(Ordering::Relaxed) {
+            self.wakers.write().or_poisoned().push(waker.clone());
+            Poll::Pending
+        } else {
+            Poll::Ready(self.value.read().or_poisoned().clone().unwrap())
         }
     }
 }
