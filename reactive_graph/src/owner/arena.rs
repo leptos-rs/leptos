@@ -101,6 +101,13 @@ pub mod sandboxed {
     }
 
     pin_project! {
+        /// A [`Future`] that restores its associated arena as the current arena whenever it is
+        /// polled.
+        ///
+        /// Sandboxed arenas are used to ensure that data created in response to e.g., different
+        /// HTTP requests can be handled separately, while providing stable identifiers for their
+        /// stored values. Wrapping a `Future` in `Sandboxed` ensures that it will always use the
+        /// same arena that it was created under.
         pub struct Sandboxed<T> {
             arena: Arc<RwLock<ArenaMap>>,
             #[pin]
@@ -109,6 +116,8 @@ pub mod sandboxed {
     }
 
     impl<T> Sandboxed<T> {
+        /// Wraps the given [`Future`], ensuring that any [`StoredValue`] created while it is being
+        /// polled will be associated with the same arena that was active when this was called.
         pub fn new(inner: T) -> Self {
             let arena = MAP.with_borrow(|current| {
                 Arc::clone(current.as_ref().expect(
