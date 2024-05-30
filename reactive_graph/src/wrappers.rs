@@ -672,9 +672,13 @@ pub mod write {
     ///
     /// ## Examples
     /// ```rust
-    /// # use leptos_reactive::*;
-    /// # let runtime = create_runtime();
-    /// let (count, set_count) = create_signal(2);
+    /// # use reactive_graph::prelude::*;
+    /// # use reactive_graph::wrappers::write::SignalSetter;
+    /// # use reactive_graph::signal::signal;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// let (count, set_count) = signal(2);
     /// let set_double_input = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
@@ -688,7 +692,7 @@ pub mod write {
     /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_input);
     /// assert_eq!(count.get(), 8);
-    /// # runtime.dispose();
+    /// # });
     /// ```
     #[derive(Debug, PartialEq, Eq)]
     pub struct SignalSetter<T>
