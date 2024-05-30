@@ -47,7 +47,17 @@ impl Attribute {
                 .map(|value| format!("{attr_name}=\"{value}\"").into())
                 .unwrap_or_default(),
             Attribute::Bool(include) => {
-                Oco::Borrowed(if *include { attr_name } else { "" })
+                Oco::Borrowed(if attr_name.starts_with("aria-") {
+                    if *include {
+                        "true"
+                    } else {
+                        "false"
+                    }
+                } else if *include {
+                    attr_name
+                } else {
+                    ""
+                })
             }
         }
     }
