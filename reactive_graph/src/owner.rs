@@ -21,6 +21,27 @@ pub use context::*;
 #[allow(deprecated)] // allow exporting deprecated fn
 pub use stored_value::{store_value, StoredValue};
 
+/// A reactive owner, which manages
+/// 1) the cancelation of [`Effect`](crate::effect::Effect)s,
+/// 2) providing and accessing environment data via [`provide_context`] and [`use_context`],
+/// 3) running cleanup functions defined via [`Owner::on_cleanup`], and
+/// 4) an arena storage system to provide `Copy` handles via [`StoredValue`], which is what allows
+///    types like [`RwSignal`](crate::signal::RwSignal), [`Memo`](crate::computed::Memo), and so on to be `Copy`.
+///
+/// Every effect and computed reactive value has an associated `Owner`. While it is running, this
+/// is marked as the current `Owner`. Whenever it re-runs, this `Owner` is cleared by calling
+/// [`Owner::with_cleanup`]. This runs cleanup functions, cancels any [`Effect`](crate::effect::Effect)s created during the
+/// last run, drops signals stored in the arena, and so on, because those effects and signals will
+/// be re-created as needed during the next run.
+///
+/// When the owner is ultimately dropped, it will clean up its owned resources in the same way.
+///
+/// The "current owner" is set on the thread-local basis: whenever one of these reactive nodes is
+/// running, it will set the current owner on its thread with [`Owner::with`] or [`Owner::set`],
+/// allowing other reactive nodes implicitly to access the fact that it is currently the owner.
+///
+/// For a longer discussion of the ownership model, [see
+/// here](https://book.leptos.dev/appendix_life_cycle.html).
 #[derive(Debug, Clone, Default)]
 #[must_use]
 pub struct Owner {
@@ -34,10 +55,18 @@ thread_local! {
 }
 
 impl Owner {
+    /// Returns a unique identifier for this owner, which can be used to identify it for debugging
+    /// purposes.
+    ///
+    /// Intended for debugging only; this is not guaranteed to be stable between runs.
     pub fn debug_id(&self) -> usize {
         Arc::as_ptr(&self.inner) as usize
     }
 
+    /// Returns the list of parents, grandparents, and ancestors, with values corresponding to
+    /// [`Owner::debug_id`] for each.
+    ///
+    /// Intended for debugging only; this is not guaranteed to be stable between runs.
     pub fn ancestry(&self) -> Vec<usize> {
         let mut ancestors = Vec::new();
         let mut curr_parent = self
@@ -59,6 +88,7 @@ impl Owner {
         ancestors
     }
 
+    /// Creates a new `Owner` and registers it as a child of the current `Owner`, if there is one.
     pub fn new() -> Self {
         #[cfg(not(feature = "hydration"))]
         let parent = OWNER
@@ -92,6 +122,11 @@ impl Owner {
         this
     }
 
+    /// Creates a new "root" context with the given [`SharedContext`], which allows sharing data
+    /// between the server and client.
+    ///
+    /// Only one `SharedContext` needs to be created per request, and will be automatically shared
+    /// by any other `Owner`s created under this one.
     #[cfg(feature = "hydration")]
     pub fn new_root(
         shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
@@ -111,6 +146,7 @@ impl Owner {
         }
     }
 
+    /// Creates a new `Owner` that is the child of the current `Owner`, if any.
     pub fn child(&self) -> Self {
         let parent = Some(Arc::downgrade(&self.inner));
         let child = Self {
@@ -132,10 +168,12 @@ impl Owner {
         child
     }
 
+    /// Sets this as the current `Owner`.
     pub fn set(&self) {
         OWNER.with_borrow_mut(|owner| *owner = Some(self.clone()));
     }
 
+    /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
         let prev = {
             OWNER.with(|o| {
@@ -149,15 +187,25 @@ impl Owner {
         val
     }
 
+    /// Cleans up this owner, the given function with this as the current `Owner`.
     pub fn with_cleanup<T>(&self, fun: impl FnOnce() -> T) -> T {
         self.cleanup();
         self.with(fun)
     }
 
+    /// Cleans up this owner in the following order:
+    /// 1) Runs `cleanup` on all children,
+    /// 2) Runs all cleanup functions registered with [`Owner::on_cleanup`],
+    /// 3) Drops the values of any arena-allocated [`StoredValue`]s.
     pub fn cleanup(&self) {
         self.inner.cleanup();
     }
 
+    /// Registers a function to be run the next time this owner is cleaned up.
+    ///
+    /// Because the ownership model is associated with reactive nodes, each "decision point" in an
+    /// application tends to have a separate `Owner`: as a result, these cleanup functions often
+    /// fill the same need as an "on unmount" function in other UI approaches, etc.
     pub fn on_cleanup(fun: impl FnOnce() + Send + Sync + 'static) {
         if let Some(owner) = Owner::current() {
             owner
@@ -173,10 +221,12 @@ impl Owner {
         self.inner.write().or_poisoned().nodes.push(node);
     }
 
+    /// Returns the current `Owner`, if any.
     pub fn current() -> Option<Owner> {
         OWNER.with(|o| o.borrow().clone())
     }
 
+    /// Returns the current [`SharedContext`], if any.
     #[cfg(feature = "hydration")]
     pub fn current_shared_context(
     ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
@@ -187,6 +237,8 @@ impl Owner {
         })
     }
 
+    /// Runs the given function, after indicating that the current [`SharedContext`] should be
+    /// prepared to handle any data created in the function.
     #[cfg(feature = "hydration")]
     pub fn with_hydration<T>(fun: impl FnOnce() -> T + 'static) -> T {
         fn inner<T>(fun: Box<dyn FnOnce() -> T>) -> T {
