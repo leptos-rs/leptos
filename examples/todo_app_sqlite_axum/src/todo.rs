@@ -117,6 +117,38 @@ pub fn Todos() -> impl IntoView {
         move |_| get_todos(),
     );
 
+    let existing_todos = move || {
+        Suspend(async move {
+            todos
+                .await
+                .as_ref()
+                .map(|todos| {
+                    if todos.is_empty() {
+                        Either::Left(view! { <p>"No tasks were found."</p> })
+                    } else {
+                        Either::Right(
+                            todos
+                                .iter()
+                                .map(move |todo| {
+                                    let id = todo.id;
+                                    view! {
+                                        <li>
+                                            {todo.title.clone()}
+                                            <ActionForm action=delete_todo>
+                                                <input type="hidden" name="id" value=id/>
+                                                <input type="submit" value="X"/>
+                                            </ActionForm>
+                                        </li>
+                                    }
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                    }
+                })
+                .map_err(Clone::clone)
+        })
+    };
+
     view! {
         <MultiActionForm action=add_todo>
             <label>"Add a Todo" <input type="text" name="title"/></label>
@@ -125,36 +157,8 @@ pub fn Todos() -> impl IntoView {
         <div>
             <Transition fallback=move || view! { <p>"Loading..."</p> }>
                 <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
-                    // {existing_todos}
                     <ul>
-                        {move || {
-                            async move {
-                                todos
-                                    .await
-                                    .map(|todos| {
-                                        if todos.is_empty() {
-                                            Either::Left(view! { <p>"No tasks were found."</p> })
-                                        } else {
-                                            Either::Right(
-                                                todos
-                                                    .into_iter()
-                                                    .map(move |todo| {
-                                                        view! {
-                                                            <li>
-                                                                {todo.title} <ActionForm action=delete_todo>
-                                                                    <input type="hidden" name="id" value=todo.id/>
-                                                                    <input type="submit" value="X"/>
-                                                                </ActionForm>
-                                                            </li>
-                                                        }
-                                                    })
-                                                    .collect::<Vec<_>>(),
-                                            )
-                                        }
-                                    })
-                            }
-                                .wait()
-                        }}
+                        {existing_todos}
                         {move || {
                             submissions
                                 .get()
