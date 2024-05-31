@@ -87,17 +87,19 @@ pub fn fetch_example() -> impl IntoView {
                     <ul>
                         {move || Suspend(async move {
                             cats.await
+                                .as_ref()
                                 .map(|cats| {
-                                    cats.into_iter()
+                                    cats.iter()
                                         .map(|s| {
                                             view! {
                                                 <li>
-                                                    <img src=s/>
+                                                    <img src=s.clone()/>
                                                 </li>
                                             }
                                         })
                                         .collect::<Vec<_>>()
                                 })
+                                .map_err(Clone::clone)
                         })}
 
                     </ul>
