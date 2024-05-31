@@ -1,6 +1,5 @@
 [package]
 name = "oco_ref"
-name = "oco_ref"
 edition = "2021"
 version = "0.2.0"
 authors = ["Danik Vitek", "Greg Johnston"]
