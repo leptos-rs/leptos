@@ -7,7 +7,6 @@ use axum::{
 };
 use leptos::LeptosOptions;
 use std::borrow::Cow;
-use tower_http::services::ServeDir;
 
 #[cfg(not(debug_assertions))]
 const DEV_MODE: bool = false;
