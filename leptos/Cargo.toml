@@ -18,7 +18,6 @@ hydration_context = { workspace = true }
 either_of = { workspace = true }
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
-leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
@@ -52,12 +51,10 @@ futures = "0.3.30"
 send_wrapper = "0.6.0"
 
 [features]
-default = ["serde"]
 hydration = ["leptos_server/hydration", "hydration_context/browser"]
-csr = ["leptos_macro/csr", "leptos_reactive/csr", "reactive_graph/effects"]
+csr = ["leptos_macro/csr", "reactive_graph/effects"]
 hydrate = [
   "leptos_macro/hydrate",
-  "leptos_reactive/hydrate",
   "hydration",
   "tachys/hydrate",
   "reactive_graph/effects",
@@ -66,32 +63,25 @@ default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
   "leptos_macro/ssr",
-  "leptos_reactive/ssr",
   "leptos_server/ssr",
   "server_fn/ssr",
   "hydration",
   "tachys/ssr",
 ]
-nightly = [
-  "leptos_dom/nightly",
-  "leptos_macro/nightly",
-  "leptos_reactive/nightly",
-  "tachys/nightly",
-]
+nightly = ["leptos_dom/nightly", "leptos_macro/nightly", "tachys/nightly"]
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
-rkyv = ["leptos_reactive/rkyv", "server_fn/rkyv"]
+rkyv = ["server_fn/rkyv"]
 tracing = [
   "reactive_graph/tracing",
   "tachys/tracing",
 ] #, "leptos_macro/tracing", "leptos_dom/tracing"]
 nonce = ["base64", "leptos_dom/nonce", "rand"]
-spin = ["leptos_reactive/spin", "leptos-spin-macro"]
+spin = ["leptos-spin-macro"]
 experimental-islands = [
   "leptos_dom/experimental-islands",
   "leptos_macro/experimental-islands",
-  "leptos_reactive/experimental-islands",
   "dep:serde_json",
 ]
 trace-component-props = [
