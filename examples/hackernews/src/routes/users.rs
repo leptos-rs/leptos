@@ -7,13 +7,7 @@ use leptos_router::{hooks::use_params_map, *};
 pub fn User() -> impl IntoView {
     let params = use_params_map();
     let user = Resource::new_serde(
-        move || {
-            params
-                .read()
-                .get("id")
-                .map(ToOwned::to_owned)
-                .unwrap_or_default()
-        },
+        move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 None
@@ -25,7 +19,7 @@ pub fn User() -> impl IntoView {
     view! {
         <div class="user-view">
             <Suspense fallback=|| view! { "Loading..." }>
-                {move || Suspend(async move { match user.await {
+                {move || Suspend(async move { match user.await.clone() {
                     None => Either::Left(view! {  <h1>"User not found."</h1> }),
                     Some(user) => Either::Right(view! {
                         <div>

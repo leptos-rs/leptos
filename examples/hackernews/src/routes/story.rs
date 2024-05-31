@@ -9,13 +9,7 @@ use leptos_router::hooks::use_params_map;
 pub fn Story() -> impl IntoView {
     let params = use_params_map();
     let story = Resource::new_serde(
-        move || {
-            params
-                .get()
-                .get("id")
-                .map(ToOwned::to_owned)
-                .unwrap_or_default()
-        },
+        move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 None
@@ -27,7 +21,7 @@ pub fn Story() -> impl IntoView {
     );
 
     Suspense(SuspenseProps::builder().fallback(|| "Loading...").children(ToChildren::to_children(move || Suspend(async move {
-        match story.await {
+        match story.await.clone() {
             None => Either::Left("Story not found."),
             Some(story) => {
                 Either::Right(view! {
