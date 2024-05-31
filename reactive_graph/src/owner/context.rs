@@ -77,8 +77,8 @@ impl Owner {
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
 /// # use reactive_graph::effect::Effect;
-/// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
 /// Effect::new(move |_| {
 ///     println!("Provider");
 ///     provide_context(42i32); // provide an i32
@@ -109,8 +109,8 @@ impl Owner {
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
 /// # use reactive_graph::effect::Effect;
-/// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
 /// Effect::new(move |_| {
 ///     println!("Provider");
 ///     provide_context("foo"); // provide a &'static str
@@ -156,8 +156,8 @@ pub fn provide_context<T: Send + Sync + 'static>(value: T) {
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
 /// # use reactive_graph::effect::Effect;
-/// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
 /// Effect::new(move |_| {
 ///     provide_context(String::from("foo"));
 ///
@@ -198,8 +198,8 @@ pub fn use_context<T: Clone + 'static>() -> Option<T> {
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::owner::*;
 /// # use reactive_graph::effect::Effect;
-/// # tokio_test::block_on(async move {
-/// # any_spawner::Executor::init_tokio();
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct NotClone(String);
