@@ -382,7 +382,7 @@ impl DomRenderer for Sledgehammer {
         el: &Self::Element,
         name: &str,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element)> {
+    ) -> Box<dyn FnOnce(&Self::Element) + Send> {
         let cb = wasm_bindgen::closure::Closure::wrap(cb).into_js_value();
         CHANNEL.with_borrow_mut(|channel| {
             channel.add_listener(el.0 .0, name);
@@ -391,7 +391,7 @@ impl DomRenderer for Sledgehammer {
         });
 
         // return the remover
-        Box::new({ move |el| todo!() })
+        Box::new(move |el| todo!())
     }
 
     fn event_target<T>(ev: &Self::Event) -> T
@@ -412,7 +412,7 @@ impl DomRenderer for Sledgehammer {
         name: Cow<'static, str>,
         delegation_key: Cow<'static, str>,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element)> {
+    ) -> Box<dyn FnOnce(&Self::Element) + Send> {
         let cb = Closure::wrap(cb).into_js_value();
         CHANNEL.with_borrow_mut(|channel| {
             channel.set_property(el.0 .0, &delegation_key);
@@ -489,7 +489,7 @@ impl DomRenderer for Sledgehammer {
         });
 
         // return the remover
-        Box::new({ move |el| todo!() })
+        Box::new(move |el| todo!())
     }
 
     fn class_list(el: &Self::Element) -> Self::ClassList {
