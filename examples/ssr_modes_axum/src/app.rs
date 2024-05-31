@@ -60,7 +60,7 @@ fn HomePage() -> impl IntoView {
     let posts2 = Resource::new_serde(|| (), |_| list_post_metadata());
     let posts2 = Resource::new(
         || (),
-        move |_| async move { posts2.await.unwrap_or_default().len() },
+        move |_| async move { posts2.await.as_ref().map(Vec::len).unwrap_or(0) },
     );
 
     /*let posts_view = Suspend(async move {
@@ -80,7 +80,7 @@ fn HomePage() -> impl IntoView {
     view! {
         <h1>"My Great Blog"</h1>
             <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            <p>"number of posts: " {Suspend(posts2.into_future())}</p>
+            <p>"number of posts: " {Suspend(async move { *posts2.await })}</p>
             </Suspense>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
             //<ul>{posts_view}</ul>
@@ -119,7 +119,7 @@ fn Post() -> impl IntoView {
     });
 
     let post_view = Suspend(async move {
-        match post_resource.await {
+        match post_resource.await.to_owned() {
             Ok(Ok(post)) => Ok(view! {
                 <h1>{post.title.clone()}</h1>
                 <p>{post.content.clone()}</p>
@@ -204,7 +204,7 @@ pub struct PostMetadata {
 
 #[server]
 pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
-    //tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS
         .iter()
         .map(|data| PostMetadata {
@@ -216,6 +216,6 @@ pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
 
 #[server]
 pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
-    //tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS.iter().find(|post| post.id == id).cloned())
 }

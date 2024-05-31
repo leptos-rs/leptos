@@ -12,11 +12,12 @@ use crate::{
         SubscriberSet, ToAnySource, ToAnySubscriber,
     },
     owner::{use_context, Owner},
-    signal::guards::{Plain, ReadGuard},
+    signal::guards::{AsyncPlain, Plain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
     transition::AsyncTransition,
 };
 use any_spawner::Executor;
+use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
 use futures::{channel::oneshot, FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
@@ -35,11 +36,57 @@ pub struct ArcAsyncDerived<T> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
     // the current state of this signal
-    pub(crate) value: Arc<RwLock<Option<T>>>,
+    pub(crate) value: Arc<AsyncRwLock<Option<T>>>,
     // holds wakers generated when you .await this
     pub(crate) wakers: Arc<RwLock<Vec<Waker>>>,
     pub(crate) inner: Arc<RwLock<ArcAsyncDerivedInner>>,
     pub(crate) loading: Arc<AtomicBool>,
+}
+
+pub(crate) trait BlockingLock<T> {
+    fn blocking_read_arc(self: &Arc<Self>)
+        -> async_lock::RwLockReadGuardArc<T>;
+
+    fn blocking_read(&self) -> async_lock::RwLockReadGuard<'_, T>;
+
+    fn blocking_write(&self) -> async_lock::RwLockWriteGuard<'_, T>;
+}
+
+impl<T> BlockingLock<T> for AsyncRwLock<T> {
+    fn blocking_read_arc(
+        self: &Arc<Self>,
+    ) -> async_lock::RwLockReadGuardArc<T> {
+        #[cfg(not(target_family = "wasm"))]
+        {
+            self.read_arc_blocking()
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            self.read_arc().now_or_never().unwrap()
+        }
+    }
+
+    fn blocking_read(&self) -> async_lock::RwLockReadGuard<'_, T> {
+        #[cfg(not(target_family = "wasm"))]
+        {
+            self.read_blocking()
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            self.read().now_or_never().unwrap()
+        }
+    }
+
+    fn blocking_write(&self) -> async_lock::RwLockWriteGuard<'_, T> {
+        #[cfg(not(target_family = "wasm"))]
+        {
+            self.write_blocking()
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            self.write().now_or_never().unwrap()
+        }
+    }
 }
 
 impl<T> Clone for ArcAsyncDerived<T> {
@@ -96,7 +143,7 @@ macro_rules! spawn_derived {
             subscribers: SubscriberSet::new(),
             dirty: false
         }));
-        let value = Arc::new(RwLock::new($initial));
+        let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
 
         let this = ArcAsyncDerived {
@@ -129,7 +176,7 @@ macro_rules! spawn_derived {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.dirty = false;
-                        *value.write().or_poisoned() = Some(orig_value);
+                        *value.blocking_write() = Some(orig_value);
                         this.loading.store(false, Ordering::Relaxed);
                         true
                     }
@@ -185,7 +232,7 @@ macro_rules! spawn_derived {
                                 // generate and assign new value
                                 let new_value = fut.await;
                                 loading.store(false, Ordering::Relaxed);
-                                *value.write().or_poisoned() = Some(new_value);
+                                *value.write().await = Some(new_value);
                                 inner.write().or_poisoned().dirty = true;
                                 ready_tx.send(());
 
@@ -271,11 +318,11 @@ impl<T: 'static> ArcAsyncDerived<T> {
 }
 
 impl<T: Send + Sync + 'static> ReadUntracked for ArcAsyncDerived<T> {
-    type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
+    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
-            if self.value.read().or_poisoned().is_none() {
+            if self.value.blocking_read().is_none() {
                 let handle = suspense_context.task_id();
                 let ready = SpecialNonReactiveFuture::new(self.ready());
                 Executor::spawn(async move {
@@ -284,7 +331,7 @@ impl<T: Send + Sync + 'static> ReadUntracked for ArcAsyncDerived<T> {
                 });
             }
         }
-        Plain::try_new(Arc::clone(&self.value)).map(ReadGuard::new)
+        AsyncPlain::try_new(&self.value).map(ReadGuard::new)
     }
 }
 

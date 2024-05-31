@@ -1,4 +1,4 @@
-use crate::traits::Trigger;
+use crate::{computed::BlockingLock, traits::Trigger};
 use core::fmt::Debug;
 use guardian::ArcRwLockReadGuardian;
 use std::{
@@ -120,6 +120,50 @@ impl<T: Display> Display for Plain<T> {
     }
 }
 
+pub struct AsyncPlain<T: 'static> {
+    pub(crate) guard: async_lock::RwLockReadGuardArc<T>,
+}
+
+impl<T: 'static> Debug for AsyncPlain<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AsyncPlain").finish()
+    }
+}
+
+impl<T: 'static> AsyncPlain<T> {
+    pub(crate) fn try_new(inner: &Arc<async_lock::RwLock<T>>) -> Option<Self> {
+        Some(Self {
+            guard: inner.blocking_read_arc(),
+        })
+    }
+}
+
+impl<T> Deref for AsyncPlain<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.guard.deref()
+    }
+}
+
+impl<T: PartialEq> PartialEq for AsyncPlain<T> {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<T: PartialEq> PartialEq<T> for AsyncPlain<T> {
+    fn eq(&self, other: &T) -> bool {
+        **self == *other
+    }
+}
+
+impl<T: Display> Display for AsyncPlain<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
+
 #[derive(Debug)]
 pub struct Mapped<Inner, U>
 where
@@ -136,6 +180,18 @@ impl<T: 'static, U> Mapped<Plain<T>, U> {
     ) -> Option<Self> {
         let inner = Plain::try_new(inner)?;
         Some(Self { inner, map_fn })
+    }
+}
+
+impl<Inner, U> Mapped<Inner, U>
+where
+    Inner: Deref,
+{
+    pub(crate) fn new_with_guard(
+        inner: Inner,
+        map_fn: fn(&Inner::Target) -> &U,
+    ) -> Self {
+        Self { inner, map_fn }
     }
 }
 
