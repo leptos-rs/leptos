@@ -13,11 +13,12 @@ use hydration_context::SerializedDataId;
 use reactive_graph::{
     computed::{
         ArcAsyncDerived, ArcAsyncDerivedFuture, ArcMemo, AsyncDerived,
-        AsyncDerivedFuture,
+        AsyncDerivedFuture, AsyncDerivedGuard,
     },
     graph::{Source, ToAnySource, ToAnySubscriber},
     owner::Owner,
     prelude::*,
+    signal::guards::{AsyncPlain, Mapped, ReadGuard},
 };
 use std::{future::IntoFuture, ops::Deref};
 
@@ -242,7 +243,7 @@ impl<T, Ser> IntoFuture for ArcResource<T, Ser>
 where
     T: Clone + 'static,
 {
-    type Output = T;
+    type Output = AsyncDerivedGuard<T>;
     type IntoFuture = ArcAsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -431,7 +432,7 @@ impl<T, Ser> IntoFuture for Resource<T, Ser>
 where
     T: Clone + Send + Sync + 'static,
 {
-    type Output = T;
+    type Output = AsyncDerivedGuard<T>;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     #[track_caller]
