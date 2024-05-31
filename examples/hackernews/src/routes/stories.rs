@@ -30,7 +30,6 @@ pub fn Stories() -> impl IntoView {
         params
             .read()
             .get("stories")
-            .map(ToOwned::to_owned)
             .unwrap_or_else(|| "top".to_string())
     };
     let stories = Resource::new_serde(
@@ -44,7 +43,12 @@ pub fn Stories() -> impl IntoView {
 
     let hide_more_link = move || {
         Suspend(async move {
-            stories.await.unwrap_or_default().len() < 28 || pending.get()
+            stories
+                .await
+                .as_ref()
+                .map(|vec| vec.len() < 28)
+                .unwrap_or(true)
+                || pending.get()
         })
     };
 
@@ -91,16 +95,19 @@ pub fn Stories() -> impl IntoView {
                         // TODO set_pending on Transition
                         //set_pending
                     >
-                        {move || Suspend(async move { match stories.await {
-                            None => Either::Left(view! { <p>"Error loading stories."</p> }),
-                            Some(stories) => {
-                                Either::Right(view! {
-                                    <ul>
-                                    {stories.into_iter().map(|story| view! { <Story story/> }).collect::<Vec<_>>()}
-                                    </ul>
-                                })
-                            }
-                        }})}
+                        <Show when=move || stories.read().as_ref().map(Option::is_none).unwrap_or(false)>
+                        >
+                            <p>"Error loading stories."</p>
+                        </Show>
+                        <ul>
+                            <For
+                                each=move || stories.get().unwrap_or_default().unwrap_or_default()
+                                key=|story| story.id
+                                let:story
+                            >
+                                <Story story/>
+                            </For>
+                        </ul>
                     </Transition>
                 </div>
             </main>

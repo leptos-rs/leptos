@@ -7,7 +7,7 @@ use crate::{
         ToAnySource, ToAnySubscriber,
     },
     owner::StoredValue,
-    signal::guards::{Plain, ReadGuard},
+    signal::guards::{AsyncPlain, Plain, ReadGuard},
     traits::{DefinedAt, Dispose, ReadUntracked},
     unwrap_signal,
 };
@@ -142,7 +142,7 @@ impl<T: Send + Sync + 'static> DefinedAt for AsyncDerived<T> {
 }
 
 impl<T: Send + Sync + 'static> ReadUntracked for AsyncDerived<T> {
-    type Value = ReadGuard<Option<T>, Plain<Option<T>>>;
+    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner.get().map(|inner| inner.read_untracked())
