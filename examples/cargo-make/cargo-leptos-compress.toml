@@ -1,0 +1,32 @@
+[tasks.install-cargo-leptos]
+install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
+
+[tasks.cargo-leptos-e2e]
+command = "cargo"
+args = ["leptos", "end-to-end"]
+
+[tasks.build]
+clear = true
+command = "cargo"
+args = ["leptos", "build", "--release", "-P"]
+
+[tasks.check]
+clear = true
+dependencies = ["check-debug", "check-release"]
+
+[tasks.check-debug]
+toolchain = "stable"
+command = "cargo"
+args = ["check-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.check-release]
+toolchain = "stable"
+command = "cargo"
+args = ["check-all-features", "--release"]
+install_crate = "cargo-all-features"
+
+[tasks.start-client]
+dependencies = ["install-cargo-leptos"]
+command = "cargo"
+args = ["leptos", "watch", "--release", "-P"]
