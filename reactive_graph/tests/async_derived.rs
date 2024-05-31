@@ -85,10 +85,10 @@ async fn read_signal_traits_on_arc() {
     _ = Executor::init_tokio();
 
     let value = ArcAsyncDerived::new(pending::<()>);
-    assert_eq!(value.read(), AsyncState::Loading);
-    assert_eq!(value.with_untracked(|n| *n), AsyncState::Loading);
-    assert_eq!(value.with(|n| *n), AsyncState::Loading);
-    assert_eq!(value.get(), AsyncState::Loading);
+    assert_eq!(value.read(), None);
+    assert_eq!(value.with_untracked(|n| *n), None);
+    assert_eq!(value.with(|n| *n), None);
+    assert_eq!(value.get(), None);
 }
 
 #[tokio::test]
@@ -97,8 +97,8 @@ async fn read_signal_traits_on_arena() {
 
     let value = AsyncDerived::new(pending::<()>);
     println!("{:?}", value.read());
-    assert_eq!(value.read(), AsyncState::Loading);
-    assert_eq!(value.with_untracked(|n| *n), AsyncState::Loading);
-    assert_eq!(value.with(|n| *n), AsyncState::Loading);
-    assert_eq!(value.get(), AsyncState::Loading);
+    assert_eq!(value.read(), None);
+    assert_eq!(value.with_untracked(|n| *n), None);
+    assert_eq!(value.with(|n| *n), None);
+    assert_eq!(value.get(), None);
 }
