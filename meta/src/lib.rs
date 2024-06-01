@@ -73,8 +73,6 @@ use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
-    future::{ready, Ready},
-    pin::Pin,
     sync::{Arc, RwLock},
 };
 use wasm_bindgen::JsCast;
@@ -321,7 +319,7 @@ fn document_head() -> HtmlHeadElement {
     document.head().unwrap_or_else(|| {
         let el = document.create_element("head").unwrap();
         let document = document.document_element().unwrap();
-        document.append_child(&el);
+        _ = document.append_child(&el);
         el.unchecked_into()
     })
 }
@@ -357,7 +355,7 @@ where
     >;
 
     fn add_any_attr<NewAttr: Attribute<Dom>>(
-        mut self,
+        self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
@@ -435,7 +433,7 @@ where
 
     fn insert_before_this(
         &self,
-        parent: &<Dom as Renderer>::Element,
+        _parent: &<Dom as Renderer>::Element,
         child: &mut dyn Mountable<Dom>,
     ) -> bool {
         self.state.insert_before_this(&document_head(), child)
@@ -447,18 +445,11 @@ where
 /// being used during server rendering.
 #[component]
 pub fn MetaTags() -> impl IntoView {
-    MetaTagsView {
-        context: use_context::<ServerMetaContext>().expect(
-            "before using the <MetaTags/> component, you should make sure to \
-             provide ServerMetaContext via context",
-        ),
-    }
+    MetaTagsView
 }
 
 #[derive(Debug)]
-struct MetaTagsView {
-    context: ServerMetaContext,
-}
+struct MetaTagsView;
 
 // this implementation doesn't do anything during client-side rendering, it's just for server-side
 // rendering HTML for all the tags that will be injected into the `<head>`
@@ -469,7 +460,7 @@ impl Render<Dom> for MetaTagsView {
 
     fn build(self) -> Self::State {}
 
-    fn rebuild(self, state: &mut Self::State) {}
+    fn rebuild(self, _state: &mut Self::State) {}
 }
 
 impl AddAnyAttr<Dom> for MetaTagsView {
@@ -497,14 +488,14 @@ impl RenderHtml<Dom> for MetaTagsView {
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, buf: &mut String, _position: &mut Position) {
         buf.push_str("<!--HEAD-->");
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
+        _cursor: &Cursor<Dom>,
+        _position: &PositionState,
     ) -> Self::State {
     }
 }

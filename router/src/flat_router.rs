@@ -1,34 +1,26 @@
 use crate::{
-    location::{Location, LocationProvider, RequestUrl, Url},
+    location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
-    resolve_path::resolve_path,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
     PathSegment, RouteList, RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
-use either_of::{Either, EitherFuture, EitherOf3};
+use either_of::{Either, EitherOf3};
 use futures::FutureExt;
-use leptos::{component, oco::Oco, IntoView};
-use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::{ArcMemo, Memo, ScopedFuture},
-    owner::{provide_context, use_context, Owner},
-    signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Read, ReadUntracked, Set, Track, Trigger}, transition::AsyncTransition, wrappers::write::SignalSetter,
+    computed::{ScopedFuture},
+    owner::{provide_context, Owner},
+    signal::{ArcRwSignal},
+    traits::{ReadUntracked, Set},
+    transition::AsyncTransition,
+    wrappers::write::SignalSetter,
 };
 use std::{
-    borrow::Cow,
     cell::RefCell,
-    future::Future,
     iter,
-    marker::PhantomData,
     mem,
     rc::Rc,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc, Mutex,
-    },
 };
 use tachys::{
     hydration::Cursor,
@@ -36,8 +28,6 @@ use tachys::{
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::{AnyView, AnyViewState, IntoAny},
-        either::EitherState,
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
@@ -149,6 +139,7 @@ where
     Fal: Render<R> + 'static,
     R: Renderer + 'static
 {
+    #[allow(clippy::type_complexity)]
     view: <EitherOf3<(), Fal, <Defs::Match as MatchInterface<R>>::View> as Render<R>>::State,
     id: Option<RouteMatchId>,
     owner: Owner,
@@ -204,7 +195,7 @@ where
         let current_url = current_url.read_untracked();
 
         // we always need to match the new route
-        let new_match = routes.match_route(&current_url.path());
+        let new_match = routes.match_route(current_url.path());
         let id = new_match.as_ref().map(|n| n.as_id());
 
         // create default starting points for owner, url, path, and params
@@ -364,7 +355,7 @@ where
 
                 Executor::spawn_local(owner.with(|| {
                     ScopedFuture::new({
-                        let state = Rc::clone(&state);
+                        let state = Rc::clone(state);
                         async move {
                             provide_context(url);
                             provide_context(params);
@@ -413,7 +404,7 @@ where
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,
@@ -433,7 +424,7 @@ where
         self,
     ) -> Either<Fal, <Defs::Match as MatchInterface<R>>::View> {
         let current_url = self.current_url.read_untracked();
-        let new_match = self.routes.match_route(&current_url.path());
+        let new_match = self.routes.match_route(current_url.path());
         let owner = self.outer_owner.child();
         let url = ArcRwSignal::new(current_url.to_owned());
         let params = ArcRwSignal::new(
@@ -487,7 +478,7 @@ where
         if RouteList::is_generating() {
             // add routes
             let (base, routes) = self.routes.generate_routes();
-            let mut routes = routes
+            let routes = routes
                 .into_iter()
                 .map(|data| {
                     let path = base
@@ -557,7 +548,6 @@ where
         // client-side route component code is not yet loaded
         let FlatRoutesView {
             current_url,
-            location,
             routes,
             fallback,
             outer_owner,
@@ -566,7 +556,7 @@ where
         let current_url = current_url.read_untracked();
 
         // we always need to match the new route
-        let new_match = routes.match_route(&current_url.path());
+        let new_match = routes.match_route(current_url.path());
         let id = new_match.as_ref().map(|n| n.as_id());
 
         // create default starting points for owner, url, path, and params

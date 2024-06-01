@@ -2,10 +2,7 @@ use crate::register;
 use leptos::{
     component,
     prelude::{CustomAttribute, GlobalAttributes},
-    tachys::{
-        html::{attribute::any_attribute::AnyAttribute, element::meta},
-        renderer::dom::Dom,
-    },
+    tachys::html::element::meta,
     text_prop::TextProp,
     IntoView,
 };
@@ -50,11 +47,7 @@ pub fn Meta(
     /// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
     #[prop(optional, into)]
     content: Option<TextProp>,
-    /// Custom attributes.
-    #[prop(attrs, optional)]
-    attrs: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
-    // TODO other attrs
     register(
         meta()
             .charset(charset.map(|v| move || v.get()))

@@ -1,14 +1,6 @@
 use crate::register;
 use leptos::{
-    component,
-    oco::Oco,
-    prelude::*,
-    tachys::{
-        html::{attribute::any_attribute::AnyAttribute, element::script},
-        renderer::dom::Dom,
-        view::any_view::AnyView,
-    },
-    IntoView,
+    component, oco::Oco, prelude::*, tachys::html::element::script, IntoView,
 };
 
 /// Injects an [`HTMLScriptElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document
@@ -72,11 +64,7 @@ pub fn Script(
     /// The content of the `<script>` tag.
     #[prop(optional)]
     children: Option<Children>,
-    /// Custom attributes.
-    #[prop(attrs, optional)]
-    attrs: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
-    // TODO other attrs
     register(
         script()
             .id(id)

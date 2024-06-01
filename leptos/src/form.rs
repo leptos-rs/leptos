@@ -8,12 +8,10 @@ use server_fn::{
 use tachys::{
     either::Either,
     html::{
-        attribute::any_attribute::AnyAttribute,
         element::{form, Form},
         event::submit,
     },
     reactive_graph::node_ref::NodeRef,
-    renderer::dom::Dom,
 };
 use thiserror::Error;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
@@ -84,9 +82,6 @@ pub fn ActionForm<ServFn>(
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<Form>>,
-    /// Arbitrary attributes to add to the `<form>`
-    #[prop(attrs, optional)]
-    attributes: Vec<AnyAttribute<Dom>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -168,9 +163,6 @@ pub fn MultiActionForm<ServFn>(
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<Form>>,
-    /// Arbitrary attributes to add to the `<form>`
-    #[prop(attrs, optional)]
-    attributes: Vec<AnyAttribute<Dom>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView

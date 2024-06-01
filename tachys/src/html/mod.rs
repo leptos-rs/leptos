@@ -1,8 +1,7 @@
-use self::attribute::Attribute;
 use crate::{
     no_attrs,
     renderer::Renderer,
-    view::{add_attr::AddAnyAttr, Position, Render, RenderHtml},
+    view::{Position, Render, RenderHtml},
 };
 use std::marker::PhantomData;
 

@@ -138,6 +138,9 @@ where
 // TODO can we support Option<T> and T in a non-nightly way?
 #[cfg(feature = "nightly")]
 mod option_param {
+    use super::{IntoParam, ParamsError};
+    use std::{str::FromStr, sync::Arc};
+
     auto trait NotOption {}
     impl<T> !NotOption for Option<T> {}
 
