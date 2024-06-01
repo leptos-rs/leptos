@@ -205,7 +205,7 @@ where
                         Some(children) => {
                             let (inner, remaining) = children.match_nested(remaining);
                             let (id, inner) = inner?;
-                           (Some(id), Some(inner), remaining) 
+                           (Some(id), Some(inner), remaining)
                         }
                     };
                     let params = params.into_iter();
