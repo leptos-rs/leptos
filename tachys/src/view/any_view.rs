@@ -288,7 +288,7 @@ where
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,
@@ -389,6 +389,17 @@ where
                 "You are trying to hydrate AnyView without the `hydrate` \
                  feature enabled."
             );
+        }
+    }
+
+    fn html_len(&self) -> usize {
+        #[cfg(feature = "ssr")]
+        {
+            self.html_len
+        }
+        #[cfg(not(feature = "ssr"))]
+        {
+            0
         }
     }
 }

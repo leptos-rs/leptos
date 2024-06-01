@@ -129,7 +129,7 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<R>,
     {
-        todo!()
+        self.map(|inner| inner.add_any_attr(attr))
     }
 }
 
@@ -144,9 +144,8 @@ where
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
     fn dry_resolve(&mut self) {
-        match self.as_mut() {
-            Ok(inner) => inner.dry_resolve(),
-            _ => {}
+        if let Ok(inner) = self.as_mut() {
+            inner.dry_resolve()
         }
     }
 

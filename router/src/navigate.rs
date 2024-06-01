@@ -1,5 +1,4 @@
 use crate::location::State;
-use std::sync::Arc;
 
 /// Options that can be used to configure a navigation. Used with [use_navigate](crate::use_navigate).
 #[derive(Clone, Debug)]
@@ -25,18 +24,5 @@ impl Default for NavigateOptions {
             scroll: true,
             state: State::new(None),
         }
-    }
-}
-
-#[derive(Clone)]
-pub(crate) struct UseNavigate(
-    pub Arc<dyn Fn(&str, NavigateOptions) + Send + Sync>,
-);
-
-impl UseNavigate {
-    pub fn new(
-        fun: impl Fn(&str, NavigateOptions) + Send + Sync + 'static,
-    ) -> Self {
-        Self(Arc::new(fun))
     }
 }

@@ -1,10 +1,8 @@
-use super::{
-    handle_anchor_click, LocationChange, LocationProvider, State, Url, BASE,
-};
-use crate::{navigate::UseNavigate, params::ParamsMap};
+use super::{handle_anchor_click, LocationChange, LocationProvider, Url};
+use crate::params::ParamsMap;
 use core::fmt;
 use futures::channel::oneshot;
-use js_sys::{try_iter, Array, JsString, Reflect};
+use js_sys::{try_iter, Array, JsString};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     signal::ArcRwSignal,
@@ -13,14 +11,12 @@ use reactive_graph::{
 use std::{
     borrow::Cow,
     boxed::Box,
-    cell::RefCell,
-    rc::Rc,
     string::String,
     sync::{Arc, Mutex},
 };
 use tachys::dom::{document, window};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
-use web_sys::{Event, HtmlAnchorElement, MouseEvent, UrlSearchParams};
+use web_sys::{Event, UrlSearchParams};
 
 #[derive(Clone)]
 pub struct BrowserUrl {
@@ -183,7 +179,7 @@ impl LocationProvider for BrowserUrl {
 
     fn ready_to_complete(&self) {
         if let Some(tx) = self.pending_navigation.lock().or_poisoned().take() {
-            tx.send(());
+            _ = tx.send(());
         }
     }
 

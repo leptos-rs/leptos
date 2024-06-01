@@ -1,13 +1,8 @@
-use super::{event_to_tokens, fragment_to_tokens, TagType};
-use crate::view::{
-    attribute_absolute, attribute_to_tokens, attribute_value,
-    event_type_and_handler,
-};
+use super::{fragment_to_tokens, TagType};
+use crate::view::attribute_absolute;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{
-    NodeAttribute, NodeBlock, NodeElement, NodeName, NodeNameFragment,
-};
+use rstml::node::{NodeAttribute, NodeBlock, NodeElement};
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprRange, RangeLimits, Stmt};
 
@@ -16,6 +11,8 @@ pub(crate) fn component_to_tokens(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let name = node.name();
+
+    #[allow(unused)] // TODO this is used by hot-reloading
     #[cfg(debug_assertions)]
     let component_name = super::ident_from_tag_name(node.name());
 
@@ -48,30 +45,6 @@ pub(crate) fn component_to_tokens(
     let attrs = node.attributes().iter().filter_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
             Some(node)
-        } else {
-            None
-        }
-    });
-
-    let spread_bindings = node.attributes().iter().filter_map(|node| {
-        use rstml::node::NodeBlock;
-        use syn::{Expr, ExprRange, RangeLimits, Stmt};
-
-        if let NodeAttribute::Block(NodeBlock::ValidBlock(block)) = node {
-            match block.stmts.first()? {
-                Stmt::Expr(
-                    Expr::Range(ExprRange {
-                        start: None,
-                        limits: RangeLimits::HalfOpen(_),
-                        end: Some(end),
-                        ..
-                    }),
-                    _,
-                ) => Some(
-                    quote! { .dyn_bindings(#[allow(unused_brace)] {#end}) },
-                ),
-                _ => None,
-            }
         } else {
             None
         }
@@ -208,6 +181,8 @@ pub(crate) fn component_to_tokens(
             None,
         );
 
+        // TODO view marker for hot-reloading
+        /*
         cfg_if::cfg_if! {
             if #[cfg(debug_assertions)] {
                 let marker = format!("<{component_name}/>-children");
@@ -218,6 +193,7 @@ pub(crate) fn component_to_tokens(
                 let view_marker = quote! {};
             }
         }
+        */
 
         if let Some(children) = children {
             let bindables =

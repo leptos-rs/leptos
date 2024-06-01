@@ -14,6 +14,7 @@ pub enum StaticMode {
 pub struct StaticDataMap;
 
 impl StaticDataMap {
+    #[allow(clippy::new_without_default)] // TODO
     pub fn new() -> Self {
         Self
     }

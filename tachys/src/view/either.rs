@@ -306,8 +306,8 @@ where
     Rndr: Renderer,
 {
     type Output<SomeNewAttr: Attribute<Rndr>> = EitherKeepAlive<
-        <A as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,
-        <B as AddAnyAttr<Rndr>>::Output<SomeNewAttr>,
+        <A as AddAnyAttr<Rndr>>::Output<SomeNewAttr::Cloneable>,
+        <B as AddAnyAttr<Rndr>>::Output<SomeNewAttr::Cloneable>,
     >;
 
     fn add_any_attr<NewAttr: Attribute<Rndr>>(
@@ -317,7 +317,13 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
-        todo!()
+        let EitherKeepAlive { a, b, show_b } = self;
+        let attr = attr.into_cloneable();
+        EitherKeepAlive {
+            a: a.map(|a| a.add_any_attr(attr.clone())),
+            b: b.map(|b| b.add_any_attr(attr.clone())),
+            show_b,
+        }
     }
 }
 

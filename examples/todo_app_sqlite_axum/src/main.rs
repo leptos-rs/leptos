@@ -1,7 +1,7 @@
 use crate::{fallback::file_and_error_handler, todo::*};
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::Path,
     http::Request,
     response::{IntoResponse, Response},
     routing::get,
@@ -14,11 +14,9 @@ use todo_app_sqlite_axum::*;
 //Define a handler to test extractor with state
 async fn custom_handler(
     Path(id): Path<String>,
-    State(options): State<LeptosOptions>,
     req: Request<Body>,
 ) -> Response {
     let handler = leptos_axum::render_app_to_stream_with_context(
-        options,
         move || {
             provide_context(id.clone());
         },

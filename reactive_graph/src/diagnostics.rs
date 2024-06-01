@@ -35,7 +35,7 @@ impl SpecialNonReactiveZone {
         SpecialNonReactiveZoneGuard
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, feature = "effects"))]
     #[inline(always)]
     pub(crate) fn is_inside() -> bool {
         if cfg!(debug_assertions) {

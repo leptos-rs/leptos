@@ -1,29 +1,27 @@
 pub use super::link::*;
+#[cfg(feature = "ssr")]
+use crate::location::RequestUrl;
 use crate::{
     hooks::use_navigate,
     location::{
-        BrowserUrl, Location, LocationChange, LocationProvider, RequestUrl,
-        State, Url,
+        BrowserUrl, Location, LocationChange, LocationProvider, State, Url,
     },
-    navigate::{NavigateOptions, UseNavigate},
-    params::ParamsMap,
+    navigate::NavigateOptions,
     resolve_path::resolve_path,
     ChooseView, FlatRoutesView, MatchNestedRoutes, NestedRoute,
     NestedRoutesView, Routes, SsrMode,
 };
 use leptos::prelude::*;
 use reactive_graph::{
-    computed::ArcMemo,
     owner::{provide_context, use_context, Owner},
-    signal::{ArcRwSignal, RwSignal},
-    traits::{GetUntracked, Read, ReadUntracked, Set},
-    untrack,
+    signal::ArcRwSignal,
+    traits::{GetUntracked, ReadUntracked, Set},
     wrappers::write::SignalSetter,
 };
 use std::{
     borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc, time::Duration,
 };
-use tachys::renderer::{dom::Dom, Renderer};
+use tachys::renderer::dom::Dom;
 
 #[derive(Debug)]
 pub struct RouteChildren<Children>(Children);
@@ -62,10 +60,6 @@ pub fn Router<Chil>(
     /// any elements, and should include a [`Routes`](crate::Routes) component somewhere
     /// to define and display [`Route`](crate::Route)s.
     children: TypedChildren<Chil>,
-    /// A unique identifier for this router, allowing you to mount multiple Leptos apps with
-    /// different routes from the same server.
-    #[prop(optional)]
-    id: usize,
 ) -> impl IntoView
 where
     Chil: IntoView,
@@ -235,7 +229,7 @@ where
             base: base.clone(),
             fallback: fallback(),
             rndr: PhantomData,
-            set_is_routing: set_is_routing.clone(),
+            set_is_routing,
         }
     }
 }
@@ -258,6 +252,9 @@ where
         ..
     } = use_context()
         .expect("<FlatRoutes> should be used inside a <Router> component");
+
+    // TODO base
+    #[allow(unused)]
     let base = base.map(|base| {
         let mut base = Oco::from(base);
         base.upgrade_inplace();
