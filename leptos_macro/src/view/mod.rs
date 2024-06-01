@@ -528,7 +528,7 @@ pub(crate) fn attribute_absolute(
                 quote! {
                     ::leptos::tachys::html::#key::#key(#value)
                 }
-            } 
+            }
             else if name.contains('-') && !name.starts_with("aria-") {
                 quote! {
                     ::leptos::tachys::html::attribute::custom::custom_attribute(#name, #value)

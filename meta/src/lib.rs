@@ -288,6 +288,7 @@ pub(crate) fn register<E, At, Ch>(
 where
     HtmlElement<E, At, Ch, Dom>: RenderHtml<Dom>,
 {
+    #[allow(unused_mut)] // used for `ssr`
     let mut el = Some(el);
 
     #[cfg(feature = "ssr")]
