@@ -1,7 +1,10 @@
 mod component_builder;
 mod slot_helper;
 
-use self::{component_builder::component_to_tokens, slot_helper::{get_slot, slot_to_tokens}};
+use self::{
+    component_builder::component_to_tokens,
+    slot_helper::{get_slot, slot_to_tokens},
+};
 use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
@@ -12,9 +15,7 @@ use rstml::node::{
     NodeNameFragment,
 };
 use std::collections::HashMap;
-use syn::{
-    spanned::Spanned, Expr, ExprRange, Lit, LitStr, RangeLimits, Stmt,
-};
+use syn::{spanned::Spanned, Expr, ExprRange, Lit, LitStr, RangeLimits, Stmt};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TagType {
@@ -95,8 +96,9 @@ fn fragment_to_tokens(
         global_class,
         view_marker,
     );
-    if children.is_empty() { None }
-    else if children.len() == 1 {
+    if children.is_empty() {
+        None
+    } else if children.len() == 1 {
         children.into_iter().next()
     } else {
         Some(quote! {
@@ -211,7 +213,7 @@ pub(crate) fn element_to_tokens(
         if let Some(slot) = get_slot(node) {
             slot_to_tokens(node, slot, parent_slots, global_class);
             None
-        } else { 
+        } else {
             Some(component_to_tokens(node, global_class))
         }
     } else if is_spread_marker(node) {
