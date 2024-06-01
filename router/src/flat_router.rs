@@ -9,26 +9,21 @@ use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
 use futures::FutureExt;
 use reactive_graph::{
-    computed::{ScopedFuture},
+    computed::ScopedFuture,
     owner::{provide_context, Owner},
-    signal::{ArcRwSignal},
+    signal::ArcRwSignal,
     traits::{ReadUntracked, Set},
     transition::AsyncTransition,
     wrappers::write::SignalSetter,
 };
-use std::{
-    cell::RefCell,
-    iter,
-    mem,
-    rc::Rc,
-};
+use std::{cell::RefCell, iter, mem, rc::Rc};
 use tachys::{
     hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr,
-        Mountable, Position, PositionState, Render, RenderHtml,
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml,
     },
 };
 
@@ -38,7 +33,7 @@ pub(crate) struct FlatRoutesView<Loc, Defs, Fal, R> {
     pub routes: Routes<Defs, R>,
     pub fallback: Fal,
     pub outer_owner: Owner,
-    pub set_is_routing: Option<SignalSetter<bool>>
+    pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
 /*
@@ -284,7 +279,7 @@ where
             routes,
             fallback,
             outer_owner,
-            set_is_routing
+            set_is_routing,
         } = self;
         let url_snapshot = current_url.read_untracked();
 
@@ -359,14 +354,17 @@ where
                         async move {
                             provide_context(url);
                             provide_context(params);
-                            let view = if let Some(set_is_routing) = set_is_routing {
-                                set_is_routing.set(true);
-                                let value = AsyncTransition::run(|| view.choose()).await;
-                                set_is_routing.set(false);
-                                value
-                            } else {
-                                view.choose().await
-                            };
+                            let view =
+                                if let Some(set_is_routing) = set_is_routing {
+                                    set_is_routing.set(true);
+                                    let value =
+                                        AsyncTransition::run(|| view.choose())
+                                            .await;
+                                    set_is_routing.set(false);
+                                    value
+                                } else {
+                                    view.choose().await
+                                };
 
                             // only update the route if it's still the current path
                             // i.e., if we've navigated away before this has loaded, do nothing
@@ -467,7 +465,7 @@ where
         <Defs::Match as MatchInterface<R>>::View,
     > as RenderHtml<R>>::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) { }
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
