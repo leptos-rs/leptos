@@ -25,14 +25,14 @@ where
 #[macro_export]
 macro_rules! no_attrs {
     ($ty_name:ty) => {
-        impl<'a, R> crate::view::add_attr::AddAnyAttr<R> for $ty_name
+        impl<'a, R> $crate::view::add_attr::AddAnyAttr<R> for $ty_name
         where
             R: Renderer,
         {
-            type Output<SomeNewAttr: crate::html::attribute::Attribute<R>> =
+            type Output<SomeNewAttr: $crate::html::attribute::Attribute<R>> =
                 $ty_name;
 
-            fn add_any_attr<NewAttr: crate::html::attribute::Attribute<R>>(
+            fn add_any_attr<NewAttr: $crate::html::attribute::Attribute<R>>(
                 self,
                 _attr: NewAttr,
             ) -> Self::Output<NewAttr> {

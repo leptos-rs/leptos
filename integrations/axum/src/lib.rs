@@ -43,42 +43,24 @@ use axum::{
     response::{Html, IntoResponse},
     routing::{delete, get, patch, post, put},
 };
-use futures::{
-    channel::mpsc::{Receiver, Sender},
-    stream::once,
-    Future, FutureExt, SinkExt, Stream, StreamExt,
-};
+use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
     reactive_graph::{computed::ScopedFuture, owner::Owner},
-    tachys::ssr::StreamBuilder,
     IntoView,
 };
-use leptos_meta::{MetaContext, ServerMetaContext};
+use leptos_meta::ServerMetaContext;
 use leptos_router::{
     location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
     StaticDataMap, StaticMode,
 };
-use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use reactive_graph::owner::Sandboxed;
-use server_fn::{
-    
-    error::{NoCustomError, ServerFnErrorSerde},
-    redirect::REDIRECT_HEADER, ServerFnError,
-,
-};
-use std::{
-    collections::HashSet,
-    fmt::{Debug, Write},
-    io,
-    pin::Pin,
-    sync::Arc,
-    thread::available_parallelism,
-};
-use tracing::Instrument;
+use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
+use std::{fmt::Debug, io, pin::Pin, sync::Arc};
+// use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -251,27 +233,6 @@ fn init_executor() {
     }
 }
 
-/// Leptos pool causes wasm to panic and leptos_reactive::spawn::spawn_local causes native
-/// to panic so we define a macro to conditionally compile the correct code.
-macro_rules! spawn_task {
-    ($block:expr) => {
-        #[cfg(feature = "wasm")]
-        spawn_local($block);
-        #[cfg(all(not(feature = "wasm"), feature = "default"))]
-        spawn($block);
-        #[cfg(all(not(feature = "wasm"), not(feature = "default")))]
-        {
-            eprintln!(
-                "It appears you have set 'default-features = false' on \
-                 'leptos_axum', but are not using the 'wasm' feature. Either \
-                 remove 'default-features = false' or, if you are running in \
-                 a JS-hosted WASM server environment, add the 'wasm' feature."
-            );
-            spawn_local($block);
-        }
-    };
-}
-
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [`Response`].
 ///
@@ -310,9 +271,7 @@ async fn handle_server_fns_inner(
     let path = req.uri().path().to_string();
     let (req, parts) = generate_request_and_parts(req);
 
-    let res = if let Some(mut service) =
-        server_fn::axum::get_server_fn_service(&path)
-    {
+    if let Some(mut service) = server_fn::axum::get_server_fn_service(&path) {
         let owner = Owner::new();
         owner
             .with(|| {
@@ -379,25 +338,14 @@ async fn handle_server_fns_inner(
                  function type, somewhere in your `main` function.",
             )))
     }
-    .expect("could not build Response");
-
-    res
-
-    /*rx.await.unwrap_or_else(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ServerFnErrorSerde::ser(
-                &ServerFnError::<NoCustomError>::ServerError(e.to_string()),
-            )
-            .unwrap_or_default(),
-        )
-            .into_response()
-    })*/
+    .expect("could not build Response")
 }
 
 pub type PinnedHtmlStream =
     Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
+type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+type BoxedFnOnce<T> = Box<dyn FnOnce() -> T + Send>;
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
@@ -447,11 +395,10 @@ type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -462,7 +409,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView + 'static,
 {
-    render_app_to_stream_with_context(options, || {}, app_fn)
+    render_app_to_stream_with_context(|| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -472,7 +419,6 @@ where
 /// This is useful if you are using `.leptos_routes_with_handler()`
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_route<IV>(
-    options: LeptosOptions,
     paths: Vec<AxumRouteListing>,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -484,7 +430,7 @@ pub fn render_route<IV>(
 where
     IV: IntoView + 'static,
 {
-    render_route_with_context(options, paths, || {}, app_fn)
+    render_route_with_context(paths, || {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -538,11 +484,10 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -553,7 +498,7 @@ pub fn render_app_to_stream_in_order<IV>(
 where
     IV: IntoView + 'static,
 {
-    render_app_to_stream_in_order_with_context(options, || {}, app_fn)
+    render_app_to_stream_in_order_with_context(|| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -579,11 +524,10 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -596,7 +540,6 @@ where
     IV: IntoView + 'static,
 {
     render_app_to_stream_with_context_and_replace_blocks(
-        options,
         additional_context,
         app_fn,
         false,
@@ -610,7 +553,6 @@ where
 /// This is useful if you are using `.leptos_routes_with_handler()`.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_route_with_context<IV>(
-    options: LeptosOptions,
     paths: Vec<AxumRouteListing>,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -624,23 +566,19 @@ where
     IV: IntoView + 'static,
 {
     let ooo = render_app_to_stream_with_context(
-        LeptosOptions::from_ref(&options),
         additional_context.clone(),
         app_fn.clone(),
     );
     let pb = render_app_to_stream_with_context_and_replace_blocks(
-        LeptosOptions::from_ref(&options),
         additional_context.clone(),
         app_fn.clone(),
         true,
     );
     let io = render_app_to_stream_in_order_with_context(
-        LeptosOptions::from_ref(&options),
         additional_context.clone(),
         app_fn.clone(),
     );
     let asyn = render_app_async_stream_with_context(
-        LeptosOptions::from_ref(&options),
         additional_context.clone(),
         app_fn.clone(),
     );
@@ -690,11 +628,10 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     replace_blocks: bool,
@@ -707,7 +644,8 @@ pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app, chunks| {
+    _ = replace_blocks; // TODO
+    handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
             Box::pin(app.to_html_stream_out_of_order().chain(chunks()))
                 as PinnedStream<String>
@@ -740,11 +678,10 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -756,7 +693,7 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app, chunks| {
+    handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
             Box::pin(app.to_html_stream_in_order().chain(chunks()))
                 as PinnedStream<String>
@@ -765,29 +702,17 @@ where
 }
 
 fn handle_response<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     stream_builder: fn(
         IV,
-        Box<dyn FnOnce() -> Pin<Box<dyn Stream<Item = String> + Send>> + Send>,
-    ) -> Pin<
-        Box<
-            dyn Future<Output = Pin<Box<dyn Stream<Item = String> + Send>>>
-                + Send,
-        >,
-    >,
-) -> impl Fn(
-    Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
-       + Clone
-       + Send
-       + 'static
+        BoxedFnOnce<PinnedStream<String>>,
+    ) -> PinnedFuture<PinnedStream<String>>,
+) -> impl Fn(Request<Body>) -> PinnedFuture<Response<Body>> + Clone + Send + 'static
 where
     IV: IntoView + 'static,
 {
     move |req: Request<Body>| {
-        let options = options.clone();
         let app_fn = app_fn.clone();
         let add_context = additional_context.clone();
         let res_options = ResponseOptions::default();
@@ -941,11 +866,10 @@ fn provide_contexts(
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async<IV>(
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -956,7 +880,7 @@ pub fn render_app_async<IV>(
 where
     IV: IntoView + 'static,
 {
-    render_app_async_with_context(options, || {}, app_fn)
+    render_app_async_with_context(|| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -983,11 +907,10 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_stream_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -999,7 +922,7 @@ pub fn render_app_async_stream_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app, chunks| {
+    handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
             let app = app.to_html_stream_in_order().collect::<String>().await;
             let chunks = chunks();
@@ -1033,11 +956,10 @@ where
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-/// - [`MetaContext`](leptos_meta::MetaContext)
+/// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -1049,7 +971,7 @@ pub fn render_app_async_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(options, additional_context, app_fn, |app, chunks| {
+    handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
             let app = app.to_html_stream_in_order().collect::<String>().await;
             let chunks = chunks();
@@ -1101,6 +1023,7 @@ where
 }
 
 /// TODO docs
+#[allow(unused)]
 pub async fn build_static_routes<IV>(
     options: &LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Send + Clone,
@@ -1398,11 +1321,11 @@ where
     })
 }*/
 
+#[allow(unused)] // TODO
 #[cfg(feature = "default")]
 fn static_route<IV, S>(
     router: axum::Router<S>,
     path: &str,
-    options: LeptosOptions,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     additional_context: impl Fn() + Clone + Send + 'static,
     method: leptos_router::Method,
@@ -1541,20 +1464,20 @@ where
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
-        options: &S,
+        state: &S,
         paths: Vec<AxumRouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(options, paths, || {}, app_fn)
+        self.leptos_routes_with_context(state, paths, || {}, app_fn)
     }
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
-        options: &S,
+        state: &S,
         paths: Vec<AxumRouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1566,7 +1489,7 @@ where
 
         // S represents the router's finished state allowing us to provide
         // it to the user's server functions.
-        let state = options.clone();
+        let state = state.clone();
         let cx_with_state = move || {
             provide_context::<S>(state.clone());
             additional_context();
@@ -1618,8 +1541,7 @@ where
                     {
                         static_route(
                             router,
-                            &path,
-                            LeptosOptions::from_ref(options),
+                            path,
                             app_fn.clone(),
                             cx_with_state_and_method.clone(),
                             method,
@@ -1636,11 +1558,10 @@ where
                     }
                 } else {
                     router.route(
-                    &path,
+                    path,
                     match listing.mode() {
                         SsrMode::OutOfOrder => {
                             let s = render_app_to_stream_with_context(
-                                LeptosOptions::from_ref(options),
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
@@ -1654,7 +1575,6 @@ where
                         }
                         SsrMode::PartiallyBlocked => {
                             let s = render_app_to_stream_with_context_and_replace_blocks(
-                                LeptosOptions::from_ref(options),
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                                 true
@@ -1669,7 +1589,6 @@ where
                         }
                         SsrMode::InOrder => {
                             let s = render_app_to_stream_in_order_with_context(
-                                LeptosOptions::from_ref(options),
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );
@@ -1683,7 +1602,6 @@ where
                         }
                         SsrMode::Async => {
                             let s = render_app_async_with_context(
-                                LeptosOptions::from_ref(options),
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
                             );

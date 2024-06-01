@@ -4,7 +4,7 @@ use crate::{
 };
 use leptos_macro::component;
 use reactive_graph::{computed::ArcMemo, traits::Get};
-use tachys::{either::Either, renderer::dom::Dom, view::RenderHtml};
+use tachys::either::Either;
 
 #[component]
 pub fn Show<W, C>(

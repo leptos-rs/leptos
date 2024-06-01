@@ -20,13 +20,18 @@ thread_local! {
 }
 
 impl Arena {
+    #[cfg(feature = "hydration")]
     #[inline(always)]
     pub fn enter_new() {
         #[cfg(feature = "sandboxed-arenas")]
-        MAP.with_borrow_mut(|arena| {
-            *arena =
-                Some(Arc::new(RwLock::new(SlotMap::with_capacity_and_key(32))))
-        })
+        {
+            use std::sync::Arc;
+            MAP.with_borrow_mut(|arena| {
+                *arena = Some(Arc::new(RwLock::new(
+                    SlotMap::with_capacity_and_key(32),
+                )))
+            })
+        }
     }
 
     #[track_caller]

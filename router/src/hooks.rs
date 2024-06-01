@@ -1,18 +1,16 @@
 use crate::{
     components::RouterContext,
     location::{Location, Url},
-    navigate::{NavigateOptions, UseNavigate},
+    navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
     RouteContext,
 };
-use leptos::{leptos_dom::helpers::window, oco::Oco};
 use reactive_graph::{
     computed::{ArcMemo, Memo},
     owner::use_context,
-    signal::{ArcReadSignal, ArcRwSignal, ReadSignal},
-    traits::{Get, Read, With},
+    signal::{ArcRwSignal, ReadSignal},
+    traits::{Get, With},
 };
-use std::{rc::Rc, str::FromStr};
 use tachys::renderer::Renderer;
 /*
 /// Constructs a signal synchronized with a specific URL query parameter.
@@ -239,6 +237,7 @@ pub(crate) fn use_is_back_navigation() -> ReadSignal<bool> {
 }
 */
 
+/* TODO check how this is used in 0.6 and use it
 /// Resolves a redirect location to an (absolute) URL.
 pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
     let origin = match window().location().origin() {
@@ -263,3 +262,4 @@ pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
         }
     }
 }
+*/

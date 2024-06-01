@@ -200,7 +200,7 @@ where
                      params,
                      matched,
                  }| {
-                    let (id, inner, remaining) = match &self.children {
+                    let (_, inner, remaining) = match &self.children {
                         None => (None, None, remaining),
                         Some(children) => {
                             let (inner, remaining) = children.match_nested(remaining);

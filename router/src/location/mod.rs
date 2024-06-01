@@ -3,11 +3,11 @@ use core::fmt::Debug;
 use js_sys::Reflect;
 use reactive_graph::{
     computed::Memo,
-    signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
+    signal::{ArcRwSignal, ReadSignal},
     traits::With,
 };
 use send_wrapper::SendWrapper;
-use std::{borrow::Cow, future::Future, sync::Arc};
+use std::{borrow::Cow, future::Future};
 use tachys::dom::window;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Event, HtmlAnchorElement, MouseEvent};
@@ -140,7 +140,7 @@ pub trait LocationProvider: Clone + 'static {
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct State(Option<SendWrapper<JsValue>>);
 
 impl State {
@@ -153,12 +153,6 @@ impl State {
             Some(v) => v.clone().take(),
             None => JsValue::UNDEFINED,
         }
-    }
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self(None)
     }
 }
 

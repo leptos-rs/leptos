@@ -4,10 +4,15 @@ use reactive_graph::owner::Owner;
 use std::marker::PhantomData;
 use tachys::{
     dom::body,
-    hydration::Cursor,
     renderer::{dom::Dom, Renderer},
-    view::{Mountable, PositionState, Render, RenderHtml},
+    view::{Mountable, Render},
 };
+#[cfg(feature = "hydrate")]
+use tachys::{
+    hydration::Cursor,
+    view::{PositionState, RenderHtml},
+};
+#[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
@@ -36,7 +41,9 @@ where
     use std::sync::Arc;
 
     // use wasm-bindgen-futures to drive the reactive system
-    Executor::init_wasm_bindgen();
+    // we ignore the return value because an Err here just means the wasm-bindgen executor is
+    // already initialized, which is not an issue
+    _ = Executor::init_wasm_bindgen();
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
@@ -74,7 +81,9 @@ where
     N: IntoView,
 {
     // use wasm-bindgen-futures to drive the reactive system
-    Executor::init_wasm_bindgen();
+    // we ignore the return value because an Err here just means the wasm-bindgen executor is
+    // already initialized, which is not an issue
+    _ = Executor::init_wasm_bindgen();
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new();
@@ -105,14 +114,16 @@ where
     R: Renderer,
 {
     // use wasm-bindgen-futures to drive the reactive system
-    Executor::init_wasm_bindgen();
+    // we ignore the return value because an Err here just means the wasm-bindgen executor is
+    // already initialized, which is not an issue
+    _ = Executor::init_wasm_bindgen();
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new();
     let mountable = owner.with(move || {
         let view = f();
         let mut mountable = view.build();
-        mountable.mount(&parent, None);
+        mountable.mount(parent, None);
         mountable
     });
 
@@ -132,7 +143,9 @@ pub fn hydrate_islands() {
     use std::sync::Arc;
 
     // use wasm-bindgen-futures to drive the reactive system
-    Executor::init_wasm_bindgen();
+    // we ignore the return value because an Err here just means the wasm-bindgen executor is
+    // already initialized, which is not an issue
+    _ = Executor::init_wasm_bindgen();
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
