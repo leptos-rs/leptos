@@ -61,7 +61,7 @@ where
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,

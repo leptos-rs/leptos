@@ -2,7 +2,6 @@ use crate::{use_head, MetaContext, ServerMetaContext};
 use leptos::{
     attr::Attribute,
     component,
-    error::Result,
     oco::Oco,
     reactive_graph::{
         effect::RenderEffect,
@@ -22,15 +21,9 @@ use leptos::{
 };
 use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
-use std::{
-    cell::RefCell,
-    future::{ready, Ready},
-    ops::Deref,
-    rc::Rc,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
-use web_sys::{Element, HtmlTitleElement};
+use web_sys::HtmlTitleElement;
 
 /// Contains the current state of the document's `<title>`.
 #[derive(Clone, Default)]
@@ -188,6 +181,7 @@ impl TitleView {
     }
 }
 
+#[allow(dead_code)] // TODO these should be used to rebuild the attributes, I guess
 struct TitleViewState {
     el: HtmlTitleElement,
     formatter: Option<Formatter>,
@@ -231,7 +225,7 @@ impl AddAnyAttr<Dom> for TitleView {
 
     fn add_any_attr<NewAttr: Attribute<Dom>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<Dom>,
@@ -251,7 +245,7 @@ impl RenderHtml<Dom> for TitleView {
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
     }
@@ -290,8 +284,8 @@ impl Mountable<Dom> for TitleViewState {
 
     fn mount(
         &mut self,
-        parent: &<Dom as Renderer>::Element,
-        marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &<Dom as Renderer>::Element,
+        _marker: Option<&<Dom as Renderer>::Node>,
     ) {
         // <title> doesn't need to be mounted
         // TitleView::el() guarantees that there is a <title> in the <head>

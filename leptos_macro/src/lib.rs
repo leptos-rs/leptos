@@ -13,7 +13,6 @@ use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, ToTokens};
-use rstml::node::KeyedAttribute;
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

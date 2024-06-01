@@ -51,7 +51,10 @@ impl AsyncTransition {
             .as_ref()
             .map(|n| &n.tx)
         {
-            tx.send(rx);
+            // if it's an Err, that just means the Receiver was dropped
+            // i.e., the transition is no longer listening, in which case it doesn't matter if we
+            // successfully register with it or not
+            _ = tx.send(rx);
         }
     }
 }

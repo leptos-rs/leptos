@@ -6,7 +6,7 @@ use futures::{
 };
 use or_poisoned::OrPoisoned;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::{Debug, Write},
     mem,
     sync::{
@@ -89,7 +89,7 @@ impl SharedContext for SsrSharedContext {
 
         initial_chunk.push_str("__SERIALIZED_ERRORS=[");
         for error in mem::take(&mut *self.errors.write().or_poisoned()) {
-            write!(
+            _ = write!(
                 initial_chunk,
                 "[{}, {}, {:?}],",
                 error.0 .0, error.1, error.2
@@ -100,7 +100,7 @@ impl SharedContext for SsrSharedContext {
         // pending async resources
         initial_chunk.push_str("__PENDING_RESOURCES=[");
         for (id, _) in &async_data {
-            write!(&mut initial_chunk, "{},", id.0).unwrap();
+            _ = write!(&mut initial_chunk, "{},", id.0);
         }
         initial_chunk.push_str("];");
 
@@ -121,7 +121,7 @@ impl SharedContext for SsrSharedContext {
                     let sealed = sealed.read().or_poisoned();
                     for error in mem::take(&mut *errors.write().or_poisoned()) {
                         if !sealed.contains(&error.0) {
-                            write!(
+                            _ = write!(
                                 val,
                                 "__SERIALIZED_ERRORS.push([{}, {}, {:?}]);",
                                 error.0 .0,

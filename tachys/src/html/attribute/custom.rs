@@ -42,7 +42,7 @@ where
         Self {
             key: self.key.clone(),
             value: self.value.clone(),
-            rndr: self.rndr.clone(),
+            rndr: self.rndr,
         }
     }
 }

@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::{
-    error, fmt,
+    fmt,
     fmt::{Display, Write},
-    ops,
     str::FromStr,
-    sync::Arc,
 };
 use thiserror::Error;
 use throw_error::Error;

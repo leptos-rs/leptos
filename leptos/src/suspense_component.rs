@@ -1,36 +1,27 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
-    into_view::View,
     IntoView,
 };
 use any_spawner::Executor;
-use futures::{pin_mut, FutureExt};
+use futures::FutureExt;
 use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo, ScopedFuture},
     owner::{provide_context, use_context},
     signal::ArcRwSignal,
-    traits::{Get, Read, Track, Update, With, Writeable},
-    transition::AsyncTransition,
+    traits::{Get, Read, Track, With},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{
-    cell::RefCell,
-    fmt::Debug,
-    future::{ready, Future},
-    pin::Pin,
-    rc::Rc,
-};
+use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
 use tachys::{
     either::Either,
     html::attribute::Attribute,
     hydration::Cursor,
     reactive_graph::{OwnedView, RenderEffectState},
-    renderer::{dom::Dom, Renderer},
+    renderer::Renderer,
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::AnyView,
         either::{EitherKeepAlive, EitherKeepAliveState},
         iterators::OptionState,
         Mountable, Position, PositionState, Render, RenderHtml,
@@ -46,7 +37,6 @@ pub fn Suspense<Chil>(
 ) -> impl IntoView
 where
     Chil: IntoView + Send + 'static,
-    SuspenseBoundary<false, AnyView<Dom>, View<Chil>>: IntoView,
 {
     let fallback = fallback.run();
     let children = children.into_inner()();
@@ -163,7 +153,7 @@ where
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-        mut self,
+        self,
         buf: &mut StreamBuilder,
         position: &mut Position,
     ) where
@@ -177,11 +167,13 @@ where
 
         let mut tx = Some(tx);
         let eff =
-            reactive_graph::effect::RenderEffect::new_isomorphic(move |prev| {
+            reactive_graph::effect::RenderEffect::new_isomorphic(move |_| {
                 tasks.track();
                 if tasks.read().is_empty() {
                     if let Some(tx) = tx.take() {
-                        tx.send(());
+                        // If the receiver has dropped, it means the ScopedFuture has already
+                        // dropped, so it doesn't matter if we manage to send this.
+                        _ = tx.send(());
                     }
                 }
             });
@@ -427,14 +419,14 @@ where
 
     const MIN_LENGTH: usize = Fut::Output::MIN_LENGTH;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
         todo!()
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
+        _buf: &mut StreamBuilder,
+        _position: &mut Position,
     ) where
         Self: Sized,
     {

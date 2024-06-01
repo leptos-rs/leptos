@@ -264,7 +264,7 @@ impl ToTokens for Model {
                         #component_id,
                         #component
                     )
-                        // #island_serialized_props
+                     #island_serialized_props
                 }
             }
         } else {
@@ -298,66 +298,6 @@ impl ToTokens for Model {
                 #wrapped_children
             }
         };
-
-        let count = props
-            .iter()
-            .filter(
-                |Prop {
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| *attrs,
-            )
-            .count();
-
-        let dyn_attrs_props = props
-            .iter()
-            .filter(
-                |Prop {
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| *attrs,
-            )
-            .enumerate()
-            .map(|(idx, Prop { name, .. })| {
-                let ident = &name.ident;
-                if idx < count - 1 {
-                    quote! {
-                        self.#ident = v.clone().into();
-                    }
-                } else {
-                    quote! {
-                        self.#ident = v.into();
-                    }
-                }
-            })
-            .collect::<TokenStream>();
-
-        let dyn_binding_props = props
-            .iter()
-            .filter(
-                |Prop {
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| *attrs,
-            )
-            .filter_map(
-                |Prop {
-                     name,
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| {
-                    let ident = &name.ident;
-
-                    if *attrs {
-                        Some(quote! {
-                            ::leptos::leptos_dom::html::Binding::Attribute { name, value } => self.#ident.push((name, value)),
-                        })
-                    } else {
-                        None
-                    }
-                },
-            )
-            .collect::<TokenStream>();
 
         let body = quote! {
             #destructure_props

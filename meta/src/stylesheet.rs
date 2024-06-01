@@ -1,10 +1,6 @@
 use crate::register;
 use leptos::{
-    component,
-    tachys::{
-        html::{attribute::any_attribute::AnyAttribute, element::link},
-        renderer::dom::Dom,
-    },
+    attr::global::GlobalAttributes, component, tachys::html::element::link,
     IntoView,
 };
 
@@ -34,10 +30,7 @@ pub fn Stylesheet(
     /// An ID for the stylesheet.
     #[prop(optional, into)]
     id: Option<String>,
-    /// Custom attributes.
-    #[prop(attrs, optional)]
-    attrs: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
     // TODO additional attributes
-    register(link().rel("stylesheet").href(href))
+    register(link().id(id).rel("stylesheet").href(href))
 }

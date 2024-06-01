@@ -108,6 +108,7 @@ where
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn on_target<E, T, R, F>(
     event: E,
     mut cb: F,
