@@ -168,8 +168,12 @@ where
 
     fn dry_resolve(&mut self) {}
 
-    fn resolve(self) -> futures::future::Ready<Self::AsyncOutput> {
-        futures::future::ready(self)
+    // this won't actually compile because if a weird interaction because the const &'static str and
+    // the RPITIT, so we just refine it to a concrete future type; this will never change in any
+    // case
+    #[allow(refining_impl_trait)]
+    fn resolve(self) -> std::future::Ready<Self> {
+        std::future::ready(self)
     }
 
     fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
@@ -209,7 +213,7 @@ where
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,

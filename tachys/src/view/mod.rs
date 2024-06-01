@@ -1,4 +1,4 @@
-use self::{add_attr::AddAnyAttr, fragment::Fragment};
+use self::add_attr::AddAnyAttr;
 use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use parking_lot::RwLock;
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};

@@ -1,21 +1,16 @@
-use super::{
-    ArcAsyncDerived, ArcAsyncDerivedFuture, ArcAsyncDerivedReadyFuture,
-};
+use super::{ArcAsyncDerived, ArcAsyncDerivedReadyFuture};
 use crate::{
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
     owner::StoredValue,
-    signal::guards::{AsyncPlain, Plain, ReadGuard},
+    signal::guards::{AsyncPlain, ReadGuard},
     traits::{DefinedAt, Dispose, ReadUntracked},
     unwrap_signal,
 };
 use core::fmt::Debug;
-use std::{
-    future::{Future, IntoFuture},
-    panic::Location,
-};
+use std::{future::Future, panic::Location};
 
 pub struct AsyncDerived<T> {
     #[cfg(debug_assertions)]

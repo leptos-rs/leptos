@@ -1,12 +1,8 @@
 use crate::into_view::IntoView;
 use leptos_macro::component;
 use reactive_graph::owner::Owner;
-use std::{hash::Hash, marker::PhantomData};
-use tachys::{
-    reactive_graph::OwnedView,
-    renderer::Renderer,
-    view::{keyed::keyed, RenderHtml},
-};
+use std::hash::Hash;
+use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 
 /// Iterates over children and displays them, keyed by the `key` function given.
 ///
@@ -77,30 +73,6 @@ where
         OwnedView::new_with_owner(view, owner)
     };
     move || keyed(each(), key.clone(), children.clone())
-}
-
-#[component]
-pub fn FlatFor<Rndr, IF, I, T, EF, N, KF, K>(
-    /// Items over which the component should iterate.
-    each: IF,
-    /// A key function that will be applied to each item.
-    key: KF,
-    /// A function that takes the item, and returns the view that will be displayed for each item.
-    children: EF,
-    #[prop(optional)] _rndr: PhantomData<Rndr>,
-) -> impl IntoView
-where
-    IF: Fn() -> I + 'static,
-    I: IntoIterator<Item = T>,
-    EF: Fn(T) -> N + Clone + 'static,
-    N: RenderHtml<Rndr> + 'static,
-    KF: Fn(&T) -> K + Clone + 'static,
-    K: Eq + Hash + 'static,
-    T: 'static,
-    Rndr: Renderer + 'static,
-{
-    //move || keyed(each(), key.clone(), children.clone())
-    "bar"
 }
 
 #[cfg(test)]

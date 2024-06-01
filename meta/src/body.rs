@@ -1,10 +1,7 @@
 use crate::ServerMetaContext;
-use indexmap::IndexMap;
 use leptos::{
     component,
-    error::Result,
-    oco::Oco,
-    reactive_graph::{effect::RenderEffect, owner::use_context},
+    reactive_graph::owner::use_context,
     tachys::{
         dom::document,
         html::{
@@ -17,7 +14,6 @@ use leptos::{
             class,
         },
         hydration::Cursor,
-        reactive_graph::RenderEffectState,
         renderer::{dom::Dom, Renderer},
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
@@ -28,14 +24,7 @@ use leptos::{
     IntoView,
 };
 use or_poisoned::OrPoisoned;
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    future::{ready, Ready},
-    mem,
-    rc::Rc,
-    sync::{Arc, RwLock},
-};
+use std::mem;
 use web_sys::HtmlElement;
 
 /// A component to set metadata on the document’s `<body>` element from
@@ -92,6 +81,7 @@ struct BodyView {
     attributes: Vec<AnyAttribute<Dom>>,
 }
 
+#[allow(dead_code)] // TODO these should be used to rebuild the attributes, I guess
 struct BodyViewState {
     el: HtmlElement,
     attributes: Vec<AnyAttributeState<Dom>>,
@@ -112,8 +102,8 @@ impl Render<Dom> for BodyView {
         BodyViewState { el, attributes }
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        // TODO rebuilding dynamic things like this
+    fn rebuild(self, _state: &mut Self::State) {
+        todo!()
     }
 }
 
@@ -121,8 +111,8 @@ impl AddAnyAttr<Dom> for BodyView {
     type Output<SomeNewAttr: Attribute<Dom>> = BodyView;
 
     fn add_any_attr<NewAttr: Attribute<Dom>>(
-        mut self,
-        attr: NewAttr,
+        self,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<Dom>,
@@ -142,12 +132,12 @@ impl RenderHtml<Dom> for BodyView {
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {}
+    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {}
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Dom>,
-        position: &PositionState,
+        _cursor: &Cursor<Dom>,
+        _position: &PositionState,
     ) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
 
@@ -166,15 +156,15 @@ impl Mountable<Dom> for BodyViewState {
 
     fn mount(
         &mut self,
-        parent: &<Dom as Renderer>::Element,
-        marker: Option<&<Dom as Renderer>::Node>,
+        _parent: &<Dom as Renderer>::Element,
+        _marker: Option<&<Dom as Renderer>::Node>,
     ) {
     }
 
     fn insert_before_this(
         &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
+        _parent: &<Dom as Renderer>::Element,
+        _child: &mut dyn Mountable<Dom>,
     ) -> bool {
         true
     }

@@ -65,49 +65,14 @@ impl ToTokens for Model {
             body,
         } = self;
 
-        let (impl_generics, generics, where_clause) =
-            body.generics.split_for_impl();
+        let (_, generics, where_clause) = body.generics.split_for_impl();
 
-        let builder_name = quote::format_ident!("{name}Builder");
         let prop_builder_fields = prop_builder_fields(vis, props);
         let prop_docs = generate_prop_docs(props);
         let builder_name_doc = LitStr::new(
             &format!("Props for the [`{name}`] slot."),
             name.span(),
         );
-
-        let count = props
-            .iter()
-            .filter(
-                |Prop {
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| *attrs,
-            )
-            .count();
-
-        let dyn_attrs_props = props
-            .iter()
-            .filter(
-                |Prop {
-                     prop_opts: PropOpt { attrs, .. },
-                     ..
-                 }| *attrs,
-            )
-            .enumerate()
-            .map(|(idx, Prop { name, .. })| {
-                let ident = &name;
-                if idx < count - 1 {
-                    quote! {
-                        self.#ident = v.clone().into();
-                    }
-                } else {
-                    quote! {
-                        self.#ident = v.into();
-                    }
-                }
-            })
-            .collect::<TokenStream>();
 
         let output = quote! {
             #[doc = #builder_name_doc]
@@ -120,14 +85,13 @@ impl ToTokens for Model {
                 #prop_builder_fields
             }
 
-            /*
             impl #generics From<#name #generics> for Vec<#name #generics> #where_clause {
                 fn from(value: #name #generics) -> Self {
                     vec![value]
                 }
             }
 
-            impl #impl_generics ::leptos::Props for #name #generics #where_clause {
+            /*impl #impl_generics ::leptos::Props for #name #generics #where_clause {
                 type Builder = #builder_name #generics;
                 fn builder() -> Self::Builder {
                     #name::builder()
@@ -139,8 +103,7 @@ impl ToTokens for Model {
                     #dyn_attrs_props
                     self
                 }
-            }
-            */
+            }*/
         };
 
         tokens.append_all(output)

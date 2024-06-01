@@ -1,8 +1,4 @@
-use crate::{
-    children::{ChildrenFn, TypedChildrenFn},
-    mount, IntoView,
-};
-use cfg_if::cfg_if;
+use crate::{children::TypedChildrenFn, mount, IntoView};
 use leptos_dom::helpers::document;
 use leptos_macro::component;
 use reactive_graph::{effect::Effect, owner::Owner};
