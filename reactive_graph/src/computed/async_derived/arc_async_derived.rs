@@ -12,7 +12,7 @@ use crate::{
         SubscriberSet, ToAnySource, ToAnySubscriber,
     },
     owner::{use_context, Owner},
-    signal::guards::{AsyncPlain, Plain, ReadGuard},
+    signal::guards::{AsyncPlain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
     transition::AsyncTransition,
 };
@@ -131,9 +131,9 @@ impl<T> DefinedAt for ArcAsyncDerived<T> {
 // as far as I can tell, require repeating most of the function body.
 macro_rules! spawn_derived {
     ($spawner:expr, $initial:ident, $fun:ident) => {{
-        let (mut notifier, mut rx) = channel();
+        let (notifier, mut rx) = channel();
 
-        let is_ready = matches!($initial, Some(_));
+        let is_ready = $initial.is_some();
 
         let owner = Owner::new();
         let inner = Arc::new(RwLock::new(ArcAsyncDerivedInner {
@@ -234,7 +234,12 @@ macro_rules! spawn_derived {
                                 loading.store(false, Ordering::Relaxed);
                                 *value.write().await = Some(new_value);
                                 inner.write().or_poisoned().dirty = true;
-                                ready_tx.send(());
+
+                                // if it's an Err, that just means the Receiver was dropped
+                                // we don't particularly care about that: the point is to notify if
+                                // it still exists, but we don't need to know if Suspense is no
+                                // longer listening
+                                _ = ready_tx.send(());
 
                                 // notify reactive subscribers that we're not loading any more
                                 for sub in (&inner.read().or_poisoned().subscribers).into_iter() {

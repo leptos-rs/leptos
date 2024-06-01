@@ -101,6 +101,8 @@ pub mod prelude {
     pub use crate::traits::*;
 }
 
+// TODO remove this, it's just useful while developing
+#[allow(unused)]
 fn log_warning(text: Arguments) {
     #[cfg(feature = "tracing")]
     {

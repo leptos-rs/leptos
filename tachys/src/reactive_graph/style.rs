@@ -1,11 +1,7 @@
 use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{html::style::IntoStyle, renderer::DomRenderer};
-use or_poisoned::OrPoisoned;
 use reactive_graph::effect::RenderEffect;
-use std::{
-    borrow::Cow,
-    sync::{Arc, Mutex},
-};
+use std::borrow::Cow;
 
 impl<F, S, R> IntoStyle<R> for (&'static str, F)
 where

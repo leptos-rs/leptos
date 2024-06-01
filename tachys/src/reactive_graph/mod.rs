@@ -8,7 +8,6 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
-use or_poisoned::OrPoisoned;
 use reactive_graph::effect::RenderEffect;
 use std::sync::{Arc, Mutex};
 
@@ -454,8 +453,8 @@ mod stable {
                 type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
-                    mut self,
-                    attr: NewAttr,
+                    self,
+                    _attr: NewAttr,
                 ) -> Self::Output<NewAttr>
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,
@@ -598,8 +597,8 @@ mod stable {
                 type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
-                    mut self,
-                    attr: NewAttr,
+                    self,
+                    _attr: NewAttr,
                 ) -> Self::Output<NewAttr>
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,

@@ -1,23 +1,17 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
-    into_view::View,
     suspense_component::SuspenseBoundary,
     IntoView,
 };
 use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo},
-    owner::{provide_context, Owner},
+    owner::provide_context,
     signal::ArcRwSignal,
     traits::With,
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::future::Future;
-use tachys::{
-    reactive_graph::OwnedView,
-    renderer::dom::Dom,
-    view::{any_view::AnyView, RenderHtml},
-};
+use tachys::reactive_graph::OwnedView;
 
 /// TODO docs!
 #[component]
@@ -26,7 +20,7 @@ pub fn Transition<Chil>(
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
-    SuspenseBoundary<true, AnyView<Dom>, View<Chil>>: IntoView,
+    Chil: IntoView + Send + 'static,
 {
     let fallback = fallback.run();
     let children = children.into_inner()();

@@ -15,10 +15,9 @@ use reactive_graph::{
         ArcAsyncDerived, ArcAsyncDerivedFuture, ArcMemo, AsyncDerived,
         AsyncDerivedFuture, AsyncDerivedGuard,
     },
-    graph::{Source, ToAnySource, ToAnySubscriber},
+    graph::{Source, ToAnySubscriber},
     owner::Owner,
     prelude::*,
-    signal::guards::{AsyncPlain, Mapped, ReadGuard},
 };
 use std::{future::IntoFuture, ops::Deref};
 
@@ -176,7 +175,7 @@ where
             .unwrap_or_default();
 
         let initial = Self::initial_value(&id);
-        let is_ready = matches!(initial, Some(_));
+        let is_ready = initial.is_some();
 
         let source = ArcMemo::new(move |_| source());
         let fun = {
@@ -186,7 +185,7 @@ where
 
         let data = ArcAsyncDerived::new_with_initial(initial, fun);
         if is_ready {
-            _ = source.with(|_| ());
+            source.with(|_| ());
             source.add_subscriber(data.to_any_subscriber());
         }
 
@@ -216,6 +215,7 @@ where
     }
 
     #[inline(always)]
+    #[allow(unused)]
     fn initial_value(id: &SerializedDataId) -> Option<T> {
         #[cfg(feature = "hydration")]
         {
@@ -225,6 +225,7 @@ where
                 if let Some(value) = value {
                     match T::de(&value) {
                         Ok(value) => return Some(value),
+                        #[allow(unused)]
                         Err(e) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!(

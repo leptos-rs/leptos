@@ -6,11 +6,10 @@ pub use gloo_net::http::Request;
 use js_sys::{Reflect, Uint8Array};
 use send_wrapper::SendWrapper;
 use std::ops::{Deref, DerefMut};
-use thiserror::Error;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 use wasm_streams::ReadableStream;
 use web_sys::{
-    AbortController, AbortSignal, Event, FormData, Headers, RequestInit,
+    AbortController, AbortSignal, FormData, Headers, RequestInit,
     UrlSearchParams,
 };
 
@@ -215,11 +214,12 @@ impl<CustErr> ClientReq<CustErr> for BrowserRequest {
         body: impl Stream<Item = Bytes> + 'static,
     ) -> Result<Self, ServerFnError<CustErr>> {
         // TODO abort signal
-        let req = streaming_request(path, accepts, content_type, body)
-            .map_err(|e| ServerFnError::Request(format!("{e:?}")))?;
+        let (request, abort_ctrl) =
+            streaming_request(path, accepts, content_type, body)
+                .map_err(|e| ServerFnError::Request(format!("{e:?}")))?;
         Ok(Self(SendWrapper::new(RequestInner {
-            request: req,
-            abort_ctrl: None,
+            request,
+            abort_ctrl,
         })))
     }
 }
@@ -229,7 +229,7 @@ fn streaming_request(
     accepts: &str,
     content_type: &str,
     body: impl Stream<Item = Bytes> + 'static,
-) -> Result<Request, JsValue> {
+) -> Result<(Request, Option<AbortOnDrop>), JsValue> {
     let (abort_ctrl, abort_signal) = abort_signal();
     let stream = ReadableStream::from_stream(body.map(|bytes| {
         let data = Uint8Array::from(bytes.as_ref());
@@ -241,7 +241,10 @@ fn streaming_request(
     headers.append("Content-Type", content_type)?;
     headers.append("Accept", accepts)?;
     let mut init = RequestInit::new();
-    init.headers(&headers).method("POST").body(Some(&stream));
+    init.headers(&headers)
+        .method("POST")
+        .signal(abort_signal.as_ref())
+        .body(Some(&stream));
 
     // Chrome requires setting `duplex: "half"` on streaming requests
     Reflect::set(
@@ -250,5 +253,5 @@ fn streaming_request(
         &JsValue::from_str("half"),
     )?;
     let req = web_sys::Request::new_with_str_and_init(path, &init)?;
-    Ok(Request::from(req))
+    Ok((Request::from(req), abort_ctrl))
 }

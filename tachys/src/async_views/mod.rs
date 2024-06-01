@@ -12,29 +12,7 @@ use any_spawner::Executor;
 use either_of::Either;
 use futures::FutureExt;
 use parking_lot::RwLock;
-use std::{cell::RefCell, fmt::Debug, future::Future, rc::Rc, sync::Arc};
-
-pub struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
-    in_fallback: bool,
-    fallback: Option<Fal>,
-    children: Chil,
-}
-
-impl<const TRANSITION: bool, Fal, Chil>
-    SuspenseBoundary<TRANSITION, Fal, Chil>
-{
-    pub fn new(
-        in_fallback: bool,
-        fallback: Option<Fal>,
-        children: Chil,
-    ) -> Self {
-        Self {
-            in_fallback,
-            fallback,
-            children,
-        }
-    }
-}
+use std::{fmt::Debug, future::Future, sync::Arc};
 
 pub trait FutureViewExt: Sized {
     fn suspend(self) -> Suspend<false, (), Self>

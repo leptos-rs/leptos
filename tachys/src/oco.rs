@@ -4,10 +4,7 @@ use crate::{
     no_attrs,
     prelude::{Mountable, Render, RenderHtml},
     renderer::{DomRenderer, Renderer},
-    view::{
-        add_attr::AddAnyAttr, strings::StrState, Position, PositionState,
-        ToTemplate,
-    },
+    view::{strings::StrState, Position, PositionState, ToTemplate},
 };
 use oco_ref::Oco;
 

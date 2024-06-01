@@ -3,7 +3,7 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
-use std::{marker::PhantomData, rc::Rc, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 #[inline(always)]
 pub fn class<C, R>(class: C) -> Class<C, R>

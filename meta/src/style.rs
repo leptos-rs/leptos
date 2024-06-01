@@ -1,14 +1,6 @@
 use crate::register;
 use leptos::{
-    component,
-    oco::Oco,
-    prelude::*,
-    tachys::{
-        html::{attribute::any_attribute::AnyAttribute, element::style},
-        renderer::dom::Dom,
-        view::any_view::AnyView,
-    },
-    IntoView,
+    component, oco::Oco, prelude::*, tachys::html::element::style, IntoView,
 };
 
 /// Injects an [`HTMLStyleElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLStyleElement) into the document
@@ -50,12 +42,8 @@ pub fn Style(
     blocking: Option<Oco<'static, str>>,
     /// The content of the `<style>` tag.
     #[prop(optional)]
-    children: Option<Box<dyn FnOnce() -> AnyView<Dom>>>,
-    /// Custom attributes.
-    #[prop(attrs, optional)]
-    attrs: Vec<AnyAttribute<Dom>>,
+    children: Option<Children>,
 ) -> impl IntoView {
-    // TODO other attributes
     register(
         style()
             .id(id)

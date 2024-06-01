@@ -211,7 +211,7 @@ impl SNode {
         Self(Rc::new(SNodeInner(id)))
     }
 
-    fn to_node(&self) -> Node {
+    pub fn to_node(&self) -> Node {
         CHANNEL.with_borrow(|channel| get_node(channel.js_channel(), self.0 .0))
     }
 }
@@ -255,6 +255,7 @@ fn with(fun: impl FnOnce(&mut Channel)) {
     flush();
 }
 
+#[allow(unused)] // might be handy at some point!
 fn flush_sync() {
     FLUSH_PENDING.set(false);
     CHANNEL.with_borrow_mut(|channel| channel.flush());
@@ -327,9 +328,8 @@ impl Renderer for Sledgehammer {
         with(|channel| channel.remove(node.0 .0));
     }
 
-    fn get_parent(node: &Self::Node) -> Option<Self::Node> {
-        todo!()
-        //node.parent_node()
+    fn get_parent(_node: &Self::Node) -> Option<Self::Node> {
+        todo!() // node.parent_node()
     }
 
     fn first_child(node: &Self::Node) -> Option<Self::Node> {
@@ -344,7 +344,7 @@ impl Renderer for Sledgehammer {
         Some(sibling)
     }
 
-    fn log_node(node: &Self::Node) {
+    fn log_node(_node: &Self::Node) {
         todo!()
     }
 
@@ -357,6 +357,7 @@ impl Renderer for Sledgehammer {
 pub struct ClassList(SNode);
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // this will be used, it's just all unimplemented
 pub struct CssStyle(SNode);
 
 impl DomRenderer for Sledgehammer {
@@ -365,16 +366,7 @@ impl DomRenderer for Sledgehammer {
     type CssStyleDeclaration = CssStyle;
     type TemplateElement = SNode;
 
-    fn set_property(el: &Self::Element, key: &str, value: &JsValue) {
-        /* or_debug!(
-            js_sys::Reflect::set(
-                el,
-                &wasm_bindgen::JsValue::from_str(key),
-                value,
-            ),
-            el,
-            "setProperty"
-        );*/
+    fn set_property(_el: &Self::Element, _key: &str, _value: &JsValue) {
         todo!()
     }
 
@@ -391,10 +383,10 @@ impl DomRenderer for Sledgehammer {
         });
 
         // return the remover
-        Box::new(move |el| todo!())
+        Box::new(move |_el| todo!())
     }
 
-    fn event_target<T>(ev: &Self::Event) -> T
+    fn event_target<T>(_ev: &Self::Event) -> T
     where
         T: CastFrom<Self::Element>,
     {
@@ -489,7 +481,7 @@ impl DomRenderer for Sledgehammer {
         });
 
         // return the remover
-        Box::new(move |el| todo!())
+        Box::new(move |_el| todo!())
     }
 
     fn class_list(el: &Self::Element) -> Self::ClassList {
@@ -506,15 +498,15 @@ impl DomRenderer for Sledgehammer {
         with(|channel| channel.remove_class(list.0 .0 .0, name));
     }
 
-    fn style(el: &Self::Element) -> Self::CssStyleDeclaration {
+    fn style(_el: &Self::Element) -> Self::CssStyleDeclaration {
         todo!()
         //el.unchecked_ref::<HtmlElement>().style()
     }
 
     fn set_css_property(
-        style: &Self::CssStyleDeclaration,
-        name: &str,
-        value: &str,
+        _style: &Self::CssStyleDeclaration,
+        _name: &str,
+        _value: &str,
     ) {
         todo!()
         /*or_debug!(

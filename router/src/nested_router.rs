@@ -1,21 +1,20 @@
 use crate::{
-    location::{Location, LocationProvider, RequestUrl, Url},
+    location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
-    resolve_path::resolve_path,
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
     PathSegment, RouteList, RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
 use futures::future::join_all;
-use leptos::{component, oco::Oco, IntoView};
+use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::{ArcMemo, Memo, ScopedFuture},
+    computed::ScopedFuture,
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, Read, ReadUntracked, Set, Track, Trigger},
+    traits::{ReadUntracked, Set, Track, Trigger},
     wrappers::write::SignalSetter,
 };
 use std::{
@@ -37,8 +36,8 @@ use tachys::{
     ssr::StreamBuilder,
     view::{
         add_attr::AddAnyAttr,
-        any_view::{AnyView, AnyViewState, IntoAny},
-        either::{EitherOf3State, EitherState},
+        any_view::{AnyView, IntoAny},
+        either::EitherOf3State,
         Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
@@ -54,6 +53,7 @@ pub(crate) struct NestedRoutesView<Loc, Defs, Fal, R> {
     pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
     pub fallback: Fal,
+    #[allow(unused)] // TODO
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub rndr: PhantomData<R>,
 }
@@ -65,9 +65,9 @@ where
 {
     path: String,
     current_url: ArcRwSignal<Url>,
-    outer_owner: Owner,
     outlets: Vec<RouteContext<R>>,
     // TODO loading fallback
+    #[allow(clippy::type_complexity)]
     view: Rc<RefCell<EitherOf3State<(), Fal, AnyView<R>, R>>>,
 }
 
@@ -88,7 +88,6 @@ where
             current_url,
             fallback,
             base,
-            set_is_routing,
             ..
         } = self;
 
@@ -97,8 +96,7 @@ where
         let url = current_url.read_untracked();
 
         // match the route
-        let new_match = routes.match_route(&url.path());
-        let id = new_match.as_ref().map(|n| n.as_id());
+        let new_match = routes.match_route(url.path());
 
         // start with an empty view because we'll be loading routes async
         let view = EitherOf3::A(()).build();
@@ -107,7 +105,7 @@ where
             None => EitherOf3::B(fallback),
             Some(route) => {
                 route.build_nested_route(
-                    &*url,
+                    &url,
                     base,
                     &mut loaders,
                     &mut outlets,
@@ -138,7 +136,6 @@ where
             current_url,
             outlets,
             view,
-            outer_owner,
         }
     }
 
@@ -157,7 +154,9 @@ where
         state.path.clear();
         state.path.push_str(url_snapshot.path());
 
-        let new_match = self.routes.match_route(&url_snapshot.path());
+        state.current_url.set(url_snapshot.to_owned());
+
+        let new_match = self.routes.match_route(url_snapshot.path());
 
         match new_match {
             None => {
@@ -168,7 +167,7 @@ where
             Some(route) => {
                 let mut loaders = Vec::new();
                 route.rebuild_nested_route(
-                    &*self.current_url.read_untracked(),
+                    &self.current_url.read_untracked(),
                     self.base,
                     &mut 0,
                     &mut loaders,
@@ -214,7 +213,7 @@ where
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
         self,
-        attr: NewAttr,
+        _attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<R>,
@@ -245,7 +244,7 @@ where
         if RouteList::is_generating() {
             // add routes
             let (base, routes) = self.routes.generate_routes();
-            let mut routes = routes
+            let routes = routes
                 .into_iter()
                 .map(|data| {
                     let path = base
@@ -303,7 +302,7 @@ where
                 None => Either::Left(fallback),
                 Some(route) => {
                     route.build_nested_route(
-                        &*current_url,
+                        &current_url,
                         base,
                         &mut Vec::new(),
                         &mut outlets,
@@ -338,12 +337,12 @@ where
         let current_url = current_url.read_untracked();
 
         let mut outlets = Vec::new();
-        let new_match = routes.match_route(&current_url.path());
+        let new_match = routes.match_route(current_url.path());
         let view = match new_match {
             None => Either::Left(fallback),
             Some(route) => {
                 route.build_nested_route(
-                    &*current_url,
+                    &current_url,
                     base,
                     &mut Vec::new(),
                     &mut outlets,
@@ -370,7 +369,6 @@ where
             current_url,
             fallback,
             base,
-            set_is_routing,
             ..
         } = self;
 
@@ -379,8 +377,7 @@ where
         let url = current_url.read_untracked();
 
         // match the route
-        let new_match = routes.match_route(&url.path());
-        let id = new_match.as_ref().map(|n| n.as_id());
+        let new_match = routes.match_route(url.path());
 
         // start with an empty view because we'll be loading routes async
         let view = Rc::new(RefCell::new(
@@ -388,7 +385,7 @@ where
                 None => EitherOf3::B(fallback),
                 Some(route) => {
                     route.build_nested_route(
-                        &*url,
+                        &url,
                         base,
                         &mut loaders,
                         &mut outlets,
@@ -409,7 +406,6 @@ where
             current_url,
             outlets,
             view,
-            outer_owner,
         }
     }
 }
@@ -448,7 +444,7 @@ where
     fn clone(&self) -> Self {
         Self {
             url: self.url.clone(),
-            id: self.id.clone(),
+            id: self.id,
             trigger: self.trigger.clone(),
             params: self.params.clone(),
             owner: self.owner.clone(),
@@ -555,7 +551,8 @@ where
                     provide_context(url);
                     let view =
                         owner.with(|| ScopedFuture::new(view.choose())).await;
-                    tx.send(Box::new(move || owner.with(|| view.into_any())));
+                    tx.send(Box::new(move || owner.with(|| view.into_any())))
+                        .unwrap();
                     trigger
                 }
             })
@@ -651,7 +648,8 @@ where
                                     .await;
                                 tx.send(Box::new(move || {
                                     owner.with(|| view.into_any())
-                                }));
+                                }))
+                                .unwrap();
                                 drop(old_owner);
                                 drop(old_params);
                                 drop(old_url);
@@ -728,15 +726,7 @@ where
     _ = rndr;
     let ctx = use_context::<RouteContext<R>>()
         .expect("<Outlet/> used without RouteContext being provided.");
-    let RouteContext {
-        id,
-        trigger,
-        params,
-        owner,
-        tx,
-        rx,
-        ..
-    } = ctx;
+    let RouteContext { trigger, rx, .. } = ctx;
     let rx = rx.lock().or_poisoned().take().expect(
         "Tried to render <Outlet/> but could not find the view receiver. Are \
          you using the same <Outlet/> twice?",

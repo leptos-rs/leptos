@@ -13,7 +13,7 @@ use rstml::node::{
 };
 use std::collections::HashMap;
 use syn::{
-    spanned::Spanned, Expr, ExprPath, ExprRange, Lit, LitStr, RangeLimits, Stmt,
+    spanned::Spanned, Expr, ExprRange, Lit, LitStr, RangeLimits, Stmt,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -369,7 +369,8 @@ fn is_spread_marker(node: &NodeElement) -> bool {
 fn attribute_to_tokens(
     tag_type: TagType,
     node: &NodeAttribute,
-    global_class: Option<&TokenTree>,
+    // TODO global_class support
+    _global_class: Option<&TokenTree>,
 ) -> TokenStream {
     match node {
         NodeAttribute::Block(node) => {
@@ -977,20 +978,6 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool, bool) {
         event_type
     };
     (event_type, is_custom, is_force_undelegated, is_targeted)
-}
-
-fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
-    match expr {
-        syn::Expr::Block(block) => block.block.stmts.last().and_then(|stmt| {
-            if let syn::Stmt::Expr(expr, ..) = stmt {
-                expr_to_ident(expr)
-            } else {
-                None
-            }
-        }),
-        syn::Expr::Path(path) => Some(path),
-        _ => None,
-    }
 }
 
 fn convert_to_snake_case(name: String) -> String {

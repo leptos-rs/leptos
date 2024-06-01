@@ -1,16 +1,8 @@
 use crate::{
-    components::RouterContext,
-    hooks::{use_location, use_resolved_path},
-    location::State,
+    components::RouterContext, hooks::use_resolved_path, location::State,
 };
-use either_of::Either;
-use leptos::{
-    children::{Children, TypedChildren},
-    oco::Oco,
-    prelude::*,
-    *,
-};
-use reactive_graph::{computed::ArcMemo, effect::Effect, owner::use_context};
+use leptos::{children::Children, oco::Oco, prelude::*, *};
+use reactive_graph::{computed::ArcMemo, owner::use_context};
 use std::borrow::Cow;
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
@@ -80,16 +72,6 @@ pub fn A<H>(
     /// if false, link is marked active if the current route starts with it.
     #[prop(optional)]
     exact: bool,
-    /// Provides a class to be added when the link is active. If provided, it will
-    /// be added at the same time that the `aria-current` attribute is set.
-    ///
-    /// This supports multiple space-separated class names.
-    ///
-    /// **Performance**: If it’s possible to style the link using the CSS with the
-    /// `[aria-current=page]` selector, you should prefer that, as it enables significant
-    /// SSR optimizations.
-    #[prop(optional, into)]
-    active_class: Option<Oco<'static, str>>,
     /// An object of any type that will be pushed to router state
     #[prop(optional)]
     state: Option<State>,
@@ -97,17 +79,6 @@ pub fn A<H>(
     /// will skip this page.)
     #[prop(optional)]
     replace: bool,
-    // TODO arbitrary attributes
-    /*/// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
-    #[prop(optional, into)]
-    class: Option<AttributeValue>,
-    /// Sets the `id` attribute on the underlying `<a>` tag, making it easier to target.
-    #[prop(optional, into)]
-    id: Option<Oco<'static, str>>,
-    /// Arbitrary attributes to add to the `<a>`. Attributes can be added with the
-    /// `attr:` syntax in the `view` macro.
-    #[prop(attrs)]
-    attributes: Vec<(&'static str, Attribute)>,*/
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -120,7 +91,6 @@ where
         exact: bool,
         #[allow(unused)] state: Option<State>,
         #[allow(unused)] replace: bool,
-        #[allow(unused)] active_class: Option<Oco<'static, str>>,
         children: Children,
     ) -> impl IntoView {
         let RouterContext { current_url, .. } =
@@ -143,7 +113,7 @@ where
             }
         });
 
-        let mut a = view! {
+        view! {
             <a
                 href=move || href.get().unwrap_or_default()
                 target=target
@@ -155,31 +125,11 @@ where
                 }
             >
 
-                // TODO attributes
-                // class=class
-                // id=id
                 {children()}
             </a>
-        };
-
-        /*if let Some(active_class) = active_class {
-            let classes = active_class
-                .split_ascii_whitespace()
-                .map(|class| Cow::Owned(class.to_string()))
-                .collect::<Vec<_>>();
-
-            Either::Left(a.class((classes, move || is_active.get())))
-        } else {
-            Either::Right(a)
-        }*/
-        a
-
-        // TODO attributes
-        /*for (attr_name, attr_value) in attributes {
-            a = a.attr(attr_name, attr_value);
-        }*/
+        }
     }
 
     let href = use_resolved_path::<Dom>(move || href.to_href()());
-    inner(href, target, exact, state, replace, active_class, children)
+    inner(href, target, exact, state, replace, children)
 }

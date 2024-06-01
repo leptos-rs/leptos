@@ -6,13 +6,13 @@ pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
-use crate::{Method, SsrMode};
+use crate::SsrMode;
 pub use horizontal::*;
 pub use nested::*;
 use std::{borrow::Cow, marker::PhantomData};
 use tachys::{
     renderer::Renderer,
-    view::{any_view::IntoAny, Render, RenderHtml},
+    view::{Render, RenderHtml},
 };
 pub use vertical::*;
 
@@ -142,7 +142,7 @@ where
 }
 
 #[derive(Default)]
-pub(crate) struct GeneratedRouteData {
+pub struct GeneratedRouteData {
     pub segments: Vec<PathSegment>,
     pub ssr_mode: SsrMode,
 }
