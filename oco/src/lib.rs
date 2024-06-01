@@ -40,8 +40,8 @@ use std::{
     hash::Hash,
     ops::{Add, Deref},
     path::Path,
+    sync::Arc,
 };
-use std::sync::Arc;
 
 /// "Owned Clones Once": a smart pointer that can be either a reference,
 /// an owned value, or a reference-counted pointer. This is useful for
@@ -298,7 +298,7 @@ where
     /// oco1.upgrade_inplace();
     /// assert!(oco1.is_counted());
     /// ```
-    pub fn upgrade_inplace(&mut self) { 
+    pub fn upgrade_inplace(&mut self) {
         if let Self::Owned(v) = &*self {
             let rc = Arc::from(v.borrow());
             *self = Self::Counted(rc);
@@ -741,4 +741,3 @@ mod tests {
         assert_eq!(s, Oco::from(String::from("bar")));
     }
 }
-
