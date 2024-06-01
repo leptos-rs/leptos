@@ -40,11 +40,6 @@
 //!
 //! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
 
-#![cfg_attr(feature = "nightly", feature(fn_traits))]
-#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
-#![cfg_attr(feature = "nightly", feature(auto_traits))]
-#![cfg_attr(feature = "nightly", feature(negative_impls))]
-
 use reactive_graph::owner::StoredValue;
 use std::{fmt, rc::Rc, sync::Arc};
 

@@ -1,13 +1,7 @@
 use crate::register;
 use leptos::{
-    component,
-    oco::Oco,
-    prelude::GlobalAttributes,
-    tachys::{
-        html::{attribute::any_attribute::AnyAttribute, element::link},
-        renderer::dom::Dom,
-    },
-    IntoView,
+    component, oco::Oco, prelude::GlobalAttributes,
+    tachys::html::element::link, IntoView,
 };
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -83,9 +77,6 @@ pub fn Link(
     /// The [`blocking`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link#attr-blocking) attribute.
     #[prop(optional, into)]
     blocking: Option<Oco<'static, str>>,
-    /// Custom attributes.
-    #[prop(attrs, optional)]
-    attrs: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
     // TODO additional attributes
     register(
