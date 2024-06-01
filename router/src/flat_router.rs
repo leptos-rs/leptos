@@ -128,7 +128,7 @@ where
 }
 */
 
-pub struct FlatRoutesViewState<Defs, Fal, R> 
+pub struct FlatRoutesViewState<Defs, Fal, R>
 where
     Defs: MatchNestedRoutes<R> + 'static,
     Fal: Render<R> + 'static,
