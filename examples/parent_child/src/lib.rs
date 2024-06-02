@@ -66,12 +66,10 @@ pub fn ButtonA(
 
 /// Button B receives a closure
 #[component]
-pub fn ButtonB<F>(
+pub fn ButtonB(
     /// Callback that will be invoked when the button is clicked.
-    on_click: F,
+    on_click: impl FnMut(MouseEvent) + 'static,
 ) -> impl IntoView
-where
-    F: FnMut(MouseEvent) + 'static,
 {
     view! { <button on:click=on_click>"Toggle Right"</button> }
 }
