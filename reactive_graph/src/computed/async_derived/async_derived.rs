@@ -18,7 +18,7 @@ pub struct AsyncDerived<T> {
     pub(crate) inner: StoredValue<ArcAsyncDerived<T>>,
 }
 
-impl<T: Send + Sync + 'static> Dispose for AsyncDerived<T> {
+impl<T: 'static> Dispose for AsyncDerived<T> {
     fn dispose(self) {
         self.inner.dispose()
     }
@@ -105,15 +105,15 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Copy for AsyncDerived<T> {}
+impl<T> Copy for AsyncDerived<T> {}
 
-impl<T: Send + Sync + 'static> Clone for AsyncDerived<T> {
+impl<T> Clone for AsyncDerived<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: Send + Sync + 'static> Debug for AsyncDerived<T> {
+impl<T> Debug for AsyncDerived<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AsyncDerived")
             .field("type", &std::any::type_name::<T>())
@@ -122,7 +122,7 @@ impl<T: Send + Sync + 'static> Debug for AsyncDerived<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> DefinedAt for AsyncDerived<T> {
+impl<T> DefinedAt for AsyncDerived<T> {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
