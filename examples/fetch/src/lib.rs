@@ -87,7 +87,6 @@ pub fn fetch_example() -> impl IntoView {
                     <ul>
                         {move || Suspend(async move {
                             cats.await
-                                .as_ref()
                                 .map(|cats| {
                                     cats.iter()
                                         .map(|s| {
@@ -99,7 +98,6 @@ pub fn fetch_example() -> impl IntoView {
                                         })
                                         .collect::<Vec<_>>()
                                 })
-                                .map_err(Clone::clone)
                         })}
 
                     </ul>
