@@ -62,8 +62,8 @@ mod ssr_imports {
             let routes = generate_route_list(App);
 
             // build our application with a route
-            let app: axum::Router<(), axum::body::Body> = Router::new()
-                .leptos_routes(&leptos_options, routes, || view! { <App/> })
+            let app: axum::Router<()> = Router::new()
+                .leptos_routes(&leptos_options, routes, App)
                 .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
                 .with_state(leptos_options);
 
@@ -73,7 +73,7 @@ mod ssr_imports {
         }
 
         pub async fn serve(&self, req: web_sys::Request) -> web_sys::Response {
-            self.0.serve(req).await
+            self.0.oneshot(req).await
         }
     }
 }
