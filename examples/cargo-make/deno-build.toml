@@ -1,9 +1,11 @@
 [tasks.build]
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "--help" }
 clear = true
 command = "deno"
 args = ["task", "build"]
 
 [tasks.start-client]
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "--help" }
 command = "deno"
 args = ["task", "start"]
 
