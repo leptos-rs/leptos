@@ -12,8 +12,8 @@ use futures::Future;
 use hydration_context::SerializedDataId;
 use reactive_graph::{
     computed::{
-        ArcAsyncDerived, ArcAsyncDerivedFuture, ArcMemo, AsyncDerived,
-        AsyncDerivedFuture, AsyncDerivedGuard,
+        ArcAsyncDerived, ArcAsyncDerivedFuture, ArcAsyncDerivedRefFuture,
+        ArcMemo, AsyncDerived, AsyncDerivedFuture, AsyncDerivedRefFuture,
     },
     graph::{Source, ToAnySubscriber},
     owner::Owner,
@@ -244,11 +244,20 @@ impl<T, Ser> IntoFuture for ArcResource<T, Ser>
 where
     T: Clone + 'static,
 {
-    type Output = AsyncDerivedGuard<T>;
+    type Output = T;
     type IntoFuture = ArcAsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
+    }
+}
+
+impl<T, Ser> ArcResource<T, Ser>
+where
+    T: 'static,
+{
+    pub fn by_ref(&self) -> ArcAsyncDerivedRefFuture<T> {
+        self.data.by_ref()
     }
 }
 
@@ -433,11 +442,20 @@ impl<T, Ser> IntoFuture for Resource<T, Ser>
 where
     T: Clone + Send + Sync + 'static,
 {
-    type Output = AsyncDerivedGuard<T>;
+    type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     #[track_caller]
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
+    }
+}
+
+impl<T, Ser> Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
+        self.data.by_ref()
     }
 }
