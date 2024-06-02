@@ -12,8 +12,8 @@ struct CounterUpdater {
 
 #[component]
 pub fn Counters() -> impl IntoView {
-    let (next_counter_id, set_next_counter_id) = create_signal(0);
-    let (counters, set_counters) = create_signal::<CounterHolder>(vec![]);
+    let (next_counter_id, set_next_counter_id) = signal(0);
+    let (counters, set_counters) = signal::<CounterHolder>(vec![]);
     provide_context(CounterUpdater { set_counters });
 
     let add_counter = move |_| {
@@ -83,7 +83,7 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
                 }
             />
 
-            <span>{value.clone()}</span>
+            <span>{value}</span>
             <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>
             <button on:click=move |_| {
                 set_counters
