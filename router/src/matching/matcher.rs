@@ -1,7 +1,7 @@
 // Implementation based on Solid Router
 // see <https://github.com/solidjs/solid-router/blob/main/src/utils.ts>
 
-use crate::ParamsMap;
+use crate::{unescape, ParamsMap};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
@@ -68,7 +68,10 @@ impl Matcher {
                 self.segments.iter().zip(loc_segments.iter())
             {
                 if let Some(param_name) = segment.strip_prefix(':') {
-                    params.insert(param_name.into(), (*loc_segment).into());
+                    params.insert(
+                        param_name.into(),
+                        unescape(*loc_segment).into(),
+                    );
                 } else if segment != loc_segment {
                     // if any segment doesn't match and isn't a param, there's no path match
                     return None;

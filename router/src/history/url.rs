@@ -25,7 +25,7 @@ pub fn unescape(s: &str) -> String {
 
 #[cfg(not(feature = "ssr"))]
 pub fn unescape(s: &str) -> String {
-    js_sys::decode_uri(s).unwrap().into()
+    js_sys::decode_uri_component(s).unwrap().into()
 }
 
 #[cfg(feature = "ssr")]
@@ -36,7 +36,7 @@ pub fn escape(s: &str) -> String {
 
 #[cfg(not(feature = "ssr"))]
 pub fn escape(s: &str) -> String {
-    js_sys::encode_uri(s).as_string().unwrap()
+    js_sys::encode_uri_component(s).as_string().unwrap()
 }
 
 #[cfg(not(feature = "ssr"))]
