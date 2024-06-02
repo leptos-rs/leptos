@@ -1,5 +1,6 @@
 use counter_without_macros::counter;
-use leptos::*;
+use gloo_timers::future::TimeoutFuture;
+use leptos::prelude::*;
 use pretty_assertions::assert_eq;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
@@ -8,27 +9,32 @@ use web_sys::HtmlElement;
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
-fn should_increment_counter() {
+async fn should_increment_counter() {
     open_counter();
 
     click_increment();
     click_increment();
+
+    // reactive changes run asynchronously, so yield briefly before observing the DOM
+    TimeoutFuture::new(10).await;
 
     assert_eq!(see_text(), Some("Value: 2!".to_string()));
 }
 
 #[wasm_bindgen_test]
-fn should_decrement_counter() {
+async fn should_decrement_counter() {
     open_counter();
 
     click_decrement();
     click_decrement();
 
+    TimeoutFuture::new(10).await;
+
     assert_eq!(see_text(), Some("Value: -2!".to_string()));
 }
 
 #[wasm_bindgen_test]
-fn should_clear_counter() {
+async fn should_clear_counter() {
     open_counter();
 
     click_increment();
@@ -36,18 +42,18 @@ fn should_clear_counter() {
 
     click_clear();
 
+    TimeoutFuture::new(10).await;
+
     assert_eq!(see_text(), Some("Value: 0!".to_string()));
 }
 
 fn open_counter() {
     remove_existing_counter();
-    mount_to_body(move || counter(0, 1));
+    leptos::mount::mount_to_body(move || counter(0, 1));
 }
 
 fn remove_existing_counter() {
-    if let Some(counter) =
-        leptos::document().query_selector("body div").unwrap()
-    {
+    if let Some(counter) = document().query_selector("body div").unwrap() {
         counter.remove();
     }
 }
@@ -74,7 +80,7 @@ fn see_text() -> Option<String> {
 
 fn find_by_text(text: &str) -> HtmlElement {
     let xpath = format!("//*[text()='{}']", text);
-    let document = leptos::document();
+    let document = document();
     document
         .evaluate(&xpath, &document)
         .unwrap()
