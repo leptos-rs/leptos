@@ -12,7 +12,7 @@ use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
 use next_tuple::NextTuple;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Deref};
 
 mod custom;
 mod elements;
@@ -411,6 +411,14 @@ pub struct ElementState<At, Ch, R: Renderer> {
     pub attrs: At,
     pub children: Ch,
     rndr: PhantomData<R>,
+}
+
+impl<At, Ch, R: Renderer> Deref for ElementState<At, Ch, R> {
+    type Target = R::Element;
+
+    fn deref(&self) -> &Self::Target {
+        &self.el
+    }
 }
 
 impl<At, Ch, R> Mountable<R> for ElementState<At, Ch, R>
