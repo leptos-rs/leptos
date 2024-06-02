@@ -18,3 +18,4 @@ console_error_panic_hook = "0.1.7"
 wasm-bindgen = "0.2"
 wasm-bindgen-test = "0.3.0"
 web-sys = "0.3"
+gloo-timers = { version = "0.3", features = ["futures"] }
