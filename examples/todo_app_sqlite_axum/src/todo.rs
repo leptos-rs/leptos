@@ -121,7 +121,6 @@ pub fn Todos() -> impl IntoView {
         Suspend(async move {
             todos
                 .await
-                .as_ref()
                 .map(|todos| {
                     if todos.is_empty() {
                         Either::Left(view! { <p>"No tasks were found."</p> })
@@ -145,7 +144,6 @@ pub fn Todos() -> impl IntoView {
                         )
                     }
                 })
-                .map_err(Clone::clone)
         })
     };
 

@@ -47,20 +47,11 @@ impl Future for ArcAsyncDerivedReadyFuture {
     }
 }
 
-/// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
-/// and contains its value.
-pub struct ArcAsyncDerivedFuture<T> {
-    source: AnySource,
-    value: Arc<async_lock::RwLock<Option<T>>>,
-    loading: Arc<AtomicBool>,
-    wakers: Arc<RwLock<Vec<Waker>>>,
-}
-
 impl<T> IntoFuture for ArcAsyncDerived<T>
 where
     T: Clone + 'static,
 {
-    type Output = AsyncDerivedGuard<T>;
+    type Output = T;
     type IntoFuture = ArcAsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -73,11 +64,62 @@ where
     }
 }
 
-// this is implemented to output T by cloning it because read guards should not be held across
-// .await points, and it's way too easy to trip up by doing that!
+/// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
+/// and contains its value. `.await`ing this clones the value `T`.
+pub struct ArcAsyncDerivedFuture<T> {
+    source: AnySource,
+    value: Arc<async_lock::RwLock<Option<T>>>,
+    loading: Arc<AtomicBool>,
+    wakers: Arc<RwLock<Vec<Waker>>>,
+}
+
 impl<T> Future for ArcAsyncDerivedFuture<T>
 where
     T: Clone + 'static,
+{
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let waker = cx.waker();
+        self.source.track();
+        let value = self.value.read_arc();
+        pin_mut!(value);
+        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
+            (true, _) => {
+                self.wakers.write().or_poisoned().push(waker.clone());
+                Poll::Pending
+            }
+            (_, Poll::Pending) => Poll::Pending,
+            (_, Poll::Ready(guard)) => {
+                Poll::Ready(guard.as_ref().unwrap().clone())
+            }
+        }
+    }
+}
+
+impl<T: 'static> ArcAsyncDerived<T> {
+    pub fn by_ref(&self) -> ArcAsyncDerivedRefFuture<T> {
+        ArcAsyncDerivedRefFuture {
+            source: self.to_any_source(),
+            value: Arc::clone(&self.value),
+            loading: Arc::clone(&self.loading),
+            wakers: Arc::clone(&self.wakers),
+        }
+    }
+}
+
+/// A [`Future`] that is ready when an [`ArcAsyncDerived`] is finished loading or reloading,
+/// and yields an [`AsyncDerivedGuard`] that dereferences to its value.
+pub struct ArcAsyncDerivedRefFuture<T> {
+    source: AnySource,
+    value: Arc<async_lock::RwLock<Option<T>>>,
+    loading: Arc<AtomicBool>,
+    wakers: Arc<RwLock<Vec<Waker>>>,
+}
+
+impl<T> Future for ArcAsyncDerivedRefFuture<T>
+where
+    T: 'static,
 {
     type Output = AsyncDerivedGuard<T>;
 
@@ -115,7 +157,7 @@ impl<T> IntoFuture for AsyncDerived<T>
 where
     T: Send + Sync + Clone + 'static,
 {
-    type Output = AsyncDerivedGuard<T>;
+    type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -130,7 +172,7 @@ impl<T> Future for AsyncDerivedFuture<T>
 where
     T: Send + Sync + Clone + 'static,
 {
-    type Output = AsyncDerivedGuard<T>;
+    type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -142,6 +184,47 @@ where
                     .get()
                     .unwrap_or_else(unwrap_signal!(stored))
                     .into_future(),
+            ));
+        }
+        this.inner.as_pin_mut().unwrap().poll(cx)
+    }
+}
+
+impl<T: 'static> AsyncDerived<T> {
+    pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
+        AsyncDerivedRefFuture {
+            this: *self,
+            inner: None,
+        }
+    }
+}
+
+pin_project! {
+    /// A [`Future`] that is ready when an [`AsyncDerived`] is finished loading or reloading,
+    /// and contains its value.
+    pub struct AsyncDerivedRefFuture<T> {
+        this: AsyncDerived<T>,
+        #[pin]
+        inner: Option<ArcAsyncDerivedRefFuture<T>>,
+    }
+}
+
+impl<T> Future for AsyncDerivedRefFuture<T>
+where
+    T: Send + Sync + 'static,
+{
+    type Output = AsyncDerivedGuard<T>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+        if this.inner.is_none() {
+            let stored = *this.this;
+            this.inner.set(Some(
+                stored
+                    .inner
+                    .get()
+                    .unwrap_or_else(unwrap_signal!(stored))
+                    .by_ref(),
             ));
         }
         this.inner.as_pin_mut().unwrap().poll(cx)
