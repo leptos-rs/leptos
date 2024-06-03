@@ -1,10 +1,14 @@
-use super::ArcWriteSignal;
+use super::{
+    guards::{UntrackedWriteGuard, WriteGuard},
+    ArcWriteSignal,
+};
 use crate::{
     owner::StoredValue,
-    traits::{DefinedAt, Dispose, IsDisposed, Trigger, UpdateUntracked},
+    traits::{DefinedAt, Dispose, IsDisposed, Trigger, Writeable},
 };
 use core::fmt::Debug;
-use std::{hash::Hash, panic::Location};
+use guardian::ArcRwLockWriteGuardian;
+use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 
 pub struct WriteSignal<T> {
     #[cfg(debug_assertions)]
@@ -76,13 +80,19 @@ impl<T: 'static> Trigger for WriteSignal<T> {
     }
 }
 
-impl<T: 'static> UpdateUntracked for WriteSignal<T> {
+impl<T: 'static> Writeable for WriteSignal<T> {
     type Value = T;
 
-    fn try_update_untracked<U>(
+    fn try_write(
         &self,
-        fun: impl FnOnce(&mut Self::Value) -> U,
-    ) -> Option<U> {
-        self.inner.get().and_then(|n| n.try_update_untracked(fun))
+    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>> {
+        let guard = self.inner.try_with_value(|n| {
+            ArcRwLockWriteGuardian::take(Arc::clone(&n.value)).ok()
+        })??;
+        Some(WriteGuard::new(self, guard))
+    }
+
+    fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {
+        self.inner.with_value(|n| n.try_write_untracked())
     }
 }

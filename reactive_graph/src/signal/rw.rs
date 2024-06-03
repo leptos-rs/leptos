@@ -6,14 +6,17 @@ use super::{
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     owner::StoredValue,
+    signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, IsDisposed, ReadUntracked, Trigger, UpdateUntracked,
+        DefinedAt, Dispose, IsDisposed, ReadUntracked, Trigger, Writeable,
     },
     unwrap_signal,
 };
 use core::fmt::Debug;
+use guardian::ArcRwLockWriteGuardian;
 use std::{
     hash::Hash,
+    ops::DerefMut,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -174,14 +177,20 @@ impl<T: 'static> Trigger for RwSignal<T> {
     }
 }
 
-impl<T: 'static> UpdateUntracked for RwSignal<T> {
+impl<T: 'static> Writeable for RwSignal<T> {
     type Value = T;
 
-    fn try_update_untracked<U>(
+    fn try_write(
         &self,
-        fun: impl FnOnce(&mut Self::Value) -> U,
-    ) -> Option<U> {
-        self.inner.get().and_then(|n| n.try_update_untracked(fun))
+    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>> {
+        let guard = self.inner.try_with_value(|n| {
+            ArcRwLockWriteGuardian::take(Arc::clone(&n.value)).ok()
+        })??;
+        Some(WriteGuard::new(self, guard))
+    }
+
+    fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {
+        self.inner.with_value(|n| n.try_write_untracked())
     }
 }
 

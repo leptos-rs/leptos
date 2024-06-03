@@ -52,7 +52,10 @@ use crate::{
     graph::{Observer, Source, Subscriber, ToAnySource},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
 };
-use std::{ops::Deref, panic::Location};
+use std::{
+    ops::{Deref, DerefMut},
+    panic::Location,
+};
 
 #[macro_export]
 macro_rules! unwrap_signal {
@@ -170,19 +173,21 @@ where
 }
 
 pub trait Writeable: Sized + DefinedAt + Trigger {
-    type Value: Sized;
+    type Value: Sized + 'static;
 
-    fn try_write(&self) -> Option<WriteGuard<'_, Self, Self::Value>>;
-
-    fn try_write_untracked(
+    fn try_write(
         &self,
-    ) -> Option<UntrackedWriteGuard<'_, Self::Value>>;
+    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>>;
 
-    fn write(&self) -> WriteGuard<'_, Self, Self::Value> {
+    fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>>;
+
+    fn write(
+        &self,
+    ) -> WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>> {
         self.try_write().unwrap_or_else(unwrap_signal!(self))
     }
 
-    fn write_untracked(&self) -> UntrackedWriteGuard<'_, Self::Value> {
+    fn write_untracked(&self) -> UntrackedWriteGuard<Self::Value> {
         self.try_write_untracked()
             .unwrap_or_else(unwrap_signal!(self))
     }
