@@ -41,6 +41,7 @@ web-sys = { version = "0.3", features = [
 	"DomTokenList",
 	"CssStyleDeclaration",
 	"ShadowRoot",
+	"HtmlCollection",
 
 	# Events we cast to in leptos_macro -- added here so we don't force users to import them
 	"AddEventListenerOptions",
