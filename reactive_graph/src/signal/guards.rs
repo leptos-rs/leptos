@@ -1,12 +1,12 @@
 use crate::{computed::BlockingLock, traits::Trigger};
 use core::fmt::Debug;
-use guardian::ArcRwLockReadGuardian;
+use guardian::{ArcRwLockReadGuardian, ArcRwLockWriteGuardian};
 use std::{
     borrow::Borrow,
     fmt::Display,
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    sync::{Arc, RwLock, RwLockWriteGuard},
+    sync::{Arc, RwLock},
 };
 
 #[derive(Debug)]
@@ -234,31 +234,32 @@ where
 }
 
 #[derive(Debug)]
-pub struct WriteGuard<'a, S, T>
+pub struct WriteGuard<'a, S, G>
 where
     S: Trigger,
 {
-    triggerable: &'a S,
-    guard: Option<RwLockWriteGuard<'a, T>>,
+    pub(crate) triggerable: &'a S,
+    pub(crate) guard: Option<G>,
 }
 
-impl<'a, S, T> WriteGuard<'a, S, T>
+impl<'a, S, G> WriteGuard<'a, S, G>
 where
     S: Trigger,
 {
-    pub fn new(triggerable: &'a S, guard: RwLockWriteGuard<'a, T>) -> Self {
+    pub fn new(triggerable: &'a S, guard: G) -> Self {
         Self {
-            guard: Some(guard),
             triggerable,
+            guard: Some(guard),
         }
     }
 }
 
-impl<'a, S, T> Deref for WriteGuard<'a, S, T>
+impl<'a, S, G> Deref for WriteGuard<'a, S, G>
 where
     S: Trigger,
+    G: Deref,
 {
-    type Target = T;
+    type Target = G::Target;
 
     fn deref(&self) -> &Self::Target {
         self.guard
@@ -271,9 +272,10 @@ where
     }
 }
 
-impl<'a, S, T> DerefMut for WriteGuard<'a, S, T>
+impl<'a, S, G> DerefMut for WriteGuard<'a, S, G>
 where
     S: Trigger,
+    G: DerefMut,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.guard
@@ -286,16 +288,17 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct UntrackedWriteGuard<'a, T>(RwLockWriteGuard<'a, T>);
+pub struct UntrackedWriteGuard<T: 'static>(ArcRwLockWriteGuardian<T>);
 
-impl<'a, T> From<RwLockWriteGuard<'a, T>> for UntrackedWriteGuard<'a, T> {
-    fn from(value: RwLockWriteGuard<'a, T>) -> Self {
-        Self(value)
+impl<T: 'static> UntrackedWriteGuard<T> {
+    pub(crate) fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
+        ArcRwLockWriteGuardian::take(inner)
+            .ok()
+            .map(UntrackedWriteGuard)
     }
 }
 
-impl<'a, T> Deref for UntrackedWriteGuard<'a, T> {
+impl<T> Deref for UntrackedWriteGuard<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -303,7 +306,7 @@ impl<'a, T> Deref for UntrackedWriteGuard<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for UntrackedWriteGuard<'a, T> {
+impl<T> DerefMut for UntrackedWriteGuard<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0.deref_mut()
     }

@@ -7,6 +7,7 @@ use crate::{
 use core::fmt::{Debug, Formatter, Result};
 use std::{
     hash::Hash,
+    ops::DerefMut,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -95,19 +96,19 @@ impl<T> Trigger for ArcWriteSignal<T> {
     }
 }
 
-impl<T> Writeable for ArcWriteSignal<T> {
+impl<T: 'static> Writeable for ArcWriteSignal<T> {
     type Value = T;
 
-    fn try_write(&self) -> Option<WriteGuard<'_, Self, Self::Value>> {
+    fn try_write(
+        &self,
+    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>> {
         self.value
             .write()
             .ok()
             .map(|guard| WriteGuard::new(self, guard))
     }
 
-    fn try_write_untracked(
-        &self,
-    ) -> Option<UntrackedWriteGuard<'_, Self::Value>> {
-        self.value.write().ok().map(UntrackedWriteGuard::from)
+    fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {
+        UntrackedWriteGuard::try_new(Arc::clone(&self.value))
     }
 }
