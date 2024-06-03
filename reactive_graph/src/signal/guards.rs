@@ -238,7 +238,7 @@ pub struct WriteGuard<'a, S, G>
 where
     S: Trigger,
 {
-    pub(crate) triggerable: &'a S,
+    pub(crate) triggerable: Option<&'a S>,
     pub(crate) guard: Option<G>,
 }
 
@@ -248,9 +248,13 @@ where
 {
     pub fn new(triggerable: &'a S, guard: G) -> Self {
         Self {
-            triggerable,
+            triggerable: Some(triggerable),
             guard: Some(guard),
         }
+    }
+
+    pub fn untrack(&mut self) {
+        self.triggerable.take();
     }
 }
 
@@ -322,6 +326,8 @@ where
         drop(self.guard.take());
 
         // then, notify about a change
-        self.triggerable.trigger();
+        if let Some(triggerable) = self.triggerable {
+            triggerable.trigger();
+        }
     }
 }
