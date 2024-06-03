@@ -31,6 +31,7 @@ axum = { version = "0.7", optional = true, features = ["http2"] }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = [
   "fs",
+  "compression-gzip",
   "compression-br",
 ], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
@@ -38,6 +39,8 @@ http = { version = "1.0", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 wasm-bindgen = "0.2"
 lazy_static = "1.4.0"
+rust-embed = { version = "8", features = ["axum", "mime_guess", "tokio"], optional = true  }
+mime_guess = { version = "2.0.4", optional = true }
 
 [features]
 default = []
@@ -49,6 +52,8 @@ ssr = [
   "dep:tower-http",
   "dep:tokio",
   "dep:http",
+  "dep:rust-embed",
+  "dep:mime_guess",
   "leptos/ssr",
   "leptos_axum",
   "leptos_meta/ssr",
