@@ -365,19 +365,21 @@ pub trait Update {
 
 impl<T> Update for T
 where
-    T: UpdateUntracked + Trigger,
+    T: Writeable,
 {
-    type Value = <Self as UpdateUntracked>::Value;
+    type Value = <Self as Writeable>::Value;
 
     #[track_caller]
     fn try_maybe_update<U>(
         &self,
         fun: impl FnOnce(&mut Self::Value) -> (bool, U),
     ) -> Option<U> {
-        let (did_update, val) = self.try_update_untracked(fun)?;
-        if did_update {
-            self.trigger();
+        let mut lock = self.try_write()?;
+        let (did_update, val) = fun(&mut *lock);
+        if !did_update {
+            lock.untrack();
         }
+        drop(lock);
         Some(val)
     }
 }
@@ -398,7 +400,7 @@ where
 
     #[track_caller]
     fn set(&self, value: impl Into<Self::Value>) {
-        self.update(|n| *n = value.into());
+        self.try_update(|n| *n = value.into());
     }
 
     #[track_caller]
