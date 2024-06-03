@@ -1,5 +1,4 @@
-use leptos::prelude::signal::*;
-use leptos::prelude::*;
+use leptos::prelude::{signal::*, *};
 
 const MANY_COUNTERS: usize = 1000;
 
