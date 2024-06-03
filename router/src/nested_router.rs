@@ -14,7 +14,7 @@ use reactive_graph::{
     computed::ScopedFuture,
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{ReadUntracked, Set, Track, Trigger},
+    traits::{GetUntracked, ReadUntracked, Set, Track, Trigger},
     wrappers::write::SignalSetter,
 };
 use std::{
@@ -140,7 +140,7 @@ where
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let url_snapshot = self.current_url.read_untracked();
+        let url_snapshot = self.current_url.get_untracked();
 
         // if the path is the same, we do not need to re-route
         // we can just update the search query and go about our day
@@ -154,9 +154,9 @@ where
         state.path.clear();
         state.path.push_str(url_snapshot.path());
 
-        state.current_url.set(url_snapshot.to_owned());
-
         let new_match = self.routes.match_route(url_snapshot.path());
+
+        state.current_url.set(url_snapshot);
 
         match new_match {
             None => {
