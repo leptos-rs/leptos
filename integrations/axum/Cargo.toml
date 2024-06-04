@@ -15,6 +15,7 @@ axum = { version = "0.7", default-features = false, features = [
 	"matched-path",
 ] }
 futures = "0.3"
+http = "1"
 http-body-util = "0.1"
 leptos = { workspace = true, features = ["nonce", "hydration"] }
 server_fn = { workspace = true, features = ["axum-no-default"] }
@@ -36,4 +37,5 @@ tokio = { version = "1", features = ["net"] }
 [features]
 wasm = []
 default = ["tokio/fs", "tokio/sync"]
+nonce = ["leptos/nonce"]
 #experimental-islands = ["leptos_integration_utils/experimental-islands"]
