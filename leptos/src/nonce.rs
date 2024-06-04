@@ -6,6 +6,7 @@ use base64::{
 };
 use rand::{thread_rng, RngCore};
 use std::{fmt::Display, ops::Deref, sync::Arc};
+use tachys::{html::attribute::AttributeValue, renderer::Renderer};
 
 /// A cryptographic nonce ("number used once") which can be
 /// used by Content Security Policy to determine whether or not a given
@@ -64,7 +65,48 @@ impl Display for Nonce {
     }
 }
 
-// TODO implement Attribute
+impl<R> AttributeValue<R> for Nonce
+where
+    R: Renderer,
+{
+    type State = <Arc<str> as AttributeValue<R>>::State;
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn html_len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn to_html(self, key: &str, buf: &mut String) {
+        <Arc<str> as AttributeValue<R>>::to_html(self.0, key, buf)
+    }
+
+    fn to_template(_key: &str, _buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        key: &str,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        <Arc<str> as AttributeValue<R>>::hydrate::<FROM_SERVER>(self.0, key, el)
+    }
+
+    fn build(self, el: &<R as Renderer>::Element, key: &str) -> Self::State {
+        <Arc<str> as AttributeValue<R>>::build(self.0, el, key)
+    }
+
+    fn rebuild(self, key: &str, state: &mut Self::State) {
+        <Arc<str> as AttributeValue<R>>::rebuild(self.0, key, state)
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+}
 
 /// Accesses the nonce that has been generated during the current
 /// server response. This can be added to inline `<script>` and
