@@ -6,12 +6,16 @@ use leptos_macro::{component, view};
 use tachys::view::RenderHtml;
 
 #[component]
-pub fn AutoReload<'a>(
+pub fn AutoReload(
     #[prop(optional)] disable_watch: bool,
-    #[prop(optional)] nonce: Option<&'a str>,
     options: LeptosOptions,
-) -> impl RenderHtml<Dom> + 'a {
+) -> impl IntoView {
     (!disable_watch && std::env::var("LEPTOS_WATCH").is_ok()).then(|| {
+        #[cfg(feature = "nonce")]
+        let nonce = crate::nonce::use_nonce();
+        #[cfg(not(feature = "nonce"))]
+        let nonce = None::<()>;
+
         let reload_port = match options.reload_external_port {
             Some(val) => val,
             None => options.reload_port,
@@ -23,7 +27,7 @@ pub fn AutoReload<'a>(
 
         let script = include_str!("reload_script.js");
         view! {
-            <script crossorigin=nonce>
+            <script nonce=nonce>
                 {format!("{script}({reload_port:?}, {protocol})")}
             </script>
         }
@@ -34,14 +38,17 @@ pub fn AutoReload<'a>(
 pub fn HydrationScripts(
     options: LeptosOptions,
     #[prop(optional)] islands: bool,
-) -> impl RenderHtml<Dom> {
+) -> impl IntoView {
     let pkg_path = &options.site_pkg_dir;
     let output_name = &options.output_name;
     let mut wasm_output_name = output_name.clone();
     if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_output_name.push_str("_bg");
     }
-    let nonce = None::<String>; // use_nonce(); // TODO
+    #[cfg(feature = "nonce")]
+    let nonce = crate::nonce::use_nonce();
+    #[cfg(not(feature = "nonce"))]
+    let nonce = None::<()>;
     let script = if islands {
         include_str!("./island_script.js")
     } else {
