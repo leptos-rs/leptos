@@ -48,6 +48,7 @@ use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
+    nonce::use_nonce,
     reactive_graph::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
@@ -738,16 +739,16 @@ where
                 // run app
                 let app = app_fn();
 
-                // TODO nonce
+                let nonce = use_nonce()
+                    .as_ref()
+                    .map(|nonce| format!(" nonce=\"{nonce}\""))
+                    .unwrap_or_default();
 
                 let shared_context = Owner::current_shared_context().unwrap();
                 let chunks = Box::new(move || {
-                    Box::pin(
-                        shared_context
-                            .pending_data()
-                            .unwrap()
-                            .map(|chunk| format!("<script>{chunk}</script>")),
-                    )
+                    Box::pin(shared_context.pending_data().unwrap().map(
+                        move |chunk| format!("<script{nonce}>{chunk}</script>"),
+                    ))
                         as Pin<Box<dyn Stream<Item = String> + Send>>
                 });
 
@@ -762,10 +763,27 @@ where
                 stream_builder(app, chunks)
             }));
             let stream = stream.await;
-            let stream = meta_context.inject_meta_context(stream).await;
+            let mut stream =
+                Box::pin(meta_context.inject_meta_context(stream).await);
 
-            // TODO test this
-            /*if let Some(status) = res_options.status {
+            // wait for the first chunk of the stream, then set the status and headers
+            let first_chunk = stream.next().await.unwrap_or_default();
+
+            let mut res = Html(Body::from_stream(Sandboxed::new(
+                once(async move { first_chunk })
+                    .chain(stream)
+                    .map(|chunk| Ok(chunk) as Result<String, std::io::Error>)
+                    // drop the owner, cleaning up the reactive runtime,
+                    // once the stream is over
+                    .chain(once(async move {
+                        drop(owner);
+                        Ok(Default::default())
+                    })),
+            )))
+            .into_response();
+
+            let mut res_options = res_options.0.read();
+            if let Some(status) = res_options.status {
                 *res.status_mut() = status
             }
 
@@ -781,19 +799,9 @@ where
                     header::CONTENT_TYPE,
                     HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
                 );
-            }*/
+            }
 
-            Html(Body::from_stream(Sandboxed::new(
-                stream
-                    .map(|chunk| Ok(chunk) as Result<String, std::io::Error>)
-                    // drop the owner, cleaning up the reactive runtime,
-                    // once the stream is over
-                    .chain(once(async move {
-                        drop(owner);
-                        Ok(Default::default())
-                    })),
-            )))
-            .into_response()
+            res
         }))
     }
 }
@@ -1155,6 +1163,14 @@ where
         .with(|| {
             // stub out a path for now
             provide_context(RequestUrl::new(""));
+            let (mock_parts, _) =
+                http::Request::new(Body::from("")).into_parts();
+            provide_contexts(
+                "",
+                &Default::default(),
+                mock_parts,
+                Default::default(),
+            );
             additional_context();
             RouteList::generate(&app_fn)
         })
@@ -1498,12 +1514,7 @@ where
         let mut router = self;
 
         // register server functions
-        println!(
-            "server fn paths are {:?}",
-            server_fn::axum::server_fn_paths().collect::<Vec<_>>()
-        );
         for (path, method) in server_fn::axum::server_fn_paths() {
-            println!("registering {path}");
             let cx_with_state = cx_with_state.clone();
             let handler = move |req: Request<Body>| async move {
                 handle_server_fns_with_context(cx_with_state, req).await
