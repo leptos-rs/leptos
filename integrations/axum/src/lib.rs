@@ -52,6 +52,9 @@ use leptos::{
     reactive_graph::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
+use leptos_integration_utils::{
+    build_response, BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+};
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
     location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
@@ -123,6 +126,45 @@ impl ResponseOptions {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
+    }
+}
+
+struct AxumResponse(Response<Body>);
+
+impl ExtendResponse for AxumResponse {
+    type ResponseOptions = ResponseOptions;
+
+    fn from_stream(
+        stream: impl Stream<Item = String> + Send + 'static,
+    ) -> Self {
+        AxumResponse(
+            Body::from_stream(
+                stream.map(|chunk| Ok(chunk) as Result<String, std::io::Error>),
+            )
+            .into_response(),
+        )
+    }
+
+    fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
+        let mut res_options = res_options.0.write();
+        if let Some(status) = res_options.status {
+            *self.0.status_mut() = status;
+        }
+        self.0
+            .headers_mut()
+            .extend(std::mem::take(&mut res_options.headers));
+    }
+
+    fn set_default_content_type(&mut self, content_type: &str) {
+        let mut headers = self.0.headers_mut();
+        if !headers.contains_key(header::CONTENT_TYPE) {
+            // Set the Content Type headers on all responses. This makes Firefox show the page source
+            // without complaining
+            headers.insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_str(content_type).unwrap(),
+            );
+        }
     }
 }
 
@@ -279,7 +321,8 @@ async fn handle_server_fns_inner(
                 ScopedFuture::new(async move {
                     additional_context();
                     provide_context(parts);
-                    provide_context(ResponseOptions::default());
+                    let res_options = ResponseOptions::default();
+                    provide_context(res_options.clone());
 
                     // store Accepts and Referer in case we need them for redirect (below)
                     let accepts_html = req
@@ -291,37 +334,24 @@ async fn handle_server_fns_inner(
                     let referrer = req.headers().get(REFERER).cloned();
 
                     // actually run the server fn
-                    let mut res = service.run(req).await;
-
-                    // update response as needed
-                    let res_options = use_context::<ResponseOptions>()
-                        .expect("ResponseOptions not found")
-                        .0;
-                    let res_options_inner = res_options.read();
-                    let (status, mut res_headers) = (
-                        res_options_inner.status,
-                        res_options_inner.headers.clone(),
-                    );
+                    let mut res = AxumResponse(service.run(req).await);
 
                     // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
                     // Location set, then redirect to to Referer
                     if accepts_html {
                         if let Some(referrer) = referrer {
                             let has_location =
-                                res.headers().get(LOCATION).is_some();
+                                res.0.headers().get(LOCATION).is_some();
                             if !has_location {
-                                *res.status_mut() = StatusCode::FOUND;
-                                res.headers_mut().insert(LOCATION, referrer);
+                                *res.0.status_mut() = StatusCode::FOUND;
+                                res.0.headers_mut().insert(LOCATION, referrer);
                             }
                         }
                     }
 
                     // apply status code and headers if used changed them
-                    if let Some(status) = status {
-                        *res.status_mut() = status;
-                    }
-                    res.headers_mut().extend(res_headers.drain());
-                    Ok(res)
+                    res.extend_response(&res_options);
+                    Ok(res.0)
                 })
             })
             .await
@@ -344,9 +374,6 @@ async fn handle_server_fns_inner(
 
 pub type PinnedHtmlStream =
     Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
-type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
-type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
-type BoxedFnOnce<T> = Box<dyn FnOnce() -> T + Send>;
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
@@ -715,94 +742,44 @@ where
 {
     move |req: Request<Body>| {
         let app_fn = app_fn.clone();
-        let add_context = additional_context.clone();
-        let res_options = ResponseOptions::default();
-
-        let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
-        Box::pin(Sandboxed::new(async move {
+        let additional_context = additional_context.clone();
+        Box::pin(async move {
+            let app_fn = app_fn.clone();
+            let add_context = additional_context.clone();
+            let res_options = ResponseOptions::default();
             let meta_context = ServerMetaContext::new();
-            let stream = ScopedFuture::new(owner.with(|| {
-                // Need to get the path and query string of the Request
-                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                let path = req.uri().path_and_query().unwrap().as_str();
 
-                let full_path = format!("http://leptos.dev{path}");
-                let (_, req_parts) = generate_request_and_parts(req);
-                provide_contexts(
-                    &full_path,
-                    &meta_context,
-                    req_parts,
-                    res_options.clone(),
-                );
-                add_context();
+            let additional_context = {
+                let meta_context = meta_context.clone();
+                let res_options = res_options.clone();
+                move || {
+                    // Need to get the path and query string of the Request
+                    // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
+                    let path = req.uri().path_and_query().unwrap().as_str();
 
-                // run app
-                let app = app_fn();
+                    let full_path = format!("http://leptos.dev{path}");
+                    let (_, req_parts) = generate_request_and_parts(req);
+                    provide_contexts(
+                        &full_path,
+                        &meta_context,
+                        req_parts,
+                        res_options.clone(),
+                    );
+                    add_context();
+                }
+            };
 
-                let nonce = use_nonce()
-                    .as_ref()
-                    .map(|nonce| format!(" nonce=\"{nonce}\""))
-                    .unwrap_or_default();
+            let res = AxumResponse::from_app(
+                app_fn,
+                meta_context,
+                additional_context,
+                res_options,
+                stream_builder,
+            )
+            .await;
 
-                let shared_context = Owner::current_shared_context().unwrap();
-                let chunks = Box::new(move || {
-                    Box::pin(shared_context.pending_data().unwrap().map(
-                        move |chunk| format!("<script{nonce}>{chunk}</script>"),
-                    ))
-                        as Pin<Box<dyn Stream<Item = String> + Send>>
-                });
-
-                // convert app to appropriate response type
-                // and chain the app stream, followed by chunks
-                // in theory, we could select here, and intersperse them
-                // the problem is that during the DOM walk, that would be mean random <script> tags
-                // interspersed where we expect other children
-                //
-                // we also don't actually start hydrating until after the whole stream is complete,
-                // so it's not useful to send those scripts down earlier.
-                stream_builder(app, chunks)
-            }));
-            let stream = stream.await;
-            let mut stream =
-                Box::pin(meta_context.inject_meta_context(stream).await);
-
-            // wait for the first chunk of the stream, then set the status and headers
-            let first_chunk = stream.next().await.unwrap_or_default();
-
-            let mut res = Html(Body::from_stream(Sandboxed::new(
-                once(async move { first_chunk })
-                    .chain(stream)
-                    .map(|chunk| Ok(chunk) as Result<String, std::io::Error>)
-                    // drop the owner, cleaning up the reactive runtime,
-                    // once the stream is over
-                    .chain(once(async move {
-                        drop(owner);
-                        Ok(Default::default())
-                    })),
-            )))
-            .into_response();
-
-            let mut res_options = res_options.0.read();
-            if let Some(status) = res_options.status {
-                *res.status_mut() = status
-            }
-
-            let headers = res.headers_mut();
-
-            let mut res_headers = res_options.headers.clone();
-            headers.extend(res_headers.drain());
-
-            if !headers.contains_key(header::CONTENT_TYPE) {
-                // Set the Content Type headers on all responses. This makes Firefox show the page source
-                // without complaining
-                headers.insert(
-                    header::CONTENT_TYPE,
-                    HeaderValue::from_str("text/html; charset=utf-8").unwrap(),
-                );
-            }
-
-            res
-        }))
+            res.0
+        })
     }
 }
 
