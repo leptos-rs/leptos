@@ -1,5 +1,3 @@
-use std::future::IntoFuture;
-
 use lazy_static::lazy_static;
 use leptos::prelude::*;
 use leptos_meta::*;
@@ -63,30 +61,19 @@ fn HomePage() -> impl IntoView {
         move |_| async move { posts2.await.as_ref().map(Vec::len).unwrap_or(0) },
     );
 
-    /*let posts_view = Suspend(async move {
-        posts.await.map(|posts| {
-            posts.into_iter()
-                .map(|post| view! {
+    view! {
+        <h1>"My Great Blog"</h1>
+        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+            <p>"number of posts: " {Suspend(async move { posts2.await })}</p>
+            </Suspense>
+        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+            <ul>
+                <For each=posts key=|post| post.id let:post>
                     <li>
                         <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
                         "|"
                         <a href=format!("/post_in_order/{}", post.id)>{post.title} "(in order)"</a>
                     </li>
-                })
-                .collect::<Vec<_>>()
-        })
-    });*/
-
-    view! {
-        <h1>"My Great Blog"</h1>
-            <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            <p>"number of posts: " {Suspend(async move { *posts2.await })}</p>
-            </Suspense>
-        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            //<ul>{posts_view}</ul>
-            <ul>
-                <For each=posts key=|post| post.id let:post>
-                    <li>{post.title}</li>
                 </For>
             </ul>
         </Suspense>
