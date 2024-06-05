@@ -1,7 +1,14 @@
+
+
 use lazy_static::lazy_static;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::*;
+use leptos_router::{
+    components::{FlatRoutes, Route, Router},
+    hooks::use_params,
+    params::Params,
+    ParamSegment, SsrMode, StaticSegment,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -14,26 +21,26 @@ pub fn App() -> impl IntoView {
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
         <Title text="Welcome to Leptos"/>
-
-        <Router fallback>
+        <Meta name="color-scheme" content="dark light"/>
+        <Router>
             <main>
-                <Routes>
+                <FlatRoutes fallback>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path="" view=HomePage/>
+                    <Route path=StaticSegment("") view=HomePage/>
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
                     <Route
-                        path="/post/:id"
+                        path=(StaticSegment("post"), ParamSegment("id"))
                         view=Post
                         ssr=SsrMode::Async
                     />
                     <Route
-                        path="/post_in_order/:id"
+                        path=(StaticSegment("post_in_order"), ParamSegment("id"))
                         view=Post
                         ssr=SsrMode::InOrder
                     />
-                </Routes>
+                </FlatRoutes>
             </main>
         </Router>
     }
@@ -42,25 +49,35 @@ pub fn App() -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     // load the posts
-    let posts =
-        create_resource(|| (), |_| async { list_post_metadata().await });
-    let posts_view = move || {
-        posts.and_then(|posts| {
-                        posts.iter()
-                            .map(|post| view! {
-                                <li>
-                                    <a href=format!("/post/{}", post.id)>{&post.title}</a> "|"
-                                    <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a>
-                                </li>
-                            })
-                            .collect_view()
-                    })
+    let posts = Resource::new_serde(|| (), |_| list_post_metadata());
+    let posts = move || {
+        posts
+            .get()
+            .map(|n| n.unwrap_or_default())
+            .unwrap_or_default()
     };
+
+    let posts2 = Resource::new_serde(|| (), |_| list_post_metadata());
+    let posts2 = Resource::new(
+        || (),
+        move |_| async move { posts2.await.as_ref().map(Vec::len).unwrap_or(0) },
+    );
 
     view! {
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            <ul>{posts_view}</ul>
+            <p>"number of posts: " {Suspend(async move { posts2.await })}</p>
+        </Suspense>
+        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+            <ul>
+                <For each=posts key=|post| post.id let:post>
+                    <li>
+                        <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
+                        "|"
+                        <a href=format!("/post_in_order/{}", post.id)>{post.title} "(in order)"</a>
+                    </li>
+                </For>
+            </ul>
         </Suspense>
     }
 }
@@ -80,7 +97,7 @@ fn Post() -> impl IntoView {
                 .map_err(|_| PostError::InvalidId)
         })
     };
-    let post_resource = create_resource(id, |id| async move {
+    let post_resource = Resource::new_serde(id, |id| async move {
         match id {
             Err(e) => Err(e),
             Ok(id) => get_post(id)
@@ -90,45 +107,42 @@ fn Post() -> impl IntoView {
         }
     });
 
-    let post = move || match post_resource.get() {
-        Some(Ok(Ok(v))) => Ok(v),
-        _ => Err(PostError::ServerError),
-    };
-
-    let post_view = move || {
-        post().map(|post| {
-            view! {
-                // render content
-                <h1>{&post.title}</h1>
-                <p>{&post.content}</p>
+    let post_view = Suspend(async move {
+        match post_resource.await.to_owned() {
+            Ok(Ok(post)) => Ok(view! {
+                <h1>{post.title.clone()}</h1>
+                <p>{post.content.clone()}</p>
 
                 // since we're using async rendering for this page,
                 // this metadata should be included in the actual HTML <head>
                 // when it's first served
-                <Title text=post.title.clone()/>
-                <Meta name="description" content=post.content.clone()/>
-            }
-        })
-    };
+                <Title text=post.title/>
+                <Meta name="description" content=post.content/>
+            }),
+            _ => Err(PostError::ServerError),
+        }
+    });
 
     view! {
+        <em>"The world's best content."</em>
         <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
             <ErrorBoundary fallback=|errors| {
                 view! {
                     <div class="error">
                         <h1>"Something went wrong."</h1>
                         <ul>
-                        {move || errors.get()
-                            .into_iter()
-                            .map(|(_, error)| view! { <li>{error.to_string()} </li> })
-                            .collect_view()
-                        }
+                            {move || {
+                                errors
+                                    .get()
+                                    .into_iter()
+                                    .map(|(_, error)| view! { <li>{error.to_string()}</li> })
+                                    .collect::<Vec<_>>()
+                            }}
+
                         </ul>
                     </div>
                 }
-            }>
-                {post_view}
-            </ErrorBoundary>
+            }>{post_view}</ErrorBoundary>
         </Suspense>
     }
 }
