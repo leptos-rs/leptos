@@ -23,7 +23,7 @@ leptos_macro = { workspace = true, features = ["axum"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 leptos_router = { workspace = true, features = ["ssr"] }
-#leptos_integration_utils = { workspace = true }
+leptos_integration_utils = { workspace = true }
 parking_lot = "0.12"
 serde_json = "1"
 tokio = { version = "1", default-features = false }
@@ -37,5 +37,3 @@ tokio = { version = "1", features = ["net"] }
 [features]
 wasm = []
 default = ["tokio/fs", "tokio/sync"]
-nonce = ["leptos/nonce"]
-#experimental-islands = ["leptos_integration_utils/experimental-islands"]
