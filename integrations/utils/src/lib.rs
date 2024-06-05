@@ -1,215 +1,130 @@
-use futures::{Stream, StreamExt};
-use leptos::{nonce::use_nonce, use_context, RuntimeId};
-use leptos_config::LeptosOptions;
-use leptos_meta::MetaContext;
-use std::{borrow::Cow, collections::HashMap, env, fs};
+use futures::{stream::once, Stream, StreamExt};
+use hydration_context::SsrSharedContext;
+use leptos::{
+    nonce::use_nonce,
+    reactive_graph::{
+        computed::ScopedFuture,
+        owner::{Owner, Sandboxed},
+    },
+    IntoView,
+};
+use leptos_meta::ServerMetaContext;
+use std::{future::Future, pin::Pin, sync::Arc};
 
-extern crate tracing;
+pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
+pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+pub type BoxedFnOnce<T> = Box<dyn FnOnce() -> T + Send>;
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
-    let reload_port = match options.reload_external_port {
-        Some(val) => val,
-        None => options.reload_port,
-    };
-    let protocol = match options.reload_ws_protocol {
-        leptos_config::ReloadWSProtocol::WS => "'ws://'",
-        leptos_config::ReloadWSProtocol::WSS => "'wss://'",
-    };
-    match std::env::var("LEPTOS_WATCH").is_ok() {
-        true => format!(
-            r#"
-                <script crossorigin=""{nonce_str}>(function () {{
-                    {}
-                    let host = window.location.hostname;
-                    let ws = new WebSocket({protocol} + host + ':{reload_port}/live_reload');
-                    ws.onmessage = (ev) => {{
-                        let msg = JSON.parse(ev.data);
-                        if (msg.all) window.location.reload();
-                        if (msg.css) {{
-                            let found = false;
-                            document.querySelectorAll("link").forEach((link) => {{
-                                if (link.getAttribute('href').includes(msg.css)) {{
-                                    let newHref = '/' + msg.css + '?version=' + new Date().getMilliseconds();
-                                    link.setAttribute('href', newHref);
-                                    found = true;
-                                }}
-                            }});
-                            if (!found) console.warn(`CSS hot-reload: Could not find a <link href=/\"${{msg.css}}\"> element`);
-                        }};
-                        if(msg.view) {{
-                            patch(msg.view);
-                        }}
-                    }};
-                    ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-                }})()
-                </script>
-                "#,
-            leptos_hot_reload::HOT_RELOAD_JS
-        ),
-        false => "".to_string(),
-    }
-}
+pub trait ExtendResponse: Sized {
+    type ResponseOptions: Send;
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-pub fn html_parts_separated(
-    options: &LeptosOptions,
-    meta: Option<&MetaContext>,
-) -> (String, &'static str) {
-    // First check runtime env, then build time, then default:
-    let pkg_path = match std::env::var("CDN_PKG_PATH").ok().map(Cow::from) {
-        Some(path) => path,
-        None => match option_env!("CDN_PKG_PATH").map(Cow::from) {
-            Some(path) => path,
-            None => format!("/{}", options.site_pkg_dir).into(),
-        },
-    };
-    let output_name = &options.output_name;
-    let nonce = use_nonce();
-    let nonce = nonce
-        .as_ref()
-        .map(|nonce| format!(" nonce=\"{nonce}\""))
-        .unwrap_or_default();
+    fn from_stream(stream: impl Stream<Item = String> + Send + 'static)
+        -> Self;
 
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to maintain compatibility with it's default options
-    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME at compile time
-    // Otherwise we need to add _bg because wasm_pack always does.
-    let mut wasm_output_name = output_name.clone();
-    if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
-        wasm_output_name.push_str("_bg");
-    }
+    fn extend_response(&mut self, opt: &Self::ResponseOptions);
 
-    let leptos_autoreload = autoreload(&nonce, options);
+    fn set_default_content_type(&mut self, content_type: &str);
 
-    let html_metadata =
-        meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
-    let head = meta
-        .as_ref()
-        .map(|meta| meta.dehydrate())
-        .unwrap_or_default();
-    let import_callback = if cfg!(feature = "experimental-islands") {
-        /* r#"() => {
-          for (let e of document.querySelectorAll("leptos-island")) {
-            let l = e.dataset.component;
-            console.log("hydrating island");
-            mod["_island_" + l];
-          }
-          mod.hydrate();
-        }"# */
-        r#"() => {       
-            for (let e of document.querySelectorAll("leptos-island")) {
-                let l = e.dataset.component;
-                mod["_island_" + l](e);
-            }
-            mod.hydrate();
-        }
-        "#
-        //r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;mod["_island_"+l](e)};mod.hydrate();}"#
-    } else {
-        "() => mod.hydrate()"
-    };
+    fn from_app<IV>(
+        app_fn: impl Fn() -> IV + Send + 'static,
+        meta_context: ServerMetaContext,
+        additional_context: impl FnOnce() + Send + 'static,
+        res_options: Self::ResponseOptions,
+        stream_builder: fn(
+            IV,
+            BoxedFnOnce<PinnedStream<String>>,
+        ) -> PinnedFuture<PinnedStream<String>>,
+    ) -> impl Future<Output = Self> + Send
+    where
+        IV: IntoView + 'static,
+    {
+        async move {
+            let (owner, stream) = build_response(
+                app_fn,
+                meta_context,
+                additional_context,
+                stream_builder,
+            );
+            let mut stream = stream.await;
 
-    let (js_hash, wasm_hash, css_hash) = get_hashes(options);
+            // wait for the first chunk of the stream, then set the status and headers
+            let first_chunk = stream.next().await.unwrap_or_default();
 
-    let head = head.replace(
-        &format!("{output_name}.css"),
-        &format!("{output_name}{css_hash}.css"),
-    );
+            let mut res = Self::from_stream(Sandboxed::new(
+                once(async move { first_chunk })
+                    .chain(stream)
+                    // drop the owner, cleaning up the reactive runtime,
+                    // once the stream is over
+                    .chain(once(async move {
+                        drop(owner);
+                        Default::default()
+                    })),
+            ));
 
-    let head = format!(
-        r#"<!DOCTYPE html>
-            <html{html_metadata}>
-                <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    {head}
-                    <link rel="modulepreload" href="{pkg_path}/{output_name}{js_hash}.js"{nonce}>
-                    <link rel="preload" href="{pkg_path}/{wasm_output_name}{wasm_hash}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
-                    <script type="module"{nonce}>
-                        function idle(c) {{
-                            if ("requestIdleCallback" in window) {{
-                                window.requestIdleCallback(c);
-                            }} else {{
-                                c();
-                            }}
-                        }}
-                        idle(() => {{
-                            import('{pkg_path}/{output_name}{js_hash}.js')
-                                .then(mod => {{
-                                    mod.default('{pkg_path}/{wasm_output_name}{wasm_hash}.wasm').then({import_callback});
-                                }})
-                        }});
-                    </script>
-                    {leptos_autoreload}
-                </head>"#
-    );
-    let tail = "</body></html>";
-    (head, tail)
-}
+            res.extend_response(&res_options);
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-fn get_hashes(options: &LeptosOptions) -> (String, String, String) {
-    let mut ext_to_hash = HashMap::from([
-        ("js".to_string(), "".to_string()),
-        ("wasm".to_string(), "".to_string()),
-        ("css".to_string(), "".to_string()),
-    ]);
+            // Set the Content Type headers on all responses. This makes Firefox show the page source
+            // without complaining
+            res.set_default_content_type("text/html; charset=utf-8");
 
-    if options.hash_files {
-        let hash_path = env::current_exe()
-            .map(|path| {
-                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
-            })
-            .unwrap_or_default()
-            .join(&options.hash_file);
-
-        if hash_path.exists() {
-            let hashes = fs::read_to_string(&hash_path)
-                .expect("failed to read hash file");
-            for line in hashes.lines() {
-                let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((k, v)) = line.split_once(':') {
-                        ext_to_hash.insert(
-                            k.trim().to_string(),
-                            format!(".{}", v.trim()),
-                        );
-                    }
-                }
-            }
+            res
         }
     }
-
-    (
-        ext_to_hash["js"].clone(),
-        ext_to_hash["wasm"].clone(),
-        ext_to_hash["css"].clone(),
-    )
 }
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-pub async fn build_async_response(
-    stream: impl Stream<Item = String> + 'static,
-    options: &LeptosOptions,
-    runtime: RuntimeId,
-) -> String {
-    let mut buf = String::new();
-    let mut stream = Box::pin(stream);
-    while let Some(chunk) = stream.next().await {
-        buf.push_str(&chunk);
-    }
+pub fn build_response<IV>(
+    app_fn: impl Fn() -> IV + Send + 'static,
+    meta_context: ServerMetaContext,
+    additional_context: impl FnOnce() + Send + 'static,
+    stream_builder: fn(
+        IV,
+        BoxedFnOnce<PinnedStream<String>>,
+    ) -> PinnedFuture<PinnedStream<String>>,
+) -> (Owner, PinnedFuture<PinnedStream<String>>)
+where
+    IV: IntoView + 'static,
+{
+    let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
+    let stream = Box::pin(Sandboxed::new({
+        let owner = owner.clone();
+        async move {
+            let stream = owner
+                .with(|| {
+                    additional_context();
 
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>().as_ref());
+                    // run app
+                    let app = app_fn();
 
-    // in async, we load the meta content *now*, after the suspenses have resolved
-    let meta = use_context::<MetaContext>();
-    let body_meta = meta
-        .as_ref()
-        .and_then(|meta| meta.body.as_string())
-        .unwrap_or_default();
+                    let nonce = use_nonce()
+                        .as_ref()
+                        .map(|nonce| format!(" nonce=\"{nonce}\""))
+                        .unwrap_or_default();
 
-    runtime.dispose();
+                    let shared_context =
+                        Owner::current_shared_context().unwrap();
+                    let chunks = Box::new(move || {
+                        Box::pin(shared_context.pending_data().unwrap().map(
+                            move |chunk| {
+                                format!("<script{nonce}>{chunk}</script>")
+                            },
+                        ))
+                            as Pin<Box<dyn Stream<Item = String> + Send>>
+                    });
 
-    format!("{head}<body{body_meta}>{buf}{tail}")
+                    // convert app to appropriate response type
+                    // and chain the app stream, followed by chunks
+                    // in theory, we could select here, and intersperse them
+                    // the problem is that during the DOM walk, that would be mean random <script> tags
+                    // interspersed where we expect other children
+                    //
+                    // we also don't actually start hydrating until after the whole stream is complete,
+                    // so it's not useful to send those scripts down earlier.
+                    stream_builder(app, chunks)
+                })
+                .await;
+            Box::pin(meta_context.inject_meta_context(stream).await)
+                as PinnedStream<String>
+        }
+    }));
+    (owner, stream)
 }
