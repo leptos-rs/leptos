@@ -24,6 +24,7 @@ macro_rules! html_elements {
         paste::paste! {
             $(
                 #[$meta]
+                #[track_caller]
                 pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
                 where
                     Rndr: Renderer
@@ -33,6 +34,8 @@ macro_rules! html_elements {
                         attributes: (),
                         children: (),
                         rndr: PhantomData,
+                        #[cfg(debug_assertions)]
+                        defined_at: std::panic::Location::caller()
                     }
                 }
 
@@ -59,12 +62,17 @@ macro_rules! html_elements {
                             At: NextTuple,
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
                         {
-                            let HtmlElement { tag, rndr, children, attributes } = self;
+                            let HtmlElement { tag, rndr, children, attributes,
+                                #[cfg(debug_assertions)]
+                                defined_at
+                            } = self;
                             HtmlElement {
                                 tag,
                                 rndr,
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value))
+                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                #[cfg(debug_assertions)]
+                                defined_at
                             }
                         }
                     )*
@@ -85,6 +93,8 @@ macro_rules! html_elements {
                 impl ElementWithChildren for [<$tag:camel>] {}
 
                 impl CreateElement<Dom> for [<$tag:camel>] {
+                    #[track_caller]
+                #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", fields(callsite = std::panic::Location::caller().to_string())))]
                     fn create_element(&self) -> <Dom as Renderer>::Element {
                         use wasm_bindgen::JsCast;
 
@@ -126,7 +136,9 @@ macro_rules! html_self_closing_elements {
                         attributes: (),
                         children: (),
                         rndr: PhantomData,
-                        tag: [<$tag:camel>]
+                        tag: [<$tag:camel>],
+                        #[cfg(debug_assertions)]
+                        defined_at: std::panic::Location::caller()
                     }
                 }
 
@@ -154,12 +166,17 @@ macro_rules! html_self_closing_elements {
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
 
                         {
-                            let HtmlElement { tag, rndr, children, attributes } = self;
+                            let HtmlElement { tag, rndr, children, attributes,
+                                #[cfg(debug_assertions)]
+                                defined_at
+                            } = self;
                             HtmlElement {
                                 tag,
                                 rndr,
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value))
+                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                #[cfg(debug_assertions)]
+                                defined_at
                             }
                         }
                     )*
@@ -433,6 +450,8 @@ where
         rndr: PhantomData,
         attributes: (),
         children: (),
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
     }
 }
 

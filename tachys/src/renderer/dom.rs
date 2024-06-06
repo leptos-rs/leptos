@@ -31,6 +31,7 @@ impl Renderer for Dom {
         intern(text)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn create_text_node(text: &str) -> Self::Text {
         document().create_text_node(text)
     }
@@ -39,18 +40,22 @@ impl Renderer for Dom {
         document().create_comment("")
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn set_text(node: &Self::Text, text: &str) {
         node.set_node_value(Some(text));
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn set_attribute(node: &Self::Element, name: &str, value: &str) {
         or_debug!(node.set_attribute(name, value), node, "setAttribute");
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn remove_attribute(node: &Self::Element, name: &str) {
         or_debug!(node.remove_attribute(name), node, "removeAttribute");
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn insert_node(
         parent: &Self::Element,
         new_child: &Self::Node,
@@ -63,6 +68,7 @@ impl Renderer for Dom {
         );
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn remove_node(
         parent: &Self::Element,
         child: &Self::Node,
@@ -70,6 +76,7 @@ impl Renderer for Dom {
         ok_or_debug!(parent.remove_child(child), parent, "removeNode")
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn remove(node: &Self::Node) {
         node.unchecked_ref::<Element>().remove();
     }
@@ -90,6 +97,7 @@ impl Renderer for Dom {
         web_sys::console::log_1(node);
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
     fn clear_children(parent: &Self::Element) {
         parent.set_text_content(Some(""));
     }
