@@ -28,6 +28,8 @@ pub struct HtmlElement<E, At, Ch, Rndr> {
     pub(crate) rndr: PhantomData<Rndr>,
     pub(crate) attributes: At,
     pub(crate) children: Ch,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 /*impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
@@ -80,12 +82,16 @@ where
             rndr,
             attributes,
             children,
+            #[cfg(debug_assertions)]
+            defined_at,
         } = self;
         HtmlElement {
             tag,
             rndr,
             attributes,
             children: children.next_tuple(child),
+            #[cfg(debug_assertions)]
+            defined_at,
         }
     }
 }
@@ -113,12 +119,16 @@ where
             attributes,
             children,
             rndr,
+            #[cfg(debug_assertions)]
+            defined_at,
         } = self;
         HtmlElement {
             tag,
             attributes: attributes.add_any_attr(attr),
             children,
             rndr,
+            #[cfg(debug_assertions)]
+            defined_at,
         }
     }
 }
@@ -179,6 +189,7 @@ where
 
     fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag);
+
         let attrs = self.attributes.build(&el);
         let mut children = self.children.build();
         children.mount(&el, None);
@@ -223,6 +234,8 @@ where
             rndr: PhantomData,
             attributes: self.attributes,
             children: self.children.resolve().await,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 
