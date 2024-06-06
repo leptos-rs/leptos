@@ -26,6 +26,8 @@ macro_rules! svg_elements {
                         attributes: (),
                         children: (),
                         rndr: PhantomData,
+                        #[cfg(debug_assertions)]
+                        defined_at: std::panic::Location::caller()
                     }
                 }
 
@@ -49,12 +51,17 @@ macro_rules! svg_elements {
                             At: NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
                             <At as NextTuple<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>>::Output: Attribute<Rndr>,
                         {
-                            let HtmlElement { tag, rndr, children, attributes } = self;
+                            let HtmlElement { tag, rndr, children, attributes,
+                                #[cfg(debug_assertions)]
+                                defined_at
+                            } = self;
                             HtmlElement {
                                 tag,
                                 rndr,
                                 children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value))
+                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                                #[cfg(debug_assertions)]
+                                defined_at
                             }
                         }
 					)*

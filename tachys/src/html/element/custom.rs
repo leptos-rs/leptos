@@ -6,6 +6,7 @@ use crate::{
 use std::{borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // FIXME custom element HTML rendering is broken because tag names aren't static
+#[track_caller]
 pub fn custom<E, Rndr>(tag: E) -> HtmlElement<Custom<E>, (), (), Rndr>
 where
     E: CustomElementKey,
@@ -16,6 +17,8 @@ where
         rndr: PhantomData,
         attributes: (),
         children: (),
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
     }
 }
 
