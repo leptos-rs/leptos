@@ -16,9 +16,7 @@ use actix_web::{
 };
 use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
-use hydration_context::SsrSharedContext;
 use leptos::{
-    config::LeptosOptions,
     context::{provide_context, use_context},
     reactive_graph::{computed::ScopedFuture, owner::Owner},
     IntoView, *,
@@ -26,28 +24,22 @@ use leptos::{
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
 };
-use leptos_meta::{ServerMetaContext, *};
+use leptos_meta::ServerMetaContext;
 use leptos_router::{
     location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
     StaticDataMap, StaticMode, *,
 };
 use parking_lot::RwLock;
-use reactive_graph::owner::Sandboxed;
-use regex::Regex;
 use send_wrapper::SendWrapper;
 use server_fn::{
     redirect::REDIRECT_HEADER, request::actix::ActixRequest, ServerFnError,
 };
 use std::{
     fmt::{Debug, Display},
-    future::Future,
-    io,
     ops::{Deref, DerefMut},
-    pin::Pin,
     sync::Arc,
 };
-#[cfg(debug_assertions)]
-use tracing::instrument;
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -163,7 +155,7 @@ impl ExtendResponse for ActixResponse {
     fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
         let mut res_options = res_options.0.write();
 
-        let mut headers = self.0.headers_mut();
+        let headers = self.0.headers_mut();
         for (key, value) in std::mem::take(&mut res_options.headers) {
             headers.append(key, value);
         }
@@ -175,7 +167,7 @@ impl ExtendResponse for ActixResponse {
     }
 
     fn set_default_content_type(&mut self, content_type: &str) {
-        let mut headers = self.0.headers_mut();
+        let headers = self.0.headers_mut();
         if !headers.contains_key(header::CONTENT_TYPE) {
             // Set the Content Type headers on all responses. This makes Firefox show the page source
             // without complaining
@@ -712,7 +704,7 @@ fn provide_contexts(
     meta_context: &ServerMetaContext,
     res_options: &ResponseOptions,
 ) {
-    let path = leptos_corrected_path(&*req);
+    let path = leptos_corrected_path(&req);
 
     provide_context(RequestUrl::new(&path));
     provide_context(meta_context.clone());
@@ -1248,6 +1240,7 @@ where
                     additional_context();
                 };
                 router = if let Some(static_mode) = listing.static_mode() {
+                    _ = static_mode;
                     todo!() /*
                             router.route(
                                 path,
