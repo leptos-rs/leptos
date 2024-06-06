@@ -40,20 +40,18 @@ use axum::{
         request::Parts,
         HeaderMap, Method, Request, Response, StatusCode,
     },
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::{delete, get, patch, post, put},
 };
 use futures::{stream::once, Future, Stream, StreamExt};
-use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
-    nonce::use_nonce,
     reactive_graph::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
 use leptos_integration_utils::{
-    build_response, BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+    BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
@@ -61,7 +59,6 @@ use leptos_router::{
     StaticDataMap, StaticMode,
 };
 use parking_lot::RwLock;
-use reactive_graph::owner::Sandboxed;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
@@ -156,7 +153,7 @@ impl ExtendResponse for AxumResponse {
     }
 
     fn set_default_content_type(&mut self, content_type: &str) {
-        let mut headers = self.0.headers_mut();
+        let headers = self.0.headers_mut();
         if !headers.contains_key(header::CONTENT_TYPE) {
             // Set the Content Type headers on all responses. This makes Firefox show the page source
             // without complaining
