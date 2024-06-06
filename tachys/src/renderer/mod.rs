@@ -41,6 +41,7 @@ pub trait Renderer: Send + Sized + Debug + 'static {
     fn intern(text: &str) -> &str;
 
     /// Creates a new element node.
+    #[track_caller]
     fn create_element<E: CreateElement<Self>>(tag: E) -> Self::Element {
         tag.create_element()
     }
