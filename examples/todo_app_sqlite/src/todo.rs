@@ -1,7 +1,7 @@
-use leptos::*;
-use leptos_meta::*;
-use leptos_router::*;
+use leptos::either::Either;
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use server_fn::ServerFnError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
@@ -13,27 +13,28 @@ pub struct Todo {
 
 #[cfg(feature = "ssr")]
 pub mod ssr {
-    pub use actix_web::HttpRequest;
-    pub use leptos::ServerFnError;
-    pub use sqlx::{Connection, SqliteConnection};
+    // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+    use leptos::server_fn::ServerFnError;
+    use sqlx::{Connection, SqliteConnection};
 
     pub async fn db() -> Result<SqliteConnection, ServerFnError> {
         Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
     }
 }
 
-/// This is an example of a server function using an alternative CBOR encoding. Both the function arguments being sent
-/// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
-#[server(encoding = "Cbor")]
+#[server]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     use self::ssr::*;
 
     // this is just an example of how to access server context injected in the handlers
-    let req = use_context::<HttpRequest>();
+    let req_parts = use_context::<leptos_actix::Request>();
 
-    if let Some(req) = req {
-        println!("req.path = {:#?}", req.path());
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    if let Some(req_parts) = req_parts {
+        println!("Path = {:?}", req_parts.path());
     }
+
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
@@ -45,13 +46,17 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
         todos.push(row);
     }
 
+    // Lines below show how to set status code and headers on the response
+    // let resp = expect_context::<ResponseOptions>();
+    // resp.set_status(StatusCode::IM_A_TEAPOT);
+    // resp.insert_header(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
+
     Ok(todos)
 }
 
 #[server]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     use self::ssr::*;
-
     let mut conn = db().await?;
 
     // fake API delay
@@ -67,11 +72,9 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
-// The struct name and path prefix arguments are optional.
 #[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     use self::ssr::*;
-
     let mut conn = db().await?;
 
     Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
@@ -83,116 +86,91 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp() -> impl IntoView {
-    provide_meta_context();
-
     view! {
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/todo_app_sqlite.css"/>
-        <Router>
-            <header>
-                <h1>"My Tasks"</h1>
-            </header>
-            <main>
-                <Routes>
-                    <Route path="" view=Todos/>
-                </Routes>
-            </main>
-        </Router>
+        <header>
+            <h1>"My Tasks"</h1>
+        </header>
+        <main>
+            <Todos/>
+        </main>
     }
 }
 
 #[component]
 pub fn Todos() -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>();
-    let delete_todo = create_server_action::<DeleteTodo>();
+    let add_todo = ServerMultiAction::<AddTodo>::new();
     let submissions = add_todo.submissions();
+    let delete_todo = ServerAction::<DeleteTodo>::new();
 
     // list of todos is loaded from the server in reaction to changes
-    let todos = create_resource(
-        move || (add_todo.version().get(), delete_todo.version().get()),
+    let todos = Resource::new_serde(
+        move || {
+            (
+                delete_todo.version().get(),
+                add_todo.version().get(),
+                delete_todo.version().get(),
+            )
+        },
         move |_| get_todos(),
     );
 
-    view! {
-        <div>
-            <MultiActionForm
-                // we can handle client-side validation in the on:submit event
-                // leptos_router implements a `FromFormData` trait that lets you
-                // parse deserializable types from form data and check them
-                on:submit=move |ev| {
-                    let data = AddTodo::from_event(&ev).expect("to parse form data");
-                    // silly example of validation: if the todo is "nope!", nope it
-                    if data.title == "nope!" {
-                        // ev.prevent_default() will prevent form submission
-                        ev.prevent_default();
-                    }
-                }
-                action=add_todo
-            >
-                <label>
-                    "Add a Todo"
-                    <input type="text" name="title"/>
-                </label>
-                <input type="submit" value="Add"/>
-            </MultiActionForm>
-            <Transition fallback=move || view! {<p>"Loading..."</p> }>
-                {move || {
-                    let existing_todos = {
-                        move || {
-                            todos.get()
-                                .map(move |todos| match todos {
-                                    Err(e) => {
-                                        view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()
-                                    }
-                                    Ok(todos) => {
-                                        if todos.is_empty() {
-                                            view! { <p>"No tasks were found."</p> }.into_view()
-                                        } else {
-                                            todos
-                                                .into_iter()
-                                                .map(move |todo| {
-                                                    view! {
-
-                                                        <li>
-                                                            {todo.title}
-                                                            <ActionForm action=delete_todo>
-                                                                <input type="hidden" name="id" value={todo.id}/>
-                                                                <input type="submit" value="X"/>
-                                                            </ActionForm>
-                                                        </li>
-                                                    }
-                                                })
-                                                .collect_view()
-                                        }
+    let existing_todos = move || {
+        Suspend(async move {
+            todos
+                .await
+                .map(|todos| {
+                    if todos.is_empty() {
+                        Either::Left(view! { <p>"No tasks were found."</p> })
+                    } else {
+                        Either::Right(
+                            todos
+                                .iter()
+                                .map(move |todo| {
+                                    let id = todo.id;
+                                    view! {
+                                        <li>
+                                            {todo.title.clone()} <ActionForm action=delete_todo>
+                                                <input type="hidden" name="id" value=id/>
+                                                <input type="submit" value="X"/>
+                                            </ActionForm>
+                                        </li>
                                     }
                                 })
-                                .unwrap_or_default()
-                        }
-                    };
-
-                    let pending_todos = move || {
-                        submissions
-                        .get()
-                        .into_iter()
-                        .filter(|submission| submission.pending().get())
-                        .map(|submission| {
-                            view! {
-
-                                <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
-                            }
-                        })
-                        .collect_view()
-                    };
-
-                    view! {
-
-                        <ul>
-                            {existing_todos}
-                            {pending_todos}
-                        </ul>
+                                .collect::<Vec<_>>(),
+                        )
                     }
-                }
-            }
+                })
+        })
+    };
+
+    view! {
+        <MultiActionForm action=add_todo>
+            <label>"Add a Todo" <input type="text" name="title"/></label>
+            <input type="submit" value="Add"/>
+        </MultiActionForm>
+        <div>
+            <Transition fallback=move || view! { <p>"Loading..."</p> }>
+                // TODO: ErrorBoundary here seems to break Suspense in Actix
+                // <ErrorBoundary fallback=|errors| view! { <p>"Error: " {move || format!("{:?}", errors.get())}</p> }>
+                <ul>
+                    {existing_todos}
+                    {move || {
+                        submissions
+                            .get()
+                            .into_iter()
+                            .filter(|submission| submission.pending().get())
+                            .map(|submission| {
+                                view! {
+                                    <li class="pending">
+                                        {move || submission.input().get().map(|data| data.title)}
+                                    </li>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }}
+
+                </ul>
+            // </ErrorBoundary>
             </Transition>
         </div>
     }
