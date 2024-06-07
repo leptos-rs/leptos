@@ -30,7 +30,7 @@ async fn main() {
                 use leptos::prelude::*;
 
                 view! {
-                    <!DOCTYPE html> 
+                    <!DOCTYPE html>
                     <html lang="en">
                         <head>
                             <meta charset="utf-8"/>

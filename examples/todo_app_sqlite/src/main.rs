@@ -7,7 +7,6 @@ mod ssr {
     pub use actix_web::*;
     pub use leptos::prelude::*;
     pub use leptos_actix::{generate_route_list, LeptosRoutes};
-    pub use leptos_meta::MetaTags;
 
     #[get("/style.css")]
     pub async fn css() -> impl Responder {
@@ -26,9 +25,9 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("could not run SQLx migrations");
 
-    // Generate the list of routes in your Leptos App
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
+    println!("listening on http://{}", &addr);
 
     HttpServer::new(move || {
         // Generate the list of routes in your Leptos App
@@ -43,7 +42,7 @@ async fn main() -> std::io::Result<()> {
                     use leptos::prelude::*;
 
                     view! {
-                        <!DOCTYPE html> 
+                        <!DOCTYPE html>
                         <html lang="en">
                             <head>
                                 <meta charset="utf-8"/>
@@ -53,7 +52,6 @@ async fn main() -> std::io::Result<()> {
                                 />
                                 <AutoReload options=leptos_options.clone()/>
                                 <HydrationScripts options=leptos_options.clone()/>
-                                <MetaTags/>
                             </head>
                             <body>
                                 <TodoApp/>
