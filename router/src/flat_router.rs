@@ -420,7 +420,7 @@ where
 {
     fn choose_ssr(
         self,
-    ) -> Either<Fal, <Defs::Match as MatchInterface<R>>::View> {
+    ) -> (Owner, Either<Fal, <Defs::Match as MatchInterface<R>>::View>) {
         let current_url = self.current_url.read_untracked();
         let new_match = self.routes.match_route(current_url.path());
         let owner = self.outer_owner.child();
@@ -432,7 +432,7 @@ where
                 .unwrap_or_default(),
         );
         match new_match {
-            None => Either::Left(self.fallback),
+            None => (owner, Either::Left(self.fallback)),
             Some(matched) => {
                 let (view, _) = matched.into_view_and_child();
                 let view = owner
@@ -445,7 +445,7 @@ where
                     })
                     .now_or_never()
                     .expect("async route used in SSR");
-                Either::Right(view)
+                (owner, Either::Right(view))
             }
         }
     }
@@ -518,7 +518,9 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-            self.choose_ssr().to_html_with_buf(buf, position);
+            let (owner, view) = self.choose_ssr();
+            view.to_html_with_buf(buf, position);
+            drop(owner);
         }
     }
 
@@ -529,8 +531,9 @@ where
     ) where
         Self: Sized,
     {
-        self.choose_ssr()
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        let (owner, view) = self.choose_ssr();
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        drop(owner);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
