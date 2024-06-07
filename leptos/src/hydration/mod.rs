@@ -3,7 +3,6 @@
 use crate::prelude::*;
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
-use tachys::view::RenderHtml;
 
 #[component]
 pub fn AutoReload(
