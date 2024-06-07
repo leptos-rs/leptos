@@ -27,11 +27,11 @@ use tachys::{
     },
 };
 
-pub(crate) struct FlatRoutesView<Loc, Defs, Fal, R> {
+pub(crate) struct FlatRoutesView<Loc, Defs, FalFn, R> {
     pub current_url: ArcRwSignal<Url>,
     pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
-    pub fallback: Fal,
+    pub fallback: FalFn,
     pub outer_owner: Owner,
     pub set_is_routing: Option<SignalSetter<bool>>,
 }
@@ -170,10 +170,11 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, R> Render<R> for FlatRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, FalFn, Fal, R> Render<R> for FlatRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider,
     Defs: MatchNestedRoutes<R> + 'static,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: Render<R> + 'static,
     R: Renderer + 'static,
 {
@@ -207,7 +208,7 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: EitherOf3::B(fallback).build(),
+                view: EitherOf3::B(fallback()).build(),
                 id,
                 owner,
                 params,
@@ -333,7 +334,8 @@ where
                 owner.with(|| {
                     provide_context(url);
                     provide_context(params);
-                    EitherOf3::B(fallback).rebuild(&mut state.borrow_mut().view)
+                    EitherOf3::B(fallback())
+                        .rebuild(&mut state.borrow_mut().view)
                 });
             }
             Some(matched) => {
@@ -390,15 +392,17 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, R> AddAnyAttr<R> for FlatRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, FalFn, Fal, R> AddAnyAttr<R>
+    for FlatRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
-        FlatRoutesView<Loc, Defs, Fal, R>;
+        FlatRoutesView<Loc, Defs, FalFn, R>;
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
         self,
@@ -411,10 +415,11 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, R> FlatRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, FalFn, Fal, R> FlatRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
@@ -432,7 +437,7 @@ where
                 .unwrap_or_default(),
         );
         match new_match {
-            None => (owner, Either::Left(self.fallback)),
+            None => (owner, Either::Left((self.fallback)())),
             Some(matched) => {
                 let (view, _) = matched.into_view_and_child();
                 let view = owner
@@ -451,10 +456,12 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, R> RenderHtml<R> for FlatRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, FalFn, Fal, R> RenderHtml<R>
+    for FlatRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send + 'static,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
@@ -574,7 +581,7 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: EitherOf3::B(fallback)
+                view: EitherOf3::B(fallback())
                     .hydrate::<FROM_SERVER>(cursor, position),
                 id,
                 owner,

@@ -241,7 +241,7 @@ pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
 ) -> impl IntoView
 where
     Defs: MatchNestedRoutes<Dom> + Clone + Send + 'static,
-    FallbackFn: Fn() -> Fallback + Send + 'static,
+    FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
     let location = use_context::<BrowserUrl>();
@@ -271,7 +271,7 @@ where
             current_url: current_url.clone(),
             location: location.clone(),
             routes: routes.clone(),
-            fallback: fallback(),
+            fallback: fallback.clone(),
             outer_owner: outer_owner.clone(),
             set_is_routing,
         }
