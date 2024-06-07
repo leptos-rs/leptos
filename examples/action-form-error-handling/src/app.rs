@@ -1,27 +1,18 @@
-use leptos::*;
-use leptos_meta::*;
-use leptos_router::*;
+use leptos::{logging, prelude::*};
+use leptos_router::{
+    components::{FlatRoutes, Route, Router},
+    StaticSegment,
+};
 
 #[component]
 pub fn App() -> impl IntoView {
-    // Provides context that manages stylesheets, titles, meta tags, etc.
-    provide_meta_context();
-
     view! {
-        // injects a stylesheet into the document <head>
-        // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/leptos_start.css"/>
-
-        // sets the document title
-        <Title text="Welcome to Leptos"/>
-
         // content for this welcome page
         <Router>
             <main id="app">
-                <Routes>
-                    <Route path="" view=HomePage/>
-                    <Route path="/*any" view=NotFound/>
-                </Routes>
+                <FlatRoutes fallback=NotFound>
+                    <Route path=StaticSegment("") view=HomePage/>
+                </FlatRoutes>
             </main>
         </Router>
     }
@@ -43,7 +34,7 @@ async fn do_something(
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    let do_something_action = Action::<DoSomething, _>::server();
+    let do_something_action = ServerAction::<DoSomething>::new();
     let value = Signal::derive(move || {
         do_something_action
             .value()
@@ -57,17 +48,12 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"Test the action form!"</h1>
-        <ErrorBoundary fallback=move |error| format!("{:#?}", error
-                                                     .get()
-                                                     .into_iter()
-                                                     .next()
-                                                     .unwrap()
-                                                     .1.into_inner()
-                                                     .to_string())
-            >
-            {value}
-            <ActionForm action=do_something_action class="form">
-                <label>Should error: <input type="checkbox" name="should_error"/></label>
+        <ErrorBoundary fallback=move |error| {
+            format!("{:#?}", error.get())
+        }>
+            <pre>{value}</pre>
+            <ActionForm action=do_something_action attr:class="form">
+                <label>"Should error: "<input type="checkbox" name="should_error"/></label>
                 <button type="submit">Submit</button>
             </ActionForm>
         </ErrorBoundary>
@@ -91,7 +77,5 @@ fn NotFound() -> impl IntoView {
         resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
     }
 
-    view! {
-        <h1>"Not Found"</h1>
-    }
+    view! { <h1>"Not Found"</h1> }
 }
