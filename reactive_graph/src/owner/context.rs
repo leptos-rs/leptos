@@ -179,6 +179,63 @@ pub fn use_context<T: Clone + 'static>() -> Option<T> {
 
 /// Extracts a context value of type `T` from the reactive system by traversing
 /// it upwards, beginning from the current reactive [`Owner`] and iterating
+/// through its parents, if any. When the value is found, it is cloned.
+///
+/// Panics if no value is found.
+///
+/// The context value should have been provided elsewhere using
+/// [`provide_context`](provide_context).
+///
+/// This is useful for passing values down to components or functions lower in a
+/// hierarchy without needs to “prop drill” by passing them through each layer as
+/// arguments to a function or properties of a component.
+///
+/// Context works similarly to variable scope: a context that is provided higher in
+/// the reactive graph can be used lower down, but a context that is provided lower
+/// in the tree cannot be used higher up.
+///
+/// While the term “consume” is sometimes used, note that [`use_context`] clones the value, rather
+/// than removing it; it is still accessible to other users.
+///
+/// ```rust
+/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::owner::*;
+/// # use reactive_graph::effect::Effect;
+/// # futures::executor::block_on(async move {
+/// # any_spawner::Executor::init_futures_executor();
+/// Effect::new(move |_| {
+///     provide_context(String::from("foo"));
+///
+///     Effect::new(move |_| {
+///         // each use_context clones the value
+///         let value =
+///             use_context::<String>().expect("could not find i32 in context");
+///         assert_eq!(value, "foo");
+///         let value2 =
+///             use_context::<String>().expect("could not find i32 in context");
+///         assert_eq!(value2, "foo");
+///     });
+/// });
+/// # });
+/// ```
+/// ## Panics
+/// Panics if a context of this type is not found in the current reactive
+/// owner or its ancestors.
+#[track_caller]
+pub fn expect_context<T: Clone + 'static>() -> T {
+    let location = std::panic::Location::caller();
+
+    use_context().unwrap_or_else(|| {
+        panic!(
+            "{:?} expected context of type {:?} to be present",
+            location,
+            std::any::type_name::<T>()
+        )
+    })
+}
+
+/// Extracts a context value of type `T` from the reactive system by traversing
+/// it upwards, beginning from the current reactive [`Owner`] and iterating
 /// through its parents, if any. When the value is found, it is removed from the context,
 /// and is not available to any other [`use_context`] or [`take_context`] calls.
 ///
