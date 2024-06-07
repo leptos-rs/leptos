@@ -2,7 +2,6 @@ use crate::error_template::ErrorTemplate;
 use leptos::either::Either;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
-use server_fn::codec::SerdeLite;
 use server_fn::ServerFnError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,7 +74,6 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
-#[server(output = SerdeLite)]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     use self::ssr::*;
     let mut conn = db().await?;
