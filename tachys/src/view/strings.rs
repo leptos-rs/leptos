@@ -58,7 +58,11 @@ where
         if matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        buf.push_str(self);
+        if self.is_empty() {
+            buf.push(' ');
+        } else {
+            buf.push_str(self);
+        }
         *position = Position::NextChildAfterText;
     }
 
