@@ -17,8 +17,6 @@ serde = { version = "1.0.152", features = ["derive"] }
 futures = "0.3.25"
 leptos = { path = "../../leptos"}
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_meta = { path = "../../meta" }
-leptos_router = { path = "../../router" }
 log = "0.4.17"
 simple_logger = "4.0.0"
 gloo = { git = "https://github.com/rustwasm/gloo" }
@@ -38,8 +36,6 @@ ssr = [
 	"dep:sqlx",
 	"leptos/ssr",
 	"leptos_actix",
-	"leptos_meta/ssr",
-	"leptos_router/ssr",
 	"dep:tokio",
 ]
 
