@@ -94,3 +94,21 @@ impl<T: IntoView> AddAnyAttr<Dom> for View<T> {
         self.0.add_any_attr(attr)
     }
 }
+
+pub trait CollectView {
+    type View: IntoView;
+
+    fn collect_view(self) -> Vec<Self::View>;
+}
+
+impl<It, V> CollectView for It
+where
+    It: IntoIterator<Item = V>,
+    V: IntoView,
+{
+    type View = V;
+
+    fn collect_view(self) -> Vec<Self::View> {
+        self.into_iter().collect()
+    }
+}
