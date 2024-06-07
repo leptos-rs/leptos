@@ -1,9 +1,33 @@
 use reactive_graph::{
     actions::{Action, ArcAction},
+    owner::use_context,
     traits::DefinedAt,
 };
-use server_fn::{ServerFn, ServerFnError};
-use std::{ops::Deref, panic::Location};
+use server_fn::{error::ServerFnErrorSerde, ServerFn, ServerFnError};
+use std::{ops::Deref, panic::Location, sync::Arc};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerActionError {
+    path: Arc<str>,
+    err: Arc<str>,
+}
+
+impl ServerActionError {
+    pub fn new(path: &str, err: &str) -> Self {
+        Self {
+            path: path.into(),
+            err: err.into(),
+        }
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn err(&self) -> &str {
+        &self.err
+    }
+}
 
 pub struct ArcServerAction<S>
 where
@@ -23,8 +47,15 @@ where
 {
     #[track_caller]
     pub fn new() -> Self {
+        let err = use_context::<ServerActionError>().and_then(|error| {
+            (error.path() == S::PATH)
+                .then(|| ServerFnError::<S::Error>::de(error.err()))
+                .map(Err)
+        });
         Self {
-            inner: ArcAction::new(|input: &S| S::run_on_client(input.clone())),
+            inner: ArcAction::new_with_value(err, |input: &S| {
+                S::run_on_client(input.clone())
+            }),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
@@ -102,8 +133,15 @@ where
     S::Error: Send + Sync + 'static,
 {
     pub fn new() -> Self {
+        let err = use_context::<ServerActionError>().and_then(|error| {
+            (error.path() == S::PATH)
+                .then(|| ServerFnError::<S::Error>::de(error.err()))
+                .map(Err)
+        });
         Self {
-            inner: Action::new(|input: &S| S::run_on_client(input.clone())),
+            inner: Action::new_with_value(err, |input: &S| {
+                S::run_on_client(input.clone())
+            }),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
