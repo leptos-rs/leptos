@@ -2,11 +2,11 @@
 #[tokio::main]
 async fn main() {
     use axum::Router;
-    use leptos::prelude::*;
     use leptos::logging;
+    use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
     use leptos_meta::MetaTags;
+    use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
@@ -27,7 +27,7 @@ async fn main() {
                 use leptos::prelude::*;
 
                 view! {
-                    <!DOCTYPE html> 
+                    <!DOCTYPE html>
                     <html lang="en">
                         <head>
                             <meta charset="utf-8"/>
