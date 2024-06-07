@@ -479,9 +479,16 @@ pub(crate) fn attribute_absolute(
                             None
                         } else if id == "attr" {
                             let key = &parts[1];
-                            Some(
-                                quote! { ::leptos::tachys::html::attribute::#key(#value) },
-                            )
+                            let key_name = key.to_string();
+                            if key_name == "class" || key_name == "style" {
+                                Some(
+                                    quote! { ::leptos::tachys::html::#key::#key(#value) },
+                                )
+                            } else {
+                                Some(
+                                    quote! { ::leptos::tachys::html::attribute::#key(#value) },
+                                )
+                            }
                         } else if id == "style" || id == "class" {
                             let key = &node.key.to_string();
                             let key = key
