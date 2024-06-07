@@ -173,10 +173,30 @@ where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
         Fu: Future<Output = O> + Send + 'static,
     {
+        Self::new_with_value(None, action_fn)
+    }
+
+    /// Creates a new action, initializing it with the given value.
+    ///
+    /// This is lazy: it does not run the action function until some value is dispatched.
+    ///
+    /// The constructor takes a function which will create a new `Future` from some input data.
+    /// When the action is dispatched, this `action_fn` will run, and the `Future` it returns will
+    /// be spawned.
+    ///
+    /// The `action_fn` must be `Send + Sync` so that the `ArcAction` is `Send + Sync`. The
+    /// `Future` must be `Send` so that it can be moved across threads by the async executor as
+    /// needed.
+    #[track_caller]
+    pub fn new_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + Send + Sync + 'static,
+        Fu: Future<Output = O> + Send + 'static,
+    {
         ArcAction {
             in_flight: ArcRwSignal::new(0),
             input: Default::default(),
-            value: Default::default(),
+            value: ArcRwSignal::new(value),
             version: Default::default(),
             action_fn: Arc::new(move |input| Box::pin(action_fn(input))),
             #[cfg(debug_assertions)]
@@ -519,6 +539,33 @@ where
     {
         Self {
             inner: StoredValue::new(ArcAction::new(action_fn)),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+
+    /// Creates a new action, initializing it with the given value.
+    ///
+    /// This is lazy: it does not run the action function until some value is dispatched.
+    ///
+    /// The constructor takes a function which will create a new `Future` from some input data.
+    /// When the action is dispatched, this `action_fn` will run, and the `Future` it returns will
+    /// be spawned.
+    ///
+    /// The `action_fn` must be `Send + Sync` so that the `ArcAction` is `Send + Sync`. The
+    /// `Future` must be `Send` so that it can be moved across threads by the async executor as
+    /// needed. In order to be stored in the `Copy` arena, the input and output types should also
+    /// be `Send + Sync`.
+    #[track_caller]
+    pub fn new_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + Send + Sync + 'static,
+        Fu: Future<Output = O> + Send + 'static,
+    {
+        Self {
+            inner: StoredValue::new(ArcAction::new_with_value(
+                value, action_fn,
+            )),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
