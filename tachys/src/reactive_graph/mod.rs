@@ -18,7 +18,9 @@ pub mod node_ref;
 mod owned;
 mod property;
 mod style;
+mod suspense;
 pub use owned::*;
+pub use suspense::*;
 
 impl<F, V> ToTemplate for F
 where
