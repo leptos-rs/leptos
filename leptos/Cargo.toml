@@ -18,7 +18,7 @@ hydration_context = { workspace = true }
 either_of = { workspace = true }
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
-leptos_server = { workspace = true }
+leptos_server = { workspace = true, features = ["tachys"] }
 leptos_config = { workspace = true }
 leptos-spin-macro = { version = "0.1", optional = true }
 oco_ref = { workspace = true }

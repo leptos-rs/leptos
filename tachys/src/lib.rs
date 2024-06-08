@@ -2,8 +2,9 @@
 #![cfg_attr(feature = "nightly", feature(adt_const_params))]
 
 pub mod prelude {
+    #[cfg(feature = "reactive_graph")]
+    pub use crate::reactive_graph::FutureViewExt;
     pub use crate::{
-        async_views::FutureViewExt,
         html::{
             attribute::{
                 aria::AriaAttributes,
@@ -27,7 +28,6 @@ pub mod prelude {
 use wasm_bindgen::JsValue;
 use web_sys::Node;
 
-pub mod async_views;
 pub mod dom;
 pub mod html;
 pub mod hydration;

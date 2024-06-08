@@ -150,7 +150,6 @@ extern crate self as leptos;
 pub mod prelude {
     // Traits
     // These should always be exported from the prelude
-    pub use crate::suspense_component::FutureViewExt;
     pub use reactive_graph::prelude::*;
     pub use tachys::prelude::*;
 
