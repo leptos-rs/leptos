@@ -42,7 +42,7 @@ fn SlotIf(
 
 #[component]
 pub fn App() -> impl IntoView {
-    let (count, set_count) = create_signal(0);
+    let (count, set_count) = signal(0);
     let is_even = MaybeSignal::derive(move || count.get() % 2 == 0);
     let is_div5 = MaybeSignal::derive(move || count.get() % 5 == 0);
     let is_div7 = MaybeSignal::derive(move || count.get() % 7 == 0);
