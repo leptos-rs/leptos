@@ -20,6 +20,8 @@ tracing = { version = "0.1", optional = true }
 #inventory = "0.3"
 futures = "0.3"
 
+tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
+
 # serialization formats
 serde = { version = "1"}
 serde-wasm-bindgen = { version = "0.6", optional = true }
@@ -45,6 +47,7 @@ default-tls = ["server_fn/default-tls"]
 rustls = ["server_fn/rustls"]
 rkyv = ["dep:rkyv", "dep:base64"]
 serde-wasm-bindgen = ["dep:serde-wasm-bindgen", "dep:js-sys", "dep:wasm-bindgen"]
+tachys = ["dep:tachys"]
 tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
