@@ -1,4 +1,0 @@
-extend = [
-    { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/trunk_server.toml" },
-]
