@@ -92,7 +92,9 @@ impl SharedContext for SsrSharedContext {
             _ = write!(
                 initial_chunk,
                 "[{}, {}, {:?}],",
-                error.0 .0, error.1, error.2
+                error.0 .0,
+                error.1,
+                error.2.to_string()
             );
         }
         initial_chunk.push_str("];");
