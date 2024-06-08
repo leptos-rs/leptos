@@ -1,7 +1,5 @@
 use super::{Url, BASE};
 use crate::params::ParamsMap;
-use leptos::server::ServerActionError;
-use reactive_graph::owner::provide_context;
 use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,13 +37,6 @@ impl RequestUrl {
             .query_pairs()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect::<ParamsMap>();
-
-        if let (Some(err), Some(path)) = (
-            search_params.get_str("__err"),
-            search_params.get_str("__path"),
-        ) {
-            provide_context(ServerActionError::new(path, err))
-        }
 
         Ok(Url {
             origin: url.origin().unicode_serialization(),
