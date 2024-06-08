@@ -221,6 +221,9 @@ where
         Owner::current().expect("creating Routes, but no Owner was found");
     move || {
         current_url.track();
+        outer_owner.with(|| {
+            current_url.read_untracked().provide_server_action_error()
+        });
         NestedRoutesView {
             location: location.clone(),
             routes: routes.clone(),
@@ -267,6 +270,9 @@ where
 
     move || {
         current_url.track();
+        outer_owner.with(|| {
+            current_url.read_untracked().provide_server_action_error()
+        });
         FlatRoutesView {
             current_url: current_url.clone(),
             location: location.clone(),
