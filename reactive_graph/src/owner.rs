@@ -201,7 +201,7 @@ impl Owner {
         self.inner.cleanup();
     }
 
-    /// Registers a function to be run the next time this owner is cleaned up.
+    /// Registers a function to be run the next time the current owner is cleaned up.
     ///
     /// Because the ownership model is associated with reactive nodes, each "decision point" in an
     /// application tends to have a separate `Owner`: as a result, these cleanup functions often
@@ -261,6 +261,17 @@ impl Owner {
 
         inner(Box::new(fun))
     }
+}
+
+/// Registers a function to be run the next time the current owner is cleaned up.
+///
+/// Because the ownership model is associated with reactive nodes, each "decision point" in an
+/// application tends to have a separate `Owner`: as a result, these cleanup functions often
+/// fill the same need as an "on unmount" function in other UI approaches, etc.
+///
+/// This is an alias for [`Owner::on_cleanup`].
+pub fn on_cleanup(fun: impl FnOnce() + Send + Sync + 'static) {
+    Owner::on_cleanup(fun)
 }
 
 #[derive(Default)]
