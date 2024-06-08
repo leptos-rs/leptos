@@ -49,7 +49,7 @@ fn HomePage() -> impl IntoView {
     view! {
         <h1>"Test the action form!"</h1>
         <ErrorBoundary fallback=move |error| {
-            format!("{:#?}", error.get())
+            move || format!("{:#?}", error.get())
         }>
             <pre>{value}</pre>
             <ActionForm action=do_something_action attr:class="form">

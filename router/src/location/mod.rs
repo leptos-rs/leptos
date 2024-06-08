@@ -1,8 +1,10 @@
 use any_spawner::Executor;
 use core::fmt::Debug;
 use js_sys::Reflect;
+use leptos::server::ServerActionError;
 use reactive_graph::{
     computed::Memo,
+    owner::provide_context,
     signal::{ArcRwSignal, ReadSignal},
     traits::With,
 };
@@ -48,6 +50,16 @@ impl Url {
 
     pub fn hash(&self) -> &str {
         &self.hash
+    }
+
+    pub fn provide_server_action_error(&self) {
+        let search_params = self.search_params();
+        if let (Some(err), Some(path)) = (
+            search_params.get_str("__err"),
+            search_params.get_str("__path"),
+        ) {
+            provide_context(ServerActionError::new(path, err))
+        }
     }
 }
 
