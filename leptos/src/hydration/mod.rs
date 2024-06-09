@@ -47,7 +47,7 @@ pub fn HydrationScripts(
     #[cfg(feature = "nonce")]
     let nonce = crate::nonce::use_nonce();
     #[cfg(not(feature = "nonce"))]
-    let nonce = None::<()>;
+    let nonce = None::<String>;
     let script = if islands {
         include_str!("./island_script.js")
     } else {
