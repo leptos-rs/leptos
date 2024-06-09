@@ -72,7 +72,7 @@ where
 
                         let old_value =
                             mem::take(&mut *value.write().or_poisoned());
-                        let new_value = owner.with(|| {
+                        let new_value = owner.with_cleanup(|| {
                             subscriber.with_observer(|| fun(old_value))
                         });
                         *value.write().or_poisoned() = Some(new_value);
@@ -130,7 +130,7 @@ where
 
                         let old_value =
                             mem::take(&mut *value.write().or_poisoned());
-                        let new_value = owner.with(|| {
+                        let new_value = owner.with_cleanup(|| {
                             subscriber.with_observer(|| fun(old_value))
                         });
                         *value.write().or_poisoned() = Some(new_value);
