@@ -20,7 +20,6 @@ futures = "0.3"
 lazy_static = "1"
 leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
 log = "0.4"
 once_cell = "1.18"
@@ -29,16 +28,16 @@ wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 simple_logger = "4.3"
 tracing = { version = "0.1", optional = true }
+send_wrapper = "0.6.0"
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+hydrate = ["leptos/hydrate"]
 ssr = [
 	"dep:actix-files",
 	"dep:actix-web",
 	"dep:tracing",
 	"leptos/ssr",
 	"leptos_actix",
-	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
 
