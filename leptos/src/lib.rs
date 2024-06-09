@@ -262,6 +262,25 @@ pub mod logging {
     pub use leptos_dom::{debug_warn, error, log, warn};
 }
 
+pub mod spawn {
+    pub use any_spawner::Executor;
+    use std::future::Future;
+
+    /// Spawns a thread-safe [`Future`].
+    #[track_caller]
+    #[inline(always)]
+    pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
+        Executor::spawn(fut)
+    }
+
+    /// Spawns a [`Future`] that cannot be sent across threads.
+    #[track_caller]
+    #[inline(always)]
+    pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
+        Executor::spawn_local(fut)
+    }
+}
+
 #[doc(hidden)]
 pub use wasm_bindgen; // used in islands
 #[doc(hidden)]
