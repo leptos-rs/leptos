@@ -172,7 +172,10 @@ pub mod prelude {
             computed::*, effect::*, owner::*, signal::*, wrappers::read::*, *,
         };
         pub use server_fn::{self, ServerFnError};
-        pub use tachys::{self, reactive_graph::node_ref::*};
+        pub use tachys::{
+            self,
+            reactive_graph::{node_ref::*, Suspend},
+        };
     }
     pub use export_types::*;
 }
