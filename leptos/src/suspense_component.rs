@@ -2,7 +2,6 @@ use crate::{
     children::{TypedChildren, ViewFnOnce},
     IntoView,
 };
-use any_spawner::Executor;
 use futures::FutureExt;
 use leptos_macro::component;
 use reactive_graph::{
@@ -12,7 +11,6 @@ use reactive_graph::{
     traits::{Get, Read, Track, With},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
 use tachys::{
     either::Either,
     html::attribute::Attribute,
@@ -23,8 +21,7 @@ use tachys::{
     view::{
         add_attr::AddAnyAttr,
         either::{EitherKeepAlive, EitherKeepAliveState},
-        iterators::OptionState,
-        Mountable, Position, PositionState, Render, RenderHtml,
+        Position, PositionState, Render, RenderHtml,
     },
 };
 use throw_error::ErrorHookFuture;
