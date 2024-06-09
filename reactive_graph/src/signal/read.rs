@@ -1,4 +1,5 @@
 use super::{
+    arc_signal,
     guards::{Plain, ReadGuard},
     subscriber_traits::AsSubscriberSet,
     ArcReadSignal,
@@ -6,10 +7,12 @@ use super::{
 use crate::{
     graph::SubscriberSet,
     owner::StoredValue,
-    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
+    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked, Set},
     unwrap_signal,
 };
+use any_spawner::Executor;
 use core::fmt::Debug;
+use futures::{Stream, StreamExt};
 use std::{
     hash::Hash,
     panic::Location,
@@ -113,5 +116,65 @@ impl<T: Send + Sync + 'static> From<ReadSignal<T>> for ArcReadSignal<T> {
     #[track_caller]
     fn from(value: ReadSignal<T>) -> Self {
         value.inner.get().unwrap_or_else(unwrap_signal!(value))
+    }
+}
+
+impl<T: Send + Sync + 'static> ArcReadSignal<T> {
+    pub fn from_stream(
+        stream: impl Stream<Item = T> + Send + 'static,
+    ) -> ArcReadSignal<Option<T>> {
+        let (read, write) = arc_signal(None);
+        let mut stream = Box::pin(stream);
+        Executor::spawn(async move {
+            while let Some(value) = stream.next().await {
+                write.set(value);
+            }
+        });
+        read
+    }
+}
+
+impl<T: 'static> ArcReadSignal<T> {
+    pub fn from_stream_unsync(
+        stream: impl Stream<Item = T> + 'static,
+    ) -> ArcReadSignal<Option<T>> {
+        let (read, write) = arc_signal(None);
+        let mut stream = Box::pin(stream);
+        Executor::spawn_local(async move {
+            while let Some(value) = stream.next().await {
+                write.set(value);
+            }
+        });
+        read
+    }
+}
+
+impl<T: Send + Sync + 'static> ReadSignal<T> {
+    pub fn from_stream(
+        stream: impl Stream<Item = T> + Send + 'static,
+    ) -> ArcReadSignal<Option<T>> {
+        let (read, write) = arc_signal(None);
+        let mut stream = Box::pin(stream);
+        Executor::spawn(async move {
+            while let Some(value) = stream.next().await {
+                write.set(value);
+            }
+        });
+        read
+    }
+}
+
+impl<T: 'static> ReadSignal<T> {
+    pub fn from_stream_unsync(
+        stream: impl Stream<Item = T> + 'static,
+    ) -> ArcReadSignal<Option<T>> {
+        let (read, write) = arc_signal(None);
+        let mut stream = Box::pin(stream);
+        Executor::spawn_local(async move {
+            while let Some(value) = stream.next().await {
+                write.set(value);
+            }
+        });
+        read
     }
 }
