@@ -798,9 +798,11 @@ where
     fn try_with<O>(&self, f: impl FnOnce(&Option<T>) -> O) -> Option<O> {
         let location = std::panic::Location::caller();
         with_runtime(|runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with_maybe(f, location, self.id)
-            })
+            runtime
+                .try_resource(self.id, |resource: &ResourceState<S, T>| {
+                    resource.with_maybe(f, location, self.id)
+                })
+                .flatten()
         })
         .ok()
         .flatten()
