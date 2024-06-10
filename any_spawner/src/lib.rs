@@ -107,6 +107,15 @@ impl Executor {
             );
         }
     }
+
+    /// Waits until the next "tick" of the current async executor.
+    pub async fn tick() {
+        let (tx, rx) = futures::channel::oneshot::channel();
+        Executor::spawn(async move {
+            _ = tx.send(());
+        });
+        _ = rx.await;
+    }
 }
 
 impl Executor {
