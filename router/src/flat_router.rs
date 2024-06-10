@@ -526,7 +526,7 @@ where
             RouteList::register(RouteList::from(routes));
         } else {
             let (owner, view) = self.choose_ssr();
-            view.to_html_with_buf(buf, position);
+            owner.with(|| view.to_html_with_buf(buf, position));
             drop(owner);
         }
     }
@@ -539,7 +539,9 @@ where
         Self: Sized,
     {
         let (owner, view) = self.choose_ssr();
-        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        owner.with(|| {
+            view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+        });
         drop(owner);
     }
 
