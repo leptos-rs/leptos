@@ -178,7 +178,7 @@ where
     ///
     /// // when submissions resolve, they are not removed from the set
     /// // however, their `pending` signal is now `false`, and this can be used to filter them
-    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    /// # any_spawner::Executor::tick().await;
     /// assert_eq!(submissions.with(Vec::len), 3);
     /// assert_eq!(pending_submissions(), 0);
     /// # });
@@ -288,7 +288,7 @@ where
     /// add_todo.dispatch("Profit!!!".to_string());
     ///
     /// assert_eq!(version.get(), 0);
-    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    /// # any_spawner::Executor::tick().await;
     ///
     /// // when they've all resolved
     /// assert_eq!(version.get(), 3);
@@ -469,7 +469,7 @@ where
     ///
     /// // when submissions resolve, they are not removed from the set
     /// // however, their `pending` signal is now `false`, and this can be used to filter them
-    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    /// # any_spawner::Executor::tick().await;
     /// assert_eq!(submissions.with(Vec::len), 3);
     /// assert_eq!(pending_submissions(), 0);
     /// # });
@@ -611,7 +611,7 @@ where
     /// add_todo.dispatch("Profit!!!".to_string());
     ///
     /// assert_eq!(version.get(), 0);
-    /// # tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    /// # any_spawner::Executor::tick().await;
     ///
     /// // when they've all resolved
     /// assert_eq!(version.get(), 3);

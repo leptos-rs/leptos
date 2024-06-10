@@ -11,10 +11,6 @@ use std::{
 };
 use tokio::task;
 
-pub async fn tick() {
-    tokio::time::sleep(std::time::Duration::from_micros(1)).await;
-}
-
 #[test]
 fn memo_calculates_value() {
     let a = RwSignal::new(1);
@@ -201,14 +197,14 @@ async fn dynamic_dependencies() {
             *combined_count.write().unwrap() += 1;
         }
     }));
-    tick().await;
+    Executor::tick().await;
     println!("[After 1 tick]");
 
     assert_eq!(*combined_count.read().unwrap(), 1);
 
     println!("[Set 'Bob']");
     first.set("Bob");
-    tick().await;
+    Executor::tick().await;
 
     assert_eq!(name.get_untracked(), "Bob Johnston");
 
@@ -216,32 +212,32 @@ async fn dynamic_dependencies() {
 
     println!("[Set 'Thompson']");
     last.set("Thompson");
-    tick().await;
+    Executor::tick().await;
 
     assert_eq!(*combined_count.read().unwrap(), 3);
 
     use_last.set(false);
-    tick().await;
+    Executor::tick().await;
 
     assert_eq!(name.get_untracked(), "Bob");
     assert_eq!(*combined_count.read().unwrap(), 4);
 
     assert_eq!(*combined_count.read().unwrap(), 4);
     last.set("Jones");
-    tick().await;
+    Executor::tick().await;
 
     assert_eq!(*combined_count.read().unwrap(), 4);
     last.set("Smith");
-    tick().await;
+    Executor::tick().await;
 
     assert_eq!(*combined_count.read().unwrap(), 4);
     last.set("Stevens");
-    tick().await;
+    Executor::tick().await;
 
     assert_eq!(*combined_count.read().unwrap(), 4);
 
     use_last.set(true);
-    tick().await;
+    Executor::tick().await;
     assert_eq!(name.get_untracked(), "Bob Stevens");
 
     assert_eq!(*combined_count.read().unwrap(), 5);
@@ -269,19 +265,19 @@ async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
                 }
             }));
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 1);
             println!("[done]\n");
 
             println!("\n[Set Signal to 2]");
             count.set(2);
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
             println!("[done]\n");
 
             println!("\n[Set Signal to 4]");
             count.set(4);
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
             println!("[done]\n");
         })
@@ -308,15 +304,15 @@ async fn effect_doesnt_rerun_if_memo_didnt_change() {
                 }
             });
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 1);
 
             count.set(2);
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
 
             count.set(4);
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
         })
         .await

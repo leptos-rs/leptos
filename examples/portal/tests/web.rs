@@ -3,12 +3,9 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
+use leptos::spawn::tick;
 use leptos::{leptos_dom::helpers::document, mount::mount_to};
 use web_sys::HtmlButtonElement;
-
-async fn next_tick() {
-    gloo_timers::future::TimeoutFuture::new(25).await;
-}
 
 #[wasm_bindgen_test]
 async fn portal() {
@@ -28,7 +25,7 @@ async fn portal() {
 
     show_button.click();
 
-    next_tick().await;
+    tick().await;
 
     // check HTML
     assert_eq!(div.inner_html(), "<div><button id=\"btn-show\">Show Overlay</button><div>Show</div><!----></div><div><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">Close Overlay</button><button id=\"btn-toggle\">Toggle inner</button>Hidden<!----></div></div>");
