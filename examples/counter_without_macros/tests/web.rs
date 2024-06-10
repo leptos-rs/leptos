@@ -1,6 +1,5 @@
 use counter_without_macros::counter;
-use gloo_timers::future::TimeoutFuture;
-use leptos::prelude::*;
+use leptos::{prelude::*, spawn::tick};
 use pretty_assertions::assert_eq;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
@@ -16,7 +15,7 @@ async fn should_increment_counter() {
     click_increment();
 
     // reactive changes run asynchronously, so yield briefly before observing the DOM
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(see_text(), Some("Value: 2!".to_string()));
 }
@@ -28,7 +27,7 @@ async fn should_decrement_counter() {
     click_decrement();
     click_decrement();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(see_text(), Some("Value: -2!".to_string()));
 }
@@ -42,7 +41,7 @@ async fn should_clear_counter() {
 
     click_clear();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(see_text(), Some("Value: 0!".to_string()));
 }
