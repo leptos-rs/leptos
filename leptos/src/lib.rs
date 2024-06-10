@@ -282,6 +282,14 @@ pub mod spawn {
     pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
         Executor::spawn_local(fut)
     }
+
+    pub async fn tick() {
+        let (tx, rx) = futures::channel::oneshot::channel();
+        any_spawner::Executor::spawn_local(async move {
+            _ = tx.send(());
+        });
+        _ = rx.await;
+    }
 }
 
 #[doc(hidden)]
