@@ -3,8 +3,8 @@ use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 use counters::Counters;
-use gloo_timers::future::TimeoutFuture;
 use leptos::prelude::*;
+use leptos::spawn::tick;
 use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]
@@ -31,7 +31,7 @@ async fn inc() {
     add_counter.click();
     add_counter.click();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     // check HTML
     assert_eq!(
@@ -74,7 +74,7 @@ async fn inc() {
         }
     }
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(
         div.inner_html(),
@@ -99,7 +99,7 @@ async fn inc() {
         .unchecked_into::<HtmlElement>()
         .click();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(
         div.inner_html(),

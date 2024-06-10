@@ -59,7 +59,7 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// assert_eq!(pending.get(), true); // is pending
 /// assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
-/// # tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+/// # any_spawner::Executor::tick().await;
 ///
 /// // after call has resolved
 /// assert_eq!(input.get(), None); // input clears out after resolved
@@ -441,7 +441,7 @@ where
 /// assert_eq!(pending.get(), true); // is pending
 /// assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
-/// # tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+/// # any_spawner::Executor::tick().await;
 ///
 /// // after call has resolved
 /// assert_eq!(input.get(), None); // input clears out after resolved

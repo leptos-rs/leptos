@@ -10,10 +10,6 @@ use std::{
 };
 use tokio::task;
 
-pub async fn tick() {
-    tokio::time::sleep(std::time::Duration::from_micros(1)).await;
-}
-
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn render_effect_runs() {
@@ -35,13 +31,13 @@ async fn render_effect_runs() {
                 }
             }));
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(b.read().unwrap().as_str(), "Value is -1");
 
             println!("setting to 1");
             a.set(1);
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(b.read().unwrap().as_str(), "Value is 1");
         })
         .await;
@@ -67,13 +63,13 @@ async fn effect_runs() {
                 }
             });
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(b.read().unwrap().as_str(), "Value is -1");
 
             println!("setting to 1");
             a.set(1);
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(b.read().unwrap().as_str(), "Value is 1");
         })
         .await
@@ -104,42 +100,42 @@ async fn dynamic_dependencies() {
                 }
             }));
 
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 1);
 
             println!("\nsetting `first` to Bob");
             first.set("Bob");
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 2);
 
             println!("\nsetting `last` to Bob");
             last.set("Thompson");
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 3);
 
             println!("\nsetting `use_last` to false");
             use_last.set(false);
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 4);
 
             println!("\nsetting `last` to Jones");
             last.set("Jones");
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 4);
 
             println!("\nsetting `last` to Jones");
             last.set("Smith");
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 4);
 
             println!("\nsetting `last` to Stevens");
             last.set("Stevens");
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 4);
 
             println!("\nsetting `use_last` to true");
             use_last.set(true);
-            tick().await;
+            Executor::tick().await;
             assert_eq!(*combined_count.read().unwrap(), 5);
         })
         .await

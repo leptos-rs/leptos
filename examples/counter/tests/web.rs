@@ -1,7 +1,7 @@
 use counter::*;
-use gloo_timers::future::TimeoutFuture;
 use leptos::mount::mount_to;
 use leptos::prelude::*;
+use leptos::spawn::tick;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 
@@ -36,7 +36,7 @@ async fn clear() {
     // synchronously in the DOM
     // in order to detect the changes here, we'll just yield for a brief time after each change,
     // allowing the effects that update the view to run
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     // now let's test the <div> against the expected value
     // we can do this by testing its `outerHTML`
@@ -114,7 +114,7 @@ async fn inc() {
     inc.click();
     inc.click();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(text.text_content(), Some("Value: 2!".to_string()));
 
@@ -123,13 +123,13 @@ async fn inc() {
     dec.click();
     dec.click();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(text.text_content(), Some("Value: -2!".to_string()));
 
     clear.click();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(text.text_content(), Some("Value: 0!".to_string()));
 
@@ -154,7 +154,7 @@ async fn inc() {
 
     inc.click();
 
-    TimeoutFuture::new(10).await;
+    tick().await;
 
     assert_eq!(
         div.outer_html(),
