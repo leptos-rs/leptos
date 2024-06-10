@@ -41,17 +41,26 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
 
     fn update_if_necessary(&self) -> bool {
         let mut guard = self.write().or_poisoned();
-        let (is_dirty, sources) =
-            (guard.dirty, (!guard.dirty).then(|| guard.sources.clone()));
+        let (is_dirty, sources, subscribers) = (
+            guard.dirty,
+            (!guard.dirty).then(|| guard.sources.clone()),
+            (!guard.dirty).then(|| guard.subscribers.clone()),
+        );
 
         if is_dirty {
             guard.dirty = false;
+            for subscriber in &guard.subscribers {
+                subscriber.mark_dirty();
+            }
             return true;
         }
         drop(guard);
 
         for source in sources.into_iter().flatten() {
             if source.update_if_necessary() {
+                for subscriber in subscribers.into_iter().flatten() {
+                    subscriber.mark_dirty();
+                }
                 return true;
             }
         }
