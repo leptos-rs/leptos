@@ -7,7 +7,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
-use futures::future::join_all;
+use futures::{future::join_all, FutureExt};
 use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -301,13 +301,22 @@ where
             let view = match new_match {
                 None => Either::Left(fallback),
                 Some(route) => {
+                    let mut loaders = Vec::new();
                     route.build_nested_route(
                         &current_url,
                         base,
-                        &mut Vec::new(),
+                        &mut loaders,
                         &mut outlets,
                         &outer_owner,
                     );
+
+                    // outlets will not send their views if the loaders are never polled
+                    // the loaders are async so that they can lazy-load routes in the browser,
+                    // but they should always be synchronously available on the server
+                    join_all(mem::take(&mut loaders))
+                        .now_or_never()
+                        .expect("async routes not supported in SSR");
+
                     outer_owner.with(|| {
                         Either::Right(
                             Outlet(OutletProps::builder().build()).into_any(),
@@ -341,13 +350,22 @@ where
         let view = match new_match {
             None => Either::Left(fallback),
             Some(route) => {
+                let mut loaders = Vec::new();
                 route.build_nested_route(
                     &current_url,
                     base,
-                    &mut Vec::new(),
+                    &mut loaders,
                     &mut outlets,
                     &outer_owner,
                 );
+
+                // outlets will not send their views if the loaders are never polled
+                // the loaders are async so that they can lazy-load routes in the browser,
+                // but they should always be synchronously available on the server
+                join_all(mem::take(&mut loaders))
+                    .now_or_never()
+                    .expect("async routes not supported in SSR");
+
                 outer_owner.with(|| {
                     Either::Right(
                         Outlet(OutletProps::builder().build()).into_any(),
@@ -391,6 +409,10 @@ where
                         &mut outlets,
                         &outer_owner,
                     );
+                    // TODO support for lazy hydration
+                    join_all(mem::take(&mut loaders))
+                        .now_or_never()
+                        .expect("async routes not supported in SSR");
                     outer_owner.with(|| {
                         EitherOf3::C(
                             Outlet(OutletProps::builder().build()).into_any(),
