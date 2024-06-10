@@ -27,7 +27,7 @@ async-lock = "3.3.0"
 web-sys = "0.3"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "time", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tokio-test = { version = "0.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 
