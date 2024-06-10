@@ -287,7 +287,10 @@ impl DynAttrs for () {}
 
 #[doc(hidden)]
 pub trait DynBindings {
-    fn dyn_bindings<B: Into<Binding>>(self, _args: impl IntoIterator<Item = B>) -> Self
+    fn dyn_bindings<B: Into<Binding>>(
+        self,
+        _args: impl IntoIterator<Item = B>,
+    ) -> Self
     where
         Self: Sized,
     {
