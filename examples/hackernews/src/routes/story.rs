@@ -68,7 +68,7 @@ pub fn Story() -> impl IntoView {
 
 #[component]
 pub fn Comment(comment: api::Comment) -> impl IntoView {
-    let (open, set_open) = create_signal(true);
+    let (open, set_open) = signal(true);
 
     view! {
         <li class="comment">

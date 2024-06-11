@@ -39,18 +39,12 @@ pub fn Stories() -> impl IntoView {
             api::fetch_api::<Vec<api::Story>>(&api::story(&path)).await
         },
     );
-    let (pending, set_pending) = create_signal(false);
+    let (pending, set_pending) = signal(false);
 
-    let hide_more_link = move || {
-        Suspend(async move {
-            stories
-                .await
-                .as_ref()
-                .map(|vec| vec.len() < 28)
-                .unwrap_or(true)
-                || pending.get()
-        })
-    };
+    let hide_more_link = move || match &*stories.read() {
+        Some(Some(stories)) => stories.len() < 28,
+        _ => true
+    } || pending.get();
 
     view! {
         <div class="news-view">
@@ -76,9 +70,8 @@ pub fn Stories() -> impl IntoView {
                 <span>"page " {page}</span>
                 <Suspense>
                     <span class="page-link"
-                        // TODO support Suspense in attributes
-                        /*class:disabled=Suspend(hide_more_link)
-                        aria-hidden=Suspend(hide_more_link)*/
+                        class:disabled=hide_more_link
+                        aria-hidden=hide_more_link
                     >
                         <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                             aria-label="Next Page"
@@ -92,8 +85,7 @@ pub fn Stories() -> impl IntoView {
                 <div>
                     <Transition
                         fallback=move || view! { <p>"Loading..."</p> }
-                        // TODO set_pending on Transition
-                        //set_pending
+                        set_pending
                     >
                         <Show when=move || stories.read().as_ref().map(Option::is_none).unwrap_or(false)>
                         >
