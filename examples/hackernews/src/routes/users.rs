@@ -1,7 +1,7 @@
 use crate::api::{self, User};
 use leptos::server::Resource;
 use leptos::{either::Either, prelude::*};
-use leptos_router::{hooks::use_params_map, *};
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn User() -> impl IntoView {
