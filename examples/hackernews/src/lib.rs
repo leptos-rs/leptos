@@ -12,7 +12,7 @@ use std::time::Duration;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
-    let (is_routing, set_is_routing) = create_signal(false);
+    let (is_routing, set_is_routing) = signal(false);
 
     view! {
         <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
@@ -29,6 +29,8 @@ pub fn App() -> impl IntoView {
                     <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
                     <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
                     <Route path=ParamSegment("stories") view=Stories/>
+                    // TODO allow optional params without duplication
+                    <Route path=StaticSegment("") view=Stories/>
                 </FlatRoutes>
             </main>
         </Router>
@@ -38,7 +40,6 @@ pub fn App() -> impl IntoView {
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
-    _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    leptos::mount_to_body(App);
+    leptos::mount::hydrate_body(App);
 }

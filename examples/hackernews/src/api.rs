@@ -16,17 +16,16 @@ pub fn fetch_api<T>(
 where
     T: Serialize + DeserializeOwned,
 {
+    use leptos::prelude::on_cleanup;
     use send_wrapper::SendWrapper;
 
     SendWrapper::new(async move {
-        use leptos::reactive_graph::owner::Owner;
-
         let abort_controller =
             SendWrapper::new(web_sys::AbortController::new().ok());
         let abort_signal = abort_controller.as_ref().map(|a| a.signal());
 
         // abort in-flight requests if, e.g., we've navigated away from this page
-        Owner::on_cleanup(move || {
+        on_cleanup(move || {
             if let Some(abort_controller) = abort_controller.take() {
                 abort_controller.abort()
             }
