@@ -6,9 +6,9 @@ use futures::FutureExt;
 use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo, ScopedFuture},
-    owner::{provide_context, use_context},
+    owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Get, Read, Track, With},
+    traits::{Get, Read, With},
 };
 use slotmap::{DefaultKey, SlotMap};
 use tachys::{
@@ -159,13 +159,14 @@ where
         buf.next_id();
         let suspense_context = use_context::<SuspenseContext>().unwrap();
 
+        let owner = Owner::current().unwrap();
+
         let tasks = suspense_context.tasks.clone();
         let (tx, rx) = futures::channel::oneshot::channel::<()>();
 
         let mut tx = Some(tx);
         let eff =
             reactive_graph::effect::RenderEffect::new_isomorphic(move |_| {
-                tasks.track();
                 if tasks.read().is_empty() {
                     if let Some(tx) = tx.take() {
                         // If the receiver has dropped, it means the ScopedFuture has already
@@ -196,7 +197,8 @@ where
 
                 // clean up the (now useless) effect
                 drop(eff);
-                children
+
+                OwnedView::new_with_owner(children, owner)
             })));
         match fut.as_mut().now_or_never() {
             Some(resolved) => {
