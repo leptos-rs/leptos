@@ -297,6 +297,11 @@ where
         el.take()
             .unwrap()
             .to_html_with_buf(&mut inner.head_html, &mut Position::NextChild);
+    } else {
+        tracing::warn!(
+            "tried to use a leptos_meta component without `ServerMetaContext` \
+             provided"
+        );
     }
 
     RegisteredMetaTag { el }
