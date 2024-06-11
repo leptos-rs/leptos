@@ -452,7 +452,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
-impl<'a, const V: &'static str, R> IntoStyle<R> for (Arc<str>, Static<V>)
+impl<const V: &'static str, R> IntoStyle<R> for (Arc<str>, Static<V>)
 where
     R: DomRenderer,
 {
@@ -474,7 +474,7 @@ where
     fn build(self, el: &R::Element) -> Self::State {
         let (name, _) = &self;
         let style = R::style(el);
-        R::set_css_property(&style, &name, V);
+        R::set_css_property(&style, name, V);
     }
 
     fn rebuild(self, _state: &mut Self::State) {}

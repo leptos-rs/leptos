@@ -36,6 +36,7 @@ where
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
     #[cfg(feature = "ssr")]
+    #[allow(clippy::type_complexity)]
     resolve:
         fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView<R>> + Send>>,
     #[cfg(feature = "ssr")]
