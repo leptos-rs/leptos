@@ -19,6 +19,7 @@ use reactive_graph::{
 use std::{cell::RefCell, iter, mem, rc::Rc};
 use tachys::{
     hydration::Cursor,
+    reactive_graph::OwnedView,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -425,7 +426,8 @@ where
 {
     fn choose_ssr(
         self,
-    ) -> (Owner, Either<Fal, <Defs::Match as MatchInterface<R>>::View>) {
+    ) -> OwnedView<Either<Fal, <Defs::Match as MatchInterface<R>>::View>, R>
+    {
         let current_url = self.current_url.read_untracked();
         let new_match = self.routes.match_route(current_url.path());
         let owner = self.outer_owner.child();
@@ -436,8 +438,8 @@ where
                 .map(|n| n.to_params().into_iter().collect::<ParamsMap>())
                 .unwrap_or_default(),
         );
-        match new_match {
-            None => (owner, Either::Left((self.fallback)())),
+        let view = match new_match {
+            None => Either::Left((self.fallback)()),
             Some(matched) => {
                 let (view, _) = matched.into_view_and_child();
                 let view = owner
@@ -450,9 +452,11 @@ where
                     })
                     .now_or_never()
                     .expect("async route used in SSR");
-                (owner, Either::Right(view))
+                Either::Right(view)
             }
-        }
+        };
+
+        OwnedView::new_with_owner(view, owner)
     }
 }
 
@@ -525,9 +529,8 @@ where
 
             RouteList::register(RouteList::from(routes));
         } else {
-            let (owner, view) = self.choose_ssr();
-            owner.with(|| view.to_html_with_buf(buf, position));
-            drop(owner);
+            let view = self.choose_ssr();
+            view.to_html_with_buf(buf, position);
         }
     }
 
@@ -538,11 +541,8 @@ where
     ) where
         Self: Sized,
     {
-        let (owner, view) = self.choose_ssr();
-        owner.with(|| {
-            view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
-        });
-        drop(owner);
+        let view = self.choose_ssr();
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
