@@ -18,7 +18,6 @@ members = [
   "leptos_config",
   "leptos_hot_reload",
   "leptos_macro",
-  "leptos_reactive",
   "leptos_server",
   "reactive_graph",
   "server_fn",
@@ -55,7 +54,6 @@ leptos_dom = { path = "./leptos_dom", version = "0.7.0-preview2" }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.7.0-preview2" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.7.0-preview2" }
 leptos_macro = { path = "./leptos_macro", version = "0.7.0-preview2" }
-leptos_reactive = { path = "./leptos_reactive", version = "0.7.0-preview2" }
 leptos_router = { path = "./router", version = "0.7.0-preview2" }
 leptos_server = { path = "./leptos_server", version = "0.7.0-preview2" }
 leptos_meta = { path = "./meta", version = "0.7.0-preview2" }
