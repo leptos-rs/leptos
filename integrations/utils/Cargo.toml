@@ -12,7 +12,8 @@ rust-version.workspace = true
 futures = "0.3"
 hydration_context = { workspace = true }
 leptos = { workspace = true, features = ["nonce"] }
-leptos_meta = { workspace = true }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 tracing = "0.1.37"
