@@ -284,11 +284,7 @@ pub mod spawn {
     }
 
     pub async fn tick() {
-        let (tx, rx) = futures::channel::oneshot::channel();
-        any_spawner::Executor::spawn_local(async move {
-            _ = tx.send(());
-        });
-        _ = rx.await;
+        Executor::tick().await
     }
 }
 
