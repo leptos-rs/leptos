@@ -26,6 +26,15 @@ pub struct ArcResource<T, Ser = SerdeJson> {
     data: ArcAsyncDerived<T>,
 }
 
+impl<T, Ser> Clone for ArcResource<T, Ser> {
+    fn clone(&self) -> Self {
+        Self {
+            ser: self.ser,
+            data: self.data.clone(),
+        }
+    }
+}
+
 impl<T, Ser> Deref for ArcResource<T, Ser> {
     type Target = ArcAsyncDerived<T>;
 
@@ -261,7 +270,7 @@ where
     }
 }
 
-pub struct Resource<T, Ser>
+pub struct Resource<T, Ser = SerdeJson>
 where
     T: Send + Sync + 'static,
 {
