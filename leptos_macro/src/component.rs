@@ -543,7 +543,7 @@ impl ToTokens for Model {
                 }
             }
 
-            impl #impl_generics #props_name #generics #where_clause {
+            impl #impl_generics ::leptos::DynBindings for #props_name #generics #where_clause {
                 fn dyn_bindings<B: Into<::leptos::leptos_dom::html::Binding>>(mut self, bindings: impl std::iter::IntoIterator<Item = B>) -> Self {
                     for binding in bindings.into_iter() {
                         let binding: ::leptos::leptos_dom::html::Binding = binding.into();

@@ -286,6 +286,21 @@ pub trait DynAttrs {
 impl DynAttrs for () {}
 
 #[doc(hidden)]
+pub trait DynBindings {
+    fn dyn_bindings<B: Into<Binding>>(
+        self,
+        _args: impl IntoIterator<Item = B>,
+    ) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+}
+
+impl DynBindings for () {}
+
+#[doc(hidden)]
 pub trait PropsOrNoPropsBuilder {
     type Builder;
     fn builder_or_not() -> Self::Builder;
