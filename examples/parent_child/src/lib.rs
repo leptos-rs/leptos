@@ -69,8 +69,7 @@ pub fn ButtonA(
 pub fn ButtonB(
     /// Callback that will be invoked when the button is clicked.
     on_click: impl FnMut(MouseEvent) + 'static,
-) -> impl IntoView
-{
+) -> impl IntoView {
     view! { <button on:click=on_click>"Toggle Right"</button> }
 }
 
