@@ -98,7 +98,7 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                 Static(s) => {
                     paths = paths
                         .into_iter()
-                        .map(|p| ResolvedStaticPath(format!("{}/{}", p, s)))
+                        .map(|p| ResolvedStaticPath(format!("{p}/{s}")))
                         .collect::<Vec<_>>();
                 }
                 Param(name) | Wildcard(name) => {
@@ -112,8 +112,7 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                         };
                         for val in params.iter() {
                             new_paths.push(ResolvedStaticPath(format!(
-                                "{}/{}",
-                                path, val
+                                "{path}/{val}"
                             )));
                         }
                     }
@@ -177,7 +176,7 @@ impl ResolvedStaticPath {
     where
         IV: IntoView + 'static,
     {
-        let url = format!("http://leptos{}", self);
+        let url = format!("http://leptos{self}");
         let app = {
             let app_fn = app_fn.clone();
             move || {
@@ -272,7 +271,7 @@ where
         }
         #[allow(clippy::print_stdout)]
         for path in path.into_paths() {
-            println!("building static route: {}", path);
+            println!("building static route: {path}");
             path.write(options, app_fn.clone(), additional_context.clone())
                 .await?;
         }
