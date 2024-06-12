@@ -4,7 +4,7 @@ use leptos::either::Either;
 use leptos::prelude::*;
 use leptos_router::{
     components::{ParentRoute, Redirect, Route, Router, Routes, A},
-    hooks::{use_location, use_navigate, use_params, use_query_map},
+    hooks::{use_navigate, use_params, use_query_map},
     params::Params,
     MatchNestedRoutes, Outlet, ParamSegment, StaticSegment,
 };
