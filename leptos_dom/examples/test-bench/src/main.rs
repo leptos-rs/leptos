@@ -4,7 +4,7 @@
 #[macro_use]
 extern crate tracing;
 
-use leptos::*;
+use leptos::prelude::*;
 use tracing::field::debug;
 use tracing_subscriber::util::SubscriberInitExt;
 

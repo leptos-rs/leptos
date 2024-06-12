@@ -1,10 +1,10 @@
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn simple_ssr_test() {
-    use leptos::*;
+    use leptos::prelude::*;
 
     let runtime = create_runtime();
-    let (value, set_value) = create_signal(0);
+    let (value, set_value) = signal(0);
     let rendered = view! {
         <div>
             <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
@@ -15,12 +15,12 @@ fn simple_ssr_test() {
 
     if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
-            rendered.into_view().render_to_string(),
+            rendered.into_view().to_html(),
             "<div><button>-1</button><span>Value: \
              0!</span><button>+1</button></div>"
         );
     } else {
-        assert!(rendered.into_view().render_to_string().contains(
+        assert!(rendered.into_view().to_html().contains(
             "<div data-hk=\"0-0-0-1\"><button \
              data-hk=\"0-0-0-2\">-1</button><span data-hk=\"0-0-0-3\">Value: \
              <!--hk=0-0-0-4o|leptos-dyn-child-start-->0<!\
@@ -35,13 +35,12 @@ fn simple_ssr_test() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn ssr_test_with_components() {
-    use leptos::*;
+    use leptos::prelude::*;
 
     #[component]
     fn Counter(initial_value: i32) -> impl IntoView {
-        let (value, set_value) = create_signal(initial_value);
+        let (value, set_value) = signal(initial_value);
         view! {
-
             <div>
                 <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
                 <span>"Value: " {move || value.get().to_string()} "!"</span>
@@ -61,13 +60,13 @@ fn ssr_test_with_components() {
 
     if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
-            rendered.into_view().render_to_string(),
+            rendered.into_view().to_html(),
             "<div class=\"counters\"><div><button>-1</button><span>Value: \
              1!</span><button>+1</button></div><div><button>-1</\
              button><span>Value: 2!</span><button>+1</button></div></div>"
         );
     } else {
-        assert!(rendered.into_view().render_to_string().contains(
+        assert!(rendered.into_view().to_html().contains(
             "<div data-hk=\"0-0-0-3\"><button \
              data-hk=\"0-0-0-4\">-1</button><span data-hk=\"0-0-0-5\">Value: \
              <!--hk=0-0-0-6o|leptos-dyn-child-start-->1<!\
@@ -81,11 +80,11 @@ fn ssr_test_with_components() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn ssr_test_with_snake_case_components() {
-    use leptos::*;
+    use leptos::prelude::*;
 
     #[component]
     fn snake_case_counter(initial_value: i32) -> impl IntoView {
-        let (value, set_value) = create_signal(initial_value);
+        let (value, set_value) = signal(initial_value);
         view! {
 
             <div>
@@ -107,13 +106,13 @@ fn ssr_test_with_snake_case_components() {
 
     if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
-            rendered.into_view().render_to_string(),
+            rendered.into_view().to_html(),
             "<div class=\"counters\"><div><button>-1</button><span>Value: \
              1!</span><button>+1</button></div><div><button>-1</\
              button><span>Value: 2!</span><button>+1</button></div></div>"
         );
     } else {
-        assert!(rendered.into_view().render_to_string().contains(
+        assert!(rendered.into_view().to_html().contains(
             "<div data-hk=\"0-0-0-3\"><button \
              data-hk=\"0-0-0-4\">-1</button><span data-hk=\"0-0-0-5\">Value: \
              <!--hk=0-0-0-6o|leptos-dyn-child-start-->1<!\
@@ -128,10 +127,10 @@ fn ssr_test_with_snake_case_components() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn test_classes() {
-    use leptos::*;
+    use leptos::prelude::*;
 
     let runtime = create_runtime();
-    let (value, _set_value) = create_signal(5);
+    let (value, _set_value) = signal(5);
     let rendered = view! {
 
         <div class="my big" class:a={move || value.get() > 10} class:red=true class:car={move || value.get() > 1}></div>
@@ -139,11 +138,11 @@ fn test_classes() {
 
     if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
-            rendered.into_view().render_to_string(),
+            rendered.into_view().to_html(),
             "<div class=\"my big  red car\"></div>"
         );
     } else {
-        assert!(rendered.into_view().render_to_string().contains(
+        assert!(rendered.into_view().to_html().contains(
             "<div data-hk=\"0-0-0-1\" class=\"my big  red car\"></div>"
         ));
     }
@@ -153,13 +152,13 @@ fn test_classes() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn ssr_with_styles() {
-    use leptos::*;
+    use leptos::prelude::*;
 
     let runtime = create_runtime();
-    let (_, set_value) = create_signal(0);
+    let (_, set_value) = signal(0);
     let styles = "myclass";
     let rendered = view! {
-         class = styles,
+        class = styles,
         <div>
             <button class="btn" on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
         </div>
@@ -167,12 +166,12 @@ fn ssr_with_styles() {
 
     if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
         assert_eq!(
-            rendered.into_view().render_to_string(),
+            rendered.into_view().to_html(),
             "<div class=\" myclass\"><button class=\"btn \
              myclass\">-1</button></div>"
         );
     } else {
-        assert!(rendered.into_view().render_to_string().contains(
+        assert!(rendered.into_view().to_html().contains(
             "<div data-hk=\"0-0-0-1\" class=\" myclass\"><button \
              data-hk=\"0-0-0-2\" class=\"btn myclass\">-1</button></div>"
         ));
@@ -183,24 +182,21 @@ fn ssr_with_styles() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn ssr_option() {
-    use leptos::*;
+    use leptos::prelude::*;
 
     let runtime = create_runtime();
-    let (_, _) = create_signal(0);
+    let (_, _) = signal(0);
     let rendered = view! {
 
         <option/>
     };
 
     if cfg!(all(feature = "experimental-islands", feature = "ssr")) {
-        assert_eq!(
-            rendered.into_view().render_to_string(),
-            "<option></option>"
-        );
+        assert_eq!(rendered.into_view().to_html(), "<option></option>");
     } else {
         assert!(rendered
             .into_view()
-            .render_to_string()
+            .to_html()
             .contains("<option data-hk=\"0-0-0-1\"></option>"));
     }
 

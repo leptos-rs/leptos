@@ -5,7 +5,7 @@ use axum::{
     http::{Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::*;
+use leptos::prelude::*;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
@@ -23,7 +23,7 @@ pub async fn file_and_error_handler(
         leptos::logging::log!("{:?}:{}", res.status(), uri);
         let handler =
             leptos_axum::render_app_to_stream(options.to_owned(), || {
-                error_template(create_rw_signal(leptos::Errors::default()))
+                error_template(RwSignal::new(leptos::Errors::default()))
             });
         handler(req).await.into_response()
     }
