@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn App() -> impl IntoView {

@@ -1,6 +1,6 @@
 #[allow(unused)] // User is unused in WASM build
 use crate::api::{self, User};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 #[server(FetchUser, "/api")]

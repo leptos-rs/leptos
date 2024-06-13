@@ -1,5 +1,5 @@
 use js_framework_benchmark_leptos::*;
-use leptos::*;
+use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 

@@ -282,7 +282,7 @@ mod tests {
         let rt = create_runtime();
         use leptos::{
             html::{AnyElement, HtmlElement},
-            *,
+            prelude::*,
         };
 
         let _callback: UnsyncCallback<String, HtmlElement<AnyElement>> =
@@ -306,7 +306,7 @@ mod tests {
     fn sync_callback_from_html() {
         use leptos::{
             html::{AnyElement, HtmlElement},
-            *,
+            prelude::*,
         };
 
         let rt = create_runtime();

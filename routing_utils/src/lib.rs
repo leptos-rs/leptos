@@ -165,11 +165,12 @@ mod tests {
 
         let matched = routes.match_route("/author/contact").unwrap();
         assert_eq!(matched.matched(), "");
-        assert_eq!(matched.to_child().unwrap().matched(), "/author/contact");
+        assert_eq!(matched.into_child().unwrap().matched(), "/author/contact");
 
+        let matched = routes.match_route("/author/contact").unwrap();
         let view = matched.to_view();
         assert_eq!(*view, "Home");
-        assert_eq!(*matched.to_child().unwrap().to_view(), "Contact Me");
+        assert_eq!(*matched.into_child().unwrap().to_view(), "Contact Me");
     }
 
     #[test]
