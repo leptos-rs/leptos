@@ -2,8 +2,8 @@ use crate::{
     components::RouterContext,
     location::{Location, Url},
     navigate::NavigateOptions,
+    nested_router::RouteContext,
     params::{Params, ParamsError, ParamsMap},
-    RouteContext,
 };
 use reactive_graph::{
     computed::{ArcMemo, Memo},
@@ -192,6 +192,7 @@ pub(crate) fn use_resolved_path<R: Renderer + 'static>(
 ) -> ArcMemo<Option<String>> {
     let router = use_context::<RouterContext>()
         .expect("called use_resolved_path outside a <Router>");
+    // TODO make this work with flat routes too?
     let matched = use_context::<RouteContext<R>>().map(|route| route.matched);
     ArcMemo::new(move |_| {
         let path = path();
