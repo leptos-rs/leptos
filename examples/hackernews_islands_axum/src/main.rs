@@ -32,7 +32,7 @@ async fn main() {
 #[cfg(not(feature = "ssr"))]
 pub fn main() {
     use hackernews_islands::*;
-    use leptos::*;
+    use leptos::prelude::*;
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
     mount_to_body(App);

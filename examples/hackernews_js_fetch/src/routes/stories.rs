@@ -1,5 +1,5 @@
 use crate::api;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 fn category(from: &str) -> &'static str {

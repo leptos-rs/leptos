@@ -1,7 +1,8 @@
 use crate::{error_template::ErrorTemplate, errors::AppError};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::*;
+use leptos_router::components::{Route, Routes, Router};
 
 #[server(CauseInternalServerError, "/api")]
 pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
@@ -63,7 +64,7 @@ pub fn ExampleErrors() -> impl IntoView {
         // note that the error boundaries could be placed above in the Router or lower down
         // in a particular route. The generated errors on the entire page contribute to the
         // final status code sent by the server when producing ssr pages.
-        <ErrorBoundary fallback=|errors| view!{ <ErrorTemplate errors=errors/>}>
+        <ErrorBoundary fallback=|errors| view!{ <ErrorTemplate errors=errors.into()/>}>
             <ReturnsError/>
         </ErrorBoundary>
         </div>

@@ -5,7 +5,7 @@ use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 use directives::App;
-use leptos::*;
+use leptos::prelude::*;
 use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]
