@@ -1,18 +1,20 @@
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::*;
+use leptos_router::{
+    components::{Route, Router, Routes},
+    StaticSegment,
+};
 
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-
         <Stylesheet id="leptos" href="/style/output.css"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Router>
-            <Routes>
-                <Route path="" view=  move || view! { <Home/> }/>
+            <Routes fallback=|| "Page not found.">
+                <Route path=StaticSegment("") view=Home/>
             </Routes>
         </Router>
     }
@@ -20,7 +22,7 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn Home() -> impl IntoView {
-    let (count, set_count) = create_signal(0);
+    let (count, set_count) = signal(0);
 
     view! {
         <div class="my-0 mx-auto max-w-3xl text-center">

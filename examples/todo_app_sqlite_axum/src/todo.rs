@@ -74,6 +74,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
+#[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     use self::ssr::*;
     let mut conn = db().await?;
