@@ -77,9 +77,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::For;
+    use crate::prelude::*;
     use leptos_macro::view;
-    use reactive_graph::{signal::RwSignal, signal_traits::SignalGet};
     use tachys::{
         html::element::HtmlElement, prelude::ElementChild,
         renderer::mock_dom::MockDom, view::Render,

@@ -1,6 +1,6 @@
 use crate::Page;
 use api_boundary::UserInfo;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 #[component]

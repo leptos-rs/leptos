@@ -1,6 +1,6 @@
 use api_boundary::*;
 use gloo_storage::{LocalStorage, Storage};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 mod api;
@@ -16,8 +16,8 @@ const API_TOKEN_STORAGE_KEY: &str = "api-token";
 pub fn App() -> impl IntoView {
     // -- signals -- //
 
-    let authorized_api = create_rw_signal(None::<api::AuthorizedApi>);
-    let user_info = create_rw_signal(None::<UserInfo>);
+    let authorized_api = RwSignal::new(None::<api::AuthorizedApi>);
+    let user_info = RwSignal::new(None::<UserInfo>);
     let logged_in = Signal::derive(move || authorized_api.get().is_some());
 
     // -- actions -- //
