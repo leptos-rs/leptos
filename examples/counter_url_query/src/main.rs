@@ -1,5 +1,5 @@
 use counter_url_query::SimpleQueryCounter;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 pub fn main() {

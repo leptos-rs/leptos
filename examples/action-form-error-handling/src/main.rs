@@ -66,10 +66,9 @@ pub fn main() {
     // prefer using `cargo leptos serve` instead
     // to run: `trunk serve --open --features csr`
     use action_form_error_handling::app::*;
-    use leptos::*;
-    use wasm_bindgen::prelude::wasm_bindgen;
+    use leptos::prelude::*;
 
     console_error_panic_hook::set_once();
 
-    leptos::mount_to_body(App);
+    mount_to_body(App);
 }

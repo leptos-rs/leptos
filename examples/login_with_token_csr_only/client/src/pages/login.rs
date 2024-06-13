@@ -4,7 +4,7 @@ use crate::{
     Page,
 };
 use api_boundary::*;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 #[component]
