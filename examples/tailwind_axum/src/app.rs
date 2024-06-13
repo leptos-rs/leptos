@@ -1,6 +1,9 @@
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::*;
+use leptos_router::{
+    components::{FlatRoutes, Route, Router},
+    StaticSegment,
+};
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -10,16 +13,16 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/leptos_tailwind.css"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Router>
-            <Routes>
-                <Route path="" view=  move || view! { <Home/> }/>
-            </Routes>
+            <FlatRoutes fallback=|| "Page not found.">
+                <Route path=StaticSegment("") view=Home/>
+            </FlatRoutes>
         </Router>
     }
 }
 
 #[component]
 fn Home() -> impl IntoView {
-    let (value, set_value) = create_signal(0);
+    let (value, set_value) = signal(0);
 
     // thanks to https://tailwindcomponents.com/component/blue-buttons-example for the showcase layout
     view! {

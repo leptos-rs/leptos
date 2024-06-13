@@ -6,43 +6,24 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
-gloo-net = { version = "0.2", features = ["http"] }
-log = "0.4"
 
-# dependencies for client (enable when csr or hydrate set)
-wasm-bindgen = { version = "0.2", optional = true }
-console_log = { version = "1", optional = true }
+# dependencies for browser (enable when hydrate set)
 console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 
 # dependencies for server (enable when ssr set)
 actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", features = ["macros"], optional = true }
-futures = { version = "0.3", optional = true }
-simple_logger = { version = "4.0", optional = true }
 
 [features]
-default = ["csr"]
 hydrate = [
   "leptos/hydrate",
-  "leptos_meta/hydrate",
-  "leptos_router/hydrate",
   "dep:wasm-bindgen",
-  "dep:console_log",
-  "dep:console_error_panic_hook",
-]
-csr = [
-  "leptos/csr",
-  "leptos_meta/csr",
-  "leptos_router/csr",
-  "dep:wasm-bindgen",
-  "dep:console_log",
   "dep:console_error_panic_hook",
 ]
 ssr = [
@@ -52,8 +33,6 @@ ssr = [
   "dep:leptos_actix",
   "dep:actix-web",
   "dep:actix-files",
-  "dep:futures",
-  "dep:simple_logger",
 ]
 
 [package.metadata.cargo-all-features]
@@ -61,10 +40,7 @@ denylist = [
   "actix-files",
   "actix-web",
   "console_error_panic_hook",
-  "console_log",
-  "futures",
   "leptos_actix",
-  "simple_logger",
   "wasm-bindgen",
 ]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
