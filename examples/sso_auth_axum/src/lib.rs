@@ -78,8 +78,8 @@ pub async fn refresh_token(email: String) -> Result<u64, ServerFnError> {
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
-    let email = create_rw_signal(None::<String>);
-    let rw_expires_in = create_rw_signal(0);
+    let email = RwSignal::new(None::<String>);
+    let rw_expires_in = RwSignal::new(0);
     provide_context(Email(email));
     provide_context(ExpiresIn(rw_expires_in));
 

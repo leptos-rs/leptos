@@ -1,5 +1,5 @@
 use crate::api::{self, User};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 #[component]

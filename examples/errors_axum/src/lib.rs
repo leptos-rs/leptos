@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[wasm_bindgen]
 pub fn hydrate() {
     use crate::landing::*;
-    use leptos::*;
+    use leptos::prelude::*;
 
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
