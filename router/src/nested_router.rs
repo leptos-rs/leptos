@@ -42,10 +42,6 @@ use tachys::{
     },
 };
 
-pub struct Outlet<R> {
-    rndr: PhantomData<R>,
-}
-
 pub(crate) struct NestedRoutesView<Loc, Defs, Fal, R> {
     pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
