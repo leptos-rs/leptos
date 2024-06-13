@@ -1,13 +1,14 @@
-use crate::app::App;
 use axum::{
     body::Body,
     extract::State,
     http::{Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::{view, LeptosOptions};
+use leptos::prelude::*;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
+
+use crate::app::App;
 
 pub async fn file_and_error_handler(
     uri: Uri,
@@ -20,10 +21,7 @@ pub async fn file_and_error_handler(
     if res.status() == StatusCode::OK {
         res.into_response()
     } else {
-        let handler = leptos_axum::render_app_to_stream(
-            options.to_owned(),
-            move || view! { <App/> },
-        );
+        let handler = leptos_axum::render_app_to_stream(App);
         handler(req).await.into_response()
     }
 }

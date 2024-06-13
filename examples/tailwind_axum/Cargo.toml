@@ -9,13 +9,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 axum = { version = "0.7", optional = true }
 console_error_panic_hook = "0.1"
-console_log = "1"
 leptos = { path = "../../leptos" }
 leptos_meta = { path = "../../meta" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_router = { path = "../../router" }
-log = "0.4.17"
-simple_logger = "4"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = ["fs"], optional = true }
@@ -25,7 +22,7 @@ tracing = { version = "0.1", optional = true }
 http = "1.0"
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+hydrate = ["leptos/hydrate"]
 ssr = [
     "dep:axum",
     "dep:tokio",
