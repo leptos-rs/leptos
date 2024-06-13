@@ -41,7 +41,8 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 /// }
 /// ```
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
-pub fn For<Rndr, IF, I, T, EF, N, KF, K>(
+#[component]
+pub fn For<IF, I, T, EF, N, KF, K>(
     /// Items over which the component should iterate.
     each: IF,
     /// A key function that will be applied to each item.
