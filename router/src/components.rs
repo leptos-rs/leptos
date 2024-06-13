@@ -1,15 +1,17 @@
 pub use super::link::*;
 #[cfg(feature = "ssr")]
 use crate::location::RequestUrl;
+pub use crate::nested_router::Outlet;
 use crate::{
+    flat_router::FlatRoutesView,
     hooks::use_navigate,
     location::{
         BrowserUrl, Location, LocationChange, LocationProvider, State, Url,
     },
     navigate::NavigateOptions,
+    nested_router::NestedRoutesView,
     resolve_path::resolve_path,
-    ChooseView, FlatRoutesView, MatchNestedRoutes, NestedRoute,
-    NestedRoutesView, Routes, SsrMode,
+    ChooseView, MatchNestedRoutes, NestedRoute, Routes, SsrMode,
 };
 use leptos::prelude::*;
 use reactive_graph::{
@@ -344,6 +346,14 @@ where
     }
     // redirect on the client
     else {
+        if cfg!(feature = "ssr") {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                "Calling <Redirect/> without a ServerRedirectFunction \
+                 provided, in SSR mode."
+            );
+            return;
+        }
         let navigate = use_navigate();
         navigate(&path, options.unwrap_or_default());
     }
