@@ -138,7 +138,7 @@ pub fn TodoMVC() -> impl IntoView {
     // We provide a context that each <Todo/> component can use to update the list
     // Here, I'm just passing the `WriteSignal`; a <Todo/> doesn't need to read the whole list
     // (and shouldn't try to, as that would cause each individual <Todo/> to re-render when
-    // a new todo is added! This kind of hygiene is why `create_signal` defaults to read-write
+    // a new todo is added! This kind of hygiene is why `signal` defaults to read-write
     // segregation.)
     provide_context(set_todos);
 
@@ -201,7 +201,9 @@ pub fn TodoMVC() -> impl IntoView {
             let json = serde_json::to_string(&todos)
                 .expect("couldn't serialize Todos");
             if storage.set_item(STORAGE_KEY, &json).is_err() {
-                log::error!("error while trying to set item in localStorage");
+                leptos::logging::error!(
+                    "error while trying to set item in localStorage"
+                );
             }
         }
     });
@@ -301,7 +303,6 @@ pub fn Todo(todo: Todo) -> impl IntoView {
     let todo_input = NodeRef::<Input>::new();
 
     let save = move |value: &str| {
-        leptos::tachys::log("saving...");
         let value = value.trim();
         if value.is_empty() {
             set_todos.update(|t| t.remove(todo.id));
