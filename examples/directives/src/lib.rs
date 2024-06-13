@@ -1,4 +1,4 @@
-use leptos::{ev::click, html::AnyElement, *};
+use leptos::{ev::click, html::AnyElement, prelude::*};
 
 // no extra parameter
 pub fn highlight(el: HtmlElement<AnyElement>) {

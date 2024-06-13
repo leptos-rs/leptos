@@ -1,5 +1,5 @@
 use crate::error_template::ErrorTemplate;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};

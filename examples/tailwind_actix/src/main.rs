@@ -3,7 +3,7 @@ mod app;
 use crate::app::*;
 use actix_files::Files;
 use actix_web::*;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_actix::{generate_route_list, LeptosRoutes};
 
 #[actix_web::main]

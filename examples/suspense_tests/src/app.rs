@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 const WAIT_ONE_SECOND: u64 = 1;

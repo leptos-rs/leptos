@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -30,7 +30,7 @@ pub fn App() -> impl IntoView {
     }
 }
 
-use leptos::*;
+use leptos::prelude::*;
 
 #[island]
 pub fn CommonIsland() -> impl IntoView {

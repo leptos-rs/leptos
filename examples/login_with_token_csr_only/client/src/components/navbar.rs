@@ -1,5 +1,5 @@
 use crate::Page;
-use leptos::*;
+use leptos::prelude::*;
 use leptos_router::*;
 
 #[component]

@@ -186,7 +186,7 @@ where
             el,
             cb,
             self.event.name(),
-            (E::BUBBLES && cfg!(feature = "event-delegation"))
+            (E::BUBBLES && cfg!(feature = "delegation"))
                 .then(|| self.event.event_delegation_key()),
         )
     }

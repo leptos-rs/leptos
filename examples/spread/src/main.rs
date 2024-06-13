@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use spread::SpreadingExample;
 
 pub fn main() {

@@ -9,7 +9,7 @@ mod ssr_imports {
         routing::{get, post},
         Router,
     };
-    pub use leptos::*;
+    pub use leptos::prelude::*;
     pub use leptos_axum::{generate_route_list, LeptosRoutes};
     pub use todo_app_sqlite_csr::{
         fallback::file_or_index_handler, todo::*, *,
