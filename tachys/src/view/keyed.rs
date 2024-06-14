@@ -199,7 +199,7 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         // TODO...
     }
 

@@ -40,7 +40,7 @@ where
     resolve:
         fn(Box<dyn Any>) -> Pin<Box<dyn Future<Output = AnyView<R>> + Send>>,
     #[cfg(feature = "ssr")]
-    dry_resolve: fn(&mut Box<dyn Any + Send>),
+    dry_resolve: fn(&Box<dyn Any + Send>),
     #[cfg(feature = "hydrate")]
     #[cfg(feature = "hydrate")]
     #[allow(clippy::type_complexity)]
@@ -144,10 +144,10 @@ where
         let value = Box::new(self) as Box<dyn Any + Send>;
 
         #[cfg(feature = "ssr")]
-        let dry_resolve = |value: &mut Box<dyn Any + Send>| {
+        let dry_resolve = |value: &Box<dyn Any + Send>| {
             let value = value
-                .downcast_mut::<T>()
-                .expect("AnyView::resolve could not be downcast");
+                .downcast_ref::<T>()
+                .expect("AnyView::dry_resolve could not be downcast");
             value.dry_resolve();
         };
 
@@ -304,10 +304,10 @@ where
 {
     type AsyncOutput = Self;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         #[cfg(feature = "ssr")]
         {
-            (self.dry_resolve)(&mut self.value)
+            (self.dry_resolve)(&self.value)
         }
         #[cfg(not(feature = "ssr"))]
         panic!(
