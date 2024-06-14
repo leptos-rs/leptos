@@ -151,7 +151,7 @@ where
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn dry_resolve(&self) {}
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
@@ -162,7 +162,7 @@ where
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-        self,
+        mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
     ) where
