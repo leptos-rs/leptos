@@ -18,7 +18,7 @@ where
     type CloneableOwned = SharedReactiveFunction<V>;
 
     fn hydrate<const FROM_SERVER: bool>(
-        self,
+        mut self,
         el: &<R as Renderer>::Element,
         key: &str,
     ) -> Self::State {
@@ -37,7 +37,11 @@ where
         })
     }
 
-    fn build(self, el: &<R as Renderer>::Element, key: &str) -> Self::State {
+    fn build(
+        mut self,
+        el: &<R as Renderer>::Element,
+        key: &str,
+    ) -> Self::State {
         let key = R::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();

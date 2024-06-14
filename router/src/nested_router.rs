@@ -230,7 +230,7 @@ where
 
     const MIN_LENGTH: usize = 0; // TODO
 
-    fn dry_resolve(&self) {}
+    fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
