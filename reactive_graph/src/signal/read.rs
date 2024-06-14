@@ -127,7 +127,7 @@ impl<T: Send + Sync + 'static> ArcReadSignal<T> {
         let mut stream = Box::pin(stream);
         Executor::spawn(async move {
             while let Some(value) = stream.next().await {
-                write.set(value);
+                write.set(Some(value));
             }
         });
         read
@@ -142,7 +142,7 @@ impl<T: 'static> ArcReadSignal<T> {
         let mut stream = Box::pin(stream);
         Executor::spawn_local(async move {
             while let Some(value) = stream.next().await {
-                write.set(value);
+                write.set(Some(value));
             }
         });
         read
@@ -157,7 +157,7 @@ impl<T: Send + Sync + 'static> ReadSignal<T> {
         let mut stream = Box::pin(stream);
         Executor::spawn(async move {
             while let Some(value) = stream.next().await {
-                write.set(value);
+                write.set(Some(value));
             }
         });
         read
@@ -172,7 +172,7 @@ impl<T: 'static> ReadSignal<T> {
         let mut stream = Box::pin(stream);
         Executor::spawn_local(async move {
             while let Some(value) = stream.next().await {
-                write.set(value);
+                write.set(Some(value));
             }
         });
         read

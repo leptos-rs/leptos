@@ -726,8 +726,7 @@ pub mod write {
     impl<T> Set for SignalSetter<T> {
         type Value = T;
 
-        fn set(&self, new_value: impl Into<Self::Value>) {
-            let new_value = new_value.into();
+        fn set(&self, new_value: Self::Value) {
             match self.inner {
                 SignalSetterTypes::Default => {}
                 SignalSetterTypes::Write(w) => w.set(new_value),
@@ -737,11 +736,7 @@ pub mod write {
             }
         }
 
-        fn try_set(
-            &self,
-            new_value: impl Into<Self::Value>,
-        ) -> Option<Self::Value> {
-            let new_value = new_value.into();
+        fn try_set(&self, new_value: Self::Value) -> Option<Self::Value> {
             match self.inner {
                 SignalSetterTypes::Default => Some(new_value),
                 SignalSetterTypes::Write(w) => w.try_set(new_value),
