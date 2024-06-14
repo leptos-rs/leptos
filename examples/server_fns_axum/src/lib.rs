@@ -6,12 +6,10 @@ pub mod fallback;
 #[cfg(feature = "ssr")]
 pub mod middleware;
 
+#[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
-    use crate::app::TodoApp;
-
-    _ = console_log::init_with_level(log::Level::Error);
+    use crate::app::App;
     console_error_panic_hook::set_once();
-
-    leptos::mount_to_body(TodoApp);
+    leptos::mount::hydrate_body(App);
 }
