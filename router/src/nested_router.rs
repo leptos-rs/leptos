@@ -1,4 +1,5 @@
 use crate::{
+    hooks::Matched,
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
@@ -564,9 +565,11 @@ where
                 let owner = outlet.owner.clone();
                 let params = outlet.params.clone();
                 let url = outlet.url.clone();
+                let matched = Matched(outlet.matched.clone());
                 async move {
                     provide_context(params);
                     provide_context(url);
+                    provide_context(matched);
                     let view =
                         owner.with(|| ScopedFuture::new(view.choose())).await;
                     tx.send(Box::new(move || owner.with(|| view.into_any())))
