@@ -1,5 +1,5 @@
 use futures::{stream::once, Stream, StreamExt};
-use hydration_context::SsrSharedContext;
+use hydration_context::{SharedContext, SsrSharedContext};
 use leptos::{
     nonce::use_nonce,
     reactive_graph::owner::{Owner, Sandboxed},
@@ -81,7 +81,9 @@ pub fn build_response<IV>(
 where
     IV: IntoView + 'static,
 {
-    let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
+    let shared_context = Arc::new(SsrSharedContext::new())
+        as Arc<dyn SharedContext + Send + Sync>;
+    let owner = Owner::new_root(Some(Arc::clone(&shared_context)));
     let stream = Box::pin(Sandboxed::new({
         let owner = owner.clone();
         async move {
