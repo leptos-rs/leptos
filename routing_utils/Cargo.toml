@@ -1,8 +1,0 @@
-[package]
-name = "routing_utils"
-edition = "2021"
-version.workspace = true
-
-[dependencies]
-either_of = { workspace = true }
-tracing = { version = "0.1", optional = true }
