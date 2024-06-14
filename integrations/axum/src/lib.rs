@@ -54,7 +54,10 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use server_fn::{error::NoCustomError, redirect::REDIRECT_HEADER};
+use server_fn::{
+    error::{NoCustomError, ServerFnErrorSerde},
+    redirect::REDIRECT_HEADER,
+};
 use std::{fmt::Debug, io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio_util::task::LocalPoolHandle;
 use tracing::Instrument;
@@ -357,9 +360,10 @@ async fn handle_server_fns_inner(
     rx.await.unwrap_or_else(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ServerFnError::<NoCustomError>::ServerError(e.to_string())
-                .ser()
-                .unwrap_or_default(),
+            ServerFnErrorSerde::ser(
+                &ServerFnError::<NoCustomError>::ServerError(e.to_string()),
+            )
+            .unwrap_or_default(),
         )
             .into_response()
     })
