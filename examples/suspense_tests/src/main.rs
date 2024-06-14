@@ -14,7 +14,6 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(App);
-        println!("{routes:#?}");
         let leptos_options = &conf.leptos_options;
         let site_root = &leptos_options.site_root;
 
