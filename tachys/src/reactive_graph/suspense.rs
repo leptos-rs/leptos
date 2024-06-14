@@ -225,5 +225,5 @@ where
         Some(self.0.await)
     }
 
-    fn dry_resolve(&self) {}
+    fn dry_resolve(&mut self) {}
 }

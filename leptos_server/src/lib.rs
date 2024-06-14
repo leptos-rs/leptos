@@ -169,7 +169,7 @@ mod view_implementations {
         R: Renderer,
     {
         type Output<SomeNewAttr: Attribute<R>> = Box<
-            dyn Fn() -> Suspend<
+            dyn FnMut() -> Suspend<
                     Pin<
                         Box<
                             dyn Future<
@@ -203,7 +203,7 @@ mod view_implementations {
 
         const MIN_LENGTH: usize = 0;
 
-        fn dry_resolve(&self) {
+        fn dry_resolve(&mut self) {
             self.read();
         }
 

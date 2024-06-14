@@ -224,7 +224,7 @@ where
         + E::TAG.len()
     };
 
-    fn dry_resolve(&self) {
+    fn dry_resolve(&mut self) {
         self.children.dry_resolve()
     }
 

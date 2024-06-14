@@ -14,7 +14,7 @@ where
     type CloneableOwned = (&'static str, SharedReactiveFunction<S>);
 
     fn to_html(self, style: &mut String) {
-        let (name, f) = self;
+        let (name, mut f) = self;
         let value = f.invoke();
         style.push_str(name);
         style.push(':');
@@ -23,7 +23,7 @@ where
     }
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        let (name, f) = self;
+        let (name, mut f) = self;
         let name = R::intern(name);
         // TODO FROM_SERVER vs template
         let style = R::style(el);
@@ -51,7 +51,7 @@ where
     }
 
     fn build(self, el: &R::Element) -> Self::State {
-        let (name, f) = self;
+        let (name, mut f) = self;
         let name = R::intern(name);
         let style = R::style(el);
         RenderEffect::new(move |prev| {
@@ -98,12 +98,15 @@ where
     type Cloneable = SharedReactiveFunction<C>;
     type CloneableOwned = SharedReactiveFunction<C>;
 
-    fn to_html(self, style: &mut String) {
+    fn to_html(mut self, style: &mut String) {
         let value = self.invoke();
         value.to_html(style);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(
+        mut self,
+        el: &R::Element,
+    ) -> Self::State {
         // TODO FROM_SERVER vs template
         let el = el.clone();
         RenderEffect::new(move |prev| {
@@ -117,7 +120,7 @@ where
         })
     }
 
-    fn build(self, el: &R::Element) -> Self::State {
+    fn build(mut self, el: &R::Element) -> Self::State {
         let el = el.clone();
         RenderEffect::new(move |prev| {
             let value = self.invoke();
