@@ -141,7 +141,7 @@ where
     ) -> impl IntoIterator<Item = GeneratedRouteData> + '_;
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct GeneratedRouteData {
     pub segments: Vec<PathSegment>,
     pub ssr_mode: SsrMode,
