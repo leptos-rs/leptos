@@ -38,7 +38,7 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {}
 
-    fn dry_resolve(&self) {}
+    fn dry_resolve(&mut self) {}
 }
 
 impl<Rndr> AddAnyAttr<Rndr> for ()
@@ -136,7 +136,7 @@ where
         (self.0.resolve().await,)
     }
 
-    fn dry_resolve(&self) {
+    fn dry_resolve(&mut self) {
         self.0.dry_resolve();
     }
 }
@@ -260,7 +260,7 @@ macro_rules! impl_view_for_tuples {
                 )
             }
 
-            fn dry_resolve(&self) {
+            fn dry_resolve(&mut self) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)*) = self;
                 $first.dry_resolve();

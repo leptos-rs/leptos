@@ -20,7 +20,7 @@ where
         0
     }
 
-    fn to_html(self, buf: &mut String) {
+    fn to_html(mut self, buf: &mut String) {
         let value = self.invoke();
         value.to_html(buf);
     }
@@ -28,7 +28,7 @@ where
     fn to_template(_buf: &mut String) {}
 
     fn hydrate<const FROM_SERVER: bool>(
-        self,
+        mut self,
         el: &<R as Renderer>::Element,
     ) -> Self::State {
         let el = el.to_owned();
@@ -43,7 +43,7 @@ where
         })
     }
 
-    fn build(self, el: &<R as Renderer>::Element) -> Self::State {
+    fn build(mut self, el: &<R as Renderer>::Element) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
             let value = self.invoke();

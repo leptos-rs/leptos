@@ -51,7 +51,7 @@ where
     type State = RenderEffectState<V::State>;
 
     #[track_caller]
-    fn build(self) -> Self::State {
+    fn build(mut self) -> Self::State {
         RenderEffect::new(move |prev| {
             let value = self.invoke();
             if let Some(mut state) = prev {
@@ -157,11 +157,11 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&self) {
+    fn dry_resolve(&mut self) {
         self.invoke().dry_resolve();
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(mut self) -> Self::AsyncOutput {
         self.invoke().resolve().await
     }
 
@@ -169,13 +169,13 @@ where
         V::MIN_LENGTH
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(mut self, buf: &mut String, position: &mut Position) {
         let value = self.invoke();
         value.to_html_with_buf(buf, position)
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-        self,
+        mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
     ) where
@@ -186,7 +186,7 @@ where
     }
 
     fn hydrate<const FROM_SERVER: bool>(
-        self,
+        mut self,
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
@@ -212,10 +212,10 @@ where
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: Attribute<R>> =
-        Box<dyn Fn() -> V::Output<SomeNewAttr::CloneableOwned> + Send>;
+        Box<dyn FnMut() -> V::Output<SomeNewAttr::CloneableOwned> + Send>;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
-        self,
+        mut self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
@@ -305,7 +305,7 @@ where
         0
     }
 
-    fn to_html(self, key: &str, buf: &mut String) {
+    fn to_html(mut self, key: &str, buf: &mut String) {
         let value = self.invoke();
         value.to_html(key, buf);
     }
@@ -313,7 +313,7 @@ where
     fn to_template(_key: &str, _buf: &mut String) {}
 
     fn hydrate<const FROM_SERVER: bool>(
-        self,
+        mut self,
         key: &str,
         el: &<R as Renderer>::Element,
     ) -> Self::State {
@@ -333,7 +333,11 @@ where
         .into()
     }
 
-    fn build(self, el: &<R as Renderer>::Element, key: &str) -> Self::State {
+    fn build(
+        mut self,
+        el: &<R as Renderer>::Element,
+        key: &str,
+    ) -> Self::State {
         let key = R::intern(key);
         let key = key.to_owned();
         let el = el.to_owned();
@@ -363,40 +367,40 @@ where
     }
 }
 
-pub type SharedReactiveFunction<T> = Arc<Mutex<dyn Fn() -> T + Send>>;
+pub type SharedReactiveFunction<T> = Arc<Mutex<dyn FnMut() -> T + Send>>;
 
 pub trait ReactiveFunction: Send + 'static {
     type Output;
 
-    fn invoke(&self) -> Self::Output;
+    fn invoke(&mut self) -> Self::Output;
 
-    fn into_shared(self) -> Arc<Mutex<dyn Fn() -> Self::Output + Send>>;
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>>;
 }
 
-impl<T: 'static> ReactiveFunction for Arc<Mutex<dyn Fn() -> T + Send>> {
+impl<T: 'static> ReactiveFunction for Arc<Mutex<dyn FnMut() -> T + Send>> {
     type Output = T;
 
-    fn invoke(&self) -> Self::Output {
-        let fun = self.lock().expect("lock poisoned");
+    fn invoke(&mut self) -> Self::Output {
+        let mut fun = self.lock().expect("lock poisoned");
         fun()
     }
 
-    fn into_shared(self) -> Arc<Mutex<dyn Fn() -> Self::Output + Send>> {
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>> {
         self
     }
 }
 
 impl<F, T> ReactiveFunction for F
 where
-    F: Fn() -> T + Send + 'static,
+    F: FnMut() -> T + Send + 'static,
 {
     type Output = T;
 
-    fn invoke(&self) -> Self::Output {
+    fn invoke(&mut self) -> Self::Output {
         self()
     }
 
-    fn into_shared(self) -> Arc<Mutex<dyn Fn() -> Self::Output + Send>> {
+    fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>> {
         Arc::new(Mutex::new(self))
     }
 }
@@ -472,7 +476,7 @@ mod stable {
 
                 const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&self) {}
+                fn dry_resolve(&mut self) {}
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
@@ -616,7 +620,7 @@ mod stable {
 
                 const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&self) {}
+                fn dry_resolve(&mut self) {}
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
