@@ -1,4 +1,4 @@
-use leptos::{logging, prelude::*};
+use leptos::prelude::*;
 use leptos_router::{
     components::{Outlet, ParentRoute, Redirect, Route, Router, Routes, A},
     SsrMode, StaticSegment,
@@ -155,31 +155,24 @@ fn NestedResourceInside() -> impl IntoView {
     view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
-                   {move || {
-                    one_second.get().map(|_| {
-                        let two_second = Resource::new_serde(|| (), move |_| async move {
-                            logging::log!("creating two_second resource");
-                            second_wait_fn(WAIT_TWO_SECONDS).await
-                        });
-                        view! {
-                            {move || one_second.get().map(|_|
-                                view! {
-                                    <p id="loaded-1">"One Second: Loaded 1!"</p>
-                                }
-                            )}
-                            <Suspense fallback=|| "Loading 2...">
-                                {move || {
-                                    two_second.get().map(|x| view! {
-                                        <span id="loaded-2">"Loaded 2 (created inside first suspense)!: " {format!("{x:?}")}</span>
-                                        <button on:click=move |_| set_count.update(|n| *n += 1)>
-                                            {count}
-                                        </button>
-                                    })
-                                }}
-                            </Suspense>
-                        }
-                    })
-                }}
+                {Suspend(async move {
+                    _ = one_second.await;
+                    let two_second = Resource::new_serde(|| (), move |_| async move {
+                        second_wait_fn(WAIT_TWO_SECONDS).await
+                    });
+                    view! {
+                        <p id="loaded-1">"One Second: Loaded 1!"</p>
+                        <Suspense fallback=|| "Loading 2...">
+                            <span id="loaded-2">
+                                "Loaded 2 (created inside first suspense)!: "
+                                {Suspend(async move { format!("{:?}", two_second.await)})}
+                            </span>
+                            <button on:click=move |_| set_count.update(|n| *n += 1)>
+                                {count}
+                            </button>
+                        </Suspense>
+                    }
+                })}
             </Suspense>
         </div>
     }
