@@ -26,8 +26,8 @@ use leptos_integration_utils::{
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
-    location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
-    StaticDataMap, StaticMode, *,
+    components::provide_server_redirect, location::RequestUrl, PathSegment,
+    RouteList, RouteListing, SsrMode, StaticDataMap, StaticMode, *,
 };
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
@@ -194,10 +194,9 @@ impl ExtendResponse for ActixResponse {
 /// the redirect with client-side routing.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn redirect(path: &str) {
-    if let (Some(req), Some(res)) = (
-        use_context::<HttpRequest>(),
-        use_context::<ResponseOptions>(),
-    ) {
+    if let (Some(req), Some(res)) =
+        (use_context::<Request>(), use_context::<ResponseOptions>())
+    {
         // insert the Location header in any case
         res.insert_header(
             header::LOCATION,
@@ -710,7 +709,7 @@ fn provide_contexts(
     provide_context(meta_context.clone());
     provide_context(res_options.clone());
     provide_context(req);
-    //provide_server_redirect(redirect); // TODO server redirect
+    provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
@@ -840,7 +839,9 @@ impl ActixPath for &[PathSegment] {
     fn to_actix_path(&self) -> String {
         let mut path = String::new();
         for segment in self.iter() {
-            if !segment.as_raw_str().starts_with('/') {
+            // TODO trailing slash handling
+            let raw = segment.as_raw_str();
+            if !raw.is_empty() && !raw.starts_with('/') {
                 path.push('/');
             }
             match segment {
