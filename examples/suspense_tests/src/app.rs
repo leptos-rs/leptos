@@ -65,7 +65,7 @@ pub fn App() -> impl IntoView {
                         <Route path=StaticSegment("none") view=None/>
                     </ParentRoute>
                     // in-order
-                    <ParentRoute
+                    /*<ParentRoute
                         path=StaticSegment("in-order")
                         ssr=SsrMode::InOrder
                         view=|| view! {
@@ -97,7 +97,7 @@ pub fn App() -> impl IntoView {
                         <Route path=StaticSegment("parallel") view=Parallel/>
                         <Route path=StaticSegment("inside-component") view=InsideComponent/>
                         <Route path=StaticSegment("none") view=None/>
-                    </ParentRoute>
+                    </ParentRoute>*/
                 </Routes>
             </main>
         </Router>
