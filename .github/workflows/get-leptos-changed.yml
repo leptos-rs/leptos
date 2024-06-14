@@ -24,17 +24,29 @@ jobs:
         uses: tj-actions/changed-files@v43
         with:
           files: |
-            integrations/**
+            any_error/**
+            any_spawner/**
+            const_str_slice_concat/**
+            either_of/**
+            hydration_context/**
+            integrations/actix/**
+            integrations/axum/**
+            integrations/utils/**
             leptos/**
             leptos_config/**
             leptos_dom/**
             leptos_hot_reload/**
             leptos_macro/**
-            leptos_reactive/**
             leptos_server/**
             meta/**
+            next_tuple/**
+            oco/**
+            or_poisoned/**
+            reactive_graph/**
             router/**
+            router_macro/**
             server_fn/**
+            server_fn/server_fn_macro_default/**
             server_fn_macro/**
 
       - name: List source files that changed
