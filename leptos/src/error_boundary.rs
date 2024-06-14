@@ -251,7 +251,7 @@ where
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn dry_resolve(&self) {
+    fn dry_resolve(&mut self) {
         self.children.dry_resolve();
     }
 
