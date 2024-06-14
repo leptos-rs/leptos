@@ -8,6 +8,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use futures::{channel::oneshot, select, FutureExt};
+use send_wrapper::SendWrapper;
 use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 
 /// An action runs some asynchronous code when you dispatch a new value to it, and gives you
@@ -97,9 +98,8 @@ where
     value: ArcRwSignal<Option<O>>,
     version: ArcRwSignal<usize>,
     #[allow(clippy::complexity)]
-    action_fn: Arc<
-        dyn Fn(&I) -> Pin<Box<dyn Future<Output = O> + Send>> + Send + Sync,
-    >,
+    action_fn:
+        Arc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>> + Send + Sync>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -124,8 +124,8 @@ where
 
 impl<I, O> ArcAction<I, O>
 where
-    I: Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    I: 'static,
+    O: 'static,
 {
     /// Creates a new action. This is lazy: it does not run the action function until some value
     /// is dispatched.
@@ -171,7 +171,7 @@ where
     pub fn new<F, Fu>(action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + Send + 'static,
+        Fu: Future<Output = O> + 'static,
     {
         Self::new_with_value(None, action_fn)
     }
@@ -191,7 +191,7 @@ where
     pub fn new_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + Send + 'static,
+        Fu: Future<Output = O> + 'static,
     {
         ArcAction {
             in_flight: ArcRwSignal::new(0),
@@ -225,7 +225,7 @@ where
             self.input.try_update(|inp| *inp = Some(input));
 
             // Spawn the task
-            Executor::spawn({
+            Executor::spawn_local({
                 let input = self.input.clone();
                 let version = self.version.clone();
                 let value = self.value.clone();
@@ -252,6 +252,52 @@ where
                 }
             });
         }
+    }
+}
+
+impl<I, O> ArcAction<SendWrapper<I>, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// Creates a new action, which will only be run on the thread in which it is created.
+    ///
+    /// In all other ways, this is identical to [`ArcAction::new`].
+    #[track_caller]
+    pub fn new_unsync<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self::new_unsync_with_value(None, action_fn)
+    }
+
+    /// Creates a new action that will only run on the current thread, initializing it with the given value.
+    ///
+    /// In all other ways, this is identical to [`ArcAsync::new_with_value`].
+    #[track_caller]
+    pub fn new_unsync_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        let action_fn = SendWrapper::new(action_fn);
+        ArcAction {
+            in_flight: ArcRwSignal::new(0),
+            input: Default::default(),
+            value: ArcRwSignal::new(value),
+            version: Default::default(),
+            action_fn: Arc::new(move |input| {
+                Box::pin(SendWrapper::new(action_fn(input)))
+            }),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+
+    #[track_caller]
+    pub fn dispatch_unsync(&self, input: I) {
+        self.dispatch(SendWrapper::new(input));
     }
 }
 
@@ -535,7 +581,7 @@ where
     pub fn new<F, Fu>(action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + Send + 'static,
+        Fu: Future<Output = O> + 'static,
     {
         Self {
             inner: StoredValue::new(ArcAction::new(action_fn)),
@@ -560,7 +606,7 @@ where
     pub fn new_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + Send + 'static,
+        Fu: Future<Output = O> + 'static,
     {
         Self {
             inner: StoredValue::new(ArcAction::new_with_value(
@@ -710,6 +756,52 @@ where
     }
 }
 
+impl<I, O> Action<SendWrapper<I>, O>
+where
+    I: 'static,
+    O: Send + Sync + 'static,
+{
+    /// Creates a new action, which does not require its input to be `Send`.
+    ///
+    /// In all other ways, this is identical to [`Action::new`].
+    #[track_caller]
+    pub fn new_unsync<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self {
+            inner: StoredValue::new(ArcAction::new_unsync(action_fn)),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+
+    /// Creates a new action, which does not require its input to be `Send`,
+    /// initializing it with the given value.
+    ///
+    /// In all other ways, this is identical to [`Action::new`].
+    #[track_caller]
+    pub fn new_unsync_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + 'static,
+    {
+        Self {
+            inner: StoredValue::new(ArcAction::new_unsync_with_value(
+                value, action_fn,
+            )),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+
+    #[track_caller]
+    pub fn dispatch_unsync(&self, input: I) {
+        self.dispatch(SendWrapper::new(input));
+    }
+}
+
 impl<I, O> DefinedAt for Action<I, O>
 where
     I: 'static,
@@ -794,7 +886,7 @@ where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
     F: Fn(&I) -> Fu + Send + Sync + 'static,
-    Fu: Future<Output = O> + Send + 'static,
+    Fu: Future<Output = O> + 'static,
 {
     Action::new(action_fn)
 }
