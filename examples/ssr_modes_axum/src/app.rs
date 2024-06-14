@@ -11,7 +11,7 @@ use leptos_router::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub fn server_app(leptos_options: &LeptosOptions) -> impl IntoView {
+pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
     view! {
         <!DOCTYPE html>
         <html lang="en">
