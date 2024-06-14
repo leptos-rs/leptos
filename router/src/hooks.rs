@@ -2,14 +2,13 @@ use crate::{
     components::RouterContext,
     location::{Location, Url},
     navigate::NavigateOptions,
-    nested_router::RouteContext,
     params::{Params, ParamsError, ParamsMap},
 };
 use reactive_graph::{
     computed::{ArcMemo, Memo},
     owner::use_context,
     signal::{ArcRwSignal, ReadSignal},
-    traits::{Get, GetUntracked, With},
+    traits::{Get, With},
 };
 use tachys::renderer::Renderer;
 /*
@@ -199,10 +198,6 @@ pub(crate) fn use_resolved_path<R: Renderer + 'static>(
     let matched = use_context::<Matched>().map(|n| n.0);
     ArcMemo::new(move |_| {
         let path = path();
-        println!(
-            "use_resolved_path {path:?} relative to {:?}",
-            matched.as_ref().map(|n| n.get_untracked())
-        );
         if path.starts_with('/') {
             Some(path)
         } else {
