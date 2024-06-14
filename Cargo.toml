@@ -9,7 +9,6 @@ members = [
   "next_tuple",
   "oco",
   "or_poisoned",
-  "routing_utils",
 
   # core
   "hydration_context",
