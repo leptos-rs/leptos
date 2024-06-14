@@ -18,6 +18,12 @@ npm install -D tailwindcss
 
 If you'd rather not use `npm`, you can install the Tailwind binary [here](https://github.com/tailwindlabs/tailwindcss/releases).
 
+You need to run Tailwind to create the `output.css` file. Note that you only need the `npx` if you installed through npm. Running this command with `--watch` is useful while developing.
+
+```bash
+npx tailwindcss -i style/tailwind.css -o style/output.css
+```
+
 ## Setting up with VS Code and Additional Tools
 
 If you're using VS Code, add the following to your `settings.json`
