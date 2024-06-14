@@ -166,7 +166,7 @@ where
 
     const MIN_LENGTH: usize = V.len();
 
-    fn dry_resolve(&self) {}
+    fn dry_resolve(&mut self) {}
 
     // this won't actually compile because if a weird interaction because the const &'static str and
     // the RPITIT, so we just refine it to a concrete future type; this will never change in any

@@ -149,7 +149,7 @@ where
 {
     type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
 
-    fn dry_resolve(&self) {
+    fn dry_resolve(&mut self) {
         match self {
             Either::Left(left) => left.dry_resolve(),
             Either::Right(right) => right.dry_resolve(),
@@ -337,7 +337,7 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn dry_resolve(&self) {
+    fn dry_resolve(&mut self) {
         todo!()
     }
 
@@ -551,7 +551,7 @@ macro_rules! tuples {
                 const MIN_LENGTH: usize = max_usize(&[$($ty ::MIN_LENGTH,)*]);
 
 
-                fn dry_resolve(&self) {
+                fn dry_resolve(&mut self) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
                             this.dry_resolve();
