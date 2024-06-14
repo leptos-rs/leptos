@@ -22,6 +22,7 @@ thiserror = "1"
 tracing = { version = "0.1", optional = true }
 guardian = "1"
 async-lock = "3.3.0"
+send_wrapper = "0.6.0"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 web-sys = "0.3"
