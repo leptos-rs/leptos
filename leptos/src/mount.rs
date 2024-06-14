@@ -50,7 +50,9 @@ where
             "It seems like you're trying to use Leptos in hydration mode, but \
              the `hydrate` feature is not enabled on the `leptos` crate. Add \
              `features = [\"hydrate\"]` to your Cargo.toml for the crate to \
-             work properly."
+             work properly.\n\nNote that hydration and client-side rendering \
+             now use separate functions from leptos::mount: you are calling a \
+             hydration function."
         );
     }
 
@@ -99,7 +101,10 @@ where
             "It seems like you're trying to use Leptos in client-side \
              rendering mode, but the `csr` feature is not enabled on the \
              `leptos` crate. Add `features = [\"csr\"]` to your Cargo.toml \
-             for the crate to work properly."
+             for the crate to work properly.\n\nNote that hydration and \
+             client-side rendering now use different functions from \
+             leptos::mount. You are using a client-side rendering mount \
+             function."
         );
     }
 
