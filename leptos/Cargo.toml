@@ -69,9 +69,6 @@ ssr = [
   "tachys/ssr",
 ]
 nightly = ["leptos_dom/nightly", "leptos_macro/nightly", "tachys/nightly"]
-serde = ["leptos_reactive/serde"]
-serde-lite = ["leptos_reactive/serde-lite"]
-miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["server_fn/rkyv"]
 tracing = [
   "reactive_graph/tracing",
