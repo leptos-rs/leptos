@@ -55,8 +55,8 @@ use leptos_integration_utils::{
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
-    location::RequestUrl, PathSegment, RouteList, RouteListing, SsrMode,
-    StaticDataMap, StaticMode,
+    components::provide_server_redirect, location::RequestUrl, PathSegment,
+    RouteList, RouteListing, SsrMode, StaticDataMap, StaticMode,
 };
 use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
@@ -791,8 +791,7 @@ fn provide_contexts(
     provide_context(meta_context.clone());
     provide_context(parts);
     provide_context(default_res_options);
-    // TODO server redirect
-    // provide_server_redirect(redirect);
+    provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
@@ -1424,7 +1423,9 @@ impl AxumPath for &[PathSegment] {
     fn to_axum_path(&self) -> String {
         let mut path = String::new();
         for segment in self.iter() {
-            if !segment.as_raw_str().starts_with('/') {
+            // TODO trailing slash handling
+            let raw = segment.as_raw_str();
+            if !raw.is_empty() && !raw.starts_with('/') {
                 path.push('/');
             }
             match segment {
