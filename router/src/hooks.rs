@@ -9,7 +9,7 @@ use reactive_graph::{
     computed::{ArcMemo, Memo},
     owner::use_context,
     signal::{ArcRwSignal, ReadSignal},
-    traits::{Get, With},
+    traits::{Get, GetUntracked, With},
 };
 use tachys::renderer::Renderer;
 /*
@@ -185,6 +185,9 @@ where
     Memo::new(move |_| url.with(|url| T::from_map(url.search_params())))
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct Matched(pub ArcRwSignal<String>);
+
 /// Resolves the given path relative to the current route.
 #[track_caller]
 pub(crate) fn use_resolved_path<R: Renderer + 'static>(
@@ -193,9 +196,13 @@ pub(crate) fn use_resolved_path<R: Renderer + 'static>(
     let router = use_context::<RouterContext>()
         .expect("called use_resolved_path outside a <Router>");
     // TODO make this work with flat routes too?
-    let matched = use_context::<RouteContext<R>>().map(|route| route.matched);
+    let matched = use_context::<Matched>().map(|n| n.0);
     ArcMemo::new(move |_| {
         let path = path();
+        println!(
+            "use_resolved_path {path:?} relative to {:?}",
+            matched.as_ref().map(|n| n.get_untracked())
+        );
         if path.starts_with('/') {
             Some(path)
         } else {
