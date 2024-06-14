@@ -143,8 +143,8 @@ where
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {
-        if let Ok(inner) = self.as_mut() {
+    fn dry_resolve(&self) {
+        if let Ok(inner) = self.as_ref() {
             inner.dry_resolve()
         }
     }

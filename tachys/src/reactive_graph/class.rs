@@ -22,15 +22,12 @@ where
         0
     }
 
-    fn to_html(mut self, class: &mut String) {
+    fn to_html(self, class: &mut String) {
         let value = self.invoke();
         value.to_html(class);
     }
 
-    fn hydrate<const FROM_SERVER: bool>(
-        mut self,
-        el: &R::Element,
-    ) -> Self::State {
+    fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
         // TODO FROM_SERVER vs template
         let el = el.clone();
         RenderEffect::new(move |prev| {
@@ -45,7 +42,7 @@ where
         .into()
     }
 
-    fn build(mut self, el: &R::Element) -> Self::State {
+    fn build(self, el: &R::Element) -> Self::State {
         let el = el.to_owned();
         RenderEffect::new(move |prev| {
             let value = self.invoke();
@@ -59,7 +56,7 @@ where
         .into()
     }
 
-    fn rebuild(mut self, state: &mut Self::State) {
+    fn rebuild(self, state: &mut Self::State) {
         let prev_effect = std::mem::take(&mut state.0);
         let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
         drop(prev_effect);
@@ -102,7 +99,7 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        let (name, mut f) = self;
+        let (name, f) = self;
         let include = *f.invoke().borrow();
         if include {
             <&str as IntoClass<R>>::to_html(name, class);
@@ -111,7 +108,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
         // TODO FROM_SERVER vs template
-        let (name, mut f) = self;
+        let (name, f) = self;
         let class_list = R::class_list(el);
         let name = R::intern(name);
 
@@ -132,7 +129,7 @@ where
     }
 
     fn build(self, el: &R::Element) -> Self::State {
-        let (name, mut f) = self;
+        let (name, f) = self;
         let class_list = R::class_list(el);
         let name = R::intern(name);
 
@@ -187,7 +184,7 @@ where
     }
 
     fn to_html(self, class: &mut String) {
-        let (names, mut f) = self;
+        let (names, f) = self;
         let include = *f.invoke().borrow();
         if include {
             for name in names {
@@ -198,7 +195,7 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
         // TODO FROM_SERVER vs template
-        let (names, mut f) = self;
+        let (names, f) = self;
         let class_list = R::class_list(el);
 
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
@@ -223,7 +220,7 @@ where
     }
 
     fn build(self, el: &R::Element) -> Self::State {
-        let (names, mut f) = self;
+        let (names, f) = self;
         let class_list = R::class_list(el);
 
         RenderEffect::new(move |prev: Option<(R::ClassList, bool)>| {
