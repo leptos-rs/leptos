@@ -3,6 +3,7 @@ use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
 use reactive_graph::{
     computed::ArcMemo,
+    effect::RenderEffect,
     owner::Owner,
     signal::ArcRwSignal,
     traits::{Get, Update, With, WithUntracked},
@@ -51,7 +52,7 @@ pub fn ErrorBoundary<FalFn, Fal, Chil>(
     fallback: FalFn,
 ) -> impl IntoView
 where
-    FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
+    FalFn: FnOnce(ArcRwSignal<Errors>) -> Fal + Clone + Send + 'static,
     Fal: IntoView + 'static,
     Chil: IntoView + 'static,
 {
@@ -73,23 +74,27 @@ where
 
     // provide the error hook and render children
     throw_error::set_error_hook(Arc::clone(&hook));
-    let mut children = Some(children.into_inner()());
+    let children = children.into_inner()();
 
-    move || ErrorBoundaryView {
+    ErrorBoundaryView {
         boundary_id: boundary_id.clone(),
-        errors_empty: errors_empty.get(),
-        children: children.take(),
-        fallback: Some((fallback.clone())(errors.clone())),
+        errors_empty,
+        children,
         errors: errors.clone(),
+        fallback: fallback(errors),
         rndr: PhantomData,
     }
 }
 
 #[derive(Debug)]
-struct ErrorBoundaryView<Chil, Fal, Rndr> {
+struct ErrorBoundaryView<Chil, Fal, Rndr>
+where
+    Chil: 'static,
+    Fal: 'static,
+{
     boundary_id: SerializedDataId,
-    errors_empty: bool,
-    children: Option<Chil>,
+    errors_empty: ArcMemo<bool>,
+    children: Chil,
     fallback: Fal,
     errors: ArcRwSignal<Errors>,
     rndr: PhantomData<Rndr>,
@@ -153,58 +158,62 @@ where
     Fal: Render<Rndr>,
     Rndr: Renderer,
 {
-    type State = ErrorBoundaryViewState<Chil, Fal, Rndr>;
+    type State = RenderEffect<ErrorBoundaryViewState<Chil, Fal, Rndr>>;
 
     fn build(self) -> Self::State {
-        let placeholder = Rndr::create_placeholder();
-        let children = (self.children.expect(
-            "tried to build ErrorBoundary but children were not present",
-        ))
-        .build();
-        let fallback = self.fallback.build();
-        ErrorBoundaryViewState {
-            showing_fallback: !self.errors_empty,
-            children,
-            fallback,
-            placeholder,
-        }
+        let mut placeholder = Some(Rndr::create_placeholder());
+        let mut children = Some(self.children.build());
+        let mut fallback = Some(self.fallback.build());
+        RenderEffect::new(
+            move |prev: Option<ErrorBoundaryViewState<Chil, Fal, Rndr>>| {
+                if let Some(mut state) = prev {
+                    match (self.errors_empty.get(), state.showing_fallback) {
+                        // no errors, and was showing fallback
+                        (true, true) => {
+                            state.fallback.unmount();
+                            Rndr::try_mount_before(
+                                &mut state.children,
+                                state.placeholder.as_ref(),
+                            );
+                        }
+                        // yes errors, and was showing children
+                        (false, false) => {
+                            state.children.unmount();
+                            Rndr::try_mount_before(
+                                &mut state.fallback,
+                                state.placeholder.as_ref(),
+                            );
+                        }
+                        // either there were no errors, and we were already showing the children
+                        // or there are errors, but we were already showing the fallback
+                        // in either case, rebuilding doesn't require us to do anything
+                        _ => {}
+                    }
+                    state.showing_fallback = !self.errors_empty.get();
+                    state
+                } else {
+                    ErrorBoundaryViewState {
+                        showing_fallback: !self.errors_empty.get(),
+                        children: children.take().unwrap(),
+                        fallback: fallback.take().unwrap(),
+                        placeholder: placeholder.take().unwrap(),
+                    }
+                }
+            },
+        )
     }
 
-    fn rebuild(self, state: &mut Self::State) {
-        match (self.errors_empty, state.showing_fallback) {
-            // no errors, and was showing fallback
-            (true, true) => {
-                state.fallback.unmount();
-                Rndr::try_mount_before(
-                    &mut state.children,
-                    state.placeholder.as_ref(),
-                );
-            }
-            // yes errors, and was showing children
-            (false, false) => {
-                state.children.unmount();
-                Rndr::try_mount_before(
-                    &mut state.fallback,
-                    state.placeholder.as_ref(),
-                );
-            }
-            // either there were no errors, and we were already showing the children
-            // or there are errors, but we were already showing the fallback
-            // in either case, rebuilding doesn't require us to do anything
-            _ => {}
-        }
-        state.showing_fallback = !self.errors_empty;
-    }
+    fn rebuild(self, _state: &mut Self::State) {}
 }
 
 impl<Chil, Fal, Rndr> AddAnyAttr<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
 where
-    Chil: RenderHtml<Rndr>,
-    Fal: RenderHtml<Rndr> + Send,
+    Chil: RenderHtml<Rndr> + 'static,
+    Fal: RenderHtml<Rndr> + Send + 'static,
     Rndr: Renderer,
 {
     type Output<SomeNewAttr: Attribute<Rndr>> =
-        ErrorBoundaryView<Chil::Output<SomeNewAttr>, Fal, Rndr>;
+        ErrorBoundaryView<Chil::Output<SomeNewAttr::CloneableOwned>, Fal, Rndr>;
 
     fn add_any_attr<NewAttr: Attribute<Rndr>>(
         self,
@@ -224,7 +233,7 @@ where
         ErrorBoundaryView {
             boundary_id,
             errors_empty,
-            children: children.add_any_attr(attr),
+            children: children.add_any_attr(attr.into_cloneable_owned()),
             fallback,
             errors,
             rndr,
@@ -234,15 +243,15 @@ where
 
 impl<Chil, Fal, Rndr> RenderHtml<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>
 where
-    Chil: RenderHtml<Rndr>,
-    Fal: RenderHtml<Rndr> + Send,
+    Chil: RenderHtml<Rndr> + 'static,
+    Fal: RenderHtml<Rndr> + Send + 'static,
     Rndr: Renderer,
 {
     type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, Fal, Rndr>;
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         self.children.dry_resolve();
     }
 
@@ -255,14 +264,10 @@ where
             errors,
             ..
         } = self;
-        let children = match children {
-            None => None,
-            Some(children) => Some(children.resolve().await),
-        };
         ErrorBoundaryView {
             boundary_id,
             errors_empty,
-            children,
+            children: children.resolve().await,
             fallback,
             errors,
             rndr: PhantomData,
@@ -317,29 +322,62 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
-        let children = self.children.expect(
-            "tried to hydrate ErrorBoundary but children were not present",
-        );
-        let (children, fallback) = if self.errors_empty {
-            (
-                children.hydrate::<FROM_SERVER>(cursor, position),
-                self.fallback.build(),
-            )
-        } else {
-            (
-                children.build(),
-                self.fallback.hydrate::<FROM_SERVER>(cursor, position),
-            )
-        };
+        let mut children = Some(self.children);
+        let mut fallback = Some(self.fallback);
+        let cursor = cursor.to_owned();
+        let position = position.to_owned();
+        RenderEffect::new(
+            move |prev: Option<ErrorBoundaryViewState<Chil, Fal, Rndr>>| {
+                if let Some(mut state) = prev {
+                    match (self.errors_empty.get(), state.showing_fallback) {
+                        // no errors, and was showing fallback
+                        (true, true) => {
+                            state.fallback.unmount();
+                            Rndr::try_mount_before(
+                                &mut state.children,
+                                state.placeholder.as_ref(),
+                            );
+                        }
+                        // yes errors, and was showing children
+                        (false, false) => {
+                            state.children.unmount();
+                            Rndr::try_mount_before(
+                                &mut state.fallback,
+                                state.placeholder.as_ref(),
+                            );
+                        }
+                        // either there were no errors, and we were already showing the children
+                        // or there are errors, but we were already showing the fallback
+                        // in either case, rebuilding doesn't require us to do anything
+                        _ => {}
+                    }
+                    state.showing_fallback = !self.errors_empty.get();
+                    state
+                } else {
+                    let children = children.take().unwrap();
+                    let fallback = fallback.take().unwrap();
+                    let (children, fallback) = if self.errors_empty.get() {
+                        (
+                            children.hydrate::<FROM_SERVER>(&cursor, &position),
+                            fallback.build(),
+                        )
+                    } else {
+                        (
+                            children.build(),
+                            fallback.hydrate::<FROM_SERVER>(&cursor, &position),
+                        )
+                    };
 
-        let placeholder = cursor.next_placeholder(position);
-
-        ErrorBoundaryViewState {
-            showing_fallback: !self.errors_empty,
-            children,
-            fallback,
-            placeholder,
-        }
+                    let placeholder = cursor.next_placeholder(&position);
+                    ErrorBoundaryViewState {
+                        showing_fallback: !self.errors_empty.get(),
+                        children,
+                        fallback,
+                        placeholder,
+                    }
+                }
+            },
+        )
     }
 }
 

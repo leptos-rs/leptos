@@ -1,5 +1,5 @@
 use crate::{
-    children::{TypedChildrenMut, ViewFn},
+    children::{TypedChildrenFn, ViewFn},
     IntoView,
 };
 use leptos_macro::component;
@@ -9,7 +9,7 @@ use tachys::either::Either;
 #[component]
 pub fn Show<W, C>(
     /// The children will be shown whenever the condition in the `when` closure returns `true`.
-    children: TypedChildrenMut<C>,
+    children: TypedChildrenFn<C>,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false. By default this is the empty view.
@@ -21,7 +21,7 @@ where
     C: IntoView + 'static,
 {
     let memoized_when = ArcMemo::new(move |_| when());
-    let mut children = children.into_inner();
+    let children = children.into_inner();
 
     move || match memoized_when.get() {
         true => Either::Left(children()),

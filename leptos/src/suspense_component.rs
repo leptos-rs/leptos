@@ -6,16 +6,17 @@ use futures::FutureExt;
 use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo, ScopedFuture},
+    effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Get, Read, With},
+    traits::{Get, Read, Track, With},
 };
 use slotmap::{DefaultKey, SlotMap};
 use tachys::{
     either::Either,
     html::attribute::Attribute,
     hydration::Cursor,
-    reactive_graph::{OwnedView, RenderEffectState},
+    reactive_graph::OwnedView,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -64,7 +65,7 @@ where
     Rndr: Renderer + 'static,
 {
     type State =
-        RenderEffectState<EitherKeepAliveState<Chil::State, Fal::State, Rndr>>;
+        RenderEffect<EitherKeepAliveState<Chil::State, Fal::State, Rndr>>;
 
     fn build(self) -> Self::State {
         let mut children = Some(self.children);
@@ -72,21 +73,32 @@ where
         let none_pending = self.none_pending;
         let mut nth_run = 0;
 
-        (move || {
-            // show the fallback if
-            // 1) there are pending futures, and
-            // 2) we are either in a Suspense (not Transition), or it's the first fallback
-            //    (because we initially render the children to register Futures, the "first
-            //    fallback" is probably the 2nd run
-            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 2);
-            nth_run += 1;
-            EitherKeepAlive {
-                a: children.take(),
-                b: fallback.take(),
-                show_b,
-            }
-        })
-        .build()
+        RenderEffect::new(
+            move |prev: Option<
+                EitherKeepAliveState<Chil::State, Fal::State, Rndr>,
+            >| {
+                // show the fallback if
+                // 1) there are pending futures, and
+                // 2) we are either in a Suspense (not Transition), or it's the first fallback
+                //    (because we initially render the children to register Futures, the "first
+                //    fallback" is probably the 2nd run
+                let show_b =
+                    !none_pending.get() && (!TRANSITION || nth_run < 2);
+                nth_run += 1;
+                let this = EitherKeepAlive {
+                    a: children.take(),
+                    b: fallback.take(),
+                    show_b,
+                };
+
+                if let Some(mut state) = prev {
+                    this.rebuild(&mut state);
+                    state
+                } else {
+                    this.build()
+                }
+            },
+        )
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
@@ -139,7 +151,7 @@ where
 
     const MIN_LENGTH: usize = Chil::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
@@ -150,7 +162,7 @@ where
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
-        mut self,
+        self,
         buf: &mut StreamBuilder,
         position: &mut Position,
     ) where
@@ -165,8 +177,9 @@ where
         let (tx, rx) = futures::channel::oneshot::channel::<()>();
 
         let mut tx = Some(tx);
-        let eff =
-            reactive_graph::effect::RenderEffect::new_isomorphic(move |_| {
+        let eff = reactive_graph::effect::RenderEffect::new_isomorphic({
+            move |_| {
+                tasks.track();
                 if tasks.read().is_empty() {
                     if let Some(tx) = tx.take() {
                         // If the receiver has dropped, it means the ScopedFuture has already
@@ -174,13 +187,14 @@ where
                         _ = tx.send(());
                     }
                 }
-            });
+            }
+        });
 
         // walk over the tree of children once to make sure that all resource loads are registered
         self.children.dry_resolve();
 
         let mut fut =
-            Box::pin(ScopedFuture::new(ErrorHookFuture::new(async {
+            Box::pin(ScopedFuture::new(ErrorHookFuture::new(async move {
                 // wait for all the resources to have loaded before trying to resolve the body
                 // this is *less efficient* than just resolving the body
                 // however, it means that you can use reactive accesses to resources/async derived
@@ -244,25 +258,38 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
+        let cursor = cursor.to_owned();
+        let position = position.to_owned();
         let mut children = Some(self.children);
         let mut fallback = Some(self.fallback);
         let none_pending = self.none_pending;
         let mut nth_run = 0;
 
-        (move || {
-            // show the fallback if
-            // 1) there are pending futures, and
-            // 2) we are either in a Suspense (not Transition), or it's the first fallback
-            //    (because we initially render the children to register Futures, the "first
-            //    fallback" is probably the 2nd run
-            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 1);
-            nth_run += 1;
-            EitherKeepAlive {
-                a: children.take(),
-                b: fallback.take(),
-                show_b,
-            }
-        })
-        .hydrate::<FROM_SERVER>(cursor, position)
+        RenderEffect::new(
+            move |prev: Option<
+                EitherKeepAliveState<Chil::State, Fal::State, Rndr>,
+            >| {
+                // show the fallback if
+                // 1) there are pending futures, and
+                // 2) we are either in a Suspense (not Transition), or it's the first fallback
+                //    (because we initially render the children to register Futures, the "first
+                //    fallback" is probably the 2nd run
+                let show_b =
+                    !none_pending.get() && (!TRANSITION || nth_run < 1);
+                nth_run += 1;
+                let this = EitherKeepAlive {
+                    a: children.take(),
+                    b: fallback.take(),
+                    show_b,
+                };
+
+                if let Some(mut state) = prev {
+                    this.rebuild(&mut state);
+                    state
+                } else {
+                    this.hydrate::<FROM_SERVER>(&cursor, &position)
+                }
+            },
+        )
     }
 }
