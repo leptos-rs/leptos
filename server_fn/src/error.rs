@@ -73,6 +73,10 @@ impl From<ServerFnError> for Error {
     Clone,
     Copy,
 )]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct NoCustomError;
 
 // Implement `Display` for `NoCustomError`
@@ -175,6 +179,10 @@ impl<E> ViaError<E> for WrapError<E> {
 /// This means that other error types can easily be converted into it using the
 /// `?` operator.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum ServerFnError<E = NoCustomError> {
     /// A user-defined custom error type, which defaults to [`NoCustomError`].
     WrappedServerError(E),
