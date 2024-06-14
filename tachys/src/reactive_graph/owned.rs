@@ -157,7 +157,7 @@ where
         OwnedView { owner, view, rndr }
     }
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         self.owner.with(|| self.view.dry_resolve());
     }
 }
