@@ -29,8 +29,6 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req_parts = use_context::<leptos_actix::Request>();
 
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
     if let Some(req_parts) = req_parts {
         println!("Path = {:?}", req_parts.path());
     }
@@ -60,7 +58,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
     // fake API delay
-    std::thread::sleep(std::time::Duration::from_millis(1250));
+    std::thread::sleep(std::time::Duration::from_millis(250));
 
     match sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
         .bind(title)
