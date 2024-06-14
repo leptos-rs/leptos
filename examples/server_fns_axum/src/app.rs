@@ -1,8 +1,6 @@
 use futures::StreamExt;
 use http::Method;
-use leptos::{html::Input, *};
-use leptos_meta::{provide_meta_context, Link, Meta, Stylesheet};
-use leptos_router::{ActionForm, Route, Router, Routes};
+use leptos::{html::Input, prelude::*, spawn::spawn_local};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use server_fn::{
     client::{browser::BrowserClient, Client},
@@ -23,24 +21,35 @@ use strum::{Display, EnumString};
 use wasm_bindgen::JsCast;
 use web_sys::{FormData, HtmlFormElement, SubmitEvent};
 
-#[component]
-pub fn TodoApp() -> impl IntoView {
-    provide_meta_context();
-
+pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
     view! {
-        <Meta name="color-scheme" content="dark light"/>
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/server_fns_axum.css"/>
-        <Router>
-            <header>
-                <h1>"Server Function Demo"</h1>
-            </header>
-            <main>
-                <Routes>
-                    <Route path="" view=HomePage/>
-                </Routes>
-            </main>
-        </Router>
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=leptos_options.clone() />
+                <HydrationScripts options=leptos_options.clone()/>
+                <meta name="color-scheme" content="dark light"/>
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css"/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
+
+#[component]
+pub fn App() -> impl IntoView {
+    view! {
+        <header>
+            <h1>"Server Function Demo"</h1>
+        </header>
+        <main>
+            <HomePage/>
+        </main>
     }
 }
 
@@ -87,8 +96,7 @@ pub fn SpawnLocal() -> impl IntoView {
     }
 
     let input_ref = NodeRef::<Input>::new();
-    let (shout_result, set_shout_result) =
-        create_signal("Click me".to_string());
+    let (shout_result, set_shout_result) = signal("Click me".to_string());
 
     view! {
         <h3>Using <code>spawn_local</code></h3>
@@ -163,15 +171,15 @@ pub fn WithAnAction() -> impl IntoView {
 
     // a server action can be created by using the server function's type name as a generic
     // the type name defaults to the PascalCased function name
-    let action = create_server_action::<AddRow>();
+    let action = ServerAction::<AddRow>::new();
 
     // this resource will hold the total number of rows
     // passing it action.version() means it will refetch whenever the action resolves successfully
     let row_count =
-        create_resource(move || action.version().get(), |_| get_rows());
+        Resource::new_serde(move || action.version().get(), |_| get_rows());
 
     view! {
-        <h3>Using <code>create_action</code></h3>
+        <h3>Using <code>Action::new</code></h3>
         <p>
             "Some server functions are conceptually \"mutations,\", which change something on the server. "
             "These often work well as actions."
@@ -206,9 +214,9 @@ pub fn WithAnAction() -> impl IntoView {
 /// message if the server function returns an error. Otherwise, it loads the new resource data.
 #[component]
 pub fn WithActionForm() -> impl IntoView {
-    let action = create_server_action::<AddRow>();
+    let action = ServerAction::<AddRow>::new();
     let row_count =
-        create_resource(move || action.version().get(), |_| get_rows());
+        Resource::new_serde(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>"<ActionForm/>"</code></h3>
@@ -222,10 +230,10 @@ pub fn WithActionForm() -> impl IntoView {
                 name="text"
                 placeholder="Type something here."
             />
-            <button> Submit </button>
+            <button>Submit</button>
         </ActionForm>
-        <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
-        <p>The result was: {move || format!("{:?}", action.value().get())}</p>
+        //<p>You submitted: {move || format!("{:?}", action.input().get())}</p>
+        //<p>The result was: {move || format!("{:?}", action.value().get())}</p>
         <Transition>archive underaligned: need alignment 4 but have alignment 1
             <p>Total rows: {row_count}</p>
         </Transition>
@@ -261,7 +269,7 @@ pub async fn length_of_input(input: String) -> Result<usize, ServerFnError> {
 #[component]
 pub fn ServerFnArgumentExample() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
-    let (result, set_result) = create_signal(0);
+    let (result, set_result) = signal(0);
 
     view! {
         <h3>Custom arguments to the <code>#[server]</code> " macro"</h3>
@@ -308,8 +316,8 @@ pub async fn rkyv_example(input: String) -> Result<String, ServerFnError> {
 #[component]
 pub fn RkyvExample() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
-    let (input, set_input) = create_signal(String::new());
-    let rkyv_result = create_resource(move || input.get(), rkyv_example);
+    let (input, set_input) = signal(String::new());
+    let rkyv_result = Resource::new_serde(move || input.get(), rkyv_example);
 
     view! {
         <h3>Using <code>rkyv</code> encoding</h3>
@@ -362,8 +370,8 @@ pub fn FileUpload() -> impl IntoView {
         Ok(count)
     }
 
-    let upload_action = create_action(|data: &FormData| {
-        let data = data.clone();
+    let upload_action = Action::new_unsync(|data: &FormData| {
+        let data = data.to_owned();
         // `MultipartData` implements `From<FormData>`
         file_length(data.into())
     });
@@ -375,7 +383,7 @@ pub fn FileUpload() -> impl IntoView {
             ev.prevent_default();
             let target = ev.target().unwrap().unchecked_into::<HtmlFormElement>();
             let form_data = FormData::new_with_form(&target).unwrap();
-            upload_action.dispatch(form_data);
+            upload_action.dispatch_unsync(form_data);
         }>
             <input type="file" name="file_to_upload"/>
             <input type="submit"/>
@@ -495,9 +503,9 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         Ok(TextStream::new(progress))
     }
 
-    let (filename, set_filename) = create_signal(None);
-    let (max, set_max) = create_signal(None);
-    let (current, set_current) = create_signal(None);
+    let (filename, set_filename) = signal(None);
+    let (max, set_max) = signal(None);
+    let (current, set_current) = signal(None);
     let on_submit = move |ev: SubmitEvent| {
         ev.prevent_default();
         let target = ev.target().unwrap().unchecked_into::<HtmlFormElement>();
@@ -509,7 +517,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         let size = file.size() as usize;
         set_filename.set(Some(filename.clone()));
         set_max.set(Some(size));
-        set_current.set(None::<usize>);
+        set_current.set(None);
 
         spawn_local(async move {
             let mut progress = file_progress(filename)
@@ -590,9 +598,9 @@ pub fn FileWatcher() -> impl IntoView {
         Ok(TextStream::from(rx))
     }
 
-    let (files, set_files) = create_signal(Vec::new());
+    let (files, set_files) = signal(Vec::new());
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         spawn_local(async move {
             while let Some(res) =
                 watched_files().await.unwrap().into_inner().next().await
@@ -648,7 +656,7 @@ pub enum InvalidArgument {
 #[component]
 pub fn CustomErrorTypes() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
-    let (result, set_result) = create_signal(None);
+    let (result, set_result) = signal(None);
 
     view! {
         <h3>Using custom error types</h3>
@@ -776,7 +784,7 @@ pub async fn why_not(
 #[component]
 pub fn CustomEncoding() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
-    let (result, set_result) = create_signal("foo".to_string());
+    let (result, set_result) = signal("foo".to_string());
 
     view! {
         <h3>Custom encodings</h3>
@@ -788,7 +796,7 @@ pub fn CustomEncoding() -> impl IntoView {
             on:click=move |_| {
                 let value = input_ref.get().unwrap().value();
                 spawn_local(async move {
-                let new_value = why_not(value, ", but in TOML!!!".to_string()).await.unwrap();
+                    let new_value = why_not(value, ", but in TOML!!!".to_string()).await.unwrap();
                     set_result.set(new_value.0.modified);
                 });
             }
