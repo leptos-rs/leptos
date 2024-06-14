@@ -387,9 +387,9 @@ where
 pub trait Set {
     type Value;
 
-    fn set(&self, value: impl Into<Self::Value>);
+    fn set(&self, value: Self::Value);
 
-    fn try_set(&self, value: impl Into<Self::Value>) -> Option<Self::Value>;
+    fn try_set(&self, value: Self::Value) -> Option<Self::Value>;
 }
 
 impl<T> Set for T
@@ -399,12 +399,12 @@ where
     type Value = <Self as Update>::Value;
 
     #[track_caller]
-    fn set(&self, value: impl Into<Self::Value>) {
+    fn set(&self, value: Self::Value) {
         self.try_update(|n| *n = value.into());
     }
 
     #[track_caller]
-    fn try_set(&self, value: impl Into<Self::Value>) -> Option<Self::Value> {
+    fn try_set(&self, value: Self::Value) -> Option<Self::Value> {
         if self.is_disposed() {
             Some(value.into())
         } else {
