@@ -100,7 +100,7 @@ where
         + "data-component".len()
         + View::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         self.view.dry_resolve()
     }
 
@@ -219,7 +219,7 @@ where
         + "</>".len()
         + View::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         self.view.dry_resolve()
     }
 

@@ -53,7 +53,7 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
         self.0.resolve().await
     }
 
-    fn dry_resolve(&mut self) {
+    fn dry_resolve(&self) {
         self.0.dry_resolve();
     }
 
