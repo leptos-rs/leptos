@@ -1,13 +1,14 @@
-use crate::{error_template::ErrorTemplate, errors::TodoAppError};
 use axum::{
     body::Body,
     extract::State,
     http::{Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::{view, Errors, LeptosOptions};
+use leptos::{config::LeptosOptions, error::Errors};
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
+
+use crate::app::shell;
 
 pub async fn file_and_error_handler(
     uri: Uri,
@@ -20,12 +21,8 @@ pub async fn file_and_error_handler(
     if res.status() == StatusCode::OK {
         res.into_response()
     } else {
-        let mut errors = Errors::default();
-        errors.insert_with_default_key(TodoAppError::NotFound);
-        let handler = leptos_axum::render_app_to_stream(
-            options.to_owned(),
-            move || view! {<ErrorTemplate outside_errors=errors.clone()/>},
-        );
+        let handler =
+            leptos_axum::render_app_to_stream(move || shell(&options));
         handler(req).await.into_response()
     }
 }
