@@ -92,13 +92,8 @@ impl<R: Renderer> Mountable<R> for OcoStrState<R> {
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.node.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.node.insert_before_this(child)
     }
 }
 

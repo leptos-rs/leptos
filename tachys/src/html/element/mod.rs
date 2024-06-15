@@ -446,13 +446,14 @@ where
         R::insert_node(parent, self.el.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.el.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        if let Some(parent) = R::get_parent(self.el.as_ref()) {
+            if let Some(element) = R::Element::cast_from(parent) {
+                child.mount(&element, Some(self.el.as_ref()));
+                return true;
+            }
+        }
+        false
     }
 }
 

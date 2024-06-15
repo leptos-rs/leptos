@@ -56,8 +56,7 @@ where
     state: Box<dyn Any>,
     unmount: fn(&mut dyn Any),
     mount: fn(&mut dyn Any, parent: &R::Element, marker: Option<&R::Node>),
-    insert_before_this:
-        fn(&dyn Any, parent: &R::Element, child: &mut dyn Mountable<R>) -> bool,
+    insert_before_this: fn(&dyn Any, child: &mut dyn Mountable<R>) -> bool,
     rndr: PhantomData<R>,
 }
 
@@ -113,7 +112,6 @@ where
 
 fn insert_before_this<R, T>(
     state: &dyn Any,
-    parent: &R::Element,
     child: &mut dyn Mountable<R>,
 ) -> bool
 where
@@ -124,7 +122,7 @@ where
     let state = state
         .downcast_ref::<T::State>()
         .expect("AnyViewState::opening_node couldn't downcast state");
-    state.insert_before_this(parent, child)
+    state.insert_before_this(child)
 }
 
 impl<T, R> IntoAny<R> for T
@@ -417,12 +415,8 @@ where
         (self.mount)(&mut *self.state, parent, marker)
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        (self.insert_before_this)(self, parent, child)
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        (self.insert_before_this)(self, child)
     }
 }
 /*

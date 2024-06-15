@@ -46,9 +46,7 @@ macro_rules! render_primitive {
                         R::insert_node(parent, self.0.as_ref(), marker);
                     }
 
-                    fn insert_before_this(
-                        &self,
-                        parent: &<R as Renderer>::Element,
+                    fn insert_before_this(&self, 
                         child: &mut dyn Mountable<R>,
                     ) -> bool {
                         child.mount(parent, Some(self.0.as_ref()));
@@ -318,9 +316,7 @@ impl<R: Renderer> Mountable<R> for ReadGuardStringState<R> {
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
         child.mount(parent, Some(self.node.as_ref()));

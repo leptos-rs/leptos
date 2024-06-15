@@ -179,11 +179,9 @@ where
         self.state.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        self.state.insert_before_this(parent, child)
+        self.state.insert_before_this(child)
     }
 }

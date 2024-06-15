@@ -571,10 +571,8 @@ impl Mountable<Sledgehammer> for SNode {
 
     fn insert_before_this(
         &self,
-        parent: &SNode,
-        child: &mut dyn Mountable<Sledgehammer>,
+        _child: &mut dyn Mountable<Sledgehammer>,
     ) -> bool {
-        child.mount(parent, Some(self));
-        true
+        todo!()
     }
 }

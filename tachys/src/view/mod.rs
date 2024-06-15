@@ -200,11 +200,7 @@ pub trait Mountable<R: Renderer> {
 
     /// Inserts another `Mountable` type before this one. Returns `false` if
     /// this does not actually exist in the UI (for example, `()`).
-    fn insert_before_this(
-        &self,
-        parent: &R::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool;
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool;
 
     /// Inserts another `Mountable` type before this one, or before the marker
     /// if this one doesn't exist in the UI (for example, `()`).
@@ -214,7 +210,7 @@ pub trait Mountable<R: Renderer> {
         child: &mut dyn Mountable<R>,
         marker: Option<&R::Node>,
     ) {
-        if !self.insert_before_this(parent, child) {
+        if !self.insert_before_this(child) {
             child.mount(parent, marker);
         }
     }
@@ -248,13 +244,11 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
         self.as_ref()
-            .map(|inner| inner.insert_before_this(parent, child))
+            .map(|inner| inner.insert_before_this(child))
             .unwrap_or(false)
     }
 }
@@ -272,12 +266,10 @@ where
         self.borrow_mut().mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        self.borrow().insert_before_this(parent, child)
+        self.borrow().insert_before_this(child)
     }
 }
 
