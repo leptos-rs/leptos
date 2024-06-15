@@ -169,13 +169,14 @@ pub mod prelude {
         pub use leptos_server::*;
         pub use oco_ref::*;
         pub use reactive_graph::{
-            actions::*, computed::*, effect::*, owner::*, signal::*,
-            wrappers::read::*, *,
+            actions::*, computed::*, effect::*, owner::*, selector::*,
+            signal::*, wrappers::read::*, *,
         };
         pub use server_fn::{self, ServerFnError};
         pub use tachys::{
             self,
             reactive_graph::{node_ref::*, Suspend},
+            view::template::ViewTemplate,
         };
     }
     pub use export_types::*;
