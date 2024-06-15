@@ -428,7 +428,7 @@ where
     fn mount(
         &mut self,
         _parent: &<Dom as Renderer>::Element,
-        marker: Option<&<Dom as Renderer>::Node>,
+        _marker: Option<&<Dom as Renderer>::Node>,
     ) {
         // we always mount this to the <head>, which is the whole point
         // but this shouldn't warn about the parent being a regular element or being unused
