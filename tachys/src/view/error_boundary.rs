@@ -95,20 +95,14 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &R::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        if self
-            .state
-            .as_ref()
-            .map(|n| n.insert_before_this(parent, child))
-            == Ok(true)
+        if self.state.as_ref().map(|n| n.insert_before_this(child)) == Ok(true)
         {
             true
         } else {
-            self.placeholder.insert_before_this(parent, child)
+            self.placeholder.insert_before_this(child)
         }
     }
 }

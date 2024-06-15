@@ -181,11 +181,7 @@ impl Mountable<Dom> for HtmlViewState {
         // the <html> tag doesn't need to be mounted anywhere, of course
     }
 
-    fn insert_before_this(
-        &self,
-        _parent: &<Dom as Renderer>::Element,
-        _child: &mut dyn Mountable<Dom>,
-    ) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
         true
     }
 }
