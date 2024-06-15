@@ -63,11 +63,7 @@ impl<R: Renderer> Mountable<R> for () {
 
     fn mount(&mut self, _parent: &R::Element, _marker: Option<&R::Node>) {}
 
-    fn insert_before_this(
-        &self,
-        _parent: &<R as Renderer>::Element,
-        _child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, _child: &mut dyn Mountable<R>) -> bool {
         false
     }
 }
@@ -312,15 +308,13 @@ macro_rules! impl_view_for_tuples {
                 $($ty.mount(parent, marker));*
 			}
 
-			fn insert_before_this(
-				&self,
-				parent: &Rndr::Element,
+			fn insert_before_this(&self,
 				child: &mut dyn Mountable<Rndr>,
 			) -> bool {
                 #[allow(non_snake_case)] // better macro performance
                 let ($first, $($ty,)*) = self;
-                $first.insert_before_this(parent, child)
-                $(|| $ty.insert_before_this(parent, child))*
+                $first.insert_before_this(child)
+                $(|| $ty.insert_before_this(child))*
 			}
 		}
 

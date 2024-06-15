@@ -129,13 +129,8 @@ where
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.node.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.node.insert_before_this(child)
     }
 }
 
@@ -222,13 +217,8 @@ impl<R: Renderer> Mountable<R> for StringState<R> {
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.node.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.node.insert_before_this(child)
     }
 }
 
@@ -318,13 +308,8 @@ impl<R: Renderer> Mountable<R> for RcStrState<R> {
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.node.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.node.insert_before_this(child)
     }
 }
 
@@ -413,13 +398,8 @@ impl<R: Renderer> Mountable<R> for ArcStrState<R> {
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.node.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.node.insert_before_this(child)
     }
 }
 
@@ -508,12 +488,7 @@ impl<'a, R: Renderer> Mountable<R> for CowStrState<'a, R> {
         R::insert_node(parent, self.node.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        child.mount(parent, Some(self.node.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.node.insert_before_this(child)
     }
 }

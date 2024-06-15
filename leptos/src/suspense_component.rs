@@ -22,7 +22,7 @@ use tachys::{
     view::{
         add_attr::AddAnyAttr,
         either::{EitherKeepAlive, EitherKeepAliveState},
-        Position, PositionState, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 use throw_error::ErrorHookFuture;
@@ -101,7 +101,12 @@ where
         )
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
+        let mut old = std::mem::replace(state, new);
+        old.insert_before_this(state);
+        old.unmount();
+    }
 }
 
 impl<const TRANSITION: bool, Fal, Chil, Rndr> AddAnyAttr<Rndr>
