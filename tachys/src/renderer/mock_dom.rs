@@ -319,13 +319,14 @@ impl Mountable<MockDom> for Node {
         MockDom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<MockDom as Renderer>::Element,
-        child: &mut dyn Mountable<MockDom>,
-    ) -> bool {
-        child.mount(parent, Some(self));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<MockDom>) -> bool {
+        let parent =
+            MockDom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self.as_ref()));
+            return true;
+        }
+        false
     }
 }
 
@@ -338,13 +339,14 @@ impl Mountable<MockDom> for Text {
         MockDom::insert_node(parent, self.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<MockDom as Renderer>::Element,
-        child: &mut dyn Mountable<MockDom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<MockDom>) -> bool {
+        let parent =
+            MockDom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self.as_ref()));
+            return true;
+        }
+        false
     }
 }
 
@@ -357,13 +359,14 @@ impl Mountable<MockDom> for Element {
         MockDom::insert_node(parent, self.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<MockDom as Renderer>::Element,
-        child: &mut dyn Mountable<MockDom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<MockDom>) -> bool {
+        let parent =
+            MockDom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self.as_ref()));
+            return true;
+        }
+        false
     }
 }
 
@@ -376,13 +379,14 @@ impl Mountable<MockDom> for Placeholder {
         MockDom::insert_node(parent, self.as_ref(), marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<MockDom as Renderer>::Element,
-        child: &mut dyn Mountable<MockDom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<MockDom>) -> bool {
+        let parent =
+            MockDom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self.as_ref()));
+            return true;
+        }
+        false
     }
 }
 

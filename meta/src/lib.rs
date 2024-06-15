@@ -428,7 +428,7 @@ where
     fn mount(
         &mut self,
         _parent: &<Dom as Renderer>::Element,
-        _marker: Option<&<Dom as Renderer>::Node>,
+        marker: Option<&<Dom as Renderer>::Node>,
     ) {
         // we always mount this to the <head>, which is the whole point
         // but this shouldn't warn about the parent being a regular element or being unused
@@ -437,12 +437,8 @@ where
         self.state.mount(&document_head(), None);
     }
 
-    fn insert_before_this(
-        &self,
-        _parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
-    ) -> bool {
-        self.state.insert_before_this(&document_head(), child)
+    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+        self.state.insert_before_this(child)
     }
 }
 

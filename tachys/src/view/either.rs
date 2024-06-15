@@ -91,14 +91,12 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Rndr as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<Rndr>,
     ) -> bool {
         match &self.state {
-            Either::Left(left) => left.insert_before_this(parent, child),
-            Either::Right(right) => right.insert_before_this(parent, child),
+            Either::Left(left) => left.insert_before_this(child),
+            Either::Right(right) => right.insert_before_this(child),
         }
     }
 }
@@ -415,21 +413,19 @@ where
         self.marker.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Rndr as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<Rndr>,
     ) -> bool {
         if self.showing_b {
             self.b
                 .as_ref()
                 .expect("B was not present")
-                .insert_before_this(parent, child)
+                .insert_before_this(child)
         } else {
             self.a
                 .as_ref()
                 .expect("A was no present")
-                .insert_before_this(parent, child)
+                .insert_before_this(child)
         }
     }
 }
@@ -469,13 +465,11 @@ macro_rules! tuples {
                     };
                 }
 
-                fn insert_before_this(
-                    &self,
-                    parent: &<Rndr as Renderer>::Element,
+                fn insert_before_this(&self, 
                     child: &mut dyn Mountable<Rndr>,
                 ) -> bool {
                     match &self.state {
-                        $([<EitherOf $num>]::$ty(this) =>this.insert_before_this(parent, child),)*
+                        $([<EitherOf $num>]::$ty(this) =>this.insert_before_this(child),)*
                     }
                 }
             }
