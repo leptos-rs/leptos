@@ -139,15 +139,11 @@ where
         self.placeholder.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &Rndr::Element,
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         if self.showing_fallback {
-            self.fallback.insert_before_this(parent, child)
+            self.fallback.insert_before_this(child)
         } else {
-            self.children.insert_before_this(parent, child)
+            self.children.insert_before_this(child)
         }
     }
 }
@@ -203,7 +199,12 @@ where
         )
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
+        let mut old = std::mem::replace(state, new);
+        old.insert_before_this(state);
+        old.unmount();
+    }
 }
 
 impl<Chil, Fal, Rndr> AddAnyAttr<Rndr> for ErrorBoundaryView<Chil, Fal, Rndr>

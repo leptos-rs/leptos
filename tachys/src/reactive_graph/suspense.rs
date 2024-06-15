@@ -64,12 +64,10 @@ where
         self.inner.borrow_mut().mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &Rndr::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<Rndr>,
     ) -> bool {
-        self.inner.borrow_mut().insert_before_this(parent, child)
+        self.inner.borrow_mut().insert_before_this(child)
     }
 }
 

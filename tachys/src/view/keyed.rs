@@ -289,14 +289,10 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Rndr as Renderer>::Element,
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         self.rendered_items
             .first()
-            .map(|n| n.insert_before_this(parent, child))
+            .map(|n| n.insert_before_this(child))
             .unwrap_or(false)
     }
 }

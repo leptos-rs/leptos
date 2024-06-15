@@ -349,13 +349,14 @@ impl Mountable<Dom> for Node {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
-    ) -> bool {
-        child.mount(parent, Some(self));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+        let parent =
+            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self));
+            return true;
+        }
+        false
     }
 }
 
@@ -368,13 +369,14 @@ impl Mountable<Dom> for Text {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+        let parent =
+            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self));
+            return true;
+        }
+        false
     }
 }
 
@@ -387,13 +389,14 @@ impl Mountable<Dom> for Comment {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+        let parent =
+            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self));
+            return true;
+        }
+        false
     }
 }
 
@@ -406,13 +409,14 @@ impl Mountable<Dom> for Element {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+        let parent =
+            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self));
+            return true;
+        }
+        false
     }
 }
 
@@ -425,13 +429,14 @@ impl Mountable<Dom> for DocumentFragment {
         Dom::insert_node(parent, self, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Dom as Renderer>::Element,
-        child: &mut dyn Mountable<Dom>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
+        let parent =
+            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        if let Some(parent) = parent {
+            child.mount(&parent, Some(self));
+            return true;
+        }
+        false
     }
 }
 

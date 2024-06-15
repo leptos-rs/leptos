@@ -56,9 +56,7 @@ impl Mountable<LeptosGtk> for Element {
             .insert_before(&parent.0, marker.as_ref().map(|m| &m.0));
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<LeptosGtk as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<LeptosGtk>,
     ) -> bool {
         child.mount(parent, Some(self.as_ref()));
@@ -81,9 +79,7 @@ impl Mountable<LeptosGtk> for Text {
             .insert_before(&parent.0, marker.as_ref().map(|m| &m.0));
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<LeptosGtk as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<LeptosGtk>,
     ) -> bool {
         child.mount(parent, Some(self.as_ref()));
@@ -341,9 +337,7 @@ where
         LeptosGtk::insert_node(parent, &self.widget, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<LeptosGtk as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<LeptosGtk>,
     ) -> bool {
         child.mount(parent, Some(self.widget.as_ref()));

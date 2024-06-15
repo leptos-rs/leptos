@@ -163,20 +163,15 @@ where
         self.placeholder.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &R::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        if self
-            .state
-            .as_ref()
-            .map(|n| n.insert_before_this(parent, child))
+        if self.state.as_ref().map(|n| n.insert_before_this(child))
             == Some(true)
         {
             true
         } else {
-            self.placeholder.insert_before_this(parent, child)
+            self.placeholder.insert_before_this(child)
         }
     }
 }
@@ -269,13 +264,11 @@ where
         self.marker.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
         if let Some(first) = self.states.first() {
-            first.insert_before_this(parent, child)
+            first.insert_before_this(child)
         } else {
             false
         }
