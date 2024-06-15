@@ -805,16 +805,14 @@ where
         self.inner.write().or_poisoned().state.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
         /*self.inner
         .write()
         .or_poisoned()
         .state
-        .insert_before_this(parent, child)*/
+        .insert_before_this(child)*/
         todo!()
     }
 }
@@ -1030,12 +1028,10 @@ where
         self.view.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &R::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        self.view.insert_before_this(parent, child)
+        self.view.insert_before_this(child)
     }
 }
 

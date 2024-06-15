@@ -65,8 +65,11 @@ where
     }
 
     #[track_caller]
-    fn rebuild(self, _state: &mut Self::State) {
-        // TODO rebuild
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
+        let mut old = std::mem::replace(state, new);
+        old.insert_before_this(state);
+        old.unmount();
     }
 }
 pub struct RenderEffectState<T: 'static>(Option<RenderEffect<T>>);
@@ -94,13 +97,9 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &R::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         if let Some(inner) = &self.0 {
-            inner.insert_before_this(parent, child)
+            inner.insert_before_this(child)
         } else {
             false
         }
@@ -132,13 +131,9 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &R::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         if let Some(inner) = &self.effect {
-            inner.insert_before_this(parent, child)
+            inner.insert_before_this(child)
         } else {
             false
         }
@@ -245,12 +240,8 @@ where
         });
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
-        self.with_value_mut(|value| value.insert_before_this(parent, child))
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
+        self.with_value_mut(|value| value.insert_before_this(child))
             .unwrap_or(false)
     }
 }
@@ -276,13 +267,9 @@ where
         }
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         if let Ok(inner) = &self {
-            inner.insert_before_this(parent, child)
+            inner.insert_before_this(child)
         } else {
             false
         }
@@ -414,7 +401,8 @@ mod stable {
         renderer::Renderer,
         ssr::StreamBuilder,
         view::{
-            add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
         },
     };
     use reactive_graph::{
@@ -441,8 +429,11 @@ mod stable {
                 }
 
                 #[track_caller]
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild
+                fn rebuild(self, state: &mut Self::State) {
+                    let new = self.build();
+                    let mut old = std::mem::replace(state, new);
+                    old.insert_before_this(state);
+                    old.unmount();
                 }
             }
 
@@ -585,8 +576,11 @@ mod stable {
                 }
 
                 #[track_caller]
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild
+                fn rebuild(self, state: &mut Self::State) {
+                    let new = self.build();
+                    let mut old = std::mem::replace(state, new);
+                    old.insert_before_this(state);
+                    old.unmount();
                 }
             }
 

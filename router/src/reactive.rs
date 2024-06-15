@@ -209,12 +209,10 @@ where
         self.inner.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<Rndr as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<Rndr>,
     ) -> bool {
-        self.inner.insert_before_this(parent, child)
+        self.inner.insert_before_this(child)
     }
 }
 
@@ -408,11 +406,9 @@ where
         self.view_state.mount(parent, marker);
     }
 
-    fn insert_before_this(
-        &self,
-        parent: &<R as Renderer>::Element,
+    fn insert_before_this(&self, 
         child: &mut dyn Mountable<R>,
     ) -> bool {
-        self.view_state.insert_before_this(parent, child)
+        self.view_state.insert_before_this(child)
     }
 }
