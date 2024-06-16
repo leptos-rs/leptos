@@ -127,7 +127,12 @@ where
 {
     const MIN_LENGTH: usize = <<Router<Rndr, Loc, Defs, FallbackFn> as FallbackOrView>::Output as RenderHtml<Rndr>>::MIN_LENGTH;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
             let mut routes = RouteList::new();
@@ -143,7 +148,7 @@ where
             RouteList::register(routes);
         } else {
             let (id, view) = self.inner.fallback_or_view();
-            view.to_html_with_buf(buf, position)
+            view.to_html_with_buf(buf, position, escape)
         }
     }
 
@@ -151,13 +156,14 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         self.inner
             .fallback_or_view()
             .1
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -209,9 +215,7 @@ where
         self.inner.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         self.inner.insert_before_this(child)
     }
 }
@@ -316,7 +320,12 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         let MatchedRoute {
             search_params,
             params,
@@ -327,13 +336,16 @@ where
             params: ArcRwSignal::new(params),
             matched: ArcRwSignal::new(matched),
         };
-        untrack(|| (self.view_fn)(&matched).to_html_with_buf(buf, position));
+        untrack(|| {
+            (self.view_fn)(&matched).to_html_with_buf(buf, position, escape)
+        });
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
@@ -349,7 +361,7 @@ where
         };
         untrack(|| {
             (self.view_fn)(&matched)
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
         });
     }
 
@@ -406,9 +418,7 @@ where
         self.view_state.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         self.view_state.insert_before_this(child)
     }
 }

@@ -164,20 +164,26 @@ where
         V::MIN_LENGTH
     }
 
-    fn to_html_with_buf(mut self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        mut self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         let value = self.invoke();
-        value.to_html_with_buf(buf, position)
+        value.to_html_with_buf(buf, position, escape)
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         let value = self.invoke();
-        value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -481,20 +487,24 @@ mod stable {
                     self,
                     buf: &mut String,
                     position: &mut Position,
+                    escape: bool,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position)
+                    value.to_html_with_buf(buf, position, escape)
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
                     buf: &mut StreamBuilder,
                     position: &mut Position,
+                    escape: bool,
                 ) where
                     Self: Sized,
                 {
                     let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                        buf, position, escape,
+                    );
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
@@ -628,20 +638,24 @@ mod stable {
                     self,
                     buf: &mut String,
                     position: &mut Position,
+                    escape: bool,
                 ) {
                     let value = self.get();
-                    value.to_html_with_buf(buf, position)
+                    value.to_html_with_buf(buf, position, escape)
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
                     buf: &mut StreamBuilder,
                     position: &mut Position,
+                    escape: bool,
                 ) where
                     Self: Sized,
                 {
                     let value = self.get();
-                    value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                    value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                        buf, position, escape,
+                    );
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
