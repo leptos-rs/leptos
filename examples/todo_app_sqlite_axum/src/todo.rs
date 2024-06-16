@@ -13,7 +13,7 @@ pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=leptos_options.clone() />
                 <HydrationScripts options=leptos_options.clone()/>
-                <link rel="stylesheet" id="leptos" href="/pkg/benwis_leptos.css"/>
+                <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
             </head>
             <body>

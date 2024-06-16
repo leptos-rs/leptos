@@ -1,4 +1,4 @@
-use crate::{fallback::file_and_error_handler, app::*};
+use crate::{app::*, fallback::file_and_error_handler};
 use axum::{
     body::Body,
     extract::{Path, State},
@@ -37,7 +37,7 @@ async fn main() {
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
                             <AutoReload options=leptos_options.clone() />
                             <HydrationScripts options=leptos_options.clone() islands=true/>
-                            <link rel="stylesheet" id="leptos" href="/pkg/benwis_leptos.css"/>
+                            <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
                             <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
                         </head>
                         <body>
