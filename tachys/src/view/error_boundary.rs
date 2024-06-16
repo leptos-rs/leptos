@@ -95,9 +95,7 @@ where
         }
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         if self.state.as_ref().map(|n| n.insert_before_this(child)) == Ok(true)
         {
             true
@@ -161,9 +159,10 @@ where
         self,
         buf: &mut String,
         position: &mut super::Position,
+        escape: bool,
     ) {
         match self {
-            Ok(inner) => inner.to_html_with_buf(buf, position),
+            Ok(inner) => inner.to_html_with_buf(buf, position, escape),
             Err(e) => {
                 throw_error::throw(e);
             }
@@ -173,14 +172,12 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         match self {
             Ok(inner) => {
-                inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+                inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
             }
             Err(e) => {
                 throw_error::throw(e);

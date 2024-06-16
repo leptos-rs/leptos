@@ -46,8 +46,13 @@ where
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(

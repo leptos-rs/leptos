@@ -80,8 +80,13 @@ where
 
     const MIN_LENGTH: usize = V::MIN_LENGTH;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        self.view.to_html_with_buf(buf, position)
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        self.view.to_html_with_buf(buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
