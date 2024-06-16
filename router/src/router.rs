@@ -205,7 +205,7 @@ where
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
             // add routes
@@ -272,9 +272,7 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         let outer_owner =
@@ -291,7 +289,7 @@ where
             }
             _ => Either::Right((self.fallback)()),
         }
-        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)*/
+        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)*/
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -703,16 +701,14 @@ where
         //(self.inner.read().or_poisoned().html_len)()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
         /*let view = self.inner.read().or_poisoned().view.take().unwrap();
         view.to_html_with_buf(buf, position);*/
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         /*let view = self
@@ -724,7 +720,7 @@ where
             .or_poisoned()
             .take()
             .unwrap();
-        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);*/
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);*/
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -975,21 +971,19 @@ where
         self.view.html_len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
         buf.reserve(self.html_len());
-        self.view.to_html_with_buf(buf, position);
+        self.view.to_html_with_buf(buf, position, escape);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         buf.reserve(self.html_len());
         self.view
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -1234,7 +1228,7 @@ where
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
             // add routes
@@ -1315,15 +1309,13 @@ where
                 }
                 None => Either::Right((self.fallback)()),
             }
-            .to_html_with_buf(buf, position)
+            .to_html_with_buf(buf, position, escape)
         }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         let outer_owner =
@@ -1360,7 +1352,7 @@ where
             }
             None => Either::Right((self.fallback)()),
         }
-        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(

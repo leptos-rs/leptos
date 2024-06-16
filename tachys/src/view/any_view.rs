@@ -28,11 +28,12 @@ where
     #[cfg(feature = "ssr")]
     html_len: usize,
     #[cfg(feature = "ssr")]
-    to_html: fn(Box<dyn Any>, &mut String, &mut Position),
+    to_html: fn(Box<dyn Any>, &mut String, &mut Position, bool),
     #[cfg(feature = "ssr")]
-    to_html_async: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
+    to_html_async: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool),
     #[cfg(feature = "ssr")]
-    to_html_async_ooo: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position),
+    to_html_async_ooo:
+        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
     #[cfg(feature = "ssr")]
@@ -158,33 +159,35 @@ where
                 as Pin<Box<dyn Future<Output = AnyView<R>> + Send>>
         };
         #[cfg(feature = "ssr")]
-        let to_html =
-            |value: Box<dyn Any>, buf: &mut String, position: &mut Position| {
-                let value = value
-                    .downcast::<T>()
-                    .expect("AnyView::to_html could not be downcast");
-                value.to_html_with_buf(buf, position);
-            };
+        let to_html = |value: Box<dyn Any>,
+                       buf: &mut String,
+                       position: &mut Position,
+                       escape: bool| {
+            let value = value
+                .downcast::<T>()
+                .expect("AnyView::to_html could not be downcast");
+            value.to_html_with_buf(buf, position, escape);
+        };
         #[cfg(feature = "ssr")]
-        let to_html_async =
-            |value: Box<dyn Any>,
-             buf: &mut StreamBuilder,
-             position: &mut Position| {
-                let value = value
-                    .downcast::<T>()
-                    .expect("AnyView::to_html could not be downcast");
-                value.to_html_async_with_buf::<false>(buf, position);
-            };
+        let to_html_async = |value: Box<dyn Any>,
+                             buf: &mut StreamBuilder,
+                             position: &mut Position,
+                             escape: bool| {
+            let value = value
+                .downcast::<T>()
+                .expect("AnyView::to_html could not be downcast");
+            value.to_html_async_with_buf::<false>(buf, position, escape);
+        };
         #[cfg(feature = "ssr")]
-        let to_html_async_ooo =
-            |value: Box<dyn Any>,
-             buf: &mut StreamBuilder,
-             position: &mut Position| {
-                let value = value
-                    .downcast::<T>()
-                    .expect("AnyView::to_html could not be downcast");
-                value.to_html_async_with_buf::<true>(buf, position);
-            };
+        let to_html_async_ooo = |value: Box<dyn Any>,
+                                 buf: &mut StreamBuilder,
+                                 position: &mut Position,
+                                 escape: bool| {
+            let value = value
+                .downcast::<T>()
+                .expect("AnyView::to_html could not be downcast");
+            value.to_html_async_with_buf::<true>(buf, position, escape);
+        };
         let build = |value: Box<dyn Any>| {
             let value = value
                 .downcast::<T>()
@@ -328,13 +331,19 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         #[cfg(feature = "ssr")]
-        (self.to_html)(self.value, buf, position);
+        (self.to_html)(self.value, buf, position, escape);
         #[cfg(not(feature = "ssr"))]
         {
             _ = buf;
             _ = position;
+            _ = escape;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."
@@ -346,19 +355,21 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
-            (self.to_html_async_ooo)(self.value, buf, position);
+            (self.to_html_async_ooo)(self.value, buf, position, escape);
         } else {
-            (self.to_html_async)(self.value, buf, position);
+            (self.to_html_async)(self.value, buf, position, escape);
         }
         #[cfg(not(feature = "ssr"))]
         {
             _ = buf;
             _ = position;
+            _ = escape;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."

@@ -294,9 +294,11 @@ where
     #[cfg(feature = "ssr")]
     if let Some(cx) = use_context::<ServerMetaContext>() {
         let mut inner = cx.inner.write().or_poisoned();
-        el.take()
-            .unwrap()
-            .to_html_with_buf(&mut inner.head_html, &mut Position::NextChild);
+        el.take().unwrap().to_html_with_buf(
+            &mut inner.head_html,
+            &mut Position::NextChild,
+            false,
+        );
     } else {
         tracing::warn!(
             "tried to use a leptos_meta component without `ServerMetaContext` \
@@ -391,7 +393,12 @@ where
         self // TODO?
     }
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        _buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
     }
@@ -490,7 +497,12 @@ impl RenderHtml<Dom> for MetaTagsView {
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, _position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
         buf.push_str("<!--HEAD-->");
     }
 

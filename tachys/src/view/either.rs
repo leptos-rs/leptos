@@ -91,9 +91,7 @@ where
         }
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         match &self.state {
             Either::Left(left) => left.insert_before_this(child),
             Either::Right(right) => right.insert_before_this(child),
@@ -171,10 +169,17 @@ where
         }
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         match self {
-            Either::Left(left) => left.to_html_with_buf(buf, position),
-            Either::Right(right) => right.to_html_with_buf(buf, position),
+            Either::Left(left) => left.to_html_with_buf(buf, position, escape),
+            Either::Right(right) => {
+                right.to_html_with_buf(buf, position, escape)
+            }
         }
         buf.push_str("<!>");
         *position = Position::NextChild;
@@ -184,16 +189,15 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         match self {
-            Either::Left(left) => {
-                left.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
-            }
-            Either::Right(right) => {
-                right.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
-            }
+            Either::Left(left) => left
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
+            Either::Right(right) => right
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
         }
         buf.push_sync("<!>");
         *position = Position::NextChild;
@@ -343,7 +347,12 @@ where
         todo!()
     }
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        _buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
         todo!()
     }
 
@@ -413,9 +422,7 @@ where
         self.marker.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         if self.showing_b {
             self.b
                 .as_ref()
@@ -465,7 +472,7 @@ macro_rules! tuples {
                     };
                 }
 
-                fn insert_before_this(&self, 
+                fn insert_before_this(&self,
                     child: &mut dyn Mountable<Rndr>,
                 ) -> bool {
                     match &self.state {
@@ -566,9 +573,9 @@ macro_rules! tuples {
                     }
                 }
 
-                fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
                     match self {
-                        $([<EitherOf $num>]::$ty(this) => this.to_html_with_buf(buf, position),)*
+                        $([<EitherOf $num>]::$ty(this) => this.to_html_with_buf(buf, position, escape),)*
                     }
                     buf.push_str("<!>");
                     *position = Position::NextChild;
@@ -576,13 +583,11 @@ macro_rules! tuples {
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
-                    buf: &mut StreamBuilder,
-                    position: &mut Position,
-                ) where
+                    buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
                     Self: Sized,
                 {
                     match self {
-                        $([<EitherOf $num>]::$ty(this) => this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position),)*
+                        $([<EitherOf $num>]::$ty(this) => this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),)*
                     }
                     buf.push_sync("<!>");
                     *position = Position::NextChild;

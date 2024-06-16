@@ -176,12 +176,21 @@ where
         std::future::ready(self)
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        buf.push_str(V);
+        if escape {
+            buf.push_str(&html_escape::encode_text(V));
+        } else {
+            buf.push_str(V);
+        }
         *position = Position::NextChildAfterText;
     }
 

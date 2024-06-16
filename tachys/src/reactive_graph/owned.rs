@@ -119,22 +119,24 @@ where
     fn to_html_with_buf(
         self,
         buf: &mut String,
-        position: &mut crate::view::Position,
+        position: &mut Position,
+        escape: bool,
     ) {
         self.owner
-            .with(|| self.view.to_html_with_buf(buf, position));
+            .with(|| self.view.to_html_with_buf(buf, position, escape));
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         self.owner.with(|| {
             self.view
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
         });
     }
 
@@ -179,9 +181,7 @@ where
         self.state.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         self.state.insert_before_this(child)
     }
 }
