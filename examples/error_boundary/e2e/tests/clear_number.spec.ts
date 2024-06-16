@@ -8,7 +8,7 @@ test.describe("Clear Number", () => {
 
     await ui.clearInput();
 
-    await expect(ui.errorMessage).toHaveText("Not a number! Errors: ");
+    await expect(ui.errorMessage).toHaveText("Not an integer! Errors: ");
   });
   test("should see the error list", async ({ page }) => {
     const ui = new HomePage(page);
