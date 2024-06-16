@@ -149,6 +149,7 @@ pub trait ElementType: Send {
 
     const TAG: &'static str;
     const SELF_CLOSING: bool;
+    const ESCAPE_CHILDREN: bool;
 
     fn tag(&self) -> &str;
 }
@@ -254,7 +255,12 @@ where
         }
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        _escape: bool,
+    ) {
         // opening tag
         buf.push('<');
         buf.push_str(E::TAG);
@@ -299,7 +305,11 @@ where
             } else {
                 // children
                 *position = Position::FirstChild;
-                self.children.to_html_with_buf(buf, position);
+                self.children.to_html_with_buf(
+                    buf,
+                    position,
+                    E::ESCAPE_CHILDREN,
+                );
             }
 
             // closing tag
@@ -314,6 +324,7 @@ where
         self,
         buffer: &mut StreamBuilder,
         position: &mut Position,
+        _escape: bool,
     ) where
         Self: Sized,
     {
@@ -367,8 +378,11 @@ where
             if !inner_html.is_empty() {
                 buffer.push_sync(&inner_html);
             } else {
-                self.children
-                    .to_html_async_with_buf::<OUT_OF_ORDER>(buffer, position);
+                self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
+                    buffer,
+                    position,
+                    E::ESCAPE_CHILDREN,
+                );
             }
 
             // closing tag

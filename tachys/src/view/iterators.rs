@@ -93,9 +93,14 @@ where
         }
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         if let Some(value) = self {
-            value.to_html_with_buf(buf, position);
+            value.to_html_with_buf(buf, position, escape);
         }
         // placeholder
         buf.push_str("<!>");
@@ -104,13 +109,11 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         if let Some(value) = self {
-            value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
         }
         // placeholder
         buf.push_sync("<!>");
@@ -163,9 +166,7 @@ where
         self.placeholder.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         if self.state.as_ref().map(|n| n.insert_before_this(child))
             == Some(true)
         {
@@ -264,9 +265,7 @@ where
         self.marker.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         if let Some(first) = self.states.first() {
             first.insert_before_this(child)
         } else {
@@ -323,30 +322,33 @@ where
         self.iter().map(|n| n.html_len()).sum::<usize>() + 3
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_with_buf(buf, position);
+            first.to_html_with_buf(buf, position, escape);
         }
         for child in children {
-            child.to_html_with_buf(buf, position);
+            child.to_html_with_buf(buf, position, escape);
         }
         buf.push_str("<!>");
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
         }
         for child in children {
-            child.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            child.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
         }
         buf.push_sync("<!>");
     }

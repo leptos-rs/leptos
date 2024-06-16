@@ -232,8 +232,8 @@ pub fn WithActionForm() -> impl IntoView {
             />
             <button>Submit</button>
         </ActionForm>
-        //<p>You submitted: {move || format!("{:?}", action.input().get())}</p>
-        //<p>The result was: {move || format!("{:?}", action.value().get())}</p>
+        <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
+        <p>The result was: {move || format!("{:?}", action.value().get())}</p>
         <Transition>archive underaligned: need alignment 4 but have alignment 1
             <p>Total rows: {row_count}</p>
         </Transition>

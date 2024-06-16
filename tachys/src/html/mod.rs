@@ -50,7 +50,12 @@ where
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, _position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
         buf.push_str("<!DOCTYPE ");
         buf.push_str(self.value);
         buf.push('>');

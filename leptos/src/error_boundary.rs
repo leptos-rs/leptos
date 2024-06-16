@@ -275,18 +275,24 @@ where
         }
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         // first, attempt to serialize the children to HTML, then check for errors
         let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
         let mut new_pos = *position;
-        self.children.to_html_with_buf(&mut new_buf, &mut new_pos);
+        self.children
+            .to_html_with_buf(&mut new_buf, &mut new_pos, escape);
 
         // any thrown errors would've been caught here
         if self.errors.with_untracked(|map| map.is_empty()) {
             buf.push_str(&new_buf);
         } else {
             // otherwise, serialize the fallback instead
-            self.fallback.to_html_with_buf(buf, position);
+            self.fallback.to_html_with_buf(buf, position, escape);
         }
     }
 
@@ -294,14 +300,18 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         // first, attempt to serialize the children to HTML, then check for errors
         let mut new_buf = StreamBuilder::new(buf.clone_id());
         let mut new_pos = *position;
-        self.children
-            .to_html_async_with_buf::<OUT_OF_ORDER>(&mut new_buf, &mut new_pos);
+        self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
+            &mut new_buf,
+            &mut new_pos,
+            escape,
+        );
 
         if let Some(sc) = Owner::current_shared_context() {
             sc.seal_errors(&self.boundary_id);
@@ -313,7 +323,8 @@ where
         } else {
             // otherwise, serialize the fallback instead
             let mut fallback = String::with_capacity(Fal::MIN_LENGTH);
-            self.fallback.to_html_with_buf(&mut fallback, position);
+            self.fallback
+                .to_html_with_buf(&mut fallback, position, escape);
             buf.push_sync(&fallback);
         }
     }

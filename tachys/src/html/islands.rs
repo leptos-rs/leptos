@@ -108,17 +108,20 @@ where
         self.view.resolve().await
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         Self::open_tag(self.component, buf);
-        self.view.to_html_with_buf(buf, position);
+        self.view.to_html_with_buf(buf, position, escape);
         Self::close_tag(buf);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         // insert the opening tag synchronously
@@ -128,7 +131,7 @@ where
 
         // streaming render for the view
         self.view
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
 
         // and insert the closing tag synchronously
         tag.clear();
@@ -228,17 +231,20 @@ where
         self.view.resolve().await
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         Self::open_tag(buf);
-        self.view.to_html_with_buf(buf, position);
+        self.view.to_html_with_buf(buf, position, escape);
         Self::close_tag(buf);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
         // insert the opening tag synchronously
@@ -248,7 +254,7 @@ where
 
         // streaming render for the view
         self.view
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
 
         // and insert the closing tag synchronously
         tag.clear();
