@@ -87,7 +87,7 @@ where
         Self: Sized,
     {
         let mut buf = String::with_capacity(self.html_len());
-        self.to_html_with_buf(&mut buf, &mut Position::FirstChild);
+        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true);
         buf
     }
 
@@ -100,6 +100,7 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
+            true,
         );
         builder.finish()
     }
@@ -116,6 +117,7 @@ where
         self.to_html_async_with_buf::<true>(
             &mut builder,
             &mut Position::FirstChild,
+            true,
         );
         builder.finish()
         /*let mut b = builder.finish();
@@ -138,17 +140,23 @@ where
     }
 
     /// Renders a view to HTML, writing it into the given buffer.
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position);
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    );
 
     /// Renders a view into a buffer of (synchronous or asynchronous) HTML chunks.
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
-        buf.with_buf(|buf| self.to_html_with_buf(buf, position));
+        buf.with_buf(|buf| self.to_html_with_buf(buf, position, escape));
     }
 
     /// Makes a set of DOM nodes rendered from HTML interactive.
@@ -244,9 +252,7 @@ where
         }
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         self.as_ref()
             .map(|inner| inner.insert_before_this(child))
             .unwrap_or(false)
@@ -266,9 +272,7 @@ where
         self.borrow_mut().mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         self.borrow().insert_before_this(child)
     }
 }

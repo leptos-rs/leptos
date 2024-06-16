@@ -64,9 +64,7 @@ where
         self.inner.borrow_mut().mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<Rndr>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         self.inner.borrow_mut().insert_before_this(child)
     }
 }
@@ -169,7 +167,12 @@ where
 
     const MIN_LENGTH: usize = Fut::Output::MIN_LENGTH;
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        _buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
         todo!()
     }
 
@@ -177,6 +180,7 @@ where
         self,
         _buf: &mut StreamBuilder,
         _position: &mut Position,
+        _escape: bool,
     ) where
         Self: Sized,
     {

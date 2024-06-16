@@ -162,9 +162,7 @@ where
         self.view.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         self.view.insert_before_this(child)
     }
 }
@@ -480,7 +478,12 @@ where
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
             // add routes
@@ -528,7 +531,7 @@ where
             RouteList::register(RouteList::from(routes));
         } else {
             let view = self.choose_ssr();
-            view.to_html_with_buf(buf, position);
+            view.to_html_with_buf(buf, position, escape);
         }
     }
 
@@ -536,11 +539,12 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
         let view = self.choose_ssr();
-        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
