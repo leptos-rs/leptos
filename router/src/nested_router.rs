@@ -661,9 +661,11 @@ where
                             let tx = current.tx.clone();
                             let url = current.url.clone();
                             let params = current.params.clone();
+                            let matched = Matched(current.matched.clone());
                             async move {
                                 provide_context(params);
                                 provide_context(url);
+                                provide_context(matched);
                                 let view = owner
                                     .with(|| ScopedFuture::new(view.choose()))
                                     .await;
@@ -730,9 +732,7 @@ where
         self.view.mount(parent, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<R>,
-    ) -> bool {
+    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
         self.view.insert_before_this(child)
     }
 }
