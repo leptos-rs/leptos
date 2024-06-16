@@ -1,8 +1,27 @@
 use crate::error_template::ErrorTemplate;
+use leptos::either::Either;
 use leptos::prelude::*;
-use leptos_meta::*;
-use leptos_router::*;
 use serde::{Deserialize, Serialize};
+use server_fn::ServerFnError;
+
+pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=leptos_options.clone() />
+                <HydrationScripts options=leptos_options.clone()/>
+                <link rel="stylesheet" id="leptos" href="/pkg/benwis_leptos.css"/>
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+            </head>
+            <body>
+                <TodoApp/>
+            </body>
+        </html>
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
@@ -13,17 +32,23 @@ pub struct Todo {
 }
 
 #[cfg(feature = "ssr")]
-use sqlx::{Connection, SqliteConnection};
+pub mod ssr {
+    // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+    use leptos::server_fn::ServerFnError;
+    use sqlx::{Connection, SqliteConnection};
 
-#[cfg(feature = "ssr")]
-pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-    Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
+    pub async fn db() -> Result<SqliteConnection, ServerFnError> {
+        Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
+    }
 }
 
 #[server]
 pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
+    use self::ssr::*;
+    use http::request::Parts;
+
     // this is just an example of how to access server context injected in the handlers
-    let req_parts = use_context::<http::request::Parts>();
+    let req_parts = use_context::<Parts>();
 
     if let Some(req_parts) = req_parts {
         println!("Uri = {:?}", req_parts.uri);
@@ -40,29 +65,21 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
         todos.push(row);
     }
 
-    // Add a random header(because why not)
-    // let mut res_headers = HeaderMap::new();
-    // res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
-
-    // let res_parts = leptos_axum::ResponseParts {
-    //     headers: res_headers,
-    //     status: Some(StatusCode::IM_A_TEAPOT),
-    // };
-
-    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>();
-    // if let Some(res_options) = res_options_outer {
-    //     res_options.overwrite(res_parts).await;
-    // }
+    // Lines below show how to set status code and headers on the response
+    // let resp = expect_context::<ResponseOptions>();
+    // resp.set_status(StatusCode::IM_A_TEAPOT);
+    // resp.insert_header(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
 
     Ok(todos)
 }
 
-#[server(AddTodo, "/api")]
+#[server]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
+    use self::ssr::*;
     let mut conn = db().await?;
 
     // fake API delay
-    std::thread::sleep(std::time::Duration::from_millis(1250));
+    std::thread::sleep(std::time::Duration::from_millis(250));
 
     match sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
         .bind(title)
@@ -74,9 +91,9 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     }
 }
 
-// The struct name and path prefix arguments are optional.
 #[server]
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
+    use self::ssr::*;
     let mut conn = db().await?;
 
     Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
@@ -88,105 +105,90 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp() -> impl IntoView {
-    //let id = use_context::<String>();
-    provide_meta_context();
     view! {
-
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/todo_app_sqlite_csr.css"/>
-        <Router>
-            <header>
-                <h1>"My Tasks"</h1>
-            </header>
-            <main>
-                <Routes>
-                    <Route path="" view=Todos/>
-                </Routes>
-            </main>
-        </Router>
+        <header>
+            <h1>"My Tasks"</h1>
+        </header>
+        <main>
+            <Todos/>
+        </main>
     }
 }
 
 #[component]
 pub fn Todos() -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>();
-    let delete_todo = create_server_action::<DeleteTodo>();
+    let add_todo = ServerMultiAction::<AddTodo>::new();
     let submissions = add_todo.submissions();
+    let delete_todo = ServerAction::<DeleteTodo>::new();
 
     // list of todos is loaded from the server in reaction to changes
-    let todos = create_resource(
-        move || (add_todo.version().get(), delete_todo.version().get()),
+    let todos = Resource::new_serde(
+        move || {
+            (
+                delete_todo.version().get(),
+                add_todo.version().get(),
+                delete_todo.version().get(),
+            )
+        },
         move |_| get_todos(),
     );
 
-    view! {
-        <div>
-            <MultiActionForm action=add_todo>
-                <label>
-                    "Add a Todo"
-                    <input type="text" name="title"/>
-                </label>
-                <input type="submit" value="Add"/>
-            </MultiActionForm>
-            <Transition fallback=move || view! {<p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|errors| view!{<ErrorTemplate errors=errors/>}>
-                    {move || {
-                        let existing_todos = {
-                            move || {
-                                todos.get()
-                                    .map(move |todos| match todos {
-                                        Err(e) => {
-                                            view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()
-                                        }
-                                        Ok(todos) => {
-                                            if todos.is_empty() {
-                                                view! { <p>"No tasks were found."</p> }.into_view()
-                                            } else {
-                                                todos
-                                                    .into_iter()
-                                                    .map(move |todo| {
-                                                        view! {
-
-                                                            <li>
-                                                                {todo.title}
-                                                                <ActionForm action=delete_todo>
-                                                                    <input type="hidden" name="id" value={todo.id}/>
-                                                                    <input type="submit" value="X"/>
-                                                                </ActionForm>
-                                                            </li>
-                                                        }
-                                                    })
-                                                    .collect_view()
-                                            }
-                                        }
-                                    })
-                                    .unwrap_or_default()
-                            }
-                        };
-
-                        let pending_todos = move || {
-                            submissions
-                            .get()
-                            .into_iter()
-                            .filter(|submission| submission.pending().get())
-                            .map(|submission| {
-                                view! {
-
-                                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
-                                }
-                            })
-                            .collect_view()
-                        };
-
-                        view! {
-
-                            <ul>
-                                {existing_todos}
-                                {pending_todos}
-                            </ul>
-                        }
+    let existing_todos = move || {
+        Suspend(async move {
+            todos
+                .await
+                .map(|todos| {
+                    if todos.is_empty() {
+                        Either::Left(view! { <p>"No tasks were found."</p> })
+                    } else {
+                        Either::Right(
+                            todos
+                                .iter()
+                                .map(move |todo| {
+                                    let id = todo.id;
+                                    view! {
+                                        <li>
+                                            {todo.title.clone()}
+                                            <ActionForm action=delete_todo>
+                                                <input type="hidden" name="id" value=id/>
+                                                <input type="submit" value="X"/>
+                                            </ActionForm>
+                                        </li>
+                                    }
+                                })
+                                .collect::<Vec<_>>(),
+                        )
                     }
-                }
+                })
+        })
+    };
+
+    view! {
+        <MultiActionForm action=add_todo>
+            <label>"Add a Todo" <input type="text" name="title"/></label>
+            <input type="submit" value="Add"/>
+        </MultiActionForm>
+        <div>
+            <Transition fallback=move || view! { <p>"Loading..."</p> }>
+                <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
+                    <ul>
+                        {existing_todos}
+                        {move || {
+                            submissions
+                                .get()
+                                .into_iter()
+                                .filter(|submission| submission.pending().get())
+                                .map(|submission| {
+                                    view! {
+                                        <li class="pending">
+                                            {move || submission.input().get().map(|data| data.title)}
+                                        </li>
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        }}
+
+                    </ul>
                 </ErrorBoundary>
             </Transition>
         </div>
