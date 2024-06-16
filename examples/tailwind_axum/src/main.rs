@@ -26,9 +26,9 @@ async fn main() {
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            // <AutoReload options=app_state.leptos_options.clone() />
+                            <AutoReload options=app_state.leptos_options.clone() />
                             <HydrationScripts options=leptos_options.clone()/>
-                            <link rel="stylesheet" id="leptos" href="/pkg/benwis_leptos.css"/>
+                            <link rel="stylesheet" id="leptos" href="/pkg/tailwind_axum.css"/>
                             <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
                             <MetaTags/>
                         </head>
