@@ -4,8 +4,11 @@ use axum::{
     http::{Request, Response, StatusCode, Uri},
     response::{Html, IntoResponse, Response as AxumResponse},
 };
-use leptos::LeptosOptions;
-use leptos_integration_utils::html_parts_separated;
+use leptos::{
+    config::LeptosOptions,
+    hydration::{AutoReload, HydrationScripts},
+    prelude::*,
+};
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
@@ -19,9 +22,20 @@ pub async fn file_or_index_handler(
     if res.status() == StatusCode::OK {
         res.into_response()
     } else {
-        let (head, tail) = html_parts_separated(&options, None);
-
-        Html(format!("{head}</head><body>{tail}")).into_response()
+        Html(view! {
+            <!DOCTYPE html>
+            <html lang="en">
+                <head>
+                    <meta charset="utf-8"/>
+                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                    <AutoReload options=options.clone() />
+                    <HydrationScripts options=options.clone()/>
+                    <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_csr.css"/>
+                    <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                </head>
+                <body></body>
+            </html>
+        }.to_html()).into_response()
     }
 }
 
