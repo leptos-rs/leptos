@@ -20,10 +20,8 @@ mod ssr_imports {
 #[cfg_attr(feature = "ssr", tokio::main)]
 async fn main() {
     use ssr_imports::*;
-    simple_logger::init_with_level(log::Level::Error)
-        .expect("couldn't initialize logging");
 
-    let _conn = db().await.expect("couldn't connect to DB");
+    let _conn = ssr::db().await.expect("couldn't connect to DB");
 
     // Setting this to None means we'll be using cargo-leptos and its env vars
     let conf = get_configuration(None).await.unwrap();
@@ -42,7 +40,7 @@ async fn main() {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    logging::log!("listening on http://{}", &addr);
+    leptos::logging::log!("listening on http://{}", &addr);
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("couldn't bind to address");
