@@ -419,7 +419,7 @@ mod stable {
     };
 
     macro_rules! signal_impl {
-        ($sig:ident) => {
+        ($sig:ident $dry_resolve:literal) => {
             impl<V, R> Render<R> for $sig<V>
             where
                 V: Render<R> + Clone + Send + Sync + 'static,
@@ -473,7 +473,11 @@ mod stable {
 
                 const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&mut self) {}
+                fn dry_resolve(&mut self) {
+                    if $dry_resolve {
+                        _ = self.get();
+                    }
+                }
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
@@ -570,7 +574,7 @@ mod stable {
     }
 
     macro_rules! signal_impl_unsend {
-        ($sig:ident) => {
+        ($sig:ident $dry_resolve:literal) => {
             impl<V, R> Render<R> for $sig<V>
             where
                 V: Render<R> + Send + Sync + Clone + 'static,
@@ -624,7 +628,11 @@ mod stable {
 
                 const MIN_LENGTH: usize = 0;
 
-                fn dry_resolve(&mut self) {}
+                fn dry_resolve(&mut self) {
+                    if $dry_resolve {
+                        _ = self.get();
+                    }
+                }
 
                 async fn resolve(self) -> Self::AsyncOutput {
                     self
@@ -720,14 +728,14 @@ mod stable {
         };
     }
 
-    signal_impl!(RwSignal);
-    signal_impl!(ReadSignal);
-    signal_impl!(Memo);
-    signal_impl!(Signal);
-    signal_impl_unsend!(ArcRwSignal);
-    signal_impl_unsend!(ArcReadSignal);
-    signal_impl!(ArcMemo);
-    signal_impl!(ArcSignal);
+    signal_impl!(RwSignal false);
+    signal_impl!(ReadSignal false);
+    signal_impl!(Memo true);
+    signal_impl!(Signal true);
+    signal_impl_unsend!(ArcRwSignal false);
+    signal_impl_unsend!(ArcReadSignal false);
+    signal_impl!(ArcMemo false);
+    signal_impl!(ArcSignal true);
 }
 
 /*
