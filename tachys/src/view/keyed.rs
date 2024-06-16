@@ -213,22 +213,25 @@ where
         .collect::<Vec<_>>()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         for item in self.items.into_iter() {
             let item = (self.view_fn)(item);
-            item.to_html_with_buf(buf, position);
+            item.to_html_with_buf(buf, position, escape);
             *position = Position::NextChild;
         }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) {
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) {
         for item in self.items.into_iter() {
             let item = (self.view_fn)(item);
-            item.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+            item.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
             *position = Position::NextChild;
         }
     }

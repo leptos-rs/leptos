@@ -53,13 +53,21 @@ where
         self.len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
         if self.is_empty() {
             buf.push(' ');
+        } else if escape {
+            let escaped = html_escape::encode_text(self);
+            buf.push_str(&escaped);
         } else {
             buf.push_str(self);
         }
@@ -173,8 +181,18 @@ where
         self.len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        <&str as RenderHtml<R>>::to_html_with_buf(self.as_str(), buf, position)
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        <&str as RenderHtml<R>>::to_html_with_buf(
+            self.as_str(),
+            buf,
+            position,
+            escape,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -263,7 +281,7 @@ where
         self.len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
     }
 
@@ -353,8 +371,13 @@ where
         self.len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -443,8 +466,13 @@ where
         self.len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(

@@ -112,6 +112,7 @@ macro_rules! mathml_elements {
 
                     const TAG: &'static str = stringify!($tag);
                     const SELF_CLOSING: bool = false;
+                    const ESCAPE_CHILDREN: bool = true;
 
                     #[inline(always)]
                     fn tag(&self) -> &str {

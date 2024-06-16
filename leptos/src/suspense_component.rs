@@ -162,14 +162,20 @@ where
         self
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        self.fallback.to_html_with_buf(buf, position);
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        self.fallback.to_html_with_buf(buf, position, escape);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
@@ -222,7 +228,9 @@ where
         match fut.as_mut().now_or_never() {
             Some(resolved) => {
                 Either::<Fal, _>::Right(resolved)
-                    .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                    .to_html_async_with_buf::<OUT_OF_ORDER>(
+                        buf, position, escape,
+                    );
             }
             None => {
                 let id = buf.clone_id();
@@ -247,6 +255,7 @@ where
                                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                                         &mut builder,
                                         &mut position,
+                                        escape,
                                     );
                                 builder.finish().take_chunks()
                             }

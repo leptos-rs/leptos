@@ -27,7 +27,7 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position) {}
+    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position, _escape: bool) {}
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
@@ -106,18 +106,21 @@ where
         self.0.html_len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        self.0.to_html_with_buf(buf, position);
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        self.0.to_html_with_buf(buf, position, escape);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
-        self.0.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+        self.0.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -218,24 +221,22 @@ macro_rules! impl_view_for_tuples {
                 $($ty.html_len() +)* $first.html_len()
             }
 
-			fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+			fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_with_buf(buf, position);
-                $($ty.to_html_with_buf(buf, position));*
+                $first.to_html_with_buf(buf, position, escape);
+                $($ty.to_html_with_buf(buf, position, escape));*
 			}
 
 			fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
 				self,
-				buf: &mut StreamBuilder,
-				position: &mut Position,
-			) where
+				buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
 				Self: Sized,
 			{
                 #[allow(non_snake_case)]
                 let ($first, $($ty,)* ) = self;
-                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
-                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position));*
+                $first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+                $($ty.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape));*
 			}
 
 			fn hydrate<const FROM_SERVER: bool>(self, cursor: &Cursor<Rndr>, position: &PositionState) -> Self::State {

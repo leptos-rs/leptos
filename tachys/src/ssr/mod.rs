@@ -100,7 +100,7 @@ impl StreamBuilder {
         Rndr: Renderer,
     {
         self.write_chunk_marker(true);
-        fallback.to_html_with_buf(&mut self.sync_buf, position);
+        fallback.to_html_with_buf(&mut self.sync_buf, position, true);
         self.write_chunk_marker(false);
         *position = Position::NextChild;
     }
@@ -177,6 +177,7 @@ impl StreamBuilder {
                 view.to_html_async_with_buf::<true>(
                     &mut subbuilder,
                     &mut position,
+                    true,
                 );
 
                 subbuilder.sync_buf.push_str("<!></template>");

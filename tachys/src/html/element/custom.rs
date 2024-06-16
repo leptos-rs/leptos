@@ -35,6 +35,7 @@ where
 
     const TAG: &'static str = E::KEY;
     const SELF_CLOSING: bool = false;
+    const ESCAPE_CHILDREN: bool = true;
 
     fn tag(&self) -> &str {
         self.0.as_ref()

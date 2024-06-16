@@ -57,18 +57,21 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
         self.0.dry_resolve();
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
-        self.0.to_html_with_buf(buf, position);
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        self.0.to_html_with_buf(buf, position, escape);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder,
-        position: &mut Position,
-    ) where
+        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
         Self: Sized,
     {
-        self.0.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position)
+        self.0.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
     }
 
     fn hydrate<const FROM_SERVER: bool>(

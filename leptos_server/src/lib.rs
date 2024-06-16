@@ -211,20 +211,23 @@ mod view_implementations {
             (move || Suspend(async move { self.await })).resolve()
         }
 
-        fn to_html_with_buf(self, buf: &mut String, position: &mut Position) {
+        fn to_html_with_buf(
+            self,
+            buf: &mut String,
+            position: &mut Position,
+            escape: bool,
+        ) {
             (move || Suspend(async move { self.await }))
-                .to_html_with_buf(buf, position);
+                .to_html_with_buf(buf, position, escape);
         }
 
         fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
             self,
-            buf: &mut StreamBuilder,
-            position: &mut Position,
-        ) where
+            buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
             Self: Sized,
         {
             (move || Suspend(async move { self.await }))
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position);
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
         }
 
         fn hydrate<const FROM_SERVER: bool>(
