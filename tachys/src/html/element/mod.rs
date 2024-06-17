@@ -17,7 +17,7 @@ use std::{marker::PhantomData, ops::Deref};
 mod custom;
 mod elements;
 mod inner_html;
-use super::attribute::NextAttribute;
+use super::attribute::{escape_attr, NextAttribute};
 pub use custom::*;
 pub use elements::*;
 pub use inner_html::*;
@@ -287,13 +287,13 @@ where
         if !class.is_empty() {
             buf.push(' ');
             buf.push_str("class=\"");
-            buf.push_str(class.trim_start().trim_end());
+            buf.push_str(&escape_attr(class.trim_start().trim_end()));
             buf.push('"');
         }
         if !style.is_empty() {
             buf.push(' ');
             buf.push_str("style=\"");
-            buf.push_str(style.trim_start().trim_end());
+            buf.push_str(&escape_attr(style.trim_start().trim_end()));
             buf.push('"');
         }
 
