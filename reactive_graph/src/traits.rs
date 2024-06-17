@@ -400,13 +400,13 @@ where
 
     #[track_caller]
     fn set(&self, value: Self::Value) {
-        self.try_update(|n| *n = value.into());
+        self.try_update(|n| *n = value);
     }
 
     #[track_caller]
     fn try_set(&self, value: Self::Value) -> Option<Self::Value> {
         if self.is_disposed() {
-            Some(value.into())
+            Some(value)
         } else {
             self.set(value);
             None
