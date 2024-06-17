@@ -476,7 +476,7 @@ where
     }
 }
 
-fn escape_attr(value: &str) -> Cow<'_, str> {
+pub(crate) fn escape_attr(value: &str) -> Cow<'_, str> {
     html_escape::encode_double_quoted_attribute(value)
 }
 
