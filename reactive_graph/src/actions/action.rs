@@ -98,8 +98,9 @@ where
     value: ArcRwSignal<Option<O>>,
     version: ArcRwSignal<usize>,
     #[allow(clippy::complexity)]
-    action_fn:
-        Arc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>> + Send + Sync>,
+    action_fn: Arc<
+        dyn Fn(&I) -> Pin<Box<dyn Future<Output = O> + Send>> + Send + Sync,
+    >,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -171,7 +172,7 @@ where
     pub fn new<F, Fu>(action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + 'static,
+        Fu: Future<Output = O> + Send + 'static,
     {
         Self::new_with_value(None, action_fn)
     }
@@ -191,7 +192,7 @@ where
     pub fn new_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + 'static,
+        Fu: Future<Output = O> + Send + 'static,
     {
         ArcAction {
             in_flight: ArcRwSignal::new(0),
@@ -203,7 +204,13 @@ where
             defined_at: Location::caller(),
         }
     }
+}
 
+impl<I, O> ArcAction<I, O>
+where
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
+{
     #[track_caller]
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
@@ -225,7 +232,7 @@ where
             self.input.try_update(|inp| *inp = Some(input));
 
             // Spawn the task
-            Executor::spawn_local({
+            Executor::spawn({
                 let input = self.input.clone();
                 let version = self.version.clone();
                 let value = self.value.clone();
@@ -258,7 +265,7 @@ where
 impl<I, O> ArcAction<SendWrapper<I>, O>
 where
     I: 'static,
-    O: 'static,
+    O: Send + Sync + 'static,
 {
     /// Creates a new action, which will only be run on the thread in which it is created.
     ///
@@ -269,6 +276,7 @@ where
         F: Fn(&I) -> Fu + 'static,
         Fu: Future<Output = O> + 'static,
     {
+        let action_fn = move |inp: &I| SendWrapper::new(action_fn(inp));
         Self::new_unsync_with_value(None, action_fn)
     }
 
@@ -581,7 +589,7 @@ where
     pub fn new<F, Fu>(action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + 'static,
+        Fu: Future<Output = O> + Send + 'static,
     {
         Self {
             inner: StoredValue::new(ArcAction::new(action_fn)),
@@ -606,7 +614,7 @@ where
     pub fn new_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
     where
         F: Fn(&I) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = O> + 'static,
+        Fu: Future<Output = O> + Send + 'static,
     {
         Self {
             inner: StoredValue::new(ArcAction::new_with_value(
@@ -886,7 +894,7 @@ where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
     F: Fn(&I) -> Fu + Send + Sync + 'static,
-    Fu: Future<Output = O> + 'static,
+    Fu: Future<Output = O> + Send + 'static,
 {
     Action::new(action_fn)
 }
