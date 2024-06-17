@@ -181,9 +181,7 @@ macro_rules! prop_type {
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = self.into();
-                if value != *prev {
-                    R::set_property(el, key, &value);
-                }
+                R::set_property(el, key, &value);
                 *prev = value;
             }
 
@@ -229,9 +227,7 @@ macro_rules! prop_type {
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = self.into();
-                if value != *prev {
-                    R::set_property(el, key, &value);
-                }
+                R::set_property(el, key, &value);
                 *prev = value;
             }
 
@@ -275,9 +271,7 @@ macro_rules! prop_type_str {
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = JsValue::from(&*self);
-                if value != *prev {
-                    R::set_property(el, key, &value);
-                }
+                R::set_property(el, key, &value);
                 *prev = value;
             }
 
@@ -325,9 +319,7 @@ macro_rules! prop_type_str {
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
                 let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
-                if value != *prev {
-                    R::set_property(el, key, &value);
-                }
+                R::set_property(el, key, &value);
                 *prev = value;
             }
 
@@ -375,9 +367,7 @@ where
     fn rebuild(self, state: &mut Self::State, key: &str) {
         let (el, prev) = state;
         let value = JsValue::from_str(self.as_ref());
-        if value != *prev {
-            R::set_property(el, key, &value);
-        }
+        R::set_property(el, key, &value);
         *prev = value;
     }
 
@@ -423,9 +413,7 @@ where
     fn rebuild(self, state: &mut Self::State, key: &str) {
         let (el, prev) = state;
         let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
-        if value != *prev {
-            R::set_property(el, key, &value);
-        }
+        R::set_property(el, key, &value);
         *prev = value;
     }
 
