@@ -93,7 +93,7 @@ async fn get_static_file(
                 eprintln!("Available asset: {}", a);
             }
 
-            Err((StatusCode::NOT_FOUND, format!("Not found")))
+            Err((StatusCode::NOT_FOUND, "Not found".to_string()))
         }
     }
 }
