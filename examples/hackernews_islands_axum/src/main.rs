@@ -16,9 +16,7 @@ async fn main() {
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
 
-    let predicate = 
-    // files smaller than 1501 bytes are not compressed, since the MTU (Maximum Transmission Unit) of a TCP packet is 1500 bytes
-    SizeAbove::new(1500)
+    let predicate = SizeAbove::new(1500) // files smaller than 1501 bytes are not compressed, since the MTU (Maximum Transmission Unit) of a TCP packet is 1500 bytes
         .and(NotForContentType::GRPC)
         .and(NotForContentType::IMAGES)
         // prevent compressing assets that are already statically compressed
