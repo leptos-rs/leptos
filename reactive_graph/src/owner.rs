@@ -133,7 +133,7 @@ impl Owner {
     ) -> Self {
         Arena::enter_new();
 
-        Self {
+        let this = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent: None,
                 nodes: Default::default(),
@@ -143,7 +143,9 @@ impl Owner {
             })),
             #[cfg(feature = "hydration")]
             shared_context,
-        }
+        };
+        OWNER.with_borrow_mut(|owner| *owner = Some(this.clone()));
+        this
     }
 
     /// Creates a new `Owner` that is the child of the current `Owner`, if any.
