@@ -68,4 +68,12 @@ impl SharedContext for CsrSharedContext {
 
     #[inline(always)]
     fn seal_errors(&self, _boundary_id: &SerializedDataId) {}
+
+    #[inline(always)]
+    fn during_hydration(&self) -> bool {
+        false
+    }
+
+    #[inline(always)]
+    fn hydration_complete(&self) {}
 }

@@ -85,6 +85,15 @@ pub trait SharedContext: Debug {
     /// In browser implementations, this return `None`.
     fn pending_data(&self) -> Option<PinnedStream<String>>;
 
+    /// Whether the page is currently being hydrated.
+    ///
+    /// Should always be `false` on the server or when client-rendering, including after the
+    /// initial hydration in the client.
+    fn during_hydration(&self) -> bool;
+
+    /// Tells the shared context that the hydration process is complete.
+    fn hydration_complete(&self);
+
     /// Returns `true` if you are currently in a part of the application tree that should be
     /// hydrated.
     ///
