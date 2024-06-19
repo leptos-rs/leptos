@@ -350,8 +350,7 @@ impl Mountable<Dom> for Node {
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
-        let parent =
-            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        let parent = Dom::get_parent(self).and_then(Element::cast_from);
         if let Some(parent) = parent {
             child.mount(&parent, Some(self));
             return true;

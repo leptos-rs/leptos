@@ -173,7 +173,7 @@ where
 
 impl<E, At, Ch, Rndr> Render<Rndr> for HtmlElement<E, At, Ch, Rndr>
 where
-    E: CreateElement<Rndr>,
+    E: ElementType + CreateElement<Rndr>,
     At: Attribute<Rndr>,
     Ch: Render<Rndr>,
     Rndr: Renderer,
@@ -185,15 +185,22 @@ where
             attrs, children, ..
         } = state;
         self.attributes.rebuild(attrs);
-        self.children.rebuild(children);
+        if let Some(children) = children {
+            self.children.rebuild(children);
+        }
     }
 
     fn build(self) -> Self::State {
         let el = Rndr::create_element(self.tag);
 
         let attrs = self.attributes.build(&el);
-        let mut children = self.children.build();
-        children.mount(&el, None);
+        let children = if E::SELF_CLOSING {
+            None
+        } else {
+            let mut children = self.children.build();
+            children.mount(&el, None);
+            Some(children)
+        };
         ElementState {
             el,
             attrs,
@@ -417,8 +424,12 @@ where
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         // hydrate children
-        position.set(Position::FirstChild);
-        let children = self.children.hydrate::<FROM_SERVER>(cursor, position);
+        let children = if E::SELF_CLOSING {
+            None
+        } else {
+            position.set(Position::FirstChild);
+            Some(self.children.hydrate::<FROM_SERVER>(cursor, position))
+        };
 
         // go to next sibling
         cursor.set(el.as_ref().clone());
@@ -436,7 +447,7 @@ where
 pub struct ElementState<At, Ch, R: Renderer> {
     pub el: R::Element,
     pub attrs: At,
-    pub children: Ch,
+    pub children: Option<Ch>,
     rndr: PhantomData<R>,
 }
 

@@ -64,8 +64,7 @@ where
     Chil: Render<Rndr> + Send + 'static,
     Rndr: Renderer + 'static,
 {
-    type State =
-        RenderEffect<EitherKeepAliveState<Chil::State, Fal::State, Rndr>>;
+    type State = RenderEffect<EitherKeepAliveState<Chil::State, Fal::State>>;
 
     fn build(self) -> Self::State {
         let mut children = Some(self.children);
@@ -75,7 +74,7 @@ where
 
         RenderEffect::new(
             move |prev: Option<
-                EitherKeepAliveState<Chil::State, Fal::State, Rndr>,
+                EitherKeepAliveState<Chil::State, Fal::State>,
             >| {
                 // show the fallback if
                 // 1) there are pending futures, and
@@ -281,7 +280,7 @@ where
 
         RenderEffect::new(
             move |prev: Option<
-                EitherKeepAliveState<Chil::State, Fal::State, Rndr>,
+                EitherKeepAliveState<Chil::State, Fal::State>,
             >| {
                 // show the fallback if
                 // 1) there are pending futures, and
