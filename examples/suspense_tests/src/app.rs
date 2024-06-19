@@ -120,8 +120,8 @@ fn SecondaryNav() -> impl IntoView {
 
 #[component]
 fn Nested() -> impl IntoView {
-    let one_second = Resource::new_serde(|| WAIT_ONE_SECOND, first_wait_fn);
-    let two_second = Resource::new_serde(|| WAIT_TWO_SECONDS, second_wait_fn);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
+    let two_second = Resource::new(|| WAIT_TWO_SECONDS, second_wait_fn);
     let (count, set_count) = signal(0);
 
     view! {
@@ -149,7 +149,7 @@ fn Nested() -> impl IntoView {
 
 #[component]
 fn NestedResourceInside() -> impl IntoView {
-    let one_second = Resource::new_serde(|| WAIT_ONE_SECOND, first_wait_fn);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
     let (count, set_count) = signal(0);
 
     view! {
@@ -157,7 +157,7 @@ fn NestedResourceInside() -> impl IntoView {
             <Suspense fallback=|| "Loading 1...">
                 {Suspend(async move {
                     _ = one_second.await;
-                    let two_second = Resource::new_serde(|| (), move |_| async move {
+                    let two_second = Resource::new(|| (), move |_| async move {
                         second_wait_fn(WAIT_TWO_SECONDS).await
                     });
                     view! {
@@ -180,8 +180,8 @@ fn NestedResourceInside() -> impl IntoView {
 
 #[component]
 fn Parallel() -> impl IntoView {
-    let one_second = Resource::new_serde(|| WAIT_ONE_SECOND, first_wait_fn);
-    let two_second = Resource::new_serde(|| WAIT_TWO_SECONDS, second_wait_fn);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
+    let two_second = Resource::new(|| WAIT_TWO_SECONDS, second_wait_fn);
     let (count, set_count) = signal(0);
 
     view! {
@@ -212,7 +212,7 @@ fn Parallel() -> impl IntoView {
 
 #[component]
 fn Single() -> impl IntoView {
-    let one_second = Resource::new_serde(|| WAIT_ONE_SECOND, first_wait_fn);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
     let (count, set_count) = signal(0);
 
     view! {
@@ -254,7 +254,7 @@ fn InsideComponent() -> impl IntoView {
 
 #[component]
 fn InsideComponentChild() -> impl IntoView {
-    let one_second = Resource::new_serde(|| WAIT_ONE_SECOND, first_wait_fn);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
     view! {
         <Suspense fallback=|| "Loading 1...">
         {move || {
