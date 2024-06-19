@@ -47,7 +47,7 @@ pub fn App() -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     // load the posts
-    let posts = Resource::new_serde(|| (), |_| list_post_metadata());
+    let posts = Resource::new(|| (), |_| list_post_metadata());
     let posts = move || {
         posts
             .get()
@@ -55,7 +55,7 @@ fn HomePage() -> impl IntoView {
             .unwrap_or_default()
     };
 
-    let posts2 = Resource::new_serde(|| (), |_| list_post_metadata());
+    let posts2 = Resource::new(|| (), |_| list_post_metadata());
     let posts2 = Resource::new(
         || (),
         move |_| async move { posts2.await.as_ref().map(Vec::len).unwrap_or(0) },
@@ -95,7 +95,7 @@ fn Post() -> impl IntoView {
                 .map_err(|_| PostError::InvalidId)
         })
     };
-    let post_resource = Resource::new_serde(id, |id| async move {
+    let post_resource = Resource::new(id, |id| async move {
         match id {
             Err(e) => Err(e),
             Ok(id) => get_post(id)
