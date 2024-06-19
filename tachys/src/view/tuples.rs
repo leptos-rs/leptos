@@ -12,9 +12,11 @@ use const_str_slice_concat::{
 };
 
 impl<R: Renderer> Render<R> for () {
-    type State = ();
+    type State = R::Placeholder;
 
-    fn build(self) -> Self::State {}
+    fn build(self) -> Self::State {
+        R::create_placeholder()
+    }
 
     fn rebuild(self, _state: &mut Self::State) {}
 }
@@ -25,15 +27,24 @@ where
 {
     type AsyncOutput = ();
 
-    const MIN_LENGTH: usize = 0;
+    const MIN_LENGTH: usize = 3;
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position, _escape: bool) {}
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        _escape: bool,
+    ) {
+        buf.push_str("<!>");
+        *position = Position::NextChild;
+    }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &Cursor<R>,
-        _position: &PositionState,
+        cursor: &Cursor<R>,
+        position: &PositionState,
     ) -> Self::State {
+        cursor.next_placeholder(position)
     }
 
     async fn resolve(self) -> Self::AsyncOutput {}
@@ -117,10 +128,14 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
         Self: Sized,
     {
-        self.0.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+        self.0
+            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
     }
 
     fn hydrate<const FROM_SERVER: bool>(
