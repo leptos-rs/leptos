@@ -138,6 +138,7 @@ where
                         Ok(value) => {
                             sc.write_async(id, Box::pin(async move { value }))
                         }
+                        #[allow(unused)] // used in tracing
                         Err(e) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!(
