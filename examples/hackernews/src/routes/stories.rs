@@ -32,7 +32,7 @@ pub fn Stories() -> impl IntoView {
             .get("stories")
             .unwrap_or_else(|| "top".to_string())
     };
-    let stories = Resource::new_serde(
+    let stories = Resource::new(
         move || (page(), story_type()),
         move |(page, story_type)| async move {
             let path = format!("{}?page={}", category(&story_type), page);
