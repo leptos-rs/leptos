@@ -55,6 +55,7 @@ impl std::error::Error for SerializedError {}
 pub struct HydrateSharedContext {
     id: AtomicUsize,
     is_hydrating: AtomicBool,
+    during_hydration: AtomicBool,
     errors: Lazy<Vec<(SerializedDataId, ErrorId, Error)>>,
 }
 
@@ -64,6 +65,7 @@ impl HydrateSharedContext {
         Self {
             id: AtomicUsize::new(0),
             is_hydrating: AtomicBool::new(true),
+            during_hydration: AtomicBool::new(true),
             errors: Lazy::new(serialized_errors),
         }
     }
@@ -76,6 +78,7 @@ impl HydrateSharedContext {
         Self {
             id: AtomicUsize::new(0),
             is_hydrating: AtomicBool::new(false),
+            during_hydration: AtomicBool::new(true),
             errors: Lazy::new(serialized_errors),
         }
     }
@@ -109,6 +112,14 @@ impl SharedContext for HydrateSharedContext {
 
     fn pending_data(&self) -> Option<PinnedStream<String>> {
         None
+    }
+
+    fn during_hydration(&self) -> bool {
+        self.during_hydration.load(Ordering::Relaxed)
+    }
+
+    fn hydration_complete(&self) {
+        self.during_hydration.store(false, Ordering::Relaxed)
     }
 
     fn get_is_hydrating(&self) -> bool {

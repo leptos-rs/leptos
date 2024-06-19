@@ -66,6 +66,10 @@ where
         )
     });
 
+    if let Some(sc) = Owner::current_shared_context() {
+        sc.hydration_complete();
+    }
+
     // returns a handle that owns the owner
     // when this is dropped, it will clean up the reactive system and unmount the view
     UnmountHandle {
