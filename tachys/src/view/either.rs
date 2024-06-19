@@ -7,16 +7,7 @@ use crate::{
     ssr::StreamBuilder,
 };
 use either_of::*;
-
-pub struct EitherState<A, B, Rndr>
-where
-    A: Mountable<Rndr>,
-    B: Mountable<Rndr>,
-    Rndr: Renderer,
-{
-    pub state: Either<A, B>,
-    pub marker: Rndr::Placeholder,
-}
+use std::marker::PhantomData;
 
 impl<A, B, Rndr> Render<Rndr> for Either<A, B>
 where
@@ -24,55 +15,50 @@ where
     B: Render<Rndr>,
     Rndr: Renderer,
 {
-    type State = EitherState<A::State, B::State, Rndr>;
+    type State = Either<A::State, B::State>;
 
     fn build(self) -> Self::State {
-        let marker = Rndr::create_placeholder();
         match self {
-            Either::Left(left) => EitherState {
-                state: Either::Left(left.build()),
-                marker,
-            },
-            Either::Right(right) => EitherState {
-                state: Either::Right(right.build()),
-                marker,
-            },
+            Either::Left(left) => Either::Left(left.build()),
+            Either::Right(right) => Either::Right(right.build()),
         }
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let marker = state.marker.as_ref();
-        match (self, &mut state.state) {
-            (Either::Left(new), Either::Left(old)) => new.rebuild(old),
-            (Either::Right(new), Either::Right(old)) => new.rebuild(old),
+        match (self, &mut *state) {
+            (Either::Left(new), Either::Left(old)) => {
+                new.rebuild(old);
+            }
+            (Either::Right(new), Either::Right(old)) => {
+                new.rebuild(old);
+            }
             (Either::Right(new), Either::Left(old)) => {
-                old.unmount();
                 let mut new_state = new.build();
-                Rndr::try_mount_before(&mut new_state, marker);
-                state.state = Either::Right(new_state);
+                old.insert_before_this(&mut new_state);
+                old.unmount();
+                *state = Either::Right(new_state);
             }
             (Either::Left(new), Either::Right(old)) => {
-                old.unmount();
                 let mut new_state = new.build();
-                Rndr::try_mount_before(&mut new_state, marker);
-                state.state = Either::Left(new_state);
+                old.insert_before_this(&mut new_state);
+                old.unmount();
+                *state = Either::Left(new_state);
             }
         }
     }
 }
 
-impl<A, B, Rndr> Mountable<Rndr> for EitherState<A, B, Rndr>
+impl<A, B, Rndr> Mountable<Rndr> for Either<A, B>
 where
     A: Mountable<Rndr>,
     B: Mountable<Rndr>,
     Rndr: Renderer,
 {
     fn unmount(&mut self) {
-        match &mut self.state {
+        match self {
             Either::Left(left) => left.unmount(),
             Either::Right(right) => right.unmount(),
         }
-        self.marker.unmount();
     }
 
     fn mount(
@@ -80,19 +66,14 @@ where
         parent: &<Rndr as Renderer>::Element,
         marker: Option<&<Rndr as Renderer>::Node>,
     ) {
-        self.marker.mount(parent, marker);
-        match &mut self.state {
-            Either::Left(left) => {
-                left.mount(parent, Some(self.marker.as_ref()))
-            }
-            Either::Right(right) => {
-                right.mount(parent, Some(self.marker.as_ref()))
-            }
+        match self {
+            Either::Left(left) => left.mount(parent, marker),
+            Either::Right(right) => right.mount(parent, marker),
         }
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
-        match &self.state {
+        match &self {
             Either::Left(left) => left.insert_before_this(child),
             Either::Right(right) => right.insert_before_this(child),
         }
@@ -181,7 +162,6 @@ where
                 right.to_html_with_buf(buf, position, escape)
             }
         }
-        buf.push_str("<!>");
         *position = Position::NextChild;
     }
 
@@ -199,7 +179,6 @@ where
             Either::Right(right) => right
                 .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
         }
-        buf.push_sync("<!>");
         *position = Position::NextChild;
     }
 
@@ -208,18 +187,14 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
-        let state = match self {
+        match self {
             Either::Left(left) => {
                 Either::Left(left.hydrate::<FROM_SERVER>(cursor, position))
             }
             Either::Right(right) => {
                 Either::Right(right.hydrate::<FROM_SERVER>(cursor, position))
             }
-        };
-
-        let marker = cursor.next_placeholder(position);
-
-        EitherState { state, marker }
+        }
     }
 }
 
@@ -230,14 +205,10 @@ pub struct EitherKeepAlive<A, B> {
     pub show_b: bool,
 }
 
-pub struct EitherKeepAliveState<A, B, Rndr>
-where
-    Rndr: Renderer,
-{
+pub struct EitherKeepAliveState<A, B> {
     a: Option<A>,
     b: Option<B>,
     showing_b: bool,
-    marker: Rndr::Placeholder,
 }
 
 impl<A, B, Rndr> Render<Rndr> for EitherKeepAlive<A, B>
@@ -246,19 +217,13 @@ where
     B: Render<Rndr>,
     Rndr: Renderer,
 {
-    type State = EitherKeepAliveState<A::State, B::State, Rndr>;
+    type State = EitherKeepAliveState<A::State, B::State>;
 
     fn build(self) -> Self::State {
-        let marker = Rndr::create_placeholder();
         let showing_b = self.show_b;
         let a = self.a.map(Render::build);
         let b = self.b.map(Render::build);
-        EitherKeepAliveState {
-            a,
-            b,
-            showing_b,
-            marker,
-        }
+        EitherKeepAliveState { a, b, showing_b }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -278,23 +243,21 @@ where
 
         match (self.show_b, state.showing_b) {
             // transition from A to B
-            (true, false) => {
-                if let Some(a) = &mut state.a {
+            (true, false) => match (&mut state.a, &mut state.b) {
+                (Some(a), Some(b)) => {
+                    a.insert_before_this(b);
                     a.unmount();
                 }
-                if let Some(b) = &mut state.b {
-                    Rndr::mount_before(b, state.marker.as_ref());
-                }
-            }
+                _ => unreachable!(),
+            },
             // transition from B to A
-            (false, true) => {
-                if let Some(b) = &mut state.b {
+            (false, true) => match (&mut state.a, &mut state.b) {
+                (Some(a), Some(b)) => {
+                    b.insert_before_this(a);
                     b.unmount();
                 }
-                if let Some(a) = &mut state.a {
-                    Rndr::mount_before(a, state.marker.as_ref());
-                }
-            }
+                _ => unreachable!(),
+            },
             _ => {}
         }
         state.showing_b = self.show_b;
@@ -377,18 +340,11 @@ where
             }
         });
 
-        let marker = cursor.next_placeholder(position);
-
-        EitherKeepAliveState {
-            showing_b,
-            a,
-            b,
-            marker,
-        }
+        EitherKeepAliveState { showing_b, a, b }
     }
 }
 
-impl<A, B, Rndr> Mountable<Rndr> for EitherKeepAliveState<A, B, Rndr>
+impl<A, B, Rndr> Mountable<Rndr> for EitherKeepAliveState<A, B>
 where
     A: Mountable<Rndr>,
     B: Mountable<Rndr>,
@@ -400,7 +356,6 @@ where
         } else {
             self.a.as_mut().expect("A was not present").unmount();
         }
-        self.marker.unmount();
     }
 
     fn mount(
@@ -419,7 +374,6 @@ where
                 .expect("A was not present")
                 .mount(parent, marker);
         }
-        self.marker.mount(parent, marker);
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
@@ -431,7 +385,7 @@ where
         } else {
             self.a
                 .as_ref()
-                .expect("A was no present")
+                .expect("A was not present")
                 .insert_before_this(child)
         }
     }
@@ -446,7 +400,7 @@ macro_rules! tuples {
                 Rndr: Renderer
             {
                 pub state: [<EitherOf $num>]<$($ty::State,)*>,
-                pub marker: Rndr::Placeholder,
+                pub rndr: PhantomData<Rndr>
             }
 
             impl<$($ty,)* Rndr> Mountable<Rndr> for [<EitherOf $num State>]<$($ty,)* Rndr>
@@ -458,7 +412,6 @@ macro_rules! tuples {
                     match &mut self.state {
                         $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.unmount()),)*
                     };
-                    self.marker.unmount();
                 }
 
                 fn mount(
@@ -466,9 +419,8 @@ macro_rules! tuples {
                     parent: &<Rndr as Renderer>::Element,
                     marker: Option<&<Rndr as Renderer>::Node>,
                 ) {
-                    self.marker.mount(parent, marker);
                     match &mut self.state {
-                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.mount(parent, Some(self.marker.as_ref()))),)*
+                        $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.mount(parent, marker)),)*
                     };
                 }
 
@@ -490,22 +442,20 @@ macro_rules! tuples {
 
 
                 fn build(self) -> Self::State {
-                    let marker = Rndr::create_placeholder();
                     let state = match self {
                         $([<EitherOf $num>]::$ty(this) => [<EitherOf $num>]::$ty(this.build()),)*
                     };
-                    Self::State { marker, state }
+                    Self::State { state, rndr: PhantomData }
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    let marker = state.marker.as_ref();
                     let new_state = match (self, &mut state.state) {
                         // rebuild same state and return early
                         $(([<EitherOf $num>]::$ty(new), [<EitherOf $num>]::$ty(old)) => { return new.rebuild(old); },)*
                         // or mount new state
                         $(([<EitherOf $num>]::$ty(new), _) => {
                             let mut new = new.build();
-                            Rndr::try_mount_before(&mut new, marker);
+                            state.insert_before_this(&mut new);
                             [<EitherOf $num>]::$ty(new)
                         },)*
                     };
@@ -577,7 +527,6 @@ macro_rules! tuples {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => this.to_html_with_buf(buf, position, escape),)*
                     }
-                    buf.push_str("<!>");
                     *position = Position::NextChild;
                 }
 
@@ -589,7 +538,6 @@ macro_rules! tuples {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),)*
                     }
-                    buf.push_sync("<!>");
                     *position = Position::NextChild;
                 }
 
@@ -604,8 +552,7 @@ macro_rules! tuples {
                         })*
                     };
 
-                    let marker = cursor.next_placeholder(position);
-                    Self::State { marker, state }
+                    Self::State { state, rndr: PhantomData }
                 }
             }
         }

@@ -320,10 +320,9 @@ impl Mountable<MockDom> for Node {
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<MockDom>) -> bool {
-        let parent =
-            MockDom::get_parent(self.as_ref()).and_then(Element::cast_from);
+        let parent = MockDom::get_parent(self).and_then(Element::cast_from);
         if let Some(parent) = parent {
-            child.mount(&parent, Some(self.as_ref()));
+            child.mount(&parent, Some(self));
             return true;
         }
         false

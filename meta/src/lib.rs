@@ -334,7 +334,7 @@ fn document_head() -> HtmlHeadElement {
 
 impl<E, At, Ch> Render<Dom> for RegisteredMetaTag<E, At, Ch>
 where
-    E: CreateElement<Dom>,
+    E: ElementType + CreateElement<Dom>,
     At: Attribute<Dom>,
     Ch: Render<Dom>,
 {
@@ -424,7 +424,7 @@ where
 
 impl<E, At, Ch> Mountable<Dom> for RegisteredMetaTagState<E, At, Ch>
 where
-    E: CreateElement<Dom>,
+    E: ElementType + CreateElement<Dom>,
     At: Attribute<Dom>,
     Ch: Render<Dom>,
 {

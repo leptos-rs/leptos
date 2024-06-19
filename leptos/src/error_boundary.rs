@@ -111,7 +111,6 @@ where
     // as needed
     children: Chil::State,
     fallback: Fal::State,
-    placeholder: Rndr::Placeholder,
 }
 
 impl<Chil, Fal, Rndr> Mountable<Rndr>
@@ -127,7 +126,6 @@ where
         } else {
             self.children.unmount();
         }
-        self.placeholder.unmount();
     }
 
     fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
@@ -136,7 +134,6 @@ where
         } else {
             self.children.mount(parent, marker);
         }
-        self.placeholder.mount(parent, marker);
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
@@ -157,7 +154,6 @@ where
     type State = RenderEffect<ErrorBoundaryViewState<Chil, Fal, Rndr>>;
 
     fn build(self) -> Self::State {
-        let mut placeholder = Some(Rndr::create_placeholder());
         let mut children = Some(self.children.build());
         let mut fallback = Some(self.fallback.build());
         RenderEffect::new(
@@ -166,19 +162,17 @@ where
                     match (self.errors_empty.get(), state.showing_fallback) {
                         // no errors, and was showing fallback
                         (true, true) => {
+                            state
+                                .fallback
+                                .insert_before_this(&mut state.children);
                             state.fallback.unmount();
-                            Rndr::try_mount_before(
-                                &mut state.children,
-                                state.placeholder.as_ref(),
-                            );
                         }
                         // yes errors, and was showing children
                         (false, false) => {
+                            state
+                                .children
+                                .insert_before_this(&mut state.fallback);
                             state.children.unmount();
-                            Rndr::try_mount_before(
-                                &mut state.fallback,
-                                state.placeholder.as_ref(),
-                            );
                         }
                         // either there were no errors, and we were already showing the children
                         // or there are errors, but we were already showing the fallback
@@ -192,7 +186,6 @@ where
                         showing_fallback: !self.errors_empty.get(),
                         children: children.take().unwrap(),
                         fallback: fallback.take().unwrap(),
-                        placeholder: placeholder.take().unwrap(),
                     }
                 }
             },
@@ -344,19 +337,17 @@ where
                     match (self.errors_empty.get(), state.showing_fallback) {
                         // no errors, and was showing fallback
                         (true, true) => {
+                            state
+                                .fallback
+                                .insert_before_this(&mut state.children);
                             state.fallback.unmount();
-                            Rndr::try_mount_before(
-                                &mut state.children,
-                                state.placeholder.as_ref(),
-                            );
                         }
                         // yes errors, and was showing children
                         (false, false) => {
+                            state
+                                .children
+                                .insert_before_this(&mut state.fallback);
                             state.children.unmount();
-                            Rndr::try_mount_before(
-                                &mut state.fallback,
-                                state.placeholder.as_ref(),
-                            );
                         }
                         // either there were no errors, and we were already showing the children
                         // or there are errors, but we were already showing the fallback
@@ -380,12 +371,10 @@ where
                         )
                     };
 
-                    let placeholder = cursor.next_placeholder(&position);
                     ErrorBoundaryViewState {
                         showing_fallback: !self.errors_empty.get(),
                         children,
                         fallback,
-                        placeholder,
                     }
                 }
             },

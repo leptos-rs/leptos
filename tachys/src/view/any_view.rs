@@ -122,7 +122,7 @@ where
 {
     let state = state
         .downcast_ref::<T::State>()
-        .expect("AnyViewState::opening_node couldn't downcast state");
+        .expect("AnyViewState::insert_before_this couldn't downcast state");
     state.insert_before_this(child)
 }
 
@@ -427,7 +427,7 @@ where
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
-        (self.insert_before_this)(self, child)
+        (self.insert_before_this)(&*self.state, child)
     }
 }
 /*
