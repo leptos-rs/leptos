@@ -48,7 +48,7 @@ where
     T: Render<Rndr>,
     Rndr: Renderer,
 {
-    inner: Rc<RefCell<OptionState<T::State, Rndr>>>,
+    inner: Rc<RefCell<OptionState<T, Rndr>>>,
 }
 
 impl<T, Rndr> Mountable<Rndr> for SuspendState<T, Rndr>
