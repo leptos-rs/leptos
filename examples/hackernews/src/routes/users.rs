@@ -6,7 +6,7 @@ use leptos_router::hooks::use_params_map;
 #[component]
 pub fn User() -> impl IntoView {
     let params = use_params_map();
-    let user = Resource::new_serde(
+    let user = Resource::new(
         move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {

@@ -101,7 +101,7 @@ pub fn Todos() -> impl IntoView {
     let delete_todo = ServerAction::<DeleteTodo>::new();
 
     // list of todos is loaded from the server in reaction to changes
-    let todos = Resource::new_serde(
+    let todos = Resource::new(
         move || {
             (
                 delete_todo.version().get(),

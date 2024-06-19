@@ -176,7 +176,7 @@ pub fn WithAnAction() -> impl IntoView {
     // this resource will hold the total number of rows
     // passing it action.version() means it will refetch whenever the action resolves successfully
     let row_count =
-        Resource::new_serde(move || action.version().get(), |_| get_rows());
+        Resource::new(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>Action::new</code></h3>
@@ -216,7 +216,7 @@ pub fn WithAnAction() -> impl IntoView {
 pub fn WithActionForm() -> impl IntoView {
     let action = ServerAction::<AddRow>::new();
     let row_count =
-        Resource::new_serde(move || action.version().get(), |_| get_rows());
+        Resource::new(move || action.version().get(), |_| get_rows());
 
     view! {
         <h3>Using <code>"<ActionForm/>"</code></h3>
@@ -317,7 +317,7 @@ pub async fn rkyv_example(input: String) -> Result<String, ServerFnError> {
 pub fn RkyvExample() -> impl IntoView {
     let input_ref = NodeRef::<Input>::new();
     let (input, set_input) = signal(String::new());
-    let rkyv_result = Resource::new_serde(move || input.get(), rkyv_example);
+    let rkyv_result = Resource::new(move || input.get(), rkyv_example);
 
     view! {
         <h3>Using <code>rkyv</code> encoding</h3>
