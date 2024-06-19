@@ -103,7 +103,7 @@ pub fn Counter() -> impl IntoView {
     let dec = Action::new(|_: &()| adjust_server_count(-1, "decing".into()));
     let inc = Action::new(|_: &()| adjust_server_count(1, "incing".into()));
     let clear = Action::new(|_: &()| clear_server_count());
-    let counter = Resource::new_serde(
+    let counter = Resource::new(
         move || {
             (
                 dec.version().get(),
@@ -145,7 +145,7 @@ pub fn FormCounter() -> impl IntoView {
     let adjust = ServerAction::<AdjustServerCount>::new();
     let clear = ServerAction::<ClearServerCount>::new();
 
-    let counter = Resource::new_serde(
+    let counter = Resource::new(
         move || (adjust.version().get(), clear.version().get()),
         |_| {
             log::debug!("FormCounter running fetcher");
