@@ -6,42 +6,33 @@ use crate::{
     html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
     ssr::StreamBuilder,
 };
+use either_of::Either;
 use itertools::Itertools;
+
+pub type OptionState<T, R> =
+    Either<<T as Render<R>>::State, <() as Render<R>>::State>;
 
 impl<T, R> Render<R> for Option<T>
 where
     T: Render<R>,
     R: Renderer,
 {
-    type State = OptionState<T::State, R>;
+    type State = OptionState<T, R>;
 
     fn build(self) -> Self::State {
-        let placeholder = R::create_placeholder();
-        OptionState {
-            placeholder,
-            state: self.map(T::build),
+        match self {
+            Some(value) => Either::Left(value),
+            None => Either::Right(()),
         }
+        .build()
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        match (&mut state.state, self) {
-            // both None: no need to do anything
-            (None, None) => {}
-            // both Some: need to rebuild child
-            (Some(old), Some(new)) => {
-                T::rebuild(new, old);
-            }
-            // Some => None: unmount replace with marker
-            (Some(old), None) => {
-                old.unmount();
-                state.state = None;
-            } // None => Some: build
-            (None, Some(new)) => {
-                let mut new_state = new.build();
-                R::try_mount_before(&mut new_state, state.placeholder.as_ref());
-                state.state = Some(new_state);
-            }
+        match self {
+            Some(value) => Either::Left(value),
+            None => Either::Right(()),
         }
+        .rebuild(state)
     }
 }
 
@@ -99,25 +90,26 @@ where
         position: &mut Position,
         escape: bool,
     ) {
-        if let Some(value) = self {
-            value.to_html_with_buf(buf, position, escape);
+        match self {
+            Some(value) => Either::Left(value),
+            None => Either::Right(()),
         }
-        // placeholder
-        buf.push_str("<!>");
-        *position = Position::NextChild;
+        .to_html_with_buf(buf, position, escape)
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
         Self: Sized,
     {
-        if let Some(value) = self {
-            value.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+        match self {
+            Some(value) => Either::Left(value),
+            None => Either::Right(()),
         }
-        // placeholder
-        buf.push_sync("<!>");
-        *position = Position::NextChild;
+        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
     }
 
     #[track_caller]
@@ -126,54 +118,11 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        // hydrate the state, if it exists
-        let state = self.map(|s| s.hydrate::<FROM_SERVER>(cursor, position));
-
-        let placeholder = cursor.next_placeholder(position);
-
-        OptionState { placeholder, state }
-    }
-}
-
-/// View state for an optional view.
-pub struct OptionState<T, R>
-where
-    T: Mountable<R>,
-    R: Renderer,
-{
-    /// Marks the location of this view.
-    placeholder: R::Placeholder,
-    /// The view state.
-    state: Option<T>,
-}
-
-impl<T, R> Mountable<R> for OptionState<T, R>
-where
-    T: Mountable<R>,
-    R: Renderer,
-{
-    fn unmount(&mut self) {
-        if let Some(ref mut state) = self.state {
-            state.unmount();
+        match self {
+            Some(value) => Either::Left(value),
+            None => Either::Right(()),
         }
-        self.placeholder.unmount();
-    }
-
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
-        if let Some(ref mut state) = self.state {
-            state.mount(parent, marker);
-        }
-        self.placeholder.mount(parent, marker);
-    }
-
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
-        if self.state.as_ref().map(|n| n.insert_before_this(child))
-            == Some(true)
-        {
-            true
-        } else {
-            self.placeholder.insert_before_this(child)
-        }
+        .hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
@@ -239,6 +188,10 @@ where
     R: Renderer,
 {
     states: Vec<T>,
+    // Vecs keep a placeholder because they have the potential to add additional items,
+    // after their own items but before the next neighbor. It is much easier to add an
+    // item before a known placeholder than to add it after the last known item, so we
+    // just leave a placeholder here unlike zero-or-one iterators (Option, Result, etc.)
     marker: R::Placeholder,
 }
 
@@ -340,7 +293,10 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
         Self: Sized,
     {
         let mut children = self.into_iter();

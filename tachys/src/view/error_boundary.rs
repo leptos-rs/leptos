@@ -3,8 +3,9 @@ use crate::{
     html::attribute::Attribute,
     hydration::Cursor,
     ssr::StreamBuilder,
-    view::{Mountable, Render, Renderer},
+    view::{iterators::OptionState, Mountable, Render, Renderer},
 };
+use either_of::Either;
 use throw_error::Error as AnyError;
 
 impl<R, T, E> Render<R> for Result<T, E>
@@ -13,38 +14,46 @@ where
     R: Renderer,
     E: Into<AnyError> + 'static,
 {
-    type State = ResultState<T::State, R>;
+    type State = ResultState<T, R>;
 
     fn build(self) -> Self::State {
-        let placeholder = R::create_placeholder();
-        let state = match self {
-            Ok(view) => Ok(view.build()),
-            Err(e) => Err(throw_error::throw(e.into())),
+        let (state, error) = match self {
+            Ok(view) => (Either::Left(view.build()), None),
+            Err(e) => (
+                Either::Right(Render::<R>::build(())),
+                Some(throw_error::throw(e.into())),
+            ),
         };
-        ResultState { placeholder, state }
+        ResultState { state, error }
     }
 
     fn rebuild(self, state: &mut Self::State) {
         match (&mut state.state, self) {
             // both errors: throw the new error and replace
-            (Err(prev), Err(new)) => {
-                *prev = throw_error::throw(new.into());
+            (Either::Right(_), Err(new)) => {
+                state.error = Some(throw_error::throw(new.into()))
             }
             // both Ok: need to rebuild child
-            (Ok(old), Ok(new)) => {
+            (Either::Left(old), Ok(new)) => {
                 T::rebuild(new, old);
             }
             // Ok => Err: unmount, replace with marker, and throw
-            (Ok(old), Err(err)) => {
+            (Either::Left(old), Err(err)) => {
+                let mut new_state = Render::<R>::build(());
+                old.insert_before_this(&mut new_state);
                 old.unmount();
-                state.state = Err(throw_error::throw(err));
+                state.state = Either::Right(new_state);
+                state.error = Some(throw_error::throw(err));
             }
             // Err => Ok: clear error and build
-            (Err(err), Ok(new)) => {
-                throw_error::clear(err);
+            (Either::Right(old), Ok(new)) => {
+                if let Some(err) = state.error.take() {
+                    throw_error::clear(&err);
+                }
                 let mut new_state = new.build();
-                R::try_mount_before(&mut new_state, state.placeholder.as_ref());
-                state.state = Ok(new_state);
+                old.insert_before_this(&mut new_state);
+                old.unmount();
+                state.state = Either::Left(new_state);
             }
         }
     }
@@ -53,55 +62,43 @@ where
 /// View state for a `Result<_, _>` view.
 pub struct ResultState<T, R>
 where
-    T: Mountable<R>,
+    T: Render<R>,
     R: Renderer,
 {
-    /// Marks the location of this view.
-    placeholder: R::Placeholder,
     /// The view state.
-    state: Result<T, throw_error::ErrorId>,
+    state: OptionState<T, R>,
+    error: Option<throw_error::ErrorId>,
 }
 
 impl<T, R> Drop for ResultState<T, R>
 where
-    T: Mountable<R>,
+    T: Render<R>,
     R: Renderer,
 {
     fn drop(&mut self) {
         // when the state is cleared, unregister this error; this item is being dropped and its
         // error should no longer be shown
-        if let Err(e) = &self.state {
-            throw_error::clear(e);
+        if let Some(e) = self.error.take() {
+            throw_error::clear(&e);
         }
     }
 }
 
 impl<T, R> Mountable<R> for ResultState<T, R>
 where
-    T: Mountable<R>,
+    T: Render<R>,
     R: Renderer,
 {
     fn unmount(&mut self) {
-        if let Ok(ref mut state) = self.state {
-            state.unmount();
-        }
-        self.placeholder.unmount();
+        self.state.unmount();
     }
 
     fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
-        self.placeholder.mount(parent, marker);
-        if let Ok(ref mut state) = self.state {
-            state.mount(parent, Some(self.placeholder.as_ref()));
-        }
+        self.state.mount(parent, marker);
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
-        if self.state.as_ref().map(|n| n.insert_before_this(child)) == Ok(true)
-        {
-            true
-        } else {
-            self.placeholder.insert_before_this(child)
-        }
+        self.state.insert_before_this(child)
     }
 }
 
@@ -167,23 +164,23 @@ where
                 throw_error::throw(e);
             }
         }
-        buf.push_str("<!>");
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
         Self: Sized,
     {
         match self {
-            Ok(inner) => {
-                inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
-            }
+            Ok(inner) => inner
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
             Err(e) => {
                 throw_error::throw(e);
             }
         }
-        buf.push_sync("<!>");
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -191,13 +188,20 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
-        // hydrate the state, if it exists
-        let state = self
-            .map(|s| s.hydrate::<FROM_SERVER>(cursor, position))
-            .map_err(|e| throw_error::throw(e.into()));
-
-        let placeholder = cursor.next_placeholder(position);
-
-        ResultState { placeholder, state }
+        let (state, error) = match self {
+            Ok(view) => (
+                Either::Left(view.hydrate::<FROM_SERVER>(cursor, position)),
+                None,
+            ),
+            Err(e) => {
+                let state = RenderHtml::<R>::hydrate::<FROM_SERVER>(
+                    (),
+                    cursor,
+                    position,
+                );
+                (Either::Right(state), Some(throw_error::throw(e.into())))
+            }
+        };
+        ResultState { state, error }
     }
 }
