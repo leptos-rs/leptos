@@ -180,6 +180,12 @@ impl SharedContext for SsrSharedContext {
             stream::once(async move { initial_chunk }).chain(async_data);
         Some(Box::pin(stream))
     }
+
+    fn during_hydration(&self) -> bool {
+        false
+    }
+
+    fn hydration_complete(&self) {}
 }
 
 struct AsyncDataStream {
