@@ -49,7 +49,7 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new<S, Fut>(
+    pub fn new_str<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
@@ -68,6 +68,23 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
+    #[track_caller]
+    pub fn new<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_encoding(source, fetcher)
+    }
+
+    #[track_caller]
+    #[deprecated = "Use ::new() instead; I'm going to switch the default to \
+                    SerdeJson and keep the FromStr/ToString available as \
+                    ::new_str()."]
     pub fn new_serde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -304,7 +321,7 @@ where
     T::DeErr: Debug,
 {
     #[track_caller]
-    pub fn new<S, Fut>(
+    pub fn new_str<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
@@ -324,6 +341,22 @@ where
     T::DeErr: Debug,
 {
     #[track_caller]
+    pub fn new<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_encoding(source, fetcher)
+    }
+
+    #[track_caller]
+    #[deprecated = "Use ::new() instead; I'm going to switch the default to \
+                    SerdeJson and keep the FromStr/ToString available as \
+                    ::new_str()."]
     pub fn new_serde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
