@@ -262,9 +262,12 @@ impl Runtime {
             | ScopeProperty::Effect(node) => {
                 // run all cleanups for this node
                 let cleanups = { self.on_cleanups.borrow_mut().remove(node) };
+                // untrack around all cleanups
+                let prev_observer = self.observer.take();
                 for cleanup in cleanups.into_iter().flatten() {
                     cleanup();
                 }
+                self.observer.set(prev_observer);
 
                 // clean up all children
                 let properties =
