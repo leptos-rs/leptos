@@ -1175,11 +1175,7 @@ impl RuntimeId {
         );
 
         (id, move || {
-            with_runtime(|runtime| {
-                runtime.nodes.borrow_mut().remove(id);
-                runtime.node_sources.borrow_mut().remove(id);
-            })
-            .expect(
+            with_runtime(|runtime| runtime.dispose_node(id)).expect(
                 "tried to stop a watch in a runtime that has been disposed",
             );
         })
