@@ -191,24 +191,8 @@ impl Runtime {
     }
 
     pub(crate) fn cleanup_node(&self, node_id: NodeId) {
-        // first, run our cleanups, if any
-        let c = { self.on_cleanups.borrow_mut().remove(node_id) };
-        // untrack around all cleanups
-        let prev_observer = self.observer.take();
-        if let Some(cleanups) = c {
-            for cleanup in cleanups {
-                cleanup();
-            }
-        }
-        self.observer.set(prev_observer);
-
-        // dispose of any of our properties
-        let properties = { self.node_properties.borrow_mut().remove(node_id) };
-        if let Some(properties) = properties {
-            for property in properties {
-                self.dispose_property(property);
-            }
-        }
+        self.run_on_cleanups(node_id);
+        self.dispose_children(node_id);
     }
 
     pub(crate) fn update(&self, node_id: NodeId) {
@@ -254,32 +238,27 @@ impl Runtime {
         }
     }
 
+    /// Dispose of all of the children of the node recursively and completely.
+    fn dispose_children(&self, node_id: NodeId) {
+        let properties = { self.node_properties.borrow_mut().remove(node_id) };
+        if let Some(properties) = properties {
+            for property in properties {
+                self.dispose_property(property);
+            }
+        }
+    }
     fn dispose_property(&self, property: ScopeProperty) {
         // for signals, triggers, memos, effects, shared node cleanup
         match property {
             ScopeProperty::Signal(node)
             | ScopeProperty::Trigger(node)
             | ScopeProperty::Effect(node) => {
-                // run all cleanups for this node
-                let cleanups = { self.on_cleanups.borrow_mut().remove(node) };
-                // untrack around all cleanups
-                let prev_observer = self.observer.take();
-                for cleanup in cleanups.into_iter().flatten() {
-                    cleanup();
-                }
-                self.observer.set(prev_observer);
-
-                // clean up all children
-                let properties =
-                    { self.node_properties.borrow_mut().remove(node) };
-                for property in properties.into_iter().flatten() {
-                    self.dispose_property(property);
-                }
+                self.run_on_cleanups(node);
+                self.dispose_children(node);
 
                 // each of the subs needs to remove the node from its dependencies
                 // so that it doesn't try to read the (now disposed) signal
                 let subs = self.node_subscribers.borrow_mut().remove(node);
-
                 if let Some(subs) = subs {
                     let source_map = self.node_sources.borrow();
                     for effect in subs.borrow().iter() {
@@ -305,6 +284,16 @@ impl Runtime {
                 drop(value);
             }
         }
+    }
+    fn run_on_cleanups(&self, node_id: NodeId) {
+        let c = { self.on_cleanups.borrow_mut().remove(node_id) };
+        let prev_observer = self.observer.take(); // untrack around all cleanups
+        if let Some(cleanups) = c {
+            for cleanup in cleanups {
+                cleanup();
+            }
+        }
+        self.observer.set(prev_observer);
     }
 
     pub(crate) fn cleanup_sources(&self, node_id: NodeId) {
