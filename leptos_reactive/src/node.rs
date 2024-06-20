@@ -13,10 +13,7 @@ pub struct Disposer(pub(crate) NodeId);
 impl Drop for Disposer {
     fn drop(&mut self) {
         let id = self.0;
-        _ = with_runtime(|runtime| {
-            runtime.cleanup_node(id);
-            runtime.dispose_node(id);
-        });
+        _ = with_runtime(|runtime| runtime.dispose_node(id));
     }
 }
 

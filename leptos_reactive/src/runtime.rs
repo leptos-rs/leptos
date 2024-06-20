@@ -190,11 +190,6 @@ impl Runtime {
         self.mark_clean(node_id);
     }
 
-    pub(crate) fn cleanup_node(&self, node_id: NodeId) {
-        self.run_on_cleanups(node_id);
-        self.dispose_children(node_id);
-    }
-
     pub(crate) fn update(&self, node_id: NodeId) {
         let node = {
             let nodes = self.nodes.borrow();
@@ -238,6 +233,29 @@ impl Runtime {
         }
     }
 
+    pub(crate) fn dispose_node(&self, node_id: NodeId) {
+        self.cleanup_node(node_id);
+
+        // each of the subs needs to remove the node from its dependencies
+        // so that it doesn't try to read the (now disposed) signal
+        let subs = self.node_subscribers.borrow_mut().remove(node_id);
+        if let Some(subs) = subs {
+            let source_map = self.node_sources.borrow();
+            for effect in subs.borrow().iter() {
+                if let Some(effect_sources) = source_map.get(*effect) {
+                    effect_sources.borrow_mut().swap_remove(&node_id);
+                }
+            }
+        }
+
+        self.node_sources.borrow_mut().remove(node_id);
+        let node = { self.nodes.borrow_mut().remove(node_id) };
+        drop(node);
+    }
+    fn cleanup_node(&self, node_id: NodeId) {
+        self.run_on_cleanups(node_id);
+        self.dispose_children(node_id);
+    }
     /// Dispose of all of the children of the node recursively and completely.
     fn dispose_children(&self, node_id: NodeId) {
         let properties = { self.node_properties.borrow_mut().remove(node_id) };
@@ -253,27 +271,7 @@ impl Runtime {
             ScopeProperty::Signal(node)
             | ScopeProperty::Trigger(node)
             | ScopeProperty::Effect(node) => {
-                self.run_on_cleanups(node);
-                self.dispose_children(node);
-
-                // each of the subs needs to remove the node from its dependencies
-                // so that it doesn't try to read the (now disposed) signal
-                let subs = self.node_subscribers.borrow_mut().remove(node);
-                if let Some(subs) = subs {
-                    let source_map = self.node_sources.borrow();
-                    for effect in subs.borrow().iter() {
-                        if let Some(effect_sources) = source_map.get(*effect) {
-                            effect_sources.borrow_mut().swap_remove(&node);
-                        }
-                    }
-                }
-
-                // no longer needs to track its sources
-                self.node_sources.borrow_mut().remove(node);
-
-                // remove the node from the graph
-                let node = { self.nodes.borrow_mut().remove(node) };
-                drop(node);
+                self.dispose_node(node);
             }
             ScopeProperty::Resource(id) => {
                 let value = self.resources.borrow_mut().remove(id);
@@ -492,12 +490,6 @@ impl Runtime {
                 self.update_if_necessary(effect_id);
             }
         }
-    }
-
-    pub(crate) fn dispose_node(&self, node: NodeId) {
-        self.node_sources.borrow_mut().remove(node);
-        self.node_subscribers.borrow_mut().remove(node);
-        self.nodes.borrow_mut().remove(node);
     }
 
     #[track_caller]
