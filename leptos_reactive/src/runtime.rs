@@ -206,7 +206,7 @@ impl Runtime {
         let properties = { self.node_properties.borrow_mut().remove(node_id) };
         if let Some(properties) = properties {
             for property in properties {
-                self.cleanup_property(property);
+                self.dispose_property(property);
             }
         }
     }
@@ -254,7 +254,7 @@ impl Runtime {
         }
     }
 
-    pub(crate) fn cleanup_property(&self, property: ScopeProperty) {
+    fn dispose_property(&self, property: ScopeProperty) {
         // for signals, triggers, memos, effects, shared node cleanup
         match property {
             ScopeProperty::Signal(node)
@@ -270,7 +270,7 @@ impl Runtime {
                 let properties =
                     { self.node_properties.borrow_mut().remove(node) };
                 for property in properties.into_iter().flatten() {
-                    self.cleanup_property(property);
+                    self.dispose_property(property);
                 }
 
                 // each of the subs needs to remove the node from its dependencies
