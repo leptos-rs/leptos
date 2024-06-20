@@ -293,3 +293,29 @@ fn owning_memo_slice() {
 
     runtime.dispose();
 }
+
+#[test]
+fn leak_on_dispose() {
+    use std::rc::Rc;
+
+    let runtime = create_runtime();
+
+    let trigger = create_trigger();
+
+    let value = Rc::new(());
+    let weak = Rc::downgrade(&value);
+
+    let memo = create_memo(move |_| {
+        trigger.track();
+
+        create_rw_signal(value.clone());
+    });
+
+    memo.get_untracked();
+
+    memo.dispose();
+
+    assert!(weak.upgrade().is_none()); // Should have been dropped.
+
+    runtime.dispose();
+}
