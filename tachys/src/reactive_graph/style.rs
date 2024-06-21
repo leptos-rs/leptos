@@ -206,7 +206,7 @@ mod stable {
                 }
 
                 fn rebuild(self, state: &mut Self::State) {
-                    (move || self.get()).rebuild(el, state)
+                    (move || self.get()).rebuild(state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {

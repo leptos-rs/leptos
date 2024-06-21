@@ -1,4 +1,4 @@
-use super::{ReactiveFunction, RenderEffect, SharedReactiveFunction};
+use super::{ReactiveFunction, SharedReactiveFunction};
 use crate::{html::class::IntoClass, renderer::DomRenderer};
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
