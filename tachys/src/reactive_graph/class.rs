@@ -1,4 +1,4 @@
-use super::{ReactiveFunction, RenderEffectState, SharedReactiveFunction};
+use super::{ReactiveFunction, RenderEffect, SharedReactiveFunction};
 use crate::{html::class::IntoClass, renderer::DomRenderer};
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
@@ -14,7 +14,7 @@ where
     C::State: 'static,
     R: DomRenderer,
 {
-    type State = RenderEffectState<C::State>;
+    type State = RenderEffect<C::State>;
     type Cloneable = SharedReactiveFunction<C>;
     type CloneableOwned = SharedReactiveFunction<C>;
 
@@ -60,9 +60,7 @@ where
     }
 
     fn rebuild(mut self, state: &mut Self::State) {
-        let prev_effect = std::mem::take(&mut state.0);
-        let prev_value = prev_effect.as_ref().and_then(|e| e.take_value());
-        drop(prev_effect);
+        let prev_value = state.take_value();
         *state = RenderEffect::new_with_value(
             move |prev| {
                 let value = self.invoke();
@@ -70,12 +68,11 @@ where
                     value.rebuild(&mut state);
                     state
                 } else {
-                    todo!()
+                    unreachable!()
                 }
             },
             prev_value,
-        )
-        .into();
+        );
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -93,7 +90,7 @@ where
     T: Borrow<bool> + 'static,
     R: DomRenderer,
 {
-    type State = RenderEffectState<(R::ClassList, bool)>;
+    type State = RenderEffect<(R::ClassList, bool)>;
     type Cloneable = (&'static str, SharedReactiveFunction<T>);
     type CloneableOwned = (&'static str, SharedReactiveFunction<T>);
 
@@ -159,8 +156,30 @@ where
         .into()
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        // TODO rebuild?
+    fn rebuild(self, state: &mut Self::State) {
+        let (name, mut f) = self;
+        let prev_value = state.take_value();
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let include = *f.invoke().borrow();
+                match prev {
+                    Some((class_list, prev)) => {
+                        if include {
+                            if !prev {
+                                R::add_class(&class_list, name);
+                            }
+                        } else if prev {
+                            R::remove_class(&class_list, name);
+                        }
+                        (class_list.clone(), include)
+                    }
+                    None => {
+                        unreachable!()
+                    }
+                }
+            },
+            prev_value,
+        );
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -178,7 +197,7 @@ where
     T: Borrow<bool> + 'static,
     R: DomRenderer,
 {
-    type State = RenderEffectState<(R::ClassList, bool)>;
+    type State = RenderEffect<(R::ClassList, bool)>;
     type Cloneable = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
     type CloneableOwned = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
 
@@ -255,8 +274,35 @@ where
         .into()
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        // TODO rebuild?
+    fn rebuild(self, state: &mut Self::State) {
+        let (names, mut f) = self;
+        let prev_value = state.take_value();
+
+        *state = RenderEffect::new_with_value(
+            move |prev: Option<(R::ClassList, bool)>| {
+                let include = *f.invoke().borrow();
+                match prev {
+                    Some((class_list, prev)) => {
+                        if include {
+                            for name in &names {
+                                if !prev {
+                                    R::add_class(&class_list, name);
+                                }
+                            }
+                        } else if prev {
+                            for name in &names {
+                                R::remove_class(&class_list, name);
+                            }
+                        }
+                        (class_list.clone(), include)
+                    }
+                    None => {
+                        unreachable!()
+                    }
+                }
+            },
+            prev_value,
+        );
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -375,7 +421,7 @@ mod stable {
                 C::State: 'static,
                 R: DomRenderer,
             {
-                type State = RenderEffectState<C::State>;
+                type State = RenderEffect<C::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -399,8 +445,8 @@ mod stable {
                     (move || self.get()).build(el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    (move || self.get()).rebuild(state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -416,7 +462,7 @@ mod stable {
             where
                 R: DomRenderer,
             {
-                type State = RenderEffectState<(R::ClassList, bool)>;
+                type State = RenderEffect<(R::ClassList, bool)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -446,8 +492,11 @@ mod stable {
                     IntoClass::<R>::build((self.0, move || self.1.get()), el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    IntoClass::<R>::rebuild(
+                        (self.0, move || self.1.get()),
+                        state,
+                    )
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -469,7 +518,7 @@ mod stable {
                 C::State: 'static,
                 R: DomRenderer,
             {
-                type State = RenderEffectState<C::State>;
+                type State = RenderEffect<C::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -493,8 +542,8 @@ mod stable {
                     (move || self.get()).build(el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    (move || self.get()).rebuild(state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -510,7 +559,7 @@ mod stable {
             where
                 R: DomRenderer,
             {
-                type State = RenderEffectState<(R::ClassList, bool)>;
+                type State = RenderEffect<(R::ClassList, bool)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -540,8 +589,11 @@ mod stable {
                     IntoClass::<R>::build((self.0, move || self.1.get()), el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    IntoClass::<R>::rebuild(
+                        (self.0, move || self.1.get()),
+                        state,
+                    )
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -555,7 +607,7 @@ mod stable {
         };
     }
 
-    use super::RenderEffectState;
+    use super::RenderEffect;
     use crate::{html::class::IntoClass, renderer::DomRenderer};
     use reactive_graph::{
         computed::{ArcMemo, Memo},
