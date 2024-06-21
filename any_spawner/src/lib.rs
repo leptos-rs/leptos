@@ -14,14 +14,15 @@
 //! ```rust
 //! use any_spawner::Executor;
 //!
-//! Executor::init_futures_executor()
-//!     .expect("executor should only be initialized once");
+//! // make sure an Executor has been initialized with one of the init_ functions
 //!
+//! # if false {
 //! // spawn a thread-safe Future
 //! Executor::spawn(async { /* ... */ });
 //!
 //! // spawn a Future that is !Send
 //! Executor::spawn_local(async { /* ... */ });
+//! # }
 //! ```
 
 #![forbid(unsafe_code)]
@@ -51,12 +52,10 @@ impl Executor {
     /// Spawns a thread-safe [`Future`].
     /// ```rust
     /// use any_spawner::Executor;
-    ///
-    /// Executor::init_futures_executor()
-    ///     .expect("executor should only be initialized once");
-    ///
+    /// # if false {
     /// // spawn a thread-safe Future
     /// Executor::spawn(async { /* ... */ });
+    /// # }
     /// ```
     #[track_caller]
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
@@ -82,11 +81,10 @@ impl Executor {
     /// ```rust
     /// use any_spawner::Executor;
     ///
-    /// Executor::init_futures_executor()
-    ///     .expect("executor should only be initialized once");
-    ///
+    /// # if false {
     /// // spawn a thread-safe Future
-    /// Executor::spawn(async { /* ... */ });
+    /// Executor::spawn_local(async { /* ... */ });
+    /// # }
     /// ```
     #[track_caller]
     pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
