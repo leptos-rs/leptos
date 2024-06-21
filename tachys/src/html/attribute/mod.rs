@@ -103,7 +103,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct Attr<K, V, R>(pub K, pub V, PhantomData<R>)
+pub struct Attr<K, V, R>(pub K, pub V, pub PhantomData<R>)
 where
     K: AttributeKey,
     V: AttributeValue<R>,
