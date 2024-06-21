@@ -250,7 +250,7 @@ where
                 ServerFnError::MissingArg(s) => format!("missing argument {s}"),
                 ServerFnError::Response(s) =>
                     format!("error generating HTTP response: {s}"),
-                ServerFnError::WrappedServerError(e) => format!("{}", e),
+                ServerFnError::WrappedServerError(e) => format!("{e}"),
             }
         )
     }
@@ -281,25 +281,25 @@ where
         let mut buf = String::new();
         match self {
             ServerFnError::WrappedServerError(e) => {
-                write!(&mut buf, "WrappedServerFn|{}", e)
+                write!(&mut buf, "WrappedServerFn|{e}")
             }
             ServerFnError::Registration(e) => {
-                write!(&mut buf, "Registration|{}", e)
+                write!(&mut buf, "Registration|{e}")
             }
-            ServerFnError::Request(e) => write!(&mut buf, "Request|{}", e),
-            ServerFnError::Response(e) => write!(&mut buf, "Response|{}", e),
+            ServerFnError::Request(e) => write!(&mut buf, "Request|{e}"),
+            ServerFnError::Response(e) => write!(&mut buf, "Response|{e}"),
             ServerFnError::ServerError(e) => {
-                write!(&mut buf, "ServerError|{}", e)
+                write!(&mut buf, "ServerError|{e}")
             }
             ServerFnError::Deserialization(e) => {
-                write!(&mut buf, "Deserialization|{}", e)
+                write!(&mut buf, "Deserialization|{e}")
             }
             ServerFnError::Serialization(e) => {
-                write!(&mut buf, "Serialization|{}", e)
+                write!(&mut buf, "Serialization|{e}")
             }
-            ServerFnError::Args(e) => write!(&mut buf, "Args|{}", e),
+            ServerFnError::Args(e) => write!(&mut buf, "Args|{e}"),
             ServerFnError::MissingArg(e) => {
-                write!(&mut buf, "MissingArg|{}", e)
+                write!(&mut buf, "MissingArg|{e}")
             }
         }?;
         Ok(buf)

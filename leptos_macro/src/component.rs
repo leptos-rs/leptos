@@ -228,7 +228,7 @@ impl ToTokens for Model {
 
         let component_id = name.to_string();
         let hydrate_fn_name =
-            Ident::new(&format!("_island_{}", component_id), name.span());
+            Ident::new(&format!("_island_{component_id}"), name.span());
 
         let island_serialize_props = if is_island_with_other_props {
             quote! {
@@ -1235,7 +1235,7 @@ pub fn unmodified_fn_name_from_fn_name(ident: &Ident) -> Ident {
 /// Converts all `impl Trait`s in a function signature to use generic params instead.
 fn convert_impl_trait_to_generic(sig: &mut Signature) {
     fn new_generic_ident(i: usize, span: Span) -> Ident {
-        Ident::new(&format!("__ImplTrait{}", i), span)
+        Ident::new(&format!("__ImplTrait{i}"), span)
     }
 
     // First: visit all `impl Trait`s and replace them with new generic params.

@@ -19,8 +19,8 @@ fn watch_runs() {
 
             move |a, prev_a, prev_ret| {
                 let formatted = format!(
-                    "Value is {}; Prev is {:?}; Prev return is {:?}",
-                    a, prev_a, prev_ret
+                    "Value is {a}; Prev is {prev_a:?}; Prev return is \
+                     {prev_ret:?}"
                 );
                 *b.borrow_mut() = formatted;
 
@@ -72,8 +72,8 @@ fn watch_runs_immediately() {
 
             move |a, prev_a, prev_ret| {
                 let formatted = format!(
-                    "Value is {}; Prev is {:?}; Prev return is {:?}",
-                    a, prev_a, prev_ret
+                    "Value is {a}; Prev is {prev_a:?}; Prev return is \
+                     {prev_ret:?}"
                 );
                 *b.borrow_mut() = formatted;
 

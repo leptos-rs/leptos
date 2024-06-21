@@ -601,9 +601,9 @@ mod tests {
     #[test]
     fn debug_fmt_should_display_quotes_for_strings() {
         let s: Oco<str> = Oco::Borrowed("hello");
-        assert_eq!(format!("{:?}", s), "\"hello\"");
+        assert_eq!(format!("{s:?}"), "\"hello\"");
         let s: Oco<str> = Oco::Counted(Rc::from("hello"));
-        assert_eq!(format!("{:?}", s), "\"hello\"");
+        assert_eq!(format!("{s:?}"), "\"hello\"");
     }
 
     #[test]
