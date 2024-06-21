@@ -231,12 +231,11 @@ impl Executor {
 
 #[cfg(test)]
 mod tests {
-    use crate::Executor;
-    use std::rc::Rc;
-
     #[cfg(feature = "futures-executor")]
     #[test]
     fn can_spawn_local_future() {
+        use crate::Executor;
+        use std::rc::Rc;
         Executor::init_futures_executor().expect("couldn't set executor");
         let rc = Rc::new(());
         Executor::spawn_local(async {
