@@ -228,6 +228,14 @@ impl Owner {
         OWNER.with(|o| o.borrow().clone())
     }
 
+    /// Returns the [`SharedContext`] associated with this owner, if any.
+    #[cfg(feature = "hydration")]
+    pub fn shared_context(
+        &self,
+    ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
+        self.shared_context.clone()
+    }
+
     /// Returns the current [`SharedContext`], if any.
     #[cfg(feature = "hydration")]
     pub fn current_shared_context(
