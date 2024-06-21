@@ -25,6 +25,7 @@ paste = "1"
 once_cell = "1"
 send_wrapper = "0.6"
 thiserror = "1"
+percent-encoding = { version = "2.3", optional = true }
 
 [dependencies.web-sys]
 version = "0.3"
@@ -56,5 +57,5 @@ features = [
 
 [features]
 tracing = ["dep:tracing"]
-ssr = []
+ssr = ["dep:percent-encoding"]
 nightly = []
