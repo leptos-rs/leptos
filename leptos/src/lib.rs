@@ -239,6 +239,7 @@ pub use typed_builder_macro;
 mod into_view;
 pub use into_view::IntoView;
 pub use leptos_dom;
+mod provider;
 pub use tachys;
 /// Tools to mount an application to the DOM, or to hydrate it from server-rendered HTML.
 pub mod mount;
@@ -250,6 +251,7 @@ pub use reactive_graph;
 
 /// Provide and access data along the reactive graph, sharing data without directly passing arguments.
 pub mod context {
+    pub use crate::provider::*;
     pub use reactive_graph::owner::{provide_context, use_context};
 }
 
