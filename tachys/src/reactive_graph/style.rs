@@ -74,8 +74,25 @@ where
         })
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        // TODO rebuild
+    fn rebuild(self, state: &mut Self::State) {
+        let (name, mut f) = self;
+        let prev_value = state.take_value();
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let value = f.invoke().into();
+                if let Some(mut state) = prev {
+                    let (style, prev) = &mut state;
+                    if &value != prev {
+                        R::set_css_property(style, name, &value);
+                    }
+                    *prev = value;
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            prev_value,
+        );
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -133,7 +150,21 @@ where
         })
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(mut self, state: &mut Self::State) {
+        let prev_value = state.take_value();
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&mut state);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            prev_value,
+        );
+    }
 
     fn into_cloneable(self) -> Self::Cloneable {
         self.into_shared()
@@ -174,8 +205,8 @@ mod stable {
                     (move || self.get()).build(el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    (move || self.get()).rebuild(el, state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -218,8 +249,11 @@ mod stable {
                     IntoStyle::<R>::build((self.0, move || self.1.get()), el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    IntoStyle::<R>::rebuild(
+                        (self.0, move || self.1.get()),
+                        state,
+                    )
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -261,8 +295,8 @@ mod stable {
                     (move || self.get()).build(el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    (move || self.get()).rebuild(state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -305,8 +339,11 @@ mod stable {
                     IntoStyle::<R>::build((self.0, move || self.1.get()), el)
                 }
 
-                fn rebuild(self, _state: &mut Self::State) {
-                    // TODO rebuild here?
+                fn rebuild(self, state: &mut Self::State) {
+                    IntoStyle::<R>::rebuild(
+                        (self.0, move || self.1.get()),
+                        state,
+                    )
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {

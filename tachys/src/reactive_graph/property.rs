@@ -57,8 +57,21 @@ where
         })
     }
 
-    fn rebuild(self, _state: &mut Self::State, _key: &str) {
-        // TODO rebuild
+    fn rebuild(mut self, state: &mut Self::State, key: &str) {
+        let prev_value = state.take_value();
+        let key = key.to_owned();
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&mut state, &key);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            prev_value,
+        );
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -112,8 +125,8 @@ mod stable {
                     (move || self.get()).build(el, key)
                 }
 
-                fn rebuild(self, _state: &mut Self::State, _key: &str) {
-                    // TODO rebuild
+                fn rebuild(self, state: &mut Self::State, key: &str) {
+                    (move || self.get()).rebuild(state, key)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -155,8 +168,8 @@ mod stable {
                     (move || self.get()).build(el, key)
                 }
 
-                fn rebuild(self, _state: &mut Self::State, _key: &str) {
-                    // TODO rebuild
+                fn rebuild(self, state: &mut Self::State, key: &str) {
+                    (move || self.get()).rebuild(state, key)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
