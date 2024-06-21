@@ -61,6 +61,21 @@ impl Url {
             provide_context(ServerActionError::new(path, err))
         }
     }
+
+    pub fn escape(s: &str) -> String {
+        #[cfg(not(feature = "ssr"))]
+        {
+            js_sys::encode_uri_component(s).as_string().unwrap()
+        }
+        #[cfg(feature = "ssr")]
+        {
+            percent_encoding::utf8_percent_encode(
+                s,
+                percent_encoding::NON_ALPHANUMERIC,
+            )
+            .to_string()
+        }
+    }
 }
 
 /// A reactive description of the current URL, containing equivalents to the local parts of

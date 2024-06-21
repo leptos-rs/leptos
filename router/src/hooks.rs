@@ -4,14 +4,42 @@ use crate::{
     navigate::NavigateOptions,
     params::{Params, ParamsError, ParamsMap},
 };
+use leptos::oco::Oco;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
     owner::use_context,
     signal::{ArcRwSignal, ReadSignal},
-    traits::{Get, With},
+    traits::{Get, GetUntracked, With},
+    wrappers::write::SignalSetter,
 };
+use std::str::FromStr;
 use tachys::renderer::Renderer;
-/*
+
+#[track_caller]
+#[deprecated = "This has been renamed to `query_signal` to match Rust naming \
+                conventions."]
+pub fn create_query_signal<T>(
+    key: impl Into<Oco<'static, str>>,
+) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
+where
+    T: FromStr + ToString + PartialEq + Send + Sync,
+{
+    query_signal(key)
+}
+
+#[track_caller]
+#[deprecated = "This has been renamed to `query_signal_with_options` to mtch \
+                Rust naming conventions."]
+pub fn create_query_signal_with_options<T>(
+    key: impl Into<Oco<'static, str>>,
+    nav_options: NavigateOptions,
+) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
+where
+    T: FromStr + ToString + PartialEq + Send + Sync,
+{
+    query_signal_with_options(key, nav_options)
+}
+
 /// Constructs a signal synchronized with a specific URL query parameter.
 ///
 /// The function creates a bidirectional sync mechanism between the state encapsulated in a signal and a URL query parameter.
@@ -26,12 +54,12 @@ use tachys::renderer::Renderer;
 /// The URL parameter can be cleared by setting the signal to `None`.
 ///
 /// ```rust
-/// use leptos::*;
-/// use leptos_router::*;
+/// use leptos::prelude::*;
+/// use leptos_router::hooks::query_signal;
 ///
 /// #[component]
 /// pub fn SimpleQueryCounter() -> impl IntoView {
-///     let (count, set_count) = create_query_signal::<i32>("count");
+///     let (count, set_count) = query_signal::<i32>("count");
 ///     let clear = move |_| set_count.set(None);
 ///     let decrement =
 ///         move |_| set_count.set(Some(count.get().unwrap_or(0) - 1));
@@ -49,29 +77,29 @@ use tachys::renderer::Renderer;
 /// }
 /// ```
 #[track_caller]
-pub fn create_query_signal<T>(
+pub fn query_signal<T>(
     key: impl Into<Oco<'static, str>>,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
-    T: FromStr + ToString + PartialEq,
+    T: FromStr + ToString + PartialEq + Send + Sync,
 {
-    create_query_signal_with_options::<T>(key, NavigateOptions::default())
+    query_signal_with_options::<T>(key, NavigateOptions::default())
 }
 
 #[track_caller]
-pub fn create_query_signal_with_options<T>(
+pub fn query_signal_with_options<T>(
     key: impl Into<Oco<'static, str>>,
     nav_options: NavigateOptions,
 ) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
 where
-    T: FromStr + ToString + PartialEq,
+    T: FromStr + ToString + PartialEq + Send + Sync,
 {
     let mut key: Oco<'static, str> = key.into();
     let query_map = use_query_map();
     let navigate = use_navigate();
     let location = use_location();
 
-    let get = create_memo({
+    let get = Memo::new({
         let key = key.clone_inplace();
         move |_| {
             query_map
@@ -106,7 +134,7 @@ pub(crate) fn has_router() -> bool {
 
 /// Returns the current [`RouterContext`], containing information about the router's state.
 #[track_caller]
-pub fn use_router() -> RouterContext {
+pub(crate) fn use_router() -> RouterContext {
     if let Some(router) = use_context::<RouterContext>() {
         router
     } else {
@@ -116,7 +144,7 @@ pub fn use_router() -> RouterContext {
         );
         panic!("You must call use_router() within a <Router/> component");
     }
-}*/
+}
 
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
