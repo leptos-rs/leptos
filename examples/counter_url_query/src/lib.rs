@@ -1,17 +1,17 @@
 use leptos::prelude::*;
-use leptos_router::*;
+use leptos_router::hooks::query_signal;
 
 /// A simple counter component.
 ///
 /// You can use doc comments like this to document your component.
 #[component]
 pub fn SimpleQueryCounter() -> impl IntoView {
-    let (count, set_count) = create_query_signal::<i32>("count");
+    let (count, set_count) = query_signal::<i32>("count");
     let clear = move |_| set_count.set(None);
     let decrement = move |_| set_count.set(Some(count.get().unwrap_or(0) - 1));
     let increment = move |_| set_count.set(Some(count.get().unwrap_or(0) + 1));
 
-    let (msg, set_msg) = create_query_signal::<String>("message");
+    let (msg, set_msg) = query_signal::<String>("message");
     let update_msg = move |ev| {
         let new_msg = event_target_value(&ev);
         if new_msg.is_empty() {

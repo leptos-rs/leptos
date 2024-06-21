@@ -1,4 +1,5 @@
-use std::{borrow::Cow, str::FromStr, sync::Arc};
+use crate::location::{unescape, Url};
+use std::{borrow::Cow, mem, str::FromStr, sync::Arc};
 use thiserror::Error;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -17,18 +18,19 @@ impl ParamsMap {
         Self(Vec::with_capacity(capacity))
     }
 
-    /*
     /// Inserts a value into the map.
-    #[inline(always)]
     pub fn insert(&mut self, key: String, value: String) -> Option<String> {
-        use crate::history::url::unescape;
         let value = unescape(&value);
-        self.0.insert(key, value)
+
+        if let Some(prev) = self.0.iter().position(|(k, _)| k == &key) {
+            return Some(mem::replace(&mut self.0[prev].1, value));
+        }
+
+        self.0.push((key.into(), value));
+        None
     }
-    */
 
     /// Gets an owned value from the map.
-    #[inline(always)]
     pub fn get(&self, key: &str) -> Option<String> {
         self.0
             .iter()
@@ -36,7 +38,6 @@ impl ParamsMap {
     }
 
     /// Gets a referenc to a value from the map.
-    #[inline(always)]
     pub fn get_str(&self, key: &str) -> Option<&str> {
         self.0
             .iter()
@@ -54,17 +55,15 @@ impl ParamsMap {
         None
     }
 
-    /*
     /// Converts the map to a query string.
     pub fn to_query_string(&self) -> String {
-        use crate::history::url::escape;
         let mut buf = String::new();
         if !self.0.is_empty() {
             buf.push('?');
             for (k, v) in &self.0 {
-                buf.push_str(&escape(k));
+                buf.push_str(&Url::escape(k));
                 buf.push('=');
-                buf.push_str(&escape(v));
+                buf.push_str(&Url::escape(v));
                 buf.push('&');
             }
             if buf.len() > 1 {
@@ -73,7 +72,6 @@ impl ParamsMap {
         }
         buf
     }
-    */
 }
 
 impl<K, V> FromIterator<(K, V)> for ParamsMap
