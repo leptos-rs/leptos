@@ -37,7 +37,7 @@ async fn portal() {
 
     toggle_button.click();
 
-    assert_eq!(div.inner_html(), "<div><button id=\"btn-show\">Show Overlay</button><div>Show</div><!----></div><div><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">Close Overlay</button><button id=\"btn-toggle\">Toggle inner</button>Hidden<!----></div></div>");
+    assert_eq!(div.inner_html(), "<div><button id=\"btn-show\">Show Overlay</button><div>Show</div><!----></div><div><div style=\"position: fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in the body element</p><button id=\"btn-hide\">Close Overlay</button><button id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>");
 
     let hide_button = document
         .get_element_by_id("btn-hide")
