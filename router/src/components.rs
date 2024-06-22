@@ -83,11 +83,6 @@ where
     let location = Location::new(current_url.read_only(), state.read_only());
 
     // TODO server function redirect hook
-    Effect::new({
-        let current_url = current_url.clone();
-        move |_| leptos::logging::log!("{:#?}", current_url.get())
-    });
-
     provide_context(RouterContext {
         base,
         current_url,
