@@ -51,7 +51,7 @@ futures = "0.3.30"
 send_wrapper = "0.6.0"
 
 [features]
-hydration = ["leptos_server/hydration", "hydration_context/browser"]
+hydration = ["reactive_graph/hydration", "leptos_server/hydration", "hydration_context/browser"]
 csr = ["leptos_macro/csr", "reactive_graph/effects"]
 hydrate = [
   "leptos_macro/hydrate",
