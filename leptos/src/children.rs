@@ -39,8 +39,16 @@ type BoxedChildrenFn = Box<dyn Fn() -> Fragment>;
 /// fn App() -> impl IntoView {
 ///     (
 ///         ProviderProps::builder()
-///             .children(Box::new(|| p().child("Foo").into())),
-///         ShowProps::builder().children(Rc::new(|| p().child("Foo").into())),
+///             .children(Box::new(|| p().child("Foo").into_view().into()))
+///             // ...
+/// #           .value("Foo")
+/// #           .build(),
+///         ShowProps::builder()
+///             .children(Rc::new(|| p().child("Foo").into_view().into()))
+///             // ...
+/// #           .when(|| true)
+/// #           .fallback(|| p().child("foo"))
+/// #           .build(),
 ///     )
 /// }
 /// ```
@@ -48,7 +56,7 @@ type BoxedChildrenFn = Box<dyn Fn() -> Fragment>;
 /// ## With ToChildren
 ///
 /// With [ToChildren], consumers don't need to know exactly which type a component uses for
-/// its children. This also removes the need to call `into()` on items in the children closure.
+/// its children.
 ///
 /// ```
 /// # use leptos::{ProviderProps, ShowProps};
@@ -62,12 +70,22 @@ type BoxedChildrenFn = Box<dyn Fn() -> Fragment>;
 /// fn App() -> impl IntoView {
 ///     (
 ///         ProviderProps::builder()
-///             .children(ToChildren::to_children(|| p().child("Foo"))),
+///             .children(ToChildren::to_children(|| {
+///                 p().child("Foo").into_view().into()
+///             }))
+///             // ...
+/// #           .value("Foo")
+/// #           .build(),
 ///         ShowProps::builder()
-///             .children(ToChildren::to_children(|| p().child("Foo"))),
+///             .children(ToChildren::to_children(|| {
+///                 p().child("Foo").into_view().into()
+///             }))
+///             // ...
+/// #           .when(|| true)
+/// #           .fallback(|| p().child("foo"))
+/// #           .build(),
 ///     )
 /// }
-/// ```
 pub trait ToChildren<F> {
     /// Convert the provided type to (generally a closure) to Self (generally a "children" type,
     /// e.g., [Children]). See the implementations to see exactly which input types are supported
