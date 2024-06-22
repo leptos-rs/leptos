@@ -1,12 +1,5 @@
 use crate::{app::*, fallback::file_and_error_handler};
-use axum::{
-    body::Body,
-    extract::{Path, State},
-    http::Request,
-    response::{IntoResponse, Response},
-    routing::get,
-    Router,
-};
+use axum::Router;
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use todo_app_sqlite_axum::*;
