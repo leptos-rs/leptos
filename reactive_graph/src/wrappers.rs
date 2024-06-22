@@ -490,6 +490,24 @@ pub mod read {
         }
     }
 
+    impl<T: Send + Sync> From<ArcReadSignal<T>> for MaybeSignal<T> {
+        fn from(value: ArcReadSignal<T>) -> Self {
+            ReadSignal::from(value).into()
+        }
+    }
+
+    impl<T: Send + Sync> From<ArcRwSignal<T>> for MaybeSignal<T> {
+        fn from(value: ArcRwSignal<T>) -> Self {
+            RwSignal::from(value).into()
+        }
+    }
+
+    impl<T: Send + Sync> From<ArcMemo<T>> for MaybeSignal<T> {
+        fn from(value: ArcMemo<T>) -> Self {
+            Memo::from(value).into()
+        }
+    }
+
     impl<T> From<Signal<T>> for MaybeSignal<T> {
         fn from(value: Signal<T>) -> Self {
             Self::Dynamic(value)
