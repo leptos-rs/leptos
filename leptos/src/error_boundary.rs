@@ -175,9 +175,11 @@ where
                     }
                     state
                 } else {
+                    let fallback = (!self.errors_empty.get())
+                        .then(|| (self.fallback)(self.errors.clone()).build());
                     ErrorBoundaryViewState {
                         children: children.take().unwrap(),
-                        fallback: None,
+                        fallback,
                     }
                 }
             },
