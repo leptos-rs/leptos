@@ -57,14 +57,19 @@ impl<T: AsSubscriberSet + DefinedAt> ReactiveNode for T {
         if let Some(inner) = self.as_subscriber_set() {
             let subs = inner.borrow().write().unwrap().take();
             for sub in subs {
-                sub.mark_check();
+                sub.mark_dirty();
             }
         }
     }
 
     fn update_if_necessary(&self) -> bool {
-        // if they're being checked, signals always count as "dirty"
-        true
+        // a signal will always mark its dependents Dirty when it runs, so they know
+        // that they may have changed and need to check themselves at least
+        //
+        // however, it's always possible that *another* signal or memo has triggered any
+        // given effect/memo, and so this signal should *not* say that it is dirty, as it
+        // may also be checked but has not changed
+        false
     }
 }
 
@@ -117,13 +122,18 @@ impl ReactiveNode for RwLock<SubscriberSet> {
     fn mark_subscribers_check(&self) {
         let subs = self.write().unwrap().take();
         for sub in subs {
-            sub.mark_check();
+            sub.mark_dirty();
         }
     }
 
     fn update_if_necessary(&self) -> bool {
-        // if they're being checked, signals always count as "dirty"
-        true
+        // a signal will always mark its dependents Dirty when it runs, so they know
+        // that they may have changed and need to check themselves at least
+        //
+        // however, it's always possible that *another* signal or memo has triggered any
+        // given effect/memo, and so this signal should *not* say that it is dirty, as it
+        // may also be checked but has not changed
+        false
     }
 }
 
