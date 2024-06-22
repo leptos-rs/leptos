@@ -1,31 +1,57 @@
-use leptos::{component, view, IntoView};
-use leptos_meta::*;
-use leptos_router::*;
+use leptos::prelude::*;
 mod api;
-pub mod error_template;
 #[cfg(feature = "ssr")]
 pub mod fallback;
-#[cfg(feature = "ssr")]
-pub mod handlers;
 mod routes;
+use leptos_meta::{provide_meta_context, Link, Meta, MetaTags, Stylesheet};
+use leptos_router::{
+    components::{FlatRoutes, Route, Router, RoutingProgress},
+    ParamSegment, StaticSegment,
+};
 use routes::{nav::*, stories::*, story::*, users::*};
+use std::time::Duration;
+
+pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=leptos_options.clone() />
+                <HydrationScripts options=leptos_options.clone()/>
+                <MetaTags/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
 
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/hackernews_axum.css"/>
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
-        <Router>
+        <Router set_is_routing>
+            // shows a progress bar while async data are loading
+            <div class="routing-progress">
+                <RoutingProgress is_routing max_time=Duration::from_millis(250)/>
+            </div>
             <Nav />
             <main>
-                <Routes>
-                    <Route path="users/:id" view=User/>
-                    <Route path="stories/:id" view=Story/>
-                    <Route path=":stories?" view=Stories/>
-                </Routes>
+                <FlatRoutes fallback=|| "Not found.">
+                    <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
+                    <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
+                    <Route path=ParamSegment("stories") view=Stories/>
+                    // TODO allow optional params without duplication
+                    <Route path=StaticSegment("") view=Stories/>
+                </FlatRoutes>
             </main>
         </Router>
     }
@@ -34,7 +60,6 @@ pub fn App() -> impl IntoView {
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
-    _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    leptos::mount_to_body(App);
+    leptos::mount::hydrate_body(App);
 }
