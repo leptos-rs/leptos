@@ -43,13 +43,13 @@ use tachys::{
     },
 };
 
-pub(crate) struct NestedRoutesView<Loc, Defs, Fal, R> {
+pub(crate) struct NestedRoutesView<Loc, Defs, FalFn, R> {
     pub location: Option<Loc>,
     pub routes: Routes<Defs, R>,
     pub outer_owner: Owner,
     pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
-    pub fallback: Fal,
+    pub fallback: FalFn,
     #[allow(unused)] // TODO
     pub set_is_routing: Option<SignalSetter<bool>>,
     pub rndr: PhantomData<R>,
@@ -68,10 +68,12 @@ where
     view: Rc<RefCell<EitherOf3State<(), Fal, AnyView<R>, R>>>,
 }
 
-impl<Loc, Defs, Fal, R> Render<R> for NestedRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, FalFn, Fal, R> Render<R>
+    for NestedRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider,
     Defs: MatchNestedRoutes<R>,
+    FalFn: FnOnce() -> Fal,
     Fal: Render<R> + 'static,
     R: Renderer + 'static,
 {
@@ -99,7 +101,7 @@ where
         let view = EitherOf3::A(()).build();
         let view = Rc::new(RefCell::new(view));
         let matched_view = match new_match {
-            None => EitherOf3::B(fallback),
+            None => EitherOf3::B(fallback()),
             Some(route) => {
                 route.build_nested_route(
                     &url,
@@ -157,7 +159,7 @@ where
 
         match new_match {
             None => {
-                EitherOf3::<(), Fal, AnyView<R>>::B(self.fallback)
+                EitherOf3::<(), Fal, AnyView<R>>::B((self.fallback)())
                     .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
             }
@@ -198,15 +200,17 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, R> AddAnyAttr<R> for NestedRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, Fal, FalFn, R> AddAnyAttr<R>
+    for NestedRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
     type Output<SomeNewAttr: leptos::attr::Attribute<R>> =
-        NestedRoutesView<Loc, Defs, Fal, R>;
+        NestedRoutesView<Loc, Defs, FalFn, R>;
 
     fn add_any_attr<NewAttr: leptos::attr::Attribute<R>>(
         self,
@@ -219,10 +223,12 @@ where
     }
 }
 
-impl<Loc, Defs, Fal, R> RenderHtml<R> for NestedRoutesView<Loc, Defs, Fal, R>
+impl<Loc, Defs, FalFn, Fal, R> RenderHtml<R>
+    for NestedRoutesView<Loc, Defs, FalFn, R>
 where
     Loc: LocationProvider + Send,
     Defs: MatchNestedRoutes<R> + Send,
+    FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
@@ -301,7 +307,7 @@ where
             let mut outlets = Vec::new();
             let new_match = routes.match_route(current_url.path());
             let view = match new_match {
-                None => Either::Left(fallback),
+                None => Either::Left(fallback()),
                 Some(route) => {
                     let mut loaders = Vec::new();
                     route.build_nested_route(
@@ -351,7 +357,7 @@ where
         let mut outlets = Vec::new();
         let new_match = routes.match_route(current_url.path());
         let view = match new_match {
-            None => Either::Left(fallback),
+            None => Either::Left(fallback()),
             Some(route) => {
                 let mut loaders = Vec::new();
                 route.build_nested_route(
@@ -403,7 +409,7 @@ where
         // start with an empty view because we'll be loading routes async
         let view = Rc::new(RefCell::new(
             match new_match {
-                None => EitherOf3::B(fallback),
+                None => EitherOf3::B(fallback()),
                 Some(route) => {
                     route.build_nested_route(
                         &url,
