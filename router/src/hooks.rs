@@ -127,6 +127,7 @@ where
     (get, set)
 }
 
+/*
 #[track_caller]
 pub(crate) fn has_router() -> bool {
     use_context::<RouterContext>().is_some()
@@ -145,6 +146,7 @@ pub(crate) fn use_router() -> RouterContext {
         panic!("You must call use_router() within a <Router/> component");
     }
 }
+*/
 
 /// Returns the current [`Location`], which contains reactive variables
 #[track_caller]
