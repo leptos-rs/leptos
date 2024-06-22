@@ -48,13 +48,10 @@ pub fn Router<Chil>(
     /// The base URL for the router. Defaults to `""`.
     #[prop(optional, into)]
     base: Option<Cow<'static, str>>,
-
-    // TODO these props
-    ///// A fallback that should be shown if no route is matched.
-    //#[prop(optional)]
-    //fallback: Option<fn() -> View>,
-    ///// A signal that will be set while the navigation process is underway.
-    #[prop(optional, into)] set_is_routing: Option<SignalSetter<bool>>,
+    /// A signal that will be set while the navigation process is underway.
+    #[prop(optional, into)]
+    set_is_routing: Option<SignalSetter<bool>>,
+    // TODO trailing slashes
     ///// How trailing slashes should be handled in [`Route`] paths.
     //#[prop(optional)]
     //trailing_slash: TrailingSlash,
@@ -202,7 +199,7 @@ pub fn Routes<Defs, FallbackFn, Fallback>(
 ) -> impl IntoView
 where
     Defs: MatchNestedRoutes<Dom> + Clone + Send + 'static,
-    FallbackFn: Fn() -> Fallback + Send + 'static,
+    FallbackFn: FnOnce() -> Fallback + Clone + Send + 'static,
     Fallback: IntoView + 'static,
 {
     let location = use_context::<BrowserUrl>();
@@ -232,7 +229,7 @@ where
             outer_owner: outer_owner.clone(),
             current_url: current_url.clone(),
             base: base.clone(),
-            fallback: fallback(),
+            fallback: fallback.clone(),
             rndr: PhantomData,
             set_is_routing,
         }
