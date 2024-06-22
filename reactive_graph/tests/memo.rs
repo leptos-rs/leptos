@@ -317,3 +317,42 @@ async fn effect_doesnt_rerun_if_memo_didnt_change() {
         })
         .await
 }
+
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn effect_depending_on_signal_and_memo_doesnt_rerun_unnecessarily() {
+    _ = Executor::init_tokio();
+
+    task::LocalSet::new()
+        .run_until(async {
+            let other_signal = RwSignal::new(false);
+            let count = RwSignal::new(1);
+            let even = Memo::new(move |_| *count.read() % 2 == 0);
+
+            let combined_count = Arc::new(RwLock::new(0));
+
+            Effect::new({
+                let combined_count = Arc::clone(&combined_count);
+                move |_| {
+                    *combined_count.write().unwrap() += 1;
+                    println!(
+                        "even = {}\nother_signal = {}",
+                        even.get(),
+                        other_signal.get()
+                    );
+                }
+            });
+
+            Executor::tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 1);
+
+            count.set(2);
+            Executor::tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 2);
+
+            count.set(4);
+            Executor::tick().await;
+            assert_eq!(*combined_count.read().unwrap(), 2);
+        })
+        .await
+}
