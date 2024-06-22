@@ -1,12 +1,13 @@
 use crate::api::{self, User};
-use leptos::prelude::*;
-use leptos_router::*;
+use leptos::server::Resource;
+use leptos::{either::Either, prelude::*};
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn User() -> impl IntoView {
     let params = use_params_map();
-    let user = create_resource(
-        move || params.get().get("id").cloned().unwrap_or_default(),
+    let user = Resource::new(
+        move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 None
@@ -17,12 +18,12 @@ pub fn User() -> impl IntoView {
     );
     view! {
         <div class="user-view">
-            <Suspense fallback=|| view! {  "Loading..." }>
-                {move || user.get().map(|user| match user {
-                    None => view! { <h1>"User not found."</h1> }.into_any(),
-                    Some(user) => view! {
+            <Suspense fallback=|| view! { "Loading..." }>
+                {move || Suspend(async move { match user.await.clone() {
+                    None => Either::Left(view! {  <h1>"User not found."</h1> }),
+                    Some(user) => Either::Right(view! {
                         <div>
-                            <h1>"User: " {&user.id}</h1>
+                            <h1>"User: " {user.id.clone()}</h1>
                             <ul class="meta">
                                 <li>
                                     <span class="label">"Created: "</span> {user.created}
@@ -30,7 +31,7 @@ pub fn User() -> impl IntoView {
                                 <li>
                                 <span class="label">"Karma: "</span> {user.karma}
                                 </li>
-                                {user.about.as_ref().map(|about| view! { <li inner_html=about class="about"></li> })}
+                                <li inner_html={user.about} class="about"></li>
                             </ul>
                             <p class="links">
                                 <a href=format!("https://news.ycombinator.com/submitted?id={}", user.id)>"submissions"</a>
@@ -38,8 +39,8 @@ pub fn User() -> impl IntoView {
                                 <a href=format!("https://news.ycombinator.com/threads?id={}", user.id)>"comments"</a>
                             </p>
                         </div>
-                    }.into_any()
-                })}
+                    })
+                }})}
             </Suspense>
         </div>
     }

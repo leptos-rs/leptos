@@ -1,13 +1,14 @@
-use crate::error_template::error_template;
 use axum::{
     body::Body,
     extract::State,
     http::{Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::LeptosOptions;
+use leptos::config::LeptosOptions;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
+
+use crate::shell;
 
 pub async fn file_and_error_handler(
     uri: Uri,
@@ -21,9 +22,7 @@ pub async fn file_and_error_handler(
         res.into_response()
     } else {
         let handler =
-            leptos_axum::render_app_to_stream(options.to_owned(), || {
-                error_template(None)
-            });
+            leptos_axum::render_app_to_stream(move || shell(&options));
         handler(req).await.into_response()
     }
 }

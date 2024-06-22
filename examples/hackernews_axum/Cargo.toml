@@ -11,14 +11,11 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-console_log = "1.0"
 console_error_panic_hook = "0.1"
 leptos = { path = "../../leptos" }
 leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
-log = "0.4"
-simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
 gloo-net = { version = "0.4", features = ["http"] }
@@ -30,11 +27,12 @@ tokio = { version = "1", features = ["full"], optional = true }
 http = { version = "1.0", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 wasm-bindgen = "0.2"
+send_wrapper = { version = "0.6.0", features = ["futures"] }
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
 ssr = [
   "dep:axum",
   "dep:tower",
