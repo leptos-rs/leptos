@@ -1,4 +1,4 @@
-use crate::{error_template::ErrorTemplate, errors::TodoAppError};
+use crate::{app::shell, error_template::ErrorTemplate, errors::TodoAppError};
 use axum::{
     body::Body,
     extract::State,
@@ -22,10 +22,8 @@ pub async fn file_and_error_handler(
     } else {
         let mut errors = Errors::default();
         errors.insert_with_default_key(TodoAppError::NotFound);
-        let handler = leptos_axum::render_app_to_stream(
-            options.to_owned(),
-            move || view! { <ErrorTemplate outside_errors=errors.clone()/> },
-        );
+        let handler =
+            leptos_axum::render_app_to_stream(move || shell(&options));
         handler(req).await.into_response()
     }
 }
