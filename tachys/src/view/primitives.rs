@@ -102,7 +102,6 @@ macro_rules! render_primitive {
 					}
 
 					let node = cursor.current();
-                    R::log_node(&node);
 					let node = R::Text::cast_from(node)
 						.expect("couldn't cast text node from node");
 
