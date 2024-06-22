@@ -171,7 +171,7 @@ pub fn App() -> impl IntoView {
                             ViewTemplate::new(view! {
                                 <tr class:danger={move || is_selected.selected(Some(row_id))}>
                                     <td class="col-md-1">{row_id.to_string()}</td>
-                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{label}</a></td>
+                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{move || label.get()}</a></td>
                                     <td class="col-md-1"><a on:click=move |_| remove(row_id)><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                                     <td class="col-md-6"/>
                                 </tr>
