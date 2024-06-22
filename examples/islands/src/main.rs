@@ -26,26 +26,8 @@ async fn main() {
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
-            move || {
-                use leptos::prelude::*;
-
-                view! {
-                    <!DOCTYPE html>
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <AutoReload options=leptos_options.clone() />
-                            <HydrationScripts options=leptos_options.clone() islands=true/>
-                            <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
-                            <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
-                        </head>
-                        <body>
-                            <App/>
-                        </body>
-                    </html>
-                }
-        }})
+            move || shell(&leptos_options)
+        })
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 
