@@ -1,7 +1,5 @@
 pub mod error_template;
 pub mod errors;
-#[cfg(feature = "ssr")]
-pub mod fallback;
 pub mod todo;
 
 #[cfg(feature = "hydrate")]
@@ -9,6 +7,5 @@ pub mod todo;
 pub fn hydrate() {
     use crate::todo::TodoApp;
     console_error_panic_hook::set_once();
-
     leptos::mount::hydrate_body(TodoApp);
 }

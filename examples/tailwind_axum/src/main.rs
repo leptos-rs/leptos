@@ -1,9 +1,7 @@
 use axum::Router;
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
-use leptos_meta::MetaTags;
-use leptos_tailwind::app::App;
-use leptos_tailwind::fallback::file_and_error_handler;
+use leptos_tailwind::app::{shell, App};
 
 #[tokio::main]
 async fn main() {
@@ -17,28 +15,9 @@ async fn main() {
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
-            move || {
-                use leptos::prelude::*;
-
-                view! {
-                    <!DOCTYPE html>
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <AutoReload options=leptos_options.clone() />
-                            <HydrationScripts options=leptos_options.clone()/>
-                            <link rel="stylesheet" id="leptos" href="/pkg/tailwind_axum.css"/>
-                            <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
-                            <MetaTags/>
-                        </head>
-                        <body>
-                            <App/>
-                        </body>
-                    </html>
-                }
-        }})
-        .fallback(file_and_error_handler)
+            move || shell(leptos_options.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);
 
     // run our app with hyper
