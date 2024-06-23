@@ -34,11 +34,11 @@
 
 use axum::{
     body::{Body, Bytes},
-    extract::{FromRef, FromRequestParts, MatchedPath},
+    extract::{FromRef, FromRequestParts, MatchedPath, State},
     http::{
         header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
         request::Parts,
-        HeaderMap, Method, Request, Response, StatusCode,
+        HeaderMap, Method, Request, Response, StatusCode, Uri,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
@@ -47,6 +47,7 @@ use futures::{stream::once, Future, Stream, StreamExt};
 use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
+    prelude::*,
     reactive_graph::{computed::ScopedFuture, owner::Owner},
     IntoView,
 };
@@ -61,6 +62,8 @@ use leptos_router::{
 use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
+use tower::ServiceExt;
+use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -740,44 +743,58 @@ where
     move |req: Request<Body>| {
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
-        Box::pin(async move {
-            let app_fn = app_fn.clone();
-            let add_context = additional_context.clone();
-            let res_options = ResponseOptions::default();
-            let meta_context = ServerMetaContext::new();
-
-            let additional_context = {
-                let meta_context = meta_context.clone();
-                let res_options = res_options.clone();
-                move || {
-                    // Need to get the path and query string of the Request
-                    // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                    let path = req.uri().path_and_query().unwrap().as_str();
-
-                    let full_path = format!("http://leptos.dev{path}");
-                    let (_, req_parts) = generate_request_and_parts(req);
-                    provide_contexts(
-                        &full_path,
-                        &meta_context,
-                        req_parts,
-                        res_options.clone(),
-                    );
-                    add_context();
-                }
-            };
-
-            let res = AxumResponse::from_app(
-                app_fn,
-                meta_context,
-                additional_context,
-                res_options,
-                stream_builder,
-            )
-            .await;
-
-            res.0
-        })
+        handle_response_inner(additional_context, app_fn, req, stream_builder)
     }
+}
+
+fn handle_response_inner<IV>(
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl FnOnce() -> IV + Send + 'static,
+    req: Request<Body>,
+    stream_builder: fn(
+        IV,
+        BoxedFnOnce<PinnedStream<String>>,
+    ) -> PinnedFuture<PinnedStream<String>>,
+) -> PinnedFuture<Response<Body>>
+where
+    IV: IntoView + 'static,
+{
+    Box::pin(async move {
+        let add_context = additional_context.clone();
+        let res_options = ResponseOptions::default();
+        let meta_context = ServerMetaContext::new();
+
+        let additional_context = {
+            let meta_context = meta_context.clone();
+            let res_options = res_options.clone();
+            move || {
+                // Need to get the path and query string of the Request
+                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
+                let path = req.uri().path_and_query().unwrap().as_str();
+
+                let full_path = format!("http://leptos.dev{path}");
+                let (_, req_parts) = generate_request_and_parts(req);
+                provide_contexts(
+                    &full_path,
+                    &meta_context,
+                    req_parts,
+                    res_options.clone(),
+                );
+                add_context();
+            }
+        };
+
+        let res = AxumResponse::from_app(
+            app_fn,
+            meta_context,
+            additional_context,
+            res_options,
+            stream_builder,
+        )
+        .await;
+
+        res.0
+    })
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
@@ -1697,4 +1714,71 @@ where
     T::from_request_parts(&mut parts, state)
         .await
         .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
+}
+
+pub fn file_and_error_handler<S, IV>(
+    shell: fn(LeptosOptions) -> IV,
+) -> impl Fn(
+    Uri,
+    State<S>,
+    Request<Body>,
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView + 'static,
+    S: Send + 'static,
+    LeptosOptions: FromRef<S>,
+{
+    move |uri: Uri, State(options): State<S>, req: Request<Body>| {
+        Box::pin(async move {
+            let options = LeptosOptions::from_ref(&options);
+            let res = get_static_file(uri, &options.site_root);
+            let res = res.await.unwrap();
+
+            if res.status() == StatusCode::OK {
+                res.into_response()
+            } else {
+                let mut res = handle_response_inner(
+                    || {},
+                    move || shell(options),
+                    req,
+                    |app, chunks| {
+                        Box::pin(async move {
+                            let app = app
+                                .to_html_stream_in_order()
+                                .collect::<String>()
+                                .await;
+                            let chunks = chunks();
+                            Box::pin(once(async move { app }).chain(chunks))
+                                as PinnedStream<String>
+                        })
+                    },
+                )
+                .await;
+                *res.status_mut() = StatusCode::NOT_FOUND;
+                res
+            }
+        })
+    }
+}
+
+async fn get_static_file(
+    uri: Uri,
+    root: &str,
+) -> Result<Response<Body>, (StatusCode, String)> {
+    let req = Request::builder()
+        .uri(uri.clone())
+        .body(Body::empty())
+        .unwrap();
+    // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
+    // This path is relative to the cargo root
+    match ServeDir::new(&*root).oneshot(req).await {
+        Ok(res) => Ok(res.into_response()),
+        Err(err) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {err}"),
+        )),
+    }
 }
