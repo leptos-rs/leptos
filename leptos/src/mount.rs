@@ -163,7 +163,7 @@ where
     }
 }
 
-/// Runs the provided closure and mounts the result to the provided element.
+/// Hydrates any islands that are currently present on the page.
 #[cfg(feature = "hydrate")]
 pub fn hydrate_islands() {
     use hydration_context::HydrateSharedContext;
