@@ -21,15 +21,15 @@ use strum::{Display, EnumString};
 use wasm_bindgen::JsCast;
 use web_sys::{FormData, HtmlFormElement, SubmitEvent};
 
-pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
+pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
         <!DOCTYPE html>
         <html lang="en">
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=leptos_options.clone() />
-                <HydrationScripts options=leptos_options.clone()/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options/>
                 <meta name="color-scheme" content="dark light"/>
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
                 <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css"/>

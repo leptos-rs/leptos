@@ -2,8 +2,6 @@ pub mod app;
 pub mod error_template;
 pub mod errors;
 #[cfg(feature = "ssr")]
-pub mod fallback;
-#[cfg(feature = "ssr")]
 pub mod middleware;
 
 #[cfg(feature = "hydrate")]
