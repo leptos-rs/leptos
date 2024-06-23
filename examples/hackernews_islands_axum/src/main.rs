@@ -1,10 +1,9 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    pub use axum::{routing::get, Router};
-    pub use hackernews_islands::fallback::file_and_error_handler;
+    pub use axum::Router;
     use hackernews_islands::*;
-    pub use leptos::get_configuration;
+    pub use leptos::config::get_configuration;
     pub use leptos_axum::{generate_route_list, LeptosRoutes};
     use tower_http::compression::{
         predicate::{NotForContentType, SizeAbove},
@@ -50,7 +49,6 @@ async fn main() {
 pub fn main() {
     use hackernews_islands::*;
     use leptos::prelude::*;
-    _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    mount_to_body(App);
+    leptos::mount::mount_to_body(App);
 }
