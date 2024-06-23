@@ -9,7 +9,7 @@ pub fn shell(options: &LeptosOptions) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone() />
                 <HydrationScripts options=options.clone() islands=true/>
-                <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
+                <link rel="stylesheet" id="leptos" href="/pkg/islands.css"/>
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
             </head>
             <body>
