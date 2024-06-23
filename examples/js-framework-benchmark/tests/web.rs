@@ -1,18 +1,18 @@
 use js_framework_benchmark_leptos::*;
-use leptos::prelude::*;
+use leptos::{prelude::*, spawn::tick};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
-fn add_item() {
-    let document = leptos::document();
+async fn add_item() {
+    let document = document();
     let test_wrapper = document.create_element("section").unwrap();
     let _ = document.body().unwrap().append_child(&test_wrapper);
 
     // start by rendering our counter and mounting it to the DOM
-    mount_to(test_wrapper.clone().unchecked_into(), || view! { <App/> });
+    let _handle = mount_to(test_wrapper.clone().unchecked_into(), App);
 
     let table = test_wrapper
         .query_selector("table")
@@ -37,21 +37,26 @@ fn add_item() {
         .unwrap()
         .unwrap()
         .unchecked_into::<web_sys::HtmlButtonElement>();
+    _handle.forget();
 
     // now let's click the `clear` button
     clear.click();
+    tick().await;
 
     // now check that table is empty
     assert_eq!(table.rows().length(), 0);
 
     create.click();
+    tick().await;
 
     assert_eq!(table.rows().length(), 10000);
     add.click();
+    tick().await;
 
     assert_eq!(table.rows().length(), 11000);
 
     clear.click();
+    tick().await;
 
     assert_eq!(table.rows().length(), 0)
 }
