@@ -1,4 +1,4 @@
-use crate::{app::*, fallback::file_and_error_handler};
+use crate::app::*;
 use axum::Router;
 use leptos::{config::get_configuration, logging};
 use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -19,27 +19,9 @@ async fn main() {
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
-            move || {
-                use leptos::prelude::*;
-
-                view! {
-                    <!DOCTYPE html>
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            // <AutoReload options=app_state.leptos_options.clone() />
-                            <HydrationScripts options=leptos_options.clone()/>
-                            <link rel="stylesheet" id="leptos" href="/pkg/server_fns_axum.css"/>
-                            <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
-                        </head>
-                        <body>
-                            <App/>
-                        </body>
-                    </html>
-                }
-        }})
-        .fallback(file_and_error_handler)
+            move || shell(leptos_options.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);
 
     // run our app with hyper

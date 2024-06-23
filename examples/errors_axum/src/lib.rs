@@ -1,7 +1,5 @@
 pub mod error_template;
 pub mod errors;
-#[cfg(feature = "ssr")]
-pub mod fallback;
 pub mod landing;
 
 #[cfg(feature = "hydrate")]
