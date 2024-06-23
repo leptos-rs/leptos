@@ -1,14 +1,11 @@
 use crate::{app::*, fallback::file_and_error_handler};
 use axum::Router;
+use islands::*;
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
-use todo_app_sqlite_axum::*;
 
 #[tokio::main]
 async fn main() {
-    simple_logger::init_with_level(log::Level::Error)
-        .expect("couldn't initialize logging");
-
     // Setting this to None means we'll be using cargo-leptos and its env vars
     let conf = get_configuration(None).await.unwrap();
     let leptos_options = conf.leptos_options;
