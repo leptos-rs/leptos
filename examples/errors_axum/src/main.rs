@@ -10,7 +10,7 @@ mod ssr_imports {
         Router,
     };
     use errors_axum::landing::shell;
-    pub use errors_axum::{fallback::*, landing::App};
+    pub use errors_axum::landing::App;
     use leptos::{config::LeptosOptions, context::provide_context};
     pub use leptos_axum::{generate_route_list, LeptosRoutes};
 
@@ -24,7 +24,7 @@ mod ssr_imports {
             move || {
                 provide_context(id.clone());
             },
-            move || shell(&options),
+            move || shell(options.clone()),
         );
         handler(req).await.into_response()
     }
@@ -48,9 +48,9 @@ async fn main() {
         .route("/special/:id", get(custom_handler))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
-            move || shell(&leptos_options)
+            move || shell(leptos_options.clone())
         })
-        .fallback(file_and_error_handler)
+        .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);
 
     // run our app with hyper
