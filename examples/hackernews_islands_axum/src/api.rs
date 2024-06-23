@@ -1,27 +1,30 @@
-#![allow(unused)]
-
-use leptos::Serializable;
+#[cfg(feature = "ssr")]
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "ssr")]
 pub fn story(path: &str) -> String {
     format!("https://node-hnapi.herokuapp.com/{path}")
 }
 
+#[cfg(feature = "ssr")]
 pub fn user(path: &str) -> String {
     format!("https://hacker-news.firebaseio.com/v0/user/{path}.json")
-}
-
-lazy_static::lazy_static! {
-    static ref CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
 #[cfg(feature = "ssr")]
 pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
-    T: Serializable,
+    T: Serialize + DeserializeOwned,
 {
-    let json = CLIENT.get(path).send().await.ok()?.text().await.ok()?;
-    T::de(&json).map_err(|e| log::error!("{e}")).ok()
+    use leptos::logging;
+    reqwest::get(path)
+        .await
+        .map_err(|e| logging::error!("{e}"))
+        .ok()?
+        .json()
+        .await
+        .ok()
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
