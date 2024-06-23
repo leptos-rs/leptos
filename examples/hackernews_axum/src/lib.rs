@@ -1,7 +1,5 @@
 use leptos::prelude::*;
 mod api;
-#[cfg(feature = "ssr")]
-pub mod fallback;
 mod routes;
 use leptos_meta::{provide_meta_context, Link, Meta, MetaTags, Stylesheet};
 use leptos_router::{
@@ -11,15 +9,15 @@ use leptos_router::{
 use routes::{nav::*, stories::*, story::*, users::*};
 use std::time::Duration;
 
-pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
+pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
         <!DOCTYPE html>
         <html lang="en">
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=leptos_options.clone() />
-                <HydrationScripts options=leptos_options.clone()/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options/>
                 <MetaTags/>
             </head>
             <body>
