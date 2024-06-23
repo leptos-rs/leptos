@@ -26,6 +26,8 @@ leptos_integration_utils = { workspace = true }
 parking_lot = "0.12"
 serde_json = "1"
 tokio = { version = "1", default-features = false }
+tower = "0.4"
+tower-http = "0.5"
 tracing = "0.1"
 
 [dev-dependencies]

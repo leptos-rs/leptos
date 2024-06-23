@@ -23,7 +23,7 @@ pub trait ExtendResponse: Sized {
     fn set_default_content_type(&mut self, content_type: &str);
 
     fn from_app<IV>(
-        app_fn: impl Fn() -> IV + Send + 'static,
+        app_fn: impl FnOnce() -> IV + Send + 'static,
         meta_context: ServerMetaContext,
         additional_context: impl FnOnce() + Send + 'static,
         res_options: Self::ResponseOptions,
@@ -70,7 +70,7 @@ pub trait ExtendResponse: Sized {
 }
 
 pub fn build_response<IV>(
-    app_fn: impl Fn() -> IV + Send + 'static,
+    app_fn: impl FnOnce() -> IV + Send + 'static,
     meta_context: ServerMetaContext,
     additional_context: impl FnOnce() + Send + 'static,
     stream_builder: fn(
