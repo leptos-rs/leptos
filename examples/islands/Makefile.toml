@@ -1,8 +1,4 @@
 extend = [
     { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/cargo-leptos.toml" },
 ]
-
-[tasks.test-ui]
-cwd = "./e2e"
-command = "cargo"
-args = ["make", "test-ui", "${@}"]
