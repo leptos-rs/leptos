@@ -80,15 +80,16 @@ impl<R: Renderer> Mountable<R> for () {
 }
 
 impl ToTemplate for () {
-    const TEMPLATE: &'static str = "";
+    const TEMPLATE: &'static str = "<!>";
 
     fn to_template(
-        _buf: &mut String,
+        buf: &mut String,
         _class: &mut String,
         _style: &mut String,
         _inner_html: &mut String,
         _position: &mut Position,
     ) {
+        buf.push_str("<!>");
     }
 }
 
