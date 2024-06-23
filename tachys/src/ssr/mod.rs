@@ -180,7 +180,7 @@ impl StreamBuilder {
                     true,
                 );
 
-                subbuilder.sync_buf.push_str("<!></template>");
+                subbuilder.sync_buf.push_str("</template>");
 
                 // TODO nonce
                 subbuilder.sync_buf.push_str("<script");
