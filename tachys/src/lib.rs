@@ -14,6 +14,7 @@ pub mod prelude {
                     OnTargetAttribute, PropAttribute, StyleAttribute,
                 },
             },
+            directive::DirectiveAttribute,
             element::{ElementChild, InnerHtmlAttribute},
             node_ref::NodeRefAttribute,
         },
