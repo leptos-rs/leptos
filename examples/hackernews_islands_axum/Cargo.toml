@@ -99,6 +99,12 @@ bin-features = ["ssr"]
 # Optional. Defaults to false.
 bin-default-features = false
 
+# This feature will add a hash to the filename of assets.
+# This is useful here because our files are precompressed and use a `Cache-Control` policy to reduce HTTP requests
+#
+# Optional. Defaults to false.
+hash_file = true
+
 # The features to use when compiling the lib target
 #
 # Optional. Can be over-ridden with the command line parameter --lib-features
