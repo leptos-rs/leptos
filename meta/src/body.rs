@@ -162,6 +162,6 @@ impl Mountable<Dom> for BodyViewState {
     }
 
     fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
-        true
+        false
     }
 }
