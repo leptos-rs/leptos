@@ -7,7 +7,7 @@ command = "mkdir"
 args = ["-p", "target/site"]
 
 [tasks.install-cargo-leptos]
-install_crate = { crate_name = "cargo-leptos", install_command = "cargo install --git https://github.com/leptos-rs/cargo-leptos --locked cargo-leptos",binary = "cargo-leptos", test_arg = "--help" }
+install_crate = { crate_name = "cargo-leptos", binary = "cargo-leptos", test_arg = "--help" }
 
 [tasks.cargo-leptos-e2e]
 command = "cargo"
