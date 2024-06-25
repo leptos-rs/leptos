@@ -444,8 +444,13 @@ where
         self.state.mount(&document_head(), None);
     }
 
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
-        self.state.insert_before_this(child)
+    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+        // Registered meta tags will be mounted in the <head>, but *seem* to be mounted somewhere
+        // else in the DOM. We should never tell the renderer that we have successfully mounted
+        // something before this, because if e.g., a <Meta/> is the first item in an Either, then
+        // the alternate view will end up being mounted in the <head> -- which is not at all what
+        // we intended!
+        false
     }
 }
 
