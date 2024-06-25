@@ -7,6 +7,7 @@ use std::marker::PhantomData;
 
 pub mod attribute;
 pub mod class;
+pub mod directive;
 pub mod element;
 pub mod event;
 pub mod islands;
