@@ -309,7 +309,7 @@ where
         if !E::SELF_CLOSING {
             if !inner_html.is_empty() {
                 buf.push_str(&inner_html);
-            } else {
+            } else if Ch::EXISTS {
                 // children
                 *position = Position::FirstChild;
                 self.children.to_html_with_buf(
@@ -384,7 +384,7 @@ where
             *position = Position::FirstChild;
             if !inner_html.is_empty() {
                 buffer.push_sync(&inner_html);
-            } else {
+            } else if Ch::EXISTS {
                 self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buffer,
                     position,
@@ -407,6 +407,7 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
+        crate::log(&format!("hydrating <{}>", E::TAG));
         // non-Static custom elements need special support in templates
         // because they haven't been inserted type-wise
         if E::TAG.is_empty() && !FROM_SERVER {
@@ -424,7 +425,7 @@ where
         let attrs = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         // hydrate children
-        let children = if E::SELF_CLOSING {
+        let children = if !Ch::EXISTS {
             None
         } else {
             position.set(Position::FirstChild);
