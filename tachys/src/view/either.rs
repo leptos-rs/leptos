@@ -162,7 +162,6 @@ where
                 right.to_html_with_buf(buf, position, escape)
             }
         }
-        *position = Position::NextChild;
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -179,7 +178,6 @@ where
             Either::Right(right) => right
                 .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
         }
-        *position = Position::NextChild;
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -527,7 +525,6 @@ macro_rules! tuples {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => this.to_html_with_buf(buf, position, escape),)*
                     }
-                    *position = Position::NextChild;
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -538,7 +535,6 @@ macro_rules! tuples {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),)*
                     }
-                    *position = Position::NextChild;
                 }
 
                 fn hydrate<const FROM_SERVER: bool>(
