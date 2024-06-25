@@ -1,7 +1,10 @@
-use leptos::{ev::click, html::AnyElement, prelude::*};
+use leptos::{ev::click, html::a, prelude::*};
+use web_sys::{Element, HtmlElement};
 
 // no extra parameter
-pub fn highlight(el: HtmlElement<AnyElement>) {
+pub fn highlight(el: Element, param: ()) {
+    // TODO
+    /*
     let mut highlighted = false;
 
     let _ = el.clone().on(click, move |_| {
@@ -13,13 +16,16 @@ pub fn highlight(el: HtmlElement<AnyElement>) {
             let _ = el.clone().style("background-color", "transparent");
         }
     });
+    */
 }
 
 // one extra parameter
-pub fn copy_to_clipboard(el: HtmlElement<AnyElement>, content: &str) {
+pub fn copy_to_clipboard(el: Element, content: &'static str) {
+    // TODO
     let content = content.to_string();
+    leptos::logging::log!("running copy_to_clipboard directive");
 
-    let _ = el.clone().on(click, move |evt| {
+    /*let _ = el.clone().on(click, move |evt| {
         evt.prevent_default();
         evt.stop_propagation();
 
@@ -30,7 +36,7 @@ pub fn copy_to_clipboard(el: HtmlElement<AnyElement>, content: &str) {
             .write_text(&content);
 
         let _ = el.clone().inner_html(format!("Copied \"{}\"", &content));
-    });
+    });*/
 }
 
 // custom parameter
@@ -52,7 +58,9 @@ impl From<()> for Amount {
 }
 
 // .into() will automatically be called on the parameter
-pub fn add_dot(el: HtmlElement<AnyElement>, amount: Amount) {
+pub fn add_dot(el: Element, amount: Amount) {
+    // TODO
+    /*
     _ = el.clone().on(click, move |_| {
         el.set_inner_text(&format!(
             "{}{}",
@@ -60,6 +68,7 @@ pub fn add_dot(el: HtmlElement<AnyElement>, amount: Amount) {
             ".".repeat(amount.0)
         ))
     })
+    */
 }
 
 #[component]
@@ -78,7 +87,7 @@ pub fn App() -> impl IntoView {
     view! {
         <a href="#" use:copy_to_clipboard=data>"Copy \"" {data} "\" to clipboard"</a>
         // automatically applies the directive to every root element in `SomeComponent`
-        <SomeComponent use:highlight />
+        //<SomeComponent use:highlight />
         // no value will default to `().into()`
         <button use:add_dot>"Add a dot"</button>
         // `5.into()` automatically called
