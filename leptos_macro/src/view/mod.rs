@@ -409,6 +409,8 @@ fn attribute_to_tokens(
                 quote! {
                     .#node_ref(#value)
                 }
+            } else if let Some(name) = name.strip_prefix("use:") {
+                directive_call_from_attribute_node(node, name)
             } else if let Some(name) = name.strip_prefix("on:") {
                 event_to_tokens(name, node)
             } else if let Some(name) = name.strip_prefix("class:") {
@@ -489,6 +491,16 @@ pub(crate) fn attribute_absolute(
                                     quote! { ::leptos::tachys::html::attribute::#key(#value) },
                                 )
                             }
+                        } else if id == "use" {
+                            let key = &parts[1];
+                            let param = if let Some(value) = node.value() {
+                                quote!(::std::convert::Into::into(#value))
+                            } else {
+                                quote_spanned!(node.key.span()=> ().into())
+                            };
+                            Some(
+                                quote! { ::leptos::tachys::html::directive::directive((#key, #param)) },
+                            )
                         } else if id == "style" || id == "class" {
                             let key = &node.key.to_string();
                             let key = key
@@ -1019,4 +1031,19 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             tag_name.span(),
         ),
     }
+}
+
+pub(crate) fn directive_call_from_attribute_node(
+    attr: &KeyedAttribute,
+    directive_name: &str,
+) -> TokenStream {
+    let handler = syn::Ident::new(directive_name, attr.key.span());
+
+    let param = if let Some(value) = attr.value() {
+        quote!(::std::convert::Into::into(#value))
+    } else {
+        quote_spanned!(attr.key.span()=> ().into())
+    };
+
+    quote! { .directive(#handler, #[allow(clippy::useless_conversion)] #param) }
 }
