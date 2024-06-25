@@ -67,6 +67,9 @@ where
 
     const MIN_LENGTH: usize;
 
+    /// Whether this should actually exist in the DOM, if it is the child of an element.
+    const EXISTS: bool = true;
+
     fn dry_resolve(&mut self);
 
     /// Waits for any asynchronous sections of the view to load and returns the output.

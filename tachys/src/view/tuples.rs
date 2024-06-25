@@ -28,6 +28,7 @@ where
     type AsyncOutput = ();
 
     const MIN_LENGTH: usize = 3;
+    const EXISTS: bool = false;
 
     fn to_html_with_buf(
         self,
