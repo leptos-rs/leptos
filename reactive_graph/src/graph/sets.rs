@@ -9,7 +9,7 @@ use super::{AnySource, AnySubscriber, Source};
 use core::slice;
 use std::{mem, vec::IntoIter};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct SourceSet(Vec<AnySource>);
 
 impl SourceSet {
