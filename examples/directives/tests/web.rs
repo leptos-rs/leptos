@@ -1,19 +1,16 @@
-use gloo_timers::future::sleep;
-use std::time::Duration;
+use directives::App;
+use leptos::{prelude::*, spawn::tick};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
-
-wasm_bindgen_test_configure!(run_in_browser);
-use directives::App;
-use leptos::prelude::*;
 use web_sys::HtmlElement;
 
+wasm_bindgen_test_configure!(run_in_browser);
 #[wasm_bindgen_test]
 async fn test_directives() {
-    mount_to_body(|| view! { <App/> });
-    sleep(Duration::ZERO).await;
+    leptos::mount::mount_to_body(App);
+    tick().await;
 
-    let document = leptos::document();
+    let document = document();
     let paragraphs = document.query_selector_all("p").unwrap();
 
     assert_eq!(paragraphs.length(), 3);

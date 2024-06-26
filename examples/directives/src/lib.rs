@@ -85,7 +85,6 @@ pub fn App() -> impl IntoView {
         <a href="#" use:copy_to_clipboard=data>"Copy \"" {data} "\" to clipboard"</a>
         // automatically applies the directive to every root element in `SomeComponent`
         <SomeComponent use:highlight />
-        <p use:highlight>"click me"</p>
         // no value will default to `().into()`
         <button use:add_dot>"Add a dot"</button>
         // `5.into()` automatically called
