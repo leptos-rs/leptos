@@ -499,7 +499,12 @@ pub(crate) fn attribute_absolute(
                                 quote_spanned!(node.key.span()=> ().into())
                             };
                             Some(
-                                quote! { ::leptos::tachys::html::directive::directive((#key, #param)) },
+                                quote! {
+                                    ::leptos::tachys::html::directive::directive(
+                                        #key,
+                                        #[allow(clippy::useless_conversion)] #param
+                                    )
+                                },
                             )
                         } else if id == "style" || id == "class" {
                             let key = &node.key.to_string();
