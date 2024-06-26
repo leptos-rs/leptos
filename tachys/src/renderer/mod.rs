@@ -127,7 +127,23 @@ pub trait Renderer: Send + Sized + Debug + 'static {
 }
 
 /// A function that can be called to remove an event handler from an element after it has been added.
-pub type RemoveEventHandler<T> = Box<dyn FnOnce(&T) + Send>;
+#[must_use = "This will invalidate the event handler when it is dropped. You \
+              should store it in some other data structure to clean it up \
+              later to avoid dropping it immediately, or leak it with \
+              std::mem::forget() to never drop it."]
+pub struct RemoveEventHandler<T>(Box<dyn FnOnce(&T) + Send + Sync>);
+
+impl<T> RemoveEventHandler<T> {
+    /// Creates a new container with a function that will be called when it is dropped.
+    pub(crate) fn new(remove: impl FnOnce(&T) + Send + Sync + 'static) -> Self {
+        Self(Box::new(remove))
+    }
+
+    pub(crate) fn into_inner(self) -> Box<dyn FnOnce(&T) + Send + Sync> {
+        self.0
+    }
+}
+
 /// Additional rendering behavior that applies only to DOM nodes.
 pub trait DomRenderer: Renderer {
     /// Generic event type, from which any specific event can be converted.
