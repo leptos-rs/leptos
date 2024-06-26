@@ -4,7 +4,7 @@
 //!
 //! Do not use this for anything real.
 
-use super::{CastFrom, DomRenderer, Renderer};
+use super::{CastFrom, DomRenderer, RemoveEventHandler, Renderer};
 use crate::{
     html::element::{CreateElement, ElementType},
     view::Mountable,
@@ -225,7 +225,7 @@ impl DomRenderer for MockDom {
         el: &Self::Element,
         name: &str,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element) + Send> {
+    ) -> RemoveEventHandler<Self::Element> {
         todo!()
     }
 
@@ -234,7 +234,7 @@ impl DomRenderer for MockDom {
         name: Cow<'static, str>,
         delegation_key: Cow<'static, str>,
         cb: Box<dyn FnMut(Self::Event)>,
-    ) -> Box<dyn FnOnce(&Self::Element) + Send> {
+    ) -> RemoveEventHandler<Self::Element> {
         todo!()
     }
 
