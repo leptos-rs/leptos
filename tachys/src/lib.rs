@@ -15,7 +15,7 @@ pub mod prelude {
                 },
             },
             directive::DirectiveAttribute,
-            element::{ElementChild, InnerHtmlAttribute},
+            element::{ElementChild, ElementExt, InnerHtmlAttribute},
             node_ref::NodeRefAttribute,
         },
         renderer::{dom::Dom, Renderer},
