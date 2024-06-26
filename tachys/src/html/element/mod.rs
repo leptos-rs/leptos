@@ -15,10 +15,12 @@ use next_tuple::NextTuple;
 use std::{marker::PhantomData, ops::Deref};
 
 mod custom;
+mod element_ext;
 mod elements;
 mod inner_html;
 use super::attribute::{escape_attr, NextAttribute};
 pub use custom::*;
+pub use element_ext::*;
 pub use elements::*;
 pub use inner_html::*;
 
