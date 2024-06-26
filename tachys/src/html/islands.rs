@@ -121,7 +121,10 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
         Self: Sized,
     {
         // insert the opening tag synchronously
@@ -244,7 +247,10 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
         Self: Sized,
     {
         // insert the opening tag synchronously
