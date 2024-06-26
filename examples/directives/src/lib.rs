@@ -1,31 +1,26 @@
-use leptos::{ev::click, html::a, prelude::*};
-use web_sys::{Element, HtmlElement};
+use leptos::{ev::click, prelude::*};
+use web_sys::Element;
 
 // no extra parameter
-pub fn highlight(el: Element, param: ()) {
-    // TODO
-    /*
+pub fn highlight(el: Element) {
     let mut highlighted = false;
 
-    let _ = el.clone().on(click, move |_| {
+    let handle = el.clone().on(click, move |_| {
         highlighted = !highlighted;
 
         if highlighted {
-            let _ = el.clone().style("background-color", "yellow");
+            el.style(("background-color", "yellow"));
         } else {
-            let _ = el.clone().style("background-color", "transparent");
+            el.style(("background-color", "transparent"));
         }
     });
-    */
+    on_cleanup(move || drop(handle));
 }
 
 // one extra parameter
-pub fn copy_to_clipboard(el: Element, content: &'static str) {
-    // TODO
-    let content = content.to_string();
-    leptos::logging::log!("running copy_to_clipboard directive");
-
-    /*let _ = el.clone().on(click, move |evt| {
+pub fn copy_to_clipboard(el: Element, content: &str) {
+    let content = content.to_owned();
+    let handle = el.clone().on(click, move |evt| {
         evt.prevent_default();
         evt.stop_propagation();
 
@@ -35,8 +30,9 @@ pub fn copy_to_clipboard(el: Element, content: &'static str) {
             .expect("navigator.clipboard to be available")
             .write_text(&content);
 
-        let _ = el.clone().inner_html(format!("Copied \"{}\"", &content));
-    });*/
+        el.set_inner_html(&format!("Copied \"{}\"", &content));
+    });
+    on_cleanup(move || drop(handle));
 }
 
 // custom parameter
@@ -59,16 +55,17 @@ impl From<()> for Amount {
 
 // .into() will automatically be called on the parameter
 pub fn add_dot(el: Element, amount: Amount) {
-    // TODO
-    /*
-    _ = el.clone().on(click, move |_| {
+    use leptos::wasm_bindgen::JsCast;
+    let el = el.unchecked_into::<web_sys::HtmlElement>();
+
+    let handle = el.clone().on(click, move |_| {
         el.set_inner_text(&format!(
             "{}{}",
             el.inner_text(),
             ".".repeat(amount.0)
         ))
-    })
-    */
+    });
+    on_cleanup(move || drop(handle));
 }
 
 #[component]
@@ -87,7 +84,8 @@ pub fn App() -> impl IntoView {
     view! {
         <a href="#" use:copy_to_clipboard=data>"Copy \"" {data} "\" to clipboard"</a>
         // automatically applies the directive to every root element in `SomeComponent`
-        //<SomeComponent use:highlight />
+        <SomeComponent use:highlight />
+        <p use:highlight>"click me"</p>
         // no value will default to `().into()`
         <button use:add_dot>"Add a dot"</button>
         // `5.into()` automatically called
