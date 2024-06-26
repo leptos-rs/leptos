@@ -228,7 +228,10 @@ where
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        buf: &mut StreamBuilder, position: &mut Position, escape: bool) {
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) {
         for item in self.items.into_iter() {
             let item = (self.view_fn)(item);
             item.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
