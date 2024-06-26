@@ -93,13 +93,13 @@ impl<E, T, R> From<E> for Targeted<E, T, R> {
     }
 }
 
-pub fn on<E, R, F>(event: E, cb: F) -> On<E, F, R>
+pub fn on<E, F, R>(event: E, cb: F) -> On<E, F, R>
 where
     F: FnMut(E::EventType) + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-    R: DomRenderer,
     E::EventType: From<R::Event>,
+    R: DomRenderer,
 {
     On {
         event,
@@ -212,7 +212,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
     // a function that can be called once to remove the event listener
-    type State = (R::Element, Option<Box<dyn FnOnce(&R::Element)>>);
+    type State = (R::Element, Option<RemoveEventHandler<R::Element>>);
     type Cloneable = On<E, SharedEventCallback<E::EventType>, R>;
     type CloneableOwned = On<E, SharedEventCallback<E::EventType>, R>;
 
@@ -247,7 +247,7 @@ where
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev_cleanup) = state;
         if let Some(prev) = prev_cleanup.take() {
-            prev(el);
+            (prev.into_inner())(el);
         }
         *prev_cleanup = Some(self.attach(el));
     }
