@@ -145,7 +145,12 @@ impl RenderHtml<Dom> for HtmlView {
         self
     }
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position, _escape: bool) {
+    fn to_html_with_buf(
+        self,
+        _buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
     }

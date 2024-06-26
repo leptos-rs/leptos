@@ -132,7 +132,13 @@ impl RenderHtml<Dom> for BodyView {
         self
     }
 
-    fn to_html_with_buf(self, _buf: &mut String, _position: &mut Position, _escape: bool) {}
+    fn to_html_with_buf(
+        self,
+        _buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
+    }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
