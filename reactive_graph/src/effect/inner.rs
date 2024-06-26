@@ -8,6 +8,7 @@ use crate::{
 use or_poisoned::OrPoisoned;
 use std::sync::{Arc, RwLock, Weak};
 
+#[derive(Debug)]
 pub(crate) struct EffectInner {
     pub dirty: bool,
     pub observer: Sender,
