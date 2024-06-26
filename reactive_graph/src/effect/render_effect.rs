@@ -15,6 +15,10 @@ use std::{
     sync::{Arc, RwLock, Weak},
 };
 
+#[must_use = "A RenderEffect will be canceled when it is dropped. Creating a \
+              RenderEffect that is not stored in some other data structure or \
+              leaked will drop it immediately, and it will not react to \
+              changes in signals it reads."]
 pub struct RenderEffect<T>
 where
     T: 'static,
