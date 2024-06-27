@@ -347,11 +347,11 @@ pub fn get_config_from_str(
 /// you'll need to set the options as environment variables or rely on the defaults. This is the preferred
 /// approach for cargo-leptos. If Some("./Cargo.toml") is provided, Leptos will read in the settings itself. This
 /// option currently does not allow dashes in file or folder names, as all dashes become underscores
-pub async fn get_configuration(
+pub fn get_configuration(
     path: Option<&str>,
 ) -> Result<ConfFile, LeptosConfigError> {
     if let Some(path) = path {
-        get_config_from_file(&path).await
+        get_config_from_file(&path)
     } else {
         get_config_from_env()
     }
@@ -359,7 +359,7 @@ pub async fn get_configuration(
 
 /// Loads [LeptosOptions] from a Cargo.toml with layered overrides. Leptos will read in the settings itself. This
 /// option currently does not allow dashes in file or folder names, as all dashes become underscores
-pub async fn get_config_from_file<P: AsRef<Path>>(
+pub fn get_config_from_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<ConfFile, LeptosConfigError> {
     let text = fs::read_to_string(path)

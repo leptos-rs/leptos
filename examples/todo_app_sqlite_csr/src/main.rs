@@ -24,7 +24,7 @@ async fn main() {
     let _conn = ssr::db().await.expect("couldn't connect to DB");
 
     // Setting this to None means we'll be using cargo-leptos and its env vars
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
 

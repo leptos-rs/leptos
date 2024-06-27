@@ -8,7 +8,7 @@ async fn main() -> std::io::Result<()> {
     use leptos_meta::MetaTags;
     use ssr_modes::app::*;
 
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
 
     HttpServer::new(move || {

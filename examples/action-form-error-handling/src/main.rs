@@ -9,7 +9,7 @@ async fn main() -> std::io::Result<()> {
     use leptos_meta::MetaTags;
 
     // Generate the list of routes in your Leptos App
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     println!("listening on http://{}", &addr);
 
