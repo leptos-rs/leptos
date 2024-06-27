@@ -1,4 +1,4 @@
-# Сводка
+# Оглавление
 
 - [Вступление](./01_introduction.md)
 - [Для новичков](./getting_started/README.md)
