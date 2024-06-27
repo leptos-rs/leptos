@@ -60,7 +60,7 @@ where
     Rndr: Renderer,
 {
     parent: Option<Rndr::Element>,
-    marker: Option<Rndr::Node>,
+    marker: Rndr::Placeholder,
     hashed_items: IndexSet<K, BuildHasherDefault<FxHasher>>,
     rendered_items: Vec<Option<V::State>>,
 }
@@ -90,7 +90,7 @@ where
         }
         KeyedState {
             parent: None,
-            marker: None,
+            marker: Rndr::create_placeholder(),
             hashed_items,
             rendered_items,
         }
@@ -224,6 +224,7 @@ where
             item.to_html_with_buf(buf, position, escape);
             *position = Position::NextChild;
         }
+        buf.push_str("<!>");
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -237,6 +238,7 @@ where
             item.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
             *position = Position::NextChild;
         }
+        buf.push_sync("<!>");
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -267,9 +269,10 @@ where
             let item = view.hydrate::<FROM_SERVER>(cursor, position);
             rendered_items.push(Some(item));
         }
+        let marker = cursor.next_placeholder(position);
         KeyedState {
             parent: Some(parent),
-            marker: None, // TODO?
+            marker,
             hashed_items,
             rendered_items,
         }
@@ -287,19 +290,21 @@ where
         for item in self.rendered_items.iter_mut().flatten() {
             item.mount(parent, marker);
         }
+        self.marker.mount(parent, marker);
     }
 
     fn unmount(&mut self) {
         for item in self.rendered_items.iter_mut().flatten() {
             item.unmount();
         }
+        self.marker.unmount();
     }
 
     fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         self.rendered_items
             .first()
             .map(|n| n.insert_before_this(child))
-            .unwrap_or(false)
+            .unwrap_or_else(|| self.marker.insert_before_this(child))
     }
 }
 
@@ -484,7 +489,7 @@ impl Default for DiffOpAddMode {
 
 fn apply_diff<T, V, Rndr>(
     parent: &Rndr::Element,
-    marker: &Option<Rndr::Node>,
+    marker: &Rndr::Placeholder,
     diff: Diff,
     children: &mut Vec<Option<V::State>>,
     view_fn: impl Fn(T) -> V,
@@ -502,9 +507,9 @@ fn apply_diff<T, V, Rndr>(
     // 6. Additions
     // 7. Removes holes
     if diff.clear {
-        // TODO fix
-        Rndr::clear_children(parent);
-        children.clear();
+        for mut child in children.drain(0..) {
+            child.unmount();
+        }
 
         if diff.added.is_empty() {
             return;
@@ -546,10 +551,10 @@ fn apply_diff<T, V, Rndr>(
             state.insert_before_this_or_marker(
                 parent,
                 &mut each_item,
-                marker.as_ref(),
+                Some(marker.as_ref()),
             )
         } else {
-            each_item.mount(parent, marker.as_ref());
+            each_item.mount(parent, Some(marker.as_ref()));
         }
 
         children[to] = Some(each_item);
@@ -568,14 +573,14 @@ fn apply_diff<T, V, Rndr>(
                     state.insert_before_this_or_marker(
                         parent,
                         &mut item,
-                        marker.as_ref(),
+                        Some(marker.as_ref()),
                     )
                 } else {
-                    item.mount(parent, marker.as_ref());
+                    item.mount(parent, Some(marker.as_ref()));
                 }
             }
             DiffOpAddMode::Append => {
-                item.mount(parent, None);
+                item.mount(parent, Some(marker.as_ref()));
             }
         }
 
