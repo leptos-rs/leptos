@@ -396,7 +396,7 @@ pub fn handle_server_fns_with_context(
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
@@ -464,7 +464,7 @@ where
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
@@ -530,7 +530,7 @@ where
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
