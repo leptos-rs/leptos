@@ -1,7 +1,7 @@
 # Оглавление
 
 - [Вступление](./01_introduction.md)
-- [Для новичков](./getting_started/README.md)
+- [Начало работы](./getting_started/README.md)
   - [Leptos DX](./getting_started/leptos_dx.md)
   - [Сообщество Leptos и leptos-* Крейты](./getting_started/community_crates.md)
 - [Часть 1: Построение UI](./view/README.md)
