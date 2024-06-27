@@ -9,7 +9,7 @@ use leptos_meta::MetaTags;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
 
     HttpServer::new(move || {
