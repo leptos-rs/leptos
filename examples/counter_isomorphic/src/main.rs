@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
 
     // Setting this to None means we'll be using cargo-leptos and its env vars.
     // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     println!("listening on http://{}", &addr);
 
