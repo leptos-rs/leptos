@@ -25,7 +25,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("could not run SQLx migrations");
 
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     println!("listening on http://{}", &addr);
 

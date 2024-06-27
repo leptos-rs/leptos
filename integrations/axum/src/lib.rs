@@ -400,7 +400,7 @@ pub type PinnedHtmlStream =
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
 ///
@@ -488,7 +488,7 @@ where
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
 ///
@@ -839,7 +839,7 @@ fn provide_contexts(
 /// #[cfg(feature = "default")]
 /// #[tokio::main]
 /// async fn main() {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
 ///
