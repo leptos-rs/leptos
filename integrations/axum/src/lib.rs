@@ -63,6 +63,7 @@ use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
 use tower::ServiceExt;
+#[cfg(feature = "default")]
 use tower_http::services::ServeDir;
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
