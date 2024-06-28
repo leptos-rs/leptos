@@ -170,7 +170,7 @@ pub trait IntoRes<Encoding, Response, CustErr> {
 /// data from a response. They are often quite short, usually consisting
 /// of just two steps:
 /// 1. Extracting a [`String`], [`Bytes`](bytes::Bytes), or a [`Stream`](futures::Stream)
-/// from the response body.
+///    from the response body.
 /// 2. Deserializing the data type from that value.
 ///
 /// For example, here’s the implementation for [`Json`].
