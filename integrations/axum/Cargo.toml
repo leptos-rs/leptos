@@ -36,7 +36,7 @@ tokio = { version = "1", features = ["net"] }
 
 [features]
 wasm = []
-default = ["tokio/fs", "tokio/sync"]
+default = ["tokio/fs", "tokio/sync", "tower-http/fs"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
