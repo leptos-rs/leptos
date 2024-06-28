@@ -23,7 +23,7 @@ async fn inc() {
         div.inner_html(),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: \
-         <span>0</span> from <span>0</span> counters.</p><ul></ul>"
+         <span>0</span> from <span>0</span> counters.</p><ul><!----></ul>"
     );
 
     // add 3 counters
@@ -45,7 +45,7 @@ async fn inc() {
          type=\"text\"><span>0</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
          type=\"text\"><span>0</span><button>+1</button><button>x</button></\
-         li></ul>"
+         li><!----></ul>"
     );
 
     let counters = div
@@ -87,7 +87,7 @@ async fn inc() {
          type=\"text\"><span>2</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
          type=\"text\"><span>3</span><button>+1</button><button>x</button></\
-         li></ul>"
+         li><!----></ul>"
     );
 
     // remove the first counter
@@ -110,6 +110,6 @@ async fn inc() {
          type=\"text\"><span>2</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
          type=\"text\"><span>3</span><button>+1</button><button>x</button></\
-         li></ul>"
+         li><!----></ul>"
     );
 }
