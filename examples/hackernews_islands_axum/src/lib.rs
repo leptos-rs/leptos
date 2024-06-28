@@ -7,6 +7,8 @@ use leptos_router::{
     ParamSegment, StaticSegment,
 };
 use routes::{nav::*, stories::*, story::*, users::*};
+#[cfg(feature = "ssr")]
+pub mod fallback;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
