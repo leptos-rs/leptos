@@ -13,17 +13,22 @@ use crate::{
     resolve_path::resolve_path,
     ChooseView, MatchNestedRoutes, NestedRoute, Routes, SsrMode,
 };
+use either_of::{Either, EitherOf3};
 use leptos::prelude::*;
 use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
-    wrappers::write::SignalSetter,
+    wrappers::write::SignalSetter, 
 };
 use std::{
-    borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc, time::Duration,
+    borrow::Cow,
+    fmt::{Debug, Display},
+    marker::PhantomData,
+    sync::Arc,
+    time::Duration,
 };
-use tachys::renderer::dom::Dom;
+use tachys::{renderer::dom::Dom, view::any_view::AnyView};
 
 #[derive(Debug)]
 pub struct RouteChildren<Children>(Children);
@@ -290,6 +295,7 @@ where
     NestedRoute::new(path, view, ssr)
 }
 
+
 #[component]
 pub fn ParentRoute<Segments, View, Children>(
     path: Segments,
@@ -301,6 +307,78 @@ where
     View: ChooseView<Dom>,
 {
     let children = children.into_inner();
+    NestedRoute::new(path, view, ssr).child(children)
+}
+
+#[component]
+pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
+    path: Segments,
+    view: ViewFn,
+    condition: C,
+    redirect_path: PathFn,
+    #[prop(optional)] ssr: SsrMode,
+) -> NestedRoute<Segments, (), (), impl Fn() -> AnyView<Dom> + Send + Clone, Dom>
+where
+    ViewFn: Fn() -> View + Send + Clone + 'static,
+    View: IntoView + 'static,
+    C: Fn() -> Option<bool> + Send + Clone + 'static,
+    PathFn: Fn() -> P + Send + Clone + 'static,
+    P: Display + 'static,
+{
+    let view = move || {
+        let condition = condition.clone();
+        let redirect_path = redirect_path.clone();
+        let view = view.clone();
+        (view! { 
+            <Transition>
+                {move || {
+                    match condition() {
+                        Some(true) => EitherOf3::A(view()),
+                        Some(false) => EitherOf3::B(view! { <Redirect path=redirect_path()/> }),
+                        None => EitherOf3::C(())
+                    }
+                }}
+            </Transition>
+        })
+        .into_any()
+    };
+    NestedRoute::new(path, view, ssr)
+}
+
+#[component]
+pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
+    path: Segments,
+    view: ViewFn,
+    condition: C,
+    redirect_path: PathFn,
+    children: RouteChildren<Children>,
+    #[prop(optional)] ssr: SsrMode,
+) -> NestedRoute<Segments, Children, (), impl Fn() -> AnyView<Dom> + Send + Clone, Dom>
+where
+    ViewFn: Fn() -> View + Send + Clone + 'static,
+    View: IntoView + 'static,
+    C: Fn() -> Option<bool> + Send + Clone + 'static,
+    PathFn: Fn() -> P + Send + Clone + 'static,
+    P: Display + 'static,
+{
+    let children = children.into_inner();
+    let view = move || {
+        let condition = condition.clone();
+        let redirect_path = redirect_path.clone();
+        let view = view.clone();
+        (view! { 
+            <Transition>
+                {move || {
+                    match condition() {
+                        Some(true) => EitherOf3::A(view()),
+                        Some(false) => EitherOf3::B(view! { <Redirect path=redirect_path()/> }),
+                        None => EitherOf3::C(())
+                    }
+                }}
+            </Transition>
+        })
+        .into_any()
+    };
     NestedRoute::new(path, view, ssr).child(children)
 }
 
@@ -325,8 +403,7 @@ pub fn Redirect<P>(
     #[prop(optional)]
     #[allow(unused)]
     options: Option<NavigateOptions>,
-) -> impl IntoView
-where
+) where
     P: core::fmt::Display + 'static,
 {
     // TODO resolve relative path

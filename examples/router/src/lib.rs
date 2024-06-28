@@ -3,7 +3,9 @@ use crate::api::*;
 use leptos::either::Either;
 use leptos::prelude::*;
 use leptos_router::{
-    components::{Outlet, ParentRoute, Redirect, Route, Router, Routes, A},
+    components::{
+        Outlet, ParentRoute, ProtectedRoute, Redirect, Route, Router, Routes, A,
+    },
     hooks::{use_navigate, use_params, use_query_map},
     params::Params,
     MatchNestedRoutes, ParamSegment, StaticSegment,
@@ -20,6 +22,9 @@ pub fn RouterExample() -> impl IntoView {
     // contexts are passed down through the route tree
     provide_context(ExampleContext(0));
 
+    // this signal will be ued to set whether we are allowed to access a protected route
+    let (logged_in, set_logged_in) = signal(true);
+
     view! {
         <Router>
             <nav>
@@ -32,11 +37,23 @@ pub fn RouterExample() -> impl IntoView {
                 <A href="/about">"About"</A>
                 <A href="/settings">"Settings"</A>
                 <A href="/redirect-home">"Redirect to Home"</A>
+                <button on:click=move |_| set_logged_in.update(|n| *n = !*n)>
+                    {move || if logged_in.get() {
+                        "Log Out"
+                    } else {
+                        "Log In"
+                    }}
+                </button>
             </nav>
             <main>
                 <Routes fallback=|| "This page could not be found.">
-                    <Route path=StaticSegment("settings") view=Settings/>
                     <Route path=StaticSegment("about") view=About/>
+                    <ProtectedRoute
+                        path=StaticSegment("settings")
+                        condition=move || Some(logged_in.get())
+                        redirect_path=|| "/"
+                        view=Settings
+                    />
                     <Route
                         path=StaticSegment("redirect-home")
                         view=|| view! { <Redirect path="/"/> }
