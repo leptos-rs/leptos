@@ -809,7 +809,6 @@ fn provide_contexts(
     provide_context(parts);
     provide_context(default_res_options);
     provide_server_redirect(redirect);
-    #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
 
@@ -1716,6 +1715,7 @@ where
         .map_err(|e| ServerFnError::ServerError(format!("{e:?}")))
 }
 
+#[cfg(feature = "default")]
 pub fn file_and_error_handler<S, IV>(
     shell: fn(LeptosOptions) -> IV,
 ) -> impl Fn(
@@ -1764,6 +1764,7 @@ where
     }
 }
 
+#[cfg(feature = "default")]
 async fn get_static_file(
     uri: Uri,
     root: &str,
