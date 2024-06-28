@@ -435,7 +435,7 @@ impl RouterContextInner {
             }
 
             let url = Url::try_from(href.as_str()).unwrap();
-            let path_name = unescape(&url.pathname);
+            let path_name = crate::history::unescape_minimal(&url.pathname);
 
             // let browser handle this event if it leaves our domain
             // or our base path
