@@ -13,7 +13,7 @@ use crate::{
     resolve_path::resolve_path,
     ChooseView, MatchNestedRoutes, NestedRoute, Routes, SsrMode,
 };
-use either_of::{Either, EitherOf3};
+use either_of::EitherOf3;
 use leptos::prelude::*;
 use reactive_graph::{
     owner::{provide_context, use_context, Owner},
