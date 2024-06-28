@@ -37,9 +37,6 @@ rkyv = { version = "0.7", optional = true, features = [
 serde-lite = { version = "0.5", optional = true }
 base64 = { version = "0.22", optional = true }
 
-[dev-dependencies]
-leptos = { path = "../leptos" }
-
 [features]
 ssr = []
 hydration = []
