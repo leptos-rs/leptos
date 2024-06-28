@@ -25,14 +25,16 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/favicon.ico", get(file_and_error_handler))
-        .leptos_routes(&leptos_options, routes, App)
+        .leptos_routes(&leptos_options, routes, {
+            let leptos_options = leptos_options.clone();
+            move || shell(leptos_options.clone())
+        })
         .layer(
             CompressionLayer::new()
                 .quality(CompressionLevel::Fastest)
                 .compress_when(predicate),
         )
-        .fallback(file_and_error_handler)
+        .fallback(fallback::file_and_error_handler)
         .with_state(leptos_options);
 
     // run our app with hyper
