@@ -1,11 +1,8 @@
-use crate::error_template::error_template;
 use axum::{
     body::Body,
-    extract::State,
     http::{header, Request, Response, StatusCode, Uri},
     response::{IntoResponse, Response as AxumResponse},
 };
-use leptos::LeptosOptions;
 use std::borrow::Cow;
 
 #[cfg(not(debug_assertions))]
@@ -20,7 +17,6 @@ struct Assets;
 
 pub async fn file_and_error_handler(
     uri: Uri,
-    State(options): State<LeptosOptions>,
     req: Request<Body>,
 ) -> AxumResponse {
     let accept_encoding = req
@@ -34,11 +30,7 @@ pub async fn file_and_error_handler(
     if res.status() == StatusCode::OK {
         res.into_response()
     } else {
-        let handler =
-            leptos_axum::render_app_to_stream(options.to_owned(), || {
-                error_template(None)
-            });
-        handler(req).await.into_response()
+        (StatusCode::NOT_FOUND, "Not found.").into_response()
     }
 }
 
