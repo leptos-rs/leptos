@@ -28,6 +28,11 @@ pub fn unescape(s: &str) -> String {
     js_sys::decode_uri_component(s).unwrap().into()
 }
 
+#[cfg(not(feature = "ssr"))]
+pub fn unescape_minimal(s: &str) -> String {
+    js_sys::decode_uri(s).unwrap().into()
+}
+
 #[cfg(feature = "ssr")]
 pub fn escape(s: &str) -> String {
     percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC)
