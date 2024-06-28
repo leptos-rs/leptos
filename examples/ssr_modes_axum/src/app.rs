@@ -3,12 +3,14 @@ use leptos::prelude::*;
 use leptos_meta::MetaTags;
 use leptos_meta::*;
 use leptos_router::{
-    components::{FlatRoutes, Route, Router},
+    components::{FlatRoutes, ProtectedRoute, Route, Router},
     hooks::use_params,
     params::Params,
     ParamSegment, SsrMode, StaticSegment,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ssr")]
+use std::sync::atomic::{AtomicBool, Ordering};
 use thiserror::Error;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -29,17 +31,52 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "ssr")]
+static IS_ADMIN: AtomicBool = AtomicBool::new(true);
+
+#[server]
+pub async fn is_admin() -> Result<bool, ServerFnError> {
+    Ok(IS_ADMIN.load(Ordering::Relaxed))
+}
+
+#[server]
+pub async fn set_is_admin(is_admin: bool) -> Result<(), ServerFnError> {
+    IS_ADMIN.store(is_admin, Ordering::Relaxed);
+    Ok(())
+}
+
 #[component]
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
     let fallback = || view! { "Page not found." }.into_view();
+    let toggle_admin = ServerAction::<SetIsAdmin>::new();
+    let is_admin =
+        Resource::new(move || toggle_admin.version().get(), |_| is_admin());
 
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
         <Title text="Welcome to Leptos"/>
         <Meta name="color-scheme" content="dark light"/>
         <Router>
+            <nav>
+                <a href="/">"Home"</a>
+                <a href="/admin">"Admin"</a>
+                <Transition>
+                    <ActionForm action=toggle_admin>
+                        <input type="hidden" name="is_admin"
+                            value=move || (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default()).to_string()
+                        />
+                        <button>
+                            {move || if is_admin.get().and_then(Result::ok).unwrap_or_default() {
+                                "Log Out"
+                            } else {
+                                "Log In"
+                            }}
+                        </button>
+                    </ActionForm>
+                </Transition>
+            </nav>
             <main>
                 <FlatRoutes fallback>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
@@ -56,6 +93,13 @@ pub fn App() -> impl IntoView {
                         path=(StaticSegment("post_in_order"), ParamSegment("id"))
                         view=Post
                         ssr=SsrMode::InOrder
+                    />
+                    <ProtectedRoute
+                        path=StaticSegment("admin")
+                        view=Admin
+                        ssr=SsrMode::Async
+                        condition=move || is_admin.get().map(|n| n.unwrap_or(false))
+                        redirect_path=|| "/"
                     />
                 </FlatRoutes>
             </main>
@@ -84,7 +128,7 @@ fn HomePage() -> impl IntoView {
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
             <p>"number of posts: " {Suspend(async move { posts2.await })}</p>
-            </Suspense>
+        </Suspense>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
             <ul>
                 <For each=posts key=|post| post.id let:post>
@@ -161,6 +205,13 @@ fn Post() -> impl IntoView {
                 }
             }>{post_view}</ErrorBoundary>
         </Suspense>
+    }
+}
+
+#[component]
+pub fn Admin() -> impl IntoView {
+    view! {
+        <p>"You can only see this page if you're logged in."</p>
     }
 }
 
