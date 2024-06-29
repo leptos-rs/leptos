@@ -392,7 +392,7 @@ where
             let pending_dispatches = Rc::clone(&self.pending_dispatches);
             let value = self.value;
             pending.set(true);
-            pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
+            pending_dispatches.set(pending_dispatches.get().wrapping_add(1));
             spawn_local(async move {
                 let new_value = fut.await;
                 let res = try_batch(move || {
