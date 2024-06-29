@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.1.0-alpha2"
+version = "0.1.0-alpha3"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
