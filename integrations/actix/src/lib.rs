@@ -710,7 +710,6 @@ fn provide_contexts(
     provide_context(res_options.clone());
     provide_context(req);
     provide_server_redirect(redirect);
-    #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
 
