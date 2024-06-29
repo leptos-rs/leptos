@@ -13,8 +13,6 @@ use leptos::{
     },
     *,
 };
-#[cfg(feature = "transition")]
-use leptos_reactive::use_transition;
 use send_wrapper::SendWrapper;
 use std::{cell::RefCell, rc::Rc};
 use thiserror::Error;
@@ -188,10 +186,6 @@ impl RouterContext {
         // the current History.state
         let (state, set_state) =
             create_signal(source.with_untracked(|s| s.state.clone()));
-
-        // we'll use this transition to wait for async resources to load when navigating to a new route
-        #[cfg(feature = "transition")]
-        let transition = use_transition();
 
         // Each field of `location` reactively represents a different part of the current location
         let location = create_location(reference, state);

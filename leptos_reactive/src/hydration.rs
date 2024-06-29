@@ -31,7 +31,7 @@ pub struct SharedContext {
 impl SharedContext {
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn all_resources() -> Vec<ResourceId> {
@@ -41,7 +41,7 @@ impl SharedContext {
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope that are
     /// pending from the server.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_resources() -> Vec<ResourceId> {
@@ -50,7 +50,7 @@ impl SharedContext {
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn serialization_resolvers(
@@ -62,7 +62,7 @@ impl SharedContext {
     /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
     /// calling the `resolver` when its resources are all resolved.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn register_suspense(
@@ -121,7 +121,7 @@ impl SharedContext {
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn take_pending_fragment(id: &str) -> Option<FragmentData> {
@@ -135,7 +135,7 @@ impl SharedContext {
 
     /// A future that will resolve when all blocking fragments are ready.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn blocking_fragments_ready() -> PinnedFuture<()> {
@@ -162,7 +162,7 @@ impl SharedContext {
     /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_fragments() -> HashMap<String, FragmentData> {
@@ -176,7 +176,7 @@ impl SharedContext {
     /// Registers the given element as an island with the current reactive owner.
     #[cfg(all(feature = "hydrate", feature = "experimental-islands"))]
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn register_island(el: &web_sys::HtmlElement) {
@@ -190,7 +190,7 @@ impl SharedContext {
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn fragment_has_local_resources(fragment: &str) -> bool {
@@ -204,7 +204,7 @@ impl SharedContext {
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn fragments_with_local_resources() -> HashSet<String> {
@@ -216,7 +216,7 @@ impl SharedContext {
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn register_local_fragment(key: String) {
