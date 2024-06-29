@@ -1,0 +1,15 @@
+[build]
+# The index HTML file to drive the bundling process.
+target = "index.html"
+
+[serve]
+address = "127.0.0.1"
+port = 9000
+
+[watch]
+watch = ["./"]
+
+[[proxy]]
+# This proxy specifies only the backend, which is the only required field. In this example,
+# request URIs are not modified when proxied.
+backend = "http://localhost:3000/api/"
