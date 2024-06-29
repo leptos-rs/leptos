@@ -20,7 +20,7 @@ syn = { version = "2", features = [
 	"printing",
 ] }
 quote = "1"
-rstml = "0.11.0"
+rstml = "0.11.2"
 proc-macro2 = { version = "1", features = ["span-locations", "nightly"] }
 parking_lot = "0.12"
 walkdir = "2"

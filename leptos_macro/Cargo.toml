@@ -22,7 +22,7 @@ proc-macro-error = { version = "1", default-features = false }
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
-rstml = "0.11.0"
+rstml = "0.11.2"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
