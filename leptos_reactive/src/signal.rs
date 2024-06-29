@@ -332,7 +332,7 @@ pub trait SignalDispose {
 /// #
 /// ```
 #[cfg_attr(
- any(debug_assertions, features="ssr"),
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -354,7 +354,7 @@ pub fn create_signal<T>(value: T) -> (ReadSignal<T>, WriteSignal<T>) {
 /// **Note**: If used on the server side during server rendering, this will return `None`
 /// immediately and not begin driving the stream.
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 pub fn create_signal_from_stream<T>(
@@ -1143,7 +1143,7 @@ impl<T> Hash for WriteSignal<T> {
 /// #
 /// ```
 #[cfg_attr(
- any(debug_assertions, features="ssr"),
+ any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -1432,17 +1432,17 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
 
 impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
- any(debug_assertions, features="ssr"),
-    instrument(
-        level = "trace",
-        name = "RwSignal::update_untracked()",
-        skip_all,
-        fields(
-            id = ?self.id,
-            defined_at = %self.defined_at,
-            ty = %std::any::type_name::<T>()
+        any(debug_assertions, feature="ssr"),
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
     )]
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {

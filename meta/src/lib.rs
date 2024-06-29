@@ -117,7 +117,7 @@ impl core::fmt::Debug for MetaTagsContext {
 
 impl MetaTagsContext {
     /// Converts metadata tags into an HTML string.
-    #[cfg(any(feature = "ssr", docs))]
+    #[cfg(any(feature = "ssr", doc))]
     pub fn as_string(&self) -> String {
         self.els
             .borrow()

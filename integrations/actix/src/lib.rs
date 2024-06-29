@@ -729,10 +729,7 @@ async fn stream_app(
 
     build_stream_response(options, res_options, stream, runtime).await
 }
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    instrument(level = "trace", skip_all,)
-)]
+#[cfg_attr(any(debug_assertions), instrument(level = "trace", skip_all,))]
 async fn stream_app_in_order(
     options: &LeptosOptions,
     app: impl FnOnce() -> View + 'static,
