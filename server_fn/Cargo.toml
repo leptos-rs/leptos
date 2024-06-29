@@ -111,6 +111,7 @@ ssr = ["inventory"]
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
 
 # disables some feature combos for testing in CI
 [package.metadata.cargo-all-features]

@@ -20,3 +20,6 @@ typed-builder = "0.18"
 tokio = { version = "1", features = ["rt", "macros"] }
 tempfile = "3"
 temp-env = { version = "0.3.6", features = ["async_closure"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
