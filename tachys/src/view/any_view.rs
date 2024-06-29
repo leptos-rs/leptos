@@ -236,10 +236,8 @@ where
                     .expect("AnyView::rebuild couldn't downcast state");
                 value.rebuild(state);
             } else {
-                let new = value.into_any().build();
-
-                // TODO mount new state
-                /*R::mount_before(&mut new, state.placeholder.as_ref());*/
+                let mut new = value.into_any().build();
+                state.insert_before_this(&mut new);
                 state.unmount();
                 *state = new;
             }
