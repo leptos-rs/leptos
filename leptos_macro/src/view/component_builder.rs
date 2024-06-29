@@ -2,9 +2,9 @@ use super::{fragment_to_tokens, TagType};
 use crate::view::attribute_absolute;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{NodeAttribute, NodeBlock, NodeElement};
+use rstml::node::{KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement, NodeName};
 use std::collections::HashMap;
-use syn::{spanned::Spanned, Expr, ExprRange, RangeLimits, Stmt};
+use syn::{spanned::Spanned, Expr, ExprRange, RangeLimits, Stmt, ExprPath};
 
 pub(crate) fn component_to_tokens(
     node: &NodeElement,
@@ -56,7 +56,7 @@ pub(crate) fn component_to_tokens(
         .filter(|(idx, attr)| {
             idx < &spread_marker && {
                 let attr_key = attr.key.to_string();
-                !attr_key.starts_with("let:")
+                !is_attr_let(&attr.key)
                     && !attr_key.starts_with("clone:")
                     && !attr_key.starts_with("class:")
                     && !attr_key.starts_with("style:")
@@ -86,10 +86,20 @@ pub(crate) fn component_to_tokens(
     let items_to_bind = attrs
         .clone()
         .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("let:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+            if !is_attr_let(&attr.key) {
+                return None;
+            }
+
+            let KeyedAttributeValue::Binding(binding) = &attr.possible_value else {
+                if let Some(ident) = attr.key.to_string().strip_prefix("let:") {
+                    let ident1 = format_ident!("{ident}", span = attr.key.span());
+                    return Some(quote! { #ident1 });
+                } else {
+                    return None;
+                }
+            };
+            let inputs = &binding.inputs;
+            Some(quote! { #inputs })
         })
         .collect::<Vec<_>>();
 
@@ -285,4 +295,14 @@ pub(crate) fn component_to_tokens(
     IdeTagHelper::add_component_completion(&mut component, node); */
 
     component
+}
+
+fn is_attr_let(key: &NodeName) -> bool {
+    if key.to_string().starts_with("let:") {
+        true
+    } else if let NodeName::Path(ExprPath { path, .. }) = key {
+        path.segments.len() == 1 && path.segments[0].ident == "let"
+    } else {
+        false
+    }
 }
