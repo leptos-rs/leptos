@@ -14,109 +14,131 @@ use next_tuple::NextTuple;
 use once_cell::unsync::Lazy;
 use std::{fmt::Debug, marker::PhantomData};
 
+macro_rules! html_element_inner {
+    (
+        #[$meta:meta]
+        $tag:ident
+        $struct_name:ident
+        $ty:ident
+        [$($attr:ty),*]
+        $escape:literal
+    ) => {
+        paste::paste! {
+            #[$meta]
+            #[track_caller]
+            pub fn $tag<Rndr>() -> HtmlElement<$struct_name, (), (), Rndr>
+            where
+                Rndr: Renderer
+            {
+                HtmlElement {
+                    tag: $struct_name,
+                    attributes: (),
+                    children: (),
+                    rndr: PhantomData,
+                    #[cfg(debug_assertions)]
+                    defined_at: std::panic::Location::caller()
+                }
+            }
+
+            #[$meta]
+            #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+            pub struct $struct_name;
+
+            // Typed attribute methods
+            impl<At, Ch, Rndr> HtmlElement<$struct_name, At, Ch, Rndr>
+            where
+                At: Attribute<Rndr>,
+                Ch: Render<Rndr>,
+                Rndr: Renderer,
+            {
+                $(
+                    #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
+                    pub fn $attr<V>(self, value: V) -> HtmlElement <
+                        $struct_name,
+                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
+                        Ch, Rndr
+                    >
+                    where
+                        V: AttributeValue<Rndr>,
+                        At: NextTuple,
+                        <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
+                    {
+                        let HtmlElement { tag, rndr, children, attributes,
+                            #[cfg(debug_assertions)]
+                            defined_at
+                        } = self;
+                        HtmlElement {
+                            tag,
+                            rndr,
+                            children,
+                            attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
+                            #[cfg(debug_assertions)]
+                            defined_at
+                        }
+                    }
+                )*
+            }
+
+            impl ElementType for $struct_name {
+                type Output = web_sys::$ty;
+
+                const TAG: &'static str = stringify!($tag);
+                const SELF_CLOSING: bool = false;
+                const ESCAPE_CHILDREN: bool = $escape;
+
+                #[inline(always)]
+                fn tag(&self) -> &str {
+                    Self::TAG
+                }
+            }
+
+            impl ElementWithChildren for $struct_name {}
+
+            impl CreateElement<Dom> for $struct_name {
+                #[track_caller]
+                #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", fields(callsite = std::panic::Location::caller().to_string())))]
+                fn create_element(&self) -> <Dom as Renderer>::Element {
+                    use wasm_bindgen::JsCast;
+
+                    thread_local! {
+                        static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
+                            crate::dom::document().create_element(stringify!($tag)).unwrap()
+                        });
+                    }
+                    ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
+                }
+            }
+
+            #[cfg(feature = "sledgehammer")]
+            impl CreateElement<Sledgehammer> for $struct_name {
+                fn create_element(&self) -> <Sledgehammer as Renderer>::Element {
+                    Sledgehammer::element(stringify!($tag))
+                }
+            }
+        }
+    };
+}
+
 macro_rules! html_elements {
 	($(
         #[$meta:meta]
-        $tag:ident $ty:ident [$($attr:ty),*]
+        $tag:ident
+        $ty:ident
+        [$($attr:ty),*]
         $escape:literal
       ),*
       $(,)?
     ) => {
         paste::paste! {
-            $(
+            $(html_element_inner! {
                 #[$meta]
-                #[track_caller]
-                pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
-                where
-                    Rndr: Renderer
-                {
-                    HtmlElement {
-                        tag: [<$tag:camel>],
-                        attributes: (),
-                        children: (),
-                        rndr: PhantomData,
-                        #[cfg(debug_assertions)]
-                        defined_at: std::panic::Location::caller()
-                    }
-                }
-
-                #[$meta]
-                #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-                pub struct [<$tag:camel>];
-
-                // Typed attribute methods
-                impl<At, Ch, Rndr> HtmlElement<[<$tag:camel>], At, Ch, Rndr>
-                where
-                    At: Attribute<Rndr>,
-                    Ch: Render<Rndr>,
-                    Rndr: Renderer,
-                {
-                    $(
-                        #[doc = concat!("The [`", stringify!($attr), "`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/", stringify!($tag), "#", stringify!($attr) ,") attribute on `<", stringify!($tag), ">`.")]
-                        pub fn $attr<V>(self, value: V) -> HtmlElement <
-                            [<$tag:camel>],
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
-                            Ch, Rndr
-                        >
-                        where
-                            V: AttributeValue<Rndr>,
-                            At: NextTuple,
-                            <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>: Attribute<Rndr>,
-                        {
-                            let HtmlElement { tag, rndr, children, attributes,
-                                #[cfg(debug_assertions)]
-                                defined_at
-                            } = self;
-                            HtmlElement {
-                                tag,
-                                rndr,
-                                children,
-                                attributes: attributes.next_tuple($crate::html::attribute::$attr(value)),
-                                #[cfg(debug_assertions)]
-                                defined_at
-                            }
-                        }
-                    )*
-                }
-
-                impl ElementType for [<$tag:camel>] {
-                    type Output = web_sys::$ty;
-
-                    const TAG: &'static str = stringify!($tag);
-                    const SELF_CLOSING: bool = false;
-                    const ESCAPE_CHILDREN: bool = $escape;
-
-                    #[inline(always)]
-                    fn tag(&self) -> &str {
-                        Self::TAG
-                    }
-                }
-
-                impl ElementWithChildren for [<$tag:camel>] {}
-
-                impl CreateElement<Dom> for [<$tag:camel>] {
-                    #[track_caller]
-                #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", fields(callsite = std::panic::Location::caller().to_string())))]
-                    fn create_element(&self) -> <Dom as Renderer>::Element {
-                        use wasm_bindgen::JsCast;
-
-                        thread_local! {
-                            static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
-                                crate::dom::document().create_element(stringify!($tag)).unwrap()
-                            });
-                        }
-                        ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
-                    }
-                }
-
-                #[cfg(feature = "sledgehammer")]
-                impl CreateElement<Sledgehammer> for [<$tag:camel>] {
-                    fn create_element(&self) -> <Sledgehammer as Renderer>::Element {
-                        Sledgehammer::element(stringify!($tag))
-                    }
-                }
-            )*
-		}
+                $tag
+                [<$tag:camel>]
+                $ty
+                [$($attr),*]
+                $escape
+            })*
+        }
     }
 }
 
@@ -444,45 +466,7 @@ html_elements! {
     video HtmlVideoElement [controls, controlslist, crossorigin, disablepictureinpicture, disableremoteplayback, height, r#loop, muted, playsinline, poster, preload, src, width] true,
 }
 
-pub fn option<Rndr>() -> HtmlElement<Option_, (), (), Rndr>
-where
-    Rndr: Renderer,
-{
-    HtmlElement {
-        tag: Option_,
-        rndr: PhantomData,
-        attributes: (),
-        children: (),
-        #[cfg(debug_assertions)]
-        defined_at: std::panic::Location::caller(),
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Option_;
-
-impl ElementType for Option_ {
-    type Output = web_sys::HtmlOutputElement;
-
-    const TAG: &'static str = "option";
-    const SELF_CLOSING: bool = false;
-    const ESCAPE_CHILDREN: bool = true;
-
-    #[inline(always)]
-    fn tag(&self) -> &str {
-        Self::TAG
-    }
-}
-
-impl CreateElement<Dom> for Option_ {
-    fn create_element(&self) -> <Dom as Renderer>::Element {
-        use wasm_bindgen::JsCast;
-
-        thread_local! {
-            static ELEMENT: Lazy<<Dom as Renderer>::Element> = Lazy::new(|| {
-                crate::dom::document().create_element("option").unwrap()
-            });
-        }
-        ELEMENT.with(|e| e.clone_node()).unwrap().unchecked_into()
-    }
+html_element_inner! {
+    /// The `<option>` HTML element is used to define an item contained in a `<select>`, an` <optgroup>`, or a `<datalist>` element. As such, `<option>` can represent menu items in popups and other lists of items in an HTML document.
+    option Option_ HtmlOptionElement [disabled, label, selected, value] true
 }
