@@ -22,3 +22,6 @@ ssr = []
 actix = []
 axum = []
 reqwest = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

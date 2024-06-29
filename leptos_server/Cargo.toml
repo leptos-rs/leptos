@@ -32,3 +32,6 @@ nightly = ["leptos_reactive/nightly"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

@@ -178,3 +178,6 @@ trace-component-props = []
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "trace-component-props"]
 skip_feature_sets = [["web", "ssr"]]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

@@ -141,3 +141,6 @@ skip_feature_sets = [
     "rustls",
   ],
 ]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

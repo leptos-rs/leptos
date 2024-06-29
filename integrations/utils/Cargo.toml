@@ -18,3 +18,6 @@ tracing = "0.1.37"
 
 [features]
 experimental-islands = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
