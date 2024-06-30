@@ -613,13 +613,14 @@ mod stable {
         computed::{ArcMemo, Memo},
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
     class_signal!(RwSignal);
     class_signal!(ReadSignal);
     class_signal!(Memo);
     class_signal!(Signal);
+    class_signal!(MaybeSignal);
     class_signal_unsend!(ArcRwSignal);
     class_signal_unsend!(ArcReadSignal);
     class_signal!(ArcMemo);
