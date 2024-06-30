@@ -334,6 +334,20 @@ pub mod read {
         }
     }
 
+    impl<T: Clone + Send + Sync + 'static> From<T> for ArcSignal<T> {
+        #[track_caller]
+        fn from(value: T) -> Self {
+            Self::derive(move || value.clone())
+        }
+    }
+
+    impl<T: Clone + Send + Sync + 'static> From<T> for Signal<T> {
+        #[track_caller]
+        fn from(value: T) -> Self {
+            Self::derive(move || value.clone())
+        }
+    }
+
     impl<T: Send + Sync + 'static> From<ArcSignal<T>> for Signal<T> {
         #[track_caller]
         fn from(value: ArcSignal<T>) -> Self {
