@@ -193,7 +193,7 @@ impl<In, Out> Callable<In, Out> for Callback<In, Out> {
 
 impl<In, Out> Clone for Callback<In, Out> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
