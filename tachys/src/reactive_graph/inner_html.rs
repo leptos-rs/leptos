@@ -78,7 +78,7 @@ mod stable {
         effect::RenderEffect,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
     macro_rules! inner_html_signal {
@@ -179,6 +179,7 @@ mod stable {
     inner_html_signal!(ReadSignal);
     inner_html_signal!(Memo);
     inner_html_signal!(Signal);
+    inner_html_signal!(MaybeSignal);
     inner_html_signal_unsend!(ArcRwSignal);
     inner_html_signal_unsend!(ArcReadSignal);
     inner_html_signal!(ArcMemo);

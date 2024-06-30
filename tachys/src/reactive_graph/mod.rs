@@ -415,7 +415,7 @@ mod stable {
         computed::{ArcMemo, Memo},
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
     macro_rules! signal_impl {
@@ -732,6 +732,7 @@ mod stable {
     signal_impl!(ReadSignal false);
     signal_impl!(Memo true);
     signal_impl!(Signal true);
+    signal_impl!(MaybeSignal true);
     signal_impl_unsend!(ArcRwSignal false);
     signal_impl_unsend!(ArcReadSignal false);
     signal_impl!(ArcMemo false);

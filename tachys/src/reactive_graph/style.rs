@@ -363,7 +363,7 @@ mod stable {
         computed::{ArcMemo, Memo},
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
     use std::borrow::Cow;
 
@@ -371,6 +371,7 @@ mod stable {
     style_signal!(ReadSignal);
     style_signal!(Memo);
     style_signal!(Signal);
+    style_signal!(MaybeSignal);
     style_signal_unsend!(ArcRwSignal);
     style_signal_unsend!(ArcReadSignal);
     style_signal!(ArcMemo);
