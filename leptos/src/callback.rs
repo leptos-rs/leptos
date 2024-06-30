@@ -197,6 +197,8 @@ impl<In, Out> Clone for Callback<In, Out> {
     }
 }
 
+impl<In, Out> Copy for Callback<In, Out> {}
+
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
     pub fn new<F>(fun: F) -> Self
