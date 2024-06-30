@@ -111,6 +111,7 @@ where
 }
 
 impl<T: 'static> ArcAsyncDerived<T> {
+    #[track_caller]
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         AsyncDerivedRefFuture {
             source: self.to_any_source(),
@@ -118,6 +119,14 @@ impl<T: 'static> ArcAsyncDerived<T> {
             loading: Arc::clone(&self.loading),
             wakers: Arc::clone(&self.wakers),
         }
+    }
+}
+
+impl<T: 'static> AsyncDerived<T> {
+    #[track_caller]
+    pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
+        let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
+        this.by_ref()
     }
 }
 
