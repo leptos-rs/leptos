@@ -184,7 +184,6 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    #[track_caller]
     pub fn new_with_encoding<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -271,7 +270,7 @@ where
     T: Clone + 'static,
 {
     type Output = T;
-    type IntoFuture = ArcAsyncDerivedFuture<T>;
+    type IntoFuture = AsyncDerivedFuture<T>;
 
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
@@ -282,7 +281,7 @@ impl<T, Ser> ArcResource<T, Ser>
 where
     T: 'static,
 {
-    pub fn by_ref(&self) -> ArcAsyncDerivedRefFuture<T> {
+    pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         self.data.by_ref()
     }
 }
@@ -377,7 +376,6 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    #[track_caller]
     pub fn new_serde_wb<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -398,7 +396,6 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    #[track_caller]
     pub fn new_miniserde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -419,7 +416,6 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    #[track_caller]
     pub fn new_serde_lite<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -440,7 +436,6 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    #[track_caller]
     pub fn new_rkyv<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -461,7 +456,6 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    #[track_caller]
     pub fn new_with_encoding<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -487,7 +481,6 @@ where
     type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
-    #[track_caller]
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
     }
