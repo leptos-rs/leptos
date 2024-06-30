@@ -42,7 +42,6 @@ where
                 value.hydrate::<FROM_SERVER>(&el)
             }
         })
-        .into()
     }
 
     fn build(mut self, el: &R::Element) -> Self::State {
@@ -56,7 +55,6 @@ where
                 value.build(&el)
             }
         })
-        .into()
     }
 
     fn rebuild(mut self, state: &mut Self::State) {
@@ -125,7 +123,6 @@ where
             }
             (class_list.clone(), include)
         })
-        .into()
     }
 
     fn build(self, el: &R::Element) -> Self::State {
@@ -153,7 +150,6 @@ where
             }
             (class_list.clone(), include)
         })
-        .into()
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -238,7 +234,6 @@ where
             }
             (class_list.clone(), include)
         })
-        .into()
     }
 
     fn build(self, el: &R::Element) -> Self::State {
@@ -271,7 +266,6 @@ where
             }
             (class_list.clone(), include)
         })
-        .into()
     }
 
     fn rebuild(self, state: &mut Self::State) {
