@@ -94,7 +94,7 @@ mod stable {
         effect::RenderEffect,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
-        wrappers::read::{ArcSignal, Signal},
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
     macro_rules! property_signal {
@@ -187,6 +187,7 @@ mod stable {
     property_signal!(ReadSignal);
     property_signal!(Memo);
     property_signal!(Signal);
+    property_signal!(MaybeSignal);
     property_signal_unsend!(ArcRwSignal);
     property_signal_unsend!(ArcReadSignal);
     property_signal!(ArcMemo);
