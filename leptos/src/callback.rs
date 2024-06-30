@@ -193,9 +193,11 @@ impl<In, Out> Callable<In, Out> for Callback<In, Out> {
 
 impl<In, Out> Clone for Callback<In, Out> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
+
+impl<In, Out> Copy for Callback<In, Out> {}
 
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
