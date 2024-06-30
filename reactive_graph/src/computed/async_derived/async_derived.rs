@@ -1,4 +1,4 @@
-use super::{ArcAsyncDerived, ArcAsyncDerivedReadyFuture};
+use super::{ArcAsyncDerived, AsyncDerivedReadyFuture};
 use crate::{
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
@@ -99,7 +99,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     }
 
     #[track_caller]
-    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture {
+    pub fn ready(&self) -> AsyncDerivedReadyFuture {
         let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
         this.ready()
     }

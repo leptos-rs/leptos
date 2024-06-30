@@ -1,5 +1,5 @@
 use super::{
-    inner::ArcAsyncDerivedInner, ArcAsyncDerivedReadyFuture, ScopedFuture,
+    inner::ArcAsyncDerivedInner, AsyncDerivedReadyFuture, ScopedFuture,
 };
 #[cfg(feature = "sandboxed-arenas")]
 use crate::owner::Sandboxed;
@@ -313,8 +313,8 @@ impl<T: 'static> ArcAsyncDerived<T> {
         this
     }
 
-    pub fn ready(&self) -> ArcAsyncDerivedReadyFuture {
-        ArcAsyncDerivedReadyFuture {
+    pub fn ready(&self) -> AsyncDerivedReadyFuture {
+        AsyncDerivedReadyFuture {
             source: self.to_any_source(),
             loading: Arc::clone(&self.loading),
             wakers: Arc::clone(&self.wakers),
