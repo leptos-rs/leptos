@@ -2,7 +2,7 @@ use super::{ArcAsyncDerived, AsyncDerived};
 use crate::{
     graph::{AnySource, ToAnySource},
     signal::guards::{AsyncPlain, Mapped, ReadGuard},
-    traits::Track,
+    traits::{DefinedAt, Track},
     unwrap_signal,
 };
 use futures::pin_mut;
