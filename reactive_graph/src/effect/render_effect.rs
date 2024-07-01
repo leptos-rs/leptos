@@ -59,12 +59,6 @@ where
                 observer,
                 sources: SourceSet::new(),
             }));
-            crate::log_warning(format_args!(
-                "RenderEffect::<{}> owner is {:?} {:?}",
-                std::any::type_name::<T>(),
-                owner.debug_id(),
-                owner.ancestry()
-            ));
 
             let initial_value = cfg!(feature = "effects").then(|| {
                 owner.with(|| {
