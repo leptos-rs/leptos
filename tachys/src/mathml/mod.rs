@@ -148,7 +148,7 @@ mathml_elements![
     mn [],
     mo [
         accent, fence, lspace, maxsize, minsize, movablelimits,
-        rspace, separator, stretchy, symmetric
+        rspace, separator, stretchy, symmetric, form
     ],
     ms [],
     mspace [height, width],
