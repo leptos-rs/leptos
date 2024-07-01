@@ -13,7 +13,7 @@ use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::ScopedFuture,
-    owner::{provide_context, use_context, Owner},
+    owner::{on_cleanup, provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{GetUntracked, ReadUntracked, Set, Track, Trigger},
     wrappers::write::SignalSetter,
@@ -761,12 +761,22 @@ where
     let ctx = use_context::<RouteContext<R>>()
         .expect("<Outlet/> used without RouteContext being provided.");
     let RouteContext { trigger, rx, .. } = ctx;
-    let rx = rx.lock().or_poisoned().take().expect(
-        "Tried to render <Outlet/> but could not find the view receiver. Are \
-         you using the same <Outlet/> twice?",
-    );
+    let this_rx = rx.lock().or_poisoned().take().expect("<Outlet/> channel could not be acquired. Are you rendering the same <Outlet/> twice?");
+    let this_rx = Arc::new(Mutex::new(Some(this_rx)));
+    on_cleanup({
+        let this_rx = Arc::clone(&this_rx);
+        move || {
+            leptos::logging::log!("restoring the channel");
+            *rx.lock().or_poisoned() =
+                Some(this_rx.lock().or_poisoned().take().unwrap());
+        }
+    });
     move || {
         trigger.track();
-        rx.try_recv().map(|view| view())
+        this_rx
+            .lock()
+            .or_poisoned()
+            .as_ref()
+            .and_then(|rx| rx.try_recv().ok().map(|view| view()))
     }
 }
