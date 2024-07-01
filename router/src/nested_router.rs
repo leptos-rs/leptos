@@ -13,11 +13,12 @@ use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::ScopedFuture,
-    owner::{on_cleanup, provide_context, use_context, Owner},
+    owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{GetUntracked, ReadUntracked, Set, Track, Trigger},
     wrappers::write::SignalSetter,
 };
+use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
     future::Future,
@@ -26,14 +27,11 @@ use std::{
     mem,
     pin::Pin,
     rc::Rc,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 use tachys::{
     hydration::Cursor,
-    reactive_graph::OwnedView,
+    reactive_graph::{OwnedView, Suspend},
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -442,9 +440,11 @@ where
     }
 }
 
-type OutletViewFn<R> = Box<dyn FnOnce() -> AnyView<R> + Send>;
+type OutletViewFn<R> = Box<
+    dyn Fn() -> Suspend<Pin<Box<dyn Future<Output = AnyView<R>> + Send>>>
+        + Send,
+>;
 
-#[derive(Debug)]
 pub(crate) struct RouteContext<R>
 where
     R: Renderer,
@@ -456,8 +456,7 @@ where
     owner: Owner,
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
-    tx: Sender<OutletViewFn<R>>,
-    rx: Arc<Mutex<Option<Receiver<OutletViewFn<R>>>>>,
+    view_fn: Arc<Mutex<OutletViewFn<R>>>,
 }
 
 impl<R> RouteContext<R>
@@ -482,8 +481,7 @@ where
             owner: self.owner.clone(),
             matched: self.matched.clone(),
             base: self.base.clone(),
-            tx: self.tx.clone(),
-            rx: self.rx.clone(),
+            view_fn: Arc::clone(&self.view_fn),
         }
     }
 }
@@ -554,7 +552,6 @@ where
         // storing a view in a signal would mean we need to keep a copy stored in the signal and
         // require that we can clone it out
         let trigger = ArcTrigger::new();
-        let (tx, rx) = mpsc::channel();
 
         // add this outlet to the end of the outlet stack used for diffing
         let outlet = RouteContext {
@@ -564,8 +561,9 @@ where
             params,
             owner: owner.clone(),
             matched,
-            tx: tx.clone(),
-            rx: Arc::new(Mutex::new(Some(rx))),
+            view_fn: Arc::new(Mutex::new(Box::new(|| {
+                Suspend(Box::pin(async { ().into_any() }))
+            }))),
             base: base.clone(),
         };
         outlets.push(outlet.clone());
@@ -579,16 +577,23 @@ where
                 let params = outlet.params.clone();
                 let url = outlet.url.clone();
                 let matched = Matched(outlet.matched.clone());
+                let view_fn = Arc::clone(&outlet.view_fn);
                 async move {
                     provide_context(params);
                     provide_context(url);
                     provide_context(matched);
-                    let view =
-                        owner.with(|| ScopedFuture::new(view.choose())).await;
-                    tx.send(Box::new(move || {
-                        owner.with(|| OwnedView::new(view).into_any())
-                    }))
-                    .unwrap();
+                    view.preload().await;
+                    *view_fn.lock().or_poisoned() = Box::new(move || {
+                        let owner = owner.clone();
+                        let view = view.clone();
+                        Suspend(Box::pin(async move {
+                            let view = SendWrapper::new(
+                                owner.with(|| ScopedFuture::new(view.choose())),
+                            );
+                            let view = view.await;
+                            owner.with(|| OwnedView::new(view).into_any())
+                        }))
+                    });
                     trigger
                 }
             })
@@ -673,21 +678,33 @@ where
                         ScopedFuture::new({
                             let owner = owner.clone();
                             let trigger = current.trigger.clone();
-                            let tx = current.tx.clone();
                             let url = current.url.clone();
                             let params = current.params.clone();
                             let matched = Matched(current.matched.clone());
+                            let view_fn = Arc::clone(&current.view_fn);
                             async move {
                                 provide_context(params);
                                 provide_context(url);
                                 provide_context(matched);
-                                let view = owner
-                                    .with(|| ScopedFuture::new(view.choose()))
-                                    .await;
-                                tx.send(Box::new(move || {
-                                    owner.with(|| view.into_any())
-                                }))
-                                .unwrap();
+                                view.preload().await;
+                                *view_fn.lock().or_poisoned() =
+                                    Box::new(move || {
+                                        let owner = owner.clone();
+                                        let view = view.clone();
+                                        Suspend(Box::pin(async move {
+                                            let view = SendWrapper::new(
+                                                owner.with(|| {
+                                                    ScopedFuture::new(
+                                                        view.choose(),
+                                                    )
+                                                }),
+                                            );
+                                            let view = view.await;
+                                            owner.with(|| {
+                                                OwnedView::new(view).into_any()
+                                            })
+                                        }))
+                                    });
                                 drop(old_owner);
                                 drop(old_params);
                                 drop(old_url);
@@ -760,23 +777,11 @@ where
     _ = rndr;
     let ctx = use_context::<RouteContext<R>>()
         .expect("<Outlet/> used without RouteContext being provided.");
-    let RouteContext { trigger, rx, .. } = ctx;
-    let this_rx = rx.lock().or_poisoned().take().expect("<Outlet/> channel could not be acquired. Are you rendering the same <Outlet/> twice?");
-    let this_rx = Arc::new(Mutex::new(Some(this_rx)));
-    on_cleanup({
-        let this_rx = Arc::clone(&this_rx);
-        move || {
-            leptos::logging::log!("restoring the channel");
-            *rx.lock().or_poisoned() =
-                Some(this_rx.lock().or_poisoned().take().unwrap());
-        }
-    });
+    let RouteContext {
+        trigger, view_fn, ..
+    } = ctx;
     move || {
         trigger.track();
-        this_rx
-            .lock()
-            .or_poisoned()
-            .as_ref()
-            .and_then(|rx| rx.try_recv().ok().map(|view| view()))
+        (view_fn.lock().or_poisoned())()
     }
 }
