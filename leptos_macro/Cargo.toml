@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = { workspace = true }
+version = "0.7.0-alpha2"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
