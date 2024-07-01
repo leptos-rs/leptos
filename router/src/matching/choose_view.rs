@@ -7,17 +7,19 @@ use tachys::{
 
 pub trait ChooseView<R>
 where
-    Self: Send + 'static,
+    Self: Send + Clone + 'static,
     R: Renderer + 'static,
 {
     type Output;
 
     fn choose(self) -> impl Future<Output = Self::Output>;
+
+    fn preload(&self) -> impl Future<Output = ()>;
 }
 
 impl<F, View, R> ChooseView<R> for F
 where
-    F: Fn() -> View + Send + 'static,
+    F: Fn() -> View + Send + Clone + 'static,
     View: Render<R> + Send,
     R: Renderer + 'static,
 {
@@ -26,6 +28,8 @@ where
     async fn choose(self) -> Self::Output {
         self()
     }
+
+    async fn preload(&self) {}
 }
 
 impl<T, R> ChooseView<R> for Lazy<T>
@@ -38,6 +42,10 @@ where
     async fn choose(self) -> Self::Output {
         T::data().view().await
     }
+
+    async fn preload(&self) {
+        T::data().view().await;
+    }
 }
 
 pub trait LazyRoute<R>: Send + 'static
@@ -49,9 +57,15 @@ where
     fn view(self) -> impl Future<Output = AnyView<R>>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Lazy<T> {
     ty: PhantomData<T>,
+}
+
+impl<T> Clone for Lazy<T> {
+    fn clone(&self) -> Self {
+        Self { ty: self.ty }
+    }
 }
 
 impl<T> Lazy<T> {
@@ -75,6 +89,8 @@ where
     type Output = ();
 
     async fn choose(self) -> Self::Output {}
+
+    async fn preload(&self) {}
 }
 
 impl<A, B, Rndr> ChooseView<Rndr> for Either<A, B>
@@ -91,6 +107,13 @@ where
             Either::Right(f) => Either::Right(f.choose().await),
         }
     }
+
+    async fn preload(&self) {
+        match self {
+            Either::Left(f) => f.preload().await,
+            Either::Right(f) => f.preload().await,
+        }
+    }
 }
 
 macro_rules! tuples {
@@ -105,6 +128,12 @@ macro_rules! tuples {
             async fn choose(self ) -> Self::Output {
                 match self {
                     $($either::$ty(f) => $either::$ty(f.choose().await),)*
+                }
+            }
+
+            async fn preload(&self) {
+                match self {
+                    $($either::$ty(f) => f.preload().await,)*
                 }
             }
         }
