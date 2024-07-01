@@ -41,6 +41,12 @@ impl<T> Debug for ArcReadSignal<T> {
     }
 }
 
+impl<T: Default> Default for ArcReadSignal<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> PartialEq for ArcReadSignal<T> {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.value, &other.value)
