@@ -33,6 +33,7 @@ use std::{
 };
 use tachys::{
     hydration::Cursor,
+    reactive_graph::OwnedView,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -584,8 +585,10 @@ where
                     provide_context(matched);
                     let view =
                         owner.with(|| ScopedFuture::new(view.choose())).await;
-                    tx.send(Box::new(move || owner.with(|| view.into_any())))
-                        .unwrap();
+                    tx.send(Box::new(move || {
+                        owner.with(|| OwnedView::new(view).into_any())
+                    }))
+                    .unwrap();
                     trigger
                 }
             })
