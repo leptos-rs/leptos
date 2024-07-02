@@ -169,22 +169,32 @@ where
 
     fn to_html_with_buf(
         self,
-        _buf: &mut String,
-        _position: &mut Position,
-        _escape: bool,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
     ) {
-        todo!()
+        // TODO wrap this with a Suspense as needed
+        // currently this is just used for Routes, which creates a Suspend but never actually needs
+        // it (because we don't lazy-load routes on the server)
+        if let Some(inner) = self.0.now_or_never() {
+            inner.to_html_with_buf(buf, position, escape);
+        }
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
-        _buf: &mut StreamBuilder,
-        _position: &mut Position,
-        _escape: bool,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
     ) where
         Self: Sized,
     {
-        todo!();
+        // TODO wrap this with a Suspense as needed
+        // currently this is just used for Routes, which creates a Suspend but never actually needs
+        // it (because we don't lazy-load routes on the server)
+        if let Some(inner) = self.0.now_or_never() {
+            inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+        }
     }
 
     // TODO cancellation
