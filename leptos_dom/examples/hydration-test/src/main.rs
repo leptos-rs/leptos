@@ -2,7 +2,7 @@ use actix_files::Files;
 use actix_web::*;
 use futures::StreamExt;
 use hydration_test::*;
-use leptos::*;
+use leptos::prelude::*;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

@@ -38,7 +38,8 @@ pub trait Client<CustErr> {
 pub mod browser {
     use super::Client;
     use crate::{
-        error::ServerFnError, request::browser::BrowserRequest,
+        error::ServerFnError,
+        request::browser::{BrowserRequest, RequestInner},
         response::browser::BrowserResponse,
     };
     use send_wrapper::SendWrapper;
@@ -56,12 +57,23 @@ pub mod browser {
         ) -> impl Future<Output = Result<Self::Response, ServerFnError<CustErr>>>
                + Send {
             SendWrapper::new(async move {
-                req.0
-                    .take()
+                let req = req.0.take();
+                let RequestInner {
+                    request,
+                    mut abort_ctrl,
+                } = req;
+                let res = request
                     .send()
                     .await
                     .map(|res| BrowserResponse(SendWrapper::new(res)))
-                    .map_err(|e| ServerFnError::Request(e.to_string()))
+                    .map_err(|e| ServerFnError::Request(e.to_string()));
+
+                // at this point, the future has successfully resolved without being dropped, so we
+                // can prevent the `AbortController` from firing
+                if let Some(ctrl) = abort_ctrl.as_mut() {
+                    ctrl.prevent_cancellation();
+                }
+                res
             })
         }
     }

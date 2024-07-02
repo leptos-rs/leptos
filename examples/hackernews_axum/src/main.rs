@@ -1,24 +1,23 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use axum::{routing::get, Router};
-    use hackernews_axum::{fallback::file_and_error_handler, *};
-    use leptos::get_configuration;
+    use axum::Router;
+    use hackernews_axum::{shell, App};
+    use leptos::config::get_configuration;
     use leptos_axum::{generate_route_list, LeptosRoutes};
 
-    let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+    let conf = get_configuration(Some("Cargo.toml")).unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
 
-    simple_logger::init_with_level(log::Level::Debug)
-        .expect("couldn't initialize logging");
-
     // build our application with a route
     let app = Router::new()
-        .route("/favicon.ico", get(file_and_error_handler))
-        .leptos_routes(&leptos_options, routes, App)
-        .fallback(file_and_error_handler)
+        .leptos_routes(&leptos_options, routes, {
+            let leptos_options = leptos_options.clone();
+            move || shell(leptos_options.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);
 
     // run our app with hyper

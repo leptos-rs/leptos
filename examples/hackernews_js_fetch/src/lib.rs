@@ -41,7 +41,7 @@ pub fn hydrate() {
 mod ssr_imports {
     use crate::App;
     use axum::{routing::post, Router};
-    use leptos::*;
+    use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use log::{info, Level};
     use wasm_bindgen::prelude::wasm_bindgen;

@@ -1,4 +1,3 @@
-//! This module contains the `Oco` (Owned Clones Once) smart pointer,
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
 //!
@@ -7,10 +6,10 @@
 //!
 //! ```rust
 //! use oco_ref::Oco;
-//! use std::rc::Rc;
+//! use std::sync::Arc;
 //!
 //! let static_str = "foo";
-//! let rc_str: Rc<str> = "bar".into();
+//! let rc_str: Arc<str> = "bar".into();
 //! let owned_str: String = "baz".into();
 //!
 //! fn uses_oco(value: impl Into<Oco<'static, str>>) {
@@ -41,7 +40,7 @@ use std::{
     hash::Hash,
     ops::{Add, Deref},
     path::Path,
-    rc::Rc,
+    sync::Arc,
 };
 
 /// "Owned Clones Once": a smart pointer that can be either a reference,
@@ -66,7 +65,7 @@ pub enum Oco<'a, T: ?Sized + ToOwned + 'a> {
     /// A static reference to a value.
     Borrowed(&'a T),
     /// A reference counted pointer to a value.
-    Counted(Rc<T>),
+    Counted(Arc<T>),
     /// An owned value.
     Owned(<T as ToOwned>::Owned),
 }
@@ -84,10 +83,10 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// Checks if the value is [`Oco::Borrowed`].
     /// # Examples
     /// ```
-    /// # use std::rc::Rc;
+    /// # use std::sync::Arc;
     /// # use oco_ref::Oco;
     /// assert!(Oco::<str>::Borrowed("Hello").is_borrowed());
-    /// assert!(!Oco::<str>::Counted(Rc::from("Hello")).is_borrowed());
+    /// assert!(!Oco::<str>::Counted(Arc::from("Hello")).is_borrowed());
     /// assert!(!Oco::<str>::Owned("Hello".to_string()).is_borrowed());
     /// ```
     pub const fn is_borrowed(&self) -> bool {
@@ -97,9 +96,9 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// Checks if the value is [`Oco::Counted`].
     /// # Examples
     /// ```
-    /// # use std::rc::Rc;
+    /// # use std::sync::Arc;
     /// # use oco_ref::Oco;
-    /// assert!(Oco::<str>::Counted(Rc::from("Hello")).is_counted());
+    /// assert!(Oco::<str>::Counted(Arc::from("Hello")).is_counted());
     /// assert!(!Oco::<str>::Borrowed("Hello").is_counted());
     /// assert!(!Oco::<str>::Owned("Hello".to_string()).is_counted());
     /// ```
@@ -110,11 +109,11 @@ impl<'a, T: ?Sized + ToOwned> Oco<'a, T> {
     /// Checks if the value is [`Oco::Owned`].
     /// # Examples
     /// ```
-    /// # use std::rc::Rc;
+    /// # use std::sync::Arc;
     /// # use oco_ref::Oco;
     /// assert!(Oco::<str>::Owned("Hello".to_string()).is_owned());
     /// assert!(!Oco::<str>::Borrowed("Hello").is_owned());
-    /// assert!(!Oco::<str>::Counted(Rc::from("Hello")).is_owned());
+    /// assert!(!Oco::<str>::Counted(Arc::from("Hello")).is_owned());
     /// ```
     pub const fn is_owned(&self) -> bool {
         matches!(self, Oco::Owned(_))
@@ -253,7 +252,7 @@ where
 impl<'a, T> Clone for Oco<'a, T>
 where
     T: ?Sized + ToOwned + 'a,
-    for<'b> Rc<T>: From<&'b T>,
+    for<'b> Arc<T>: From<&'b T>,
 {
     /// Returns a new [`Oco`] with the same value as this one.
     /// If the value is [`Oco::Owned`], this will convert it into
@@ -278,8 +277,8 @@ where
     fn clone(&self) -> Self {
         match self {
             Self::Borrowed(v) => Self::Borrowed(v),
-            Self::Counted(v) => Self::Counted(Rc::clone(v)),
-            Self::Owned(v) => Self::Counted(Rc::from(v.borrow())),
+            Self::Counted(v) => Self::Counted(Arc::clone(v)),
+            Self::Owned(v) => Self::Counted(Arc::from(v.borrow())),
         }
     }
 }
@@ -287,8 +286,25 @@ where
 impl<'a, T> Oco<'a, T>
 where
     T: ?Sized + ToOwned + 'a,
-    for<'b> Rc<T>: From<&'b T>,
+    for<'b> Arc<T>: From<&'b T>,
 {
+    /// Upgrades the value in place, by converting into [`Oco::Counted`] if it
+    /// was previously [`Oco::Owned`].
+    /// # Examples
+    /// ```
+    /// # use oco_ref::Oco;
+    /// let mut oco1 = Oco::<str>::Owned("Hello".to_string());
+    /// assert!(oco1.is_owned());
+    /// oco1.upgrade_inplace();
+    /// assert!(oco1.is_counted());
+    /// ```
+    pub fn upgrade_inplace(&mut self) {
+        if let Self::Owned(v) = &*self {
+            let rc = Arc::from(v.borrow());
+            *self = Self::Counted(rc);
+        }
+    }
+
     /// Clones the value with inplace conversion into [`Oco::Counted`] if it
     /// was previously [`Oco::Owned`].
     /// # Examples
@@ -303,9 +319,9 @@ where
     pub fn clone_inplace(&mut self) -> Self {
         match &*self {
             Self::Borrowed(v) => Self::Borrowed(v),
-            Self::Counted(v) => Self::Counted(Rc::clone(v)),
+            Self::Counted(v) => Self::Counted(Arc::clone(v)),
             Self::Owned(v) => {
-                let rc = Rc::from(v.borrow());
+                let rc = Arc::from(v.borrow());
                 *self = Self::Counted(rc.clone());
                 Self::Counted(rc)
             }
@@ -417,11 +433,11 @@ where
     }
 }
 
-impl<T: ?Sized> From<Rc<T>> for Oco<'_, T>
+impl<T: ?Sized> From<Arc<T>> for Oco<'_, T>
 where
     T: ToOwned,
 {
-    fn from(v: Rc<T>) -> Self {
+    fn from(v: Arc<T>) -> Self {
         Oco::Counted(v)
     }
 }
@@ -602,7 +618,7 @@ mod tests {
     fn debug_fmt_should_display_quotes_for_strings() {
         let s: Oco<str> = Oco::Borrowed("hello");
         assert_eq!(format!("{s:?}"), "\"hello\"");
-        let s: Oco<str> = Oco::Counted(Rc::from("hello"));
+        let s: Oco<str> = Oco::Counted(Arc::from("hello"));
         assert_eq!(format!("{s:?}"), "\"hello\"");
     }
 
@@ -640,7 +656,7 @@ mod tests {
     fn as_str_should_return_a_str() {
         let s: Oco<str> = Oco::Borrowed("hello");
         assert_eq!(s.as_str(), "hello");
-        let s: Oco<str> = Oco::Counted(Rc::from("hello"));
+        let s: Oco<str> = Oco::Counted(Arc::from("hello"));
         assert_eq!(s.as_str(), "hello");
     }
 
@@ -648,7 +664,7 @@ mod tests {
     fn as_slice_should_return_a_slice() {
         let s: Oco<[i32]> = Oco::Borrowed([1, 2, 3].as_slice());
         assert_eq!(s.as_slice(), [1, 2, 3].as_slice());
-        let s: Oco<[i32]> = Oco::Counted(Rc::from([1, 2, 3]));
+        let s: Oco<[i32]> = Oco::Counted(Arc::from([1, 2, 3]));
         assert_eq!(s.as_slice(), [1, 2, 3].as_slice());
     }
 
@@ -684,7 +700,7 @@ mod tests {
 
     #[test]
     fn cloned_counted_str_should_make_counted_str() {
-        let s: Oco<str> = Oco::Counted(Rc::from("hello"));
+        let s: Oco<str> = Oco::Counted(Arc::from("hello"));
         assert!(s.clone().is_counted());
     }
 
@@ -706,7 +722,7 @@ mod tests {
 
     #[test]
     fn cloned_inplace_counted_str_should_make_counted_str_and_remain_counted() {
-        let mut s: Oco<str> = Oco::Counted(Rc::from("hello"));
+        let mut s: Oco<str> = Oco::Counted(Arc::from("hello"));
         assert!(s.clone_inplace().is_counted());
         assert!(s.is_counted());
     }

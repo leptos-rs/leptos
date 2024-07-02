@@ -1,5 +1,5 @@
 use directives::App;
-use leptos::*;
+use leptos::prelude::*;
 
 fn main() {
     _ = console_log::init_with_level(log::Level::Debug);

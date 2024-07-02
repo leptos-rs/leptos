@@ -10,25 +10,42 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
-leptos_reactive = { workspace = true }
-leptos_macro = { workspace = true }
+hydration_context = { workspace = true }
+reactive_graph = { workspace = true, features = ["hydration"] }
+#leptos_macro = { workspace = true }
 server_fn = { workspace = true }
-lazy_static = "1"
-serde = { version = "1", features = ["derive"] }
+#lazy_static = "1"
 thiserror = "1"
-tracing = "0.1"
-inventory = "0.3"
+tracing = { version = "0.1", optional = true }
+#inventory = "0.3"
+futures = "0.3"
 
-[dev-dependencies]
-leptos = { path = "../leptos" }
+tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
+
+# serialization formats
+serde = { version = "1"}
+serde-wasm-bindgen = { version = "0.6", optional = true }
+js-sys = { version = "0.3", optional = true } 
+wasm-bindgen = { version = "0.2", optional = true } 
+serde_json = { version = "1"}
+miniserde = { version = "0.1", optional = true }
+rkyv = { version = "0.7", optional = true, features = [
+	"validation",
+	"uuid",
+	"strict",
+] }
+serde-lite = { version = "0.5", optional = true }
+base64 = { version = "0.22", optional = true }
 
 [features]
-csr = ["leptos_reactive/csr", "leptos_macro/csr"]
+ssr = []
+hydration = []
 default-tls = ["server_fn/default-tls"]
-hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate"]
 rustls = ["server_fn/rustls"]
-ssr = ["leptos_reactive/ssr", "server_fn/ssr", "leptos_macro/ssr"]
-nightly = ["leptos_reactive/nightly"]
+rkyv = ["dep:rkyv", "dep:base64"]
+serde-wasm-bindgen = ["dep:serde-wasm-bindgen", "dep:js-sys", "dep:wasm-bindgen"]
+tachys = ["dep:tachys"]
+tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

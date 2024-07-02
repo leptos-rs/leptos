@@ -14,7 +14,7 @@ export class HomePage {
 
     this.pageTitle = page.locator("h1");
     this.numberInput = page.getByLabel(
-      "Type a number (or something that's not a number!)"
+      "Type an integer (or something that's not an integer!)"
     );
     this.successMessage = page.locator("label p");
     this.errorMessage = page.locator("div p");

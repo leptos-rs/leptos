@@ -2,7 +2,7 @@ use futures::{
     channel::oneshot::{self, Canceled},
     Future,
 };
-use leptos::set_timeout;
+use leptos::leptos_dom::helpers::set_timeout;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -93,7 +93,9 @@ pub async fn get_contact(id: Option<usize>) -> Option<Contact> {
     }
 }
 
-fn delay(duration: Duration) -> impl Future<Output = Result<(), Canceled>> {
+fn delay(
+    duration: Duration,
+) -> impl Future<Output = Result<(), Canceled>> + Send {
     let (tx, rx) = oneshot::channel();
     set_timeout(
         move || {

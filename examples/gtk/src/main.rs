@@ -1,59 +1,175 @@
-use gtk::{prelude::*, Application, ApplicationWindow, Button};
-use leptos::*;
+#[cfg(feature = "gtk")]
+use gtk::{
+    glib::Value, prelude::*, Application, ApplicationWindow, Orientation,
+    Widget,
+};
+#[cfg(feature = "wasm")]
+use leptos::tachys::{dom::body, html::element, html::event as ev};
+use leptos::{
+    logging,
+    prelude::*,
+    reactive_graph::{effect::Effect, owner::Owner, signal::RwSignal},
+    Executor, For, ForProps,
+};
+#[cfg(feature = "gtk")]
+use leptos_gtk::{Element, LGtkWidget, LeptosGtk};
+use std::{mem, thread, time::Duration};
+#[cfg(feature = "gtk")]
+mod leptos_gtk;
 
 const APP_ID: &str = "dev.leptos.Counter";
 
 // Basic GTK app setup from https://gtk-rs.org/gtk4-rs/stable/latest/book/hello_world.html
 fn main() {
-    let _ = create_runtime();
-    // Create a new application
-    let app = Application::builder().application_id(APP_ID).build();
+    // use the glib event loop to power the reactive system
+    #[cfg(feature = "gtk")]
+    {
+        _ = Executor::init_glib();
+        let app = Application::builder().application_id(APP_ID).build();
 
-    // Connect to "activate" signal of `app`
-    app.connect_activate(build_ui);
+        app.connect_startup(|_| load_css());
 
-    // Run the application
-    app.run();
+        app.connect_activate(|app| {
+            // Connect to "activate" signal of `app`
+            let owner = Owner::new();
+            let view = owner.with(ui);
+            let (root, state) = leptos_gtk::root(view);
+
+            let window = ApplicationWindow::builder()
+                .application(app)
+                .title("TachyGTK")
+                .child(&root)
+                .build();
+            // Present window
+            window.present();
+            mem::forget((owner, state));
+        });
+
+        app.run();
+    }
+
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        console_error_panic_hook::set_once();
+        _ = Executor::init_wasm_bindgen();
+        let owner = Owner::new();
+        let view = owner.with(ui);
+        let mut state = view.build();
+        state.mount(&body().into(), None);
+        mem::forget((owner, state));
+    }
 }
 
-fn build_ui(app: &Application) {
-    let button = counter_button();
+#[cfg(feature = "gtk")]
+type Rndr = LeptosGtk;
+#[cfg(all(feature = "wasm", not(feature = "gtk")))]
+type Rndr = Dom;
 
-    // Create a window and set the title
-    let window = ApplicationWindow::builder()
-        .application(app)
-        .title("Leptos-GTK")
-        .child(&button)
-        .build();
+fn ui() -> impl Render<Rndr> {
+    let value = RwSignal::new(0);
+    let rows = RwSignal::new(vec![1, 2, 3, 4, 5]);
 
-    // Present window
-    window.present();
+    Effect::new(move |_| {
+        logging::log!("value = {}", value.get());
+    });
+
+    // just an example of multithreaded reactivity
+    #[cfg(feature = "gtk")]
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(250));
+        value.update(|n| *n += 1);
+    });
+
+    vstack((
+        hstack((
+            button("-1", move || value.update(|n| *n -= 1)),
+            move || value.get().to_string(),
+            button("+1", move || value.update(|n| *n += 1)),
+        )),
+        button("Swap", move || {
+            rows.update(|items| {
+                items.swap(1, 3);
+            })
+        }),
+        hstack(For(ForProps::builder()
+            .each(move || rows.get())
+            .key(|k| *k)
+            .children(|v| v)
+            .build())),
+    ))
 }
 
-fn counter_button() -> Button {
-    let (value, set_value) = create_signal(0);
+fn button(
+    label: impl Render<Rndr>,
+    callback: impl Fn() + Send + Sync + 'static,
+) -> impl Render<Rndr> {
+    #[cfg(feature = "gtk")]
+    {
+        leptos_gtk::button()
+            .child(label)
+            .connect("clicked", move |_| {
+                callback();
+                None
+            })
+    }
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        element::button()
+            .on(ev::click, move |_| callback())
+            .child(label)
+    }
+}
 
-    // Create a button with label and margins
-    let button = Button::builder()
-        .label("Count: ")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
+fn vstack(children: impl Render<Rndr>) -> impl Render<Rndr> {
+    #[cfg(feature = "gtk")]
+    {
+        leptos_gtk::r#box()
+            .orientation(Orientation::Vertical)
+            .spacing(12)
+            .child(children)
+    }
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        element::div()
+            .style(("display", "flex"))
+            .style(("flex-direction", "column"))
+            .style(("align-items", "center"))
+            .style(("justify-content", "center"))
+            .style(("margin", "1rem"))
+            .child(children)
+    }
+}
 
-    // Connect to "clicked" signal of `button`
-    button.connect_clicked(move |_| {
-        // Set the label to "Hello World!" after the button has been clicked on
-        set_value.update(|value| *value += 1);
-    });
+fn hstack(children: impl Render<Rndr>) -> impl Render<Rndr> {
+    #[cfg(feature = "gtk")]
+    {
+        leptos_gtk::r#box()
+            .orientation(Orientation::Horizontal)
+            .spacing(12)
+            .child(children)
+    }
+    #[cfg(all(feature = "wasm", not(feature = "gtk")))]
+    {
+        element::div()
+            .style(("display", "flex"))
+            .style(("align-items", "center"))
+            .style(("justify-content", "center"))
+            .style(("margin", "1rem"))
+            .child(children)
+    }
+}
 
-    create_effect({
-        let button = button.clone();
-        move |_| {
-            button.set_label(&format!("Count: {}", value.get()));
-        }
-    });
+#[cfg(feature = "gtk")]
+fn load_css() {
+    use gtk::{gdk::Display, CssProvider};
 
-    button
+    let provider = CssProvider::new();
+    provider.load_from_path("style.css");
+
+    // Add the provider to the default screen
+    gtk::style_context_add_provider_for_display(
+        &Display::default().expect("Could not connect to a display."),
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }

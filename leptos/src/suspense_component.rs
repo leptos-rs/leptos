@@ -1,272 +1,303 @@
-use leptos::ViewFn;
-use leptos_dom::{DynChild, HydrationCtx, IntoView};
-use leptos_macro::component;
-#[allow(unused)]
-use leptos_reactive::SharedContext;
-#[cfg(any(feature = "csr", feature = "hydrate"))]
-use leptos_reactive::SignalGet;
-use leptos_reactive::{
-    create_memo, provide_context, SignalGetUntracked, SuspenseContext,
+use crate::{
+    children::{TypedChildren, ViewFnOnce},
+    IntoView,
 };
-#[cfg(not(any(feature = "csr", feature = "hydrate")))]
-use leptos_reactive::{with_owner, Owner};
-use std::rc::Rc;
+use futures::FutureExt;
+use leptos_macro::component;
+use reactive_graph::{
+    computed::{suspense::SuspenseContext, ArcMemo, ScopedFuture},
+    effect::RenderEffect,
+    owner::{provide_context, use_context, Owner},
+    signal::ArcRwSignal,
+    traits::{Get, Read, Track, With},
+};
+use slotmap::{DefaultKey, SlotMap};
+use tachys::{
+    either::Either,
+    html::attribute::Attribute,
+    hydration::Cursor,
+    reactive_graph::OwnedView,
+    renderer::Renderer,
+    ssr::StreamBuilder,
+    view::{
+        add_attr::AddAnyAttr,
+        either::{EitherKeepAlive, EitherKeepAliveState},
+        Mountable, Position, PositionState, Render, RenderHtml,
+    },
+};
+use throw_error::ErrorHookFuture;
 
-/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
-/// component, it will show the `fallback` while they are loading. Once all are resolved,
-/// it will render the `children`.
-///
-/// Note that the `children` will be rendered initially (in order to capture the fact that
-/// those resources are read under the suspense), so you cannot assume that resources have
-/// `Some` value in `children`.
-///
-/// ```
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*; use leptos::*;
-/// # if false {
-/// # let runtime = create_runtime();
-/// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> { Some(vec![]) }
-///
-/// let (cat_count, set_cat_count) = create_signal::<u32>(1);
-///
-/// let cats = create_resource(move || cat_count.get(), |count| fetch_cats(count));
-///
-/// view! {
-///   <div>
-///     <Suspense fallback=move || view! { <p>"Loading (Suspense Fallback)..."</p> }>
-///       {move || {
-///           cats.get().map(|data| match data {
-///             None => view! {  <pre>"Error"</pre> }.into_view(),
-///             Some(cats) => cats
-///                 .iter()
-///                 .map(|src| {
-///                     view! {
-///                       <img src={src}/>
-///                     }
-///                 })
-///                 .collect_view(),
-///           })
-///         }
-///       }
-///     </Suspense>
-///   </div>
-/// };
-/// # runtime.dispose();
-/// # }
-/// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all)
-)]
+/// TODO docs!
 #[component]
-pub fn Suspense<V>(
-    /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading. By default this is the empty view.
-    #[prop(optional, into)]
-    fallback: ViewFn,
-    /// Children will be displayed once all `async` [`Resource`](leptos_reactive::Resource)s have resolved.
-    children: Rc<dyn Fn() -> V>,
+pub fn Suspense<Chil>(
+    #[prop(optional, into)] fallback: ViewFnOnce,
+    children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
-    V: IntoView + 'static,
+    Chil: IntoView + Send + 'static,
 {
-    #[cfg(all(
-        feature = "experimental-islands",
-        not(any(feature = "csr", feature = "hydrate"))
-    ))]
-    let no_hydrate = SharedContext::no_hydrate();
-    let orig_children = children;
-    let context = SuspenseContext::new();
-
-    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-    let owner =
-        Owner::current().expect("<Suspense/> created with no reactive owner");
-
-    let current_id = HydrationCtx::next_component();
-
-    // provide this SuspenseContext to any resources below it
-    // run in a memo so the children are children of this parent
-    #[cfg(not(feature = "hydrate"))]
-    let children = create_memo({
-        let orig_children = Rc::clone(&orig_children);
-        move |_| {
-            provide_context(context);
-            orig_children().into_view()
-        }
+    let fallback = fallback.run();
+    let children = children.into_inner()();
+    let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
+    provide_context(SuspenseContext {
+        tasks: tasks.clone(),
     });
-    #[cfg(feature = "hydrate")]
-    let children = create_memo({
-        let orig_children = Rc::clone(&orig_children);
-        move |_| {
-            provide_context(context);
-            if SharedContext::fragment_has_local_resources(
-                &current_id.to_string(),
-            ) {
-                HydrationCtx::with_hydration_off({
-                    let orig_children = Rc::clone(&orig_children);
-                    move || orig_children().into_view()
-                })
-            } else {
-                orig_children().into_view()
-            }
-        }
-    });
+    let none_pending = ArcMemo::new(move |_| tasks.with(SlotMap::is_empty));
 
-    // likewise for the fallback
-    let fallback = create_memo({
-        move |_| {
-            provide_context(context);
-            fallback.run()
-        }
-    });
-
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
-    let ready = context.ready();
-
-    let child = DynChild::new({
-        move || {
-            // pull lazy memo before checking if context is ready
-            let children_rendered = children.get_untracked();
-
-            #[cfg(any(feature = "csr", feature = "hydrate"))]
-            {
-                if ready.get() {
-                    children_rendered
-                } else {
-                    fallback.get_untracked()
-                }
-            }
-            #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-            {
-                use leptos_reactive::signal_prelude::*;
-
-                // run the child; we'll probably throw this away, but it will register resource reads
-                //let after_original_child = HydrationCtx::peek();
-
-                {
-                    // no resources were read under this, so just return the child
-                    if context.none_pending() {
-                        with_owner(owner, move || {
-                            //HydrationCtx::continue_from(current_id);
-                            DynChild::new(move || children_rendered.clone())
-                                .into_view()
-                        })
-                    } else if context.has_any_local() {
-                        SharedContext::register_local_fragment(
-                            current_id.to_string(),
-                        );
-                        fallback.get_untracked()
-                    }
-                    // show the fallback, but also prepare to stream HTML
-                    else {
-                        HydrationCtx::continue_from(current_id);
-                        let runtime = leptos_reactive::current_runtime();
-
-                        SharedContext::register_suspense(
-                            context,
-                            &current_id.to_string(),
-                            // out-of-order streaming
-                            {
-                                let orig_children = Rc::clone(&orig_children);
-                                move || {
-                                    leptos_reactive::set_current_runtime(
-                                        runtime,
-                                    );
-
-                                    #[cfg(feature = "experimental-islands")]
-                                    let prev_no_hydrate =
-                                        SharedContext::no_hydrate();
-                                    #[cfg(feature = "experimental-islands")]
-                                    {
-                                        SharedContext::set_no_hydrate(
-                                            no_hydrate,
-                                        );
-                                    }
-
-                                    let rendered = with_owner(owner, {
-                                        move || {
-                                            HydrationCtx::continue_from(
-                                                current_id,
-                                            );
-                                            DynChild::new({
-                                                move || {
-                                                    orig_children().into_view()
-                                                }
-                                            })
-                                            .into_view()
-                                            .render_to_string()
-                                            .to_string()
-                                        }
-                                    });
-
-                                    #[cfg(feature = "experimental-islands")]
-                                    SharedContext::set_no_hydrate(
-                                        prev_no_hydrate,
-                                    );
-
-                                    #[allow(clippy::let_and_return)]
-                                    rendered
-                                }
-                            },
-                            // in-order streaming
-                            {
-                                let orig_children = Rc::clone(&orig_children);
-                                move || {
-                                    leptos_reactive::set_current_runtime(
-                                        runtime,
-                                    );
-
-                                    #[cfg(feature = "experimental-islands")]
-                                    let prev_no_hydrate =
-                                        SharedContext::no_hydrate();
-                                    #[cfg(feature = "experimental-islands")]
-                                    {
-                                        SharedContext::set_no_hydrate(
-                                            no_hydrate,
-                                        );
-                                    }
-
-                                    let rendered = with_owner(owner, {
-                                        move || {
-                                            HydrationCtx::continue_from(
-                                                current_id,
-                                            );
-                                            DynChild::new({
-                                                move || {
-                                                    orig_children().into_view()
-                                                }
-                                            })
-                                            .into_view()
-                                            .into_stream_chunks()
-                                        }
-                                    });
-
-                                    #[cfg(feature = "experimental-islands")]
-                                    SharedContext::set_no_hydrate(
-                                        prev_no_hydrate,
-                                    );
-
-                                    #[allow(clippy::let_and_return)]
-                                    rendered
-                                }
-                            },
-                        );
-
-                        // return the fallback for now, wrapped in fragment identifier
-                        fallback.get_untracked()
-                    }
-                }
-            }
-        }
+    OwnedView::new(SuspenseBoundary::<false, _, _> {
+        none_pending,
+        fallback,
+        children,
     })
-    .into_view();
-    let core_component = match child {
-        leptos_dom::View::CoreComponent(repr) => repr,
-        _ => unreachable!(),
-    };
+}
 
-    HydrationCtx::continue_from(current_id);
-    HydrationCtx::next_component();
+pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
+    pub none_pending: ArcMemo<bool>,
+    pub fallback: Fal,
+    pub children: Chil,
+}
 
-    leptos_dom::View::Suspense(current_id, core_component)
+impl<const TRANSITION: bool, Fal, Chil, Rndr> Render<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
+where
+    Fal: Render<Rndr> + Send + 'static,
+    Chil: Render<Rndr> + Send + 'static,
+    Rndr: Renderer + 'static,
+{
+    type State = RenderEffect<EitherKeepAliveState<Chil::State, Fal::State>>;
+
+    fn build(self) -> Self::State {
+        let mut children = Some(self.children);
+        let mut fallback = Some(self.fallback);
+        let none_pending = self.none_pending;
+        let mut nth_run = 0;
+
+        RenderEffect::new(
+            move |prev: Option<
+                EitherKeepAliveState<Chil::State, Fal::State>,
+            >| {
+                // show the fallback if
+                // 1) there are pending futures, and
+                // 2) we are either in a Suspense (not Transition), or it's the first fallback
+                //    (because we initially render the children to register Futures, the "first
+                //    fallback" is probably the 2nd run
+                let show_b =
+                    !none_pending.get() && (!TRANSITION || nth_run < 2);
+                nth_run += 1;
+                let this = EitherKeepAlive {
+                    a: children.take(),
+                    b: fallback.take(),
+                    show_b,
+                };
+
+                if let Some(mut state) = prev {
+                    this.rebuild(&mut state);
+                    state
+                } else {
+                    this.build()
+                }
+            },
+        )
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
+        let mut old = std::mem::replace(state, new);
+        old.insert_before_this(state);
+        old.unmount();
+    }
+}
+
+impl<const TRANSITION: bool, Fal, Chil, Rndr> AddAnyAttr<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
+where
+    Fal: RenderHtml<Rndr> + Send + 'static,
+    Chil: RenderHtml<Rndr> + Send + 'static,
+    Rndr: Renderer + 'static,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = SuspenseBoundary<
+        TRANSITION,
+        Fal,
+        Chil::Output<SomeNewAttr::CloneableOwned>,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let attr = attr.into_cloneable_owned();
+        let SuspenseBoundary {
+            none_pending,
+            fallback,
+            children,
+        } = self;
+        SuspenseBoundary {
+            none_pending,
+            fallback,
+            children: children.add_any_attr(attr),
+        }
+    }
+}
+
+impl<const TRANSITION: bool, Fal, Chil, Rndr> RenderHtml<Rndr>
+    for SuspenseBoundary<TRANSITION, Fal, Chil>
+where
+    Fal: RenderHtml<Rndr> + Send + 'static,
+    Chil: RenderHtml<Rndr> + Send + 'static,
+    Rndr: Renderer + 'static,
+{
+    // i.e., if this is the child of another Suspense during SSR, don't wait for it: it will handle
+    // itself
+    type AsyncOutput = Self;
+
+    const MIN_LENGTH: usize = Chil::MIN_LENGTH;
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+    ) {
+        self.fallback.to_html_with_buf(buf, position, escape);
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        mut self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+    ) where
+        Self: Sized,
+    {
+        buf.next_id();
+        let suspense_context = use_context::<SuspenseContext>().unwrap();
+
+        let owner = Owner::current().unwrap();
+
+        let tasks = suspense_context.tasks.clone();
+        let (tx, rx) = futures::channel::oneshot::channel::<()>();
+
+        let mut tx = Some(tx);
+        let eff = reactive_graph::effect::RenderEffect::new_isomorphic({
+            move |_| {
+                tasks.track();
+                if tasks.read().is_empty() {
+                    if let Some(tx) = tx.take() {
+                        // If the receiver has dropped, it means the ScopedFuture has already
+                        // dropped, so it doesn't matter if we manage to send this.
+                        _ = tx.send(());
+                    }
+                }
+            }
+        });
+
+        // walk over the tree of children once to make sure that all resource loads are registered
+        self.children.dry_resolve();
+
+        let mut fut =
+            Box::pin(ScopedFuture::new(ErrorHookFuture::new(async move {
+                // wait for all the resources to have loaded before trying to resolve the body
+                // this is *less efficient* than just resolving the body
+                // however, it means that you can use reactive accesses to resources/async derived
+                // inside component props, at any level, and have those picked up by Suspense, and
+                // that it will wait for those to resolve
+                _ = rx.await;
+
+                // if we ran this earlier, reactive reads would always be registered as None
+                // this is fine in the case where we want to use Suspend and .await on some future
+                // but in situations like a <For each=|| some_resource.snapshot()/> we actually
+                // want to be able to 1) synchronously read a resource's value, but still 2) wait
+                // for it to load before we render everything
+                let children = self.children.resolve().await;
+
+                // clean up the (now useless) effect
+                drop(eff);
+
+                OwnedView::new_with_owner(children, owner)
+            })));
+        match fut.as_mut().now_or_never() {
+            Some(resolved) => {
+                Either::<Fal, _>::Right(resolved)
+                    .to_html_async_with_buf::<OUT_OF_ORDER>(
+                        buf, position, escape,
+                    );
+            }
+            None => {
+                let id = buf.clone_id();
+
+                // out-of-order streams immediately push fallback,
+                // wrapped by suspense markers
+                if OUT_OF_ORDER {
+                    let mut fallback_position = *position;
+                    buf.push_fallback(self.fallback, &mut fallback_position);
+                    buf.push_async_out_of_order(fut, position);
+                } else {
+                    buf.push_async({
+                        let mut position = *position;
+                        async move {
+                            let value = fut.await;
+                            let mut builder = StreamBuilder::new(id);
+                            Either::<Fal, _>::Right(value)
+                                .to_html_async_with_buf::<OUT_OF_ORDER>(
+                                    &mut builder,
+                                    &mut position,
+                                    escape,
+                                );
+                            builder.finish().take_chunks()
+                        }
+                    });
+                    *position = Position::NextChild;
+                }
+            }
+        };
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        let cursor = cursor.to_owned();
+        let position = position.to_owned();
+        let mut children = Some(self.children);
+        let mut fallback = Some(self.fallback);
+        let none_pending = self.none_pending;
+        let mut nth_run = 0;
+
+        RenderEffect::new(
+            move |prev: Option<
+                EitherKeepAliveState<Chil::State, Fal::State>,
+            >| {
+                // show the fallback if
+                // 1) there are pending futures, and
+                // 2) we are either in a Suspense (not Transition), or it's the first fallback
+                //    (because we initially render the children to register Futures, the "first
+                //    fallback" is probably the 2nd run
+                let show_b =
+                    !none_pending.get() && (!TRANSITION || nth_run < 1);
+                nth_run += 1;
+                let this = EitherKeepAlive {
+                    a: children.take(),
+                    b: fallback.take(),
+                    show_b,
+                };
+
+                if let Some(mut state) = prev {
+                    this.rebuild(&mut state);
+                    state
+                } else {
+                    this.hydrate::<FROM_SERVER>(&cursor, &position)
+                }
+            },
+        )
+    }
 }

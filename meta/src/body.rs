@@ -1,74 +1,31 @@
-use cfg_if::cfg_if;
-use leptos::*;
-#[cfg(feature = "ssr")]
-use std::collections::HashMap;
-#[cfg(feature = "ssr")]
-use std::{cell::RefCell, rc::Rc};
-
-/// Contains the current metadata for the document's `<body>`.
-#[derive(Clone, Default)]
-pub struct BodyContext {
-    #[cfg(feature = "ssr")]
-    class: Rc<RefCell<Option<TextProp>>>,
-    #[cfg(feature = "ssr")]
-    id: Rc<RefCell<Option<TextProp>>>,
-    #[cfg(feature = "ssr")]
-    attributes: Rc<RefCell<HashMap<&'static str, Attribute>>>,
-}
-
-impl BodyContext {
-    /// Converts the `<body>` metadata into an HTML string.
-    #[cfg(any(feature = "ssr", doc))]
-    pub fn as_string(&self) -> Option<String> {
-        let class = self.class.borrow().as_ref().map(|val| {
-            format!(
-                "class=\"{}\"",
-                leptos::leptos_dom::ssr::escape_attr(&val.get())
-            )
-        });
-
-        let id = self.id.borrow().as_ref().map(|val| {
-            format!(
-                "id=\"{}\"",
-                leptos::leptos_dom::ssr::escape_attr(&val.get())
-            )
-        });
-        let attributes = self.attributes.borrow();
-        let attributes = (!attributes.is_empty()).then(|| {
-            attributes
-                .iter()
-                .filter_map(|(n, v)| {
-                    v.as_nameless_value_string().map(|v| {
-                        format!(
-                            "{}=\"{}\"",
-                            n,
-                            leptos::leptos_dom::ssr::escape_attr(&v)
-                        )
-                    })
-                })
-                .collect::<Vec<_>>()
-                .join(" ")
-        });
-
-        let mut val = [id, class, attributes]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .join(" ");
-        if val.is_empty() {
-            None
-        } else {
-            val.insert(0, ' ');
-            Some(val)
-        }
-    }
-}
-
-impl core::fmt::Debug for BodyContext {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("TitleContext").finish()
-    }
-}
+use crate::ServerMetaContext;
+use leptos::{
+    component,
+    reactive_graph::owner::use_context,
+    tachys::{
+        dom::document,
+        html::{
+            attribute::{
+                any_attribute::{
+                    AnyAttribute, AnyAttributeState, IntoAnyAttribute,
+                },
+                Attribute,
+            },
+            class,
+        },
+        hydration::Cursor,
+        renderer::{dom::Dom, Renderer},
+        view::{
+            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+            RenderHtml,
+        },
+    },
+    text_prop::TextProp,
+    IntoView,
+};
+use or_poisoned::OrPoisoned;
+use std::mem;
+use web_sys::HtmlElement;
 
 /// A component to set metadata on the document’s `<body>` element from
 /// within the application.
@@ -96,59 +53,121 @@ impl core::fmt::Debug for BodyContext {
 ///     }
 /// }
 /// ```
-#[component(transparent)]
+#[component]
 pub fn Body(
     /// The `class` attribute on the `<body>`.
     #[prop(optional, into)]
-    class: Option<TextProp>,
-    /// The `id` attribute on the `<body>`.
-    #[prop(optional, into)]
-    id: Option<TextProp>,
-    /// Arbitrary attributes to add to the `<body>`
+    mut class: Option<TextProp>,
+    /// Arbitrary attributes to add to the `<body>`.
     #[prop(attrs)]
-    attributes: Vec<(&'static str, Attribute)>,
+    mut attributes: Vec<AnyAttribute<Dom>>,
 ) -> impl IntoView {
-    cfg_if! {
-        if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
-            use wasm_bindgen::JsCast;
+    if let Some(value) = class.take() {
+        let value = class::class(move || value.get());
+        attributes.push(value.into_any_attr());
+    }
+    if let Some(meta) = use_context::<ServerMetaContext>() {
+        let mut meta = meta.inner.write().or_poisoned();
+        // if we are server rendering, we will not actually use these values via RenderHtml
+        // instead, they'll be handled separately by the server integration
+        // so it's safe to take them out of the props here
+        meta.body = mem::take(&mut attributes);
+    }
 
-            let el = document().body().expect("there to be a <body> element");
+    BodyView { attributes }
+}
 
-            if let Some(class) = class {
-                create_render_effect({
-                    let el = el.clone();
-                    move |_| {
-                        let value = class.get();
-                        _ = el.set_attribute("class", &value);
-                    }
-                });
-            }
+struct BodyView {
+    attributes: Vec<AnyAttribute<Dom>>,
+}
 
+#[allow(dead_code)] // TODO these should be used to rebuild the attributes, I guess
+struct BodyViewState {
+    el: HtmlElement,
+    attributes: Vec<AnyAttributeState<Dom>>,
+}
 
-            if let Some(id) = id {
-                create_render_effect({
-                    let el = el.clone();
-                    move |_| {
-                        let value = id.get();
-                        _ = el.set_attribute("id", &value);
-                    }
-                });
-            }
-            for (name, value) in attributes {
-                leptos::leptos_dom::attribute_helper(el.unchecked_ref(), name.into(), value);
-            }
-        } else if #[cfg(feature = "ssr")] {
-            let meta = crate::use_head();
-            *meta.body.class.borrow_mut() = class;
-            *meta.body.id.borrow_mut() = id;
-            meta.body.attributes.borrow_mut().extend(attributes);
-        } else {
-            _ = class;
-            _ = id;
-            _ = attributes;
+impl Render<Dom> for BodyView {
+    type State = BodyViewState;
 
-            #[cfg(debug_assertions)]
-            crate::feature_warning();
-        }
+    fn build(self) -> Self::State {
+        let el = document().body().expect("there to be a <body> element");
+
+        let attributes = self
+            .attributes
+            .into_iter()
+            .map(|attr| attr.build(&el))
+            .collect();
+
+        BodyViewState { el, attributes }
+    }
+
+    fn rebuild(self, _state: &mut Self::State) {
+        todo!()
+    }
+}
+
+impl AddAnyAttr<Dom> for BodyView {
+    type Output<SomeNewAttr: Attribute<Dom>> = BodyView;
+
+    fn add_any_attr<NewAttr: Attribute<Dom>>(
+        self,
+        _attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Dom>,
+    {
+        todo!()
+    }
+}
+
+impl RenderHtml<Dom> for BodyView {
+    type AsyncOutput = Self;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+
+    fn to_html_with_buf(
+        self,
+        _buf: &mut String,
+        _position: &mut Position,
+        _escape: bool,
+    ) {
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        _cursor: &Cursor<Dom>,
+        _position: &PositionState,
+    ) -> Self::State {
+        let el = document().body().expect("there to be a <body> element");
+
+        let attributes = self
+            .attributes
+            .into_iter()
+            .map(|attr| attr.hydrate::<FROM_SERVER>(&el))
+            .collect();
+
+        BodyViewState { el, attributes }
+    }
+}
+
+impl Mountable<Dom> for BodyViewState {
+    fn unmount(&mut self) {}
+
+    fn mount(
+        &mut self,
+        _parent: &<Dom as Renderer>::Element,
+        _marker: Option<&<Dom as Renderer>::Node>,
+    ) {
+    }
+
+    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+        false
     }
 }

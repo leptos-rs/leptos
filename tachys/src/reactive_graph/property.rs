@@ -1,0 +1,195 @@
+use super::{ReactiveFunction, SharedReactiveFunction};
+use crate::{
+    html::property::IntoProperty,
+    renderer::{DomRenderer, Renderer},
+};
+use reactive_graph::effect::RenderEffect;
+
+// These do update during hydration because properties don't exist in the DOM
+impl<F, V, R> IntoProperty<R> for F
+where
+    F: ReactiveFunction<Output = V>,
+    V: IntoProperty<R> + 'static,
+    V::State: 'static,
+    R: DomRenderer,
+{
+    type State = RenderEffect<V::State>;
+    type Cloneable = SharedReactiveFunction<V>;
+    type CloneableOwned = SharedReactiveFunction<V>;
+
+    fn hydrate<const FROM_SERVER: bool>(
+        mut self,
+        el: &<R as Renderer>::Element,
+        key: &str,
+    ) -> Self::State {
+        let key = R::intern(key);
+        let key = key.to_owned();
+        let el = el.to_owned();
+
+        RenderEffect::new(move |prev| {
+            let value = self.invoke();
+            if let Some(mut state) = prev {
+                value.rebuild(&mut state, &key);
+                state
+            } else {
+                value.hydrate::<FROM_SERVER>(&el, &key)
+            }
+        })
+    }
+
+    fn build(
+        mut self,
+        el: &<R as Renderer>::Element,
+        key: &str,
+    ) -> Self::State {
+        let key = R::intern(key);
+        let key = key.to_owned();
+        let el = el.to_owned();
+
+        RenderEffect::new(move |prev| {
+            let value = self.invoke();
+            if let Some(mut state) = prev {
+                value.rebuild(&mut state, &key);
+                state
+            } else {
+                value.build(&el, &key)
+            }
+        })
+    }
+
+    fn rebuild(mut self, state: &mut Self::State, key: &str) {
+        let prev_value = state.take_value();
+        let key = key.to_owned();
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&mut state, &key);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            prev_value,
+        );
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self.into_shared()
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self.into_shared()
+    }
+}
+
+#[cfg(not(feature = "nightly"))]
+mod stable {
+    use crate::{
+        html::property::IntoProperty,
+        renderer::{DomRenderer, Renderer},
+    };
+    use reactive_graph::{
+        computed::{ArcMemo, Memo},
+        effect::RenderEffect,
+        signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
+        traits::Get,
+        wrappers::read::{ArcSignal, MaybeSignal, Signal},
+    };
+
+    macro_rules! property_signal {
+        ($sig:ident) => {
+            impl<V, R> IntoProperty<R> for $sig<V>
+            where
+                V: IntoProperty<R> + Send + Sync + Clone + 'static,
+                V::State: 'static,
+                R: DomRenderer,
+            {
+                type State = RenderEffect<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &<R as Renderer>::Element,
+                    key: &str,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(el, key)
+                }
+
+                fn build(
+                    self,
+                    el: &<R as Renderer>::Element,
+                    key: &str,
+                ) -> Self::State {
+                    (move || self.get()).build(el, key)
+                }
+
+                fn rebuild(self, state: &mut Self::State, key: &str) {
+                    (move || self.get()).rebuild(state, key)
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+            }
+        };
+    }
+
+    macro_rules! property_signal_unsend {
+        ($sig:ident) => {
+            impl<V, R> IntoProperty<R> for $sig<V>
+            where
+                V: IntoProperty<R> + Send + Sync + Clone + 'static,
+                V::State: 'static,
+                R: DomRenderer,
+            {
+                type State = RenderEffect<V::State>;
+                type Cloneable = Self;
+                type CloneableOwned = Self;
+
+                fn hydrate<const FROM_SERVER: bool>(
+                    self,
+                    el: &<R as Renderer>::Element,
+                    key: &str,
+                ) -> Self::State {
+                    (move || self.get()).hydrate::<FROM_SERVER>(el, key)
+                }
+
+                fn build(
+                    self,
+                    el: &<R as Renderer>::Element,
+                    key: &str,
+                ) -> Self::State {
+                    (move || self.get()).build(el, key)
+                }
+
+                fn rebuild(self, state: &mut Self::State, key: &str) {
+                    (move || self.get()).rebuild(state, key)
+                }
+
+                fn into_cloneable(self) -> Self::Cloneable {
+                    self
+                }
+
+                fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+            }
+        };
+    }
+
+    property_signal!(RwSignal);
+    property_signal!(ReadSignal);
+    property_signal!(Memo);
+    property_signal!(Signal);
+    property_signal!(MaybeSignal);
+    property_signal_unsend!(ArcRwSignal);
+    property_signal_unsend!(ArcReadSignal);
+    property_signal!(ArcMemo);
+    property_signal!(ArcSignal);
+}

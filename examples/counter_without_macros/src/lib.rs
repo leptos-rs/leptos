@@ -1,9 +1,16 @@
-use leptos::{html::*, *};
+use leptos::{
+    ev,
+    html::{button, div, span},
+    prelude::*,
+};
 
 /// A simple counter view.
 // A component is really just a function call: it runs once to create the DOM and reactive system
 pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
     let count = RwSignal::new(Count::new(initial_value, step));
+    Effect::new(move |_| {
+        leptos::logging::log!("count = {:?}", count.get());
+    });
 
     // the function name is the same as the HTML tag name
     div()
@@ -44,6 +51,7 @@ impl Count {
     }
 
     pub fn value(&self) -> i32 {
+        leptos::logging::log!("value = {}", self.value);
         self.value
     }
 

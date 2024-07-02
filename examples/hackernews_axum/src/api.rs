@@ -1,4 +1,5 @@
-use leptos::Serializable;
+use leptos::logging;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
@@ -10,46 +11,51 @@ pub fn user(path: &str) -> String {
 }
 
 #[cfg(not(feature = "ssr"))]
-pub async fn fetch_api<T>(path: &str) -> Option<T>
+pub fn fetch_api<T>(
+    path: &str,
+) -> impl std::future::Future<Output = Option<T>> + Send + '_
 where
-    T: Serializable,
+    T: Serialize + DeserializeOwned,
 {
-    let abort_controller = web_sys::AbortController::new().ok();
-    let abort_signal = abort_controller.as_ref().map(|a| a.signal());
+    use leptos::prelude::on_cleanup;
+    use send_wrapper::SendWrapper;
 
-    // abort in-flight requests if e.g., we've navigated away from this page
-    leptos::on_cleanup(move || {
-        if let Some(abort_controller) = abort_controller {
-            abort_controller.abort()
-        }
-    });
+    SendWrapper::new(async move {
+        let abort_controller =
+            SendWrapper::new(web_sys::AbortController::new().ok());
+        let abort_signal = abort_controller.as_ref().map(|a| a.signal());
 
-    let json = gloo_net::http::Request::get(path)
-        .abort_signal(abort_signal.as_ref())
-        .send()
-        .await
-        .map_err(|e| log::error!("{e}"))
-        .ok()?
-        .text()
-        .await
-        .ok()?;
+        // abort in-flight requests if, e.g., we've navigated away from this page
+        on_cleanup(move || {
+            if let Some(abort_controller) = abort_controller.take() {
+                abort_controller.abort()
+            }
+        });
 
-    T::de(&json).ok()
+        gloo_net::http::Request::get(path)
+            .abort_signal(abort_signal.as_ref())
+            .send()
+            .await
+            .map_err(|e| logging::error!("{e}"))
+            .ok()?
+            .json()
+            .await
+            .ok()
+    })
 }
 
 #[cfg(feature = "ssr")]
 pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
-    T: Serializable,
+    T: Serialize + DeserializeOwned,
 {
-    let json = reqwest::get(path)
+    reqwest::get(path)
         .await
-        .map_err(|e| log::error!("{e}"))
+        .map_err(|e| logging::error!("{e}"))
         .ok()?
-        .text()
+        .json()
         .await
-        .ok()?;
-    T::de(&json).map_err(|e| log::error!("{e}")).ok()
+        .ok()
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]

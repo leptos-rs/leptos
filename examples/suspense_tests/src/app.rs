@@ -1,5 +1,8 @@
-use leptos::*;
-use leptos_router::*;
+use leptos::prelude::*;
+use leptos_router::{
+    components::{Outlet, ParentRoute, Redirect, Route, Router, Routes, A},
+    SsrMode, StaticSegment,
+};
 
 const WAIT_ONE_SECOND: u64 = 1;
 const WAIT_TWO_SECONDS: u64 = 2;
@@ -32,7 +35,6 @@ pub fn App() -> impl IntoView {
         }
     ";
     view! {
-
         <style>{style}</style>
         <Router>
             <nav>
@@ -41,30 +43,30 @@ pub fn App() -> impl IntoView {
                 <A href="/async">"Async"</A>
             </nav>
             <main>
-                <Routes>
+                <Routes fallback=|| "Page not found.">
                     <Route
-                        path=""
+                        path=StaticSegment("")
                         view=|| view! { <Redirect path="/out-of-order"/> }
                     />
                     // out-of-order
-                    <Route
-                        path="out-of-order"
+                    <ParentRoute
+                        path=StaticSegment("out-of-order")
                         view=|| view! {
                             <SecondaryNav/>
                             <h1>"Out-of-Order"</h1>
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=Nested/>
-                        <Route path="inside" view=NestedResourceInside/>
-                        <Route path="single" view=Single/>
-                        <Route path="parallel" view=Parallel/>
-                        <Route path="inside-component" view=InsideComponent/>
-                        <Route path="none" view=None/>
-                    </Route>
+                        <Route path=StaticSegment("") view=Nested/>
+                        <Route path=StaticSegment("inside") view=NestedResourceInside/>
+                        <Route path=StaticSegment("single") view=Single/>
+                        <Route path=StaticSegment("parallel") view=Parallel/>
+                        <Route path=StaticSegment("inside-component") view=InsideComponent/>
+                        <Route path=StaticSegment("none") view=None/>
+                    </ParentRoute>
                     // in-order
-                    <Route
-                        path="in-order"
+                    <ParentRoute
+                        path=StaticSegment("in-order")
                         ssr=SsrMode::InOrder
                         view=|| view! {
                             <SecondaryNav/>
@@ -72,16 +74,16 @@ pub fn App() -> impl IntoView {
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=Nested/>
-                        <Route path="inside" view=NestedResourceInside/>
-                        <Route path="single" view=Single/>
-                        <Route path="parallel" view=Parallel/>
-                        <Route path="inside-component" view=InsideComponent/>
-                        <Route path="none" view=None/>
-                    </Route>
+                        <Route path=StaticSegment("") view=Nested/>
+                        <Route path=StaticSegment("inside") view=NestedResourceInside/>
+                        <Route path=StaticSegment("single") view=Single/>
+                        <Route path=StaticSegment("parallel") view=Parallel/>
+                        <Route path=StaticSegment("inside-component") view=InsideComponent/>
+                        <Route path=StaticSegment("none") view=None/>
+                    </ParentRoute>
                     // async
-                    <Route
-                        path="async"
+                    <ParentRoute
+                        path=StaticSegment("async")
                         ssr=SsrMode::Async
                         view=|| view! {
                             <SecondaryNav/>
@@ -89,13 +91,13 @@ pub fn App() -> impl IntoView {
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=Nested/>
-                        <Route path="inside" view=NestedResourceInside/>
-                        <Route path="single" view=Single/>
-                        <Route path="parallel" view=Parallel/>
-                        <Route path="inside-component" view=InsideComponent/>
-                        <Route path="none" view=None/>
-                    </Route>
+                        <Route path=StaticSegment("") view=Nested/>
+                        <Route path=StaticSegment("inside") view=NestedResourceInside/>
+                        <Route path=StaticSegment("single") view=Single/>
+                        <Route path=StaticSegment("parallel") view=Parallel/>
+                        <Route path=StaticSegment("inside-component") view=InsideComponent/>
+                        <Route path=StaticSegment("none") view=None/>
+                    </ParentRoute>
                 </Routes>
             </main>
         </Router>
@@ -118,9 +120,9 @@ fn SecondaryNav() -> impl IntoView {
 
 #[component]
 fn Nested() -> impl IntoView {
-    let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
-    let two_second = create_resource(|| WAIT_TWO_SECONDS, second_wait_fn);
-    let (count, set_count) = create_signal(0);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
+    let two_second = Resource::new(|| WAIT_TWO_SECONDS, second_wait_fn);
+    let (count, set_count) = signal(0);
 
     view! {
         <div>
@@ -147,37 +149,30 @@ fn Nested() -> impl IntoView {
 
 #[component]
 fn NestedResourceInside() -> impl IntoView {
-    let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
-    let (count, set_count) = create_signal(0);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
+    let (count, set_count) = signal(0);
 
     view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
-                   {move || {
-                    one_second.get().map(|_| {
-                        let two_second = create_resource(|| (), move |_| async move {
-                            logging::log!("creating two_second resource");
-                            second_wait_fn(WAIT_TWO_SECONDS).await
-                        });
-                        view! {
-                            {move || one_second.get().map(|_|
-                                view! {
-                                    <p id="loaded-1">"One Second: Loaded 1!"</p>
-                                }
-                            )}
-                            <Suspense fallback=|| "Loading 2...">
-                                {move || {
-                                    two_second.get().map(|x| view! {
-                                        <span id="loaded-2">"Loaded 2 (created inside first suspense)!: " {format!("{x:?}")}</span>
-                                        <button on:click=move |_| set_count.update(|n| *n += 1)>
-                                            {count}
-                                        </button>
-                                    })
-                                }}
-                            </Suspense>
-                        }
-                    })
-                }}
+                {Suspend(async move {
+                    _ = one_second.await;
+                    let two_second = Resource::new(|| (), move |_| async move {
+                        second_wait_fn(WAIT_TWO_SECONDS).await
+                    });
+                    view! {
+                        <p id="loaded-1">"One Second: Loaded 1!"</p>
+                        <Suspense fallback=|| "Loading 2...">
+                            <span id="loaded-2">
+                                "Loaded 2 (created inside first suspense)!: "
+                                {Suspend(async move { format!("{:?}", two_second.await)})}
+                            </span>
+                            <button on:click=move |_| set_count.update(|n| *n += 1)>
+                                {count}
+                            </button>
+                        </Suspense>
+                    }
+                })}
             </Suspense>
         </div>
     }
@@ -185,9 +180,9 @@ fn NestedResourceInside() -> impl IntoView {
 
 #[component]
 fn Parallel() -> impl IntoView {
-    let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
-    let two_second = create_resource(|| WAIT_TWO_SECONDS, second_wait_fn);
-    let (count, set_count) = create_signal(0);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
+    let two_second = Resource::new(|| WAIT_TWO_SECONDS, second_wait_fn);
+    let (count, set_count) = signal(0);
 
     view! {
         <div>
@@ -217,8 +212,8 @@ fn Parallel() -> impl IntoView {
 
 #[component]
 fn Single() -> impl IntoView {
-    let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
-    let (count, set_count) = create_signal(0);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
+    let (count, set_count) = signal(0);
 
     view! {
         <div>
@@ -241,7 +236,7 @@ fn Single() -> impl IntoView {
 
 #[component]
 fn InsideComponent() -> impl IntoView {
-    let (count, set_count) = create_signal(0);
+    let (count, set_count) = signal(0);
 
     view! {
         <div>
@@ -259,7 +254,7 @@ fn InsideComponent() -> impl IntoView {
 
 #[component]
 fn InsideComponentChild() -> impl IntoView {
-    let one_second = create_resource(|| WAIT_ONE_SECOND, first_wait_fn);
+    let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
     view! {
         <Suspense fallback=|| "Loading 1...">
         {move || {
@@ -273,7 +268,7 @@ fn InsideComponentChild() -> impl IntoView {
 
 #[component]
 fn None() -> impl IntoView {
-    let (count, set_count) = create_signal(0);
+    let (count, set_count) = signal(0);
 
     view! {
         <div>

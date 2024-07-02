@@ -1,7 +1,10 @@
 use crate::{error_template::ErrorTemplate, errors::AppError};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::*;
+use leptos_router::{
+    components::{Route, Router, Routes},
+    StaticSegment,
+};
 
 #[server(CauseInternalServerError, "/api")]
 pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
@@ -13,28 +16,44 @@ pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
     ))
 }
 
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options/>
+                <MetaTags/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
+
 #[component]
 pub fn App() -> impl IntoView {
-    //let id = use_context::<String>();
     provide_meta_context();
     view! {
-
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/errors_axum.css"/>
-        <Router fallback=|| {
-            let mut outside_errors = Errors::default();
-            outside_errors.insert_with_default_key(AppError::NotFound);
-            view! {
-                <ErrorTemplate outside_errors/>
-            }
-            .into_view()
-        }>
+        <Router>
             <header>
                 <h1>"Error Examples:"</h1>
             </header>
             <main>
-                <Routes>
-                    <Route path="" view=ExampleErrors/>
+                <Routes fallback=|| {
+                    let mut errors = Errors::default();
+                    errors.insert_with_default_key(AppError::NotFound);
+                    view! {
+                        <ErrorTemplate errors/>
+                    }
+                    .into_view()
+                }>
+                    <Route path=StaticSegment("") view=ExampleErrors/>
                 </Routes>
             </main>
         </Router>
@@ -44,7 +63,7 @@ pub fn App() -> impl IntoView {
 #[component]
 pub fn ExampleErrors() -> impl IntoView {
     let generate_internal_error =
-        create_server_action::<CauseInternalServerError>();
+        ServerAction::<CauseInternalServerError>::new();
 
     view! {
         <p>
@@ -54,18 +73,18 @@ pub fn ExampleErrors() -> impl IntoView {
         </p>
         <p>
             "After pressing this button check browser network tools. Can be used even when WASM is blocked:"
-            <ActionForm action=generate_internal_error>
-                <input name="error1" type="submit" value="Generate Internal Server Error"/>
-            </ActionForm>
         </p>
+        <ActionForm action=generate_internal_error>
+            <input name="error1" type="submit" value="Generate Internal Server Error"/>
+        </ActionForm>
         <p>"The following <div> will always contain an error and cause this page to produce status 500. Check browser dev tools. "</p>
         <div>
-        // note that the error boundaries could be placed above in the Router or lower down
-        // in a particular route. The generated errors on the entire page contribute to the
-        // final status code sent by the server when producing ssr pages.
-        <ErrorBoundary fallback=|errors| view!{ <ErrorTemplate errors=errors/>}>
-            <ReturnsError/>
-        </ErrorBoundary>
+            // note that the error boundaries could be placed above in the Router or lower down
+            // in a particular route. The generated errors on the entire page contribute to the
+            // final status code sent by the server when producing ssr pages.
+            <ErrorBoundary fallback=|errors| view!{ <ErrorTemplate errors/>}>
+                <ReturnsError/>
+            </ErrorBoundary>
         </div>
     }
 }

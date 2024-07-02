@@ -1,17 +1,16 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    pub use axum::{routing::get, Router};
-    pub use hackernews_islands::fallback::file_and_error_handler;
+    pub use axum::Router;
     use hackernews_islands::*;
-    pub use leptos::get_configuration;
+    pub use leptos::config::get_configuration;
     pub use leptos_axum::{generate_route_list, LeptosRoutes};
     use tower_http::compression::{
         predicate::{NotForContentType, SizeAbove},
         CompressionLayer, CompressionLevel, Predicate,
     };
 
-    let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+    let conf = get_configuration(Some("Cargo.toml")).unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
@@ -26,14 +25,16 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/favicon.ico", get(file_and_error_handler))
-        .leptos_routes(&leptos_options, routes, App)
+        .leptos_routes(&leptos_options, routes, {
+            let leptos_options = leptos_options.clone();
+            move || shell(leptos_options.clone())
+        })
         .layer(
             CompressionLayer::new()
                 .quality(CompressionLevel::Fastest)
                 .compress_when(predicate),
         )
-        .fallback(file_and_error_handler)
+        .fallback(fallback::file_and_error_handler)
         .with_state(leptos_options);
 
     // run our app with hyper
@@ -49,8 +50,7 @@ async fn main() {
 #[cfg(not(feature = "ssr"))]
 pub fn main() {
     use hackernews_islands::*;
-    use leptos::*;
-    _ = console_log::init_with_level(log::Level::Debug);
+    use leptos::prelude::*;
     console_error_panic_hook::set_once();
-    mount_to_body(App);
+    leptos::mount::mount_to_body(App);
 }

@@ -11,7 +11,6 @@ actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1"
 cfg-if = "1"
-http = { version = "0.2", optional = true }
 leptos = { path = "../../leptos" }
 leptos_meta = { path = "../../meta" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
@@ -20,8 +19,8 @@ wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 
 [features]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
 ssr = [
   "dep:actix-files",
   "dep:actix-web",

@@ -8,9 +8,7 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["serde"] }
-log = "0.4"
-console_log = "1"
+leptos = { path = "../../leptos" }
 console_error_panic_hook = "0.1.7"
 uuid = { version = "1", features = ["v4", "js", "serde"] }
 serde = { version = "1", features = ["derive"] }
@@ -23,8 +21,6 @@ wasm-bindgen-test = "0.3.0"
 [features]
 default = ["csr"]
 csr = ["leptos/csr"]
-hydrate = ["leptos/hydrate"]
-ssr = ["leptos/ssr"]
 
 [package.metadata.cargo-all-features]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
