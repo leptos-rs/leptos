@@ -58,7 +58,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_str_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -78,14 +90,11 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, false)
     }
 
     #[track_caller]
-    #[deprecated = "Use ::new() instead; I'm going to switch the default to \
-                    SerdeJson and keep the FromStr/ToString available as \
-                    ::new_str()."]
-    pub fn new_serde<S, Fut>(
+    pub fn new_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
@@ -94,7 +103,7 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -114,7 +123,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_serde_wb_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_options(source, fetcher, true)
     }
 }
 #[cfg(feature = "miniserde")]
@@ -133,7 +154,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_miniserde_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -153,7 +186,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_serde_lite_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -173,7 +218,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        ArcResource::new_with_encoding(source, fetcher)
+        ArcResource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_rkyv_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        ArcResource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -184,9 +241,10 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_with_encoding<S, Fut>(
+    pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+        blocking: bool,
     ) -> ArcResource<T, Ser>
     where
         S: PartialEq + Clone + Send + Sync + 'static,
@@ -218,6 +276,10 @@ where
         if let Some(shared_context) = shared_context {
             let value = data.clone();
             let ready_fut = data.ready();
+
+            if blocking {
+                shared_context.defer_stream(Box::pin(data.ready()));
+            }
 
             shared_context.write_async(
                 id,
@@ -329,7 +391,20 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, false)
+    }
+
+    #[track_caller]
+    pub fn new_str_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -349,14 +424,11 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, false)
     }
 
     #[track_caller]
-    #[deprecated = "Use ::new() instead; I'm going to switch the default to \
-                    SerdeJson and keep the FromStr/ToString available as \
-                    ::new_str()."]
-    pub fn new_serde<S, Fut>(
+    pub fn new_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
@@ -365,7 +437,7 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -385,7 +457,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_serde_wb_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -405,7 +489,7 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, false)
     }
 }
 
@@ -425,7 +509,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_serde_lite_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -445,7 +541,19 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        Resource::new_with_encoding(source, fetcher)
+        Resource::new_with_options(source, fetcher, false)
+    }
+
+    pub fn new_rkyv_blocking<S, Fut>(
+        source: impl Fn() -> S + Send + Sync + 'static,
+        fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        S: PartialEq + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        Resource::new_with_options(source, fetcher, true)
     }
 }
 
@@ -456,9 +564,10 @@ where
     T::SerErr: Debug,
     T::DeErr: Debug,
 {
-    pub fn new_with_encoding<S, Fut>(
+    pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+        blocking: bool,
     ) -> Resource<T, Ser>
     where
         S: Send + Sync + Clone + PartialEq + 'static,
@@ -466,7 +575,7 @@ where
         Fut: Future<Output = T> + Send + 'static,
     {
         let ArcResource { data, .. } =
-            ArcResource::new_with_encoding(source, fetcher);
+            ArcResource::new_with_options(source, fetcher, blocking);
         Resource {
             ser: PhantomData,
             data: data.into(),

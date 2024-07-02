@@ -158,4 +158,12 @@ impl SharedContext for HydrateSharedContext {
     fn take_errors(&self) -> Vec<(SerializedDataId, ErrorId, Error)> {
         self.errors.clone()
     }
+
+    #[inline(always)]
+    fn defer_stream(&self, _wait_for: PinnedFuture<()>) {}
+
+    #[inline(always)]
+    fn await_deferred(&self) -> Option<PinnedFuture<()>> {
+        None
+    }
 }
