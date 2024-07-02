@@ -120,6 +120,13 @@ impl<T> Debug for RwSignal<T> {
     }
 }
 
+impl<T:  Send + Sync + 'static + Default> Default for RwSignal<T> {
+    #[track_caller]
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> PartialEq for RwSignal<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
