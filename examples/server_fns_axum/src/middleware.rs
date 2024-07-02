@@ -18,6 +18,7 @@ impl<S> Layer<S> for LoggingLayer {
     }
 }
 
+#[derive(Clone)]
 pub struct LoggingService<T> {
     inner: T,
 }

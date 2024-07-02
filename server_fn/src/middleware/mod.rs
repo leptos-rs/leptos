@@ -17,13 +17,48 @@ impl<Req, Res> BoxedService<Req, Res> {
     }
 }
 
+#[cfg(feature = "axum-no-default")]
+impl<Req, Res> Clone for BoxedService<Req, Res> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone_box())
+    }
+}
+
 /// A service converts an HTTP request into a response.
+#[cfg(not(feature = "axum-no-default"))]
 pub trait Service<Request, Response> {
     /// Converts a request into a response.
     fn run(
         &mut self,
         req: Request,
     ) -> Pin<Box<dyn Future<Output = Response> + Send>>;
+}
+
+/// A service converts an HTTP request into a response.
+#[cfg(feature = "axum-no-default")]
+pub trait Service<Request, Response>: CloneService<Request, Response> {
+    /// Converts a request into a response.
+    fn run(
+        &mut self,
+        req: Request,
+    ) -> Pin<Box<dyn Future<Output = Response> + Send>>;
+}
+
+/// Make the service clonable
+#[cfg(feature = "axum-no-default")]
+pub trait CloneService<Req, Res> {
+    /// Clone the boxed service
+    fn clone_box(&self) -> Box<dyn Service<Req, Res> + Send>;
+}
+
+#[cfg(feature = "axum-no-default")]
+impl<Req, Res, S: ?Sized> CloneService<Req, Res> for S
+where
+    S: Service<Req, Res> + Clone + Send + 'static,
+{
+    fn clone_box(&self) -> Box<dyn Service<Req, Res> + Send> {
+        Box::new(self.clone())
+    }
 }
 
 #[cfg(feature = "axum-no-default")]
@@ -40,7 +75,10 @@ mod axum {
 
     impl<S> super::Service<Request<Body>, Response<Body>> for S
     where
-        S: tower::Service<Request<Body>, Response = Response<Body>>,
+        S: tower::Service<Request<Body>, Response = Response<Body>>
+            + Clone
+            + Send
+            + 'static,
         S::Future: Send + 'static,
         S::Error: Into<ServerFnError> + Send + Debug + Display + Sync + 'static,
     {
