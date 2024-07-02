@@ -76,4 +76,12 @@ impl SharedContext for CsrSharedContext {
 
     #[inline(always)]
     fn hydration_complete(&self) {}
+
+    #[inline(always)]
+    fn defer_stream(&self, _wait_for: PinnedFuture<()>) {}
+
+    #[inline(always)]
+    fn await_deferred(&self) -> Option<PinnedFuture<()>> {
+        None
+    }
 }

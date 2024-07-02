@@ -126,4 +126,18 @@ pub trait SharedContext: Debug {
         error_id: ErrorId,
         error: Error,
     );
+
+    /// Adds a `Future` to the set of “blocking resources” that should prevent the server’s
+    /// response stream from beginning until all are resolved. The `Future` returned by
+    /// [`blocking_resources`](Self::blocking_resources) will not resolve until every `Future`
+    /// added by this method has resolved.
+    ///
+    /// In browser implementations, this should be a no-op.
+    fn defer_stream(&self, wait_for: PinnedFuture<()>);
+
+    /// Returns a `Future` that will resolve when every `Future` added via
+    /// [`defer_stream`](Self::defer_stream) has resolved.
+    ///
+    /// In browser implementations, this should be a no-op.
+    fn await_deferred(&self) -> Option<PinnedFuture<()>>;
 }

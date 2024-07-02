@@ -36,13 +36,18 @@ pub trait ExtendResponse: Sized {
         IV: IntoView + 'static,
     {
         async move {
-            let (owner, stream) = build_response(
-                app_fn,
-                meta_context,
-                additional_context,
-                stream_builder,
-            );
-            let mut stream = stream.await;
+            let (owner, stream) =
+                build_response(app_fn, additional_context, stream_builder);
+
+            let stream = stream.await.ready_chunks(32).map(|n| n.join(""));
+
+            let sc = owner.shared_context().unwrap();
+            while let Some(pending) = sc.await_deferred() {
+                pending.await;
+            }
+
+            let mut stream =
+                Box::pin(meta_context.inject_meta_context(stream).await);
 
             // wait for the first chunk of the stream, then set the status and headers
             let first_chunk = stream.next().await.unwrap_or_default();
@@ -71,7 +76,6 @@ pub trait ExtendResponse: Sized {
 
 pub fn build_response<IV>(
     app_fn: impl FnOnce() -> IV + Send + 'static,
-    meta_context: ServerMetaContext,
     additional_context: impl FnOnce() + Send + 'static,
     stream_builder: fn(
         IV,
@@ -87,42 +91,43 @@ where
     let stream = Box::pin(Sandboxed::new({
         let owner = owner.clone();
         async move {
-            let stream = owner
-                .with(|| {
-                    additional_context();
+            let stream = owner.with(|| {
+                additional_context();
 
-                    // run app
-                    let app = app_fn();
+                // run app
+                let app = app_fn();
 
-                    let nonce = use_nonce()
-                        .as_ref()
-                        .map(|nonce| format!(" nonce=\"{nonce}\""))
-                        .unwrap_or_default();
+                let nonce = use_nonce()
+                    .as_ref()
+                    .map(|nonce| format!(" nonce=\"{nonce}\""))
+                    .unwrap_or_default();
 
-                    let shared_context =
-                        Owner::current_shared_context().unwrap();
-                    let chunks = Box::new(move || {
+                let shared_context = Owner::current_shared_context().unwrap();
+
+                let chunks = Box::new({
+                    let shared_context = shared_context.clone();
+                    move || {
                         Box::pin(shared_context.pending_data().unwrap().map(
                             move |chunk| {
                                 format!("<script{nonce}>{chunk}</script>")
                             },
                         ))
                             as Pin<Box<dyn Stream<Item = String> + Send>>
-                    });
+                    }
+                });
 
-                    // convert app to appropriate response type
-                    // and chain the app stream, followed by chunks
-                    // in theory, we could select here, and intersperse them
-                    // the problem is that during the DOM walk, that would be mean random <script> tags
-                    // interspersed where we expect other children
-                    //
-                    // we also don't actually start hydrating until after the whole stream is complete,
-                    // so it's not useful to send those scripts down earlier.
-                    stream_builder(app, chunks)
-                })
-                .await;
-            Box::pin(meta_context.inject_meta_context(stream).await)
-                as PinnedStream<String>
+                // convert app to appropriate response type
+                // and chain the app stream, followed by chunks
+                // in theory, we could select here, and intersperse them
+                // the problem is that during the DOM walk, that would be mean random <script> tags
+                // interspersed where we expect other children
+                //
+                // we also don't actually start hydrating until after the whole stream is complete,
+                // so it's not useful to send those scripts down earlier.
+                stream_builder(app, chunks)
+            });
+
+            stream.await
         }
     }));
     (owner, stream)
