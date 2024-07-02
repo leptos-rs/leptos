@@ -94,6 +94,10 @@ pub fn App() -> impl IntoView {
                         view=Post
                         ssr=SsrMode::InOrder
                     />
+                    <Route
+                        path=(StaticSegment("post_partially_blocked"), ParamSegment("id"))
+                        view=Post
+                    />
                     <ProtectedRoute
                         path=StaticSegment("admin")
                         view=Admin
@@ -135,7 +139,9 @@ fn HomePage() -> impl IntoView {
                     <li>
                         <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
                         "|"
-                        <a href=format!("/post_in_order/{}", post.id)>{post.title} "(in order)"</a>
+                        <a href=format!("/post_in_order/{}", post.id)>{post.title.clone()} "(in order)"</a>
+                        "|"
+                        <a href=format!("/post_partially_blocked/{}", post.id)>{post.title} "(partially blocked)"</a>
                     </li>
                 </For>
             </ul>
@@ -158,7 +164,7 @@ fn Post() -> impl IntoView {
                 .map_err(|_| PostError::InvalidId)
         })
     };
-    let post_resource = Resource::new(id, |id| async move {
+    let post_resource = Resource::new_blocking(id, |id| async move {
         match id {
             Err(e) => Err(e),
             Ok(id) => get_post(id)
@@ -167,18 +173,44 @@ fn Post() -> impl IntoView {
                 .map_err(|_| PostError::ServerError),
         }
     });
+    let comments_resource = Resource::new(id, |id| async move {
+        match id {
+            Err(e) => Err(e),
+            Ok(id) => {
+                get_comments(id).await.map_err(|_| PostError::ServerError)
+            }
+        }
+    });
 
     let post_view = Suspend(async move {
-        match post_resource.await.to_owned() {
-            Ok(Ok(post)) => Ok(view! {
-                <h1>{post.title.clone()}</h1>
-                <p>{post.content.clone()}</p>
+        match post_resource.await {
+            Ok(Ok(post)) => {
+                Ok(view! {
+                    <h1>{post.title.clone()}</h1>
+                    <p>{post.content.clone()}</p>
 
-                // since we're using async rendering for this page,
-                // this metadata should be included in the actual HTML <head>
-                // when it's first served
-                <Title text=post.title/>
-                <Meta name="description" content=post.content/>
+                    // since we're using async rendering for this page,
+                    // this metadata should be included in the actual HTML <head>
+                    // when it's first served
+                    <Title text=post.title/>
+                    <Meta name="description" content=post.content/>
+                })
+            }
+            _ => Err(PostError::ServerError),
+        }
+    });
+    let comments_view = Suspend(async move {
+        match comments_resource.await {
+            Ok(comments) => Ok(view! {
+                <h1>"Comments"</h1>
+                <ul>
+                    {comments.into_iter()
+                        .map(|comment| view! {
+                            <li>{comment}</li>
+                        })
+                        .collect_view()
+                    }
+                </ul>
             }),
             _ => Err(PostError::ServerError),
         }
@@ -204,6 +236,9 @@ fn Post() -> impl IntoView {
                     </div>
                 }
             }>{post_view}</ErrorBoundary>
+        </Suspense>
+        <Suspense fallback=move || view! { <p>"Loading comments..."</p> }>
+            {comments_view}
         </Suspense>
     }
 }
@@ -275,4 +310,11 @@ pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
 pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS.iter().find(|post| post.id == id).cloned())
+}
+
+#[server]
+pub async fn get_comments(id: usize) -> Result<Vec<String>, ServerFnError> {
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    _ = id;
+    Ok(vec!["Some comment".into(), "Some other comment".into()])
 }
