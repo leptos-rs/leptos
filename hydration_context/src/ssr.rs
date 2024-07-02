@@ -1,6 +1,7 @@
 use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
 use futures::{
+    future::join_all,
     stream::{self},
     Stream, StreamExt,
 };
@@ -12,7 +13,7 @@ use std::{
     pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        Arc, RwLock,
+        Arc, Mutex, RwLock,
     },
     task::{Context, Poll},
 };
@@ -31,6 +32,7 @@ pub struct SsrSharedContext {
     async_buf: AsyncDataBuf,
     errors: ErrorBuf,
     sealed_error_boundaries: SealedErrors,
+    deferred: Mutex<Vec<PinnedFuture<()>>>,
 }
 
 impl SsrSharedContext {
@@ -186,6 +188,21 @@ impl SharedContext for SsrSharedContext {
     }
 
     fn hydration_complete(&self) {}
+
+    fn defer_stream(&self, wait_for: PinnedFuture<()>) {
+        self.deferred.lock().or_poisoned().push(wait_for);
+    }
+
+    fn await_deferred(&self) -> Option<PinnedFuture<()>> {
+        let deferred = mem::take(&mut *self.deferred.lock().or_poisoned());
+        if deferred.is_empty() {
+            None
+        } else {
+            Some(Box::pin(async move {
+                join_all(deferred).await;
+            }))
+        }
+    }
 }
 
 struct AsyncDataStream {
