@@ -40,6 +40,12 @@ impl<T> Debug for ArcWriteSignal<T> {
     }
 }
 
+impl<T: Default> Default for ArcWriteSignal<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> PartialEq for ArcWriteSignal<T> {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.value, &other.value)
