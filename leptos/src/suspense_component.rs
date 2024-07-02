@@ -239,27 +239,22 @@ where
                 if OUT_OF_ORDER {
                     let mut fallback_position = *position;
                     buf.push_fallback(self.fallback, &mut fallback_position);
-                    buf.push_async_out_of_order(
-                        false, /* TODO should_block */ fut, position,
-                    );
+                    buf.push_async_out_of_order(fut, position);
                 } else {
-                    buf.push_async(
-                        false, // TODO should_block
-                        {
-                            let mut position = *position;
-                            async move {
-                                let value = fut.await;
-                                let mut builder = StreamBuilder::new(id);
-                                Either::<Fal, _>::Right(value)
-                                    .to_html_async_with_buf::<OUT_OF_ORDER>(
-                                        &mut builder,
-                                        &mut position,
-                                        escape,
-                                    );
-                                builder.finish().take_chunks()
-                            }
-                        },
-                    );
+                    buf.push_async({
+                        let mut position = *position;
+                        async move {
+                            let value = fut.await;
+                            let mut builder = StreamBuilder::new(id);
+                            Either::<Fal, _>::Right(value)
+                                .to_html_async_with_buf::<OUT_OF_ORDER>(
+                                    &mut builder,
+                                    &mut position,
+                                    escape,
+                                );
+                            builder.finish().take_chunks()
+                        }
+                    });
                     *position = Position::NextChild;
                 }
             }
