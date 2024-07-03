@@ -4,6 +4,7 @@
 
 pub mod components;
 pub mod flat_router;
+mod form;
 mod generate_route_list;
 pub mod hooks;
 mod link;
