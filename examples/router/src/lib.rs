@@ -4,7 +4,8 @@ use leptos::either::Either;
 use leptos::prelude::*;
 use leptos_router::{
     components::{
-        Outlet, ParentRoute, ProtectedRoute, Redirect, Route, Router, Routes, A,
+        Form, Outlet, ParentRoute, ProtectedRoute, Redirect, Route, Router,
+        Routes, A,
     },
     hooks::{use_navigate, use_params, use_query_map},
     params::Params,
@@ -217,13 +218,14 @@ pub fn Settings() -> impl IntoView {
 
     view! {
         <h1>"Settings"</h1>
-        <form>
+        <Form action="">
             <fieldset>
                 <legend>"Name"</legend>
                 <input type="text" name="first_name" placeholder="First"/>
                 <input type="text" name="last_name" placeholder="Last"/>
             </fieldset>
-            <pre>"This page is just a placeholder."</pre>
-        </form>
+            <input type="submit"/>
+            <p>"This uses the " <code>"<Form/>"</code> " component, which enhances forms by using client-side navigation for " <code>"GET"</code> " requests, and client-side requests for " <code>"POST"</code> " requests, without requiring a full page reload."</p>
+        </Form>
     }
 }
