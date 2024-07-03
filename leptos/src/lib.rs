@@ -263,6 +263,10 @@ pub use tachys::html::element as html;
 /// HTML event types.
 #[doc(no_inline)]
 pub use tachys::html::event as ev;
+/// MathML element types.
+pub use tachys::mathml as math;
+/// SVG element types.
+pub use tachys::svg;
 
 /// Utilities for simple isomorphic logging to the console or terminal.
 pub mod logging {
