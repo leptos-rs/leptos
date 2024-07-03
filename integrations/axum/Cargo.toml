@@ -37,3 +37,6 @@ nonce = ["leptos/nonce"]
 wasm = []
 default = ["tokio/fs", "tokio/sync"]
 experimental-islands = ["leptos_integration_utils/experimental-islands"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

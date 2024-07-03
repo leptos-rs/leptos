@@ -51,3 +51,6 @@ axum = ["server_fn_macro/axum"]
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
 skip_feature_sets = [["csr", "hydrate"], ["hydrate", "csr"], ["hydrate", "ssr"]]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

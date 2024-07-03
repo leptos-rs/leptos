@@ -78,3 +78,6 @@ nightly = ["leptos/nightly"]
 # No need to test optional dependencies as they are enabled by the ssr feature
 denylist = ["url", "regex", "nightly"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

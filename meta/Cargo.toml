@@ -29,3 +29,6 @@ nightly = ["leptos/nightly"]
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
