@@ -1,4 +1,5 @@
 pub use super::link::*;
+pub use super::form::*;
 #[cfg(feature = "ssr")]
 use crate::location::RequestUrl;
 pub use crate::nested_router::Outlet;
