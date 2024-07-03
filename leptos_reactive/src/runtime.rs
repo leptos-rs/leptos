@@ -629,7 +629,7 @@ impl Runtime {
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[track_caller]
@@ -644,7 +644,7 @@ impl Runtime {
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[track_caller]
@@ -1382,7 +1382,7 @@ impl Drop for SetObserverOnDrop {
 ///
 /// To avoid panicking under any circumstances, use [`try_batch`].
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)]
@@ -1398,7 +1398,7 @@ pub fn batch<T>(f: impl FnOnce() -> T) -> T {
 ///
 /// Unlike [`batch`], this will not panic if the runtime has been disposed.
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)]
@@ -1447,7 +1447,7 @@ pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
 }
 
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 fn push_cleanup(cleanup_fn: Box<dyn FnOnce()>) {
@@ -1509,7 +1509,7 @@ impl ScopeProperty {
 /// # runtime.dispose();
 /// ```
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)]
@@ -1519,7 +1519,7 @@ pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
 
 #[doc(hidden)]
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)]

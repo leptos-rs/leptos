@@ -24,10 +24,7 @@ pub(crate) enum Mode {
 
 impl Default for Mode {
     fn default() -> Self {
-        if cfg!(feature = "hydrate")
-            || cfg!(feature = "csr")
-            || cfg!(feature = "web")
-        {
+        if cfg!(feature = "hydrate") || cfg!(feature = "csr") {
             Mode::Client
         } else {
             Mode::Ssr
