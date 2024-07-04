@@ -140,4 +140,11 @@ pub trait SharedContext: Debug {
     ///
     /// In browser implementations, this should be a no-op.
     fn await_deferred(&self) -> Option<PinnedFuture<()>>;
+
+    /// Tells the client that this chunk is being sent from the server before all its data have
+    /// loaded, and it may be in a fallback state.
+    fn set_incomplete_chunk(&self, id: SerializedDataId);
+
+    /// Checks whether this chunk is being sent from the server before all its data have loaded.
+    fn get_incomplete_chunk(&self, id: &SerializedDataId) -> bool;
 }

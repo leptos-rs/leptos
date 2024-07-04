@@ -138,7 +138,7 @@ impl StreamBuilder {
 
     pub fn push_async_out_of_order<View, Rndr>(
         &mut self,
-        view: impl Future<Output = View> + Send + 'static,
+        view: impl Future<Output = Option<View>> + Send + 'static,
         position: &mut Position,
     ) where
         View: RenderHtml<Rndr>,
@@ -160,18 +160,24 @@ impl StreamBuilder {
                         write!(&mut id, "{}-", piece).unwrap();
                     }
                 }
-
                 if let Some(id) = subbuilder.id.as_mut() {
                     id.push(0);
                 }
-                view.to_html_async_with_buf::<true>(
-                    &mut subbuilder,
-                    &mut position,
-                    true,
-                );
+                let replace = view.is_some();
+                if let Some(view) = view {
+                    view.to_html_async_with_buf::<true>(
+                        &mut subbuilder,
+                        &mut position,
+                        true,
+                    );
+                }
                 let chunks = subbuilder.finish().take_chunks();
 
-                OooChunk { id, chunks }
+                OooChunk {
+                    id,
+                    chunks,
+                    replace,
+                }
             }),
         });
     }
@@ -201,6 +207,7 @@ pub enum StreamChunk {
 struct OooChunk {
     id: String,
     chunks: VecDeque<StreamChunk>,
+    replace: bool,
 }
 
 impl OooChunk {
@@ -211,7 +218,7 @@ impl OooChunk {
         buf.push_str("\">");
     }
 
-    pub fn push_end(id: &str, buf: &mut String) {
+    pub fn push_end(replace: bool, id: &str, buf: &mut String) {
         buf.push_str("</template>");
 
         // TODO nonce
@@ -219,20 +226,26 @@ impl OooChunk {
         buf.push_str(r#">(function() { let id = ""#);
         buf.push_str(id);
         buf.push_str(
-            "\";let open = undefined;let close = undefined;let walker \
-                     = document.createTreeWalker(document.body, \
-                     NodeFilter.SHOW_COMMENT);while(walker.nextNode()) \
-                     {if(walker.currentNode.textContent == `s-${id}o`){ \
-                     open=walker.currentNode; } else \
-                     if(walker.currentNode.textContent == `s-${id}c`) { close \
-                     = walker.currentNode;}}let range = new Range(); \
-                     range.setStartBefore(open); range.setEndBefore(close); \
-                     range.deleteContents(); let tpl = \
-                     document.getElementById(`${id}f`); \
-                     close.parentNode.insertBefore(tpl.content.\
-                     cloneNode(true), close);close.remove();})()",
+            "\";let open = undefined;let close = undefined;let walker = \
+             document.createTreeWalker(document.body, \
+             NodeFilter.SHOW_COMMENT);while(walker.nextNode()) \
+             {if(walker.currentNode.textContent == `s-${id}o`){ \
+             open=walker.currentNode; } else \
+             if(walker.currentNode.textContent == `s-${id}c`) { close = \
+             walker.currentNode;}}let range = new Range(); \
+             range.setStartBefore(open); range.setEndBefore(close);",
         );
-        buf.push_str("</script>");
+        if replace {
+            buf.push_str(
+                "range.deleteContents(); let tpl = \
+                 document.getElementById(`${id}f`); \
+                 close.parentNode.insertBefore(tpl.content.cloneNode(true), \
+                 close);close.remove();",
+            );
+        } else {
+            buf.push_str("close.remove();open.remove();");
+        }
+        buf.push_str("})()</script>");
     }
 }
 
@@ -279,7 +292,11 @@ impl Stream for StreamBuilder {
                     // now, handle out-of-order chunks
                     if let Some(mut pending) = this.pending_ooo.pop_front() {
                         match pending.as_mut().poll(cx) {
-                            Poll::Ready(OooChunk { id, chunks }) => {
+                            Poll::Ready(OooChunk {
+                                id,
+                                chunks,
+                                replace,
+                            }) => {
                                 let opening = format!("<!--s-{id}o-->");
                                 let placeholder_at =
                                     this.sync_buf.find(&opening);
@@ -324,7 +341,11 @@ impl Stream for StreamBuilder {
                                             this.chunks.push_front(chunk);
                                         }
                                     }
-                                    OooChunk::push_end(&id, &mut this.sync_buf);
+                                    OooChunk::push_end(
+                                        replace,
+                                        &id,
+                                        &mut this.sync_buf,
+                                    );
                                 }
                                 self.poll_next(cx)
                             }
