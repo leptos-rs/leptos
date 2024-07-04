@@ -561,7 +561,10 @@ pub mod read {
             &self,
             fun: impl FnOnce(&Self::Value) -> U,
         ) -> Option<U> {
-            self.0.as_ref().and_then(|n| n.try_with_untracked(fun))
+            match &self.0 {
+                None => Some(fun(&None)),
+                Some(inner) => inner.try_with_untracked(fun),
+            }
         }
     }
 
@@ -572,7 +575,10 @@ pub mod read {
             &self,
             fun: impl FnOnce(&Self::Value) -> U,
         ) -> Option<U> {
-            self.0.as_ref().and_then(|n| n.try_with(fun))
+            match &self.0 {
+                None => Some(fun(&None)),
+                Some(inner) => inner.try_with(fun),
+            }
         }
     }
 
