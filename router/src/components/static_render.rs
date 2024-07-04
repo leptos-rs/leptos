@@ -47,6 +47,7 @@ pub struct StaticPath<'b, 'a: 'b> {
     path: &'a str,
     segments: Vec<StaticPathSegment<'a>>,
     params: LinearMap<&'a str, &'b Vec<String>>,
+    trailing_slash: bool,
 }
 
 #[doc(hidden)]
@@ -72,6 +73,7 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                 })
                 .collect::<Vec<_>>(),
             params: LinearMap::new(),
+            trailing_slash: path != "/" && path.ends_with("/"),
         }
     }
 
