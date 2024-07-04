@@ -1254,7 +1254,7 @@ where
     generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
 }
 
-/// TODO docs
+/// Builds and outputs each route to the target/site directory. This is useful for static site generation.
 pub async fn build_static_routes<IV>(
     options: &LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Send + Clone,
