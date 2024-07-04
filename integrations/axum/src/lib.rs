@@ -221,18 +221,21 @@ pub async fn handle_server_fns(req: Request<Body>) -> impl IntoResponse {
 /// to panic so we define a macro to conditionally compile the correct code.
 macro_rules! spawn_task {
     ($block:expr) => {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "wasm")] {
-                spawn_local($block);
-            } else if #[cfg(feature = "default")] {
-                let pool_handle = get_leptos_pool();
-                pool_handle.spawn_pinned(move || { $block });
-            } else {
-                eprintln!("It appears you have set 'default-features = false' on 'leptos_axum', \
-                but are not using the 'wasm' feature. Either remove 'default-features = false' or, \
-                if you are running in a JS-hosted WASM server environment, add the 'wasm' feature.");
-                spawn_local($block);
+        {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "wasm")] {
+                    let handle = spawn_local($block);
+                } else if #[cfg(feature = "default")] {
+                    let pool_handle = get_leptos_pool();
+                    let handle = pool_handle.spawn_pinned(move || { $block });
+                } else {
+                    eprintln!("It appears you have set 'default-features = false' on 'leptos_axum', \
+                    but are not using the 'wasm' feature. Either remove 'default-features = false' or, \
+                    if you are running in a JS-hosted WASM server environment, add the 'wasm' feature.");
+                    let handle = spawn_local($block);
+                }
             }
+            handle
         }
     };
 }
