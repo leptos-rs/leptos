@@ -205,6 +205,7 @@ impl ResolvedStaticPath {
         let html = self.build(options, app_fn, additional_context).await;
         let file_path = static_file_path(options, &self.0);
         let path = Path::new(&file_path);
+        println!("writing static route to: {file_path}");
         if let Some(path) = path.parent() {
             std::fs::create_dir_all(path)?
         }
