@@ -1278,7 +1278,7 @@ pub async fn build_static_routes<IV>(
         .await
         .expect("could not build static routes")
     });
-    handle.await;
+    let _ = handle.await;
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
