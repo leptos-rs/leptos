@@ -15,6 +15,8 @@ extern "C" {
     static __RESOLVED_RESOURCES: Array;
 
     static __SERIALIZED_ERRORS: Array;
+
+    static __INCOMPLETE_CHUNKS: Array;
 }
 
 fn serialized_errors() -> Vec<(SerializedDataId, ErrorId, Error)> {
@@ -38,6 +40,16 @@ fn serialized_errors() -> Vec<(SerializedDataId, ErrorId, Error)> {
         .collect()
 }
 
+fn incomplete_chunks() -> Vec<SerializedDataId> {
+    __INCOMPLETE_CHUNKS
+        .iter()
+        .map(|value| {
+            let id = value.as_f64().unwrap() as usize;
+            SerializedDataId(id)
+        })
+        .collect()
+}
+
 /// An error that has been serialized across the network boundary.
 #[derive(Debug, Clone)]
 struct SerializedError(String);
@@ -57,6 +69,7 @@ pub struct HydrateSharedContext {
     is_hydrating: AtomicBool,
     during_hydration: AtomicBool,
     errors: Lazy<Vec<(SerializedDataId, ErrorId, Error)>>,
+    incomplete: Lazy<Vec<SerializedDataId>>,
 }
 
 impl HydrateSharedContext {
@@ -67,6 +80,7 @@ impl HydrateSharedContext {
             is_hydrating: AtomicBool::new(true),
             during_hydration: AtomicBool::new(true),
             errors: Lazy::new(serialized_errors),
+            incomplete: Lazy::new(incomplete_chunks),
         }
     }
 
@@ -80,6 +94,7 @@ impl HydrateSharedContext {
             is_hydrating: AtomicBool::new(false),
             during_hydration: AtomicBool::new(true),
             errors: Lazy::new(serialized_errors),
+            incomplete: Lazy::new(incomplete_chunks),
         }
     }
 }
@@ -165,5 +180,12 @@ impl SharedContext for HydrateSharedContext {
     #[inline(always)]
     fn await_deferred(&self) -> Option<PinnedFuture<()>> {
         None
+    }
+
+    #[inline(always)]
+    fn set_incomplete_chunk(&self, _id: SerializedDataId) {}
+
+    fn get_incomplete_chunk(&self, id: &SerializedDataId) -> bool {
+        self.incomplete.iter().any(|entry| entry == id)
     }
 }

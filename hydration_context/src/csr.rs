@@ -84,4 +84,12 @@ impl SharedContext for CsrSharedContext {
     fn await_deferred(&self) -> Option<PinnedFuture<()>> {
         None
     }
+
+    #[inline(always)]
+    fn set_incomplete_chunk(&self, _id: SerializedDataId) {}
+
+    #[inline(always)]
+    fn get_incomplete_chunk(&self, _id: &SerializedDataId) -> bool {
+        false
+    }
 }
