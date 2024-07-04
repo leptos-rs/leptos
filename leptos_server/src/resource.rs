@@ -244,6 +244,7 @@ where
     pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
+        #[allow(unused)] // this is used with `feature = "ssr"`
         blocking: bool,
     ) -> ArcResource<T, Ser>
     where
