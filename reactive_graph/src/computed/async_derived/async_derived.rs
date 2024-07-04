@@ -41,7 +41,7 @@ impl<T: Send + Sync + 'static> AsyncDerived<T> {
     pub fn new<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
     where
         T: Send + Sync + 'static,
-        Fut: Future<Output = T> + Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
     {
         Self {
             #[cfg(debug_assertions)]

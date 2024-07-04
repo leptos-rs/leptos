@@ -3,6 +3,8 @@
 
 mod action;
 pub use action::*;
+mod local_resource;
+pub use local_resource::*;
 mod multi_action;
 pub use multi_action::*;
 mod resource;
