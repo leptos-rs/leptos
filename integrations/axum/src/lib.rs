@@ -1268,7 +1268,7 @@ pub async fn build_static_routes<IV>(
 {
     let options = options.clone();
     let routes = routes.to_owned();
-    spawn_task!(async move {
+    let handle = spawn_task!(async move {
         leptos_router::build_static_routes(
             &options,
             app_fn,
@@ -1278,6 +1278,7 @@ pub async fn build_static_routes<IV>(
         .await
         .expect("could not build static routes")
     });
+    handle.await;
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
