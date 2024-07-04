@@ -2,7 +2,7 @@ use super::{SerializedDataId, SharedContext};
 use crate::{PinnedFuture, PinnedStream};
 use futures::{
     future::join_all,
-    stream::{self},
+    stream::{self, once},
     Stream, StreamExt,
 };
 use or_poisoned::OrPoisoned;
@@ -33,6 +33,7 @@ pub struct SsrSharedContext {
     errors: ErrorBuf,
     sealed_error_boundaries: SealedErrors,
     deferred: Mutex<Vec<PinnedFuture<()>>>,
+    incomplete: Arc<Mutex<Vec<SerializedDataId>>>,
 }
 
 impl SsrSharedContext {
@@ -178,8 +179,19 @@ impl SharedContext for SsrSharedContext {
             sealed_error_boundaries: Arc::clone(&self.sealed_error_boundaries),
         };
 
-        let stream =
-            stream::once(async move { initial_chunk }).chain(async_data);
+        let incomplete = Arc::clone(&self.incomplete);
+
+        let stream = stream::once(async move { initial_chunk })
+            .chain(async_data)
+            .chain(once(async move {
+                let mut script = String::new();
+                script.push_str("__INCOMPLETE_CHUNKS=[");
+                for chunk in mem::take(&mut *incomplete.lock().or_poisoned()) {
+                    _ = write!(script, "{},", chunk.0);
+                }
+                script.push_str("];");
+                script
+            }));
         Some(Box::pin(stream))
     }
 
@@ -202,6 +214,18 @@ impl SharedContext for SsrSharedContext {
                 join_all(deferred).await;
             }))
         }
+    }
+
+    fn set_incomplete_chunk(&self, id: SerializedDataId) {
+        self.incomplete.lock().or_poisoned().push(id);
+    }
+
+    fn get_incomplete_chunk(&self, id: &SerializedDataId) -> bool {
+        self.incomplete
+            .lock()
+            .or_poisoned()
+            .iter()
+            .any(|entry| entry == id)
     }
 }
 

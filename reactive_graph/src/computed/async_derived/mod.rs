@@ -81,7 +81,27 @@ pub mod suspense {
         signal::ArcRwSignal,
         traits::{Update, Writeable},
     };
+    use futures::channel::oneshot::Sender;
+    use or_poisoned::OrPoisoned;
     use slotmap::{DefaultKey, SlotMap};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Debug)]
+    pub struct LocalResourceNotifier(Arc<Mutex<Option<Sender<()>>>>);
+
+    impl LocalResourceNotifier {
+        pub fn notify(&mut self) {
+            if let Some(tx) = self.0.lock().or_poisoned().take() {
+                tx.send(()).unwrap();
+            }
+        }
+    }
+
+    impl From<Sender<()>> for LocalResourceNotifier {
+        fn from(value: Sender<()>) -> Self {
+            Self(Arc::new(Mutex::new(Some(value))))
+        }
+    }
 
     #[derive(Clone, Debug)]
     pub struct SuspenseContext {

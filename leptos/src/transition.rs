@@ -7,9 +7,9 @@ use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo},
     effect::Effect,
-    owner::provide_context,
+    owner::{provide_context, Owner},
     signal::ArcRwSignal,
-    traits::{Get, With},
+    traits::{Get, Track, With},
     wrappers::write::SignalSetter,
 };
 use slotmap::{DefaultKey, SlotMap};
@@ -31,13 +31,28 @@ pub fn Transition<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
+    let (starts_local, id) = {
+        Owner::current_shared_context()
+            .map(|sc| {
+                let id = sc.next_id();
+                (sc.get_incomplete_chunk(&id), id)
+            })
+            .unwrap_or_else(|| (false, Default::default()))
+    };
     let fallback = fallback.run();
     let children = children.into_inner()();
     let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
     provide_context(SuspenseContext {
         tasks: tasks.clone(),
     });
-    let none_pending = ArcMemo::new(move |_| tasks.with(SlotMap::is_empty));
+    let none_pending = ArcMemo::new(move |prev: Option<&bool>| {
+        tasks.track();
+        if prev.is_none() && starts_local {
+            false
+        } else {
+            tasks.with(SlotMap::is_empty)
+        }
+    });
     if let Some(set_pending) = set_pending {
         Effect::new_isomorphic({
             let none_pending = none_pending.clone();
@@ -48,6 +63,7 @@ where
     }
 
     OwnedView::new(SuspenseBoundary::<true, _, _> {
+        id,
         none_pending,
         fallback,
         children,
