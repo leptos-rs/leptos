@@ -122,6 +122,11 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                 }
             }
         }
+        if let Some(last) = paths.last_mut() {
+            if self.trailing_slash {
+                *last = ResolvedStaticPath(format!("{last}/"));
+            }
+        }
         paths
     }
 
