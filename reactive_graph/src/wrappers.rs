@@ -124,7 +124,7 @@ pub mod read {
         fn from(value: ArcReadSignal<T>) -> Self {
             Self {
                 inner: SignalTypes::ReadSignal(value),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -135,7 +135,7 @@ pub mod read {
         fn from(value: ArcRwSignal<T>) -> Self {
             Self {
                 inner: SignalTypes::ReadSignal(value.read_only()),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -146,7 +146,7 @@ pub mod read {
         fn from(value: ArcMemo<T>) -> Self {
             Self {
                 inner: SignalTypes::Memo(value),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -375,7 +375,7 @@ pub mod read {
         fn from(value: ReadSignal<T>) -> Self {
             Self {
                 inner: StoredValue::new(SignalTypes::ReadSignal(value.into())),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -388,7 +388,7 @@ pub mod read {
                 inner: StoredValue::new(SignalTypes::ReadSignal(
                     value.read_only().into(),
                 )),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -399,7 +399,7 @@ pub mod read {
         fn from(value: Memo<T>) -> Self {
             Self {
                 inner: StoredValue::new(SignalTypes::Memo(value.into())),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -738,7 +738,7 @@ pub mod write {
         T: 'static,
     {
         inner: SignalSetterTypes<T>,
-        #[cfg(any(debug_assertions, feature = "ssr"))]
+        #[cfg(debug_assertions)]
         defined_at: &'static std::panic::Location<'static>,
     }
 
@@ -753,7 +753,7 @@ pub mod write {
         fn default() -> Self {
             Self {
                 inner: SignalSetterTypes::Default,
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -801,7 +801,7 @@ pub mod write {
                 inner: SignalSetterTypes::Mapped(StoredValue::new(Box::new(
                     mapped_setter,
                 ))),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -826,7 +826,7 @@ pub mod write {
         fn from(value: WriteSignal<T>) -> Self {
             Self {
                 inner: SignalSetterTypes::Write(value),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
@@ -840,7 +840,7 @@ pub mod write {
         fn from(value: RwSignal<T>) -> Self {
             Self {
                 inner: SignalSetterTypes::Write(value.write_only()),
-                #[cfg(any(debug_assertions, feature = "ssr"))]
+                #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
         }
