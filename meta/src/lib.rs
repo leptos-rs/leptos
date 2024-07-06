@@ -51,6 +51,7 @@ use futures::{Stream, StreamExt};
 use leptos::{
     attr::NextAttribute,
     component,
+    html::attributes_to_html,
     logging::debug_warn,
     reactive_graph::owner::{provide_context, use_context},
     tachys::{
@@ -234,7 +235,13 @@ impl ServerMetaContextOutput {
         // collect all registered meta tags
         let meta_buf = self.elements.into_iter().collect::<String>();
 
-        let modified_chunk = if title_len == 0 && meta_buf.is_empty() {
+        // get HTML strings for `<html>` and `<body>`
+        let mut html_attrs = String::new();
+        _ = attributes_to_html(self.html, &mut html_attrs);
+        let mut body_attrs = String::new();
+        _ = attributes_to_html(self.body, &mut body_attrs);
+
+        let mut modified_chunk = if title_len == 0 && meta_buf.is_empty() {
             first_chunk
         } else {
             let mut buf = String::with_capacity(
@@ -262,6 +269,22 @@ impl ServerMetaContextOutput {
             buf.push_str(after_head);
             buf
         };
+
+        if !html_attrs.is_empty() {
+            if let Some(index) = modified_chunk.find("<html") {
+                // Calculate the position where the new string should be inserted
+                let insert_pos = index + "<html".len();
+                modified_chunk.insert_str(insert_pos, &html_attrs);
+            }
+        }
+
+        if !body_attrs.is_empty() {
+            if let Some(index) = modified_chunk.find("<body") {
+                // Calculate the position where the new string should be inserted
+                let insert_pos = index + "<body".len();
+                modified_chunk.insert_str(insert_pos, &body_attrs);
+            }
+        }
 
         futures::stream::once(async move { modified_chunk }).chain(stream)
     }
