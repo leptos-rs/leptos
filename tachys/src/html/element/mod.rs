@@ -11,6 +11,7 @@ use crate::{
 use const_str_slice_concat::{
     const_concat, const_concat_with_prefix, str_from_buffer,
 };
+use futures::future::join;
 use next_tuple::NextTuple;
 use std::{marker::PhantomData, ops::Deref};
 
@@ -219,7 +220,7 @@ where
     Ch: RenderHtml<Rndr> + Send,
     Rndr: Renderer,
 {
-    type AsyncOutput = HtmlElement<E, At, Ch::AsyncOutput, Rndr>;
+    type AsyncOutput = HtmlElement<E, At::AsyncOutput, Ch::AsyncOutput, Rndr>;
 
     const MIN_LENGTH: usize = if E::SELF_CLOSING {
         3 // < ... />
@@ -235,15 +236,18 @@ where
     };
 
     fn dry_resolve(&mut self) {
-        self.children.dry_resolve()
+        self.attributes.dry_resolve();
+        self.children.dry_resolve();
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
+        let (attributes, children) =
+            join(self.attributes.resolve(), self.children.resolve()).await;
         HtmlElement {
             tag: self.tag,
             rndr: PhantomData,
-            attributes: self.attributes,
-            children: self.children.resolve().await,
+            attributes,
+            children,
             #[cfg(debug_assertions)]
             defined_at: self.defined_at,
         }

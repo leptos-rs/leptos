@@ -3,7 +3,7 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
-use std::{marker::PhantomData, sync::Arc};
+use std::{future::Future, marker::PhantomData, sync::Arc};
 
 #[inline(always)]
 pub fn class<C, R>(class: C) -> Class<C, R>
@@ -42,6 +42,7 @@ where
 {
     const MIN_LENGTH: usize = C::MIN_LENGTH;
 
+    type AsyncOutput = Class<C::AsyncOutput, R>;
     type State = C::State;
     type Cloneable = Class<C::Cloneable, R>;
     type CloneableOwned = Class<C::CloneableOwned, R>;
@@ -86,6 +87,17 @@ where
             rndr: self.rndr,
         }
     }
+
+    fn dry_resolve(&mut self) {
+        self.class.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        Class {
+            class: self.class.resolve().await,
+            rndr: self.rndr,
+        }
+    }
 }
 
 impl<C, R> NextAttribute<R> for Class<C, R>
@@ -125,6 +137,7 @@ pub trait IntoClass<R: DomRenderer>: Send {
     const TEMPLATE: &'static str = "";
     const MIN_LENGTH: usize = Self::TEMPLATE.len();
 
+    type AsyncOutput: IntoClass<R>;
     type State;
     type Cloneable: IntoClass<R> + Clone;
     type CloneableOwned: IntoClass<R> + Clone + 'static;
@@ -145,12 +158,17 @@ pub trait IntoClass<R: DomRenderer>: Send {
     fn into_cloneable(self) -> Self::Cloneable;
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
+
+    fn dry_resolve(&mut self);
+
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
 impl<'a, R> IntoClass<R> for &'a str
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
@@ -190,12 +208,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for String
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
@@ -235,12 +260,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for Arc<str>
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -280,12 +312,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for (&'static str, bool)
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::ClassList, bool);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -339,6 +378,12 @@ where
     fn into_cloneable_owned(self) -> Self::Cloneable {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -349,6 +394,7 @@ where
 {
     const TEMPLATE: &'static str = V;
 
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -379,6 +425,12 @@ where
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 }

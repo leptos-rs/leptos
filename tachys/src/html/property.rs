@@ -51,6 +51,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    type AsyncOutput = Self;
     type State = P::State;
     type Cloneable = Property<Arc<str>, P::Cloneable, R>;
     type CloneableOwned = Property<Arc<str>, P::CloneableOwned, R>;
@@ -97,6 +98,12 @@ where
             value: SendWrapper::new(self.value.take().into_cloneable_owned()),
             rndr: self.rndr,
         }
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 

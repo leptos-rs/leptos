@@ -14,6 +14,7 @@ where
     C::State: 'static,
     R: DomRenderer,
 {
+    type AsyncOutput = C::AsyncOutput;
     type State = RenderEffect<C::State>;
     type Cloneable = SharedReactiveFunction<C>;
     type CloneableOwned = SharedReactiveFunction<C>;
@@ -80,14 +81,23 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
     }
+
+    fn dry_resolve(&mut self) {
+        self.invoke().dry_resolve();
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        self.invoke().resolve().await
+    }
 }
 
 impl<F, T, R> IntoClass<R> for (&'static str, F)
 where
     F: ReactiveFunction<Output = T>,
-    T: Borrow<bool> + 'static,
+    T: Borrow<bool> + Send + 'static,
     R: DomRenderer,
 {
+    type AsyncOutput = (&'static str, bool);
     type State = RenderEffect<(R::ClassList, bool)>;
     type Cloneable = (&'static str, SharedReactiveFunction<T>);
     type CloneableOwned = (&'static str, SharedReactiveFunction<T>);
@@ -185,14 +195,25 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0, self.1.into_shared())
     }
+
+    fn dry_resolve(&mut self) {
+        self.1.invoke();
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        (self.0, *self.1.invoke().borrow())
+    }
 }
 
+// TODO this needs a non-reactive form too to be restored
+/*
 impl<F, T, R> IntoClass<R> for (Vec<Cow<'static, str>>, F)
 where
     F: ReactiveFunction<Output = T>,
-    T: Borrow<bool> + 'static,
+    T: Borrow<bool> + Send + 'static,
     R: DomRenderer,
 {
+    type AsyncOutput = (Vec<Cow<'static, str>>, bool);
     type State = RenderEffect<(R::ClassList, bool)>;
     type Cloneable = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
     type CloneableOwned = (Vec<Cow<'static, str>>, SharedReactiveFunction<T>);
@@ -306,13 +327,23 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0.clone(), self.1.into_shared())
     }
+
+    fn dry_resolve(&mut self) {
+        self.1.invoke();
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        (self.0, *self.1.invoke().borrow())
+    }
 }
+*/
 
 impl<G, R> IntoClass<R> for ReadGuard<String, G>
 where
     G: Deref<Target = String> + Send,
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = <String as IntoClass<R>>::State;
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
@@ -350,6 +381,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.as_str().into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<G, R> IntoClass<R> for (&'static str, ReadGuard<bool, G>)
@@ -357,6 +394,7 @@ where
     G: Deref<Target = bool> + Send,
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = <(&'static str, bool) as IntoClass<R>>::State;
     type Cloneable = (&'static str, bool);
     type CloneableOwned = (&'static str, bool);
@@ -403,6 +441,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0, *self.1)
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -415,6 +459,7 @@ mod stable {
                 C::State: 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -450,12 +495,19 @@ mod stable {
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
                     self
                 }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
             }
 
             impl<R> IntoClass<R> for (&'static str, $sig<bool>)
             where
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<(R::ClassList, bool)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -498,6 +550,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }
@@ -512,6 +570,7 @@ mod stable {
                 C::State: 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -547,12 +606,19 @@ mod stable {
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
                     self
                 }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
             }
 
             impl<R> IntoClass<R> for (&'static str, $sig<bool>)
             where
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<(R::ClassList, bool)>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -595,6 +661,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }

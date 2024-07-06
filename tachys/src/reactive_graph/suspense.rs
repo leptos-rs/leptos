@@ -1,5 +1,5 @@
 use crate::{
-    html::attribute::Attribute,
+    html::{attribute::Attribute, style::IntoStyle},
     hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
@@ -35,6 +35,7 @@ macro_rules! suspend {
     };
 }*/
 
+#[derive(Clone)]
 pub struct Suspend<Fut>(pub Fut);
 
 impl<Fut> Debug for Suspend<Fut> {

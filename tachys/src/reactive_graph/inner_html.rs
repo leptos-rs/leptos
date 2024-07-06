@@ -12,6 +12,7 @@ where
     V::State: 'static,
     R: DomRenderer,
 {
+    type AsyncOutput = V::AsyncOutput;
     type State = RenderEffect<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
     type CloneableOwned = SharedReactiveFunction<V>;
@@ -65,6 +66,14 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
     }
+
+    fn dry_resolve(&mut self) {
+        self.invoke();
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        self.invoke().resolve().await
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -89,6 +98,7 @@ mod stable {
                 V::State: 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<V::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -122,6 +132,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }
@@ -136,6 +152,7 @@ mod stable {
                 V::State: 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<V::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -169,6 +186,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }
