@@ -73,7 +73,10 @@ use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
-    sync::{Arc, RwLock},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, RwLock,
+    },
 };
 use wasm_bindgen::JsCast;
 use web_sys::HtmlHeadElement;
@@ -154,17 +157,61 @@ impl Default for MetaContext {
     }
 }
 
-/// Contains the state of meta tags for server rendering.
+/// Allows you to add `<head>` content from components located in the `<body>` of the application,
+/// which can be accessed during server rendering via [`ServerMetaContextOutput`].
 ///
 /// This should be provided as context during server rendering.
-#[derive(Clone, Default)]
+///
+/// No content added after the first chunk of the stream has been sent will be included in the
+/// initial `<head>`. Data that needs to be included in the `<head>` during SSR should be
+/// synchronous or loaded as a blocking resource.
+#[derive(Clone, Debug)]
 pub struct ServerMetaContext {
-    inner: Arc<RwLock<ServerMetaContextInner>>,
     /// Metadata associated with the `<title>` element.
     pub(crate) title: TitleContext,
+    /// Attributes for the `<html>` element.
+    pub(crate) html: Sender<AnyAttribute<Dom>>,
+    /// Attributes for the `<body>` element.
+    pub(crate) body: Sender<AnyAttribute<Dom>>,
+    /// Arbitrary elements to be added to the `<head>` as HTML.
+    pub(crate) elements: Sender<String>,
+}
+
+/// Allows you to access `<head>` content that was inserted via [`ServerMetaContext`].
+#[must_use = "If you do not use the output, adding meta tags will have no \
+              effect."]
+#[derive(Debug)]
+pub struct ServerMetaContextOutput {
+    pub(crate) title: TitleContext,
+    html: Receiver<AnyAttribute<Dom>>,
+    body: Receiver<AnyAttribute<Dom>>,
+    elements: Receiver<String>,
 }
 
 impl ServerMetaContext {
+    /// Creates an empty [`ServerMetaContext`].
+    pub fn new() -> (ServerMetaContext, ServerMetaContextOutput) {
+        let title = TitleContext::default();
+        let (html_tx, html_rx) = channel();
+        let (body_tx, body_rx) = channel();
+        let (elements_tx, elements_rx) = channel();
+        let tx = ServerMetaContext {
+            title: title.clone(),
+            html: html_tx,
+            body: body_tx,
+            elements: elements_tx,
+        };
+        let rx = ServerMetaContextOutput {
+            title,
+            html: html_rx,
+            body: body_rx,
+            elements: elements_rx,
+        };
+        (tx, rx)
+    }
+}
+
+impl ServerMetaContextOutput {
     /// Consumes the metadata, injecting it into the the first chunk of an HTML stream in the
     /// appropriate place.
     ///
@@ -174,16 +221,18 @@ impl ServerMetaContext {
         self,
         mut stream: impl Stream<Item = String> + Send + Unpin,
     ) -> impl Stream<Item = String> + Send {
+        // wait for the first chunk of the stream, to ensure our components hve run
         let mut first_chunk = stream.next().await.unwrap_or_default();
 
-        let meta_buf =
-            std::mem::take(&mut self.inner.write().or_poisoned().head_html);
-
+        // create <title> tag
         let title = self.title.as_string();
         let title_len = title
             .as_ref()
             .map(|n| "<title>".len() + n.len() + "</title>".len())
             .unwrap_or(0);
+
+        // collect all registered meta tags
+        let meta_buf = self.elements.into_iter().collect::<String>();
 
         let modified_chunk = if title_len == 0 && meta_buf.is_empty() {
             first_chunk
@@ -215,35 +264,6 @@ impl ServerMetaContext {
         };
 
         futures::stream::once(async move { modified_chunk }).chain(stream)
-    }
-}
-
-#[derive(Default, Debug)]
-struct ServerMetaContextInner {
-    /*/// Metadata associated with the `<html>` element
-    pub html: HtmlContext,
-    /// Metadata associated with the `<title>` element.
-    pub title: TitleContext,*/
-    /// Metadata associated with the `<html>` element
-    pub(crate) html: Vec<AnyAttribute<Dom>>,
-    /// Metadata associated with the `<body>` element
-    pub(crate) body: Vec<AnyAttribute<Dom>>,
-    /// HTML for arbitrary tags that will be included in the `<head>` element
-    pub(crate) head_html: String,
-}
-
-impl Debug for ServerMetaContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ServerMetaContext")
-            .field("inner", &self.inner)
-            .finish_non_exhaustive()
-    }
-}
-
-impl ServerMetaContext {
-    /// Creates an empty [`ServerMetaContext`].
-    pub fn new() -> Self {
-        Default::default()
     }
 }
 
@@ -293,12 +313,13 @@ where
 
     #[cfg(feature = "ssr")]
     if let Some(cx) = use_context::<ServerMetaContext>() {
-        let mut inner = cx.inner.write().or_poisoned();
+        let mut buf = String::new();
         el.take().unwrap().to_html_with_buf(
-            &mut inner.head_html,
+            &mut buf,
             &mut Position::NextChild,
             false,
         );
+        _ = cx.elements.send(buf); // fails only if the receiver is already dropped
     } else {
         tracing::warn!(
             "tried to use a leptos_meta component without `ServerMetaContext` \
