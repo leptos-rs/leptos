@@ -57,6 +57,7 @@ where
     Rndr::Element: PartialEq,
 {
     const MIN_LENGTH: usize = 0;
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = ();
     type CloneableOwned = ();
@@ -94,6 +95,12 @@ where
 
     fn into_cloneable_owned(self) -> Self::Cloneable {
         panic!("node_ref should not be spread across multiple elements.");
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 

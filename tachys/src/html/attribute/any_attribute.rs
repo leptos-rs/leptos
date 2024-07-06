@@ -5,18 +5,30 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
 };
+#[cfg(feature = "ssr")]
+use std::{future::Future, pin::Pin};
 
 pub struct AnyAttribute<R: Renderer> {
     type_id: TypeId,
     html_len: usize,
-    value: Box<dyn Any + Send + Sync>,
+    value: Box<dyn Any + Send>,
+    #[cfg(feature = "ssr")]
     to_html:
         fn(Box<dyn Any>, &mut String, &mut String, &mut String, &mut String),
     build: fn(Box<dyn Any>, el: &R::Element) -> AnyAttributeState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyAttributeState<R>),
+    #[cfg(feature = "hydrate")]
     hydrate_from_server: fn(Box<dyn Any>, &R::Element) -> AnyAttributeState<R>,
+    #[cfg(feature = "hydrate")]
     hydrate_from_template:
         fn(Box<dyn Any>, &R::Element) -> AnyAttributeState<R>,
+    #[cfg(feature = "ssr")]
+    #[allow(clippy::type_complexity)]
+    resolve: fn(
+        Box<dyn Any>,
+    ) -> Pin<Box<dyn Future<Output = AnyAttribute<R>> + Send>>,
+    #[cfg(feature = "ssr")]
+    dry_resolve: fn(&mut Box<dyn Any + Send>),
 }
 
 impl<R> Debug for AnyAttribute<R>
@@ -47,7 +59,7 @@ where
 
 impl<T, R> IntoAnyAttribute<R> for T
 where
-    Self: Send + Sync,
+    Self: Send,
     T: Attribute<R> + 'static,
     T::State: 'static,
     R: Renderer + 'static,
@@ -59,8 +71,9 @@ where
     fn into_any_attr(self) -> AnyAttribute<R> {
         let html_len = self.html_len();
 
-        let value = Box::new(self) as Box<dyn Any + Send + Sync>;
+        let value = Box::new(self) as Box<dyn Any + Send>;
 
+        #[cfg(feature = "ssr")]
         let to_html = |value: Box<dyn Any>,
                        buf: &mut String,
                        class: &mut String,
@@ -84,6 +97,7 @@ where
                 rndr: PhantomData,
             }
         };
+        #[cfg(feature = "hydrate")]
         let hydrate_from_server = |value: Box<dyn Any>, el: &R::Element| {
             let value = value
                 .downcast::<T>()
@@ -97,6 +111,7 @@ where
                 rndr: PhantomData,
             }
         };
+        #[cfg(feature = "hydrate")]
         let hydrate_from_template = |value: Box<dyn Any>, el: &R::Element| {
             let value = value
                 .downcast::<T>()
@@ -127,15 +142,38 @@ where
                 *state = new;
             }
         };
+        #[cfg(feature = "ssr")]
+        let dry_resolve = |value: &mut Box<dyn Any + Send>| {
+            let value = value
+                .downcast_mut::<T>()
+                .expect("AnyView::resolve could not be downcast");
+            value.dry_resolve();
+        };
+
+        #[cfg(feature = "ssr")]
+        let resolve = |value: Box<dyn Any>| {
+            let value = value
+                .downcast::<T>()
+                .expect("AnyView::resolve could not be downcast");
+            Box::pin(async move { value.resolve().await.into_any_attr() })
+                as Pin<Box<dyn Future<Output = AnyAttribute<R>> + Send>>
+        };
         AnyAttribute {
             type_id: TypeId::of::<T>(),
             html_len,
             value,
+            #[cfg(feature = "ssr")]
             to_html,
             build,
             rebuild,
+            #[cfg(feature = "hydrate")]
             hydrate_from_server,
+            #[cfg(feature = "hydrate")]
             hydrate_from_template,
+            #[cfg(feature = "ssr")]
+            resolve,
+            #[cfg(feature = "ssr")]
+            dry_resolve,
         }
     }
 }
@@ -160,6 +198,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    type AsyncOutput = AnyAttribute<R>;
     type State = AnyAttributeState<R>;
     type Cloneable = ();
     type CloneableOwned = ();
@@ -168,6 +207,7 @@ where
         self.html_len
     }
 
+    #[allow(unused)] // they are used in SSR
     fn to_html(
         self,
         buf: &mut String,
@@ -175,17 +215,37 @@ where
         style: &mut String,
         inner_html: &mut String,
     ) {
-        (self.to_html)(self.value, buf, class, style, inner_html);
+        #[cfg(feature = "ssr")]
+        {
+            (self.to_html)(self.value, buf, class, style, inner_html);
+        }
+        #[cfg(not(feature = "ssr"))]
+        panic!(
+            "You are rendering AnyAttribute to HTML without the `ssr` feature \
+             enabled."
+        );
     }
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
         el: &<R as Renderer>::Element,
     ) -> Self::State {
+        #[cfg(feature = "hydrate")]
         if FROM_SERVER {
             (self.hydrate_from_server)(self.value, el)
         } else {
-            (self.hydrate_from_template)(self.value, el)
+            panic!(
+                "hydrating AnyAttribute from inside a ViewTemplate is not \
+                 supported."
+            );
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            _ = el;
+            panic!(
+                "You are trying to hydrate AnyAttribute without the `hydrate` \
+                 feature enabled."
+            );
         }
     }
 
@@ -203,5 +263,29 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         todo!()
+    }
+
+    fn dry_resolve(&mut self) {
+        #[cfg(feature = "ssr")]
+        {
+            (self.dry_resolve)(&mut self.value)
+        }
+        #[cfg(not(feature = "ssr"))]
+        panic!(
+            "You are rendering AnyAttribute to HTML without the `ssr` feature \
+             enabled."
+        );
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        #[cfg(feature = "ssr")]
+        {
+            (self.resolve)(self.value).await
+        }
+        #[cfg(not(feature = "ssr"))]
+        panic!(
+            "You are rendering AnyAttribute to HTML without the `ssr` feature \
+             enabled."
+        );
     }
 }

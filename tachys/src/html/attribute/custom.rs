@@ -54,6 +54,7 @@ where
     R: DomRenderer,
 {
     const MIN_LENGTH: usize = 0;
+    type AsyncOutput = CustomAttr<K, V::AsyncOutput, R>;
     type State = V::State;
     type Cloneable = CustomAttr<K, V::Cloneable, R>;
     type CloneableOwned = CustomAttr<K, V::CloneableOwned, R>;
@@ -100,6 +101,18 @@ where
         CustomAttr {
             key: self.key,
             value: self.value.into_cloneable_owned(),
+            rndr: self.rndr,
+        }
+    }
+
+    fn dry_resolve(&mut self) {
+        self.value.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        CustomAttr {
+            key: self.key,
+            value: self.value.resolve().await,
             rndr: self.rndr,
         }
     }
