@@ -5,16 +5,7 @@ use leptos::{
     reactive_graph::owner::use_context,
     tachys::{
         dom::document,
-        html::{
-            attribute::{
-                self,
-                any_attribute::{
-                    AnyAttribute, AnyAttributeState, IntoAnyAttribute,
-                },
-                Attribute,
-            },
-            class,
-        },
+        html::attribute::Attribute,
         hydration::Cursor,
         renderer::{dom::Dom, Renderer},
         view::{
@@ -22,12 +13,8 @@ use leptos::{
             RenderHtml,
         },
     },
-    text_prop::TextProp,
     IntoView,
 };
-use or_poisoned::OrPoisoned;
-use std::mem;
-use web_sys::Element;
 
 /// A component to set metadata on the document’s `<html>` element from
 /// within the application.
@@ -68,7 +55,6 @@ struct HtmlViewState<At>
 where
     At: Attribute<Dom>,
 {
-    el: Element,
     attributes: At::State,
 }
 
@@ -85,7 +71,7 @@ where
 
         let attributes = self.attributes.build(&el);
 
-        HtmlViewState { el, attributes }
+        HtmlViewState { attributes }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -139,7 +125,7 @@ where
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
             let mut buf = String::new();
-            _ = html::attribute_to_html(self.attributes, &mut buf);
+            _ = html::attributes_to_html(self.attributes, &mut buf);
             if !buf.is_empty() {
                 _ = meta.html.send(buf);
             }
@@ -157,7 +143,7 @@ where
 
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
-        HtmlViewState { el, attributes }
+        HtmlViewState { attributes }
     }
 }
 
