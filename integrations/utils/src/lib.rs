@@ -5,7 +5,7 @@ use leptos::{
     reactive_graph::owner::{Owner, Sandboxed},
     IntoView,
 };
-use leptos_meta::ServerMetaContext;
+use leptos_meta::ServerMetaContextOutput;
 use std::{future::Future, pin::Pin, sync::Arc};
 
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
@@ -24,7 +24,7 @@ pub trait ExtendResponse: Sized {
 
     fn from_app<IV>(
         app_fn: impl FnOnce() -> IV + Send + 'static,
-        meta_context: ServerMetaContext,
+        meta_context: ServerMetaContextOutput,
         additional_context: impl FnOnce() + Send + 'static,
         res_options: Self::ResponseOptions,
         stream_builder: fn(

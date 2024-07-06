@@ -763,7 +763,7 @@ where
     Box::pin(async move {
         let add_context = additional_context.clone();
         let res_options = ResponseOptions::default();
-        let meta_context = ServerMetaContext::new();
+        let (meta_context, meta_output) = ServerMetaContext::new();
 
         let additional_context = {
             let meta_context = meta_context.clone();
@@ -787,7 +787,7 @@ where
 
         let res = AxumResponse::from_app(
             app_fn,
-            meta_context,
+            meta_output,
             additional_context,
             res_options,
             stream_builder,
@@ -1155,12 +1155,8 @@ where
             provide_context(RequestUrl::new(""));
             let (mock_parts, _) =
                 http::Request::new(Body::from("")).into_parts();
-            provide_contexts(
-                "",
-                &Default::default(),
-                mock_parts,
-                Default::default(),
-            );
+            let (mock_meta, _) = ServerMetaContext::new();
+            provide_contexts("", &mock_meta, mock_parts, Default::default());
             additional_context();
             RouteList::generate(&app_fn)
         })
