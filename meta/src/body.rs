@@ -67,11 +67,13 @@ pub fn Body(
         attributes.push(value.into_any_attr());
     }
     if let Some(meta) = use_context::<ServerMetaContext>() {
-        let mut meta = meta.inner.write().or_poisoned();
         // if we are server rendering, we will not actually use these values via RenderHtml
         // instead, they'll be handled separately by the server integration
         // so it's safe to take them out of the props here
-        meta.body = mem::take(&mut attributes);
+        for attr in attributes.drain(0..) {
+            // fails only if receiver is already dropped
+            _ = meta.body.send(attr);
+        }
     }
 
     BodyView { attributes }
