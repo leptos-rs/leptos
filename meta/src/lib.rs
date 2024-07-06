@@ -171,9 +171,9 @@ pub struct ServerMetaContext {
     /// Metadata associated with the `<title>` element.
     pub(crate) title: TitleContext,
     /// Attributes for the `<html>` element.
-    pub(crate) html: Sender<AnyAttribute<Dom>>,
+    pub(crate) html: Sender<String>,
     /// Attributes for the `<body>` element.
-    pub(crate) body: Sender<AnyAttribute<Dom>>,
+    pub(crate) body: Sender<String>,
     /// Arbitrary elements to be added to the `<head>` as HTML.
     pub(crate) elements: Sender<String>,
 }
@@ -184,8 +184,8 @@ pub struct ServerMetaContext {
 #[derive(Debug)]
 pub struct ServerMetaContextOutput {
     pub(crate) title: TitleContext,
-    html: Receiver<AnyAttribute<Dom>>,
-    body: Receiver<AnyAttribute<Dom>>,
+    html: Receiver<String>,
+    body: Receiver<String>,
     elements: Receiver<String>,
 }
 
@@ -233,13 +233,11 @@ impl ServerMetaContextOutput {
             .unwrap_or(0);
 
         // collect all registered meta tags
-        let meta_buf = self.elements.into_iter().collect::<String>();
+        let meta_buf = self.elements.try_iter().collect::<String>();
 
         // get HTML strings for `<html>` and `<body>`
-        let mut html_attrs = String::new();
-        _ = attributes_to_html(self.html, &mut html_attrs);
-        let mut body_attrs = String::new();
-        _ = attributes_to_html(self.body, &mut body_attrs);
+        let html_attrs = self.html.try_iter().collect::<String>();
+        let body_attrs = self.body.try_iter().collect::<String>();
 
         let mut modified_chunk = if title_len == 0 && meta_buf.is_empty() {
             first_chunk
