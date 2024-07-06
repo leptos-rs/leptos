@@ -32,6 +32,9 @@ use web_sys::Element;
 /// A component to set metadata on the document’s `<html>` element from
 /// within the application.
 ///
+/// This component takes no props, but can take any number of spread attributes
+/// following the `{..}` operator.
+///
 /// ```
 /// use leptos::*;
 /// use leptos_meta::*;
@@ -43,10 +46,10 @@ use web_sys::Element;
 ///     view! {
 ///       <main>
 ///         <Html
+///           {..}
 ///           lang="he"
 ///           dir="rtl"
-///           // arbitrary additional attributes can be passed via `attr:`
-///           attr:data-theme="dark"
+///           data-theme="dark"
 ///         />
 ///       </main>
 ///     }
