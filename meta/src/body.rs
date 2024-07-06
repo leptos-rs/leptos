@@ -21,6 +21,9 @@ use web_sys::HtmlElement;
 /// A component to set metadata on the document’s `<body>` element from
 /// within the application.
 ///
+/// This component takes no props, but can take any number of spread attributes
+/// following the `{..}` operator.
+///
 /// ```
 /// use leptos::*;
 /// use leptos_meta::*;
@@ -39,7 +42,7 @@ use web_sys::HtmlElement;
 ///
 ///     view! {
 ///       <main>
-///         <Body class=body_class attr:class="foo"/>
+///         <Body {..} class=body_class id="body"/>
 ///       </main>
 ///     }
 /// }
