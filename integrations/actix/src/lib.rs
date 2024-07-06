@@ -741,7 +741,7 @@ where
 
         async move {
             let res_options = ResponseOptions::default();
-            let meta_context = ServerMetaContext::new();
+            let (meta_context, meta_output) = ServerMetaContext::new();
 
             let additional_context = {
                 let meta_context = meta_context.clone();
@@ -755,7 +755,7 @@ where
 
             let res = ActixResponse::from_app(
                 app_fn,
-                meta_context,
+                meta_output,
                 additional_context,
                 res_options,
                 stream_builder,
@@ -945,12 +945,13 @@ where
     let _ = any_spawner::Executor::init_tokio();
 
     let owner = Owner::new_root(None);
+    let (mock_meta, _) = ServerMetaContext::new();
     let routes = owner
         .with(|| {
             // stub out a path for now
             provide_context(RequestUrl::new(""));
             provide_context(ResponseOptions::default());
-            provide_context(ServerMetaContext::new());
+            provide_context(mock_meta);
             additional_context();
             RouteList::generate(&app_fn)
         })
