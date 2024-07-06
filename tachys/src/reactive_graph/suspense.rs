@@ -9,10 +9,13 @@ use crate::{
     },
 };
 use any_spawner::Executor;
-use futures::FutureExt;
+use futures::{select, FutureExt};
 use reactive_graph::{
-    computed::{suspense::SuspenseContext, ScopedFuture},
-    owner::use_context,
+    computed::{
+        suspense::{LocalResourceNotifier, SuspenseContext},
+        ScopedFuture,
+    },
+    owner::{provide_context, use_context},
 };
 use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
 
@@ -190,11 +193,52 @@ where
     ) where
         Self: Sized,
     {
-        // TODO wrap this with a Suspense as needed
-        // currently this is just used for Routes, which creates a Suspend but never actually needs
-        // it (because we don't lazy-load routes on the server)
-        if let Some(inner) = self.0.now_or_never() {
-            inner.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+        let mut fut = Box::pin(self.0);
+        match fut.as_mut().now_or_never() {
+            Some(inner) => inner
+                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
+            None => {
+                if use_context::<SuspenseContext>().is_none() {
+                    buf.next_id();
+                    let (local_tx, mut local_rx) =
+                        futures::channel::oneshot::channel::<()>();
+                    provide_context(LocalResourceNotifier::from(local_tx));
+                    let mut fut = fut.fuse();
+                    let fut = async move {
+                        select! {
+                            _  = local_rx => None,
+                            value = fut => Some(value)
+                        }
+                    };
+                    let id = buf.clone_id();
+
+                    // out-of-order streams immediately push fallback,
+                    // wrapped by suspense markers
+                    if OUT_OF_ORDER {
+                        let mut fallback_position = *position;
+                        buf.push_fallback::<(), Rndr>(
+                            (),
+                            &mut fallback_position,
+                        );
+                        buf.push_async_out_of_order(fut, position);
+                    } else {
+                        buf.push_async({
+                            let mut position = *position;
+                            async move {
+                                let value = fut.await;
+                                let mut builder = StreamBuilder::new(id);
+                                value.to_html_async_with_buf::<OUT_OF_ORDER>(
+                                    &mut builder,
+                                    &mut position,
+                                    escape,
+                                );
+                                builder.finish().take_chunks()
+                            }
+                        });
+                        *position = Position::NextChild;
+                    }
+                }
+            }
         }
     }
 
