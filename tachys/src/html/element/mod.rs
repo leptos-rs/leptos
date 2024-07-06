@@ -278,37 +278,7 @@ where
         buf.push('<');
         buf.push_str(E::TAG);
 
-        // attributes
-
-        // `class` and `style` are created first, and pushed later
-        // this is because they can be filled by a mixture of values that include
-        // either the whole value (`class="..."` or `style="..."`) and individual
-        // classes and styles (`class:foo=true` or `style:height="40px"`), so they
-        // need to be filled during the whole attribute-creation process and then
-        // added
-
-        // String doesn't allocate until the first push, so this is cheap if there
-        // is no class or style on an element
-        let mut class = String::new();
-        let mut style = String::new();
-        let mut inner_html = String::new();
-
-        // inject regular attributes, and fill class and style
-        self.attributes
-            .to_html(buf, &mut class, &mut style, &mut inner_html);
-
-        if !class.is_empty() {
-            buf.push(' ');
-            buf.push_str("class=\"");
-            buf.push_str(&escape_attr(class.trim_start().trim_end()));
-            buf.push('"');
-        }
-        if !style.is_empty() {
-            buf.push(' ');
-            buf.push_str("style=\"");
-            buf.push_str(&escape_attr(style.trim_start().trim_end()));
-            buf.push('"');
-        }
+        let inner_html = attribute_to_html(self.attributes, buf);
 
         buf.push('>');
 
@@ -346,41 +316,7 @@ where
         buf.push('<');
         buf.push_str(E::TAG);
 
-        // attributes
-
-        // `class` and `style` are created first, and pushed later
-        // this is because they can be filled by a mixture of values that include
-        // either the whole value (`class="..."` or `style="..."`) and individual
-        // classes and styles (`class:foo=true` or `style:height="40px"`), so they
-        // need to be filled during the whole attribute-creation process and then
-        // added
-
-        // String doesn't allocate until the first push, so this is cheap if there
-        // is no class or style on an element
-        let mut class = String::new();
-        let mut style = String::new();
-        let mut inner_html = String::new();
-
-        // inject regular attributes, and fill class and style
-        self.attributes.to_html(
-            &mut buf,
-            &mut class,
-            &mut style,
-            &mut inner_html,
-        );
-
-        if !class.is_empty() {
-            buf.push(' ');
-            buf.push_str("class=\"");
-            buf.push_str(class.trim_start().trim_end());
-            buf.push('"');
-        }
-        if !style.is_empty() {
-            buf.push(' ');
-            buf.push_str("style=\"");
-            buf.push_str(style.trim_start().trim_end());
-            buf.push('"');
-        }
+        let inner_html = attribute_to_html(self.attributes, &mut buf);
 
         buf.push('>');
         buffer.push_sync(&buf);
@@ -448,6 +384,56 @@ where
             rndr: PhantomData,
         }
     }
+}
+
+pub fn attribute_to_html<At, R>(attribute: At, buf: &mut String) -> String
+where
+    At: Attribute<R>,
+    R: Renderer,
+{
+    attributes_to_html(std::iter::once(attribute), buf)
+}
+
+pub fn attributes_to_html<At, R>(
+    attributes: impl IntoIterator<Item = At>,
+    buf: &mut String,
+) -> String
+where
+    At: Attribute<R>,
+    R: Renderer,
+{
+    // `class` and `style` are created first, and pushed later
+    // this is because they can be filled by a mixture of values that include
+    // either the whole value (`class="..."` or `style="..."`) and individual
+    // classes and styles (`class:foo=true` or `style:height="40px"`), so they
+    // need to be filled during the whole attribute-creation process and then
+    // added
+
+    // String doesn't allocate until the first push, so this is cheap if there
+    // is no class or style on an element
+    let mut class = String::new();
+    let mut style = String::new();
+    let mut inner_html = String::new();
+
+    // inject regular attributes, and fill class and style
+    for attr in attributes {
+        attr.to_html(buf, &mut class, &mut style, &mut inner_html);
+    }
+
+    if !class.is_empty() {
+        buf.push(' ');
+        buf.push_str("class=\"");
+        buf.push_str(&escape_attr(class.trim_start().trim_end()));
+        buf.push('"');
+    }
+    if !style.is_empty() {
+        buf.push(' ');
+        buf.push_str("style=\"");
+        buf.push_str(&escape_attr(style.trim_start().trim_end()));
+        buf.push('"');
+    }
+
+    inner_html
 }
 
 pub struct ElementState<At, Ch, R: Renderer> {
