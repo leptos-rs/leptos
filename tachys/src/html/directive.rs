@@ -91,6 +91,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    type AsyncOutput = Self;
     type State = R::Element;
     type Cloneable = Directive<T, D::Cloneable, P, R>;
     type CloneableOwned = Directive<T, D::Cloneable, P, R>;
@@ -142,6 +143,12 @@ where
             t,
             rndr,
         }))
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 

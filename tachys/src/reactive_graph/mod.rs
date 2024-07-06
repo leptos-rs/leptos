@@ -8,8 +8,14 @@ use crate::{
         RenderHtml, ToTemplate,
     },
 };
+use any_spawner::Executor;
 use reactive_graph::effect::RenderEffect;
-use std::sync::{Arc, Mutex};
+use std::{
+    cell::RefCell,
+    future::Future,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 mod class;
 mod guards;
@@ -290,6 +296,7 @@ where
     V::State: 'static,
     R: Renderer,
 {
+    type AsyncOutput = V::AsyncOutput;
     type State = RenderEffectState<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
     type CloneableOwned = SharedReactiveFunction<V>;
@@ -357,6 +364,99 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
+    }
+
+    fn dry_resolve(&mut self) {
+        self.invoke();
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        self.invoke().resolve().await
+    }
+}
+
+impl<Fut, V, R> AttributeValue<R> for Suspend<Fut>
+where
+    Fut: Future<Output = V> + Send + 'static,
+    V: AttributeValue<R> + 'static,
+    V::State: 'static,
+    R: Renderer,
+{
+    type State = Rc<RefCell<Option<V::State>>>;
+    type AsyncOutput = V;
+    type Cloneable = ();
+    type CloneableOwned = ();
+
+    fn html_len(&self) -> usize {
+        0
+    }
+
+    fn to_html(self, _key: &str, _buf: &mut String) {
+        #[cfg(feature = "tracing")]
+        tracing::warn!("Suspended attributes cannot be used outside Suspense.");
+    }
+
+    fn to_template(_key: &str, _buf: &mut String) {}
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        key: &str,
+        el: &<R as Renderer>::Element,
+    ) -> Self::State {
+        let key = key.to_owned();
+        let el = el.to_owned();
+        let state = Rc::new(RefCell::new(None));
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                *state.borrow_mut() =
+                    Some(self.0.await.hydrate::<FROM_SERVER>(&key, &el));
+            }
+        });
+        state
+    }
+
+    fn build(self, el: &<R as Renderer>::Element, key: &str) -> Self::State {
+        let key = key.to_owned();
+        let el = el.to_owned();
+        let state = Rc::new(RefCell::new(None));
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                *state.borrow_mut() = Some(self.0.await.build(&el, &key));
+            }
+        });
+        state
+    }
+
+    fn rebuild(self, key: &str, state: &mut Self::State) {
+        let key = key.to_owned();
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                let value = self.0.await;
+                let mut state = state.borrow_mut();
+                if let Some(state) = state.as_mut() {
+                    value.rebuild(&key, state);
+                }
+            }
+        });
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        #[cfg(feature = "tracing")]
+        tracing::warn!("Suspended attributes cannot be spread");
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        #[cfg(feature = "tracing")]
+        tracing::warn!("Suspended attributes cannot be spread");
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.0.await
     }
 }
 
@@ -527,6 +627,7 @@ mod stable {
                 V::State: 'static,
                 R: Renderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffectState<V::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -567,6 +668,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }
@@ -682,6 +789,7 @@ mod stable {
                 V::State: 'static,
                 R: Renderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffectState<V::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -722,6 +830,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }

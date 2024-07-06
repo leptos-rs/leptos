@@ -5,7 +5,7 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
-use std::{borrow::Cow, marker::PhantomData, sync::Arc};
+use std::{borrow::Cow, future::Future, marker::PhantomData, sync::Arc};
 
 /// Adds to the style attribute of the parent element.
 ///
@@ -47,6 +47,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    type AsyncOutput = Style<S::AsyncOutput, R>;
     type State = S::State;
     type Cloneable = Style<S::Cloneable, R>;
     type CloneableOwned = Style<S::CloneableOwned, R>;
@@ -92,6 +93,17 @@ where
             rndr: self.rndr,
         }
     }
+
+    fn dry_resolve(&mut self) {
+        self.style.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        Style {
+            style: self.style.resolve().await,
+            rndr: self.rndr,
+        }
+    }
 }
 
 impl<S, R> NextAttribute<R> for Style<S, R>
@@ -128,6 +140,7 @@ where
 /// Any type that can be added to the `style` attribute or set as a style in
 /// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
 pub trait IntoStyle<R: DomRenderer>: Send {
+    type AsyncOutput: IntoStyle<R>;
     type State;
     type Cloneable: IntoStyle<R> + Clone;
     type CloneableOwned: IntoStyle<R> + Clone + 'static;
@@ -143,6 +156,10 @@ pub trait IntoStyle<R: DomRenderer>: Send {
     fn into_cloneable(self) -> Self::Cloneable;
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
+
+    fn dry_resolve(&mut self);
+
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
 pub trait StylePropertyValue<R: DomRenderer> {
@@ -163,6 +180,7 @@ impl<'a, R> IntoStyle<R> for &'a str
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, &'a str);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
@@ -196,12 +214,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoStyle<R> for Arc<str>
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Arc<str>);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -235,12 +260,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoStyle<R> for String
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, String);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
@@ -274,12 +306,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoStyle<R> for (Arc<str>, Arc<str>)
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::CssStyleDeclaration, Arc<str>);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -320,12 +359,19 @@ where
     fn into_cloneable_owned(self) -> Self::Cloneable {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<'a, R> IntoStyle<R> for (&'a str, &'a str)
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::CssStyleDeclaration, &'a str);
     type Cloneable = Self;
     type CloneableOwned = (Arc<str>, Arc<str>);
@@ -366,12 +412,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0.into(), self.1.into())
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<'a, R> IntoStyle<R> for (&'a str, String)
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::CssStyleDeclaration, String);
     type Cloneable = (Arc<str>, Arc<str>);
     type CloneableOwned = (Arc<str>, Arc<str>);
@@ -412,6 +465,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0.into(), self.1.into())
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -419,6 +478,7 @@ impl<'a, const V: &'static str, R> IntoStyle<R> for (&'a str, Static<V>)
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = (Arc<str>, Static<V>);
     type CloneableOwned = (Arc<str>, Static<V>);
@@ -449,6 +509,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0.into(), self.1)
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -456,6 +522,7 @@ impl<const V: &'static str, R> IntoStyle<R> for (Arc<str>, Static<V>)
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = (Arc<str>, Static<V>);
     type CloneableOwned = (Arc<str>, Static<V>);
@@ -486,6 +553,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0, self.1)
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -494,6 +567,7 @@ impl<const V: &'static str, R> IntoStyle<R>
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -520,6 +594,12 @@ where
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 }

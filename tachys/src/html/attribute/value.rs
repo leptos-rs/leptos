@@ -1,6 +1,7 @@
 use crate::renderer::Renderer;
 use std::{
     borrow::Cow,
+    future::Future,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
@@ -12,6 +13,7 @@ use std::{
 
 pub trait AttributeValue<R: Renderer>: Send {
     type State;
+    type AsyncOutput: AttributeValue<R>;
 
     /// A version of the value that can be cloned. This can be the same type, or a
     /// reference-counted type. Generally speaking, this does *not* need to refer to the same data,
@@ -45,6 +47,10 @@ pub trait AttributeValue<R: Renderer>: Send {
     fn into_cloneable(self) -> Self::Cloneable;
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
+
+    fn dry_resolve(&mut self);
+
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
 impl<R> AttributeValue<R> for ()
@@ -52,6 +58,7 @@ where
     R: Renderer,
 {
     type State = ();
+    type AsyncOutput = ();
     type Cloneable = ();
     type CloneableOwned = ();
 
@@ -76,6 +83,10 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) {}
 }
 
 impl<'a, R> AttributeValue<R> for &'a str
@@ -83,6 +94,7 @@ where
     R: Renderer,
 {
     type State = (R::Element, &'a str);
+    type AsyncOutput = &'a str;
     type Cloneable = &'a str;
     type CloneableOwned = Arc<str>;
 
@@ -133,6 +145,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 #[cfg(feature = "nightly")]
@@ -141,6 +159,7 @@ impl<R, const V: &'static str> AttributeValue<R>
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -181,12 +200,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<'a, R> AttributeValue<R> for &'a String
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, &'a String);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
@@ -234,12 +260,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.as_str().into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> AttributeValue<R> for String
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, String);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
@@ -287,12 +320,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> AttributeValue<R> for Arc<str>
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Arc<str>);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
@@ -340,6 +380,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 // TODO impl AttributeValue for Rc<str> and Arc<str> too
 
@@ -347,6 +393,7 @@ impl<R> AttributeValue<R> for bool
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, bool);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -403,6 +450,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<V, R> AttributeValue<R> for Option<V>
@@ -410,6 +463,7 @@ where
     V: AttributeValue<R>,
     R: Renderer,
 {
+    type AsyncOutput = Option<V::AsyncOutput>;
     type State = (R::Element, Option<V::State>);
     type Cloneable = Option<V::Cloneable>;
     type CloneableOwned = Option<V::CloneableOwned>;
@@ -474,6 +528,19 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.map(|value| value.into_cloneable_owned())
     }
+
+    fn dry_resolve(&mut self) {
+        if let Some(inner) = self.as_mut() {
+            inner.dry_resolve();
+        }
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        match self {
+            None => None,
+            Some(inner) => Some(inner.resolve().await),
+        }
+    }
 }
 
 pub(crate) fn escape_attr(value: &str) -> Cow<'_, str> {
@@ -487,6 +554,7 @@ macro_rules! render_primitive {
         where
             R: Renderer,
         {
+            type AsyncOutput = $child_type;
             type State = (R::Element, $child_type);
             type Cloneable = Self;
             type CloneableOwned = Self;
@@ -532,6 +600,13 @@ macro_rules! render_primitive {
             }
 
             fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                self
+            }
+
+            fn dry_resolve(&mut self) {
+            }
+
+            async fn resolve(self) -> Self::AsyncOutput {
                 self
             }
         }

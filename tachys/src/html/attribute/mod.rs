@@ -9,13 +9,14 @@ use crate::{
     view::{Position, ToTemplate},
 };
 pub use key::*;
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, future::Future, marker::PhantomData};
 pub use value::*;
 
 pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     const MIN_LENGTH: usize;
 
     type State;
+    type AsyncOutput: Attribute<R>;
     type Cloneable: Attribute<R> + Clone;
     type CloneableOwned: Attribute<R> + Clone + 'static;
 
@@ -38,6 +39,10 @@ pub trait Attribute<R: Renderer>: NextAttribute<R> + Send {
     fn into_cloneable(self) -> Self::Cloneable;
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
+
+    fn dry_resolve(&mut self);
+
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
 pub trait NextAttribute<R: Renderer> {
@@ -56,6 +61,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = ();
+    type AsyncOutput = ();
     type Cloneable = ();
     type CloneableOwned = ();
 
@@ -86,6 +92,10 @@ where
     fn into_cloneable_owned(self) -> Self::Cloneable {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {}
 }
 
 impl<R> NextAttribute<R> for ()
@@ -146,6 +156,7 @@ where
     const MIN_LENGTH: usize = 0;
 
     type State = V::State;
+    type AsyncOutput = Attr<K, V::AsyncOutput, R>;
     type Cloneable = Attr<K, V::Cloneable, R>;
     type CloneableOwned = Attr<K, V::CloneableOwned, R>;
 
@@ -182,6 +193,14 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         Attr(self.0, self.1.into_cloneable_owned(), PhantomData)
     }
+
+    fn dry_resolve(&mut self) {
+        self.1.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        Attr(self.0, self.1.resolve().await, PhantomData)
+    }
 }
 
 impl<K, V, R> NextAttribute<R> for Attr<K, V, R>
@@ -210,6 +229,7 @@ macro_rules! impl_attr_for_tuples {
 		{
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
+			type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
 			type State = ($first::State, $($ty::State,)*);
             type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
             type CloneableOwned = ($first::CloneableOwned, $($ty::CloneableOwned,)*);
@@ -271,6 +291,22 @@ macro_rules! impl_attr_for_tuples {
                     $($ty.into_cloneable_owned()),*
                 )
             }
+
+            fn dry_resolve(&mut self) {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                $first.dry_resolve();
+                $($ty.dry_resolve());*
+            }
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                futures::join!(
+                    $first.resolve(),
+                    $($ty.resolve()),*
+                )
+            }
         }
 
 		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
@@ -303,6 +339,7 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
 		{
             const MIN_LENGTH: usize = $first::MIN_LENGTH $(+ $ty::MIN_LENGTH)*;
 
+			type AsyncOutput = ($first::AsyncOutput, $($ty::AsyncOutput,)*);
 			type State = ($first::State, $($ty::State,)*);
             type Cloneable = ($first::Cloneable, $($ty::Cloneable,)*);
             type CloneableOwned = ($first::CloneableOwned, $($ty::CloneableOwned,)*);
@@ -364,6 +401,22 @@ macro_rules! impl_attr_for_tuples_truncate_additional {
                     $($ty.into_cloneable_owned()),*
                 )
             }
+
+            fn dry_resolve(&mut self) {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                $first.dry_resolve();
+                $($ty.dry_resolve());*
+            }
+
+            async fn resolve(self) -> Self::AsyncOutput {
+                #[allow(non_snake_case)]
+                let ($first, $($ty,)*) = self;
+                futures::join!(
+                    $first.resolve(),
+                    $($ty.resolve()),*
+                )
+            }
         }
 
 		impl<$first, $($ty),*, Rndr> NextAttribute<Rndr> for ($first, $($ty,)*)
@@ -392,6 +445,7 @@ where
 {
     const MIN_LENGTH: usize = A::MIN_LENGTH;
 
+    type AsyncOutput = (A::AsyncOutput,);
     type State = A::State;
     type Cloneable = (A::Cloneable,);
     type CloneableOwned = (A::CloneableOwned,);
@@ -431,6 +485,14 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0.into_cloneable_owned(),)
+    }
+
+    fn dry_resolve(&mut self) {
+        self.0.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        (self.0.resolve().await,)
     }
 }
 

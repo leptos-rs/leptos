@@ -1,7 +1,8 @@
-use super::{ReactiveFunction, SharedReactiveFunction};
+use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
 use crate::{html::style::IntoStyle, renderer::DomRenderer};
+use futures::FutureExt;
 use reactive_graph::effect::RenderEffect;
-use std::borrow::Cow;
+use std::{borrow::Cow, future::Future};
 
 impl<F, S, R> IntoStyle<R> for (&'static str, F)
 where
@@ -9,6 +10,7 @@ where
     S: Into<Cow<'static, str>> + 'static,
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
     type Cloneable = (&'static str, SharedReactiveFunction<S>);
     type CloneableOwned = (&'static str, SharedReactiveFunction<S>);
@@ -102,6 +104,14 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         (self.0, self.1.into_shared())
     }
+
+    fn dry_resolve(&mut self) {
+        self.1.invoke();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<F, C, R> IntoStyle<R> for F
@@ -111,6 +121,7 @@ where
     C::State: 'static,
     R: DomRenderer,
 {
+    type AsyncOutput = C::AsyncOutput;
     type State = RenderEffect<C::State>;
     type Cloneable = SharedReactiveFunction<C>;
     type CloneableOwned = SharedReactiveFunction<C>;
@@ -173,6 +184,14 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into_shared()
     }
+
+    fn dry_resolve(&mut self) {
+        self.invoke();
+    }
+
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        self.invoke().resolve().await
+    }
 }
 
 #[cfg(not(feature = "nightly"))]
@@ -185,6 +204,7 @@ mod stable {
                 C::State: 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -216,6 +236,12 @@ mod stable {
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
                     self
                 }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
             }
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
@@ -223,6 +249,7 @@ mod stable {
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State =
                     RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
                 type Cloneable = Self;
@@ -261,6 +288,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }
@@ -275,6 +308,7 @@ mod stable {
                 C::State: 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State = RenderEffect<C::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
@@ -306,6 +340,12 @@ mod stable {
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
                     self
                 }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
+                    self
+                }
             }
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
@@ -313,6 +353,7 @@ mod stable {
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
                 R: DomRenderer,
             {
+                type AsyncOutput = Self;
                 type State =
                     RenderEffect<(R::CssStyleDeclaration, Cow<'static, str>)>;
                 type Cloneable = Self;
@@ -351,6 +392,12 @@ mod stable {
                 }
 
                 fn into_cloneable_owned(self) -> Self::CloneableOwned {
+                    self
+                }
+
+                fn dry_resolve(&mut self) {}
+
+                async fn resolve(self) -> Self::AsyncOutput {
                     self
                 }
             }
@@ -376,4 +423,53 @@ mod stable {
     style_signal_unsend!(ArcReadSignal);
     style_signal!(ArcMemo);
     style_signal!(ArcSignal);
+}
+
+impl<Fut, Rndr> IntoStyle<Rndr> for Suspend<Fut>
+where
+    Fut: Clone + Future + Send + 'static,
+    Fut::Output: IntoStyle<Rndr>,
+    Rndr: DomRenderer + 'static,
+{
+    type AsyncOutput = Fut::Output;
+    type State = ();
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn to_html(self, style: &mut String) {
+        if let Some(inner) = self.0.now_or_never() {
+            inner.to_html(style);
+        } else {
+            panic!("You cannot use Suspend on an attribute outside Suspense");
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<Rndr>::Element,
+    ) -> Self::State {
+        todo!()
+    }
+
+    fn build(self, el: &<Rndr>::Element) -> Self::State {
+        todo!()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        todo!()
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.0.await
+    }
 }
