@@ -1,6 +1,7 @@
 use crate::ServerMetaContext;
 use leptos::{
-    component,
+    attr::NextAttribute,
+    component, html,
     reactive_graph::owner::use_context,
     tachys::{
         dom::document,
@@ -52,99 +53,79 @@ use web_sys::Element;
 /// }
 /// ```
 #[component]
-pub fn Html(
-    /// The `lang` attribute on the `<html>`.
-    #[prop(optional, into)]
-    mut lang: Option<TextProp>,
-    /// The `dir` attribute on the `<html>`.
-    #[prop(optional, into)]
-    mut dir: Option<TextProp>,
-    /// The `class` attribute on the `<html>`.
-    #[prop(optional, into)]
-    mut class: Option<TextProp>,
-    /// Arbitrary attributes to add to the `<html>`
-    #[prop(attrs)]
-    mut attributes: Vec<AnyAttribute<Dom>>,
-) -> impl IntoView {
-    attributes.extend(
-        lang.take()
-            .map(|value| attribute::lang(move || value.get()).into_any_attr())
-            .into_iter()
-            .chain(dir.take().map(|value| {
-                attribute::dir(move || value.get()).into_any_attr()
-            }))
-            .chain(class.take().map(|value| {
-                class::class(move || value.get()).into_any_attr()
-            })),
-    );
-    if let Some(meta) = use_context::<ServerMetaContext>() {
-        // if we are server rendering, we will not actually use these values via RenderHtml
-        // instead, they'll be handled separately by the server integration
-        // so it's safe to take them out of the props here
-        for attr in attributes.drain(0..) {
-            // fails only if receiver is already dropped
-            _ = meta.body.send(attr);
-        }
-    }
-
-    HtmlView { attributes }
+pub fn Html() -> impl IntoView {
+    HtmlView { attributes: () }
 }
 
-struct HtmlView {
-    attributes: Vec<AnyAttribute<Dom>>,
+struct HtmlView<At> {
+    attributes: At,
 }
 
-#[allow(dead_code)] // TODO these should be used to rebuild the attributes, I guess
-struct HtmlViewState {
+struct HtmlViewState<At>
+where
+    At: Attribute<Dom>,
+{
     el: Element,
-    attributes: Vec<AnyAttributeState<Dom>>,
+    attributes: At::State,
 }
 
-impl Render<Dom> for HtmlView {
-    type State = HtmlViewState;
+impl<At> Render<Dom> for HtmlView<At>
+where
+    At: Attribute<Dom>,
+{
+    type State = HtmlViewState<At>;
 
     fn build(self) -> Self::State {
         let el = document()
             .document_element()
             .expect("there to be a <html> element");
 
-        let attributes = self
-            .attributes
-            .into_iter()
-            .map(|attr| attr.build(&el))
-            .collect();
+        let attributes = self.attributes.build(&el);
 
         HtmlViewState { el, attributes }
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        todo!()
+    fn rebuild(self, state: &mut Self::State) {
+        self.attributes.rebuild(&mut state.attributes);
     }
 }
 
-impl AddAnyAttr<Dom> for HtmlView {
-    type Output<SomeNewAttr: Attribute<Dom>> = HtmlView;
+impl<At> AddAnyAttr<Dom> for HtmlView<At>
+where
+    At: Attribute<Dom>,
+{
+    type Output<SomeNewAttr: Attribute<Dom>> =
+        HtmlView<<At as NextAttribute<Dom>>::Output<SomeNewAttr>>;
 
     fn add_any_attr<NewAttr: Attribute<Dom>>(
         self,
-        _attr: NewAttr,
+        attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<Dom>,
     {
-        todo!()
+        HtmlView {
+            attributes: self.attributes.add_any_attr(attr),
+        }
     }
 }
 
-impl RenderHtml<Dom> for HtmlView {
-    type AsyncOutput = Self;
+impl<At> RenderHtml<Dom> for HtmlView<At>
+where
+    At: Attribute<Dom>,
+{
+    type AsyncOutput = HtmlView<At::AsyncOutput>;
 
-    const MIN_LENGTH: usize = 0;
+    const MIN_LENGTH: usize = At::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        self.attributes.dry_resolve();
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self
+        HtmlView {
+            attributes: self.attributes.resolve().await,
+        }
     }
 
     fn to_html_with_buf(
@@ -153,8 +134,13 @@ impl RenderHtml<Dom> for HtmlView {
         _position: &mut Position,
         _escape: bool,
     ) {
-        // meta tags are rendered into the buffer stored into the context
-        // the value has already been taken out, when we're on the server
+        if let Some(meta) = use_context::<ServerMetaContext>() {
+            let mut buf = String::new();
+            _ = html::attribute_to_html(self.attributes, &mut buf);
+            if !buf.is_empty() {
+                _ = meta.html.send(buf);
+            }
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -166,17 +152,16 @@ impl RenderHtml<Dom> for HtmlView {
             .document_element()
             .expect("there to be a <html> element");
 
-        let attributes = self
-            .attributes
-            .into_iter()
-            .map(|attr| attr.hydrate::<FROM_SERVER>(&el))
-            .collect();
+        let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         HtmlViewState { el, attributes }
     }
 }
 
-impl Mountable<Dom> for HtmlViewState {
+impl<At> Mountable<Dom> for HtmlViewState<At>
+where
+    At: Attribute<Dom>,
+{
     fn unmount(&mut self) {}
 
     fn mount(
