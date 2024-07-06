@@ -278,7 +278,7 @@ where
         buf.push('<');
         buf.push_str(E::TAG);
 
-        let inner_html = attribute_to_html(self.attributes, buf);
+        let inner_html = attributes_to_html(self.attributes, buf);
 
         buf.push('>');
 
@@ -316,7 +316,7 @@ where
         buf.push('<');
         buf.push_str(E::TAG);
 
-        let inner_html = attribute_to_html(self.attributes, &mut buf);
+        let inner_html = attributes_to_html(self.attributes, &mut buf);
 
         buf.push('>');
         buffer.push_sync(&buf);
@@ -386,18 +386,7 @@ where
     }
 }
 
-pub fn attribute_to_html<At, R>(attribute: At, buf: &mut String) -> String
-where
-    At: Attribute<R>,
-    R: Renderer,
-{
-    attributes_to_html(std::iter::once(attribute), buf)
-}
-
-pub fn attributes_to_html<At, R>(
-    attributes: impl IntoIterator<Item = At>,
-    buf: &mut String,
-) -> String
+pub fn attributes_to_html<At, R>(attr: At, buf: &mut String) -> String
 where
     At: Attribute<R>,
     R: Renderer,
@@ -416,9 +405,7 @@ where
     let mut inner_html = String::new();
 
     // inject regular attributes, and fill class and style
-    for attr in attributes {
-        attr.to_html(buf, &mut class, &mut style, &mut inner_html);
-    }
+    attr.to_html(buf, &mut class, &mut style, &mut inner_html);
 
     if !class.is_empty() {
         buf.push(' ');
