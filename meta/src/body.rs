@@ -1,18 +1,12 @@
 use crate::ServerMetaContext;
 use leptos::{
+    attr::NextAttribute,
     component,
+    html::{self, body, ElementExt},
     reactive_graph::owner::use_context,
     tachys::{
         dom::document,
-        html::{
-            attribute::{
-                any_attribute::{
-                    AnyAttribute, AnyAttributeState, IntoAnyAttribute,
-                },
-                Attribute,
-            },
-            class,
-        },
+        html::attribute::Attribute,
         hydration::Cursor,
         renderer::{dom::Dom, Renderer},
         view::{
@@ -20,11 +14,8 @@ use leptos::{
             RenderHtml,
         },
     },
-    text_prop::TextProp,
     IntoView,
 };
-use or_poisoned::OrPoisoned;
-use std::mem;
 use web_sys::HtmlElement;
 
 /// A component to set metadata on the document’s `<body>` element from
@@ -54,84 +45,76 @@ use web_sys::HtmlElement;
 /// }
 /// ```
 #[component]
-pub fn Body(
-    /// The `class` attribute on the `<body>`.
-    #[prop(optional, into)]
-    mut class: Option<TextProp>,
-    /// Arbitrary attributes to add to the `<body>`.
-    #[prop(attrs)]
-    mut attributes: Vec<AnyAttribute<Dom>>,
-) -> impl IntoView {
-    if let Some(value) = class.take() {
-        let value = class::class(move || value.get());
-        attributes.push(value.into_any_attr());
-    }
-    if let Some(meta) = use_context::<ServerMetaContext>() {
-        // if we are server rendering, we will not actually use these values via RenderHtml
-        // instead, they'll be handled separately by the server integration
-        // so it's safe to take them out of the props here
-        for attr in attributes.drain(0..) {
-            // fails only if receiver is already dropped
-            _ = meta.body.send(attr);
-        }
-    }
-
-    BodyView { attributes }
+pub fn Body() -> impl IntoView {
+    BodyView { attributes: () }
 }
 
-struct BodyView {
-    attributes: Vec<AnyAttribute<Dom>>,
+struct BodyView<At> {
+    attributes: At,
 }
 
-#[allow(dead_code)] // TODO these should be used to rebuild the attributes, I guess
-struct BodyViewState {
+struct BodyViewState<At>
+where
+    At: Attribute<Dom>,
+{
     el: HtmlElement,
-    attributes: Vec<AnyAttributeState<Dom>>,
+    attributes: At::State,
 }
 
-impl Render<Dom> for BodyView {
-    type State = BodyViewState;
+impl<At> Render<Dom> for BodyView<At>
+where
+    At: Attribute<Dom>,
+{
+    type State = BodyViewState<At>;
 
     fn build(self) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
-
-        let attributes = self
-            .attributes
-            .into_iter()
-            .map(|attr| attr.build(&el))
-            .collect();
+        let attributes = self.attributes.build(&el);
 
         BodyViewState { el, attributes }
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        todo!()
+    fn rebuild(self, state: &mut Self::State) {
+        self.attributes.rebuild(&mut state.attributes);
     }
 }
 
-impl AddAnyAttr<Dom> for BodyView {
-    type Output<SomeNewAttr: Attribute<Dom>> = BodyView;
+impl<At> AddAnyAttr<Dom> for BodyView<At>
+where
+    At: Attribute<Dom>,
+{
+    type Output<SomeNewAttr: Attribute<Dom>> =
+        BodyView<<At as NextAttribute<Dom>>::Output<SomeNewAttr>>;
 
     fn add_any_attr<NewAttr: Attribute<Dom>>(
         self,
-        _attr: NewAttr,
+        attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
         Self::Output<NewAttr>: RenderHtml<Dom>,
     {
-        todo!()
+        BodyView {
+            attributes: self.attributes.add_any_attr(attr),
+        }
     }
 }
 
-impl RenderHtml<Dom> for BodyView {
-    type AsyncOutput = Self;
+impl<At> RenderHtml<Dom> for BodyView<At>
+where
+    At: Attribute<Dom>,
+{
+    type AsyncOutput = BodyView<At::AsyncOutput>;
 
-    const MIN_LENGTH: usize = 0;
+    const MIN_LENGTH: usize = At::MIN_LENGTH;
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        self.attributes.dry_resolve();
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self
+        BodyView {
+            attributes: self.attributes.resolve().await,
+        }
     }
 
     fn to_html_with_buf(
@@ -140,6 +123,13 @@ impl RenderHtml<Dom> for BodyView {
         _position: &mut Position,
         _escape: bool,
     ) {
+        if let Some(meta) = use_context::<ServerMetaContext>() {
+            let mut buf = String::new();
+            _ = html::attribute_to_html(self.attributes, &mut buf);
+            if !buf.is_empty() {
+                _ = meta.body.send(buf);
+            }
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -148,18 +138,16 @@ impl RenderHtml<Dom> for BodyView {
         _position: &PositionState,
     ) -> Self::State {
         let el = document().body().expect("there to be a <body> element");
-
-        let attributes = self
-            .attributes
-            .into_iter()
-            .map(|attr| attr.hydrate::<FROM_SERVER>(&el))
-            .collect();
+        let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
         BodyViewState { el, attributes }
     }
 }
 
-impl Mountable<Dom> for BodyViewState {
+impl<At> Mountable<Dom> for BodyViewState<At>
+where
+    At: Attribute<Dom>,
+{
     fn unmount(&mut self) {}
 
     fn mount(
