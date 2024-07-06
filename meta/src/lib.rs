@@ -51,13 +51,12 @@ use futures::{Stream, StreamExt};
 use leptos::{
     attr::NextAttribute,
     component,
-    html::attributes_to_html,
     logging::debug_warn,
     reactive_graph::owner::{provide_context, use_context},
     tachys::{
         dom::document,
         html::{
-            attribute::{any_attribute::AnyAttribute, Attribute},
+            attribute::Attribute,
             element::{CreateElement, ElementType, HtmlElement},
         },
         hydration::Cursor,
@@ -70,13 +69,12 @@ use leptos::{
     IntoView,
 };
 use once_cell::sync::Lazy;
-use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use std::{
     fmt::Debug,
     sync::{
         mpsc::{channel, Receiver, Sender},
-        Arc, RwLock,
+        Arc,
     },
 };
 use wasm_bindgen::JsCast;
