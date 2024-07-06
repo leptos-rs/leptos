@@ -1,8 +1,7 @@
 use crate::ServerMetaContext;
 use leptos::{
     attr::NextAttribute,
-    component,
-    html::{self, body, ElementExt},
+    component, html,
     reactive_graph::owner::use_context,
     tachys::{
         dom::document,
@@ -16,7 +15,6 @@ use leptos::{
     },
     IntoView,
 };
-use web_sys::HtmlElement;
 
 /// A component to set metadata on the document’s `<body>` element from
 /// within the application.
@@ -60,7 +58,6 @@ struct BodyViewState<At>
 where
     At: Attribute<Dom>,
 {
-    el: HtmlElement,
     attributes: At::State,
 }
 
@@ -74,7 +71,7 @@ where
         let el = document().body().expect("there to be a <body> element");
         let attributes = self.attributes.build(&el);
 
-        BodyViewState { el, attributes }
+        BodyViewState { attributes }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -128,7 +125,7 @@ where
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
             let mut buf = String::new();
-            _ = html::attribute_to_html(self.attributes, &mut buf);
+            _ = html::attributes_to_html(self.attributes, &mut buf);
             if !buf.is_empty() {
                 _ = meta.body.send(buf);
             }
@@ -143,7 +140,7 @@ where
         let el = document().body().expect("there to be a <body> element");
         let attributes = self.attributes.hydrate::<FROM_SERVER>(&el);
 
-        BodyViewState { el, attributes }
+        BodyViewState { attributes }
     }
 }
 
