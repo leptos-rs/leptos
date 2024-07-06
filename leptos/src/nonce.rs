@@ -69,6 +69,7 @@ impl<R> AttributeValue<R> for Nonce
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = <Arc<str> as AttributeValue<R>>::State;
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -104,6 +105,12 @@ where
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 }

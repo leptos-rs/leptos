@@ -211,6 +211,7 @@ where
     E::EventType: From<R::Event>,
 {
     const MIN_LENGTH: usize = 0;
+    type AsyncOutput = Self;
     // a function that can be called once to remove the event listener
     type State = (R::Element, Option<RemoveEventHandler<R::Element>>);
     type Cloneable = On<E, SharedEventCallback<E::EventType>, R>;
@@ -266,6 +267,12 @@ where
             event: self.event,
             ty: self.ty,
         }
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }
 

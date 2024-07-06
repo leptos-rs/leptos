@@ -106,6 +106,7 @@ impl<R> AttributeValue<R> for Oco<'static, str>
 where
     R: Renderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Oco<'static, str>);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -157,12 +158,19 @@ where
         self.upgrade_inplace();
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> IntoClass<R> for Oco<'static, str>
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -204,6 +212,12 @@ where
     fn into_cloneable_owned(mut self) -> Self::CloneableOwned {
         // ensure it's reference-counted
         self.upgrade_inplace();
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 }

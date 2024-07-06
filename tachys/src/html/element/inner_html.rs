@@ -4,7 +4,7 @@ use crate::{
     renderer::{DomRenderer, Renderer},
     view::add_attr::AddAnyAttr,
 };
-use std::{marker::PhantomData, sync::Arc};
+use std::{future::Future, marker::PhantomData, sync::Arc};
 
 #[inline(always)]
 pub fn inner_html<T, R>(value: T) -> InnerHtml<T, R>
@@ -43,6 +43,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
 
+    type AsyncOutput = InnerHtml<T::AsyncOutput, R>;
     type State = T::State;
     type Cloneable = InnerHtml<T::Cloneable, R>;
     type CloneableOwned = InnerHtml<T::CloneableOwned, R>;
@@ -86,6 +87,17 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         InnerHtml {
             value: self.value.into_cloneable_owned(),
+            rndr: self.rndr,
+        }
+    }
+
+    fn dry_resolve(&mut self) {
+        self.value.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        InnerHtml {
+            value: self.value.resolve().await,
             rndr: self.rndr,
         }
     }
@@ -138,6 +150,7 @@ where
 }
 
 pub trait InnerHtmlValue<R: DomRenderer>: Send {
+    type AsyncOutput: InnerHtmlValue<R>;
     type State;
     type Cloneable: InnerHtmlValue<R> + Clone;
     type CloneableOwned: InnerHtmlValue<R> + Clone + 'static;
@@ -157,12 +170,17 @@ pub trait InnerHtmlValue<R: DomRenderer>: Send {
     fn into_cloneable(self) -> Self::Cloneable;
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
+
+    fn dry_resolve(&mut self);
+
+    fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
 impl<R> InnerHtmlValue<R> for String
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Arc<str>;
     type CloneableOwned = Arc<str>;
@@ -206,12 +224,19 @@ where
     fn into_cloneable_owned(self) -> Self::Cloneable {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<R> InnerHtmlValue<R> for Arc<str>
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -255,12 +280,19 @@ where
     fn into_cloneable_owned(self) -> Self::Cloneable {
         self
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<'a, R> InnerHtmlValue<R> for &'a str
 where
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Self);
     type Cloneable = Self;
     type CloneableOwned = Arc<str>;
@@ -304,6 +336,12 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.into()
     }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
 }
 
 impl<T, R> InnerHtmlValue<R> for Option<T>
@@ -311,6 +349,7 @@ where
     T: InnerHtmlValue<R>,
     R: DomRenderer,
 {
+    type AsyncOutput = Self;
     type State = (R::Element, Option<T::State>);
     type Cloneable = Option<T::Cloneable>;
     type CloneableOwned = Option<T::CloneableOwned>;
@@ -365,5 +404,11 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         self.map(|inner| inner.into_cloneable_owned())
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
     }
 }

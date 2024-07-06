@@ -73,6 +73,7 @@ where
 {
     const MIN_LENGTH: usize = K::KEY.len() + 3 + V.len(); // K::KEY + ="..." + V
 
+    type AsyncOutput = Self;
     type State = ();
     type Cloneable = Self;
     type CloneableOwned = Self;
@@ -106,6 +107,12 @@ where
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
         self
     }
 }
