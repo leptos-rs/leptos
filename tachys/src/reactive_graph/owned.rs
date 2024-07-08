@@ -138,6 +138,12 @@ where
             self.view
                 .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
         });
+
+        // if self.owner drops here, it can be disposed before the asynchronous rendering process
+        // has actually happened
+        // instead, we'll stuff it into the cleanups of its parent so that it will remain alive at
+        // least as long as the parent does
+        Owner::on_cleanup(move || drop(self.owner));
     }
 
     fn hydrate<const FROM_SERVER: bool>(
