@@ -10,14 +10,11 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
+codee = { version = "0.1", features = ["json_serde"] }
 hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
-#leptos_macro = { workspace = true }
 server_fn = { workspace = true }
-#lazy_static = "1"
-thiserror = "1"
 tracing = { version = "0.1", optional = true }
-#inventory = "0.3"
 futures = "0.3"
 
 tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
@@ -40,8 +37,6 @@ base64 = { version = "0.22", optional = true }
 [features]
 ssr = []
 hydration = []
-default-tls = ["server_fn/default-tls"]
-rustls = ["server_fn/rustls"]
 rkyv = ["dep:rkyv", "dep:base64"]
 serde-wasm-bindgen = ["dep:serde-wasm-bindgen", "dep:js-sys", "dep:wasm-bindgen"]
 tachys = ["dep:tachys"]
