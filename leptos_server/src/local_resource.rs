@@ -1,7 +1,7 @@
 use reactive_graph::{
     computed::{
-        suspense::{LocalResourceNotifier, SuspenseContext},
-        ArcAsyncDerived, AsyncDerived, AsyncDerivedFuture,
+        suspense::LocalResourceNotifier, ArcAsyncDerived, AsyncDerived,
+        AsyncDerivedFuture,
     },
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
