@@ -58,7 +58,7 @@ where
 {
     const MIN_LENGTH: usize = 0;
     type AsyncOutput = Self;
-    type State = ();
+    type State = Rndr::Element;
     type Cloneable = ();
     type CloneableOwned = ();
 
@@ -81,13 +81,17 @@ where
         el: &<Rndr as Renderer>::Element,
     ) -> Self::State {
         self.container.load(el);
+        el.to_owned()
     }
 
     fn build(self, el: &<Rndr as Renderer>::Element) -> Self::State {
         self.container.load(el);
+        el.to_owned()
     }
 
-    fn rebuild(self, _state: &mut Self::State) {}
+    fn rebuild(self, state: &mut Self::State) {
+        self.container.load(state);
+    }
 
     fn into_cloneable(self) -> Self::Cloneable {
         panic!("node_ref should not be spread across multiple elements.");
