@@ -1,12 +1,16 @@
-#[cfg(feature = "miniserde")]
-use crate::serializers::Miniserde;
+use crate::{FromEncodedStr, IntoEncodedString};
 #[cfg(feature = "rkyv")]
-use crate::serializers::Rkyv;
-#[cfg(feature = "serde-lite")]
-use crate::serializers::SerdeLite;
+use codee::binary::RkyvCodec;
 #[cfg(feature = "serde-wasm-bindgen")]
-use crate::serializers::SerdeWasmBindgen;
-use crate::serializers::{SerdeJson, SerializableData, Serializer, Str};
+use codee::string::JsonSerdeWasmCodec;
+#[cfg(feature = "miniserde")]
+use codee::string::MiniserdeCodec;
+#[cfg(feature = "serde-lite")]
+use codee::SerdeLite;
+use codee::{
+    string::{FromToStringCodec, JsonSerdeCodec},
+    Decoder, Encoder,
+};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
@@ -21,7 +25,7 @@ use std::{
 /// constructed on the client during hydration, it reads its value from the shared context. If
 /// it it constructed on the client at any other time, it simply runs on the client.
 #[derive(Debug)]
-pub struct SharedValue<T, Ser = SerdeJson> {
+pub struct SharedValue<T, Ser = JsonSerdeCodec> {
     value: T,
     ser: PhantomData<Ser>,
 }
@@ -32,22 +36,30 @@ impl<T, Ser> SharedValue<T, Ser> {
     }
 }
 
-impl<T> SharedValue<T, SerdeJson>
+impl<T> SharedValue<T, JsonSerdeCodec>
 where
-    T: Debug + SerializableData<SerdeJson>,
-    T::SerErr: Debug,
-    T::DeErr: Debug,
+    JsonSerdeCodec: Encoder<T> + Decoder<T>,
+    <JsonSerdeCodec as Encoder<T>>::Error: Debug,
+    <JsonSerdeCodec as Decoder<T>>::Error: Debug,
+    <JsonSerdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
+    <JsonSerdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
+    <<JsonSerdeCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
     }
 }
 
-impl<T> SharedValue<T, Str>
+impl<T> SharedValue<T, FromToStringCodec>
 where
-    T: Debug + SerializableData<Str>,
-    T::SerErr: Debug,
-    T::DeErr: Debug,
+    FromToStringCodec: Encoder<T> + Decoder<T>,
+    <FromToStringCodec as Encoder<T>>::Error: Debug,
+    <FromToStringCodec as Decoder<T>>::Error: Debug,
+    <FromToStringCodec as Encoder<T>>::Encoded: IntoEncodedString,
+    <FromToStringCodec as Decoder<T>>::Encoded: FromEncodedStr,
+    <<FromToStringCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new_str(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
@@ -55,11 +67,15 @@ where
 }
 
 #[cfg(feature = "serde-lite")]
-impl<T> SharedValue<T, SerdeLite>
+impl<T> SharedValue<T, SerdeLite<JsonSerdeCodec>>
 where
-    T: Debug + SerializableData<SerdeLite>,
-    T::SerErr: Debug,
-    T::DeErr: Debug,
+    SerdeLite<JsonSerdeCodec>: Encoder<T> + Decoder<T>,
+    <SerdeLite<JsonSerdeCodec> as Encoder<T>>::Error: Debug,
+    <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Error: Debug,
+    <SerdeLite<JsonSerdeCodec> as Encoder<T>>::Encoded: IntoEncodedString,
+    <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Encoded: FromEncodedStr,
+    <<SerdeLite<JsonSerdeCodec> as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
@@ -67,11 +83,15 @@ where
 }
 
 #[cfg(feature = "serde-wasm-bindgen")]
-impl<T> SharedValue<T, SerdeWasmBindgen>
+impl<T> SharedValue<T, JsonSerdeWasmCodec>
 where
-    T: Debug + SerializableData<SerdeWasmBindgen>,
-    T::SerErr: Debug,
-    T::DeErr: Debug,
+    JsonSerdeWasmCodec: Encoder<T> + Decoder<T>,
+    <JsonSerdeWasmCodec as Encoder<T>>::Error: Debug,
+    <JsonSerdeWasmCodec as Decoder<T>>::Error: Debug,
+    <JsonSerdeWasmCodec as Encoder<T>>::Encoded: IntoEncodedString,
+    <JsonSerdeWasmCodec as Decoder<T>>::Encoded: FromEncodedStr,
+    <<JsonSerdeWasmCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
@@ -79,11 +99,15 @@ where
 }
 
 #[cfg(feature = "miniserde")]
-impl<T> SharedValue<T, Miniserde>
+impl<T> SharedValue<T, MiniserdeCodec>
 where
-    T: Debug + SerializableData<Miniserde>,
-    T::SerErr: Debug,
-    T::DeErr: Debug,
+    MiniserdeCodec: Encoder<T> + Decoder<T>,
+    <MiniserdeCodec as Encoder<T>>::Error: Debug,
+    <MiniserdeCodec as Decoder<T>>::Error: Debug,
+    <MiniserdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
+    <MiniserdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
+    <<MiniserdeCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
@@ -91,11 +115,15 @@ where
 }
 
 #[cfg(feature = "rkyv")]
-impl<T> SharedValue<T, Rkyv>
+impl<T> SharedValue<T, RkyvCodec>
 where
-    T: Debug + SerializableData<Rkyv>,
-    T::SerErr: Debug,
-    T::DeErr: Debug,
+    RkyvCodec: Encoder<T> + Decoder<T>,
+    <RkyvCodec as Encoder<T>>::Error: Debug,
+    <RkyvCodec as Decoder<T>>::Error: Debug,
+    <RkyvCodec as Encoder<T>>::Encoded: IntoEncodedString,
+    <RkyvCodec as Decoder<T>>::Encoded: FromEncodedStr,
+    <<RkyvCodec as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new(initial: impl FnOnce() -> T) -> Self {
         SharedValue::new_with_encoding(initial)
@@ -104,15 +132,20 @@ where
 
 impl<T, Ser> SharedValue<T, Ser>
 where
-    T: Debug + SerializableData<Ser>,
-    T::SerErr: Debug,
-    Ser: Serializer,
+    Ser: Encoder<T> + Decoder<T>,
+    <Ser as Encoder<T>>::Error: Debug,
+    <Ser as Decoder<T>>::Error: Debug,
+    <Ser as Encoder<T>>::Encoded: IntoEncodedString,
+    <Ser as Decoder<T>>::Encoded: FromEncodedStr,
+    <<Ser as codee::Decoder<T>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
 {
     pub fn new_with_encoding(initial: impl FnOnce() -> T) -> Self {
         let value: T;
         #[cfg(feature = "hydration")]
         {
             use reactive_graph::owner::Owner;
+            use std::borrow::Borrow;
 
             let sc = Owner::current_shared_context();
             let id = sc.as_ref().map(|sc| sc.next_id()).unwrap_or_default();
@@ -120,30 +153,54 @@ where
             let hydrating =
                 sc.as_ref().map(|sc| sc.during_hydration()).unwrap_or(false);
             value = if hydrating {
-                serialized
-                    .as_ref()
-                    .and_then(|data| T::de(data).ok())
-                    .unwrap_or_else(|| {
+                let value = match serialized {
+                    None => {
                         #[cfg(feature = "tracing")]
-                        tracing::error!(
-                            "couldn't deserialize from {serialized:?}"
-                        );
-                        initial()
-                    })
+                        tracing::error!("couldn't deserialize");
+                        None
+                    }
+                    Some(data) => {
+                        match <Ser as Decoder<T>>::Encoded::from_encoded_str(
+                            &data,
+                        ) {
+                            #[allow(unused_variables)] // used in tracing
+                            Err(e) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "couldn't deserialize from {data:?}: {e:?}"
+                                );
+                                None
+                            }
+                            Ok(encoded) => {
+                                match Ser::decode(encoded.borrow()) {
+                                    #[allow(unused_variables)]
+                                    // used in tracing
+                                    Err(e) => {
+                                        #[cfg(feature = "tracing")]
+                                        tracing::error!("{e:?}");
+                                        None
+                                    }
+                                    Ok(value) => Some(value),
+                                }
+                            }
+                        }
+                    }
+                };
+                value.unwrap_or_else(|| initial())
             } else {
                 let init = initial();
                 #[cfg(feature = "ssr")]
                 if let Some(sc) = sc {
-                    match init.ser() {
+                    match Ser::encode(&init)
+                        .map(IntoEncodedString::into_encoded_string)
+                    {
                         Ok(value) => {
                             sc.write_async(id, Box::pin(async move { value }))
                         }
-                        #[allow(unused)] // used in tracing
+                        #[allow(unused_variables)] // used in tracing
                         Err(e) => {
                             #[cfg(feature = "tracing")]
-                            tracing::error!(
-                                "couldn't serialize {init:?}: {e:?}"
-                            );
+                            tracing::error!("couldn't serialize: {e:?}");
                         }
                     }
                 }
