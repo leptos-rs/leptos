@@ -1,16 +1,13 @@
-use std::sync::Arc;
-
-use leptos::html::form;
-use leptos::spawn::spawn_local;
-use leptos::{ev, prelude::*};
-use std::error::Error;
+use crate::{
+    components::ToHref,
+    hooks::{has_router, use_navigate, use_resolved_path},
+    location::{BrowserUrl, LocationProvider},
+    NavigateOptions,
+};
+use leptos::{ev, html::form, prelude::*, spawn::spawn_local};
+use std::{error::Error, sync::Arc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use web_sys::{FormData, RequestRedirect, Response};
-
-use crate::components::ToHref;
-use crate::hooks::{has_router, use_navigate, use_resolved_path};
-use crate::location::{BrowserUrl, LocationProvider};
-use crate::NavigateOptions;
 
 type OnFormData = Arc<dyn Fn(&FormData)>;
 type OnResponse = Arc<dyn Fn(&Response)>;

@@ -2,9 +2,11 @@ use super::{fragment_to_tokens, TagType};
 use crate::view::attribute_absolute;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement, NodeName};
+use rstml::node::{
+    KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement, NodeName,
+};
 use std::collections::HashMap;
-use syn::{spanned::Spanned, Expr, ExprRange, RangeLimits, Stmt, ExprPath};
+use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
     node: &NodeElement,
@@ -92,9 +94,11 @@ pub(crate) fn component_to_tokens(
                 return None;
             }
 
-            let KeyedAttributeValue::Binding(binding) = &attr.possible_value else {
+            let KeyedAttributeValue::Binding(binding) = &attr.possible_value
+            else {
                 if let Some(ident) = attr.key.to_string().strip_prefix("let:") {
-                    let ident1 = format_ident!("{ident}", span = attr.key.span());
+                    let ident1 =
+                        format_ident!("{ident}", span = attr.key.span());
                     return Some(quote! { #ident1 });
                 } else {
                     return None;
