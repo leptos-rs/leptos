@@ -46,11 +46,7 @@ async fn get_configuration_from_file_ok() {
             ("LEPTOS_RELOAD_PORT", None::<&str>),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
         ],
-        async {
-            get_configuration(Some(&path_s))
-                .unwrap()
-                .leptos_options
-        },
+        async { get_configuration(Some(&path_s)).unwrap().leptos_options },
     )
     .await;
 
@@ -106,11 +102,7 @@ async fn get_config_from_file_ok() {
             ("LEPTOS_RELOAD_PORT", None::<&str>),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
         ],
-        async {
-            get_config_from_file(&cargo_tmp)
-                .unwrap()
-                .leptos_options
-        },
+        async { get_config_from_file(&cargo_tmp).unwrap().leptos_options },
     )
     .await;
 

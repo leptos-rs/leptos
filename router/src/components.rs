@@ -1,5 +1,4 @@
-pub use super::link::*;
-pub use super::form::*;
+pub use super::{form::*, link::*};
 #[cfg(feature = "ssr")]
 use crate::location::RequestUrl;
 pub use crate::nested_router::Outlet;
@@ -20,7 +19,7 @@ use reactive_graph::{
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
-    wrappers::write::SignalSetter, 
+    wrappers::write::SignalSetter,
 };
 use std::{
     borrow::Cow,
@@ -296,7 +295,6 @@ where
     NestedRoute::new(path, view, ssr)
 }
 
-
 #[component]
 pub fn ParentRoute<Segments, View, Children>(
     path: Segments,
@@ -330,7 +328,7 @@ where
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
         let view = view.clone();
-        (view! { 
+        (view! {
             <Transition>
                 {move || {
                     match condition() {
@@ -354,7 +352,13 @@ pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
     redirect_path: PathFn,
     children: RouteChildren<Children>,
     #[prop(optional)] ssr: SsrMode,
-) -> NestedRoute<Segments, Children, (), impl Fn() -> AnyView<Dom> + Send + Clone, Dom>
+) -> NestedRoute<
+    Segments,
+    Children,
+    (),
+    impl Fn() -> AnyView<Dom> + Send + Clone,
+    Dom,
+>
 where
     ViewFn: Fn() -> View + Send + Clone + 'static,
     View: IntoView + 'static,
@@ -367,7 +371,7 @@ where
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
         let view = view.clone();
-        (view! { 
+        (view! {
             <Transition>
                 {move || {
                     match condition() {
