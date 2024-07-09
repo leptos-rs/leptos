@@ -10,6 +10,7 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
+base64 = "0.22"
 codee = { version = "0.1", features = ["json_serde"] }
 hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
@@ -21,24 +22,17 @@ tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
 
 # serialization formats
 serde = { version = "1"}
-serde-wasm-bindgen = { version = "0.6", optional = true }
 js-sys = { version = "0.3", optional = true } 
 wasm-bindgen = { version = "0.2", optional = true } 
 serde_json = { version = "1"}
-miniserde = { version = "0.1", optional = true }
-rkyv = { version = "0.7", optional = true, features = [
-	"validation",
-	"uuid",
-	"strict",
-] }
-serde-lite = { version = "0.5", optional = true }
-base64 = { version = "0.22", optional = true }
 
 [features]
 ssr = []
 hydration = []
-rkyv = ["dep:rkyv", "dep:base64"]
-serde-wasm-bindgen = ["dep:serde-wasm-bindgen", "dep:js-sys", "dep:wasm-bindgen"]
+miniserde = ["codee/miniserde"]
+rkyv = ["codee/rkyv"]
+serde-wasm-bindgen = ["codee/json_serde_wasm"]
+serde-lite = ["codee/serde_lite"]
 tachys = ["dep:tachys"]
 tracing = ["dep:tracing"]
 

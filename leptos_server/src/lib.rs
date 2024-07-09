@@ -3,16 +3,14 @@
 
 mod action;
 pub use action::*;
+use std::borrow::Borrow;
 mod local_resource;
 pub use local_resource::*;
 mod multi_action;
 pub use multi_action::*;
 mod resource;
-pub mod serializers;
 pub use resource::*;
 mod shared;
-pub use shared::*;
-
 ////! # Leptos Server Functions
 ////!
 ////! This package is based on a simple idea: sometimes it’s useful to write functions
@@ -132,6 +130,54 @@ pub use shared::*;
 //pub use action::*;
 //pub use multi_action::*;
 //extern crate tracing;
+use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+pub use shared::*;
+pub trait IntoEncodedString {
+    fn into_encoded_string(self) -> String;
+}
+
+pub trait FromEncodedStr {
+    type DecodedType<'a>: Borrow<Self>;
+    type DecodingError;
+
+    fn from_encoded_str(
+        data: &str,
+    ) -> Result<Self::DecodedType<'_>, Self::DecodingError>;
+}
+
+impl IntoEncodedString for String {
+    fn into_encoded_string(self) -> String {
+        self
+    }
+}
+
+impl FromEncodedStr for str {
+    type DecodedType<'a> = &'a str;
+    type DecodingError = ();
+
+    fn from_encoded_str(
+        data: &str,
+    ) -> Result<Self::DecodedType<'_>, Self::DecodingError> {
+        Ok(data)
+    }
+}
+
+impl IntoEncodedString for Vec<u8> {
+    fn into_encoded_string(self) -> String {
+        STANDARD_NO_PAD.encode(self)
+    }
+}
+
+impl FromEncodedStr for [u8] {
+    type DecodedType<'a> = Vec<u8>;
+    type DecodingError = DecodeError;
+
+    fn from_encoded_str(
+        data: &str,
+    ) -> Result<Self::DecodedType<'_>, Self::DecodingError> {
+        STANDARD_NO_PAD.decode(data)
+    }
+}
 
 #[cfg(feature = "tachys")]
 mod view_implementations {
