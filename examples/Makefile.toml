@@ -19,7 +19,8 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
   "hackernews",
   "hackernews_axum",
   "hackernews_islands_axum",
-  "hackernews_js_fetch",
+  # TODO: reenable the example on the axum-js-fetch and gloo-net new release
+  # "hackernews_js_fetch",
   "js-framework-benchmark",
   "login_with_token_csr_only",
   "parent_child",
