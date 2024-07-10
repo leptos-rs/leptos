@@ -260,9 +260,59 @@ where
             });
         }
     }
+
+    #[track_caller]
+    pub fn dispatch_local(&self, input: I) {
+        if !is_suppressing_resource_load() {
+            let mut fut = (self.action_fn)(&input).fuse();
+
+            // abort this task if the owner is cleaned up
+            let (abort_tx, mut abort_rx) = oneshot::channel();
+            Owner::on_cleanup(move || {
+                abort_tx.send(()).expect(
+                    "tried to cancel a future in ArcAction::dispatch(), but \
+                     the channel has already closed",
+                );
+            });
+
+            // Update the state before loading
+            self.in_flight.update(|n| *n += 1);
+            let current_version =
+                self.version.try_get_untracked().unwrap_or_default();
+            self.input.try_update(|inp| *inp = Some(input));
+
+            // Spawn the task
+            Executor::spawn_local({
+                let input = self.input.clone();
+                let version = self.version.clone();
+                let value = self.value.clone();
+                let in_flight = self.in_flight.clone();
+                async move {
+                    select! {
+                        // if the abort message has been sent, bail and do nothing
+                        _ = abort_rx => {
+                            in_flight.update(|n| *n = n.saturating_sub(1));
+                        },
+                        // otherwise, update the value
+                        result = fut => {
+                            in_flight.update(|n| *n = n.saturating_sub(1));
+                            let is_latest = version.get_untracked() <= current_version;
+                            if is_latest {
+                                version.update(|n| *n += 1);
+                                value.update(|n| *n = Some(result));
+                            }
+                            if in_flight.get_untracked() == 0 {
+                                input.update(|inp| *inp = None);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
 }
 
-impl<I, O> ArcAction<SendWrapper<I>, O>
+impl<I, O> ArcAction<I, O>
 where
     I: 'static,
     O: Send + Sync + 'static,
@@ -301,11 +351,6 @@ where
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
-    }
-
-    #[track_caller]
-    pub fn dispatch_unsync(&self, input: I) {
-        self.dispatch(SendWrapper::new(input));
     }
 }
 
@@ -764,9 +809,9 @@ where
     }
 }
 
-impl<I, O> Action<SendWrapper<I>, O>
+impl<I, O> Action<I, O>
 where
-    I: 'static,
+    I: Send + Sync + 'static,
     O: Send + Sync + 'static,
 {
     /// Creates a new action, which does not require its input to be `Send`.
@@ -802,11 +847,6 @@ where
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
-    }
-
-    #[track_caller]
-    pub fn dispatch_unsync(&self, input: I) {
-        self.dispatch(SendWrapper::new(input));
     }
 }
 
