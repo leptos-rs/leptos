@@ -11,11 +11,11 @@ pub fn error_template(errors: Option<RwSignal<Errors>>) -> View {
       <h1>"Errors"</h1>
       <For
           // a function that returns the items we're iterating over; a signal is fine
-          each=move || errors.get()
+          each=move ||  errors.get()
           // a unique key for each item as a reference
           key=|(key, _)| key.clone()
           // renders each item to a view
-          children= move |(_, error)| {
+          children=move | (_, error)| {
           let error_string = error.to_string();
             view! {
 
