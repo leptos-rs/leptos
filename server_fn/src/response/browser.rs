@@ -50,13 +50,19 @@ impl<CustErr> ClientRes<CustErr> for BrowserResponse {
     > {
         let stream = ReadableStream::from_raw(self.0.body().unwrap())
             .into_stream()
-            .map(|data| {
-                let data = data.unwrap().unchecked_into::<Uint8Array>();
-                let mut buf = Vec::new();
-                let length = data.length();
-                buf.resize(length as usize, 0);
-                data.copy_to(&mut buf);
-                Ok(Bytes::from(buf))
+            .map(|data| match data {
+                Err(e) => {
+                    web_sys::console::error_1(&e);
+                    Err(ServerFnError::Request(format!("{e:?}")))
+                }
+                Ok(data) => {
+                    let data = data.unchecked_into::<Uint8Array>();
+                    let mut buf = Vec::new();
+                    let length = data.length();
+                    buf.resize(length as usize, 0);
+                    data.copy_to(&mut buf);
+                    Ok(Bytes::from(buf))
+                }
             });
         Ok(SendWrapper::new(stream))
     }
