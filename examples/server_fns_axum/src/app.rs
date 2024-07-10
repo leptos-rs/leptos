@@ -1,6 +1,7 @@
 use futures::StreamExt;
 use http::Method;
 use leptos::{html::Input, prelude::*, spawn::spawn_local};
+use send_wrapper::SendWrapper;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use server_fn::{
     client::{browser::BrowserClient, Client},
@@ -23,7 +24,7 @@ use web_sys::{FormData, HtmlFormElement, SubmitEvent};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
-        <!DOCTYPE html> 
+        <!DOCTYPE html>
         <html lang="en">
             <head>
                 <meta charset="utf-8"/>
@@ -361,8 +362,8 @@ pub fn FileUpload() -> impl IntoView {
         Ok(count)
     }
 
-    let upload_action = Action::new_unsync(|data: &FormData| {
-        let data = data.to_owned();
+    let upload_action = Action::new(|data: &SendWrapper<FormData>| {
+        let data = (**data).clone();
         // `MultipartData` implements `From<FormData>`
         file_length(data.into())
     });
@@ -374,7 +375,7 @@ pub fn FileUpload() -> impl IntoView {
             ev.prevent_default();
             let target = ev.target().unwrap().unchecked_into::<HtmlFormElement>();
             let form_data = FormData::new_with_form(&target).unwrap();
-            upload_action.dispatch_unsync(form_data);
+            upload_action.dispatch(SendWrapper::new(form_data));
         }>
             <input type="file" name="file_to_upload"/>
             <input type="submit"/>
@@ -554,8 +555,7 @@ pub fn FileUploadWithProgress() -> impl IntoView {
         </form>
         {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
         {move || {
-            max
-                .get()
+            max.get()
                 .map(|max| {
                     view! {
                         <progress
@@ -632,6 +632,7 @@ pub fn FileWatcher() -> impl IntoView {
                     })
                     .collect::<Vec<_>>()
             }}
+
         </ul>
         <p>
             <em>
