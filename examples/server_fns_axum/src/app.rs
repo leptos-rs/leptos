@@ -274,13 +274,13 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
     view! {
         <h3>Custom arguments to the <code>#[server]</code> " macro"</h3>
         <p>
-            This example shows how to specify additional behavior including
-            <ul>
-                <li>Specific server function <strong>paths</strong></li>
-                <li>Mixing and matching input and output <strong>encodings</strong></li>
-                <li>Adding custom <strong>middleware</strong> on a per-server-fn basis</li>
-            </ul>
+            This example shows how to specify additional behavior, including:
         </p>
+        <ul>
+            <li>Specific server function <strong>paths</strong></li>
+            <li>Mixing and matching input and output <strong>encodings</strong></li>
+            <li>Adding custom <strong>middleware</strong> on a per-server-fn basis</li>
+        </ul>
         <input node_ref=input_ref placeholder="Type something here."/>
         <button
             on:click=move |_| {
