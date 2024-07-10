@@ -23,12 +23,12 @@ use web_sys::{FormData, HtmlFormElement, SubmitEvent};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
-        <!DOCTYPE html>
+        <!DOCTYPE html> 
         <html lang="en">
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone() />
+                <AutoReload options=options.clone()/>
                 <HydrationScripts options/>
                 <meta name="color-scheme" content="dark light"/>
                 <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
@@ -101,19 +101,19 @@ pub fn SpawnLocal() -> impl IntoView {
     view! {
         <h3>Using <code>spawn_local</code></h3>
         <p>
-            "You can call a server function by using "<code>"spawn_local"</code> " in an event listener. "
+            "You can call a server function by using " <code>"spawn_local"</code>
+            " in an event listener. "
             "Clicking this button should alert with the uppercase version of the input."
         </p>
         <input node_ref=input_ref placeholder="Type something here."/>
-        <button
-            on:click=move |_| {
-                let value = input_ref.get().unwrap().value();
-                spawn_local(async move {
-                    let uppercase_text = shouting_text(value).await.unwrap_or_else(|e| e.to_string());
-                    set_shout_result.set(uppercase_text);
-                });
-            }
-        >
+        <button on:click=move |_| {
+            let value = input_ref.get().unwrap().value();
+            spawn_local(async move {
+                let uppercase_text = shouting_text(value).await.unwrap_or_else(|e| e.to_string());
+                set_shout_result.set(uppercase_text);
+            });
+        }>
+
             {shout_result}
         </button>
     }
@@ -185,17 +185,11 @@ pub fn WithAnAction() -> impl IntoView {
             "These often work well as actions."
         </p>
         <input node_ref=input_ref placeholder="Type something here."/>
-        <button
-            on:click=move |_| {
-                let text = input_ref.get().unwrap().value();
-                action.dispatch(text.into());
-                // note: technically, this `action` takes `AddRow` (the server fn type) as its
-                // argument
-                //
-                // however, for any one-argument server functions, `From<_>` is implemented between
-                // the server function type and the type of this single argument
-            }
-        >
+        <button on:click=move |_| {
+            let text = input_ref.get().unwrap().value();
+            action.dispatch(text.into());
+        }>
+
             Submit
         </button>
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
@@ -221,7 +215,9 @@ pub fn WithActionForm() -> impl IntoView {
     view! {
         <h3>Using <code>"<ActionForm/>"</code></h3>
         <p>
-            <code>"<ActionForm/>"</code> "lets you use an HTML " <code>"<form>"</code>
+            <code>"<ActionForm/>"</code>
+            "lets you use an HTML "
+            <code>"<form>"</code>
             "to call a server function in a way that gracefully degrades."
         </p>
         <ActionForm action>
@@ -234,7 +230,8 @@ pub fn WithActionForm() -> impl IntoView {
         </ActionForm>
         <p>You submitted: {move || format!("{:?}", action.input().get())}</p>
         <p>The result was: {move || format!("{:?}", action.value().get())}</p>
-        <Transition>archive underaligned: need alignment 4 but have alignment 1
+        <Transition>
+            archive underaligned: need alignment 4 but have alignment 1
             <p>Total rows: {row_count}</p>
         </Transition>
     }
@@ -273,24 +270,21 @@ pub fn ServerFnArgumentExample() -> impl IntoView {
 
     view! {
         <h3>Custom arguments to the <code>#[server]</code> " macro"</h3>
-        <p>
-            This example shows how to specify additional behavior, including:
-        </p>
+        <p>This example shows how to specify additional behavior, including:</p>
         <ul>
             <li>Specific server function <strong>paths</strong></li>
             <li>Mixing and matching input and output <strong>encodings</strong></li>
             <li>Adding custom <strong>middleware</strong> on a per-server-fn basis</li>
         </ul>
         <input node_ref=input_ref placeholder="Type something here."/>
-        <button
-            on:click=move |_| {
-                let value = input_ref.get().unwrap().value();
-                spawn_local(async move {
-                    let length = length_of_input(value).await.unwrap_or(0);
-                    set_result.set(length);
-                });
-            }
-        >
+        <button on:click=move |_| {
+            let value = input_ref.get().unwrap().value();
+            spawn_local(async move {
+                let length = length_of_input(value).await.unwrap_or(0);
+                set_result.set(length);
+            });
+        }>
+
             Click to see length
         </button>
         <p>Length is {result}</p>
@@ -322,18 +316,15 @@ pub fn RkyvExample() -> impl IntoView {
     view! {
         <h3>Using <code>rkyv</code> encoding</h3>
         <input node_ref=input_ref placeholder="Type something here."/>
-        <button
-            on:click=move |_| {
-                let value = input_ref.get().unwrap().value();
-                set_input.set(value);
-            }
-        >
+        <button on:click=move |_| {
+            let value = input_ref.get().unwrap().value();
+            set_input.set(value);
+        }>
+
             Click to capitalize
         </button>
         <p>{input}</p>
-        <Transition>
-            {rkyv_result}
-        </Transition>
+        <Transition>{rkyv_result}</Transition>
     }
 }
 
@@ -389,15 +380,18 @@ pub fn FileUpload() -> impl IntoView {
             <input type="submit"/>
         </form>
         <p>
-            {move || if upload_action.input().get().is_none() && upload_action.value().get().is_none() {
-                "Upload a file.".to_string()
-            } else if upload_action.pending().get() {
-                "Uploading...".to_string()
-            } else if let Some(Ok(value)) = upload_action.value().get() {
-                value.to_string()
-            } else {
-                format!("{:?}", upload_action.value().get())
+            {move || {
+                if upload_action.input().get().is_none() && upload_action.value().get().is_none() {
+                    "Upload a file.".to_string()
+                } else if upload_action.pending().get() {
+                    "Uploading...".to_string()
+                } else if let Some(Ok(value)) = upload_action.value().get() {
+                    value.to_string()
+                } else {
+                    format!("{:?}", upload_action.value().get())
+                }
             }}
+
         </p>
     }
 }
@@ -559,9 +553,18 @@ pub fn FileUploadWithProgress() -> impl IntoView {
             <input type="submit"/>
         </form>
         {move || filename.get().map(|filename| view! { <p>Uploading {filename}</p> })}
-        {move || max.get().map(|max| view! {
-            <progress max=max value=move || current.get().unwrap_or_default()/>
-        })}
+        {move || {
+            max
+                .get()
+                .map(|max| {
+                    view! {
+                        <progress
+                            max=max
+                            value=move || current.get().unwrap_or_default()
+                        ></progress>
+                    }
+                })
+        }}
     }
 }
 #[component]
@@ -616,9 +619,26 @@ pub fn FileWatcher() -> impl IntoView {
         <h3>Watching files and returning a streaming response</h3>
         <p>Files changed since you loaded the page:</p>
         <ul>
-            {move || files.get().into_iter().map(|file| view! { <li><code>{file}</code></li> }).collect::<Vec<_>>()}
+            {move || {
+                files
+                    .get()
+                    .into_iter()
+                    .map(|file| {
+                        view! {
+                            <li>
+                                <code>{file}</code>
+                            </li>
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            }}
         </ul>
-        <p><em>Add or remove some text files in the <code>watched_files</code> directory and see the list of changes here.</em></p>
+        <p>
+            <em>
+                Add or remove some text files in the <code>watched_files</code>
+                directory and see the list of changes here.
+            </em>
+        </p>
     }
 }
 
@@ -668,20 +688,17 @@ pub fn CustomErrorTypes() -> impl IntoView {
             the rules!"
         </p>
         <input node_ref=input_ref placeholder="Type something here."/>
-        <button
-            on:click=move |_| {
-                let value = input_ref.get().unwrap().value();
-                spawn_local(async move {
-                    let data = ascii_uppercase(value).await;
-                    set_result.set(Some(data));
-                });
-            }
-        >
+        <button on:click=move |_| {
+            let value = input_ref.get().unwrap().value();
+            spawn_local(async move {
+                let data = ascii_uppercase(value).await;
+                set_result.set(Some(data));
+            });
+        }>
+
             "Submit"
         </button>
-        <p>
-            {move || format!("{:?}", result.get())}
-        </p>
+        <p>{move || format!("{:?}", result.get())}</p>
     }
 }
 
@@ -792,15 +809,14 @@ pub fn CustomEncoding() -> impl IntoView {
             "This example creates a custom encoding that sends server fn data using TOML. Why? Well... why not?"
         </p>
         <input node_ref=input_ref placeholder="Type something here."/>
-        <button
-            on:click=move |_| {
-                let value = input_ref.get().unwrap().value();
-                spawn_local(async move {
-                    let new_value = why_not(value, ", but in TOML!!!".to_string()).await.unwrap();
-                    set_result.set(new_value.0.modified);
-                });
-            }
-        >
+        <button on:click=move |_| {
+            let value = input_ref.get().unwrap().value();
+            spawn_local(async move {
+                let new_value = why_not(value, ", but in TOML!!!".to_string()).await.unwrap();
+                set_result.set(new_value.0.modified);
+            });
+        }>
+
             Submit
         </button>
         <p>{result}</p>
@@ -853,8 +869,14 @@ pub fn CustomClientExample() -> impl IntoView {
 
     view! {
         <h3>Custom clients</h3>
-        <p>You can define a custom server function client to do something like adding a header to every request.</p>
-        <p>Check the network request in your browser devtools to see how this client adds a custom header.</p>
-        <button on:click=|_| spawn_local(async { fn_with_custom_client().await.unwrap() })>Click me</button>
+        <p>
+            You can define a custom server function client to do something like adding a header to every request.
+        </p>
+        <p>
+            Check the network request in your browser devtools to see how this client adds a custom header.
+        </p>
+        <button on:click=|_| spawn_local(async {
+            fn_with_custom_client().await.unwrap()
+        })>Click me</button>
     }
 }
