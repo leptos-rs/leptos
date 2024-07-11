@@ -4,8 +4,11 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    signal::guards::{Mapped, Plain, ReadGuard},
-    traits::{DefinedAt, ReadUntracked},
+    signal::{
+        guards::{Mapped, Plain, ReadGuard},
+        ArcReadSignal,
+    },
+    traits::{DefinedAt, Get, ReadUntracked},
 };
 use core::fmt::Debug;
 use or_poisoned::OrPoisoned;
@@ -205,5 +208,15 @@ impl<T: 'static> ReadUntracked for ArcMemo<T> {
             t.value.as_ref().unwrap()
         })
         .map(ReadGuard::new)
+    }
+}
+
+impl<T> From<ArcReadSignal<T>> for ArcMemo<T>
+where
+    T: Clone + PartialEq + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcReadSignal<T>) -> Self {
+        ArcMemo::new(move |_| value.get())
     }
 }
