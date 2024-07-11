@@ -90,8 +90,11 @@ where
     type Reader = Mapped<Inner::Reader, T>;
     type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
 
-    fn path(&self) -> impl Iterator<Item = StorePathSegment> {
-        self.inner.path().chain(iter::once(self.path_segment))
+    fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner
+            .path()
+            .into_iter()
+            .chain(iter::once(self.path_segment))
     }
 
     fn data(&self) -> Arc<RwLock<Self::Orig>> {
@@ -108,7 +111,7 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(self.path().collect());
+        let trigger = self.get_trigger(self.path().into_iter().collect());
         let inner = WriteGuard::new(trigger, self.inner.writer()?);
         Some(MappedMut::new(inner, self.read, self.write))
     }
@@ -144,7 +147,7 @@ where
     Inner: StoreField<Prev>,
 {
     fn trigger(&self) {
-        let trigger = self.get_trigger(self.path().collect());
+        let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.trigger();
     }
 }
@@ -156,7 +159,7 @@ where
     T: 'static,
 {
     fn track(&self) {
-        let trigger = self.get_trigger(self.path().collect());
+        let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.track();
     }
 }
