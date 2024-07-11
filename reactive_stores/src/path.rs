@@ -18,7 +18,7 @@ impl StorePath {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct StorePathSegment(usize);
+pub struct StorePathSegment(pub(crate) usize);
 
 impl From<usize> for StorePathSegment {
     fn from(value: usize) -> Self {
