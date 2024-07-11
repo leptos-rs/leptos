@@ -1,3 +1,6 @@
+//! Types to abstract over different kinds of readable or writable reactive values.
+
+/// Types that abstract over signals with values that can be read.
 pub mod read {
     use crate::{
         computed::{ArcMemo, Memo},
@@ -672,6 +675,7 @@ pub mod read {
     }
 }
 
+/// Types that abstract over the ability to update a signal.
 pub mod write {
     use crate::{
         owner::StoredValue,

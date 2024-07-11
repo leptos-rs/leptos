@@ -1,8 +1,11 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
     owner::StoredValue,
-    signal::guards::{Mapped, Plain, ReadGuard},
-    traits::{DefinedAt, Dispose, ReadUntracked, Track},
+    signal::{
+        guards::{Mapped, Plain, ReadGuard},
+        ArcReadSignal,
+    },
+    traits::{DefinedAt, Dispose, Get, ReadUntracked, Track},
     unwrap_signal,
 };
 use std::{fmt::Debug, hash::Hash, panic::Location};
@@ -11,7 +14,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 ///
 /// Unlike a "derived signal," a memo comes with two guarantees:
 /// 1. The memo will only run *once* per change, no matter how many times you
-/// access its value.
+///    access its value.
 /// 2. The memo will only notify its dependents if the value of the computation changes.
 ///
 /// This makes a memo the perfect tool for expensive computations.
@@ -30,6 +33,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// # use reactive_graph::signal::signal;
 /// # tokio_test::block_on(async move {
 /// # any_spawner::Executor::init_tokio();
+/// # tokio::task::LocalSet::new().run_until(async {
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
 /// let (value, set_value) = signal(0);
 ///
@@ -63,6 +67,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 ///   let value = memoized.get();
 ///   // do something else...
 /// });
+/// # });
 /// # });
 /// ```
 pub struct Memo<T> {
@@ -233,5 +238,15 @@ impl<T: Send + Sync + 'static> From<Memo<T>> for ArcMemo<T> {
     #[track_caller]
     fn from(value: Memo<T>) -> Self {
         value.inner.get().unwrap_or_else(unwrap_signal!(value))
+    }
+}
+
+impl<T> From<ArcReadSignal<T>> for Memo<T>
+where
+    T: Clone + PartialEq + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcReadSignal<T>) -> Self {
+        Memo::new(move |_| value.get())
     }
 }

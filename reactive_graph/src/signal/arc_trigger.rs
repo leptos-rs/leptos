@@ -9,6 +9,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+/// A trigger is a data-less signal with the sole purpose of notifying other reactive code of a change.
+///
+/// This can be useful for when using external data not stored in signals, for example.
 pub struct ArcTrigger {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
@@ -16,6 +19,7 @@ pub struct ArcTrigger {
 }
 
 impl ArcTrigger {
+    /// Creates a new trigger.
     #[track_caller]
     pub fn new() -> Self {
         Self {
