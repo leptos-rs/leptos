@@ -6,7 +6,7 @@ use super::{
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
     prelude::{IsDisposed, Trigger},
-    traits::{DefinedAt, ReadUntracked, Writeable},
+    traits::{DefinedAt, ReadUntracked, UntrackableGuard, Writeable},
 };
 use core::fmt::{Debug, Formatter, Result};
 use std::{
@@ -156,13 +156,11 @@ impl<T> Trigger for ArcRwSignal<T> {
 impl<T: 'static> Writeable for ArcRwSignal<T> {
     type Value = T;
 
-    fn try_write(
-        &self,
-    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>> {
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
         self.value
             .write()
             .ok()
-            .map(|guard| WriteGuard::new(self, guard))
+            .map(|guard| WriteGuard::new(self.clone(), guard))
     }
 
     fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {
