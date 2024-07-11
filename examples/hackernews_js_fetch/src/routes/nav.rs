@@ -21,7 +21,12 @@ pub fn Nav() -> impl IntoView {
                 <A href="/job">
                     <strong>"Jobs"</strong>
                 </A>
-                <a class="github" href="http://github.com/leptos-rs/leptos" target="_blank" rel="noreferrer">
+                <a
+                    class="github"
+                    href="http://github.com/leptos-rs/leptos"
+                    target="_blank"
+                    rel="noreferrer"
+                >
                     "Built with Leptos"
                 </a>
             </nav>
