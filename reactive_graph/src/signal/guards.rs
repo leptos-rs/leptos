@@ -1,4 +1,7 @@
-use crate::{computed::BlockingLock, traits::Trigger};
+use crate::{
+    computed::BlockingLock,
+    traits::{Trigger, UntrackableGuard},
+};
 use core::fmt::Debug;
 use guardian::{ArcRwLockReadGuardian, ArcRwLockWriteGuardian};
 use std::{
@@ -87,7 +90,7 @@ impl<T: 'static> Debug for Plain<T> {
 }
 
 impl<T: 'static> Plain<T> {
-    pub(crate) fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
+    pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
         ArcRwLockReadGuardian::take(inner)
             .ok()
             .map(|guard| Plain { guard })
@@ -131,7 +134,7 @@ impl<T: 'static> Debug for AsyncPlain<T> {
 }
 
 impl<T: 'static> AsyncPlain<T> {
-    pub(crate) fn try_new(inner: &Arc<async_lock::RwLock<T>>) -> Option<Self> {
+    pub fn try_new(inner: &Arc<async_lock::RwLock<T>>) -> Option<Self> {
         Some(Self {
             guard: inner.blocking_read_arc(),
         })
@@ -174,7 +177,7 @@ where
 }
 
 impl<T: 'static, U> Mapped<Plain<T>, U> {
-    pub(crate) fn try_new(
+    pub fn try_new(
         inner: Arc<RwLock<T>>,
         map_fn: fn(&T) -> &U,
     ) -> Option<Self> {
@@ -187,7 +190,7 @@ impl<Inner, U> Mapped<Inner, U>
 where
     Inner: Deref,
 {
-    pub(crate) fn new_with_guard(
+    pub fn new_with_guard(
         inner: Inner,
         map_fn: fn(&Inner::Target) -> &U,
     ) -> Self {
@@ -234,31 +237,37 @@ where
 }
 
 #[derive(Debug)]
-pub struct WriteGuard<'a, S, G>
+pub struct WriteGuard<S, G>
 where
     S: Trigger,
 {
-    pub(crate) triggerable: Option<&'a S>,
+    pub(crate) triggerable: Option<S>,
     pub(crate) guard: Option<G>,
 }
 
-impl<'a, S, G> WriteGuard<'a, S, G>
+impl<S, G> WriteGuard<S, G>
 where
     S: Trigger,
 {
-    pub fn new(triggerable: &'a S, guard: G) -> Self {
+    pub fn new(triggerable: S, guard: G) -> Self {
         Self {
             triggerable: Some(triggerable),
             guard: Some(guard),
         }
     }
+}
 
-    pub fn untrack(&mut self) {
+impl<S, G> UntrackableGuard for WriteGuard<S, G>
+where
+    S: Trigger,
+    G: DerefMut,
+{
+    fn untrack(&mut self) {
         self.triggerable.take();
     }
 }
 
-impl<'a, S, G> Deref for WriteGuard<'a, S, G>
+impl<S, G> Deref for WriteGuard<S, G>
 where
     S: Trigger,
     G: Deref,
@@ -276,7 +285,7 @@ where
     }
 }
 
-impl<'a, S, G> DerefMut for WriteGuard<'a, S, G>
+impl<S, G> DerefMut for WriteGuard<S, G>
 where
     S: Trigger,
     G: DerefMut,
@@ -295,7 +304,7 @@ where
 pub struct UntrackedWriteGuard<T: 'static>(ArcRwLockWriteGuardian<T>);
 
 impl<T: 'static> UntrackedWriteGuard<T> {
-    pub(crate) fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
+    pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
         ArcRwLockWriteGuardian::take(inner)
             .ok()
             .map(UntrackedWriteGuard)
@@ -317,7 +326,7 @@ impl<T> DerefMut for UntrackedWriteGuard<T> {
 }
 
 // Dropping the write guard will notify dependencies.
-impl<'a, S, T> Drop for WriteGuard<'a, S, T>
+impl<S, T> Drop for WriteGuard<S, T>
 where
     S: Trigger,
 {
@@ -326,8 +335,82 @@ where
         drop(self.guard.take());
 
         // then, notify about a change
-        if let Some(triggerable) = self.triggerable {
+        if let Some(triggerable) = self.triggerable.as_ref() {
             triggerable.trigger();
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct MappedMut<Inner, U>
+where
+    Inner: Deref,
+{
+    inner: Inner,
+    map_fn: fn(&Inner::Target) -> &U,
+    map_fn_mut: fn(&mut Inner::Target) -> &mut U,
+}
+
+impl<Inner, U> UntrackableGuard for MappedMut<Inner, U>
+where
+    Inner: UntrackableGuard,
+{
+    fn untrack(&mut self) {
+        self.inner.untrack();
+    }
+}
+
+impl<Inner, U> MappedMut<Inner, U>
+where
+    Inner: DerefMut,
+{
+    pub fn new(
+        inner: Inner,
+        map_fn: fn(&Inner::Target) -> &U,
+        map_fn_mut: fn(&mut Inner::Target) -> &mut U,
+    ) -> Self {
+        Self {
+            inner,
+            map_fn,
+            map_fn_mut,
+        }
+    }
+}
+
+impl<Inner, U> Deref for MappedMut<Inner, U>
+where
+    Inner: Deref,
+{
+    type Target = U;
+
+    fn deref(&self) -> &Self::Target {
+        (self.map_fn)(self.inner.deref())
+    }
+}
+
+impl<Inner, U> DerefMut for MappedMut<Inner, U>
+where
+    Inner: DerefMut,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        (self.map_fn_mut)(self.inner.deref_mut())
+    }
+}
+
+impl<Inner, U: PartialEq> PartialEq for MappedMut<Inner, U>
+where
+    Inner: Deref,
+{
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<Inner, U: Display> Display for MappedMut<Inner, U>
+where
+    Inner: Deref,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
     }
 }

@@ -19,6 +19,8 @@ members = [
   "leptos_macro",
   "leptos_server",
   "reactive_graph",
+  "reactive_stores",
+  "reactive_stores_macro",
   "server_fn",
   "server_fn_macro",
   "server_fn/server_fn_macro_default",
@@ -60,6 +62,8 @@ next_tuple = { path = "./next_tuple", version = "0.1.0-alpha" }
 oco_ref = { path = "./oco", version = "0.2" }
 or_poisoned = { path = "./or_poisoned", version = "0.1" }
 reactive_graph = { path = "./reactive_graph", version = "0.1.0-alpha" }
+reactive_stores = { path = "./reactive_stores", version = "0.1.0-alpha" }
+reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.1.0-alpha" }
 server_fn = { path = "./server_fn", version = "0.7.0-alpha" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.7.0-alpha" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.0-alpha" }

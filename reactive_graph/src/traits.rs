@@ -172,22 +172,24 @@ where
     }
 }
 
+pub trait UntrackableGuard: DerefMut {
+    fn untrack(&mut self);
+}
+
 pub trait Writeable: Sized + DefinedAt + Trigger {
     type Value: Sized + 'static;
 
-    fn try_write(
-        &self,
-    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>>;
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>>;
 
-    fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>>;
-
-    fn write(
+    fn try_write_untracked(
         &self,
-    ) -> WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>> {
+    ) -> Option<impl DerefMut<Target = Self::Value>>;
+
+    fn write(&self) -> impl UntrackableGuard<Target = Self::Value> {
         self.try_write().unwrap_or_else(unwrap_signal!(self))
     }
 
-    fn write_untracked(&self) -> UntrackedWriteGuard<Self::Value> {
+    fn write_untracked(&self) -> impl DerefMut<Target = Self::Value> {
         self.try_write_untracked()
             .unwrap_or_else(unwrap_signal!(self))
     }
