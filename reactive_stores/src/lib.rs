@@ -13,13 +13,15 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+mod iter;
 mod path;
 mod read_store_field;
 mod store_field;
 mod subfield;
 
+pub use iter::*;
 use path::StorePath;
-use store_field::StoreField;
+pub use store_field::StoreField;
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
@@ -121,7 +123,8 @@ impl<T: 'static> Track for ArcStore<T> {
 
 impl<T: 'static> Trigger for ArcStore<T> {
     fn trigger(&self) {
-        self.get_trigger(self.path().collect()).trigger();
+        self.get_trigger(self.path().into_iter().collect())
+            .trigger();
     }
 }
 
@@ -215,7 +218,7 @@ impl<T: 'static> Trigger for Store<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, Store};
+    use crate::{self as reactive_stores, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Writeable},
@@ -314,5 +317,71 @@ mod tests {
         tick().await;
         // the effect doesn't read from `todos`, so the count should not have changed
         assert_eq!(combined_count.load(Ordering::Relaxed), 4);
+    }
+
+    #[tokio::test]
+    async fn other_field_does_not_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.todos().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.user().set("Greg".into());
+        tick().await;
+        store.user().set("Carol".into());
+        tick().await;
+        store.user().update(|name| name.push_str("!!!"));
+        tick().await;
+        // the effect reads from `user`, so it should trigger every time
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn iterator_tracks_the_field() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", store.todos().iter().collect::<Vec<_>>());
+                combined_count.store(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        store
+            .todos()
+            .write()
+            .push(Todo::new("Create reactive store?"));
+        tick().await;
+        store.todos().write().push(Todo::new("???"));
+        tick().await;
+        store.todos().write().push(Todo::new("Profit!"));
+        // the effect reads from `user`, so it should trigger every time
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
     }
 }

@@ -109,7 +109,7 @@ impl<T> DefinedAt for WriteSignal<T> {
 
 impl<T: 'static> IsDisposed for WriteSignal<T> {
     fn is_disposed(&self) -> bool {
-        self.inner.exists()
+        !self.inner.exists()
     }
 }
 

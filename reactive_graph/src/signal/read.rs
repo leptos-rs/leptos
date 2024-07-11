@@ -115,7 +115,7 @@ impl<T> DefinedAt for ReadSignal<T> {
 
 impl<T: 'static> IsDisposed for ReadSignal<T> {
     fn is_disposed(&self) -> bool {
-        self.inner.exists()
+        !self.inner.exists()
     }
 }
 
