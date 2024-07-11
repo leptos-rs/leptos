@@ -31,7 +31,6 @@ use tachys::{
 };
 use throw_error::ErrorHookFuture;
 
-/// TODO docs!
 #[component]
 pub fn Suspense<Chil>(
     #[prop(optional, into)] fallback: ViewFnOnce,
@@ -40,6 +39,7 @@ pub fn Suspense<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
+    leptos::logging::log!("Suspense body");
     let owner = Owner::new();
     owner.with(|| {
         let (starts_local, id) = {

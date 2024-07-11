@@ -1,3 +1,5 @@
+//! Utilities to wait for asynchronous primitives to resolve.
+
 use futures::{channel::oneshot, future::join_all};
 use or_poisoned::OrPoisoned;
 use std::{
@@ -16,10 +18,18 @@ struct TransitionInner {
     tx: mpsc::Sender<oneshot::Receiver<()>>,
 }
 
+/// Transitions allow you to wait for all asynchronous resources created during them to resolve.
 #[derive(Debug)]
 pub struct AsyncTransition;
 
 impl AsyncTransition {
+    /// Calls the `action` function, and returns a `Future` that resolves when any
+    /// [`AsyncDerived`](crate::computed::AsyncDerived) or
+    /// or [`ArcAsyncDerived`](crate::computed::ArcAsyncDerived) that is read during the action
+    /// has resolved.
+    ///
+    /// This allows for an inversion of control: the caller does not need to know when all the
+    /// resources created inside the `action` will resolve, but can wait for them to notify it.
     pub async fn run<T, U>(action: impl FnOnce() -> T) -> U
     where
         T: Future<Output = U>,

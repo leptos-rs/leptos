@@ -56,6 +56,7 @@ where
     <Ser as Encoder<T>>::Encoded: IntoEncodedString,
     <Ser as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    #[track_caller]
     pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -235,6 +236,7 @@ where
     <JsonSerdeWasmCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <JsonSerdeWasmCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    #[track_caller]
     pub fn new_serde_wb<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -247,6 +249,7 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    #[track_caller]
     pub fn new_serde_wb_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -270,6 +273,7 @@ where
     <MiniserdeCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <MiniserdeCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    #[track_caller]
     pub fn new_miniserde<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -282,6 +286,7 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    #[track_caller]
     pub fn new_miniserde_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -304,6 +309,7 @@ where
     <SerdeLite<JsonSerdeCodec> as Encoder<T>>::Encoded: IntoEncodedString,
     <SerdeLite<JsonSerdeCodec> as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    #[track_caller]
     pub fn new_serde_lite<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -316,6 +322,7 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    #[track_caller]
     pub fn new_serde_lite_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -340,6 +347,7 @@ where
     <RkyvCodec as Encoder<T>>::Encoded: IntoEncodedString,
     <RkyvCodec as Decoder<T>>::Encoded: FromEncodedStr,
 {
+    #[track_caller]
     pub fn new_rkyv<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -352,6 +360,7 @@ where
         ArcResource::new_with_options(source, fetcher, false)
     }
 
+    #[track_caller]
     pub fn new_rkyv_blocking<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -630,6 +639,7 @@ where
     <Ser as Decoder<T>>::Encoded: FromEncodedStr,
     T: Send + Sync,
 {
+    #[track_caller]
     pub fn new_with_options<S, Fut>(
         source: impl Fn() -> S + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
@@ -656,6 +666,7 @@ where
     type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
+    #[track_caller]
     fn into_future(self) -> Self::IntoFuture {
         self.data.into_future()
     }

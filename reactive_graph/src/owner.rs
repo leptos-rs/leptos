@@ -1,3 +1,5 @@
+//! The reactive ownership model, which manages effect cancelation, cleanups, and arena allocation.
+
 #[cfg(feature = "hydration")]
 use hydration_context::SharedContext;
 use or_poisoned::OrPoisoned;
