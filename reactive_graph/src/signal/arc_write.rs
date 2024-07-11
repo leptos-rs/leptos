@@ -107,11 +107,11 @@ impl<T: 'static> Writeable for ArcWriteSignal<T> {
 
     fn try_write(
         &self,
-    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>> {
+    ) -> Option<WriteGuard<Self, impl DerefMut<Target = Self::Value>>> {
         self.value
             .write()
             .ok()
-            .map(|guard| WriteGuard::new(self, guard))
+            .map(|guard| WriteGuard::new(self.clone(), guard))
     }
 
     fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {

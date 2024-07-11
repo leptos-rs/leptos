@@ -1,0 +1,14 @@
+[package]
+name = "reactive_stores_macro"
+edition = "2021"
+version = "0.1.0-alpha"
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro-error = "1"
+proc-macro2 = "1"
+quote = "1"
+syn = "2"

@@ -1,0 +1,18 @@
+[package]
+name = "reactive_stores"
+edition = "2021"
+version = "0.1.0-alpha"
+rust-version.workspace = true
+
+[dependencies]
+guardian = "1.1.0"
+or_poisoned = { workspace = true }
+reactive_graph = { workspace = true }
+rustc-hash = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio-test = { version = "0.4" }
+any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
+reactive_stores_macro = { workspace = true }
+reactive_graph = { workspace = true, features = ["effects"] }
