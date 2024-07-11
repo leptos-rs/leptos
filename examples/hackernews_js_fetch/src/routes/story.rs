@@ -31,18 +31,21 @@ pub fn Story() -> impl IntoView {
                     <Meta name="description" content=story.title.clone()/>
                     <div class="item-view">
                         <div class="item-view-header">
-                        <a href=story.url target="_blank">
-                            <h1>{story.title}</h1>
-                        </a>
-                        <span class="host">
-                            "("{story.domain}")"
-                        </span>
-                        {story.user.map(|user| view! {  <p class="meta">
-                            {story.points}
-                            " points | by "
-                            <A href=format!("/users/{user}")>{user.clone()}</A>
-                            {format!(" {}", story.time_ago)}
-                        </p>})}
+                            <a href=story.url target="_blank">
+                                <h1>{story.title}</h1>
+                            </a>
+                            <span class="host">"("{story.domain}")"</span>
+                            {story
+                                .user
+                                .map(|user| {
+                                    view! {
+                                        <p class="meta">
+                                            {story.points} " points | by "
+                                            <A href=format!("/users/{user}")>{user.clone()}</A>
+                                            {format!(" {}", story.time_ago)}
+                                        </p>
+                                    }
+                                })}
                         </div>
                         <div class="item-view-comments">
                             <p class="item-view-comments-header">
@@ -58,7 +61,7 @@ pub fn Story() -> impl IntoView {
                                     key=|comment| comment.id
                                     let:comment
                                 >
-                                    <Comment comment />
+                                    <Comment comment/>
                                 </For>
                             </ul>
                         </div>
@@ -75,43 +78,60 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
 
     view! {
         <li class="comment">
-        <div class="by">
-            <A href=format!("/users/{}", comment.user.clone().unwrap_or_default())>{comment.user.clone()}</A>
-            {format!(" {}", comment.time_ago)}
-        </div>
-        <div class="text" inner_html=comment.content></div>
-        {(!comment.comments.is_empty()).then(|| {
-            view! {
-                <div>
-                    <div class="toggle" class:open=open>
-                        <a on:click=move |_| set_open.update(|n| *n = !*n)>
-                            {
-                                let comments_len = comment.comments.len();
-                                move || if open.get() {
-                                    "[-]".into()
-                                } else {
-                                    format!("[+] {}{} collapsed", comments_len, pluralize(comments_len))
-                                }
-                            }
-                        </a>
-                    </div>
-                    {move || open.get().then({
-                        let comments = comment.comments.clone();
-                        move || view! {
-                            <ul class="comment-children">
-                                <For
-                                    each=move || comments.clone()
-                                    key=|comment| comment.id
-                                    let:comment
-                                >
-                                    <Comment comment />
-                                </For>
-                            </ul>
-                        }
-                    })}
-                </div>
-            }
-        })}
+            <div class="by">
+                <A href=format!(
+                    "/users/{}",
+                    comment.user.clone().unwrap_or_default(),
+                )>{comment.user.clone()}</A>
+                {format!(" {}", comment.time_ago)}
+            </div>
+            <div class="text" inner_html=comment.content></div>
+            {(!comment.comments.is_empty())
+                .then(|| {
+                    view! {
+                        <div>
+                            <div class="toggle" class:open=open>
+                                <a on:click=move |_| {
+                                    set_open.update(|n| *n = !*n)
+                                }>
+                                    {
+                                        let comments_len = comment.comments.len();
+                                        move || {
+                                            if open.get() {
+                                                "[-]".into()
+                                            } else {
+                                                format!(
+                                                    "[+] {}{} collapsed",
+                                                    comments_len,
+                                                    pluralize(comments_len),
+                                                )
+                                            }
+                                        }
+                                    }
+                                </a>
+                            </div>
+                            {move || {
+                                open.get()
+                                    .then({
+                                        let comments = comment.comments.clone();
+                                        move || {
+                                            view! {
+                                                <ul class="comment-children">
+                                                    <For
+                                                        each=move || comments.clone()
+                                                        key=|comment| comment.id
+                                                        let:comment
+                                                    >
+                                                        <Comment comment/>
+                                                    </For>
+                                                </ul>
+                                            }
+                                        }
+                                    })
+                            }}
+                        </div>
+                    }
+                })}
         </li>
     }.into_any()
 }
