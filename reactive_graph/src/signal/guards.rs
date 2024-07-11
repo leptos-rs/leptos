@@ -1,3 +1,5 @@
+//! Guards that integrate with the reactive system, wrapping references to the values of signals.
+
 use crate::{
     computed::BlockingLock,
     traits::{Trigger, UntrackableGuard},
@@ -12,6 +14,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+/// A wrapper type for any kind of guard returned by [`Read`](crate::traits::Read).
+///
+/// If `Inner` implements `Deref`, so does `ReadGuard<_, Inner>`.
 #[derive(Debug)]
 pub struct ReadGuard<T, Inner> {
     ty: PhantomData<T>,
@@ -19,6 +24,7 @@ pub struct ReadGuard<T, Inner> {
 }
 
 impl<T, Inner> ReadGuard<T, Inner> {
+    /// Creates a new wrapper around another guard type.
     pub fn new(inner: Inner) -> Self {
         Self {
             inner,
@@ -79,6 +85,7 @@ where
     }
 }
 
+/// A guard that provides access to a signal's inner value.
 pub struct Plain<T: 'static> {
     guard: ArcRwLockReadGuardian<T>,
 }
@@ -123,6 +130,7 @@ impl<T: Display> Display for Plain<T> {
     }
 }
 
+/// A guard that provides access to an async signal's value.
 pub struct AsyncPlain<T: 'static> {
     pub(crate) guard: async_lock::RwLockReadGuardArc<T>,
 }
@@ -167,6 +175,7 @@ impl<T: Display> Display for AsyncPlain<T> {
     }
 }
 
+/// A guard that maps over another guard.
 #[derive(Debug)]
 pub struct Mapped<Inner, U>
 where
@@ -236,6 +245,8 @@ where
     }
 }
 
+/// A guard that provides mutable access to a signal's value, triggering some reactive change
+/// when it is dropped.
 #[derive(Debug)]
 pub struct WriteGuard<S, G>
 where
@@ -249,6 +260,8 @@ impl<S, G> WriteGuard<S, G>
 where
     S: Trigger,
 {
+    /// Creates a new guard from the inner mutable guard type, and the signal that should be
+    /// triggered on drop.
     pub fn new(triggerable: S, guard: G) -> Self {
         Self {
             triggerable: Some(triggerable),
@@ -262,6 +275,7 @@ where
     S: Trigger,
     G: DerefMut,
 {
+    /// Removes the triggerable type, so that it is no longer notifies when dropped.
     fn untrack(&mut self) {
         self.triggerable.take();
     }
@@ -301,6 +315,8 @@ where
     }
 }
 
+/// A guard that provides mutable access to a signal's inner value, but does not notify of any
+/// changes.
 pub struct UntrackedWriteGuard<T: 'static>(ArcRwLockWriteGuardian<T>);
 
 impl<T: 'static> UntrackedWriteGuard<T> {

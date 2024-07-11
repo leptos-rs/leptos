@@ -1,5 +1,4 @@
 use super::{
-    arc_signal,
     guards::{Plain, ReadGuard},
     subscriber_traits::AsSubscriberSet,
     ArcReadSignal,
@@ -7,18 +6,57 @@ use super::{
 use crate::{
     graph::SubscriberSet,
     owner::StoredValue,
-    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked, Set},
+    traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
-use any_spawner::Executor;
 use core::fmt::Debug;
-use futures::{Stream, StreamExt};
 use std::{
     hash::Hash,
     panic::Location,
     sync::{Arc, RwLock},
 };
 
+/// An arena-allocated getter for a reactive signal.
+///
+/// A signal is a piece of data that may change over time,
+/// and notifies other code when it has changed.
+///
+/// This is an arena-allocated signal, which is `Copy` and is disposed when its reactive
+/// [`Owner`] cleans up. For a reference-counted signal that lives as long as a reference to it is
+/// alive, see [`ArcReadSignal`].
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](crate::traits::Get) clones the current value of the signal.
+///   If you call it within an effect, it will cause that effect to subscribe
+///   to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](crate::traits::GetUntracked) clones the value of
+///     the signal without reactively tracking it.
+/// - [`.read()`](crate::traits::Read) returns a guard that allows accessing the
+///   value of the signal by reference. If you call it within an effect, it will
+///   cause that effect to subscribe to the signal, and to re-run whenever the
+///   value of the signal changes.
+///   - [`.read_untracked()`](crate::traits::ReadUntracked) gives access to the
+///     current value of the signal without reactively tracking it.
+/// - [`.with()`](crate::traits::With) allows you to reactively access the signal’s
+///   value without cloning by applying a callback function.
+///   - [`.with_untracked()`](crate::traits::WithUntracked) allows you to access
+///     the signal’s value by applying a callback function without reactively
+///     tracking it.
+/// - [`.to_stream()`](crate::traits::ToStream) converts the signal to an `async`
+///   stream of values.
+/// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
+///   of values into a signal containing the latest value.
+///
+/// ## Examples
+/// ```
+/// # use reactive_graph::prelude::*; use reactive_graph::signal::*;
+/// let (count, set_count) = signal(0);
+///
+/// // calling .get() clones and returns the value
+/// assert_eq!(count.get(), 0);
+/// // calling .read() accesses the value by reference
+/// assert_eq!(count.read(), 0);
+/// ```
 pub struct ReadSignal<T: 'static> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
@@ -116,65 +154,5 @@ impl<T: Send + Sync + 'static> From<ReadSignal<T>> for ArcReadSignal<T> {
     #[track_caller]
     fn from(value: ReadSignal<T>) -> Self {
         value.inner.get().unwrap_or_else(unwrap_signal!(value))
-    }
-}
-
-impl<T: Send + Sync + 'static> ArcReadSignal<T> {
-    pub fn from_stream(
-        stream: impl Stream<Item = T> + Send + 'static,
-    ) -> ArcReadSignal<Option<T>> {
-        let (read, write) = arc_signal(None);
-        let mut stream = Box::pin(stream);
-        Executor::spawn(async move {
-            while let Some(value) = stream.next().await {
-                write.set(Some(value));
-            }
-        });
-        read
-    }
-}
-
-impl<T: 'static> ArcReadSignal<T> {
-    pub fn from_stream_unsync(
-        stream: impl Stream<Item = T> + 'static,
-    ) -> ArcReadSignal<Option<T>> {
-        let (read, write) = arc_signal(None);
-        let mut stream = Box::pin(stream);
-        Executor::spawn_local(async move {
-            while let Some(value) = stream.next().await {
-                write.set(Some(value));
-            }
-        });
-        read
-    }
-}
-
-impl<T: Send + Sync + 'static> ReadSignal<T> {
-    pub fn from_stream(
-        stream: impl Stream<Item = T> + Send + 'static,
-    ) -> ArcReadSignal<Option<T>> {
-        let (read, write) = arc_signal(None);
-        let mut stream = Box::pin(stream);
-        Executor::spawn(async move {
-            while let Some(value) = stream.next().await {
-                write.set(Some(value));
-            }
-        });
-        read
-    }
-}
-
-impl<T: 'static> ReadSignal<T> {
-    pub fn from_stream_unsync(
-        stream: impl Stream<Item = T> + 'static,
-    ) -> ArcReadSignal<Option<T>> {
-        let (read, write) = arc_signal(None);
-        let mut stream = Box::pin(stream);
-        Executor::spawn_local(async move {
-            while let Some(value) = stream.next().await {
-                write.set(Some(value));
-            }
-        });
-        read
     }
 }

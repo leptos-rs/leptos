@@ -69,9 +69,9 @@
 
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
+//#![deny(missing_docs)]
 
-use futures::Stream;
-use std::{fmt::Arguments, future::Future, pin::Pin};
+use std::fmt::Arguments;
 
 pub mod actions;
 pub(crate) mod channel;
@@ -80,7 +80,6 @@ pub mod diagnostics;
 pub mod effect;
 pub mod graph;
 pub mod owner;
-pub mod selector;
 #[cfg(feature = "serde")]
 mod serde;
 pub mod signal;
@@ -93,10 +92,7 @@ pub use graph::untrack;
 #[cfg(feature = "nightly")]
 mod nightly;
 
-pub type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
-pub type PinnedLocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
-pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
-
+/// Reexports frequently-used traits.
 pub mod prelude {
     pub use crate::traits::*;
 }
