@@ -244,7 +244,7 @@ impl<T> DefinedAt for RwSignal<T> {
 
 impl<T: 'static> IsDisposed for RwSignal<T> {
     fn is_disposed(&self) -> bool {
-        self.inner.exists()
+        !self.inner.exists()
     }
 }
 

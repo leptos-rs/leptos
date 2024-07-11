@@ -52,7 +52,7 @@ where
         trigger
     }
 
-    fn path(&self) -> impl Iterator<Item = StorePathSegment> {
+    fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         iter::empty()
     }
 
@@ -93,7 +93,7 @@ where
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
             .try_get_value()
-            .map(|n| n.path().collect::<Vec<_>>())
+            .map(|n| n.path().into_iter().collect::<Vec<_>>())
             .unwrap_or_else(unwrap_signal!(self))
     }
 
