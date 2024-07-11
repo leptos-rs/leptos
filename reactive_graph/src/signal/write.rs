@@ -4,7 +4,9 @@ use super::{
 };
 use crate::{
     owner::StoredValue,
-    traits::{DefinedAt, Dispose, IsDisposed, Trigger, Writeable},
+    traits::{
+        DefinedAt, Dispose, IsDisposed, Trigger, UntrackableGuard, Writeable,
+    },
 };
 use core::fmt::Debug;
 use guardian::ArcRwLockWriteGuardian;
@@ -83,16 +85,16 @@ impl<T: 'static> Trigger for WriteSignal<T> {
 impl<T: 'static> Writeable for WriteSignal<T> {
     type Value = T;
 
-    fn try_write(
-        &self,
-    ) -> Option<WriteGuard<'_, Self, impl DerefMut<Target = Self::Value>>> {
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
         let guard = self.inner.try_with_value(|n| {
             ArcRwLockWriteGuardian::take(Arc::clone(&n.value)).ok()
         })??;
-        Some(WriteGuard::new(self, guard))
+        Some(WriteGuard::new(*self, guard))
     }
 
-    fn try_write_untracked(&self) -> Option<UntrackedWriteGuard<Self::Value>> {
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
         self.inner.with_value(|n| n.try_write_untracked())
     }
 }
