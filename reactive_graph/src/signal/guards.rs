@@ -430,3 +430,100 @@ where
         Display::fmt(&**self, f)
     }
 }
+
+pub struct MappedMutArc<Inner, U>
+where
+    Inner: Deref,
+{
+    inner: Inner,
+    map_fn: Arc<dyn Fn(&Inner::Target) -> &U>,
+    map_fn_mut: Arc<dyn Fn(&mut Inner::Target) -> &mut U>,
+}
+
+impl<Inner, U> Clone for MappedMutArc<Inner, U>
+where
+    Inner: Clone + Deref,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            map_fn: self.map_fn.clone(),
+            map_fn_mut: self.map_fn_mut.clone(),
+        }
+    }
+}
+
+impl<Inner, U> Debug for MappedMutArc<Inner, U>
+where
+    Inner: Debug + Deref,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappedMutArc")
+            .field("inner", &self.inner)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<Inner, U> UntrackableGuard for MappedMutArc<Inner, U>
+where
+    Inner: UntrackableGuard,
+{
+    fn untrack(&mut self) {
+        self.inner.untrack();
+    }
+}
+
+impl<Inner, U> MappedMutArc<Inner, U>
+where
+    Inner: Deref,
+{
+    pub fn new(
+        inner: Inner,
+        map_fn: impl Fn(&Inner::Target) -> &U + 'static,
+        map_fn_mut: impl Fn(&mut Inner::Target) -> &mut U + 'static,
+    ) -> Self {
+        Self {
+            inner,
+            map_fn: Arc::new(map_fn),
+            map_fn_mut: Arc::new(map_fn_mut),
+        }
+    }
+}
+
+impl<Inner, U> Deref for MappedMutArc<Inner, U>
+where
+    Inner: Deref,
+{
+    type Target = U;
+
+    fn deref(&self) -> &Self::Target {
+        (self.map_fn)(self.inner.deref())
+    }
+}
+
+impl<Inner, U> DerefMut for MappedMutArc<Inner, U>
+where
+    Inner: DerefMut,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        (self.map_fn_mut)(self.inner.deref_mut())
+    }
+}
+
+impl<Inner, U: PartialEq> PartialEq for MappedMutArc<Inner, U>
+where
+    Inner: Deref,
+{
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<Inner, U: Display> Display for MappedMutArc<Inner, U>
+where
+    Inner: Deref,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
