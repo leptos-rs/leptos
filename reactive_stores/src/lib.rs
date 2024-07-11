@@ -1,4 +1,5 @@
 use reactive_graph::{
+    owner::StoredValue,
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcTrigger,
@@ -21,13 +22,6 @@ use path::StorePath;
 use store_field::StoreField;
 pub use subfield::Subfield;
 
-pub struct ArcStore<T> {
-    #[cfg(debug_assertions)]
-    defined_at: &'static Location<'static>,
-    pub(crate) value: Arc<RwLock<T>>,
-    signals: Arc<RwLock<TriggerMap>>,
-}
-
 #[derive(Debug, Default)]
 struct TriggerMap(FxHashMap<StorePath, ArcTrigger>);
 
@@ -45,6 +39,13 @@ impl TriggerMap {
     fn remove(&mut self, key: &StorePath) -> Option<ArcTrigger> {
         self.0.remove(key)
     }
+}
+
+pub struct ArcStore<T> {
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+    pub(crate) value: Arc<RwLock<T>>,
+    signals: Arc<RwLock<TriggerMap>>,
 }
 
 impl<T> ArcStore<T> {
@@ -124,10 +125,97 @@ impl<T: 'static> Trigger for ArcStore<T> {
     }
 }
 
+pub struct Store<T> {
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+    inner: StoredValue<ArcStore<T>>,
+}
+
+impl<T> Store<T>
+where
+    T: Send + Sync + 'static,
+{
+    pub fn new(value: T) -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new(ArcStore::new(value)),
+        }
+    }
+}
+
+impl<T: Debug> Debug for Store<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("Store");
+        #[cfg(debug_assertions)]
+        let f = f.field("defined_at", &self.defined_at);
+        f.field("inner", &self.inner).finish()
+    }
+}
+
+impl<T> Clone for Store<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for Store<T> {}
+
+impl<T> DefinedAt for Store<T> {
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
+}
+
+impl<T> IsDisposed for Store<T>
+where
+    T: 'static,
+{
+    #[inline(always)]
+    fn is_disposed(&self) -> bool {
+        !self.inner.exists()
+    }
+}
+
+impl<T> ReadUntracked for Store<T>
+where
+    T: 'static,
+{
+    type Value = ReadGuard<T, Plain<T>>;
+
+    fn try_read_untracked(&self) -> Option<Self::Value> {
+        self.inner
+            .try_get_value()
+            .map(|inner| inner.read_untracked())
+    }
+}
+
+impl<T: 'static> Track for Store<T> {
+    fn track(&self) {
+        if let Some(inner) = self.inner.try_get_value() {
+            inner.track();
+        }
+    }
+}
+
+impl<T: 'static> Trigger for Store<T> {
+    fn trigger(&self) {
+        if let Some(inner) = self.inner.try_get_value() {
+            inner.trigger();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ArcStore;
-    use crate as reactive_stores;
+    use crate::{self as reactive_stores, Store};
     use reactive_graph::{
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Writeable},
@@ -189,11 +277,10 @@ mod tests {
 
         let combined_count = Arc::new(AtomicUsize::new(0));
 
-        let store = ArcStore::new(data());
+        let store = Store::new(data());
         assert_eq!(store.read_untracked().todos.len(), 3);
-        assert_eq!(store.clone().user().read_untracked().as_str(), "Bob");
+        assert_eq!(store.user().read_untracked().as_str(), "Bob");
         Effect::new_sync({
-            let store = store.clone();
             let combined_count = Arc::clone(&combined_count);
             move |prev| {
                 if prev.is_none() {
@@ -201,30 +288,29 @@ mod tests {
                 } else {
                     println!("next run");
                 }
-                println!("{:?}", *store.clone().user().read());
+                println!("{:?}", *store.user().read());
                 combined_count.fetch_add(1, Ordering::Relaxed);
             }
         });
         tick().await;
         tick().await;
-        store.clone().user().set("Greg".into());
+        store.user().set("Greg".into());
         tick().await;
-        store.clone().user().set("Carol".into());
+        store.user().set("Carol".into());
         tick().await;
-        store.clone().user().update(|name| name.push_str("!!!"));
+        store.user().update(|name| name.push_str("!!!"));
         tick().await;
         // the effect reads from `user`, so it should trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 4);
 
         store
-            .clone()
             .todos()
             .write()
             .push(Todo::new("Create reactive stores"));
         tick().await;
-        store.clone().todos().write().push(Todo::new("???"));
+        store.todos().write().push(Todo::new("???"));
         tick().await;
-        store.clone().todos().write().push(Todo::new("Profit!"));
+        store.todos().write().push(Todo::new("Profit!"));
         tick().await;
         // the effect doesn't read from `todos`, so the count should not have changed
         assert_eq!(combined_count.load(Ordering::Relaxed), 4);
