@@ -1,6 +1,15 @@
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct StorePath(Vec<StorePathSegment>);
 
+impl IntoIterator for StorePath {
+    type Item = StorePathSegment;
+    type IntoIter = std::vec::IntoIter<StorePathSegment>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl From<Vec<StorePathSegment>> for StorePath {
     fn from(value: Vec<StorePathSegment>) -> Self {
         Self(value)
