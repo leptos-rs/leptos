@@ -1,5 +1,5 @@
 use crate::{
-    html::{attribute::Attribute, style::IntoStyle},
+    html::attribute::Attribute,
     hydration::Cursor,
     renderer::Renderer,
     ssr::StreamBuilder,
