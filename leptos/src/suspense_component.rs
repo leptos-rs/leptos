@@ -2,7 +2,7 @@ use crate::{
     children::{TypedChildren, ViewFnOnce},
     IntoView,
 };
-use futures::{select, FutureExt, StreamExt};
+use futures::{select, FutureExt};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use reactive_graph::{
@@ -13,7 +13,7 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Get, GetUntracked, Read, Track, With},
+    traits::{Get, Read, Track, With},
 };
 use slotmap::{DefaultKey, SlotMap};
 use tachys::{
