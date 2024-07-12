@@ -10,7 +10,7 @@ pub fn SimpleCounter(
     /// The change that should be applied each time the button is clicked.
     step: i32,
 ) -> impl IntoView {
-    /*let (value, set_value) = signal(initial_value);
+    let (value, set_value) = signal(initial_value);
 
     view! {
         <div>
@@ -19,24 +19,5 @@ pub fn SimpleCounter(
             <span>"Value: " {value} "!"</span>
             <button on:click=move |_| set_value.update(|value| *value += step)>"+1"</button>
         </div>
-    }*/
-    App()
-}
-
-use gloo_timers::future::TimeoutFuture;
-use leptos::{html::Input, prelude::*};
-
-#[component]
-fn Widget() -> impl IntoView {
-    let input_ref = NodeRef::<Input>::new();
-
-    Effect::new(move |_| {
-        let Some(_) = input_ref.get() else {
-            log!("no ref");
-            return;
-        };
-        log!("ref");
-    });
-
-    view! { <input node_ref=input_ref type="text"/> }
+    }
 }
