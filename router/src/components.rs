@@ -13,7 +13,7 @@ use crate::{
     resolve_path::resolve_path,
     ChooseView, MatchNestedRoutes, NestedRoute, Routes, SsrMode,
 };
-use either_of::EitherOf3;
+use either_of::Either;
 use leptos::prelude::*;
 use reactive_graph::{
     owner::{provide_context, use_context, Owner},
@@ -332,11 +332,13 @@ where
             <Transition>
                 {move || {
                     match condition() {
-                        Some(true) => EitherOf3::A(view()),
-                        Some(false) => EitherOf3::B(view! { <Redirect path=redirect_path()/> }),
-                        None => EitherOf3::C(())
+                        Some(true) => Either::Left(view()),
+                        #[allow(clippy::unit_arg)]
+                        Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
+                        None => Either::Right(()),
                     }
                 }}
+
             </Transition>
         })
         .into_any()
@@ -375,11 +377,13 @@ where
             <Transition>
                 {move || {
                     match condition() {
-                        Some(true) => EitherOf3::A(view()),
-                        Some(false) => EitherOf3::B(view! { <Redirect path=redirect_path()/> }),
-                        None => EitherOf3::C(())
+                        Some(true) => Either::Left(view()),
+                        #[allow(clippy::unit_arg)]
+                        Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
+                        None => Either::Right(()),
                     }
                 }}
+
             </Transition>
         })
         .into_any()
@@ -517,7 +521,7 @@ pub fn RoutingProgress(
 
     view! {
         <Show when=move || is_showing.get() fallback=|| ()>
-            <progress min="0" max="100" value=move || progress.get()/>
+            <progress min="0" max="100" value=move || progress.get()></progress>
         </Show>
     }
 }
