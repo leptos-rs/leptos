@@ -112,40 +112,6 @@ where
     }
 }
 
-pub struct RenderEffectFallibleState<T, E>
-where
-    T: 'static,
-    E: 'static,
-{
-    effect: Option<RenderEffect<Result<T, E>>>,
-}
-
-impl<T, E, R> Mountable<R> for RenderEffectFallibleState<T, E>
-where
-    T: Mountable<R>,
-    R: Renderer,
-{
-    fn unmount(&mut self) {
-        if let Some(ref mut inner) = self.effect {
-            inner.unmount();
-        }
-    }
-
-    fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {
-        if let Some(ref mut inner) = self.effect {
-            inner.mount(parent, marker);
-        }
-    }
-
-    fn insert_before_this(&self, child: &mut dyn Mountable<R>) -> bool {
-        if let Some(inner) = &self.effect {
-            inner.insert_before_this(child)
-        } else {
-            false
-        }
-    }
-}
-
 impl<F, V, R> RenderHtml<R> for F
 where
     F: ReactiveFunction<Output = V>,

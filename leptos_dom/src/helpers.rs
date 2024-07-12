@@ -247,7 +247,7 @@ impl TimeoutHandle {
 /// Executes the given function after the given duration of time has passed.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  any(feature = "tracing", feature = "ssr"),
+  feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
@@ -257,7 +257,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// Executes the given function after the given duration of time has passed, returning a cancelable handle.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  any(feature = "tracing", feature = "ssr"),
+  feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -381,7 +381,7 @@ impl IntervalHandle {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  any(feature = "tracing", feature = "ssr"),
+  feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_interval(cb: impl Fn() + 'static, duration: Duration) {
@@ -392,7 +392,7 @@ pub fn set_interval(cb: impl Fn() + 'static, duration: Duration) {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  any(feature = "tracing", feature = "ssr"),
+  feature = "tracing",
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]

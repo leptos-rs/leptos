@@ -234,10 +234,7 @@ where
         if FROM_SERVER {
             (self.hydrate_from_server)(self.value, el)
         } else {
-            panic!(
-                "hydrating AnyAttribute from inside a ViewTemplate is not \
-                 supported."
-            );
+            (self.hydrate_from_template)(self.value, el)
         }
         #[cfg(not(feature = "hydrate"))]
         {
