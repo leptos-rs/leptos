@@ -335,7 +335,7 @@ where
 
     /// Creates a new action that will only run on the current thread, initializing it with the given value.
     ///
-    /// In all other ways, this is identical to [`ArcAsync::new_with_value`].
+    /// In all other ways, this is identical to [`ArcAction::new_with_value`].
     #[track_caller]
     pub fn new_unsync_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
     where

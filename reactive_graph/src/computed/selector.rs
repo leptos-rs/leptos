@@ -12,6 +12,52 @@ use std::{
 
 /// A conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether the given function is true.
+///
+/// **You probably don’t need this,** but it can be a very useful optimization
+/// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
+/// because it reduces them from `O(n)` to `O(1)`.
+///
+/// ```
+/// # use reactive_graph::computed::*;
+/// # use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::effect::Effect;
+/// # use reactive_graph::owner::StoredValue;
+/// # tokio_test::block_on(async move {
+/// # tokio::task::LocalSet::new().run_until(async move {
+/// # any_spawner::Executor::init_tokio();
+/// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+/// let a = RwSignal::new(0);
+/// let is_selected = Selector::new(move || a.get());
+/// let total_notifications = StoredValue::new(0);
+/// Effect::new({
+///     let is_selected = is_selected.clone();
+///     move |_| {
+///         if is_selected.selected(5) {
+///             total_notifications.update_value(|n| *n += 1);
+///         }
+///     }
+/// });
+///
+/// assert_eq!(is_selected.selected(5), false);
+/// assert_eq!(total_notifications.get_value(), 0);
+/// a.set(5);
+/// # any_spawner::Executor::tick().await;
+///
+/// assert_eq!(is_selected.selected(5), true);
+/// assert_eq!(total_notifications.get_value(), 1);
+/// a.set(5);
+/// # any_spawner::Executor::tick().await;
+///
+/// assert_eq!(is_selected.selected(5), true);
+/// assert_eq!(total_notifications.get_value(), 1);
+/// a.set(4);
+///
+/// # any_spawner::Executor::tick().await;
+/// assert_eq!(is_selected.selected(5), false);
+/// # });
+/// # });
+/// ```
 #[derive(Clone)]
 pub struct Selector<T>
 where
@@ -30,10 +76,13 @@ impl<T> Selector<T>
 where
     T: PartialEq + Eq + Clone + Hash + 'static,
 {
+    /// Creates a new selector that compares values using [`PartialEq`].
     pub fn new(source: impl Fn() -> T + Clone + 'static) -> Self {
         Self::new_with_fn(source, PartialEq::eq)
     }
 
+    /// Creates a new selector that compares values by returning `true` from a comparator function
+    /// if the values are the same.
     pub fn new_with_fn(
         source: impl Fn() -> T + Clone + 'static,
         f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,

@@ -45,7 +45,7 @@
 //! For example, if you have a struct for which you can implement [`ReadUntracked`] and [`Track`], then
 //! [`WithUntracked`] and [`With`] will be implemented automatically (as will [`GetUntracked`] and
 //! [`Get`] for `Clone` types). But if you cannot implement [`ReadUntracked`] (because, for example,
-//! there isn't an `RwLock` you can wrap in a [`SignalReadGuard`](crate::signal::SignalReadGuard),
+//! there isn't an `RwLock` so you can't wrap in a [`ReadGuard`](crate::signal::guards::ReadGuard),
 //! but you can still implement [`WithUntracked`] and [`Track`], the same traits will still be implemented.
 
 use crate::{
@@ -200,6 +200,8 @@ where
     }
 }
 
+/// A reactive, mutable guard that can be untracked to prevent it from notifying subscribers when
+/// it is dropped.
 pub trait UntrackableGuard: DerefMut {
     /// Removes the notifier from the guard, such that it will no longer notify subscribers when it is dropped.
     fn untrack(&mut self);

@@ -15,6 +15,18 @@ use std::{
     sync::{Arc, RwLock, Weak},
 };
 
+/// A render effect is similar to an [`Effect`](super::Effect), but with two key differences:
+/// 1. Its first run takes place immediately and synchronously: for example, if it is being used to
+///    drive a user interface, it will run during rendering, not on the next tick after rendering.
+///    (Hence “render effect.”)
+/// 2. It is canceled when the `RenderEffect` itself is dropped, rather than being stored in the
+///    reactive system and canceled when the `Owner` cleans up.
+///
+/// Unless you are implementing a rendering framework, or require one of these two characteristics,
+/// it is unlikely you will use render effects directly.
+///
+/// Like an [`Effect`](super::Effect), a render effect runs only with the `effects` feature
+/// enabled.
 #[must_use = "A RenderEffect will be canceled when it is dropped. Creating a \
               RenderEffect that is not stored in some other data structure or \
               leaked will drop it immediately, and it will not react to \
@@ -39,10 +51,12 @@ impl<T> RenderEffect<T>
 where
     T: 'static,
 {
+    /// Creates a new render effect, which immediately runs `fun`.
     pub fn new(fun: impl FnMut(Option<T>) -> T + 'static) -> Self {
         Self::new_with_value(fun, None)
     }
 
+    /// Creates a new render effect with an initial value.
     pub fn new_with_value(
         fun: impl FnMut(Option<T>) -> T + 'static,
         initial_value: Option<T>,
@@ -100,6 +114,7 @@ where
         erased(Box::new(fun), initial_value)
     }
 
+    /// Mutably accesses the current value.
     pub fn with_value_mut<U>(
         &self,
         fun: impl FnOnce(&mut T) -> U,
@@ -107,6 +122,7 @@ where
         self.value.write().or_poisoned().as_mut().map(fun)
     }
 
+    /// Takes the current value, replacing it with `None`.
     pub fn take_value(&self) -> Option<T> {
         self.value.write().or_poisoned().take()
     }
@@ -116,7 +132,7 @@ impl<T> RenderEffect<T>
 where
     T: Send + Sync + 'static,
 {
-    #[doc(hidden)]
+    /// Creates a render effect that will run whether the `effects` feature is enabled or not.
     pub fn new_isomorphic(
         mut fun: impl FnMut(Option<T>) -> T + Send + 'static,
     ) -> Self {

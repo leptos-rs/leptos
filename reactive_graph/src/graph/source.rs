@@ -3,6 +3,7 @@ use crate::traits::DefinedAt;
 use core::{fmt::Debug, hash::Hash};
 use std::{panic::Location, sync::Weak};
 
+/// Abstracts over the type of any reactive source.
 pub trait ToAnySource {
     /// Converts this type to its type-erased equivalent.
     fn to_any_source(&self) -> AnySource;
@@ -20,6 +21,7 @@ pub trait Source: ReactiveNode {
     fn clear_subscribers(&self);
 }
 
+/// A weak reference to any reactive source node.
 #[derive(Clone)]
 pub struct AnySource(
     pub(crate) usize,

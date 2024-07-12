@@ -19,7 +19,7 @@ use std::{
 /// and notifies other code when it has changed.
 ///
 /// This is a reference-counted signal, which is `Clone` but not `Copy`.
-/// For arena-allocated `Copy` signals, use [`ReadSignal`].
+/// For arena-allocated `Copy` signals, use [`ReadSignal`](super::ReadSignal).
 ///
 /// ## Core Trait Implementations
 /// - [`.get()`](crate::traits::Get) clones the current value of the signal.
@@ -82,8 +82,14 @@ impl<T> Debug for ArcReadSignal<T> {
 }
 
 impl<T: Default> Default for ArcReadSignal<T> {
+    #[track_caller]
     fn default() -> Self {
-        Self::new(T::default())
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            value: Arc::new(RwLock::new(T::default())),
+            inner: Arc::new(RwLock::new(SubscriberSet::new())),
+        }
     }
 }
 
@@ -98,21 +104,6 @@ impl<T> Eq for ArcReadSignal<T> {}
 impl<T> Hash for ArcReadSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::ptr::hash(&Arc::as_ptr(&self.value), state);
-    }
-}
-
-impl<T> ArcReadSignal<T> {
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
-    )]
-    pub fn new(value: T) -> Self {
-        Self {
-            #[cfg(debug_assertions)]
-            defined_at: Location::caller(),
-            value: Arc::new(RwLock::new(value)),
-            inner: Arc::new(RwLock::new(SubscriberSet::new())),
-        }
     }
 }
 

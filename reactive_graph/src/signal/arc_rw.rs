@@ -22,7 +22,7 @@ use std::{
 /// processes of reactive updates.
 ///
 /// This is a reference-counted signal, which is `Clone` but not `Copy`.
-/// For arena-allocated `Copy` signals, use [`RwSignl`].
+/// For arena-allocated `Copy` signals, use [`RwSignal`](super::RwSignal).
 ///
 /// ## Core Trait Implementations
 ///
@@ -56,7 +56,8 @@ use std::{
 /// > Each of these has a related `_untracked()` method, which updates the signal
 /// > without notifying subscribers. Untracked updates are not desirable in most
 /// > cases, as they cause “tearing” between the signal’s value and its observed
-/// > value. If you want a non-reactive container, used [`StoredValue`] instead.
+/// > value. If you want a non-reactive container, used [`StoredValue`](crate::owner::StoredValue)
+/// > instead.
 ///
 /// ## Examples
 ///

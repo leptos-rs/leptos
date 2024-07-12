@@ -21,7 +21,7 @@ use std::{
 /// An efficient derived reactive value based on other reactive values.
 ///
 /// This is a reference-counted memo, which is `Clone` but not `Copy`.
-/// For arena-allocated `Copy` memos, use [`Memo`].
+/// For arena-allocated `Copy` memos, use [`Memo`](super::Memo).
 ///
 /// Unlike a "derived signal," a memo comes with two guarantees:
 /// 1. The memo will only run *once* per change, no matter how many times you
@@ -34,30 +34,8 @@ use std::{
 /// create a derived signal. But if the derivation calculation is expensive, you should
 /// create a memo.
 ///
-/// As with an [`Effect`](crate::effects::Effect), the argument to the memo function is the previous value,
+/// As with an [`Effect`](crate::effect::Effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
-///
-/// ## Core Trait Implementations
-/// - [`.get()`](crate::traits::Get) clones the current value of the memo.
-///   If you call it within an effect, it will cause that effect to subscribe
-///   to the memo, and to re-run whenever the value of the memo changes.
-///   - [`.get_untracked()`](crate::traits::GetUntracked) clones the value of
-///     the memo without reactively tracking it.
-/// - [`.read()`](crate::traits::Read) returns a guard that allows accessing the
-///   value of the memo by reference. If you call it within an effect, it will
-///   cause that effect to subscribe to the memo, and to re-run whenever the
-///   value of the memo changes.
-///   - [`.read_untracked()`](crate::traits::ReadUntracked) gives access to the
-///     current value of the memo without reactively tracking it.
-/// - [`.with()`](crate::traits::With) allows you to reactively access the memo’s
-///   value without cloning by applying a callback function.
-///   - [`.with_untracked()`](crate::traits::WithUntracked) allows you to access
-///     the signal’s value by applying a callback function without reactively
-///     tracking it.
-/// - [`.to_stream()`](crate::traits::ToStream) converts the memo to an `async`
-///   stream of values.
-/// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
-///   of values into a memo containing the latest value.
 ///
 /// ## Examples
 /// ```
@@ -88,6 +66,28 @@ use std::{
 /// // ✅ reads the current value **without re-running the calculation**
 /// let some_value = memoized.get();
 /// ```
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](crate::traits::Get) clones the current value of the memo.
+///   If you call it within an effect, it will cause that effect to subscribe
+///   to the memo, and to re-run whenever the value of the memo changes.
+///   - [`.get_untracked()`](crate::traits::GetUntracked) clones the value of
+///     the memo without reactively tracking it.
+/// - [`.read()`](crate::traits::Read) returns a guard that allows accessing the
+///   value of the memo by reference. If you call it within an effect, it will
+///   cause that effect to subscribe to the memo, and to re-run whenever the
+///   value of the memo changes.
+///   - [`.read_untracked()`](crate::traits::ReadUntracked) gives access to the
+///     current value of the memo without reactively tracking it.
+/// - [`.with()`](crate::traits::With) allows you to reactively access the memo’s
+///   value without cloning by applying a callback function.
+///   - [`.with_untracked()`](crate::traits::WithUntracked) allows you to access
+///     the memo’s value by applying a callback function without reactively
+///     tracking it.
+/// - [`.to_stream()`](crate::traits::ToStream) converts the memo to an `async`
+///   stream of values.
+/// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
+///   of values into a memo containing the latest value.
 pub struct ArcMemo<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,

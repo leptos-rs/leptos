@@ -15,8 +15,8 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// and notifies other code when it has changed.
 ///
 /// This is an arena-allocated signal, which is `Copy` and is disposed when its reactive
-/// [`Owner`] cleans up. For a reference-counted signal that lives as long as a reference to it is
-/// alive, see [`ArcWriteSignal`].
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives
+/// as long as a reference to it is alive, see [`ArcWriteSignal`].
 ///
 /// ## Core Trait Implementations
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.

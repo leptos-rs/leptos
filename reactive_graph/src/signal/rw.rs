@@ -28,8 +28,8 @@ use std::{
 /// processes of reactive updates.
 ///
 /// This is an arena-allocated signal, which is `Copy` and is disposed when its reactive
-/// [`Owner`] cleans up. For a reference-counted signal that lives as long as a reference to it is
-/// alive, see [`ArcRwSignal`e.
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives
+/// as long as a reference to it is alive, see [`ArcRwSignal`].
 ///
 /// ## Core Trait Implementations
 ///
@@ -57,7 +57,7 @@ use std::{
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.
 /// - [`.update()`](crate::traits::Update) updates the value of the signal by
 ///   applying a closure that takes a mutable reference.
-/// - [`.write()`](crate::traits::Write) returns a guard through which the signal
+/// - [`.write()`](crate::traits::Writeable) returns a guard through which the signal
 ///   can be mutated, and which notifies subscribers when it is dropped.
 ///
 /// > Each of these has a related `_untracked()` method, which updates the signal
