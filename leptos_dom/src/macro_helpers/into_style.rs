@@ -176,7 +176,7 @@ impl Style {
     /// Converts the style to its HTML value at that moment so it can be rendered on the server.
     pub fn as_value_string(
         &self,
-        style_name: &'static str,
+        style_name: &str,
     ) -> Option<Oco<'static, str>> {
         match self {
             Style::Value(value) => {
