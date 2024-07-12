@@ -20,8 +20,9 @@ where
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    trigger: ArcTrigger,
     path: StorePath,
+    trigger: ArcTrigger,
+    get_trigger: Arc<dyn Fn(StorePath) -> ArcTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
 }
@@ -74,12 +75,12 @@ impl<T> StoreField<T> for ArcField<T> {
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
-    fn get_trigger(&self, _path: StorePath) -> ArcTrigger {
-        self.trigger.clone()
+    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+        (self.get_trigger)(path)
     }
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
-        std::iter::empty() // TODO
+        self.path.clone()
     }
 
     fn reader(&self) -> Option<Self::Reader> {
@@ -105,6 +106,10 @@ where
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
             read: Arc::new({
                 let value = value.clone();
                 move || value.reader().map(StoreFieldReader::new)
@@ -131,6 +136,10 @@ where
             defined_at: Location::caller(),
             path: value.path().into_iter().collect(),
             trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
             read: Arc::new({
                 let value = value.clone();
                 move || value.reader().map(StoreFieldReader::new)
@@ -150,6 +159,7 @@ impl<T> Clone for ArcField<T> {
             defined_at: self.defined_at,
             path: self.path.clone(),
             trigger: self.trigger.clone(),
+            get_trigger: Arc::clone(&self.get_trigger),
             read: Arc::clone(&self.read),
             write: Arc::clone(&self.write),
         }
