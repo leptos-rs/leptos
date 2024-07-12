@@ -1,7 +1,7 @@
 use reactive_graph::{
     owner::StoredValue,
     signal::{
-        guards::{Mapped, Plain, ReadGuard},
+        guards::{Plain, ReadGuard},
         ArcTrigger,
     },
     traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
@@ -13,12 +13,15 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+mod arc_field;
+mod field;
 mod iter;
 mod path;
-mod read_store_field;
 mod store_field;
 mod subfield;
 
+pub use arc_field::ArcField;
+pub use field::Field;
 pub use iter::*;
 use path::StorePath;
 pub use store_field::StoreField;

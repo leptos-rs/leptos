@@ -15,7 +15,7 @@ use reactive_graph::{
 use std::{
     iter,
     marker::PhantomData,
-    ops::{DerefMut, Index, IndexMut},
+    ops::{DerefMut, IndexMut},
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -71,10 +71,9 @@ where
 impl<Inner, Prev> StoreField<Prev::Output> for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Prev>,
-    Prev: IndexMut<usize>,
+    Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized,
 {
-    type Orig = Inner::Orig;
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
         MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
@@ -84,10 +83,6 @@ where
             .path()
             .into_iter()
             .chain(iter::once(self.index.into()))
-    }
-
-    fn data(&self) -> Arc<RwLock<Self::Orig>> {
-        self.inner.data()
     }
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
@@ -168,7 +163,7 @@ where
 impl<Inner, Prev> ReadUntracked for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Prev>,
-    Prev: IndexMut<usize>,
+    Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized,
 {
     type Value = <Self as StoreField<Prev::Output>>::Reader;
