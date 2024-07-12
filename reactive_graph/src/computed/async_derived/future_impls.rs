@@ -111,6 +111,8 @@ where
 }
 
 impl<T: 'static> ArcAsyncDerived<T> {
+    /// Returns a `Future` that resolves when the computation is finished, and accesses the inner
+    /// value by reference rather than by cloning it.
     #[track_caller]
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         AsyncDerivedRefFuture {
@@ -123,6 +125,8 @@ impl<T: 'static> ArcAsyncDerived<T> {
 }
 
 impl<T: 'static> AsyncDerived<T> {
+    /// Returns a `Future` that resolves when the computation is finished, and accesses the inner
+    /// value by reference rather than by cloning it.
     #[track_caller]
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
         let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));

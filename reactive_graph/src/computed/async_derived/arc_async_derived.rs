@@ -38,6 +38,9 @@ use std::{
 /// When one of its dependencies changes, this will re-run its async computation, then notify other
 /// values that depend on it that it has changed.
 ///
+/// This is a reference-counted type, which is `Clone` but not `Copy`.
+/// For arena-allocated `Copy` memos, use [`AsyncDerived`](super::AsyncDerived).
+///
 /// ## Examples
 /// ```rust
 /// # use reactive_graph::computed::*;
@@ -71,9 +74,29 @@ use std::{
 ///
 /// // setting multiple dependencies will hold until the latest change is ready
 /// signal2.set(1);
-/// assert_eq!(derived.clone().await, 2);
+/// assert_eq!(derived.await, 2);
 /// # });
 /// ```
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](crate::traits::Get) clones the current value as an `Option<T>`.
+///   If you call it within an effect, it will cause that effect to subscribe
+///   to the memo, and to re-run whenever the value of the memo changes.
+///   - [`.get_untracked()`](crate::traits::GetUntracked) clones the value of
+///     without reactively tracking it.
+/// - [`.read()`](crate::traits::Read) returns a guard that allows accessing the
+///   value by reference. If you call it within an effect, it will
+///   cause that effect to subscribe to the memo, and to re-run whenever the
+///   value changes.
+///   - [`.read_untracked()`](crate::traits::ReadUntracked) gives access to the
+///     current value without reactively tracking it.
+/// - [`.with()`](crate::traits::With) allows you to reactively access the
+///   value without cloning by applying a callback function.
+///   - [`.with_untracked()`](crate::traits::WithUntracked) allows you to access
+///     the value by applying a callback function without reactively
+///     tracking it.
+/// - [`IntoFuture`](std::future::Future) allows you to create a [`Future`] that resolves
+///   when this resource is done loading.
 pub struct ArcAsyncDerived<T> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
@@ -310,6 +333,10 @@ macro_rules! spawn_derived {
 }
 
 impl<T: 'static> ArcAsyncDerived<T> {
+    /// Creates a new async derived computation.
+    ///
+    /// This runs eagerly: i.e., calls `fun` once when created and immediately spawns the `Future`
+    /// as a new task.
     #[track_caller]
     pub fn new<Fut>(fun: impl Fn() -> Fut + Send + Sync + 'static) -> Self
     where
@@ -319,6 +346,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Self::new_with_initial(None, fun)
     }
 
+    /// Creates a new async derived computation with an initial value.
+    ///
+    /// If the initial value is `Some(_)`, the task will not be run initially.
     #[track_caller]
     pub fn new_with_initial<Fut>(
         initial_value: Option<T>,
@@ -332,6 +362,11 @@ impl<T: 'static> ArcAsyncDerived<T> {
         this
     }
 
+    /// Creates a new async derived computation that will be guaranteed to run on the current
+    /// thread.
+    ///
+    /// This runs eagerly: i.e., calls `fun` once when created and immediately spawns the `Future`
+    /// as a new task.
     #[track_caller]
     pub fn new_unsync<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
     where
@@ -341,6 +376,10 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Self::new_unsync_with_initial(None, fun)
     }
 
+    /// Creates a new async derived computation with an initial value. Async work will be
+    /// guaranteed to run only on the current thread.
+    ///
+    /// If the initial value is `Some(_)`, the task will not be run initially.
     #[track_caller]
     pub fn new_unsync_with_initial<Fut>(
         initial_value: Option<T>,
@@ -355,6 +394,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
         this
     }
 
+    /// Returns a `Future` that is ready when this resource has next finished loading.
     pub fn ready(&self) -> AsyncDerivedReadyFuture {
         AsyncDerivedReadyFuture {
             source: self.to_any_source(),
