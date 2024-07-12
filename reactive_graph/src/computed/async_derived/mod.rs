@@ -18,6 +18,8 @@ use std::{
 };
 
 pin_project! {
+    /// A [`Future`] wrapper that sets the [`Owner`] and [`Observer`] before polling the inner
+    /// `Future`.
     pub struct ScopedFuture<Fut> {
         owner: Option<Owner>,
         observer: Option<AnySubscriber>,
@@ -27,6 +29,8 @@ pin_project! {
 }
 
 impl<Fut> ScopedFuture<Fut> {
+    /// Wraps the given `Future` by taking the current [`Owner`] and [`Observer`] and re-setting
+    /// them as the active owner and observer every time the inner `Future` is polled.
     pub fn new(fut: Fut) -> Self {
         let owner = Owner::current();
         let observer = Observer::get();
@@ -54,6 +58,7 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
     }
 }
 
+/// Utilities used to track whether asynchronous computeds are currently loading.
 pub mod suspense {
     use crate::{
         signal::ArcRwSignal,
@@ -64,10 +69,13 @@ pub mod suspense {
     use slotmap::{DefaultKey, SlotMap};
     use std::sync::{Arc, Mutex};
 
+    /// Sends a one-time notification that the resource being read from is "local only," i.e.,
+    /// that it will only run on the client, not the server.
     #[derive(Clone, Debug)]
     pub struct LocalResourceNotifier(Arc<Mutex<Option<Sender<()>>>>);
 
     impl LocalResourceNotifier {
+        /// Send the notification. If the inner channel has already been used, this does nothing.
         pub fn notify(&mut self) {
             if let Some(tx) = self.0.lock().or_poisoned().take() {
                 tx.send(()).unwrap();
@@ -81,12 +89,15 @@ pub mod suspense {
         }
     }
 
+    /// Tracks the collection of active async tasks.
     #[derive(Clone, Debug)]
     pub struct SuspenseContext {
+        /// The set of active tasks.
         pub tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
     }
 
     impl SuspenseContext {
+        /// Generates a unique task ID.
         pub fn task_id(&self) -> TaskHandle {
             let key = self.tasks.write().insert(());
             TaskHandle {

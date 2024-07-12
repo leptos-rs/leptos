@@ -690,6 +690,7 @@ impl<I, O> Clone for ArcSubmission<I, O> {
     }
 }
 
+/// An action that has been submitted by dispatching it to a [`MultiAction`].
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Submission<I, O>
 where
