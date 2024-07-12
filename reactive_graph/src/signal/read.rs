@@ -22,8 +22,8 @@ use std::{
 /// and notifies other code when it has changed.
 ///
 /// This is an arena-allocated signal, which is `Copy` and is disposed when its reactive
-/// [`Owner`] cleans up. For a reference-counted signal that lives as long as a reference to it is
-/// alive, see [`ArcReadSignal`].
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives
+/// as long as a reference to it is alive, see [`ArcReadSignal`].
 ///
 /// ## Core Trait Implementations
 /// - [`.get()`](crate::traits::Get) clones the current value of the signal.

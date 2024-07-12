@@ -97,6 +97,7 @@ impl<T: 'static> Debug for Plain<T> {
 }
 
 impl<T: 'static> Plain<T> {
+    /// Takes a reference-counted read guard on the given lock.
     pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
         ArcRwLockReadGuardian::take(inner)
             .ok()
@@ -142,6 +143,7 @@ impl<T: 'static> Debug for AsyncPlain<T> {
 }
 
 impl<T: 'static> AsyncPlain<T> {
+    /// Takes a reference-counted async read guard on the given lock.
     pub fn try_new(inner: &Arc<async_lock::RwLock<T>>) -> Option<Self> {
         Some(Self {
             guard: inner.blocking_read_arc(),
@@ -186,6 +188,7 @@ where
 }
 
 impl<T: 'static, U> Mapped<Plain<T>, U> {
+    /// Creates a mapped read guard from the inner lock.
     pub fn try_new(
         inner: Arc<RwLock<T>>,
         map_fn: fn(&T) -> &U,
@@ -199,6 +202,7 @@ impl<Inner, U> Mapped<Inner, U>
 where
     Inner: Deref,
 {
+    /// Creates a mapped read guard from the inner guard.
     pub fn new_with_guard(
         inner: Inner,
         map_fn: fn(&Inner::Target) -> &U,
@@ -320,6 +324,7 @@ where
 pub struct UntrackedWriteGuard<T: 'static>(ArcRwLockWriteGuardian<T>);
 
 impl<T: 'static> UntrackedWriteGuard<T> {
+    /// Creates a write guard from the given lock.
     pub fn try_new(inner: Arc<RwLock<T>>) -> Option<Self> {
         ArcRwLockWriteGuardian::take(inner)
             .ok()
@@ -357,6 +362,7 @@ where
     }
 }
 
+/// A mutable guard that maps over an inner mutable guard.
 #[derive(Debug)]
 pub struct MappedMut<Inner, U>
 where
@@ -380,6 +386,7 @@ impl<Inner, U> MappedMut<Inner, U>
 where
     Inner: DerefMut,
 {
+    /// Creates a new writable guard from the inner guard.
     pub fn new(
         inner: Inner,
         map_fn: fn(&Inner::Target) -> &U,
@@ -431,6 +438,8 @@ where
     }
 }
 
+/// A mapped read guard in which the mapping function is a closure. If the mapping function is a
+/// function pointed, use [`Mapped`].
 pub struct MappedArc<Inner, U>
 where
     Inner: Deref,
@@ -467,6 +476,7 @@ impl<Inner, U> MappedArc<Inner, U>
 where
     Inner: Deref,
 {
+    /// Creates a new mapped guard from the inner guard and the map function.
     pub fn new(
         inner: Inner,
         map_fn: impl Fn(&Inner::Target) -> &U + 'static,
@@ -507,6 +517,8 @@ where
     }
 }
 
+/// A mapped write guard in which the mapping function is a closure. If the mapping function is a
+/// function pointed, use [`MappedMut`].
 pub struct MappedMutArc<Inner, U>
 where
     Inner: Deref,
@@ -555,6 +567,7 @@ impl<Inner, U> MappedMutArc<Inner, U>
 where
     Inner: Deref,
 {
+    /// Creates the new mapped mutable guard from the inner guard and mapping functions.
     pub fn new(
         inner: Inner,
         map_fn: impl Fn(&Inner::Target) -> &U + 'static,

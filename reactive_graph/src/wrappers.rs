@@ -54,6 +54,13 @@ pub mod read {
         }
     }
 
+    /// A wrapper for any kind of reference-counted reactive signal:
+    /// an [`ArcReadSignal`], [`ArcMemo`], [`ArcRwSignal`],
+    /// or derived signal closure.
+    ///
+    /// This allows you to create APIs that take any kind of `ArcSignal<T>` as an argument,
+    /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
+    /// function call, `with()`, and `get()` APIs as other signals.
     pub struct ArcSignal<T: 'static> {
         #[cfg(debug_assertions)]
         defined_at: &'static Location<'static>,
@@ -92,6 +99,26 @@ pub mod read {
     where
         T: Send + Sync + 'static,
     {
+        /// Wraps a derived signal, i.e., any computation that accesses one or more
+        /// reactive signals.
+        /// ```rust
+        /// # use reactive_graph::signal::*;
+        /// # use reactive_graph::wrappers::read::ArcSignal;
+        /// # use reactive_graph::prelude::*;
+        /// let (count, set_count) = arc_signal(2);
+        /// let double_count = ArcSignal::derive({
+        ///     let count = count.clone();
+        ///     move || count.get() * 2
+        /// });
+        ///
+        /// // this function takes any kind of wrapped signal
+        /// fn above_3(arg: &ArcSignal<i32>) -> bool {
+        ///     arg.get() > 3
+        /// }
+        ///
+        /// assert_eq!(above_3(&count.into()), false);
+        /// assert_eq!(above_3(&double_count), true);
+        /// ```
         #[track_caller]
         pub fn derive(
             derived_signal: impl Fn() -> T + Send + Sync + 'static,
@@ -204,6 +231,12 @@ pub mod read {
         }
     }
 
+    /// A wrapper for any kind of arena-allocated reactive signal:
+    /// an [`ReadSignal`], [`Memo`], [`RwSignal`], or derived signal closure.
+    ///
+    /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
+    /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
+    /// function call, `with()`, and `get()` APIs as other signals.
     pub struct Signal<T: 'static> {
         #[cfg(debug_assertions)]
         defined_at: &'static Location<'static>,
@@ -305,6 +338,23 @@ pub mod read {
     where
         T: Send + Sync + 'static,
     {
+        /// Wraps a derived signal, i.e., any computation that accesses one or more
+        /// reactive signals.
+        /// ```rust
+        /// # use reactive_graph::signal::*;
+        /// # use reactive_graph::wrappers::read::Signal;
+        /// # use reactive_graph::prelude::*;
+        /// let (count, set_count) = signal(2);
+        /// let double_count = Signal::derive(move || count.get() * 2);
+        ///
+        /// // this function takes any kind of wrapped signal
+        /// fn above_3(arg: &Signal<i32>) -> bool {
+        ///     arg.get() > 3
+        /// }
+        ///
+        /// assert_eq!(above_3(&count.into()), false);
+        /// assert_eq!(above_3(&double_count), true);
+        /// ```
         #[track_caller]
         pub fn derive(
             derived_signal: impl Fn() -> T + Send + Sync + 'static,
@@ -408,6 +458,33 @@ pub mod read {
         }
     }
 
+    /// A wrapper for a value that is *either* `T` or [`Signal<T>`].
+    ///
+    /// This allows you to create APIs that take either a reactive or a non-reactive value
+    /// of the same type. This is especially useful for component properties.
+    ///
+    /// ```
+    /// # use reactive_graph::signal::*;
+    /// # use reactive_graph::wrappers::read::MaybeSignal;
+    /// # use reactive_graph::computed::Memo;
+    /// # use reactive_graph::prelude::*;
+    /// let (count, set_count) = signal(2);
+    /// let double_count = MaybeSignal::derive(move || count.get() * 2);
+    /// let memoized_double_count = Memo::new(move |_| count.get() * 2);
+    /// let static_value = 5;
+    ///
+    /// // this function takes either a reactive or non-reactive value
+    /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
+    ///     // ✅ calling the signal clones and returns the value
+    ///     //    it is a shorthand for arg.get()
+    ///     arg.get() > 3
+    /// }
+    ///
+    /// assert_eq!(above_3(&static_value.into()), true);
+    /// assert_eq!(above_3(&count.into()), false);
+    /// assert_eq!(above_3(&double_count), true);
+    /// assert_eq!(above_3(&memoized_double_count.into()), true);
+    /// ```
     #[derive(Debug, PartialEq, Eq)]
     pub enum MaybeSignal<T>
     where
@@ -476,6 +553,8 @@ pub mod read {
     where
         T: Send + Sync + 'static,
     {
+        /// Wraps a derived signal, i.e., any computation that accesses one or more
+        /// reactive signals.
         pub fn derive(
             derived_signal: impl Fn() -> T + Send + Sync + 'static,
         ) -> Self {
@@ -537,6 +616,37 @@ pub mod read {
         }
     }
 
+    /// A wrapping type for an optional component prop, which can either be a signal or a
+    /// non-reactive value, and which may or may not have a value. In other words, this is
+    /// an `Option<MaybeSignal<Option<T>>>` that automatically flattens its getters.
+    ///
+    /// This creates an extremely flexible type for component libraries, etc.
+    ///
+    /// ## Examples
+    /// ```rust
+    /// # use reactive_graph::signal::*;
+    /// # use reactive_graph::wrappers::read::MaybeProp;
+    /// # use reactive_graph::computed::Memo;
+    /// # use reactive_graph::prelude::*;
+    /// let (count, set_count) = signal(Some(2));
+    /// let double = |n| n * 2;
+    /// let double_count = MaybeProp::derive(move || count.get().map(double));
+    /// let memoized_double_count = Memo::new(move |_| count.get().map(double));
+    /// let static_value = 5;
+    ///
+    /// // this function takes either a reactive or non-reactive value
+    /// fn above_3(arg: &MaybeProp<i32>) -> bool {
+    ///     // ✅ calling the signal clones and returns the value
+    ///     //    it is a shorthand for arg.get()q
+    ///     arg.get().map(|arg| arg > 3).unwrap_or(false)
+    /// }
+    ///
+    /// assert_eq!(above_3(&None::<i32>.into()), false);
+    /// assert_eq!(above_3(&static_value.into()), true);
+    /// assert_eq!(above_3(&count.into()), false);
+    /// assert_eq!(above_3(&double_count), true);
+    /// assert_eq!(above_3(&memoized_double_count.into()), true);
+    /// ```
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct MaybeProp<T: Send + Sync + 'static>(
         pub(crate) Option<MaybeSignal<Option<T>>>,
@@ -589,6 +699,8 @@ pub mod read {
     where
         T: Send + Sync + 'static,
     {
+        /// Wraps a derived signal, i.e., any computation that accesses one or more
+        /// reactive signals.
         pub fn derive(
             derived_signal: impl Fn() -> Option<T> + Send + Sync + 'static,
         ) -> Self {
@@ -699,8 +811,8 @@ pub mod write {
         }
     }
 
-    /// A wrapper for any kind of settable reactive signal: a [`WriteSignal`](crate::WriteSignal),
-    /// [`RwSignal`](crate::RwSignal), or closure that receives a value and sets a signal depending
+    /// A wrapper for any kind of settable reactive signal: a [`WriteSignal`],
+    /// [`RwSignal`], or closure that receives a value and sets a signal depending
     /// on it.
     ///
     /// This allows you to create APIs that take any kind of `SignalSetter<T>` as an argument,
@@ -717,9 +829,6 @@ pub mod write {
     /// # use reactive_graph::prelude::*;
     /// # use reactive_graph::wrappers::write::SignalSetter;
     /// # use reactive_graph::signal::signal;
-    /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
-    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
     /// let (count, set_count) = signal(2);
     /// let set_double_input = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
@@ -734,7 +843,6 @@ pub mod write {
     /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_input);
     /// assert_eq!(count.get(), 8);
-    /// # });
     /// ```
     #[derive(Debug, PartialEq, Eq)]
     pub struct SignalSetter<T>
@@ -799,6 +907,7 @@ pub mod write {
     where
         T: Send + Sync + 'static,
     {
+        /// Wraps a signal-setting closure, i.e., any computation that sets one or more reactive signals.
         #[track_caller]
         pub fn map(mapped_setter: impl Fn(T) + Send + Sync + 'static) -> Self {
             Self {
@@ -815,6 +924,27 @@ pub mod write {
     where
         T: 'static,
     {
+        /// Calls the setter function with the given value.
+        ///
+        /// ```
+        /// # use reactive_graph::wrappers::write::SignalSetter;
+        /// # use reactive_graph::signal::signal;
+        /// # use reactive_graph::prelude::*;
+        /// let (count, set_count) = signal(2);
+        /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
+        ///
+        /// // this function takes any kind of signal setter
+        /// fn set_to_4(setter: &SignalSetter<i32>) {
+        ///     // ✅ calling the signal sets the value
+        ///     //    can be `setter(4)` on nightly
+        ///     setter.set(4);
+        /// }
+        ///
+        /// set_to_4(&set_count.into());
+        /// assert_eq!(count.get(), 4);
+        /// set_to_4(&set_double_count);
+        /// assert_eq!(count.get(), 8);
+        /// ```
         #[track_caller]
         pub fn set(&self, value: T) {
             match &self.inner {

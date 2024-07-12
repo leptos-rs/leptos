@@ -622,7 +622,7 @@ where
     }
 }
 
-/// An action that has been submitted by dispatching it to a [MultiAction](crate::MultiAction).
+/// An action that has been submitted by dispatching it to a [`MultiAction`].
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ArcSubmission<I, O>
 where
