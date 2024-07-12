@@ -1462,7 +1462,6 @@ impl AxumPath for &[PathSegment] {
 /// to those paths to Leptos's renderer.
 impl<S> LeptosRoutes<S> for axum::Router<S>
 where
-    LeptosOptions: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
