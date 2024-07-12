@@ -398,7 +398,7 @@ where
     fn rebuild(self, key: &str, state: &mut Self::State) {
         let key = key.to_owned();
         Executor::spawn_local({
-            let state = Rc::clone(&state);
+            let state = Rc::clone(state);
             async move {
                 let value = self.0.await;
                 let mut state = state.borrow_mut();

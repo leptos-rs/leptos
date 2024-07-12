@@ -309,7 +309,7 @@ where
 
     let has_router = has_router();
     let action = if has_router {
-        use_resolved_path::<Dom>(move || action.to_href()())
+        use_resolved_path(move || action.to_href()())
     } else {
         ArcMemo::new(move |_| Some(action.to_href()()))
     };
