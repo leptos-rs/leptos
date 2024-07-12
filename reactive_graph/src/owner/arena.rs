@@ -16,7 +16,7 @@ type ArenaMap = SlotMap<NodeId, Box<dyn Any + Send + Sync>>;
 static MAP: OnceLock<RwLock<ArenaMap>> = OnceLock::new();
 #[cfg(feature = "sandboxed-arenas")]
 thread_local! {
-    pub(crate) static MAP: RefCell<Option<Arc<RwLock<ArenaMap>>>> = RefCell::new(None);
+    pub(crate) static MAP: RefCell<Option<Arc<RwLock<ArenaMap>>>> = RefCell::new(Some(Default::default()));
 }
 
 impl Arena {
