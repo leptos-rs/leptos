@@ -13,7 +13,6 @@ use reactive_graph::{
     wrappers::write::SignalSetter,
 };
 use std::str::FromStr;
-use tachys::renderer::Renderer;
 
 #[track_caller]
 #[deprecated = "This has been renamed to `query_signal` to match Rust naming \
@@ -219,7 +218,7 @@ pub(crate) struct Matched(pub ArcRwSignal<String>);
 
 /// Resolves the given path relative to the current route.
 #[track_caller]
-pub(crate) fn use_resolved_path<R: Renderer + 'static>(
+pub(crate) fn use_resolved_path(
     path: impl Fn() -> String + Send + Sync + 'static,
 ) -> ArcMemo<Option<String>> {
     let router = use_context::<RouterContext>()

@@ -186,7 +186,7 @@ where
                         }
                     }
                 };
-                value.unwrap_or_else(|| initial())
+                value.unwrap_or_else(initial)
             } else {
                 let init = initial();
                 #[cfg(feature = "ssr")]

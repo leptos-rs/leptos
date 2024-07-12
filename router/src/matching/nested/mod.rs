@@ -253,7 +253,7 @@ where
             })),
             Some(children) => {
                 Either::Right(children.generate_routes().into_iter().map(move |child| {
-                    let segments = segment_routes.clone().into_iter().chain(child.segments.into_iter()).collect();
+                    let segments = segment_routes.clone().into_iter().chain(child.segments).collect();
                     if child.ssr_mode > ssr_mode {
                         GeneratedRouteData {
                             segments,

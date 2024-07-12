@@ -105,7 +105,7 @@ where
                     value.with_untracked(|data| match &data {
                         // TODO handle serialization errors
                         Some(val) => {
-                            Ser::encode(&val).unwrap().into_encoded_string()
+                            Ser::encode(val).unwrap().into_encoded_string()
                         }
                         _ => unreachable!(),
                     })

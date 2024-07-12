@@ -130,6 +130,6 @@ where
         }
     }
 
-    let href = use_resolved_path::<Dom>(move || href.to_href()());
+    let href = use_resolved_path(move || href.to_href()());
     inner(href, target, exact, state, replace, children)
 }
