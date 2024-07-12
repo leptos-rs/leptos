@@ -211,6 +211,7 @@ where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
 {
+    /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
@@ -261,6 +262,8 @@ where
         }
     }
 
+    /// Calls the `async` function with a reference to the input type as its argument,
+    /// ensuring that it is spawned on the current thread.
     #[track_caller]
     pub fn dispatch_local(&self, input: I) {
         if !is_suppressing_resource_load() {
@@ -771,6 +774,7 @@ where
         inner.into()
     }
 
+    /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
     pub fn dispatch(&self, input: I) {
         self.inner.with_value(|inner| inner.dispatch(input));

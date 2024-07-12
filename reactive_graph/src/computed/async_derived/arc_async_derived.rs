@@ -32,6 +32,48 @@ use std::{
     task::Waker,
 };
 
+/// A reactive value that is derived by running an asynchronous computation in response to changes
+/// in its sources.
+///
+/// When one of its dependencies changes, this will re-run its async computation, then notify other
+/// values that depend on it that it has changed.
+///
+/// ## Examples
+/// ```rust
+/// # use reactive_graph::computed::*;
+/// # use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*;
+/// # tokio_test::block_on(async move {
+/// # any_spawner::Executor::init_tokio();
+/// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+///
+/// let signal1 = RwSignal::new(0);
+/// let signal2 = RwSignal::new(0);
+/// let derived = ArcAsyncDerived::new(move || async move {
+///   // reactive values can be tracked anywhere in the `async` block
+///   let value1 = signal1.get();
+///   tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+///   let value2 = signal2.get();
+///
+///   value1 + value2
+/// });
+///
+/// // the value can be accessed synchronously as `Option<T>`
+/// assert_eq!(derived.get(), None);
+/// // we can also .await the value, i.e., convert it into a Future
+/// assert_eq!(derived.clone().await, 0);
+/// assert_eq!(derived.get(), Some(0));
+///
+/// signal1.set(1);
+/// // while the new value is still pending, the signal holds the old value
+/// tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+/// assert_eq!(derived.get(), Some(0));
+///
+/// // setting multiple dependencies will hold until the latest change is ready
+/// signal2.set(1);
+/// assert_eq!(derived.clone().await, 2);
+/// # });
+/// ```
 pub struct ArcAsyncDerived<T> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
