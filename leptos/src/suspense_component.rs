@@ -20,7 +20,7 @@ use tachys::{
     either::Either,
     html::attribute::Attribute,
     hydration::Cursor,
-    reactive_graph::OwnedView,
+    reactive_graph::{OwnedView, OwnedViewState},
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -39,7 +39,6 @@ pub fn Suspense<Chil>(
 where
     Chil: IntoView + Send + 'static,
 {
-    leptos::logging::log!("Suspense body");
     let owner = Owner::new();
     owner.with(|| {
         let (starts_local, id) = {
@@ -88,40 +87,41 @@ where
     Chil: Render<Rndr> + Send + 'static,
     Rndr: Renderer + 'static,
 {
-    type State = RenderEffect<EitherKeepAliveState<Chil::State, Fal::State>>;
+    type State = RenderEffect<
+        OwnedViewState<EitherKeepAliveState<Chil::State, Fal::State>, Rndr>,
+    >;
 
     fn build(self) -> Self::State {
         let mut children = Some(self.children);
         let mut fallback = Some(self.fallback);
         let none_pending = self.none_pending;
         let mut nth_run = 0;
+        let outer_owner = Owner::new();
 
-        RenderEffect::new(
-            move |prev: Option<
-                EitherKeepAliveState<Chil::State, Fal::State>,
-            >| {
-                // show the fallback if
-                // 1) there are pending futures, and
-                // 2) we are either in a Suspense (not Transition), or it's the first fallback
-                //    (because we initially render the children to register Futures, the "first
-                //    fallback" is probably the 2nd run
-                let show_b =
-                    !none_pending.get() && (!TRANSITION || nth_run < 2);
-                nth_run += 1;
-                let this = EitherKeepAlive {
+        RenderEffect::new(move |prev| {
+            // show the fallback if
+            // 1) there are pending futures, and
+            // 2) we are either in a Suspense (not Transition), or it's the first fallback
+            //    (because we initially render the children to register Futures, the "first
+            //    fallback" is probably the 2nd run
+            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 2);
+            nth_run += 1;
+            let this = OwnedView::new_with_owner(
+                EitherKeepAlive {
                     a: children.take(),
                     b: fallback.take(),
                     show_b,
-                };
+                },
+                outer_owner.clone(),
+            );
 
-                if let Some(mut state) = prev {
-                    this.rebuild(&mut state);
-                    state
-                } else {
-                    this.build()
-                }
-            },
-        )
+            if let Some(mut state) = prev {
+                this.rebuild(&mut state);
+                state
+            } else {
+                this.build()
+            }
+        })
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -345,32 +345,31 @@ where
         let mut fallback = Some(self.fallback);
         let none_pending = self.none_pending;
         let mut nth_run = 0;
+        let outer_owner = Owner::new();
 
-        RenderEffect::new(
-            move |prev: Option<
-                EitherKeepAliveState<Chil::State, Fal::State>,
-            >| {
-                // show the fallback if
-                // 1) there are pending futures, and
-                // 2) we are either in a Suspense (not Transition), or it's the first fallback
-                //    (because we initially render the children to register Futures, the "first
-                //    fallback" is probably the 2nd run
-                let show_b =
-                    !none_pending.get() && (!TRANSITION || nth_run < 1);
-                nth_run += 1;
-                let this = EitherKeepAlive {
+        RenderEffect::new(move |prev| {
+            // show the fallback if
+            // 1) there are pending futures, and
+            // 2) we are either in a Suspense (not Transition), or it's the first fallback
+            //    (because we initially render the children to register Futures, the "first
+            //    fallback" is probably the 2nd run
+            let show_b = !none_pending.get() && (!TRANSITION || nth_run < 1);
+            nth_run += 1;
+            let this = OwnedView::new_with_owner(
+                EitherKeepAlive {
                     a: children.take(),
                     b: fallback.take(),
                     show_b,
-                };
+                },
+                outer_owner.clone(),
+            );
 
-                if let Some(mut state) = prev {
-                    this.rebuild(&mut state);
-                    state
-                } else {
-                    this.hydrate::<FROM_SERVER>(&cursor, &position)
-                }
-            },
-        )
+            if let Some(mut state) = prev {
+                this.rebuild(&mut state);
+                state
+            } else {
+                this.hydrate::<FROM_SERVER>(&cursor, &position)
+            }
+        })
     }
 }
