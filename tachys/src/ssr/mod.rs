@@ -204,7 +204,7 @@ pub enum StreamChunk {
 }
 
 #[derive(Debug)]
-struct OooChunk {
+pub struct OooChunk {
     id: String,
     chunks: VecDeque<StreamChunk>,
     replace: bool,
