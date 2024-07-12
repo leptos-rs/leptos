@@ -13,31 +13,9 @@ pub use future_impls::*;
 use futures::Future;
 use pin_project_lite::pin_project;
 use std::{
-    fmt::Debug,
     pin::Pin,
     task::{Context, Poll},
 };
-
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
-pub enum AsyncState<T> {
-    #[default]
-    Loading,
-    Complete(T),
-    Reloading(T),
-}
-
-impl<T> AsyncState<T> {
-    pub fn current_value(&self) -> Option<&T> {
-        match &self {
-            AsyncState::Loading => None,
-            AsyncState::Complete(val) | AsyncState::Reloading(val) => Some(val),
-        }
-    }
-
-    pub fn loading(&self) -> bool {
-        matches!(&self, AsyncState::Loading | AsyncState::Reloading(_))
-    }
-}
 
 pin_project! {
     pub struct ScopedFuture<Fut> {
