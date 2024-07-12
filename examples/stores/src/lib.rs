@@ -1,8 +1,5 @@
-use leptos::logging::log;
 use leptos::prelude::*;
-use reactive_stores::{
-    AtIndex, Field, Store, StoreField, StoreFieldIterator, Subfield,
-};
+use reactive_stores::{Field, Store, StoreFieldIterator};
 use reactive_stores_macro::Store;
 
 #[derive(Debug, Store)]
@@ -61,11 +58,8 @@ pub fn App() -> impl IntoView {
             .collect_view()
     };
 
-    Effect::new(move |_| {
-        log!("{:?}", *store.read());
-    });
-
     view! {
+        <p>"Hello, " {move || store.user().get()}</p>
         <form on:submit=move |ev| {
             ev.prevent_default();
             store.todos().write().push(Todo::new(input_ref.get().unwrap().value()));
