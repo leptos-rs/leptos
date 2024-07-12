@@ -351,7 +351,7 @@ pub fn get_configuration(
     path: Option<&str>,
 ) -> Result<ConfFile, LeptosConfigError> {
     if let Some(path) = path {
-        get_config_from_file(&path)
+        get_config_from_file(path)
     } else {
         get_config_from_env()
     }

@@ -436,6 +436,7 @@ where
     Inner: Deref,
 {
     inner: Inner,
+    #[allow(clippy::type_complexity)]
     map_fn: Arc<dyn Fn(&Inner::Target) -> &U>,
 }
 
@@ -511,7 +512,9 @@ where
     Inner: Deref,
 {
     inner: Inner,
+    #[allow(clippy::type_complexity)]
     map_fn: Arc<dyn Fn(&Inner::Target) -> &U>,
+    #[allow(clippy::type_complexity)]
     map_fn_mut: Arc<dyn Fn(&mut Inner::Target) -> &mut U>,
 }
 

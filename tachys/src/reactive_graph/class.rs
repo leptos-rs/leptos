@@ -747,7 +747,7 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         Executor::spawn_local({
-            let state = Rc::clone(&state);
+            let state = Rc::clone(state);
             async move {
                 let value = self.0.await;
                 let mut state = state.borrow_mut();
