@@ -17,7 +17,7 @@ use std::{
 /// and notifies other code when it has changed.
 ///
 /// This is a reference-counted signal, which is `Clone` but not `Copy`.
-/// For arena-allocated `Copy` signals, use [`ReadSignal`].
+/// For arena-allocated `Copy` signals, use [`WriteSignal`](super::WriteSignal).
 ///
 /// ## Core Trait Implementations
 /// - [`.set()`](crate::traits::Set) sets the signal to a new value.
@@ -29,7 +29,8 @@ use std::{
 /// > Each of these has a related `_untracked()` method, which updates the signal
 /// > without notifying subscribers. Untracked updates are not desirable in most
 /// > cases, as they cause “tearing” between the signal’s value and its observed
-/// > value. If you want a non-reactive container, used [`StoredValue`] instead.
+/// > value. If you want a non-reactive container, used [`StoredValue`](crate::owner::StoredValue)
+/// > instead.
 ///
 /// ## Examples
 /// ```

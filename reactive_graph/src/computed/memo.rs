@@ -26,6 +26,10 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// Memos are lazy: they do not run at all until they are read for the first time, and they will
 /// not re-run the calculation when a source signal changes until they are read again.
 ///
+/// This is an arena-allocated type, which is `Copy` and is disposed when its reactive
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that livesas
+/// as long as a reference to it is alive, see [`ArcMemo`].
+///
 /// ```
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::computed::Memo;
@@ -70,6 +74,28 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// # });
 /// # });
 /// ```
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](crate::traits::Get) clones the current value of the memo.
+///   If you call it within an effect, it will cause that effect to subscribe
+///   to the memo, and to re-run whenever the value of the memo changes.
+///   - [`.get_untracked()`](crate::traits::GetUntracked) clones the value of
+///     the memo without reactively tracking it.
+/// - [`.read()`](crate::traits::Read) returns a guard that allows accessing the
+///   value of the memo by reference. If you call it within an effect, it will
+///   cause that effect to subscribe to the memo, and to re-run whenever the
+///   value of the memo changes.
+///   - [`.read_untracked()`](crate::traits::ReadUntracked) gives access to the
+///     current value of the memo without reactively tracking it.
+/// - [`.with()`](crate::traits::With) allows you to reactively access the memo’s
+///   value without cloning by applying a callback function.
+///   - [`.with_untracked()`](crate::traits::WithUntracked) allows you to access
+///     the memo’s value by applying a callback function without reactively
+///     tracking it.
+/// - [`.to_stream()`](crate::traits::ToStream) converts the memo to an `async`
+///   stream of values.
+/// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
+///   of values into a memo containing the latest value.
 pub struct Memo<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -154,6 +180,13 @@ impl<T: Send + Sync + 'static> Memo<T> {
         }
     }
 
+    /// Creates a new memo by passing a function that computes the value.
+    ///
+    /// Unlike [`ArcMemo::new`](), this receives ownership of the previous value. As a result, it
+    /// must return both the new value and a `bool` that is `true` if the value has changed.
+    ///
+    /// This is lazy: the function will not be called until the memo's value is read for the first
+    /// time.
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",

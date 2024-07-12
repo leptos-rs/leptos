@@ -75,8 +75,8 @@ pub fn arc_signal<T>(value: T) -> (ArcReadSignal<T>, ArcWriteSignal<T>) {
 /// [`ReadSignal`] and a [`WriteSignal`].
 ///
 /// This returns an arena-allocated signal, which is `Copy` and is disposed when its reactive
-/// [`Owner`] cleans up. For a reference-counted signal that lives as long as a reference to it is
-/// alive, see [`arc_signal`].
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives
+/// as long as a reference to it is alive, see [`arc_signal`].
 /// ```
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::signal::*;
@@ -121,8 +121,8 @@ pub fn signal<T: Send + Sync>(value: T) -> (ReadSignal<T>, WriteSignal<T>) {
 /// [`ReadSignal`] and a [`WriteSignal`].
 ///
 /// This returns an arena-allocated signal, which is `Copy` and is disposed when its reactive
-/// [`Owner`] cleans up. For a reference-counted signal that lives as long as a reference to it is
-/// alive, see [`arc_signal`].
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives
+/// as long as a reference to it is alive, see [`arc_signal`].
 /// ```
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::signal::*;

@@ -69,7 +69,7 @@
 
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 
 use std::fmt::Arguments;
 

@@ -6,6 +6,11 @@ thread_local! {
     static OBSERVER: RefCell<Option<AnySubscriber>> = const { RefCell::new(None) };
 }
 
+/// The current reactive observer.
+///
+/// The observer is whatever reactive node is currently listening for signals that need to be
+/// tracked. For example, if an effect is running, that effect is the observer, which means it will
+/// subscribe to changes in any signals that are read.
 pub struct Observer;
 
 struct SetObserverOnDrop(Option<AnySubscriber>);
@@ -17,6 +22,7 @@ impl Drop for SetObserverOnDrop {
 }
 
 impl Observer {
+    /// Returns the current observer, if any.
     pub fn get() -> Option<AnySubscriber> {
         OBSERVER.with_borrow(Clone::clone)
     }
@@ -41,6 +47,34 @@ impl Observer {
     }
 }
 
+/// Suspends reactive tracking while running the given function.
+///
+/// This can be used to isolate parts of the reactive graph from one another.
+///
+/// ```rust
+/// # use reactive_graph::computed::*;
+/// # use reactive_graph::signal::*;
+/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::untrack;
+/// # tokio_test::block_on(async move {
+/// # any_spawner::Executor::init_tokio();
+/// let (a, set_a) = signal(0);
+/// let (b, set_b) = signal(0);
+/// let c = Memo::new(move |_| {
+///     // this memo will *only* update when `a` changes
+///     a.get() + untrack(move || b.get())
+/// });
+///
+/// assert_eq!(c.get(), 0);
+/// set_a.set(1);
+/// assert_eq!(c.get(), 1);
+/// set_b.set(1);
+/// // hasn't updated, because we untracked before reading b
+/// assert_eq!(c.get(), 1);
+/// set_a.set(2);
+/// assert_eq!(c.get(), 3);
+/// # });
+/// ```
 pub fn untrack<T>(fun: impl FnOnce() -> T) -> T {
     #[cfg(debug_assertions)]
     let _warning_guard = crate::diagnostics::SpecialNonReactiveZone::enter();
@@ -60,7 +94,7 @@ pub trait Subscriber: ReactiveNode {
     /// Adds a subscriber to this subscriber's list of dependencies.
     fn add_source(&self, source: AnySource);
 
-    // Clears the set of sources for this subscriber.
+    /// Clears the set of sources for this subscriber.
     fn clear_sources(&self, subscriber: &AnySubscriber);
 }
 
@@ -117,6 +151,7 @@ impl ReactiveNode for AnySubscriber {
 }
 
 impl AnySubscriber {
+    /// Runs the given function with this subscriber as the thread-local [`Observer`].
     pub fn with_observer<T>(&self, fun: impl FnOnce() -> T) -> T {
         let _prev = Observer::replace(self.clone());
         fun()
