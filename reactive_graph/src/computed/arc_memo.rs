@@ -18,6 +18,76 @@ use std::{
     sync::{Arc, RwLock, Weak},
 };
 
+/// An efficient derived reactive value based on other reactive values.
+///
+/// This is a reference-counted memo, which is `Clone` but not `Copy`.
+/// For arena-allocated `Copy` memos, use [`Memo`].
+///
+/// Unlike a "derived signal," a memo comes with two guarantees:
+/// 1. The memo will only run *once* per change, no matter how many times you
+///    access its value.
+/// 2. The memo will only notify its dependents if the value of the computation changes.
+///
+/// This makes a memo the perfect tool for expensive computations.
+///
+/// Memos have a certain overhead compared to derived signals. In most cases, you should
+/// create a derived signal. But if the derivation calculation is expensive, you should
+/// create a memo.
+///
+/// As with an [`Effect`](crate::effects::Effect), the argument to the memo function is the previous value,
+/// i.e., the current value of the memo, which will be `None` for the initial calculation.
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](crate::traits::Get) clones the current value of the memo.
+///   If you call it within an effect, it will cause that effect to subscribe
+///   to the memo, and to re-run whenever the value of the memo changes.
+///   - [`.get_untracked()`](crate::traits::GetUntracked) clones the value of
+///     the memo without reactively tracking it.
+/// - [`.read()`](crate::traits::Read) returns a guard that allows accessing the
+///   value of the memo by reference. If you call it within an effect, it will
+///   cause that effect to subscribe to the memo, and to re-run whenever the
+///   value of the memo changes.
+///   - [`.read_untracked()`](crate::traits::ReadUntracked) gives access to the
+///     current value of the memo without reactively tracking it.
+/// - [`.with()`](crate::traits::With) allows you to reactively access the memo’s
+///   value without cloning by applying a callback function.
+///   - [`.with_untracked()`](crate::traits::WithUntracked) allows you to access
+///     the signal’s value by applying a callback function without reactively
+///     tracking it.
+/// - [`.to_stream()`](crate::traits::ToStream) converts the memo to an `async`
+///   stream of values.
+/// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
+///   of values into a memo containing the latest value.
+///
+/// ## Examples
+/// ```
+/// # use reactive_graph::prelude::*;
+/// # use reactive_graph::computed::*;
+/// # use reactive_graph::signal::signal;
+/// # fn really_expensive_computation(value: i32) -> i32 { value };
+/// let (value, set_value) = signal(0);
+///
+/// // 🆗 we could create a derived signal with a simple function
+/// let double_value = move || value.get() * 2;
+/// set_value.set(2);
+/// assert_eq!(double_value(), 4);
+///
+/// // but imagine the computation is really expensive
+/// let expensive = move || really_expensive_computation(value.get()); // lazy: doesn't run until called
+/// // 🆗 run #1: calls `really_expensive_computation` the first time
+/// println!("expensive = {}", expensive());
+/// // ❌ run #2: this calls `really_expensive_computation` a second time!
+/// let some_value = expensive();
+///
+/// // instead, we create a memo
+/// // 🆗 run #1: the calculation runs once immediately
+/// let memoized = ArcMemo::new(move |_| really_expensive_computation(value.get()));
+/// // 🆗 reads the current value of the memo
+/// //    can be `memoized()` on nightly
+/// println!("memoized = {}", memoized.get());
+/// // ✅ reads the current value **without re-running the calculation**
+/// let some_value = memoized.get();
+/// ```
 pub struct ArcMemo<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -25,6 +95,10 @@ pub struct ArcMemo<T> {
 }
 
 impl<T: Send + Sync + 'static> ArcMemo<T> {
+    /// Creates a new memo by passing a function that computes the value.
+    ///
+    /// This is lazy: the function will not be called until the memo's value is read for the first
+    /// time.
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
@@ -37,6 +111,12 @@ impl<T: Send + Sync + 'static> ArcMemo<T> {
         Self::new_with_compare(fun, |lhs, rhs| lhs.as_ref() != rhs.as_ref())
     }
 
+    /// Creates a new memo by passing a function that computes the value, and a comparison function
+    /// that takes the previous value and the new value and returns `true` if the value has
+    /// changed.
+    ///
+    /// This is lazy: the function will not be called until the memo's value is read for the first
+    /// time.
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
@@ -56,6 +136,13 @@ impl<T: Send + Sync + 'static> ArcMemo<T> {
         })
     }
 
+    /// Creates a new memo by passing a function that computes the value.
+    ///
+    /// Unlike [`ArcMemo::new`](), this receives ownership of the previous value. As a result, it
+    /// must return both the new value and a `bool` that is `true` if the value has changed.
+    ///
+    /// This is lazy: the function will not be called until the memo's value is read for the first
+    /// time.
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
