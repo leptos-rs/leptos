@@ -431,6 +431,81 @@ where
     }
 }
 
+pub struct MappedArc<Inner, U>
+where
+    Inner: Deref,
+{
+    inner: Inner,
+    map_fn: Arc<dyn Fn(&Inner::Target) -> &U>,
+}
+
+impl<Inner, U> Clone for MappedArc<Inner, U>
+where
+    Inner: Clone + Deref,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            map_fn: self.map_fn.clone(),
+        }
+    }
+}
+
+impl<Inner, U> Debug for MappedArc<Inner, U>
+where
+    Inner: Debug + Deref,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappedArc")
+            .field("inner", &self.inner)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<Inner, U> MappedArc<Inner, U>
+where
+    Inner: Deref,
+{
+    pub fn new(
+        inner: Inner,
+        map_fn: impl Fn(&Inner::Target) -> &U + 'static,
+    ) -> Self {
+        Self {
+            inner,
+            map_fn: Arc::new(map_fn),
+        }
+    }
+}
+
+impl<Inner, U> Deref for MappedArc<Inner, U>
+where
+    Inner: Deref,
+{
+    type Target = U;
+
+    fn deref(&self) -> &Self::Target {
+        (self.map_fn)(self.inner.deref())
+    }
+}
+
+impl<Inner, U: PartialEq> PartialEq for MappedArc<Inner, U>
+where
+    Inner: Deref,
+{
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<Inner, U: Display> Display for MappedArc<Inner, U>
+where
+    Inner: Deref,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
+
 pub struct MappedMutArc<Inner, U>
 where
     Inner: Deref,

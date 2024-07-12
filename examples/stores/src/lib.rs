@@ -1,6 +1,7 @@
+use leptos::logging::log;
 use leptos::prelude::*;
 use reactive_stores::{
-    AtIndex, Store, StoreField, StoreFieldIterator, Subfield,
+    AtIndex, Field, Store, StoreField, StoreFieldIterator, Subfield,
 };
 use reactive_stores_macro::Store;
 
@@ -60,6 +61,10 @@ pub fn App() -> impl IntoView {
             .collect_view()
     };
 
+    Effect::new(move |_| {
+        log!("{:?}", *store.read());
+    });
+
     view! {
         <form on:submit=move |ev| {
             ev.prevent_default();
@@ -77,8 +82,7 @@ pub fn App() -> impl IntoView {
 fn TodoRow(
     store: Store<Todos>,
     idx: usize,
-    // to be fair, this is gross
-    todo: AtIndex<Subfield<Store<Todos>, Todos, Vec<Todo>>, Vec<Todo>>,
+    #[prop(into)] todo: Field<Todo>,
 ) -> impl IntoView {
     let completed = todo.completed();
     let title = todo.label();
