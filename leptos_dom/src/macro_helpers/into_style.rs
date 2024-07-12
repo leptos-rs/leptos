@@ -46,6 +46,16 @@ pub trait IntoStyle {
     fn into_style_boxed(self: Box<Self>) -> Style;
 }
 
+impl IntoStyle for Style {
+    fn into_style(self) -> Style {
+        self
+    }
+
+    fn into_style_boxed(self: Box<Self>) -> Style {
+        *self
+    }
+}
+
 impl IntoStyle for &'static str {
     #[inline(always)]
     fn into_style(self) -> Style {
