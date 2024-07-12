@@ -19,11 +19,8 @@ use std::{
 };
 
 pub trait StoreField<T>: Sized {
-    type Orig;
     type Reader: Deref<Target = T>;
     type Writer: UntrackableGuard<Target = T>;
-
-    fn data(&self) -> Arc<RwLock<Self::Orig>>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger;
 
@@ -38,13 +35,8 @@ impl<T> StoreField<T> for ArcStore<T>
 where
     T: 'static,
 {
-    type Orig = T;
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, ArcRwLockWriteGuardian<T>>;
-
-    fn data(&self) -> Arc<RwLock<Self::Orig>> {
-        Arc::clone(&self.value)
-    }
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         let triggers = &self.signals;
@@ -72,16 +64,8 @@ impl<T> StoreField<T> for Store<T>
 where
     T: 'static,
 {
-    type Orig = T;
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, ArcRwLockWriteGuardian<T>>;
-
-    fn data(&self) -> Arc<RwLock<Self::Orig>> {
-        self.inner
-            .try_get_value()
-            .map(|n| n.data())
-            .unwrap_or_else(unwrap_signal!(self))
-    }
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         self.inner
