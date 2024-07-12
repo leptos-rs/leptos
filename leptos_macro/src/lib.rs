@@ -647,14 +647,14 @@ fn component_macro(s: TokenStream, island: bool) -> TokenStream {
             #expanded
 
             #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
             #unexpanded
         }
     } else if let Ok(mut dummy) = dummy {
         dummy.sig.ident = unmodified_fn_name_from_fn_name(&dummy.sig.ident);
         quote! {
             #[doc(hidden)]
-            #[allow(non_snake_case, dead_code, clippy::too_many_arguments)]
+            #[allow(non_snake_case, dead_code, clippy::too_many_arguments, clippy::needless_lifetimes)]
             #dummy
         }
     } else {
