@@ -1,8 +1,9 @@
 use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
 use crate::{html::style::IntoStyle, renderer::DomRenderer};
+use any_spawner::Executor;
 use futures::FutureExt;
 use reactive_graph::effect::RenderEffect;
-use std::{borrow::Cow, future::Future};
+use std::{borrow::Cow, cell::RefCell, future::Future, rc::Rc};
 
 impl<F, S, R> IntoStyle<R> for (&'static str, F)
 where
@@ -432,7 +433,7 @@ where
     Rndr: DomRenderer + 'static,
 {
     type AsyncOutput = Fut::Output;
-    type State = ();
+    type State = Rc<RefCell<Option<<Fut::Output as IntoStyle<Rndr>>::State>>>;
     type Cloneable = Self;
     type CloneableOwned = Self;
 
@@ -448,15 +449,41 @@ where
         self,
         el: &<Rndr>::Element,
     ) -> Self::State {
-        todo!()
+        let el = el.to_owned();
+        let state = Rc::new(RefCell::new(None));
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                *state.borrow_mut() =
+                    Some(self.0.await.hydrate::<FROM_SERVER>(&el));
+            }
+        });
+        state
     }
 
     fn build(self, el: &<Rndr>::Element) -> Self::State {
-        todo!()
+        let el = el.to_owned();
+        let state = Rc::new(RefCell::new(None));
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                *state.borrow_mut() = Some(self.0.await.build(&el));
+            }
+        });
+        state
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        todo!()
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                let value = self.0.await;
+                let mut state = state.borrow_mut();
+                if let Some(state) = state.as_mut() {
+                    value.rebuild(state);
+                }
+            }
+        });
     }
 
     fn into_cloneable(self) -> Self::Cloneable {

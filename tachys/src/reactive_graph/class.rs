@@ -1,9 +1,10 @@
-use super::{ReactiveFunction, SharedReactiveFunction};
+use super::{ReactiveFunction, SharedReactiveFunction, Suspend};
 use crate::{html::class::IntoClass, renderer::DomRenderer};
+use any_spawner::Executor;
+use futures::FutureExt;
 use reactive_graph::{effect::RenderEffect, signal::guards::ReadGuard};
 use std::{
-    borrow::{Borrow, Cow},
-    ops::Deref,
+    borrow::Borrow, cell::RefCell, future::Future, ops::Deref, rc::Rc,
     sync::Arc,
 };
 
@@ -691,4 +692,83 @@ mod stable {
     class_signal_unsend!(ArcReadSignal);
     class_signal!(ArcMemo);
     class_signal!(ArcSignal);
+}
+
+impl<Fut, Rndr> IntoClass<Rndr> for Suspend<Fut>
+where
+    Fut: Clone + Future + Send + 'static,
+    Fut::Output: IntoClass<Rndr>,
+    Rndr: DomRenderer + 'static,
+{
+    type AsyncOutput = Fut::Output;
+    type State = Rc<RefCell<Option<<Fut::Output as IntoClass<Rndr>>::State>>>;
+    type Cloneable = Self;
+    type CloneableOwned = Self;
+
+    fn html_len(&self) -> usize {
+        0
+    }
+
+    fn to_html(self, style: &mut String) {
+        if let Some(inner) = self.0.now_or_never() {
+            inner.to_html(style);
+        } else {
+            panic!("You cannot use Suspend on an attribute outside Suspense");
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        el: &<Rndr>::Element,
+    ) -> Self::State {
+        let el = el.to_owned();
+        let state = Rc::new(RefCell::new(None));
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                *state.borrow_mut() =
+                    Some(self.0.await.hydrate::<FROM_SERVER>(&el));
+            }
+        });
+        state
+    }
+
+    fn build(self, el: &<Rndr>::Element) -> Self::State {
+        let el = el.to_owned();
+        let state = Rc::new(RefCell::new(None));
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                *state.borrow_mut() = Some(self.0.await.build(&el));
+            }
+        });
+        state
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        Executor::spawn_local({
+            let state = Rc::clone(&state);
+            async move {
+                let value = self.0.await;
+                let mut state = state.borrow_mut();
+                if let Some(state) = state.as_mut() {
+                    value.rebuild(state);
+                }
+            }
+        });
+    }
+
+    fn into_cloneable(self) -> Self::Cloneable {
+        self
+    }
+
+    fn into_cloneable_owned(self) -> Self::CloneableOwned {
+        self
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self.0.await
+    }
 }
