@@ -4,10 +4,7 @@ use crate::{
 };
 use reactive_graph::{
     signal::{
-        guards::{
-            Mapped, MappedMut, Plain, ReadGuard, UntrackedWriteGuard,
-            WriteGuard,
-        },
+        guards::{Mapped, MappedMut, WriteGuard},
         ArcTrigger,
     },
     traits::{
@@ -85,8 +82,8 @@ where
 impl<Inner, Prev, T> StoreField<T> for Subfield<Inner, Prev, T>
 where
     Inner: StoreField<Prev>,
+    Prev: 'static,
 {
-    type Orig = Inner::Orig;
     type Reader = Mapped<Inner::Reader, T>;
     type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
 
@@ -95,10 +92,6 @@ where
             .path()
             .into_iter()
             .chain(iter::once(self.path_segment))
-    }
-
-    fn data(&self) -> Arc<RwLock<Self::Orig>> {
-        self.inner.data()
     }
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
@@ -145,6 +138,7 @@ where
 impl<Inner, Prev, T> Trigger for Subfield<Inner, Prev, T>
 where
     Inner: StoreField<Prev>,
+    Prev: 'static,
 {
     fn trigger(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
@@ -154,7 +148,7 @@ where
 
 impl<Inner, Prev, T> Track for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev> + Send + Sync + Clone + 'static,
+    Inner: StoreField<Prev> + 'static,
     Prev: 'static,
     T: 'static,
 {
@@ -167,6 +161,7 @@ where
 impl<Inner, Prev, T> ReadUntracked for Subfield<Inner, Prev, T>
 where
     Inner: StoreField<Prev>,
+    Prev: 'static,
 {
     type Value = <Self as StoreField<T>>::Reader;
 
@@ -179,6 +174,7 @@ impl<Inner, Prev, T> Writeable for Subfield<Inner, Prev, T>
 where
     T: 'static,
     Inner: StoreField<Prev>,
+    Prev: 'static,
 {
     type Value = T;
 
