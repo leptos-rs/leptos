@@ -13,6 +13,7 @@ lto = true
 [dependencies]
 console_error_panic_hook = "0.1"
 console_log = "1.0"
+log = "0.4"
 leptos = { path = "../../leptos" }
 leptos_axum = { path = "../../integrations/axum", default-features = false, optional = true }
 leptos_meta = { path = "../../meta" }

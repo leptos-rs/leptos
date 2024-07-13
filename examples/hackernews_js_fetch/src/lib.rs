@@ -33,11 +33,9 @@ pub fn App() -> impl IntoView {
     let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <head>
-            <Stylesheet id="leptos" href="/public/style.css"/>
-            <Link rel="shortcut icon" type_="image/ico" href="/public/favicon.ico"/>
-            <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
-        </head>
+        <Stylesheet id="leptos" href="/public/style.css"/>
+        <Link rel="shortcut icon" type_="image/ico" href="/public/favicon.ico"/>
+        <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
         <Router set_is_routing>
             // shows a progress bar while async data are loading
             <div class="routing-progress">
@@ -66,11 +64,11 @@ pub fn hydrate() {
 
 #[cfg(feature = "ssr")]
 mod ssr_imports {
-    use crate::App;
-    use axum::{routing::post, Router};
+    use crate::{shell, App};
+    use axum::Router;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use tracing::log::{info, Level};
+    use log::{info, Level};
     use wasm_bindgen::prelude::wasm_bindgen;
 
     #[wasm_bindgen]
@@ -86,12 +84,15 @@ mod ssr_imports {
                 .output_name("client")
                 .site_pkg_dir("pkg")
                 .build();
+
             let routes = generate_route_list(App);
 
             // build our application with a route
-            let app: axum::Router<()> = Router::new()
-                .leptos_routes(&leptos_options, routes, App)
-                .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
+            let app = Router::new()
+                .leptos_routes(&leptos_options, routes, {
+                    let leptos_options = leptos_options.clone();
+                    move || shell(leptos_options.clone())
+                })
                 .with_state(leptos_options);
 
             info!("creating handler instance");
