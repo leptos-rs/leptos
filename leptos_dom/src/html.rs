@@ -390,6 +390,15 @@ impl From<(&'static str, Attribute)> for Binding {
     }
 }
 
+impl From<(String, Attribute)> for Binding {
+    fn from((name, value): (String, Attribute)) -> Self {
+        Self::Attribute {
+            name: name.into(),
+            value,
+        }
+    }
+}
+
 impl From<(Oco<'static, str>, Attribute)> for Binding {
     fn from((name, value): (Oco<'static, str>, Attribute)) -> Self {
         Self::Attribute { name, value }

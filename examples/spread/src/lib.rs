@@ -7,7 +7,10 @@ pub fn SpreadingExample() -> impl IntoView {
         let _ = window().alert_with_message(msg.as_ref());
     }
 
-    let attrs_str: Vec<(&'static str, Attribute)> =
+    let attrs_static_str: Vec<(&'static str, Attribute)> =
+        vec![("data-foo".into(), "42".into_attribute())];
+
+    let attrs_string: Vec<(String, Attribute)> =
         vec![("data-foo".into(), "42".into_attribute())];
 
     let attrs_only: Vec<(Oco<'static, str>, Attribute)> =
@@ -35,8 +38,12 @@ pub fn SpreadingExample() -> impl IntoView {
         }))];
 
     view! {
-        <div {..attrs_str}>
-            "<div {..attrs_str} />"
+        <div {..attrs_static_str}>
+            "<div {..attrs_static_str} />"
+        </div>
+
+        <div {..attrs_string}>
+            "<div {..attrs_string} />"
         </div>
 
         <div {..attrs_only}>
@@ -55,24 +62,10 @@ pub fn SpreadingExample() -> impl IntoView {
             "<div {..partial_attrs} {..partial_event_handlers} />"
         </div>
 
-        <SpreadingAttrsComponent {..attrs_only} />
-
         // Overwriting an event handler, here on:click, will result in a panic in debug builds. In release builds, the initial handler is kept.
         // If spreading is used, prefer manually merging event handlers in the binding list instead.
         //<div {..mixed} on:click=|_e| { alert("I will never be seen..."); }>
         //    "with overwritten click handler"
         //</div>
-    }
-}
-
-#[component]
-pub fn SpreadingAttrsComponent(
-    #[prop(into)]
-    #[prop(optional)]
-    #[prop(attrs)]
-    attrs: Vec<(Oco<'static, str>, Attribute)>,
-) -> impl IntoView {
-    view! {
-        <div {..attrs}>attrs</div>
     }
 }
