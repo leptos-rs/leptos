@@ -8,7 +8,7 @@ pub fn SpreadingExample() -> impl IntoView {
     }
 
     let attrs_static_str: Vec<(&'static str, Attribute)> =
-        vec![("data-foo".into(), "42".into_attribute())];
+        vec![("data-foo", "42".into_attribute())];
 
     let attrs_string: Vec<(String, Attribute)> =
         vec![("data-foo".into(), "42".into_attribute())];
