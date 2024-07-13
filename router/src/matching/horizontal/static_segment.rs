@@ -93,7 +93,7 @@ mod tests {
 
     use super::{PossibleRouteMatch, StaticSegment};
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     enum Paths {
         Foo,
         Bar,
