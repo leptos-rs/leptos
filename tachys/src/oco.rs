@@ -8,6 +8,7 @@ use crate::{
 };
 use oco_ref::Oco;
 
+/// Retained view state for [`Oco`].
 pub struct OcoStrState<R: Renderer> {
     node: R::Text,
     str: Oco<'static, str>,

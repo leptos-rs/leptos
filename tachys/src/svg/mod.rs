@@ -15,6 +15,7 @@ macro_rules! svg_elements {
 	($($tag:ident  [$($attr:ty),*]),* $(,)?) => {
         paste::paste! {
             $(
+                /// An SVG attribute.
                 // `tag()` function
                 #[allow(non_snake_case)]
                 pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
@@ -31,6 +32,7 @@ macro_rules! svg_elements {
                     }
                 }
 
+                /// An SVG element.
                 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
                 pub struct [<$tag:camel>];
 

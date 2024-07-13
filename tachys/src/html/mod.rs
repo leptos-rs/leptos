@@ -5,21 +5,32 @@ use crate::{
 };
 use std::marker::PhantomData;
 
+/// Types for HTML attributes.
 pub mod attribute;
+/// Types for manipulating the `class` attribute and `classList`.
 pub mod class;
+/// Types for creating user-defined attributes with custom behavior (directives).
 pub mod directive;
+/// Types for HTML elements.
 pub mod element;
+/// Types for DOM events.
 pub mod event;
+/// Types for adding interactive islands to inert HTML pages.
 pub mod islands;
+/// Types for accessing a reference to an HTML element.
 pub mod node_ref;
+/// Types for DOM properties.
 pub mod property;
+/// Types for the `style` attribute and individual style manipulation.
 pub mod style;
 
+/// A `<!DOCTYPE>` declaration.
 pub struct Doctype<R: Renderer> {
     value: &'static str,
     rndr: PhantomData<R>,
 }
 
+/// Creates a `<!DOCTYPE>`.
 pub fn doctype<R: Renderer>(value: &'static str) -> Doctype<R> {
     Doctype {
         value,

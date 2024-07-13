@@ -14,11 +14,15 @@ use std::{
 };
 use wasm_bindgen::convert::FromWasmAbi;
 
+/// A cloneable event callback.
 pub type SharedEventCallback<E> = Rc<RefCell<dyn FnMut(E)>>;
 
+/// A function that can be called in response to an event.
 pub trait EventCallback<E>: 'static {
+    /// Runs the event handler.
     fn invoke(&mut self, event: E);
 
+    /// Converts this into a cloneable/shared event handler.
     fn into_shared(self) -> SharedEventCallback<E>;
 }
 
@@ -46,6 +50,7 @@ where
     }
 }
 
+/// An event listener with a typed event target.
 pub struct Targeted<E, T, R> {
     event: E,
     el_ty: PhantomData<T>,
@@ -53,10 +58,12 @@ pub struct Targeted<E, T, R> {
 }
 
 impl<E, T, R> Targeted<E, T, R> {
+    /// Returns the inner event.
     pub fn into_inner(self) -> E {
         self.event
     }
 
+    /// Returns the event's target, as an HTML element of the correct type.
     pub fn target(&self) -> T
     where
         T: CastFrom<R::Element>,
@@ -93,6 +100,7 @@ impl<E, T, R> From<E> for Targeted<E, T, R> {
     }
 }
 
+/// Creates an [`Attribute`] that will add an event listener to an element.
 pub fn on<E, F, R>(event: E, cb: F) -> On<E, F, R>
 where
     F: FnMut(E::EventType) + 'static,
@@ -108,6 +116,7 @@ where
     }
 }
 
+/// Creates an [`Attribute`] that will add an event listener with a typed target to an element.
 #[allow(clippy::type_complexity)]
 pub fn on_target<E, T, R, F>(
     event: E,
@@ -125,6 +134,7 @@ where
     on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
 }
 
+/// An [`Attribute`] that adds an event listener to an element.
 pub struct On<E, F, R> {
     event: E,
     cb: SendWrapper<F>,
@@ -153,6 +163,7 @@ where
     R: DomRenderer,
     E::EventType: From<R::Event>,
 {
+    /// Attaches the event listener to the element.
     pub fn attach(self, el: &R::Element) -> RemoveEventHandler<R::Element> {
         fn attach_inner<R: DomRenderer>(
             el: &R::Element,

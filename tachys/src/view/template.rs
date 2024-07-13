@@ -7,6 +7,11 @@ use crate::{
 };
 use std::marker::PhantomData;
 
+/// A view wrapper that uses a `<template>` node to optimize DOM node creation.
+///
+/// Rather than creating all of the DOM nodes each time it is built, this template will create a
+/// single `<template>` node once, then use `.cloneNode(true)` to clone that entire tree, and
+/// hydrate it to add event listeners and interactivity for this instance.
 pub struct ViewTemplate<V, R> {
     view: V,
     rndr: PhantomData<R>,
@@ -17,6 +22,7 @@ where
     V: Render<R> + ToTemplate + 'static,
     R: DomRenderer,
 {
+    /// Creates a new view template.
     pub fn new(view: V) -> Self {
         Self {
             view,

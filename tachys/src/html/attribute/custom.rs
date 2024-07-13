@@ -6,6 +6,7 @@ use crate::{
 };
 use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 
+/// Adds a custom attribute with any key-value combintion.
 #[inline(always)]
 pub fn custom_attribute<K, V, R>(key: K, value: V) -> CustomAttr<K, V, R>
 where
@@ -20,6 +21,7 @@ where
     }
 }
 
+/// A custom attribute with any key-value combination.
 #[derive(Debug)]
 pub struct CustomAttr<K, V, R>
 where
@@ -154,7 +156,9 @@ where
 }
 
 // TODO this needs to be a method, not a const
+/// Defines a custom attribute key.
 pub trait CustomAttributeKey: Clone + AsRef<str> + Send + 'static {
+    /// The attribute name.
     const KEY: &'static str;
 }
 
@@ -181,6 +185,7 @@ impl<const K: &'static str> CustomAttributeKey
     const KEY: &'static str = K;
 }
 
+/// Adds a custom attribute to an element.
 pub trait CustomAttribute<K, V, Rndr>
 where
     K: CustomAttributeKey,
@@ -188,6 +193,7 @@ where
     Rndr: DomRenderer,
     Self: Sized + AddAnyAttr<Rndr>,
 {
+    /// Adds an HTML attribute by key and value.
     fn attr(
         self,
         key: K,

@@ -5,9 +5,12 @@ use crate::{
 use std::{borrow::Cow, fmt::Debug};
 use wasm_bindgen::JsValue;
 
+/// A DOM renderer.
 pub mod dom;
 #[cfg(feature = "testing")]
+/// A renderer based on a mock DOM.
 pub mod mock_dom;
+/// A DOM renderer optimized for element creation.
 #[cfg(feature = "sledgehammer")]
 pub mod sledgehammer;
 
@@ -38,6 +41,7 @@ pub trait Renderer: Send + Sized + Debug + 'static {
         + Clone
         + 'static;
 
+    /// Interns a string slice, if that is available on this platform and useful as an optimization.
     fn intern(text: &str) -> &str;
 
     /// Creates a new element node.
@@ -123,6 +127,7 @@ pub trait Renderer: Send + Sized + Debug + 'static {
     /// Returns the next sibling of the given node, if any.
     fn next_sibling(node: &Self::Node) -> Option<Self::Node>;
 
+    /// Logs the given node in a platform-appropriate way.
     fn log_node(node: &Self::Node);
 }
 
@@ -208,7 +213,7 @@ pub trait DomRenderer: Renderer {
     fn get_template<V>() -> Self::TemplateElement
     where
         V: ToTemplate + 'static;
-
+    /// Deeply clones a template.
     fn clone_template(tpl: &Self::TemplateElement) -> Self::Element;
 }
 
@@ -222,5 +227,6 @@ pub trait CastFrom<T>
 where
     Self: Sized,
 {
+    /// Casts a node from one type to another.
     fn cast_from(source: T) -> Option<Self>;
 }

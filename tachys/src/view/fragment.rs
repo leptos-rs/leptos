@@ -7,7 +7,9 @@ pub struct Fragment<R: Renderer> {
     pub nodes: Vec<AnyView<R>>,
 }
 
+/// Converts some view into a type-erased collection of views.
 pub trait IntoFragment<R: Renderer> {
+    /// Converts some view into a type-erased collection of views.
     fn into_fragment(self) -> Fragment<R>;
 }
 

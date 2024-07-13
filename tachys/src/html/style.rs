@@ -5,11 +5,9 @@ use crate::{
     renderer::DomRenderer,
     view::{Position, ToTemplate},
 };
-use std::{borrow::Cow, future::Future, marker::PhantomData, sync::Arc};
+use std::{future::Future, marker::PhantomData, sync::Arc};
 
-/// Adds to the style attribute of the parent element.
-///
-/// This can take a plain string value, which will be assigned to the `style`
+/// Returns an [`Attribute`] that will add to an element's CSS styles.
 #[inline(always)]
 pub fn style<S, R>(style: S) -> Style<S, R>
 where
@@ -22,6 +20,7 @@ where
     }
 }
 
+/// An [`Attribute`] that will add to an element's CSS styles.
 #[derive(Debug)]
 pub struct Style<S, R> {
     style: S,
@@ -140,40 +139,41 @@ where
 /// Any type that can be added to the `style` attribute or set as a style in
 /// the [`CssStyleDeclaration`]. This could be a plain string, or a property name-value pair.
 pub trait IntoStyle<R: DomRenderer>: Send {
+    /// The type after all async data have resolved.
     type AsyncOutput: IntoStyle<R>;
+    /// The view state retained between building and rebuilding.
     type State;
+    /// An equivalent value that can be cloned.
     type Cloneable: IntoStyle<R> + Clone;
+    /// An equivalent value that can be cloned and is `'static`.
     type CloneableOwned: IntoStyle<R> + Clone + 'static;
 
+    /// Renders the style to HTML.
     fn to_html(self, style: &mut String);
 
+    /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
+    /// either been rendered on the server, or cloned for a `<template>`.
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
 
+    /// Adds this style to the element during client-side rendering.
     fn build(self, el: &R::Element) -> Self::State;
 
+    /// Updates the value.
     fn rebuild(self, state: &mut Self::State);
 
+    /// Converts this to a cloneable type.
     fn into_cloneable(self) -> Self::Cloneable;
 
+    /// Converts this to a cloneable, owned type.
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
 
+    /// “Runs” the attribute without other side effects. For primitive types, this is a no-op. For
+    /// reactive types, this can be used to gather data about reactivity or about asynchronous data
+    /// that needs to be loaded.
     fn dry_resolve(&mut self);
 
+    /// “Resolves” this into a type that is not waiting for any asynchronous data.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
-}
-
-pub trait StylePropertyValue<R: DomRenderer> {
-    type State;
-
-    fn to_html(self, name: &str, style: &mut String);
-
-    fn hydrate<const FROM_SERVER: bool>(
-        self,
-        name: Cow<'static, str>,
-        el: &R::Element,
-    ) -> Self::State;
-
-    fn rebuild(self, name: Cow<'static, str>, state: &mut Self::State);
 }
 
 impl<'a, R> IntoStyle<R> for &'a str

@@ -15,6 +15,7 @@ use std::{fmt::Debug, marker::PhantomData};
 macro_rules! mathml_global {
 	($tag:ty, $attr:ty) => {
 		paste::paste! {
+            /// A MathML attribute.
 			pub fn $attr<V>(self, value: V) -> HtmlElement <
 				[<$tag:camel>],
 				<At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
@@ -47,6 +48,7 @@ macro_rules! mathml_elements {
         paste::paste! {
             $(
                 // `tag()` function
+                /// A MathML element.
                 #[track_caller]
                 pub fn $tag<Rndr>() -> HtmlElement<[<$tag:camel>], (), (), Rndr>
                 where
@@ -62,6 +64,7 @@ macro_rules! mathml_elements {
                     }
                 }
 
+                /// A MathML element.
                 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
                 pub struct [<$tag:camel>];
 
@@ -81,6 +84,7 @@ macro_rules! mathml_elements {
 					mathml_global!($tag, scriptlevel);
 
 					$(
+                        /// A MathML attribute.
                         pub fn $attr<V>(self, value: V) -> HtmlElement <
                             [<$tag:camel>],
                             <At as NextTuple>::Output<Attr<$crate::html::attribute::[<$attr:camel>], V, Rndr>>,
