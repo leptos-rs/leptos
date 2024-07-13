@@ -13,7 +13,7 @@ pub struct BodyContext {
     #[cfg(feature = "ssr")]
     id: Rc<RefCell<Option<TextProp>>>,
     #[cfg(feature = "ssr")]
-    attributes: Rc<RefCell<HashMap<&'static str, Attribute>>>,
+    attributes: Rc<RefCell<HashMap<Oco<'static, str>, Attribute>>>,
 }
 
 impl BodyContext {
@@ -106,7 +106,7 @@ pub fn Body(
     id: Option<TextProp>,
     /// Arbitrary attributes to add to the `<body>`
     #[prop(attrs)]
-    attributes: Vec<(&'static str, Attribute)>,
+    attributes: Vec<(Oco<'static, str>, Attribute)>,
 ) -> impl IntoView {
     cfg_if! {
         if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {

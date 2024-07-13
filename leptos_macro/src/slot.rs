@@ -134,7 +134,7 @@ impl ToTokens for Model {
             }
 
             impl #impl_generics ::leptos::DynAttrs for #name #generics #where_clause {
-                fn dyn_attrs(mut self, v: Vec<(&'static str, ::leptos::Attribute)>) -> Self {
+                fn dyn_attrs(mut self, v: Vec<(::leptos::Oco<'static, str>, ::leptos::Attribute)>) -> Self {
                     #dyn_attrs_props
                     self
                 }

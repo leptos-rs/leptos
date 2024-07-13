@@ -64,7 +64,7 @@ pub fn Script(
     children: Option<Box<dyn FnOnce() -> Fragment>>,
     /// Custom attributes.
     #[prop(attrs, optional)]
-    attrs: Vec<(&'static str, Attribute)>,
+    attrs: Vec<(Oco<'static, str>, Attribute)>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();

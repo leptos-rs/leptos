@@ -29,7 +29,7 @@ pub fn Stylesheet(
     id: Option<String>,
     /// Custom attributes.
     #[prop(attrs, optional)]
-    attrs: Vec<(&'static str, Attribute)>,
+    attrs: Vec<(Oco<'static, str>, Attribute)>,
 ) -> impl IntoView {
     if let Some(id) = id {
         view! {

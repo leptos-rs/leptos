@@ -99,7 +99,7 @@ pub fn A<H>(
     /// Arbitrary attributes to add to the `<a>`. Attributes can be added with the
     /// `attr:` syntax in the `view` macro.
     #[prop(attrs)]
-    attributes: Vec<(&'static str, Attribute)>,
+    attributes: Vec<(Oco<'static, str>, Attribute)>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -119,7 +119,7 @@ where
         class: Option<AttributeValue>,
         #[allow(unused)] active_class: Option<Oco<'static, str>>,
         id: Option<Oco<'static, str>>,
-        #[allow(unused)] attributes: Vec<(&'static str, Attribute)>,
+        #[allow(unused)] attributes: Vec<(Oco<'static, str>, Attribute)>,
         children: Children,
     ) -> View {
         #[cfg(not(any(feature = "hydrate", feature = "csr")))]

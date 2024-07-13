@@ -73,7 +73,7 @@ pub fn Form<A>(
     /// Arbitrary attributes to add to the `<form>`. Attributes can be added with the
     /// `attr:` syntax in the `view` macro.
     #[prop(attrs)]
-    attributes: Vec<(&'static str, Attribute)>,
+    attributes: Vec<(Oco<'static, str>, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -121,7 +121,7 @@ where
         node_ref: Option<NodeRef<html::Form>>,
         noscroll: bool,
         replace: bool,
-        attributes: Vec<(&'static str, Attribute)>,
+        attributes: Vec<(Oco<'static, str>, Attribute)>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
         let on_submit = {
@@ -456,7 +456,7 @@ pub fn ActionForm<ServFn>(
     node_ref: Option<NodeRef<html::Form>>,
     /// Arbitrary attributes to add to the `<form>`
     #[prop(attrs, optional)]
-    attributes: Vec<(&'static str, Attribute)>,
+    attributes: Vec<(Oco<'static, str>, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -569,7 +569,7 @@ pub fn MultiActionForm<ServFn>(
     node_ref: Option<NodeRef<html::Form>>,
     /// Arbitrary attributes to add to the `<form>`
     #[prop(attrs, optional)]
-    attributes: Vec<(&'static str, Attribute)>,
+    attributes: Vec<(Oco<'static, str>, Attribute)>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView

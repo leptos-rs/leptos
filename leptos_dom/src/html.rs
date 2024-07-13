@@ -373,7 +373,7 @@ pub enum Binding {
     /// A statically named attribute.
     Attribute {
         /// Name of the attribute.
-        name: &'static str,
+        name: Oco<'static, str>,
         /// Value of the attribute, possibly reactive.
         value: Attribute,
     },
@@ -383,6 +383,15 @@ pub enum Binding {
 
 impl From<(&'static str, Attribute)> for Binding {
     fn from((name, value): (&'static str, Attribute)) -> Self {
+        Self::Attribute {
+            name: name.into(),
+            value,
+        }
+    }
+}
+
+impl From<(Oco<'static, str>, Attribute)> for Binding {
+    fn from((name, value): (Oco<'static, str>, Attribute)) -> Self {
         Self::Attribute { name, value }
     }
 }
@@ -643,7 +652,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         {
             attribute_helper(
                 self.element.as_ref(),
-                name,
+                name.into(),
                 attr.into_attribute(),
             );
             self
@@ -682,7 +691,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[track_caller]
     pub fn attrs(
         mut self,
-        attrs: impl std::iter::IntoIterator<Item = (&'static str, Attribute)>,
+        attrs: impl std::iter::IntoIterator<
+            Item = (impl Into<Oco<'static, str>>, Attribute),
+        >,
     ) -> Self {
         for (name, value) in attrs {
             self = self.attr(name, value);

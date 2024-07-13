@@ -1,5 +1,5 @@
 use crate::{use_head, TextProp};
-use leptos::{component, Attribute, IntoView};
+use leptos::{component, Attribute, IntoView, Oco};
 
 /// Injects an [`HTMLMetaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
@@ -40,7 +40,7 @@ pub fn Meta(
     content: Option<TextProp>,
     /// Custom attributes.
     #[prop(attrs, optional)]
-    attrs: Vec<(&'static str, Attribute)>,
+    attrs: Vec<(Oco<'static, str>, Attribute)>,
 ) -> impl IntoView {
     let meta = use_head();
     let next_id = meta.tags.get_next_id();

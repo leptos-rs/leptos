@@ -275,7 +275,7 @@ pub trait Props {
 
 #[doc(hidden)]
 pub trait DynAttrs {
-    fn dyn_attrs(self, _args: Vec<(&'static str, Attribute)>) -> Self
+    fn dyn_attrs(self, _args: Vec<(Oco<'static, str>, Attribute)>) -> Self
     where
         Self: Sized,
     {
