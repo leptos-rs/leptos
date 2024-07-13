@@ -6,6 +6,7 @@ use crate::{
 use std::{borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // FIXME custom element HTML rendering is broken because tag names aren't static
+/// Creates a custom element.
 #[track_caller]
 pub fn custom<E, Rndr>(tag: E) -> HtmlElement<Custom<E>, (), (), Rndr>
 where
@@ -22,6 +23,7 @@ where
     }
 }
 
+/// A custom HTML element.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Custom<E>(E)
 where
@@ -57,8 +59,10 @@ where
     }
 }
 
+/// The element name for a custom element.
 // TODO these are all broken for custom elements
 pub trait CustomElementKey: AsRef<str> + Send {
+    /// The element name.
     const KEY: &'static str;
 }
 

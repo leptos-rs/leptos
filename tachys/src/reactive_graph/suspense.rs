@@ -19,25 +19,7 @@ use reactive_graph::{
 };
 use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
 
-pub trait FutureViewExt: Sized {
-    fn wait(self) -> Suspend<Self>
-    where
-        Self: Future,
-    {
-        Suspend(self)
-    }
-}
-
-impl<F> FutureViewExt for F where F: Future + Sized {}
-
-/* // TODO remove in favor of Suspend()?
-#[macro_export]
-macro_rules! suspend {
-    ($fut:expr) => {
-        move || $crate::prelude::FutureViewExt::wait(async move { $fut })
-    };
-}*/
-
+/// A suspended `Future`, which can be used in the view.
 #[derive(Clone)]
 pub struct Suspend<Fut>(pub Fut);
 
@@ -47,6 +29,7 @@ impl<Fut> Debug for Suspend<Fut> {
     }
 }
 
+/// Retained view state for [`Suspend`].
 pub struct SuspendState<T, Rndr>
 where
     T: Render<Rndr>,

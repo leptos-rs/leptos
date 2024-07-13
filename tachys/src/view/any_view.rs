@@ -14,6 +14,16 @@ use std::{
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 
+/// A type-erased view. This can be used if control flow requires that multiple different types of
+/// view must be received, and it is either impossible or too cumbersome to use the `EitherOf___`
+/// enums.
+///
+/// It can also be used to create recursive components, which otherwise cannot return themselves
+/// due to the static typing of the view tree.
+///
+/// Generally speaking, using `AnyView` restricts the amount of information available to the
+/// compiler and should be limited to situations in which it is necessary to preserve the maximum
+/// amount of type information possible.
 pub struct AnyView<R>
 where
     R: Renderer,
@@ -49,6 +59,7 @@ where
         fn(Box<dyn Any>, &Cursor<R>, &PositionState) -> AnyViewState<R>,
 }
 
+/// Retained view state for [`AnyView`].
 pub struct AnyViewState<R>
 where
     R: Renderer,
@@ -77,10 +88,12 @@ where
     }
 }
 
+/// Allows converting some view into [`AnyView`].
 pub trait IntoAny<R>
 where
     R: Renderer,
 {
+    /// Converts the view into a type-erased [`AnyView`].
     fn into_any(self) -> AnyView<R>;
 }
 

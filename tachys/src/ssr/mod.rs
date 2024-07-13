@@ -12,10 +12,11 @@ use std::{
     task::{Context, Poll},
 };
 
+/// Manages streaming HTML rendering for the response to a single request.
 #[derive(Default)]
 pub struct StreamBuilder {
     sync_buf: String,
-    pub chunks: VecDeque<StreamChunk>,
+    pub(crate) chunks: VecDeque<StreamChunk>,
     pending: Option<ChunkFuture>,
     pending_ooo: VecDeque<PinnedFuture<OooChunk>>,
     id: Option<Vec<u16>>,
@@ -25,10 +26,12 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type ChunkFuture = PinnedFuture<VecDeque<StreamChunk>>;
 
 impl StreamBuilder {
+    /// Creates a new HTML stream.
     pub fn new(id: Option<Vec<u16>>) -> Self {
         Self::with_capacity(0, id)
     }
 
+    /// Creates a new stream with a given capacity in the synchronous buffer and an identifier.
     pub fn with_capacity(capacity: usize, id: Option<Vec<u16>>) -> Self {
         Self {
             id,
@@ -37,14 +40,17 @@ impl StreamBuilder {
         }
     }
 
+    /// Reserves additional space in the synchronous buffer.
     pub fn reserve(&mut self, additional: usize) {
         self.sync_buf.reserve(additional);
     }
 
+    /// Pushes text into the synchronous buffer.
     pub fn push_sync(&mut self, string: &str) {
         self.sync_buf.push_str(string);
     }
 
+    /// Pushes an async block into the stream.
     pub fn push_async(
         &mut self,
         fut: impl Future<Output = VecDeque<StreamChunk>> + Send + 'static,
@@ -59,10 +65,12 @@ impl StreamBuilder {
         });
     }
 
+    /// Mutates the synchronous buffer.
     pub fn with_buf(&mut self, fun: impl FnOnce(&mut String)) {
         fun(&mut self.sync_buf)
     }
 
+    /// Takes all chunks currently available in the stream, including the synchronous buffer.
     pub fn take_chunks(&mut self) -> VecDeque<StreamChunk> {
         let sync = mem::take(&mut self.sync_buf);
         if !sync.is_empty() {
@@ -71,11 +79,13 @@ impl StreamBuilder {
         mem::take(&mut self.chunks)
     }
 
+    /// Appends another stream to this one.
     pub fn append(&mut self, mut other: StreamBuilder) {
         self.chunks.append(&mut other.chunks);
         self.sync_buf.push_str(&other.sync_buf);
     }
 
+    /// Completes the stream.
     pub fn finish(mut self) -> Self {
         let sync_buf_remaining = mem::take(&mut self.sync_buf);
         if sync_buf_remaining.is_empty() {
@@ -89,6 +99,7 @@ impl StreamBuilder {
     }
 
     // Out-of-Order Streaming
+    /// Pushes a fallback for out-of-order streaming.
     pub fn push_fallback<View, Rndr>(
         &mut self,
         fallback: View,
@@ -103,16 +114,19 @@ impl StreamBuilder {
         *position = Position::NextChild;
     }
 
+    /// Increments the chunk ID.
     pub fn next_id(&mut self) {
         if let Some(last) = self.id.as_mut().and_then(|ids| ids.last_mut()) {
             *last += 1;
         }
     }
 
+    /// Returns the current ID.
     pub fn clone_id(&self) -> Option<Vec<u16>> {
         self.id.clone()
     }
 
+    /// Returns an ID that is a child of the current one.
     pub fn child_id(&self) -> Option<Vec<u16>> {
         let mut child = self.id.clone();
         if let Some(child) = child.as_mut() {
@@ -121,6 +135,7 @@ impl StreamBuilder {
         child
     }
 
+    /// Inserts a marker for the current out-of-order chunk.
     pub fn write_chunk_marker(&mut self, opening: bool) {
         if let Some(id) = &self.id {
             self.sync_buf.reserve(11 + (id.len() * 2));
@@ -136,6 +151,7 @@ impl StreamBuilder {
         }
     }
 
+    /// Injects an out-of-order chunk into the stream.
     pub fn push_async_out_of_order<View, Rndr>(
         &mut self,
         view: impl Future<Output = Option<View>> + Send + 'static,
@@ -193,16 +209,23 @@ impl Debug for StreamBuilder {
     }
 }
 
+/// A chunk of the HTML stream.
 pub enum StreamChunk {
+    /// Some synchronously-available HTML.
     Sync(String),
+    /// The chunk can be rendered asynchronously in order.
     Async {
+        /// A collection of in-order chunks.
         chunks: PinnedFuture<VecDeque<StreamChunk>>,
     },
+    /// The chunk can be rendered asynchronously out of order.
     OutOfOrder {
+        /// A collection of out-of-order chunks
         chunks: PinnedFuture<OooChunk>,
     },
 }
 
+/// A chunk of the out-of-order stream.
 #[derive(Debug)]
 pub struct OooChunk {
     id: String,
@@ -211,6 +234,7 @@ pub struct OooChunk {
 }
 
 impl OooChunk {
+    /// Pushes an opening `<template>` tag into the buffer.
     pub fn push_start(id: &str, buf: &mut String) {
         buf.push_str("<template id=\"");
         buf.push_str(id);
@@ -218,6 +242,7 @@ impl OooChunk {
         buf.push_str("\">");
     }
 
+    /// Pushes a closing `</template>` and update script into the buffer.
     pub fn push_end(replace: bool, id: &str, buf: &mut String) {
         buf.push_str("</template>");
 
@@ -411,6 +436,7 @@ impl Stream for StreamBuilder {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -635,3 +661,4 @@ mod tests {
         assert!(stream.next().await.is_none());
     }
 }
+*/

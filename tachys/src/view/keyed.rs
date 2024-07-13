@@ -18,6 +18,7 @@ use std::{
 
 type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 
+/// Creates a keyed list of views.
 pub fn keyed<T, I, K, KF, VF, V, Rndr>(
     items: I,
     key_fn: KF,
@@ -39,6 +40,7 @@ where
     }
 }
 
+/// A keyed list of views.
 pub struct Keyed<T, I, K, KF, VF, V, Rndr>
 where
     I: IntoIterator<Item = T>,
@@ -53,6 +55,7 @@ where
     rndr: PhantomData<Rndr>,
 }
 
+/// Retained view state for a keyed list.
 pub struct KeyedState<K, V, Rndr>
 where
     K: Eq + Hash + 'static,

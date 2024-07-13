@@ -25,6 +25,7 @@ pub use element_ext::*;
 pub use elements::*;
 pub use inner_html::*;
 
+/// The typed representation of an HTML element.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HtmlElement<E, At, Ch, Rndr> {
     pub(crate) tag: E,
@@ -49,24 +50,6 @@ where
         Self::TAG
     }
 }*/
-
-impl<E, At, Ch, Rndr> HtmlElement<E, At, Ch, Rndr> {
-    pub fn children(&self) -> &Ch {
-        &self.children
-    }
-
-    pub fn children_mut(&mut self) -> &mut Ch {
-        &mut self.children
-    }
-
-    pub fn attributes(&self) -> &At {
-        &self.attributes
-    }
-
-    pub fn attributes_mut(&mut self) -> &mut At {
-        &mut self.attributes
-    }
-}
 
 impl<E, At, Ch, NewChild, Rndr> ElementChild<Rndr, NewChild>
     for HtmlElement<E, At, Ch, Rndr>
@@ -136,34 +119,48 @@ where
     }
 }
 
+/// Adds a child to the element.
 pub trait ElementChild<Rndr, NewChild>
 where
     NewChild: Render<Rndr>,
     Rndr: Renderer,
 {
+    /// The type of the element, with the child added.
     type Output;
 
+    /// Adds a child to an element.
     fn child(self, child: NewChild) -> Self::Output;
 }
 
+/// An HTML element.
 pub trait ElementType: Send {
     /// The underlying native widget type that this represents.
     type Output;
 
+    /// The element's tag.
     const TAG: &'static str;
+    /// Whether the element is self-closing.
     const SELF_CLOSING: bool;
+    /// Whether the element's children should be escaped. This should be `true` except for elements
+    /// like `<style>` and `<script>`, which include other languages that should not use HTML
+    /// entity escaping.
     const ESCAPE_CHILDREN: bool;
 
+    /// The element's tag.
     fn tag(&self) -> &str;
 }
 
+/// Denotes that the type that implements this has a particular HTML element type.
 pub trait HasElementType {
+    /// The element type.
     type ElementType;
 }
 
-pub trait ElementWithChildren {}
+pub(crate) trait ElementWithChildren {}
 
+/// Creates an element.
 pub trait CreateElement<R: Renderer> {
+    /// Creates an element.
     fn create_element(&self) -> R::Element;
 }
 
@@ -386,6 +383,7 @@ where
     }
 }
 
+/// Renders an [`Attribute`] (which can be one or more HTML attributes) into an HTML buffer.
 pub fn attributes_to_html<At, R>(attr: At, buf: &mut String) -> String
 where
     At: Attribute<R>,
@@ -423,10 +421,11 @@ where
     inner_html
 }
 
+/// The retained view state for an HTML element.
 pub struct ElementState<At, Ch, R: Renderer> {
-    pub el: R::Element,
-    pub attrs: At,
-    pub children: Option<Ch>,
+    pub(crate) el: R::Element,
+    pub(crate) attrs: At,
+    pub(crate) children: Option<Ch>,
     rndr: PhantomData<R>,
 }
 

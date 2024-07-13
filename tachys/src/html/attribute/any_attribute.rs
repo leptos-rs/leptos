@@ -8,6 +8,7 @@ use std::{
 #[cfg(feature = "ssr")]
 use std::{future::Future, pin::Pin};
 
+/// A type-erased container for any [`Attribute`].
 pub struct AnyAttribute<R: Renderer> {
     type_id: TypeId,
     html_len: usize,
@@ -40,6 +41,7 @@ where
     }
 }
 
+/// View state for [`AnyAttribute`].
 pub struct AnyAttributeState<R>
 where
     R: Renderer,
@@ -50,10 +52,12 @@ where
     rndr: PhantomData<R>,
 }
 
+/// Converts an [`Attribute`] into [`AnyAttribute`].
 pub trait IntoAnyAttribute<R>
 where
     R: Renderer,
 {
+    /// Wraps the given attribute.
     fn into_any_attr(self) -> AnyAttribute<R>;
 }
 

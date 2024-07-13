@@ -9,6 +9,7 @@ use crate::{
 use std::marker::PhantomData;
 
 // TODO serialized props, too
+/// An island of interactivity in an otherwise-inert HTML document.
 pub struct Island<Rndr, View> {
     component: &'static str,
     view: View,
@@ -18,6 +19,7 @@ const ISLAND_TAG: &str = "leptos-island";
 const ISLAND_CHILDREN_TAG: &str = "leptos-children";
 
 impl<Rndr, View> Island<Rndr, View> {
+    /// Creates a new island with the given component name.
     pub fn new(component: &'static str, view: View) -> Self {
         Island {
             component,
@@ -152,12 +154,14 @@ where
     }
 }
 
+/// The children that will be projected into an [`Island`].
 pub struct IslandChildren<Rndr, View> {
     view: View,
     rndr: PhantomData<Rndr>,
 }
 
 impl<Rndr, View> IslandChildren<Rndr, View> {
+    /// Creates a new representation of the children.
     pub fn new(view: View) -> Self {
         IslandChildren {
             view,
