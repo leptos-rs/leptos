@@ -273,7 +273,7 @@ where
     ) {
         // opening tag
         buf.push('<');
-        buf.push_str(E::TAG);
+        buf.push_str(self.tag.tag());
 
         let inner_html = attributes_to_html(self.attributes, buf);
 
@@ -294,7 +294,7 @@ where
 
             // closing tag
             buf.push_str("</");
-            buf.push_str(E::TAG);
+            buf.push_str(self.tag.tag());
             buf.push('>');
         }
         *position = Position::NextChild;
@@ -311,7 +311,7 @@ where
         let mut buf = String::with_capacity(Self::MIN_LENGTH);
         // opening tag
         buf.push('<');
-        buf.push_str(E::TAG);
+        buf.push_str(self.tag.tag());
 
         let inner_html = attributes_to_html(self.attributes, &mut buf);
 
@@ -334,7 +334,7 @@ where
             // closing tag
             let mut buf = String::with_capacity(3 + E::TAG.len());
             buf.push_str("</");
-            buf.push_str(E::TAG);
+            buf.push_str(self.tag.tag());
             buf.push('>');
             buffer.push_sync(&buf);
         }
@@ -349,7 +349,7 @@ where
         // non-Static custom elements need special support in templates
         // because they haven't been inserted type-wise
         if E::TAG.is_empty() && !FROM_SERVER {
-            todo!()
+            panic!("Custom elements are not supported in ViewTemplate.");
         }
 
         let curr_position = position.get();
