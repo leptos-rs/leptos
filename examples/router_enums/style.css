@@ -1,0 +1,95 @@
+a[aria-current] {
+    font-weight: bold;
+}
+
+.outlet {
+  border: 1px dotted grey;
+}
+
+.contact, .contact-list {
+    border: 1px solid #c0c0c0;
+    border-radius: 3px;
+    padding: 1rem;
+}
+
+.fadeIn {
+  animation: 0.5s fadeIn forwards;
+}
+
+.fadeOut {
+  animation: 0.5s fadeOut forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.slideIn {
+  animation: 0.25s slideIn forwards;
+}
+
+.slideOut {
+  animation: 0.25s slideOut forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translate(100vw, 0);
+  }
+  to {
+    transform: translate(0px, 0px);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translate(0px, 0px);
+  }
+  to {
+    transform: translate(-100vw, 0);
+  }
+}
+
+.slideInBack {
+  animation: 0.25s slideInBack forwards;
+}
+
+.slideOutBack {
+  animation: 0.25s slideOutBack forwards;
+}
+
+@keyframes slideInBack {
+  from {
+    transform: translate(-100vw, 0);
+  }
+
+  to {
+    transform: translate(0px, 0px);
+  }
+}
+
+@keyframes slideOutBack {
+  from {
+    transform: translate(0px, 0px);
+  }
+
+  to {
+    transform: translate(100vw, 0);
+  }
+}

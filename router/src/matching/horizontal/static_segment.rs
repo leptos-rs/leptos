@@ -15,7 +15,7 @@ impl PossibleRouteMatch for () {
     fn generate_path(&self, _path: &mut Vec<PathSegment>) {}
 }
 
-pub trait Routable: Debug {
+pub trait Routable: Debug + Clone {
     fn into_str(&self) -> &'static str;
 }
 
