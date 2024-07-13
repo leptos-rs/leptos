@@ -20,6 +20,7 @@ use std::{
 mod class;
 mod guards;
 mod inner_html;
+/// Provides a reactive [`NodeRef`](node_ref::NodeRef) type.
 pub mod node_ref;
 mod owned;
 mod property;
@@ -78,6 +79,8 @@ where
         old.unmount();
     }
 }
+
+/// Retained view state for a [`RenderEffect`].
 pub struct RenderEffectState<T: 'static>(Option<RenderEffect<T>>);
 
 impl<T> From<RenderEffect<T>> for RenderEffectState<T> {
@@ -359,7 +362,9 @@ where
 
     fn to_html(self, _key: &str, _buf: &mut String) {
         #[cfg(feature = "tracing")]
-        tracing::warn!("Suspended attributes cannot be used outside Suspense.");
+        tracing::error!(
+            "Suspended attributes cannot be used outside Suspense."
+        );
     }
 
     fn to_template(_key: &str, _buf: &mut String) {}
@@ -411,12 +416,12 @@ where
 
     fn into_cloneable(self) -> Self::Cloneable {
         #[cfg(feature = "tracing")]
-        tracing::warn!("Suspended attributes cannot be spread");
+        tracing::error!("Suspended attributes cannot be spread");
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         #[cfg(feature = "tracing")]
-        tracing::warn!("Suspended attributes cannot be spread");
+        tracing::error!("Suspended attributes cannot be spread");
     }
 
     fn dry_resolve(&mut self) {}
@@ -426,13 +431,18 @@ where
     }
 }
 
+/// A reactive function that can be shared across multiple locations and across threads.
 pub type SharedReactiveFunction<T> = Arc<Mutex<dyn FnMut() -> T + Send>>;
 
+/// A reactive view function.
 pub trait ReactiveFunction: Send + 'static {
+    /// The return type of the function.
     type Output;
 
+    /// Call the function.
     fn invoke(&mut self) -> Self::Output;
 
+    /// Converts the function into a cloneable, shared type.
     fn into_shared(self) -> Arc<Mutex<dyn FnMut() -> Self::Output + Send>>;
 }
 

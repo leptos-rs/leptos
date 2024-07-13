@@ -9,6 +9,7 @@ use crate::{
 use either_of::Either;
 use itertools::Itertools;
 
+/// Retained view state for an `Option`.
 pub type OptionState<T, R> =
     Either<<T as Render<R>>::State, <() as Render<R>>::State>;
 
@@ -182,6 +183,7 @@ where
     }
 }
 
+/// Retained view state for a `Vec<_>`.
 pub struct VecState<T, R>
 where
     T: Mountable<R>,

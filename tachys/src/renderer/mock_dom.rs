@@ -13,22 +13,31 @@ use slotmap::{new_key_type, SlotMap};
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
 use wasm_bindgen::JsValue;
 
+/// A [`Renderer`] that uses a mock DOM structure running in Rust code.
+///
+/// This is intended as a rendering background that can be used to test component logic, without
+/// running a browser.
 #[derive(Debug)]
 pub struct MockDom;
 
 new_key_type! {
-    struct NodeId;
+    /// A unique identifier for a mock DOM node.
+    pub struct NodeId;
 }
 
+/// A mock DOM node.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Node(NodeId);
 
+/// A mock element.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Element(Node);
 
+/// A mock text node.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Text(Node);
 
+/// A mock comment node.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Placeholder(Node);
 
@@ -56,6 +65,7 @@ impl AsRef<Node> for Placeholder {
     }
 }
 
+/// Tests whether two nodes are references to the same underlying node.
 pub fn node_eq(a: impl AsRef<Node>, b: impl AsRef<Node>) -> bool {
     a.as_ref() == b.as_ref()
 }
@@ -79,6 +89,7 @@ impl From<Placeholder> for Node {
 }
 
 impl Element {
+    /// Outputs an HTML form of the element, for testing and debugging purposes.
     pub fn to_debug_html(&self) -> String {
         let mut buf = String::new();
         self.debug_html(&mut buf);
@@ -86,9 +97,12 @@ impl Element {
     }
 }
 
+/// The DOM data associated with a particular node.
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeData {
-    parent: Option<NodeId>,
+    /// The node's parent.
+    pub parent: Option<NodeId>,
+    /// The node itself.
     pub ty: NodeType,
 }
 
@@ -153,10 +167,12 @@ impl DebugHtml for NodeData {
     }
 }
 
+/// The mock DOM document.
 #[derive(Clone)]
 pub struct Document(Rc<RefCell<SlotMap<NodeId, NodeData>>>);
 
 impl Document {
+    /// Creates a new document.
     pub fn new() -> Self {
         Document(Default::default())
     }
@@ -180,6 +196,7 @@ impl Document {
         })
     }
 
+    /// Resets the document's contents.
     pub fn reset(&self) {
         self.0.borrow_mut().clear();
     }
@@ -295,18 +312,26 @@ thread_local! {
     static DOCUMENT: Document = Document::new();
 }
 
+/// Returns the global document.
 pub fn document() -> Document {
     DOCUMENT.with(Clone::clone)
 }
 
+/// The type of mock DOM node.
 #[derive(Debug, PartialEq, Eq)]
 pub enum NodeType {
+    /// A text node.
     Text(String),
+    /// An element.
     Element {
+        /// The HTML tag name.
         tag: Cow<'static, str>,
+        /// The attributes.
         attrs: HashMap<String, String>,
+        /// The element's children.
         children: Vec<Node>,
     },
+    /// A placeholder.
     Placeholder,
 }
 

@@ -27,18 +27,22 @@ use web_sys::Element;
 /// let remove = element.on(ev::blur, move |_| /* ... */);
 /// ```
 pub trait ElementExt {
+    /// Adds an attribute to the element, at runtime.
     fn attr<At>(&self, attribute: At) -> At::State
     where
         At: Attribute<Dom>;
 
+    /// Adds a class to the element, at runtime.
     fn class<C>(&self, class: C) -> C::State
     where
         C: IntoClass<Dom>;
 
+    /// Adds a style to the element, at runtime.
     fn style<S>(&self, style: S) -> S::State
     where
         S: IntoStyle<Dom>;
 
+    /// Adds an event listener to the element, at runtime.
     fn on<E>(
         &self,
         ev: E,

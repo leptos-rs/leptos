@@ -11,8 +11,12 @@ use std::{
     sync::Arc,
 };
 
+/// A possible value for an HTML attribute.
 pub trait AttributeValue<R: Renderer>: Send {
+    /// The state that should be retained between building and rebuilding.
     type State;
+
+    /// The type once all async data have loaded.
     type AsyncOutput: AttributeValue<R>;
 
     /// A version of the value that can be cloned. This can be the same type, or a
@@ -28,28 +32,41 @@ pub trait AttributeValue<R: Renderer>: Send {
     /// cloneable type has worse performance than the cloneable type, so they are separate.
     type CloneableOwned: AttributeValue<R> + Clone + 'static;
 
+    /// An approximation of the actual length of this attribute in HTML.
     fn html_len(&self) -> usize;
 
+    /// Renders the attribute value to HTML.
     fn to_html(self, key: &str, buf: &mut String);
 
+    /// Renders the attribute value to HTML for a `<template>`.
     fn to_template(key: &str, buf: &mut String);
 
+    /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
+    /// either been rendered on the server, or cloned for a `<template>`.
     fn hydrate<const FROM_SERVER: bool>(
         self,
         key: &str,
         el: &R::Element,
     ) -> Self::State;
 
+    /// Adds this attribute to the element during client-side rendering.
     fn build(self, el: &R::Element, key: &str) -> Self::State;
 
+    /// Applies a new value for the attribute.
     fn rebuild(self, key: &str, state: &mut Self::State);
 
+    /// Converts this attribute into an equivalent that can be cloned.
     fn into_cloneable(self) -> Self::Cloneable;
 
+    /// Converts this attributes into an equivalent that can be cloned and is `'static`.
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
 
+    /// “Runs” the attribute without other side effects. For primitive types, this is a no-op. For
+    /// reactive types, this can be used to gather data about reactivity or about asynchronous data
+    /// that needs to be loaded.
     fn dry_resolve(&mut self);
 
+    /// “Resolves” this into a form that is not waiting for any asynchronous data.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 

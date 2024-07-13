@@ -7,6 +7,7 @@ use send_wrapper::SendWrapper;
 use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 use wasm_bindgen::JsValue;
 
+/// Creates an [`Attribute`] that will set a DOM property on an element.
 #[inline(always)]
 pub fn prop<K, P, R>(key: K, value: P) -> Property<K, P, R>
 where
@@ -21,6 +22,7 @@ where
     }
 }
 
+/// An [`Attribute`] that will set a DOM property on an element.
 #[derive(Debug)]
 pub struct Property<K, P, R> {
     key: K,
@@ -139,23 +141,32 @@ where
     }
 }
 
+/// A possible value for a DOM property.
 pub trait IntoProperty<R: DomRenderer> {
+    /// The view state retained between building and rebuilding.
     type State;
+    /// An equivalent value that can be cloned.
     type Cloneable: IntoProperty<R> + Clone;
+    /// An equivalent value that can be cloned and is `'static`.
     type CloneableOwned: IntoProperty<R> + Clone + 'static;
 
+    /// Adds the property on an element created from HTML.
     fn hydrate<const FROM_SERVER: bool>(
         self,
         el: &R::Element,
         key: &str,
     ) -> Self::State;
 
+    /// Adds the property during client-side rendering.
     fn build(self, el: &R::Element, key: &str) -> Self::State;
 
+    /// Updates the property with a new value.
     fn rebuild(self, state: &mut Self::State, key: &str);
 
+    /// Converts this to a cloneable type.
     fn into_cloneable(self) -> Self::Cloneable;
 
+    /// Converts this to a cloneable, owned type.
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
 }
 
