@@ -3,14 +3,13 @@ use crate::{
     html::element::{CreateElement, ElementType, HtmlElement},
     renderer::{dom::Dom, Renderer},
 };
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData};
 
-// FIXME custom element HTML rendering is broken because tag names aren't static
 /// Creates a custom element.
 #[track_caller]
 pub fn custom<E, Rndr>(tag: E) -> HtmlElement<Custom<E>, (), (), Rndr>
 where
-    E: CustomElementKey,
+    E: AsRef<str>,
     Rndr: Renderer,
 {
     HtmlElement {
@@ -25,30 +24,28 @@ where
 
 /// A custom HTML element.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Custom<E>(E)
-where
-    E: CustomElementKey;
+pub struct Custom<E>(E);
 
 impl<E> ElementType for Custom<E>
 where
-    E: CustomElementKey,
+    E: AsRef<str> + Send,
 {
     type Output = web_sys::HtmlElement;
 
-    const TAG: &'static str = E::KEY;
     const SELF_CLOSING: bool = false;
     const ESCAPE_CHILDREN: bool = true;
+    const TAG: &'static str = "";
 
     fn tag(&self) -> &str {
         self.0.as_ref()
     }
 }
 
-impl<E> ElementWithChildren for Custom<E> where E: CustomElementKey {}
+impl<E> ElementWithChildren for Custom<E> {}
 
 impl<E> CreateElement<Dom> for Custom<E>
 where
-    E: CustomElementKey,
+    E: AsRef<str>,
 {
     fn create_element(&self) -> <Dom as Renderer>::Element {
         use wasm_bindgen::intern;
@@ -57,38 +54,4 @@ where
             .create_element(intern(self.0.as_ref()))
             .unwrap()
     }
-}
-
-/// The element name for a custom element.
-// TODO these are all broken for custom elements
-pub trait CustomElementKey: AsRef<str> + Send {
-    /// The element name.
-    const KEY: &'static str;
-}
-
-impl<'a> CustomElementKey for &'a str {
-    const KEY: &'static str = "";
-}
-
-impl<'a> CustomElementKey for Cow<'a, str> {
-    const KEY: &'static str = "";
-}
-
-impl CustomElementKey for &String {
-    const KEY: &'static str = "";
-}
-
-impl CustomElementKey for String {
-    const KEY: &'static str = "";
-}
-
-impl CustomElementKey for Arc<str> {
-    const KEY: &'static str = "";
-}
-
-#[cfg(feature = "nightly")]
-impl<const K: &'static str> CustomElementKey
-    for crate::view::static_types::Static<K>
-{
-    const KEY: &'static str = K;
 }
