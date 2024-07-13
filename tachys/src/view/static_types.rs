@@ -42,6 +42,7 @@ impl<K: AttributeKey, const V: &'static str> PartialEq for StaticAttr<K, V> {
     }
 }
 
+/// Creates an [`Attribute`] whose key and value are both known at compile time.
 pub fn static_attr<K: AttributeKey, const V: &'static str>() -> StaticAttr<K, V>
 {
     StaticAttr { ty: PhantomData }
@@ -132,6 +133,8 @@ where
     }
 }
 
+/// A static string that is known at compile time and can be optimized by including its type in the
+/// view tree.
 #[derive(Debug, Clone, Copy)]
 pub struct Static<const V: &'static str>;
 

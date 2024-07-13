@@ -9,6 +9,7 @@ use crate::{
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
 use std::marker::PhantomData;
 
+/// A view wrapper that sets the reactive [`Owner`] to a particular owner whenever it is rendered.
 #[derive(Debug, Clone)]
 pub struct OwnedView<T, R> {
     owner: Owner,
@@ -37,6 +38,7 @@ impl<T, R> OwnedView<T, R> {
     }
 }
 
+/// Retained view state for an [`OwnedView`].
 #[derive(Debug, Clone)]
 pub struct OwnedViewState<T, R>
 where

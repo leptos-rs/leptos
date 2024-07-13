@@ -8,14 +8,17 @@ use crate::{
 };
 use std::marker::PhantomData;
 
+/// Describes a container that can be used to hold a reference to an HTML element.
 pub trait NodeRefContainer<E, Rndr>: Send + Clone
 where
     E: ElementType,
     Rndr: Renderer,
 {
+    /// Fills the container with the element.
     fn load(self, el: &Rndr::Element);
 }
 
+/// An [`Attribute`] that will fill a [`NodeRefContainer`] with an HTML element.
 #[derive(Debug)]
 pub struct NodeRefAttr<E, C, Rndr> {
     container: C,
@@ -36,6 +39,7 @@ where
     }
 }
 
+/// Creates an attribute that will fill a [`NodeRefContainer`] with the element it is applied to.
 pub fn node_ref<E, C, Rndr>(container: C) -> NodeRefAttr<E, C, Rndr>
 where
     E: ElementType,
@@ -125,6 +129,7 @@ where
     }
 }
 
+/// Adds the `node_ref` attribute to an element.
 pub trait NodeRefAttribute<E, C, Rndr>
 where
     E: ElementType,
@@ -132,6 +137,7 @@ where
     Rndr: Renderer,
     Rndr::Element: PartialEq,
 {
+    /// Binds this HTML element to a [`NodeRefContainer`].
     fn node_ref(
         self,
         container: C,

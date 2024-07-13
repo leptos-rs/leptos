@@ -13,8 +13,9 @@ no_attrs!(String);
 no_attrs!(Arc<str>);
 no_attrs!(Cow<'a, str>);
 
+/// Retained view state for `&str`.
 pub struct StrState<'a, R: Renderer> {
-    pub node: R::Text,
+    pub(crate) node: R::Text,
     str: &'a str,
 }
 
@@ -142,6 +143,7 @@ where
     }
 }
 
+/// Retained view state for `String`.
 pub struct StringState<R: Renderer> {
     node: R::Text,
     str: String,
@@ -240,6 +242,7 @@ impl<R: Renderer> Mountable<R> for StringState<R> {
     }
 }
 
+/// Retained view state for `Rc<str>`.
 pub struct RcStrState<R: Renderer> {
     node: R::Text,
     str: Rc<str>,
@@ -331,6 +334,7 @@ impl<R: Renderer> Mountable<R> for RcStrState<R> {
     }
 }
 
+/// Retained view state for `Arc<str>`.
 pub struct ArcStrState<R: Renderer> {
     node: R::Text,
     str: Arc<str>,
@@ -426,6 +430,7 @@ impl<R: Renderer> Mountable<R> for ArcStrState<R> {
     }
 }
 
+/// Retained view state for `Cow<'_, str>`.
 pub struct CowStrState<'a, R: Renderer> {
     node: R::Text,
     str: Cow<'a, str>,

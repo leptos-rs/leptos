@@ -12,8 +12,10 @@ pub trait AddAnyAttr<Rndr>
 where
     Rndr: Renderer,
 {
+    /// The new type once the attribute has been added.
     type Output<SomeNewAttr: Attribute<Rndr>>: RenderHtml<Rndr>;
 
+    /// Adds an attribute to the view.
     fn add_any_attr<NewAttr: Attribute<Rndr>>(
         self,
         attr: NewAttr,
@@ -22,6 +24,7 @@ where
         Self::Output<NewAttr>: RenderHtml<Rndr>;
 }
 
+/// Declares that spreading attributes onto a particular type has no effect.
 #[macro_export]
 macro_rules! no_attrs {
     ($ty_name:ty) => {

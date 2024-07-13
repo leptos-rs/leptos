@@ -9,6 +9,7 @@ use reactive_graph::{
 use send_wrapper::SendWrapper;
 use wasm_bindgen::JsCast;
 
+/// A reactive reference to a DOM node that can be used with the `node_ref` attribute.
 #[derive(Debug)]
 pub struct NodeRef<E>(RwSignal<Option<SendWrapper<E::Output>>>)
 where
@@ -20,6 +21,7 @@ where
     E: ElementType,
     E::Output: 'static,
 {
+    /// Creates a new node reference.
     #[track_caller]
     pub fn new() -> Self {
         Self(RwSignal::new(None))

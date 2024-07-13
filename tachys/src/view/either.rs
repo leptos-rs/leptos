@@ -198,11 +198,15 @@ where
 
 /// Stores each value in the view state, overwriting it only if `Some(_)` is provided.
 pub struct EitherKeepAlive<A, B> {
+    /// The first possibility.
     pub a: Option<A>,
+    /// The second possibility.
     pub b: Option<B>,
+    /// If `true`, then `b` will be shown.
     pub show_b: bool,
 }
 
+/// Retained view state for [`EitherKeepAlive`].
 pub struct EitherKeepAliveState<A, B> {
     a: Option<A>,
     b: Option<B>,
@@ -392,12 +396,15 @@ where
 macro_rules! tuples {
     ($num:literal => $($ty:ident),*) => {
         paste::paste! {
+            #[doc = concat!("Retained view state for ", stringify!([<EitherOf $num>]), ".")]
             pub struct [<EitherOf $num State>]<$($ty,)* Rndr>
             where
                 $($ty: Render<Rndr>,)*
                 Rndr: Renderer
             {
+                /// Which child view state is being displayed.
                 pub state: [<EitherOf $num>]<$($ty::State,)*>,
+                /// The renderer.
                 pub rndr: PhantomData<Rndr>
             }
 

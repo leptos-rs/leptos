@@ -14,6 +14,7 @@ use web_sys::{
     Event, HtmlElement, HtmlTemplateElement, Node, Text,
 };
 
+/// A [`Renderer`] that uses `web-sys` to manipulate DOM elements in the browser.
 #[derive(Debug)]
 pub struct Dom;
 
@@ -37,7 +38,12 @@ impl Renderer for Dom {
     }
 
     fn create_placeholder() -> Self::Placeholder {
-        document().create_comment("")
+        thread_local! {
+            static COMMENT: Lazy<Comment> = Lazy::new(|| {
+                document().create_comment("")
+            });
+        }
+        COMMENT.with(|n| n.clone_node().unwrap().unchecked_into())
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]

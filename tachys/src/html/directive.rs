@@ -7,13 +7,18 @@ use crate::{
 use send_wrapper::SendWrapper;
 use std::{marker::PhantomData, sync::Arc};
 
+/// Adds a directive to the element, which runs some custom logic in the browser when the element
+/// is created or hydrated.
 pub trait DirectiveAttribute<T, P, D, Rndr>
 where
     D: IntoDirective<T, P, Rndr>,
     Rndr: Renderer,
 {
+    /// The type of the element with the directive added.
     type Output;
 
+    /// Adds a directive to the element, which runs some custom logic in the browser when the element
+    /// is created or hydrated.
     fn directive(self, handler: D, param: P) -> Self::Output;
 }
 
@@ -32,6 +37,8 @@ where
     }
 }
 
+/// Adds a directive to the element, which runs some custom logic in the browser when the element
+/// is created or hydrated.
 #[inline(always)]
 pub fn directive<T, P, D, R>(handler: D, param: P) -> Directive<T, D, P, R>
 where
@@ -46,6 +53,7 @@ where
     }))
 }
 
+/// Custom logic that runs in the browser when the element is created or hydrated.
 #[derive(Debug)]
 pub struct Directive<T, D, P, R>(SendWrapper<DirectiveInner<T, D, P, R>>);
 
@@ -60,7 +68,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct DirectiveInner<T, D, P, R> {
+struct DirectiveInner<T, D, P, R> {
     handler: D,
     param: P,
     t: PhantomData<T>,
@@ -229,11 +237,13 @@ impl<T, D, P, R> ToTemplate for Directive<T, D, P, R> {
 /// The first is the element the directive is added to and the optional
 /// second is the parameter that is provided in the attribute.
 pub trait IntoDirective<T: ?Sized, P, R: Renderer> {
+    /// An equivalent to this directive that is cloneable and owned.
     type Cloneable: IntoDirective<T, P, R> + Clone + 'static;
 
     /// Calls the handler function
     fn run(&self, el: R::Element, param: P);
 
+    /// Converts this into a cloneable type.
     fn into_cloneable(self) -> Self::Cloneable;
 }
 

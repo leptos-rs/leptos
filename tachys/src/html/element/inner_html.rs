@@ -6,6 +6,14 @@ use crate::{
 };
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
+/// Returns an [`Attribute`] that sets the inner HTML of an element.
+///
+/// No children should be given to this element, as this HTML will be used instead.
+///
+/// # Security
+/// Be very careful when using this method. Always remember to
+/// sanitize the input to avoid a cross-site scripting (XSS)
+/// vulnerability.
 #[inline(always)]
 pub fn inner_html<T, R>(value: T) -> InnerHtml<T, R>
 where
@@ -18,6 +26,7 @@ where
     }
 }
 
+/// Sets the inner HTML of an element.
 #[derive(Debug)]
 pub struct InnerHtml<T, R> {
     value: T,
@@ -118,12 +127,21 @@ where
     }
 }
 
+/// Sets the inner HTML of an element.
 pub trait InnerHtmlAttribute<T, Rndr>
 where
     T: InnerHtmlValue<Rndr>,
     Rndr: DomRenderer,
     Self: Sized + AddAnyAttr<Rndr>,
 {
+    /// Sets the inner HTML of this element.
+    ///
+    /// No children should be given to this element, as this HTML will be used instead.
+    ///
+    /// # Security
+    /// Be very careful when using this method. Always remember to
+    /// sanitize the input to avoid a cross-site scripting (XSS)
+    /// vulnerability.
     fn inner_html(
         self,
         value: T,
@@ -149,30 +167,48 @@ where
     }
 }
 
+/// A possible value for [`InnerHtml`].
 pub trait InnerHtmlValue<R: DomRenderer>: Send {
+    /// The type after all async data have resolved.
     type AsyncOutput: InnerHtmlValue<R>;
+    /// The view state retained between building and rebuilding.
     type State;
+    /// An equivalent value that can be cloned.
     type Cloneable: InnerHtmlValue<R> + Clone;
+    /// An equivalent value that can be cloned and is `'static`.
     type CloneableOwned: InnerHtmlValue<R> + Clone + 'static;
 
+    /// The estimated length of the HTML.
     fn html_len(&self) -> usize;
 
+    /// Renders the class to HTML.
     fn to_html(self, buf: &mut String);
 
+    /// Renders the class to HTML for a `<template>`.
     fn to_template(buf: &mut String);
 
+    /// Adds interactivity as necessary, given DOM nodes that were created from HTML that has
+    /// either been rendered on the server, or cloned for a `<template>`.
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State;
 
+    /// Adds this class to the element during client-side rendering.
     fn build(self, el: &R::Element) -> Self::State;
 
+    /// Updates the value.
     fn rebuild(self, state: &mut Self::State);
 
+    /// Converts this to a cloneable type.
     fn into_cloneable(self) -> Self::Cloneable;
 
+    /// Converts this to a cloneable, owned type.
     fn into_cloneable_owned(self) -> Self::CloneableOwned;
 
+    /// “Runs” the attribute without other side effects. For primitive types, this is a no-op. For
+    /// reactive types, this can be used to gather data about reactivity or about asynchronous data
+    /// that needs to be loaded.
     fn dry_resolve(&mut self);
 
+    /// “Resolves” this into a type that is not waiting for any asynchronous data.
     fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send;
 }
 
