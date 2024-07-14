@@ -260,7 +260,8 @@ pub(crate) fn element_to_tokens(
         /* TODO restore this
         let mut ide_helper_close_tag = IdeTagHelper::new();
         let close_tag = node.close_tag.as_ref().map(|c| &c.name);*/
-        let name = if is_custom_element(&tag) {
+        let is_custom = is_custom_element(&tag);
+        let name = if is_custom {
             let name = node.name().to_string();
             // link custom ident to name span for IDE docs
             let custom = Ident::new("custom", name.span());
@@ -307,10 +308,11 @@ pub(crate) fn element_to_tokens(
                 parent_type,
                 &attributes[0],
                 global_class,
+                is_custom
             ))
         } else {
             let nodes = attributes.iter().map(|node| {
-                attribute_to_tokens(parent_type, node, global_class)
+                attribute_to_tokens(parent_type, node, global_class, is_custom)
             });
             Some(quote! {
                 #(#nodes)*
@@ -373,6 +375,7 @@ fn attribute_to_tokens(
     node: &NodeAttribute,
     // TODO global_class support
     _global_class: Option<&TokenTree>,
+    is_custom: bool
 ) -> TokenStream {
     match node {
         NodeAttribute::Block(node) => {
@@ -443,7 +446,13 @@ fn attribute_to_tokens(
                     _ => unreachable!(),
                 };
                 prop_to_tokens(node, prop.into_token_stream(), name)
-            } else if name.contains('-') && !name.starts_with("aria-")
+            }
+            // circumstances in which we just do unchecked attributes
+            // 1) custom elements, which can have any attributes 
+            // 2) custom attributes and data attributes (so, anything with - in it)
+            else if is_custom || 
+                (name.contains('-') && !name.starts_with("aria-"))
+                // TODO check: do we actually provide SVG attributes?
                 // we don't provide statically-checked methods for SVG attributes
                 || tag_type == TagType::Svg
             {
