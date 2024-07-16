@@ -113,7 +113,7 @@ pub fn Todos() -> impl IntoView {
     );
 
     let existing_todos = move || {
-        Suspend(async move {
+        Suspend::new(async move {
             todos
                 .await
                 .map(|todos| {

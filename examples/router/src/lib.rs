@@ -96,7 +96,7 @@ pub fn ContactList() -> impl IntoView {
         get_contacts(search.get())
     });
     let contacts = move || {
-        Suspend(async move {
+        Suspend::new(async move {
             // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
             contacts.await
                 .into_iter()
@@ -155,7 +155,7 @@ pub fn Contact() -> impl IntoView {
     });
 
     let contact_display = move || {
-        Suspend(async move {
+        Suspend::new(async move {
             match contact.await {
                 None => Either::Left(
                     view! { <p>"No contact with this ID was found."</p> },
