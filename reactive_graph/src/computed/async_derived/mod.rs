@@ -20,11 +20,13 @@ use std::{
 pin_project! {
     /// A [`Future`] wrapper that sets the [`Owner`] and [`Observer`] before polling the inner
     /// `Future`.
+    #[derive(Clone)]
+    #[allow(missing_docs)]
     pub struct ScopedFuture<Fut> {
-        owner: Option<Owner>,
-        observer: Option<AnySubscriber>,
+        pub owner: Option<Owner>,
+        pub observer: Option<AnySubscriber>,
         #[pin]
-        fut: Fut,
+        pub fut: Fut,
     }
 }
 
