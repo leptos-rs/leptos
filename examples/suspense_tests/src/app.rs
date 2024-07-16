@@ -181,7 +181,7 @@ fn NestedResourceInside() -> impl IntoView {
             <Suspense fallback=|| {
                 "Loading 1..."
             }>
-                {Suspend(async move {
+                {Suspend::new(async move {
                     _ = one_second.await;
                     let two_second = Resource::new(
                         || (),
@@ -192,7 +192,7 @@ fn NestedResourceInside() -> impl IntoView {
                         <Suspense fallback=|| "Loading 2...">
                             <span id="loaded-2">
                                 "Loaded 2 (created inside first suspense)!: "
-                                {Suspend(async move { format!("{:?}", two_second.await) })}
+                                {Suspend::new(async move { format!("{:?}", two_second.await) })}
                             </span>
                             <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
                         </Suspense>
@@ -322,7 +322,7 @@ fn LocalResource() -> impl IntoView {
                     one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
                 {move || {
-                    Suspend(async move {
+                    Suspend::new(async move {
                         let value = local.await;
                         view! { <p id="loaded-2">"One Second: Local Loaded " {value} "!"</p> }
                     })

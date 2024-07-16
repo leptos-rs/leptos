@@ -26,7 +26,7 @@ pub fn User() -> impl IntoView {
     view! {
         <div class="user-view">
             <Suspense fallback=|| view! { "Loading..." }>
-                {move || Suspend(async move { match user.await.ok().flatten() {
+                {move || Suspend::new(async move { match user.await.ok().flatten() {
                     None => Either::Left(view! {  <h1>"User not found."</h1> }),
                     Some(user) => Either::Right(view! {
                         <div>
