@@ -131,7 +131,7 @@ fn HomePage() -> impl IntoView {
     view! {
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
-            <p>"number of posts: " {Suspend(async move { posts2.await })}</p>
+            <p>"number of posts: " {Suspend::new(async move { posts2.await })}</p>
         </Suspense>
         <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
             <ul>
@@ -182,7 +182,7 @@ fn Post() -> impl IntoView {
         }
     });
 
-    let post_view = Suspend(async move {
+    let post_view = Suspend::new(async move {
         match post_resource.await {
             Ok(Ok(post)) => {
                 Ok(view! {
@@ -199,7 +199,7 @@ fn Post() -> impl IntoView {
             _ => Err(PostError::ServerError),
         }
     });
-    let comments_view = Suspend(async move {
+    let comments_view = Suspend::new(async move {
         match comments_resource.await {
             Ok(comments) => Ok(view! {
                 <h1>"Comments"</h1>

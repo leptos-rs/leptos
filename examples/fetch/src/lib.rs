@@ -85,7 +85,7 @@ pub fn fetch_example() -> impl IntoView {
             <Transition fallback=|| view! { <div>"Loading..."</div> } {..spreadable}>
                 <ErrorBoundary fallback>
                     <ul>
-                        {move || Suspend(async move {
+                        {move || Suspend::new(async move {
                             cats.await
                                 .map(|cats| {
                                     cats.iter()
