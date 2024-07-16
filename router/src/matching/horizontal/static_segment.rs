@@ -15,20 +15,20 @@ impl PossibleRouteMatch for () {
     fn generate_path(&self, _path: &mut Vec<PathSegment>) {}
 }
 
-pub trait Routable: Debug + Clone {
-    fn into_str(&self) -> &'static str;
+pub trait AsPath {
+    fn as_path(&self) -> &'static str;
 }
 
-impl Routable for &'static str {
-    fn into_str(&self) -> &'static str {
+impl AsPath for &'static str {
+    fn as_path(&self) -> &'static str {
         self
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct StaticSegment<T: Routable>(pub T);
+pub struct StaticSegment<T: AsPath>(pub T);
 
-impl<T: Routable> PossibleRouteMatch for StaticSegment<T> {
+impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
     type ParamsIter = iter::Empty<(Cow<'static, str>, String)>;
 
     fn test<'a>(
@@ -37,19 +37,18 @@ impl<T: Routable> PossibleRouteMatch for StaticSegment<T> {
     ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
         let mut matched_len = 0;
         let mut test = path.chars().peekable();
-        let mut this = self.0.into_str().chars();
+        let mut this = self.0.as_path().chars();
         let mut has_matched =
-            self.0.into_str().is_empty() || self.0.into_str() == "/";
+            self.0.as_path().is_empty() || self.0.as_path() == "/";
 
         // match an initial /
         if let Some('/') = test.peek() {
             test.next();
 
-            if !self.0.into_str().is_empty() {
+            if !self.0.as_path().is_empty() {
                 matched_len += 1;
             }
-            if self.0.into_str().starts_with('/')
-                || self.0.into_str().is_empty()
+            if self.0.as_path().starts_with('/') || self.0.as_path().is_empty()
             {
                 this.next();
             }
@@ -83,13 +82,13 @@ impl<T: Routable> PossibleRouteMatch for StaticSegment<T> {
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
-        path.push(PathSegment::Static(self.0.into_str().into()))
+        path.push(PathSegment::Static(self.0.as_path().into()))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Routable;
+    use crate::AsPath;
 
     use super::{PossibleRouteMatch, StaticSegment};
 
@@ -99,8 +98,8 @@ mod tests {
         Bar,
     }
 
-    impl Routable for Paths {
-        fn into_str(&self) -> &'static str {
+    impl AsPath for Paths {
+        fn as_path(&self) -> &'static str {
             match self {
                 Foo => "foo",
                 Bar => "bar",
