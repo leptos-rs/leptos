@@ -204,11 +204,11 @@ mod view_implementations {
         type State = RenderEffectState<SuspendState<T, R>>;
 
         fn build(self) -> Self::State {
-            (move || Suspend(async move { self.await })).build()
+            (move || Suspend::new(async move { self.await })).build()
         }
 
         fn rebuild(self, state: &mut Self::State) {
-            (move || Suspend(async move { self.await })).rebuild(state)
+            (move || Suspend::new(async move { self.await })).rebuild(state)
         }
     }
 
@@ -239,7 +239,7 @@ mod view_implementations {
         where
             Self::Output<NewAttr>: RenderHtml<R>,
         {
-            (move || Suspend(async move { self.await })).add_any_attr(attr)
+            (move || Suspend::new(async move { self.await })).add_any_attr(attr)
         }
     }
 
@@ -258,7 +258,7 @@ mod view_implementations {
         }
 
         fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send {
-            (move || Suspend(async move { self.await })).resolve()
+            (move || Suspend::new(async move { self.await })).resolve()
         }
 
         fn to_html_with_buf(
@@ -267,7 +267,7 @@ mod view_implementations {
             position: &mut Position,
             escape: bool,
         ) {
-            (move || Suspend(async move { self.await }))
+            (move || Suspend::new(async move { self.await }))
                 .to_html_with_buf(buf, position, escape);
         }
 
@@ -279,7 +279,7 @@ mod view_implementations {
         ) where
             Self: Sized,
         {
-            (move || Suspend(async move { self.await }))
+            (move || Suspend::new(async move { self.await }))
                 .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
         }
 
@@ -288,7 +288,7 @@ mod view_implementations {
             cursor: &Cursor<R>,
             position: &PositionState,
         ) -> Self::State {
-            (move || Suspend(async move { self.await }))
+            (move || Suspend::new(async move { self.await }))
                 .hydrate::<FROM_SERVER>(cursor, position)
         }
     }

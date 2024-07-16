@@ -21,7 +21,14 @@ use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
 
 /// A suspended `Future`, which can be used in the view.
 #[derive(Clone)]
-pub struct Suspend<Fut>(pub Fut);
+pub struct Suspend<Fut>(pub ScopedFuture<Fut>); // TODO probably shouldn't be pub
+
+impl<Fut> Suspend<Fut> {
+    /// Creates a new suspended view.
+    pub fn new(fut: Fut) -> Self {
+        Self(ScopedFuture::new(fut))
+    }
+}
 
 impl<Fut> Debug for Suspend<Fut> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,7 +76,7 @@ where
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(ScopedFuture::new(self.0));
+        let mut fut = Box::pin(self.0);
         let initial = fut.as_mut().now_or_never();
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(initial.build()));
@@ -96,7 +103,7 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         // get a unique ID if there's a SuspenseContext
-        let fut = ScopedFuture::new(self.0);
+        let fut = self.0;
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
 
         // spawn the future, and rebuild the state when it resolves
@@ -137,10 +144,19 @@ where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
         let attr = attr.into_cloneable_owned();
-        Suspend(Box::pin(async move {
-            let this = self.0.await;
-            this.add_any_attr(attr)
-        }))
+        let ScopedFuture {
+            owner,
+            observer,
+            fut,
+        } = self.0;
+        Suspend(ScopedFuture {
+            owner,
+            observer,
+            fut: Box::pin(async move {
+                let this = fut.await;
+                this.add_any_attr(attr)
+            }),
+        })
     }
 }
 
@@ -234,7 +250,7 @@ where
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(ScopedFuture::new(self.0));
+        let mut fut = Box::pin(self.0);
         let initial = fut.as_mut().now_or_never();
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(
