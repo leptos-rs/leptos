@@ -3,11 +3,7 @@ use crate::{
     IntoView,
 };
 use leptos_macro::component;
-use reactive_graph::{
-    computed::ArcMemo,
-    traits::{GetUntracked, Track},
-    untrack,
-};
+use reactive_graph::{computed::ArcMemo, traits::Get};
 use tachys::either::Either;
 
 #[component]
@@ -27,11 +23,8 @@ where
     let memoized_when = ArcMemo::new(move |_| when());
     let children = children.into_inner();
 
-    move || {
-        memoized_when.track();
-        untrack(|| match memoized_when.get_untracked() {
-            true => Either::Left(children()),
-            false => Either::Right(fallback.run()),
-        })
+    move || match memoized_when.get() {
+        true => Either::Left(children()),
+        false => Either::Right(fallback.run()),
     }
 }
