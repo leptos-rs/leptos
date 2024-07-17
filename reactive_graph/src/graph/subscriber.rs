@@ -13,6 +13,7 @@ thread_local! {
 /// subscribe to changes in any signals that are read.
 pub struct Observer;
 
+#[derive(Debug)]
 struct SetObserverOnDrop(Option<AnySubscriber>);
 
 impl Drop for SetObserverOnDrop {
@@ -39,10 +40,9 @@ impl Observer {
         OBSERVER.with_borrow_mut(|o| *o = observer);
     }
 
-    fn replace(observer: AnySubscriber) -> SetObserverOnDrop {
+    fn replace(observer: Option<AnySubscriber>) -> SetObserverOnDrop {
         SetObserverOnDrop(
-            OBSERVER
-                .with(|o| mem::replace(&mut *o.borrow_mut(), Some(observer))),
+            OBSERVER.with(|o| mem::replace(&mut *o.borrow_mut(), observer)),
         )
     }
 }
@@ -75,6 +75,7 @@ impl Observer {
 /// assert_eq!(c.get(), 3);
 /// # });
 /// ```
+#[track_caller]
 pub fn untrack<T>(fun: impl FnOnce() -> T) -> T {
     #[cfg(debug_assertions)]
     let _warning_guard = crate::diagnostics::SpecialNonReactiveZone::enter();
@@ -150,9 +151,23 @@ impl ReactiveNode for AnySubscriber {
     }
 }
 
-impl AnySubscriber {
+/// Runs code with some subscriber as the thread-local [`Observer`].
+pub trait WithObserver {
     /// Runs the given function with this subscriber as the thread-local [`Observer`].
-    pub fn with_observer<T>(&self, fun: impl FnOnce() -> T) -> T {
+    fn with_observer<T>(&self, fun: impl FnOnce() -> T) -> T;
+}
+
+impl WithObserver for AnySubscriber {
+    /// Runs the given function with this subscriber as the thread-local [`Observer`].
+    fn with_observer<T>(&self, fun: impl FnOnce() -> T) -> T {
+        let _prev = Observer::replace(Some(self.clone()));
+        fun()
+    }
+}
+
+impl WithObserver for Option<AnySubscriber> {
+    /// Runs the given function with this subscriber as the thread-local [`Observer`].
+    fn with_observer<T>(&self, fun: impl FnOnce() -> T) -> T {
         let _prev = Observer::replace(self.clone());
         fun()
     }

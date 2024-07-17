@@ -1,7 +1,7 @@
 use crate::{
     graph::{
         AnySource, AnySubscriber, Observer, ReactiveNode, ReactiveNodeState,
-        Source, SourceSet, Subscriber, SubscriberSet,
+        Source, SourceSet, Subscriber, SubscriberSet, WithObserver,
     },
     owner::Owner,
 };
