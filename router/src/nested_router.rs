@@ -562,7 +562,7 @@ where
             owner: owner.clone(),
             matched,
             view_fn: Arc::new(Mutex::new(Box::new(|| {
-                Suspend(Box::pin(async { ().into_any() }))
+                Suspend::new(Box::pin(async { ().into_any() }))
             }))),
             base: base.clone(),
         };
@@ -586,7 +586,7 @@ where
                     *view_fn.lock().or_poisoned() = Box::new(move || {
                         let owner = owner.clone();
                         let view = view.clone();
-                        Suspend(Box::pin(async move {
+                        Suspend::new(Box::pin(async move {
                             let view = SendWrapper::new(
                                 owner.with(|| ScopedFuture::new(view.choose())),
                             );
@@ -691,7 +691,7 @@ where
                                     Box::new(move || {
                                         let owner = owner.clone();
                                         let view = view.clone();
-                                        Suspend(Box::pin(async move {
+                                        Suspend::new(Box::pin(async move {
                                             let view = SendWrapper::new(
                                                 owner.with(|| {
                                                     ScopedFuture::new(
