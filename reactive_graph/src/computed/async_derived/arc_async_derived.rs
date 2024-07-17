@@ -9,7 +9,7 @@ use crate::{
     diagnostics::SpecialNonReactiveFuture,
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
-        SubscriberSet, ToAnySource, ToAnySubscriber,
+        SubscriberSet, ToAnySource, ToAnySubscriber, WithObserver,
     },
     owner::{use_context, Owner},
     signal::guards::{AsyncPlain, ReadGuard},
