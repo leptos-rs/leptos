@@ -3,6 +3,7 @@ use crate::{
     effect::inner::EffectInner,
     graph::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
+        WithObserver,
     },
     owner::Owner,
 };

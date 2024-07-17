@@ -5,7 +5,7 @@ mod async_derived;
 mod future_impls;
 mod inner;
 use crate::{
-    graph::{AnySubscriber, Observer},
+    graph::{AnySubscriber, Observer, WithObserver},
     owner::Owner,
 };
 pub use async_derived::*;
@@ -23,7 +23,7 @@ pin_project! {
     #[derive(Clone)]
     #[allow(missing_docs)]
     pub struct ScopedFuture<Fut> {
-        pub owner: Option<Owner>,
+        pub owner: Owner,
         pub observer: Option<AnySubscriber>,
         #[pin]
         pub fut: Fut,
@@ -34,7 +34,7 @@ impl<Fut> ScopedFuture<Fut> {
     /// Wraps the given `Future` by taking the current [`Owner`] and [`Observer`] and re-setting
     /// them as the active owner and observer every time the inner `Future` is polled.
     pub fn new(fut: Fut) -> Self {
-        let owner = Owner::current();
+        let owner = Owner::current().unwrap_or_default();
         let observer = Observer::get();
         Self {
             owner,
@@ -49,14 +49,8 @@ impl<Fut: Future> Future for ScopedFuture<Fut> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        match (this.owner, this.observer) {
-            (None, None) => this.fut.poll(cx),
-            (None, Some(obs)) => obs.with_observer(|| this.fut.poll(cx)),
-            (Some(owner), None) => owner.with(|| this.fut.poll(cx)),
-            (Some(owner), Some(observer)) => {
-                owner.with(|| observer.with_observer(|| this.fut.poll(cx)))
-            }
-        }
+        this.owner
+            .with(|| this.observer.with_observer(|| this.fut.poll(cx)))
     }
 }
 
