@@ -1,6 +1,6 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
 use core::iter;
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Debug};
 
 impl PossibleRouteMatch for () {
     type ParamsIter = iter::Empty<(Cow<'static, str>, String)>;
@@ -15,10 +15,20 @@ impl PossibleRouteMatch for () {
     fn generate_path(&self, _path: &mut Vec<PathSegment>) {}
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct StaticSegment(pub &'static str);
+pub trait AsPath {
+    fn as_path(&self) -> &'static str;
+}
 
-impl PossibleRouteMatch for StaticSegment {
+impl AsPath for &'static str {
+    fn as_path(&self) -> &'static str {
+        self
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StaticSegment<T: AsPath>(pub T);
+
+impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
     type ParamsIter = iter::Empty<(Cow<'static, str>, String)>;
 
     fn test<'a>(
@@ -27,17 +37,19 @@ impl PossibleRouteMatch for StaticSegment {
     ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
         let mut matched_len = 0;
         let mut test = path.chars().peekable();
-        let mut this = self.0.chars();
-        let mut has_matched = self.0.is_empty() || self.0 == "/";
+        let mut this = self.0.as_path().chars();
+        let mut has_matched =
+            self.0.as_path().is_empty() || self.0.as_path() == "/";
 
         // match an initial /
         if let Some('/') = test.peek() {
             test.next();
 
-            if !self.0.is_empty() {
+            if !self.0.as_path().is_empty() {
                 matched_len += 1;
             }
-            if self.0.starts_with('/') || self.0.is_empty() {
+            if self.0.as_path().starts_with('/') || self.0.as_path().is_empty()
+            {
                 this.next();
             }
         }
@@ -70,18 +82,48 @@ impl PossibleRouteMatch for StaticSegment {
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
-        path.push(PathSegment::Static(self.0.into()))
+        path.push(PathSegment::Static(self.0.as_path().into()))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::AsPath;
+
     use super::{PossibleRouteMatch, StaticSegment};
+
+    #[derive(Debug, Clone)]
+    enum Paths {
+        Foo,
+        Bar,
+    }
+
+    impl AsPath for Paths {
+        fn as_path(&self) -> &'static str {
+            match self {
+                Foo => "foo",
+                Bar => "bar",
+            }
+        }
+    }
+
+    use Paths::*;
 
     #[test]
     fn single_static_match() {
         let path = "/foo";
         let def = StaticSegment("foo");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn single_static_match_on_enum() {
+        let path = "/foo";
+        let def = StaticSegment(Foo);
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "");
@@ -97,9 +139,27 @@ mod tests {
     }
 
     #[test]
+    fn single_static_mismatch_on_enum() {
+        let path = "/foo";
+        let def = StaticSegment(Bar);
+        assert!(def.test(path).is_none());
+    }
+
+    #[test]
     fn single_static_match_with_trailing_slash() {
         let path = "/foo/";
         let def = StaticSegment("foo");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo");
+        assert_eq!(matched.remaining(), "/");
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn single_static_match_with_trailing_slash_on_enum() {
+        let path = "/foo/";
+        let def = StaticSegment(Foo);
         let matched = def.test(path).expect("couldn't match route");
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
@@ -119,9 +179,27 @@ mod tests {
     }
 
     #[test]
+    fn tuple_of_static_matches_on_enum() {
+        let path = "/foo/bar";
+        let def = (StaticSegment(Foo), StaticSegment(Bar));
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
+    }
+
+    #[test]
     fn tuple_static_mismatch() {
         let path = "/foo/baz";
         let def = (StaticSegment("foo"), StaticSegment("bar"));
+        assert!(def.test(path).is_none());
+    }
+
+    #[test]
+    fn tuple_static_mismatch_on_enum() {
+        let path = "/foo/baz";
+        let def = (StaticSegment(Foo), StaticSegment(Bar));
         assert!(def.test(path).is_none());
     }
 
@@ -134,6 +212,24 @@ mod tests {
             (),
             ((), ()),
             StaticSegment("bar"),
+            (),
+        );
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/foo/bar");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params().collect::<Vec<_>>();
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn arbitrary_nesting_of_tuples_has_no_effect_on_matching_on_enum() {
+        let path = "/foo/bar";
+        let def = (
+            (),
+            (StaticSegment(Foo)),
+            (),
+            ((), ()),
+            StaticSegment(Bar),
             (),
         );
         let matched = def.test(path).expect("couldn't match route");
