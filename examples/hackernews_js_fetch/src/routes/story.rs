@@ -23,7 +23,7 @@ pub fn Story() -> impl IntoView {
         },
     );
 
-    Suspense(SuspenseProps::builder().fallback(|| "Loading...").children(ToChildren::to_children(move || Suspend(async move {
+    Suspense(SuspenseProps::builder().fallback(|| "Loading...").children(ToChildren::to_children(move || Suspend::new(async move {
         match story.await.clone() {
             None => Either::Left("Story not found."),
             Some(story) => {

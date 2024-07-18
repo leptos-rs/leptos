@@ -23,7 +23,7 @@ pub fn User() -> impl IntoView {
             <Suspense fallback=|| {
                 view! { "Loading..." }
             }>
-                {move || Suspend(async move {
+                {move || Suspend::new(async move {
                     match user.await.clone() {
                         None => Either::Left(view! { <h1>"User not found."</h1> }),
                         Some(user) => {
