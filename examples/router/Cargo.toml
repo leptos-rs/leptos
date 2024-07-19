@@ -13,6 +13,7 @@ panic = "abort"
 console_log = "1"
 leptos = { path = "../../leptos", features = ["csr", "tracing"] }
 leptos_router = { path = "../../router" }              #, features = ["tracing"] }
+leptos_router_macro = { path = "../../router_macro" }
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 console_error_panic_hook = "0.1.7"
