@@ -848,6 +848,18 @@ fn attribute_name(name: &NodeName) -> TokenStream {
 fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
     match attr.value() {
         Some(value) => {
+            // FIXME: once https://github.com/rs-tml/rstml/issues/54 is resolved
+            // for now, just validating that the value is a block or literal
+            match value {
+                Expr::Block(_) => (),
+                Expr::Lit(_) => (),
+                _ => emit_error!(
+                    value.span(),
+                    "attribute values must be surrounded by braces or be literals";
+                    help = "wrap the value in braces: {{{}}}", value.to_token_stream(),
+                ),
+            }
+
             if let Expr::Lit(lit) = value {
                 if cfg!(feature = "nightly") {
                     if let Lit::Str(str) = &lit.lit {
@@ -857,7 +869,10 @@ fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
                     }
                 }
             }
-            quote! { #value }
+            quote! {
+                #[allow(unused_braces)]
+                {#value}
+            }
         }
         None => quote! { true },
     }

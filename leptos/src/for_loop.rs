@@ -90,7 +90,7 @@ mod tests {
         let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
         let list: HtmlElement<_, _, _, MockDom> = view! {
             <ol>
-                <For each=move || values.get() key=|i| *i let:i>
+                <For each={move || values.get()} key={|i| *i} let:i>
                     <li>{i}</li>
                 </For>
             </ol>

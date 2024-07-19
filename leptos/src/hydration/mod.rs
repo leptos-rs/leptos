@@ -26,7 +26,7 @@ pub fn AutoReload(
 
         let script = include_str!("reload_script.js");
         view! {
-            <script nonce=nonce>
+            <script nonce={nonce}>
                 {format!("{script}({reload_port:?}, {protocol})")}
             </script>
         }
@@ -55,9 +55,9 @@ pub fn HydrationScripts(
     };
 
     view! {
-        <link rel="modulepreload" href=format!("/{pkg_path}/{output_name}.js") nonce=nonce.clone()/>
-        <link rel="preload" href=format!("/{pkg_path}/{wasm_output_name}.wasm") r#as="fetch" r#type="application/wasm" crossorigin=nonce.clone().unwrap_or_default()/>
-        <script type="module" nonce=nonce>
+        <link rel="modulepreload" href={format!("/{pkg_path}/{output_name}.js")} nonce={nonce.clone()}/>
+        <link rel="preload" href={format!("/{pkg_path}/{wasm_output_name}.wasm")} r#as="fetch" r#type="application/wasm" crossorigin={nonce.clone().unwrap_or_default()}/>
+        <script type="module" nonce={nonce}>
             {format!("{script}({pkg_path:?}, {output_name:?}, {wasm_output_name:?})")}
         </script>
     }

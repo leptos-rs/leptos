@@ -115,10 +115,10 @@ where
 
         view! {
             <a
-                href=move || href.get().unwrap_or_default()
-                target=target
-                prop:state=state.map(|s| s.to_js_value())
-                prop:replace=replace
+                href={move || href.get().unwrap_or_default()}
+                target={target}
+                prop:state={state.map(|s| s.to_js_value())}
+                prop:replace={replace}
                 aria-current={
                     let is_active = is_active.clone();
                     move || if is_active.get() { Some("page") } else { None }
