@@ -3,6 +3,9 @@ use proc_macro2::Span;
 use proc_macro_error::abort;
 use quote::{quote, ToTokens};
 
+const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
+const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
+
 #[proc_macro_error::proc_macro_error]
 #[proc_macro]
 pub fn path(tokens: TokenStream) -> TokenStream {
@@ -80,9 +83,13 @@ impl SegmentParser {
 
 impl Segment {
     fn is_valid(segment: &str) -> bool {
-        segment
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        segment.chars().all(|c| {
+            c.is_ascii_digit()
+                || c.is_ascii_lowercase()
+                || c.is_ascii_uppercase()
+                || RFC3986_UNRESERVED.contains(&c)
+                || RFC3986_PCHAR_OTHER.contains(&c)
+        })
     }
 
     fn ensure_valid(&self) {

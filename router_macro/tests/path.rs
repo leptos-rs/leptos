@@ -47,6 +47,19 @@ fn parses_hyphen() {
 }
 
 #[test]
+fn parses_rfc3976_unreserved() {
+    let output = path!("/-._~");
+    assert_eq!(output, (StaticSegment("-._~"),));
+}
+
+
+#[test]
+fn parses_rfc3976_pchar_other() {
+    let output = path!("/@");
+    assert_eq!(output, (StaticSegment("@"),));
+}
+
+#[test]
 fn parses_no_slashes() {
     let output = path!("home");
     assert_eq!(output, (StaticSegment("home"),));
@@ -147,7 +160,7 @@ fn parses_complex() {
 // }
 //
 // #[test]
-// fn deny_non_trailing_segment() {
+// fn deny_non_trailing_wildcard_segment() {
 //     let _ = path!("/home/*any/end");
 // }
 //
