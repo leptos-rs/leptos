@@ -1,6 +1,8 @@
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use crate::hydration::HydrationKey;
-use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
+use crate::{
+    hydration::HydrationCtx, Comment, CoreComponent, IntoView, View, ViewFn,
+};
 use leptos_reactive::{as_child_of_current_owner, Disposer};
 use std::{cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -347,6 +349,7 @@ where
     pub(crate) items_fn: IF,
     pub(crate) each_fn: EF,
     key_fn: KF,
+    ifempty_fn: ViewFn,
 }
 
 impl<IF, I, T, EF, N, KF, K> Each<IF, I, T, EF, N, KF, K>
@@ -361,11 +364,17 @@ where
 {
     /// Creates a new [`Each`] component.
     #[inline(always)]
-    pub const fn new(items_fn: IF, key_fn: KF, each_fn: EF) -> Self {
+    pub const fn new(
+        items_fn: IF,
+        key_fn: KF,
+        each_fn: EF,
+        ifempty_fn: ViewFn,
+    ) -> Self {
         Self {
             items_fn,
             each_fn,
             key_fn,
+            ifempty_fn,
         }
     }
 }
@@ -389,7 +398,13 @@ where
             items_fn,
             each_fn,
             key_fn,
+            ifempty_fn,
         } = self;
+
+        let (count, _) = (items_fn)().into_iter().size_hint();
+        if count == 0 {
+            return ifempty_fn.run();
+        };
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         let _ = key_fn;

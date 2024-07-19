@@ -3,6 +3,7 @@ mod each;
 mod errors;
 mod fragment;
 mod unit;
+mod view_fn;
 
 use crate::{
     hydration::{HydrationCtx, HydrationKey},
@@ -21,6 +22,7 @@ use std::fmt;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::rc::Rc;
 pub use unit::*;
+pub use view_fn::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
