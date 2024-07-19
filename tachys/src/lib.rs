@@ -15,8 +15,9 @@ pub mod prelude {
                 aria::AriaAttributes,
                 custom::CustomAttribute,
                 global::{
-                    ClassAttribute, GlobalAttributes, OnAttribute,
-                    OnTargetAttribute, PropAttribute, StyleAttribute,
+                    ClassAttribute, GlobalAttributes, GlobalOnAttributes,
+                    OnAttribute, OnTargetAttribute, PropAttribute,
+                    StyleAttribute,
                 },
             },
             directive::DirectiveAttribute,
