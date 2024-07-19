@@ -69,6 +69,35 @@ macro_rules! tuples {
 	};
 }
 
+impl<A> PossibleRouteMatch for (A,)
+where
+    Self: core::fmt::Debug,
+    A: PossibleRouteMatch,
+{
+    type ParamsIter = A::ParamsIter;
+
+    fn test<'a>(
+        &self,
+        path: &'a str,
+    ) -> Option<PartialPathMatch<'a, Self::ParamsIter>> {
+        let remaining = path;
+        let PartialPathMatch {
+            remaining,
+            matched,
+            params,
+        } = self.0.test(remaining)?;
+        Some(PartialPathMatch {
+            remaining,
+            matched: &path[0..matched.len()],
+            params,
+        })
+    }
+
+    fn generate_path(&self, path: &mut Vec<PathSegment>) {
+        self.0.generate_path(path);
+    }
+}
+
 tuples!(A => B);
 tuples!(A => B, C);
 tuples!(A => B, C, D);
