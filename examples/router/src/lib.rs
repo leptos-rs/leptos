@@ -9,8 +9,9 @@ use leptos_router::{
     },
     hooks::{use_navigate, use_params, use_query_map},
     params::Params,
-    MatchNestedRoutes, ParamSegment, StaticSegment,
+    MatchNestedRoutes,
 };
+use leptos_router_macro::path;
 use tracing::info;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -38,27 +39,22 @@ pub fn RouterExample() -> impl IntoView {
                 <A href="/about">"About"</A>
                 <A href="/settings">"Settings"</A>
                 <A href="/redirect-home">"Redirect to Home"</A>
-                <button on:click=move |_| set_logged_in.update(|n| *n = !*n)>
-                    {move || if logged_in.get() {
-                        "Log Out"
-                    } else {
-                        "Log In"
-                    }}
-                </button>
+                <button on:click=move |_| {
+                    set_logged_in.update(|n| *n = !*n)
+                }>{move || if logged_in.get() { "Log Out" } else { "Log In" }}</button>
             </nav>
             <main>
                 <Routes fallback=|| "This page could not be found.">
-                    <Route path=StaticSegment("about") view=About/>
+                    // paths can be created using the path!() macro, or provided as types like
+                    // StaticSegment("about")
+                    <Route path=path!("about") view=About/>
                     <ProtectedRoute
-                        path=StaticSegment("settings")
+                        path=path!("settings")
                         condition=move || Some(logged_in.get())
                         redirect_path=|| "/"
                         view=Settings
                     />
-                    <Route
-                        path=StaticSegment("redirect-home")
-                        view=|| view! { <Redirect path="/"/> }
-                    />
+                    <Route path=path!("redirect-home") view=|| view! { <Redirect path="/"/> }/>
                     <ContactRoutes/>
                 </Routes>
             </main>
@@ -71,9 +67,9 @@ pub fn RouterExample() -> impl IntoView {
 #[component]
 pub fn ContactRoutes() -> impl MatchNestedRoutes<Dom> + Clone {
     view! {
-        <ParentRoute path=StaticSegment("") view=ContactList>
-            <Route path=StaticSegment("") view=|| "Select a contact."/>
-            <Route path=ParamSegment("id") view=Contact/>
+        <ParentRoute path=path!("") view=ContactList>
+            <Route path=path!("/") view=|| "Select a contact."/>
+            <Route path=path!("/:id") view=Contact/>
         </ParentRoute>
     }
 }
@@ -225,7 +221,12 @@ pub fn Settings() -> impl IntoView {
                 <input type="text" name="last_name" placeholder="Last"/>
             </fieldset>
             <input type="submit"/>
-            <p>"This uses the " <code>"<Form/>"</code> " component, which enhances forms by using client-side navigation for " <code>"GET"</code> " requests, and client-side requests for " <code>"POST"</code> " requests, without requiring a full page reload."</p>
+            <p>
+                "This uses the " <code>"<Form/>"</code>
+                " component, which enhances forms by using client-side navigation for "
+                <code>"GET"</code> " requests, and client-side requests for " <code>"POST"</code>
+                " requests, without requiring a full page reload."
+            </p>
         </Form>
     }
 }
