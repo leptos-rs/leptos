@@ -50,9 +50,12 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     /// A function that takes the item, and returns the view that will be displayed for each item.
     children: EF,
     /// A closure that returns what gets rendered if the array statement is empty. By default this is the empty view.
-    /// 
+    ///
     /// ## Syntax
     ///  ```rust
+    /// # use leptos::*;
+    /// # if false {
+    /// let (data, _) = create_signal(Vec::<u32>::new());
     /// view! {
     ///     <For
     ///         ifempty=|| view! {<p>Empty data!</p>}
@@ -64,23 +67,8 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     ///         <p>{data}</p>
     ///     </For>
     /// }
-    /// ```
-    /// is the same as
-    /// ```rust
-    /// let (data, _) = create_signal(Vec::<u32>::new());
-    /// view! {
-    ///     <Show when=move|| data.get().is_empty()>
-    ///         <p>Empty data!</p>
-    ///     </Show>
-    ///     <For
-    ///         each=move || data.get()
-    ///         key=|n| *n
-    ///         // stores the item in each row in a variable named `data`
-    ///         let:data
-    ///     >
-    ///         <p>{data}</p>
-    ///     </For>
-    /// }
+    /// # ;
+    /// # }
     /// ```
     #[prop(optional, into)]
     ifempty: ViewFn,
