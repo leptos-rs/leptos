@@ -450,7 +450,7 @@ fn attribute_to_tokens(
             // circumstances in which we just do unchecked attributes
             // 1) custom elements, which can have any attributes
             // 2) custom attributes and data attributes (so, anything with - in it)
-            else if is_custom || 
+            else if is_custom ||
                 (name.contains('-') && !name.starts_with("aria-"))
                 // TODO check: do we actually provide SVG attributes?
                 // we don't provide statically-checked methods for SVG attributes
