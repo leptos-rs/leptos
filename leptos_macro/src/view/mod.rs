@@ -308,7 +308,7 @@ pub(crate) fn element_to_tokens(
                 parent_type,
                 &attributes[0],
                 global_class,
-                is_custom
+                is_custom,
             ))
         } else {
             let nodes = attributes.iter().map(|node| {
@@ -375,7 +375,7 @@ fn attribute_to_tokens(
     node: &NodeAttribute,
     // TODO global_class support
     _global_class: Option<&TokenTree>,
-    is_custom: bool
+    is_custom: bool,
 ) -> TokenStream {
     match node {
         NodeAttribute::Block(node) => {
@@ -448,7 +448,7 @@ fn attribute_to_tokens(
                 prop_to_tokens(node, prop.into_token_stream(), name)
             }
             // circumstances in which we just do unchecked attributes
-            // 1) custom elements, which can have any attributes 
+            // 1) custom elements, which can have any attributes
             // 2) custom attributes and data attributes (so, anything with - in it)
             else if is_custom || 
                 (name.contains('-') && !name.starts_with("aria-"))
