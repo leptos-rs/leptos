@@ -1,6 +1,4 @@
-use leptos_router::ParamSegment;
-use leptos_router::StaticSegment;
-use leptos_router::WildcardSegment;
+use leptos_router::{ParamSegment, StaticSegment, WildcardSegment};
 use leptos_router_macro::path;
 
 #[test]
@@ -51,7 +49,6 @@ fn parses_rfc3976_unreserved() {
     let output = path!("/-._~");
     assert_eq!(output, (StaticSegment("-._~"),));
 }
-
 
 #[test]
 fn parses_rfc3976_pchar_other() {
