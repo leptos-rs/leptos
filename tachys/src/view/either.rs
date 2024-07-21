@@ -1,6 +1,6 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
+    Render, RenderHtml,
 };
 use crate::{
     html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
@@ -155,11 +155,26 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         match self {
-            Either::Left(left) => left.to_html_with_buf(buf, position, escape),
+            Either::Left(left) => {
+                if mark_branches {
+                    buf.open_branch("0");
+                }
+                left.to_html_with_buf(buf, position, escape, mark_branches);
+                if mark_branches {
+                    buf.close_branch("0");
+                }
+            }
             Either::Right(right) => {
-                right.to_html_with_buf(buf, position, escape)
+                if mark_branches {
+                    buf.open_branch("1");
+                }
+                right.to_html_with_buf(buf, position, escape, mark_branches);
+                if mark_branches {
+                    buf.close_branch("1");
+                }
             }
         }
     }
@@ -169,14 +184,39 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         match self {
-            Either::Left(left) => left
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
-            Either::Right(right) => right
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
+            Either::Left(left) => {
+                if mark_branches {
+                    buf.open_branch("0");
+                }
+                left.to_html_async_with_buf::<OUT_OF_ORDER>(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                );
+                if mark_branches {
+                    buf.close_branch("0");
+                }
+            }
+            Either::Right(right) => {
+                if mark_branches {
+                    buf.open_branch("1");
+                }
+                right.to_html_async_with_buf::<OUT_OF_ORDER>(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                );
+                if mark_branches {
+                    buf.close_branch("1");
+                }
+            }
         }
     }
 
@@ -317,6 +357,7 @@ where
         _buf: &mut String,
         _position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) {
         todo!()
     }
@@ -528,19 +569,35 @@ macro_rules! tuples {
                     }
                 }
 
-                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
+                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
                     match self {
-                        $([<EitherOf $num>]::$ty(this) => this.to_html_with_buf(buf, position, escape),)*
+                        $([<EitherOf $num>]::$ty(this) => {
+                            if mark_branches {
+                                buf.open_branch(stringify!($ty));
+                            }
+                            this.to_html_with_buf(buf, position, escape, mark_branches);
+                            if mark_branches {
+                                buf.close_branch(stringify!($ty));
+                            }
+                        })*
                     }
                 }
 
                 fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
                     self,
-                    buf: &mut StreamBuilder, position: &mut Position, escape: bool) where
+                    buf: &mut StreamBuilder, position: &mut Position, escape: bool, mark_branches: bool) where
                     Self: Sized,
                 {
                     match self {
-                        $([<EitherOf $num>]::$ty(this) => this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),)*
+                        $([<EitherOf $num>]::$ty(this) => {
+                            if mark_branches {
+                                buf.open_branch(stringify!($ty));
+                            }
+                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches);
+                            if mark_branches {
+                                buf.close_branch(stringify!($ty));
+                            }
+                        })*
                     }
                 }
 

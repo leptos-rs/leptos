@@ -91,8 +91,10 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        self.view.to_html_with_buf(buf, position, escape)
+        self.view
+            .to_html_with_buf(buf, position, escape, mark_branches)
     }
 
     fn hydrate<const FROM_SERVER: bool>(

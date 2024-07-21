@@ -274,20 +274,29 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
         let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
         let mut new_pos = *position;
-        self.children
-            .to_html_with_buf(&mut new_buf, &mut new_pos, escape);
+        self.children.to_html_with_buf(
+            &mut new_buf,
+            &mut new_pos,
+            escape,
+            mark_branches,
+        );
 
         // any thrown errors would've been caught here
         if self.errors.with_untracked(|map| map.is_empty()) {
             buf.push_str(&new_buf);
         } else {
             // otherwise, serialize the fallback instead
-            (self.fallback)(self.errors)
-                .to_html_with_buf(buf, position, escape);
+            (self.fallback)(self.errors).to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
         }
     }
 
@@ -296,6 +305,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -306,6 +316,7 @@ where
             &mut new_buf,
             &mut new_pos,
             escape,
+            mark_branches,
         );
 
         if let Some(sc) = Owner::current_shared_context() {
@@ -322,6 +333,7 @@ where
                 &mut fallback,
                 position,
                 escape,
+                mark_branches,
             );
             buf.push_sync(&fallback);
         }

@@ -59,6 +59,7 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {
@@ -188,12 +189,14 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         <&str as RenderHtml<R>>::to_html_with_buf(
             self.as_str(),
             buf,
             position,
             escape,
+            mark_branches,
         )
     }
 
@@ -284,7 +287,7 @@ where
         self.len()
     }
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
     }
 
@@ -380,8 +383,15 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position, escape)
+        <&str as RenderHtml<R>>::to_html_with_buf(
+            &self,
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(
@@ -476,8 +486,15 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position, escape)
+        <&str as RenderHtml<R>>::to_html_with_buf(
+            &self,
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(

@@ -52,8 +52,15 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position, escape)
+        <&str as RenderHtml<R>>::to_html_with_buf(
+            &self,
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(

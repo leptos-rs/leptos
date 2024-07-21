@@ -122,6 +122,7 @@ where
         _buf: &mut String,
         _position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) {
         if let Some(meta) = use_context::<ServerMetaContext>() {
             let mut buf = String::new();

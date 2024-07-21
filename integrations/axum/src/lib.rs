@@ -676,8 +676,12 @@ where
     _ = replace_blocks; // TODO
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            Box::pin(app.to_html_stream_out_of_order().chain(chunks()))
-                as PinnedStream<String>
+            let app = if cfg!(feature = "islands-router") {
+                app.to_html_stream_out_of_order_branching()
+            } else {
+                app.to_html_stream_out_of_order()
+            };
+            Box::pin(app.chain(chunks())) as PinnedStream<String>
         })
     })
 }
@@ -723,9 +727,13 @@ where
     IV: IntoView + 'static,
 {
     handle_response(additional_context, app_fn, |app, chunks| {
+        let app = if cfg!(feature = "islands-router") {
+            app.to_html_stream_in_order_branching()
+        } else {
+            app.to_html_stream_in_order()
+        };
         Box::pin(async move {
-            Box::pin(app.to_html_stream_in_order().chain(chunks()))
-                as PinnedStream<String>
+            Box::pin(app.chain(chunks())) as PinnedStream<String>
         })
     })
 }
@@ -922,7 +930,12 @@ where
 {
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            let app = app.to_html_stream_in_order().collect::<String>().await;
+            let app = if cfg!(feature = "islands-router") {
+                app.to_html_stream_in_order_branching()
+            } else {
+                app.to_html_stream_in_order()
+            };
+            let app = app.collect::<String>().await;
             let chunks = chunks();
             Box::pin(once(async move { app }).chain(chunks))
                 as PinnedStream<String>
@@ -971,7 +984,12 @@ where
 {
     handle_response(additional_context, app_fn, |app, chunks| {
         Box::pin(async move {
-            let app = app.to_html_stream_in_order().collect::<String>().await;
+            let app = if cfg!(feature = "islands-router") {
+                app.to_html_stream_in_order_branching()
+            } else {
+                app.to_html_stream_in_order()
+            };
+            let app = app.collect::<String>().await;
             let chunks = chunks();
             Box::pin(once(async move { app }).chain(chunks))
                 as PinnedStream<String>

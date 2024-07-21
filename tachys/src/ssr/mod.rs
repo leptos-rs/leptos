@@ -15,7 +15,7 @@ use std::{
 /// Manages streaming HTML rendering for the response to a single request.
 #[derive(Default)]
 pub struct StreamBuilder {
-    sync_buf: String,
+    pub(crate) sync_buf: String,
     pub(crate) chunks: VecDeque<StreamChunk>,
     pending: Option<ChunkFuture>,
     pending_ooo: VecDeque<PinnedFuture<OooChunk>>,
@@ -104,12 +104,18 @@ impl StreamBuilder {
         &mut self,
         fallback: View,
         position: &mut Position,
+        mark_branches: bool,
     ) where
         View: RenderHtml<Rndr>,
         Rndr: Renderer,
     {
         self.write_chunk_marker(true);
-        fallback.to_html_with_buf(&mut self.sync_buf, position, true);
+        fallback.to_html_with_buf(
+            &mut self.sync_buf,
+            position,
+            true,
+            mark_branches,
+        );
         self.write_chunk_marker(false);
         *position = Position::NextChild;
     }
@@ -156,6 +162,7 @@ impl StreamBuilder {
         &mut self,
         view: impl Future<Output = Option<View>> + Send + 'static,
         position: &mut Position,
+        mark_branches: bool,
     ) where
         View: RenderHtml<Rndr>,
         Rndr: Renderer,
@@ -185,6 +192,7 @@ impl StreamBuilder {
                         &mut subbuilder,
                         &mut position,
                         true,
+                        mark_branches,
                     );
                 }
                 let chunks = subbuilder.finish().take_chunks();

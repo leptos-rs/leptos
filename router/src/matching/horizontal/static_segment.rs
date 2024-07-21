@@ -88,9 +88,8 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::AsPath;
-
     use super::{PossibleRouteMatch, StaticSegment};
+    use crate::AsPath;
 
     #[derive(Debug, Clone)]
     enum Paths {
