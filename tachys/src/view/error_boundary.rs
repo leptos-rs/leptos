@@ -157,9 +157,12 @@ where
         buf: &mut String,
         position: &mut super::Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         match self {
-            Ok(inner) => inner.to_html_with_buf(buf, position, escape),
+            Ok(inner) => {
+                inner.to_html_with_buf(buf, position, escape, mark_branches)
+            }
             Err(e) => {
                 throw_error::throw(e);
             }
@@ -171,12 +174,17 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         match self {
-            Ok(inner) => inner
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
+            Ok(inner) => inner.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            ),
             Err(e) => {
                 throw_error::throw(e);
             }

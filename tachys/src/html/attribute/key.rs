@@ -36,7 +36,7 @@ macro_rules! attributes {
 attributes! {
     // HTML
     /// The `abbr` attribute specifies an abbreviated form of the element's content.
-    abbr "abbr", 
+    abbr "abbr",
     /// The `accept-charset` attribute specifies the character encodings that are to be used for the form submission.
     accept_charset "accept-charset",
     /// The `accept` attribute specifies a list of types the server accepts, typically a file type.
@@ -582,7 +582,7 @@ attributes! {
     /// The `onwheel` attribute specifies the event handler for the wheel event.
     onwheel "onwheel",
 
-    // MathML attributes 
+    // MathML attributes
     /// The `accent` attribute specifies whether the element should be treated as an accent.
     accent "accent",
     /// The `accentunder` attribute specifies whether the element should be treated as an accent under the base element.

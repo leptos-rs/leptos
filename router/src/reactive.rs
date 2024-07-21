@@ -131,7 +131,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
+        escape: bool, mark_branches: bool
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -156,7 +156,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
+        escape: bool, mark_branches: bool
     ) where
         Self: Sized,
     {
@@ -324,7 +324,7 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
+        escape: bool, mark_branches: bool
     ) {
         let MatchedRoute {
             search_params,
@@ -345,7 +345,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
+        escape: bool, mark_branches: bool
     ) where
         Self: Sized,
     {
