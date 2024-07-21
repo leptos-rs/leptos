@@ -220,6 +220,13 @@ macro_rules! spawn_derived {
             loading: Arc::new(AtomicBool::new(!is_ready)),
         };
         let any_subscriber = this.to_any_subscriber();
+        let initial_fut = owner.with_cleanup(|| {
+            any_subscriber
+                .with_observer(|| ScopedFuture::new($fun()))
+        });
+        #[cfg(feature = "sandboxed-arenas")]
+        let initial_fut = Sandboxed::new(initial_fut);
+        let mut initial_fut = Box::pin(initial_fut);
 
         let was_ready = {
             if is_ready {
@@ -227,14 +234,7 @@ macro_rules! spawn_derived {
             } else {
                 // if we don't already know that it's ready, we need to poll once, initially
                 // so that the correct value is set synchronously
-                let fut = owner.with_cleanup(|| {
-                    any_subscriber
-                        .with_observer(|| ScopedFuture::new($fun()))
-                });
-                #[cfg(feature = "sandboxed-arenas")]
-                let fut = Sandboxed::new(fut);
-                let mut fut = Box::pin(fut);
-                let initial = fut.as_mut().now_or_never();
+                let initial = initial_fut.as_mut().now_or_never();
                 match initial {
                     None => false,
                     Some(orig_value) => {
@@ -248,6 +248,8 @@ macro_rules! spawn_derived {
                 }
             }
         };
+
+        let mut initial_fut = Some(initial_fut);
 
         let mut first_run = {
             let (ready_tx, ready_rx) = oneshot::channel();
@@ -272,12 +274,15 @@ macro_rules! spawn_derived {
                             (Some(value), Some(inner), Some(wakers), Some(loading)) => {
                                 // generate new Future
                                 let owner = inner.read().or_poisoned().owner.clone();
-                                let fut = owner.with_cleanup(|| {
-                                    any_subscriber
-                                        .with_observer(|| ScopedFuture::new($fun()))
+                                let fut = initial_fut.take().unwrap_or_else(|| {
+                                    let fut = owner.with_cleanup(|| {
+                                        any_subscriber
+                                            .with_observer(|| ScopedFuture::new($fun()))
+                                    });
+                                    #[cfg(feature = "sandboxed-arenas")]
+                                    let fut = Sandboxed::new(fut);
+                                    Box::pin(fut)
                                 });
-                                #[cfg(feature = "sandboxed-arenas")]
-                                let fut = Sandboxed::new(fut);
 
                                 // register with global transition listener, if any
                                 let ready_tx = first_run.take().unwrap_or_else(|| {
