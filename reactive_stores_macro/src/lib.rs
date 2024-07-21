@@ -201,7 +201,6 @@ impl ToTokens for Model {
                 field_to_tokens(idx, false, modes.as_deref(), &library_path, ident.as_ref(), generics, &any_store_field, struct_name, ty),
                 field_to_tokens(idx, true, modes.as_deref(), &library_path, ident.as_ref(), generics, &any_store_field, struct_name, ty),
             )
-                       
         });
 
         // implement that trait for all StoreFields
