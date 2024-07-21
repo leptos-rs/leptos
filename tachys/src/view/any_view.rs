@@ -38,12 +38,13 @@ where
     #[cfg(feature = "ssr")]
     html_len: usize,
     #[cfg(feature = "ssr")]
-    to_html: fn(Box<dyn Any>, &mut String, &mut Position, bool),
+    to_html: fn(Box<dyn Any>, &mut String, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
-    to_html_async: fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool),
+    to_html_async:
+        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     #[cfg(feature = "ssr")]
     to_html_async_ooo:
-        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool),
+        fn(Box<dyn Any>, &mut StreamBuilder, &mut Position, bool, bool),
     build: fn(Box<dyn Any>) -> AnyViewState<R>,
     rebuild: fn(TypeId, Box<dyn Any>, &mut AnyViewState<R>),
     #[cfg(feature = "ssr")]
@@ -175,32 +176,46 @@ where
         let to_html = |value: Box<dyn Any>,
                        buf: &mut String,
                        position: &mut Position,
-                       escape: bool| {
+                       escape: bool,
+                       mark_branches: bool| {
             let value = value
                 .downcast::<T>()
                 .expect("AnyView::to_html could not be downcast");
-            value.to_html_with_buf(buf, position, escape);
+            value.to_html_with_buf(buf, position, escape, mark_branches);
         };
         #[cfg(feature = "ssr")]
         let to_html_async = |value: Box<dyn Any>,
                              buf: &mut StreamBuilder,
                              position: &mut Position,
-                             escape: bool| {
+                             escape: bool,
+                             mark_branches: bool| {
             let value = value
                 .downcast::<T>()
                 .expect("AnyView::to_html could not be downcast");
-            value.to_html_async_with_buf::<false>(buf, position, escape);
+            value.to_html_async_with_buf::<false>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
         };
         #[cfg(feature = "ssr")]
-        let to_html_async_ooo = |value: Box<dyn Any>,
-                                 buf: &mut StreamBuilder,
-                                 position: &mut Position,
-                                 escape: bool| {
-            let value = value
-                .downcast::<T>()
-                .expect("AnyView::to_html could not be downcast");
-            value.to_html_async_with_buf::<true>(buf, position, escape);
-        };
+        let to_html_async_ooo =
+            |value: Box<dyn Any>,
+             buf: &mut StreamBuilder,
+             position: &mut Position,
+             escape: bool,
+             mark_branches: bool| {
+                let value = value
+                    .downcast::<T>()
+                    .expect("AnyView::to_html could not be downcast");
+                value.to_html_async_with_buf::<true>(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                );
+            };
         let build = |value: Box<dyn Any>| {
             let value = value
                 .downcast::<T>()
@@ -347,9 +362,10 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         #[cfg(feature = "ssr")]
-        (self.to_html)(self.value, buf, position, escape);
+        (self.to_html)(self.value, buf, position, escape, mark_branches);
         #[cfg(not(feature = "ssr"))]
         {
             _ = buf;
@@ -367,14 +383,27 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         #[cfg(feature = "ssr")]
         if OUT_OF_ORDER {
-            (self.to_html_async_ooo)(self.value, buf, position, escape);
+            (self.to_html_async_ooo)(
+                self.value,
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
         } else {
-            (self.to_html_async)(self.value, buf, position, escape);
+            (self.to_html_async)(
+                self.value,
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
         }
         #[cfg(not(feature = "ssr"))]
         {

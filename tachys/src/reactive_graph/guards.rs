@@ -103,7 +103,7 @@ macro_rules! render_primitive {
 
                 const MIN_LENGTH: usize = 0;
 
-                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
+                fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
                     // add a comment node to separate from previous sibling, if any
                     if matches!(position, Position::NextChildAfterText) {
                         buf.push_str("<!>")
@@ -264,7 +264,7 @@ where
 
     const MIN_LENGTH: usize = 0;
 
-    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool) {
+    fn to_html_with_buf(self, buf: &mut String, position: &mut Position, escape: bool, mark_branches: bool) {
         <&str as RenderHtml<R>>::to_html_with_buf(&self, buf, position)
     }
 

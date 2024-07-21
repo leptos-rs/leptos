@@ -28,3 +28,6 @@ send_wrapper = "0.6.0"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[features]
+islands-router = []

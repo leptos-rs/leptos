@@ -115,9 +115,11 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         Self::open_tag(self.component, buf);
-        self.view.to_html_with_buf(buf, position, escape);
+        self.view
+            .to_html_with_buf(buf, position, escape, mark_branches);
         Self::close_tag(buf);
     }
 
@@ -126,6 +128,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -135,8 +138,12 @@ where
         buf.push_sync(&tag);
 
         // streaming render for the view
-        self.view
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+        self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        );
 
         // and insert the closing tag synchronously
         tag.clear();
@@ -243,9 +250,11 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         Self::open_tag(buf);
-        self.view.to_html_with_buf(buf, position, escape);
+        self.view
+            .to_html_with_buf(buf, position, escape, mark_branches);
         Self::close_tag(buf);
     }
 
@@ -254,6 +263,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -263,8 +273,12 @@ where
         buf.push_sync(&tag);
 
         // streaming render for the view
-        self.view
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+        self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        );
 
         // and insert the closing tag synchronously
         tag.clear();

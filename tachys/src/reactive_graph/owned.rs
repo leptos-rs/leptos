@@ -123,9 +123,12 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        self.owner
-            .with(|| self.view.to_html_with_buf(buf, position, escape));
+        self.owner.with(|| {
+            self.view
+                .to_html_with_buf(buf, position, escape, mark_branches)
+        });
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -133,12 +136,17 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         self.owner.with(|| {
-            self.view
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
+            self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            )
         });
 
         // if self.owner drops here, it can be disposed before the asynchronous rendering process
