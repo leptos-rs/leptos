@@ -710,7 +710,7 @@ where
     }
 
     fn to_html(self, style: &mut String) {
-        if let Some(inner) = self.0.now_or_never() {
+        if let Some(inner) = self.now_or_never() {
             inner.to_html(style);
         } else {
             panic!("You cannot use Suspend on an attribute outside Suspense");
@@ -727,7 +727,7 @@ where
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() =
-                    Some(self.0.await.hydrate::<FROM_SERVER>(&el));
+                    Some(self.await.hydrate::<FROM_SERVER>(&el));
             }
         });
         state
@@ -739,7 +739,7 @@ where
         Executor::spawn_local({
             let state = Rc::clone(&state);
             async move {
-                *state.borrow_mut() = Some(self.0.await.build(&el));
+                *state.borrow_mut() = Some(self.await.build(&el));
             }
         });
         state
@@ -749,7 +749,7 @@ where
         Executor::spawn_local({
             let state = Rc::clone(state);
             async move {
-                let value = self.0.await;
+                let value = self.await;
                 let mut state = state.borrow_mut();
                 if let Some(state) = state.as_mut() {
                     value.rebuild(state);
@@ -769,6 +769,6 @@ where
     fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self.0.await
+        self.await
     }
 }
