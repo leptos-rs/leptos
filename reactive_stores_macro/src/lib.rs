@@ -5,8 +5,8 @@ use syn::{
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
-    Data, Field, Fields, Generics, Ident, Meta, MetaList, Result, Visibility,
-    WhereClause, Type, Token, Index,
+    Data, Field, Fields, Generics, Ident, Index, Meta, MetaList, Result, Token,
+    Type, Visibility, WhereClause,
 };
 
 #[proc_macro_error]
@@ -39,10 +39,9 @@ impl Parse for Model {
             syn::Fields::Named(fields) => {
                 fields.named.into_iter().collect::<Vec<_>>()
             }
-            syn::Fields::Unnamed(fields) => fields
-                    .unnamed
-                    .into_iter()
-                    .collect::<Vec<_>>(),
+            syn::Fields::Unnamed(fields) => {
+                fields.unnamed.into_iter().collect::<Vec<_>>()
+            }
         };
 
         Ok(Self {
@@ -75,7 +74,17 @@ impl Parse for SubfieldMode {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn field_to_tokens(idx: usize, include_body: bool, modes: Option<&[SubfieldMode]>, library_path: &proc_macro2::TokenStream, orig_ident: Option<&Ident>, generics: &Generics, any_store_field: &Ident, struct_name: &Ident, ty: &Type) -> proc_macro2::TokenStream {
+fn field_to_tokens(
+    idx: usize,
+    include_body: bool,
+    modes: Option<&[SubfieldMode]>,
+    library_path: &proc_macro2::TokenStream,
+    orig_ident: Option<&Ident>,
+    generics: &Generics,
+    any_store_field: &Ident,
+    struct_name: &Ident,
+    ty: &Type,
+) -> proc_macro2::TokenStream {
     let ident = if orig_ident.is_none() {
         let idx = Ident::new(&format!("field{idx}"), Span::call_site());
         quote! { #idx }
@@ -105,9 +114,14 @@ fn field_to_tokens(idx: usize, include_body: bool, modes: Option<&[SubfieldMode]
                 }
             } else {
                 quote! { #signature; }
-            }
+            };
         } else {
-            abort!(orig_ident.map(|ident| ident.span()).unwrap_or_else(Span::call_site), "multiple modes not currently supported");
+            abort!(
+                orig_ident
+                    .map(|ident| ident.span())
+                    .unwrap_or_else(Span::call_site),
+                "multiple modes not currently supported"
+            );
         }
     }
 
@@ -191,7 +205,8 @@ impl ToTokens for Model {
         });
 
         // implement that trait for all StoreFields
-        let (trait_fields, read_fields): (Vec<_>, Vec<_>) = all_field_data.unzip();
+        let (trait_fields, read_fields): (Vec<_>, Vec<_>) =
+            all_field_data.unzip();
 
         // read access
         tokens.extend(quote! {
