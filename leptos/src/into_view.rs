@@ -62,8 +62,10 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        self.0.to_html_with_buf(buf, position, escape);
+        self.0
+            .to_html_with_buf(buf, position, escape, mark_branches);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -71,11 +73,16 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
-        self.0
-            .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
+        self.0.to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(

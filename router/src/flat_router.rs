@@ -483,6 +483,7 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         // if this is being run on the server for the first time, generating all possible routes
         if RouteList::is_generating() {
@@ -531,7 +532,7 @@ where
             RouteList::register(RouteList::from(routes));
         } else {
             let view = self.choose_ssr();
-            view.to_html_with_buf(buf, position, escape);
+            view.to_html_with_buf(buf, position, escape, mark_branches);
         }
     }
 
@@ -540,11 +541,17 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         let view = self.choose_ssr();
-        view.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
+        view.to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
     }
 
     fn hydrate<const FROM_SERVER: bool>(

@@ -192,8 +192,10 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
-        self.fallback.to_html_with_buf(buf, position, escape);
+        self.fallback
+            .to_html_with_buf(buf, position, escape, mark_branches);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -201,6 +203,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -292,13 +295,19 @@ where
             Some(Some(resolved)) => {
                 Either::<Fal, _>::Right(resolved)
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf, position, escape,
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
                     );
             }
             Some(None) => {
                 Either::<_, Chil>::Left(self.fallback)
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
-                        buf, position, escape,
+                        buf,
+                        position,
+                        escape,
+                        mark_branches,
                     );
             }
             None => {
@@ -308,8 +317,12 @@ where
                 // wrapped by suspense markers
                 if OUT_OF_ORDER {
                     let mut fallback_position = *position;
-                    buf.push_fallback(self.fallback, &mut fallback_position);
-                    buf.push_async_out_of_order(fut, position);
+                    buf.push_fallback(
+                        self.fallback,
+                        &mut fallback_position,
+                        mark_branches,
+                    );
+                    buf.push_async_out_of_order(fut, position, mark_branches);
                 } else {
                     buf.push_async({
                         let mut position = *position;
@@ -323,6 +336,7 @@ where
                                 &mut builder,
                                 &mut position,
                                 escape,
+                                mark_branches,
                             );
                             builder.finish().take_chunks()
                         }

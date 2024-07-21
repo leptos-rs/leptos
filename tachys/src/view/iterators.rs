@@ -90,12 +90,13 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .to_html_with_buf(buf, position, escape)
+        .to_html_with_buf(buf, position, escape, mark_branches)
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
@@ -103,6 +104,7 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -110,7 +112,12 @@ where
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape)
+        .to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        )
     }
 
     #[track_caller]
@@ -282,13 +289,14 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_with_buf(buf, position, escape);
+            first.to_html_with_buf(buf, position, escape, mark_branches);
         }
         for child in children {
-            child.to_html_with_buf(buf, position, escape);
+            child.to_html_with_buf(buf, position, escape, mark_branches);
         }
         buf.push_str("<!>");
     }
@@ -298,15 +306,26 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+            first.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
         }
         for child in children {
-            child.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape);
+            child.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
         }
         buf.push_sync("<!>");
     }

@@ -270,6 +270,7 @@ where
         buf: &mut String,
         position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) {
         // opening tag
         buf.push('<');
@@ -289,6 +290,7 @@ where
                     buf,
                     position,
                     E::ESCAPE_CHILDREN,
+                    mark_branches,
                 );
             }
 
@@ -305,6 +307,7 @@ where
         buffer: &mut StreamBuilder,
         position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
@@ -328,6 +331,7 @@ where
                     buffer,
                     position,
                     E::ESCAPE_CHILDREN,
+                    mark_branches,
                 );
             }
 

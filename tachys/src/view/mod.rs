@@ -46,6 +46,40 @@ pub trait Render<R: Renderer>: Sized {
     fn rebuild(self, state: &mut Self::State);
 }
 
+pub(crate) trait MarkBranch {
+    fn open_branch(&mut self, branch_id: &str);
+
+    fn close_branch(&mut self, branch_id: &str);
+}
+
+impl MarkBranch for String {
+    fn open_branch(&mut self, branch_id: &str) {
+        self.push_str("<!--bo-");
+        self.push_str(branch_id);
+        self.push_str("-->");
+    }
+
+    fn close_branch(&mut self, branch_id: &str) {
+        self.push_str("<!--bc-");
+        self.push_str(branch_id);
+        self.push_str("-->");
+    }
+}
+
+impl MarkBranch for StreamBuilder {
+    fn open_branch(&mut self, branch_id: &str) {
+        self.sync_buf.push_str("<!--bo-");
+        self.sync_buf.push_str(branch_id);
+        self.sync_buf.push_str("-->");
+    }
+
+    fn close_branch(&mut self, branch_id: &str) {
+        self.sync_buf.push_str("<!--bc-");
+        self.sync_buf.push_str(branch_id);
+        self.sync_buf.push_str("-->");
+    }
+}
+
 /// The `RenderHtml` trait allows rendering something to HTML, and transforming
 /// that HTML into an interactive interface.
 ///
@@ -94,7 +128,19 @@ where
         Self: Sized,
     {
         let mut buf = String::with_capacity(self.html_len());
-        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true);
+        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true, false);
+        buf
+    }
+
+    /// Renders a view to HTML with branch markers. This can be used to support libraries that diff
+    /// HTML pages against one another, by marking sections of the view that branch to different
+    /// types with marker comments.
+    fn to_html_branching(self) -> String
+    where
+        Self: Sized,
+    {
+        let mut buf = String::with_capacity(self.html_len());
+        self.to_html_with_buf(&mut buf, &mut Position::FirstChild, true, true);
         buf
     }
 
@@ -107,6 +153,24 @@ where
         self.to_html_async_with_buf::<false>(
             &mut builder,
             &mut Position::FirstChild,
+            true,
+            false,
+        );
+        builder.finish()
+    }
+
+    /// Renders a view to an in-order stream of HTML with branch markers. This can be used to support libraries that diff
+    /// HTML pages against one another, by marking sections of the view that branch to different
+    /// types with marker comments.
+    fn to_html_stream_in_order_branching(self) -> StreamBuilder
+    where
+        Self: Sized,
+    {
+        let mut builder = StreamBuilder::with_capacity(self.html_len(), None);
+        self.to_html_async_with_buf::<false>(
+            &mut builder,
+            &mut Position::FirstChild,
+            true,
             true,
         );
         builder.finish()
@@ -125,25 +189,29 @@ where
             &mut builder,
             &mut Position::FirstChild,
             true,
+            false,
         );
         builder.finish()
-        /*let mut b = builder.finish();
-        let last = b.chunks.pop_back().unwrap();
-        match &last {
-            crate::ssr::StreamChunk::Sync(s) => {
-                println!("actual = {}", s.len())
-            }
-            crate::ssr::StreamChunk::Async {
-                chunks,
-                should_block,
-            } => todo!(),
-            crate::ssr::StreamChunk::OutOfOrder {
-                chunks,
-                should_block,
-            } => todo!(),
-        }
-        b.chunks.push_back(last);
-        b*/
+    }
+
+    /// Renders a view to an out-of-order stream of HTML with branch markers. This can be used to support libraries that diff
+    /// HTML pages against one another, by marking sections of the view that branch to different
+    /// types with marker comments.
+
+    fn to_html_stream_out_of_order_branching(self) -> StreamBuilder
+    where
+        Self: Sized,
+    {
+        let mut builder =
+            StreamBuilder::with_capacity(self.html_len(), Some(vec![0]));
+
+        self.to_html_async_with_buf::<true>(
+            &mut builder,
+            &mut Position::FirstChild,
+            true,
+            true,
+        );
+        builder.finish()
     }
 
     /// Renders a view to HTML, writing it into the given buffer.
@@ -152,6 +220,7 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     );
 
     /// Renders a view into a buffer of (synchronous or asynchronous) HTML chunks.
@@ -160,10 +229,13 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
-        buf.with_buf(|buf| self.to_html_with_buf(buf, position, escape));
+        buf.with_buf(|buf| {
+            self.to_html_with_buf(buf, position, escape, mark_branches)
+        });
     }
 
     /// Makes a set of DOM nodes rendered from HTML interactive.

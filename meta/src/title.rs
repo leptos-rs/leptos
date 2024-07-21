@@ -250,6 +250,7 @@ impl RenderHtml<Dom> for TitleView {
         _buf: &mut String,
         _position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server

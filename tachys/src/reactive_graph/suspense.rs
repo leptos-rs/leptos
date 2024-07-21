@@ -175,12 +175,13 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) {
         // TODO wrap this with a Suspense as needed
         // currently this is just used for Routes, which creates a Suspend but never actually needs
         // it (because we don't lazy-load routes on the server)
         if let Some(inner) = self.0.now_or_never() {
-            inner.to_html_with_buf(buf, position, escape);
+            inner.to_html_with_buf(buf, position, escape, mark_branches);
         }
     }
 
@@ -189,13 +190,18 @@ where
         buf: &mut StreamBuilder,
         position: &mut Position,
         escape: bool,
+        mark_branches: bool,
     ) where
         Self: Sized,
     {
         let mut fut = Box::pin(self.0);
         match fut.as_mut().now_or_never() {
-            Some(inner) => inner
-                .to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape),
+            Some(inner) => inner.to_html_async_with_buf::<OUT_OF_ORDER>(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            ),
             None => {
                 if use_context::<SuspenseContext>().is_none() {
                     buf.next_id();
@@ -218,8 +224,13 @@ where
                         buf.push_fallback::<(), Rndr>(
                             (),
                             &mut fallback_position,
+                            mark_branches,
                         );
-                        buf.push_async_out_of_order(fut, position);
+                        buf.push_async_out_of_order(
+                            fut,
+                            position,
+                            mark_branches,
+                        );
                     } else {
                         buf.push_async({
                             let mut position = *position;
@@ -230,6 +241,7 @@ where
                                     &mut builder,
                                     &mut position,
                                     escape,
+                                    mark_branches,
                                 );
                                 builder.finish().take_chunks()
                             }

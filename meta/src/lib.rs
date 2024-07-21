@@ -337,6 +337,7 @@ where
             &mut buf,
             &mut Position::NextChild,
             false,
+            false,
         );
         _ = cx.elements.send(buf); // fails only if the receiver is already dropped
     } else {
@@ -438,6 +439,7 @@ where
         _buf: &mut String,
         _position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) {
         // meta tags are rendered into the buffer stored into the context
         // the value has already been taken out, when we're on the server
@@ -547,6 +549,7 @@ impl RenderHtml<Dom> for MetaTagsView {
         buf: &mut String,
         _position: &mut Position,
         _escape: bool,
+        mark_branches: bool,
     ) {
         buf.push_str("<!--HEAD-->");
     }
