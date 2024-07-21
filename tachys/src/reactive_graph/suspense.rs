@@ -10,6 +10,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use futures::{select, FutureExt};
+use pin_project_lite::pin_project;
 use reactive_graph::{
     computed::{
         suspense::{LocalResourceNotifier, SuspenseContext},
@@ -17,16 +18,54 @@ use reactive_graph::{
     },
     owner::{provide_context, use_context},
 };
-use std::{cell::RefCell, fmt::Debug, future::Future, pin::Pin, rc::Rc};
+use std::{
+    cell::RefCell,
+    fmt::Debug,
+    future::Future,
+    pin::Pin,
+    rc::Rc,
+    task::{Context, Poll},
+};
 
-/// A suspended `Future`, which can be used in the view.
-#[derive(Clone)]
-pub struct Suspend<Fut>(pub ScopedFuture<Fut>); // TODO probably shouldn't be pub
+pin_project! {
+    /// A suspended `Future`, which can be used in the view.
+    #[derive(Clone)]
+    pub struct Suspend<Fut> {
+        #[pin]
+        inner: ScopedFuture<Fut>
+    }
+}
 
 impl<Fut> Suspend<Fut> {
     /// Creates a new suspended view.
     pub fn new(fut: Fut) -> Self {
-        Self(ScopedFuture::new(fut))
+        Self {
+            inner: ScopedFuture::new(fut),
+        }
+    }
+}
+
+impl<Fut> Future for Suspend<Fut>
+where
+    Fut: Future,
+{
+    type Output = Fut::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        this.inner.poll(cx)
+    }
+}
+
+impl<Fut> From<ScopedFuture<Fut>> for Suspend<Fut> {
+    fn from(inner: ScopedFuture<Fut>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<Fut> From<Suspend<Fut>> for ScopedFuture<Fut> {
+    fn from(value: Suspend<Fut>) -> Self {
+        value.inner
     }
 }
 
@@ -76,7 +115,7 @@ where
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(self.0);
+        let mut fut = Box::pin(self);
         let initial = fut.as_mut().now_or_never();
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(initial.build()));
@@ -103,7 +142,7 @@ where
 
     fn rebuild(self, state: &mut Self::State) {
         // get a unique ID if there's a SuspenseContext
-        let fut = self.0;
+        let fut = self;
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
 
         // spawn the future, and rebuild the state when it resolves
@@ -148,14 +187,16 @@ where
             owner,
             observer,
             fut,
-        } = self.0;
-        Suspend(ScopedFuture {
+        } = self.into();
+        Suspend::from(ScopedFuture {
             owner,
             observer,
             fut: Box::pin(async move {
                 let this = fut.await;
                 this.add_any_attr(attr)
-            }),
+            }) as Pin<Box<dyn Future<
+Output = <<Fut as Future>::Output as AddAnyAttr<Rndr>>::Output<<NewAttr as Attribute<Rndr>>::CloneableOwned>> + Send + 'static
+            >>
         })
     }
 }
@@ -180,7 +221,7 @@ where
         // TODO wrap this with a Suspense as needed
         // currently this is just used for Routes, which creates a Suspend but never actually needs
         // it (because we don't lazy-load routes on the server)
-        if let Some(inner) = self.0.now_or_never() {
+        if let Some(inner) = self.now_or_never() {
             inner.to_html_with_buf(buf, position, escape, mark_branches);
         }
     }
@@ -194,7 +235,7 @@ where
     ) where
         Self: Sized,
     {
-        let mut fut = Box::pin(self.0);
+        let mut fut = Box::pin(self);
         match fut.as_mut().now_or_never() {
             Some(inner) => inner.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
@@ -262,7 +303,7 @@ where
         // poll the future once immediately
         // if it's already available, start in the ready state
         // otherwise, start with the fallback
-        let mut fut = Box::pin(self.0);
+        let mut fut = Box::pin(self);
         let initial = fut.as_mut().now_or_never();
         let initially_pending = initial.is_none();
         let inner = Rc::new(RefCell::new(
@@ -290,7 +331,7 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        Some(self.0.await)
+        Some(self.await)
     }
 
     fn dry_resolve(&mut self) {}

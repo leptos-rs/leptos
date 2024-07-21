@@ -388,7 +388,7 @@ where
             let state = Rc::clone(&state);
             async move {
                 *state.borrow_mut() =
-                    Some(self.0.await.hydrate::<FROM_SERVER>(&key, &el));
+                    Some(self.await.hydrate::<FROM_SERVER>(&key, &el));
             }
         });
         state
@@ -401,7 +401,7 @@ where
         Executor::spawn_local({
             let state = Rc::clone(&state);
             async move {
-                *state.borrow_mut() = Some(self.0.await.build(&el, &key));
+                *state.borrow_mut() = Some(self.await.build(&el, &key));
             }
         });
         state
@@ -412,7 +412,7 @@ where
         Executor::spawn_local({
             let state = Rc::clone(state);
             async move {
-                let value = self.0.await;
+                let value = self.await;
                 let mut state = state.borrow_mut();
                 if let Some(state) = state.as_mut() {
                     value.rebuild(&key, state);
@@ -434,7 +434,7 @@ where
     fn dry_resolve(&mut self) {}
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self.0.await
+        self.await
     }
 }
 
