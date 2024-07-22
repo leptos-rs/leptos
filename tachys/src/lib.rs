@@ -4,7 +4,7 @@
 //! detection.
 
 #![allow(incomplete_features)] // yolo
-#![cfg_attr(feature = "nightly", feature(adt_const_params))]
+#![cfg_attr(feature = "nightly", feature(unsized_const_params))]
 #![deny(missing_docs)]
 
 /// Commonly-used traits.
