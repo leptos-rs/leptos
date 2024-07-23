@@ -6,7 +6,128 @@ use crate::{
     traits::{DefinedAt, Dispose, IsDisposed},
     unwrap_signal,
 };
+use send_wrapper::SendWrapper;
 use std::{any::Any, hash::Hash, marker::PhantomData, panic::Location};
+
+/// A way of storing a [`StoredValue`], either as itself or with a wrapper to make it threadsafe.
+///
+/// This exists because all items stored in the arena must be `Send + Sync`, but in single-threaded
+/// environments you might want or need to use thread-unsafe types.
+pub trait Storage<T>: Send + Sync + 'static {
+    /// The type being stored, once it has been wrapped.
+    type Wrapped: Send + Sync + 'static;
+
+    /// Adds any needed wrapper to the type.
+    fn wrap(value: T) -> Self::Wrapped;
+
+    /// Applies the given function to the stored value, if it exists and can be accessed from this
+    /// thread.
+    fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U>;
+
+    /// Applies the given function to a mutable reference to the stored value, if it exists and can be accessed from this
+    /// thread.
+    fn try_with_mut<U>(
+        node: NodeId,
+        fun: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>;
+
+    /// Sets a new value for the stored value. If it has been disposed, returns `Some(T)`.
+    fn try_set(node: NodeId, value: T) -> Option<T>;
+}
+
+/// A form of [`Storage`] that stores the type as itself, with no wrapper.
+#[derive(Debug, Copy, Clone)]
+pub struct SyncStorage;
+
+impl<T> Storage<T> for SyncStorage
+where
+    T: Send + Sync + 'static,
+{
+    type Wrapped = T;
+
+    #[inline(always)]
+    fn wrap(value: T) -> Self::Wrapped {
+        value
+    }
+
+    fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U> {
+        Arena::with(|arena| {
+            let m = arena.get(node);
+            m.and_then(|n| n.downcast_ref::<T>()).map(fun)
+        })
+    }
+
+    fn try_with_mut<U>(
+        node: NodeId,
+        fun: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
+        Arena::with_mut(|arena| {
+            let m = arena.get_mut(node);
+            m.and_then(|n| n.downcast_mut::<T>()).map(fun)
+        })
+    }
+
+    fn try_set(node: NodeId, value: T) -> Option<T> {
+        Arena::with_mut(|arena| {
+            let m = arena.get_mut(node);
+            match m.and_then(|n| n.downcast_mut::<T>()) {
+                Some(inner) => {
+                    *inner = value;
+                    None
+                }
+                None => Some(value),
+            }
+        })
+    }
+}
+
+/// A form of [`Storage`] that stores the type with a wrapper that makes it `Send + Sync`, but only
+/// allows it to be accessed from the thread on which it was created.
+#[derive(Debug, Copy, Clone)]
+pub struct LocalStorage;
+
+impl<T> Storage<T> for LocalStorage
+where
+    T: 'static,
+{
+    type Wrapped = SendWrapper<T>;
+
+    fn wrap(value: T) -> Self::Wrapped {
+        SendWrapper::new(value)
+    }
+
+    fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U> {
+        Arena::with(|arena| {
+            let m = arena.get(node);
+            m.and_then(|n| n.downcast_ref::<SendWrapper<T>>())
+                .map(|inner| fun(&inner))
+        })
+    }
+
+    fn try_with_mut<U>(
+        node: NodeId,
+        fun: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
+        Arena::with_mut(|arena| {
+            let m = arena.get_mut(node);
+            m.and_then(|n| n.downcast_mut::<SendWrapper<T>>())
+                .map(|inner| fun(&mut *inner))
+        })
+    }
+
+    fn try_set(node: NodeId, value: T) -> Option<T> {
+        Arena::with_mut(|arena| {
+            let m = arena.get_mut(node);
+            match m.and_then(|n| n.downcast_mut::<SendWrapper<T>>()) {
+                Some(inner) => {
+                    *inner = SendWrapper::new(value);
+                    None
+                }
+                None => Some(value),
+            }
+        })
+    }
+}
 
 /// A **non-reactive**, `Copy` handle for any value.
 ///
@@ -16,37 +137,36 @@ use std::{any::Any, hash::Hash, marker::PhantomData, panic::Location};
 /// types, it is not reactive; accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
 #[derive(Debug)]
-pub struct StoredValue<T> {
+pub struct StoredValue<T, S = SyncStorage> {
     node: NodeId,
-    ty: PhantomData<T>,
+    ty: PhantomData<(SendWrapper<T>, S)>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
 
-impl<T> Copy for StoredValue<T> {}
+impl<T, S> Copy for StoredValue<T, S> {}
 
-impl<T> Clone for StoredValue<T> {
+impl<T, S> Clone for StoredValue<T, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> PartialEq for StoredValue<T> {
+impl<T, S> PartialEq for StoredValue<T, S> {
     fn eq(&self, other: &Self) -> bool {
-        self.node == other.node && self.ty == other.ty
+        self.node == other.node
     }
 }
 
-impl<T> Eq for StoredValue<T> {}
+impl<T, S> Eq for StoredValue<T, S> {}
 
-impl<T> Hash for StoredValue<T> {
+impl<T, S> Hash for StoredValue<T, S> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.node.hash(state);
-        self.ty.hash(state);
     }
 }
 
-impl<T> DefinedAt for StoredValue<T> {
+impl<T, S> DefinedAt for StoredValue<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -59,16 +179,19 @@ impl<T> DefinedAt for StoredValue<T> {
     }
 }
 
-impl<T> StoredValue<T>
+impl<T, S> StoredValue<T, S>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
+    S: Storage<T>,
 {
     /// Stores the given value in the arena allocator.
     #[track_caller]
-    pub fn new(value: T) -> Self {
+    pub fn new_with_storage(value: T) -> Self {
         let node = {
             Arena::with_mut(|arena| {
-                arena.insert(Box::new(value) as Box<dyn Any + Send + Sync>)
+                arena.insert(
+                    Box::new(S::wrap(value)) as Box<dyn Any + Send + Sync>
+                )
             })
         };
         OWNER.with(|o| {
@@ -86,14 +209,33 @@ where
     }
 }
 
-impl<T: 'static> StoredValue<T> {
+impl<T> StoredValue<T, SyncStorage>
+where
+    T: Send + Sync + 'static,
+{
+    /// Stores the given value in the arena allocator.
+    #[track_caller]
+    pub fn new(value: T) -> Self {
+        StoredValue::new_with_storage(value)
+    }
+}
+
+impl<T> StoredValue<T, LocalStorage>
+where
+    T: 'static,
+{
+    /// Stores the given value in the arena allocator.
+    #[track_caller]
+    pub fn new_local(value: T) -> Self {
+        StoredValue::new_with_storage(value)
+    }
+}
+
+impl<T, S: Storage<T>> StoredValue<T, S> {
     /// Same as [`StoredValue::with_value`] but returns `Some(O)` only if
     /// the stored value has not yet been disposed, `None` otherwise.
     pub fn try_with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> Option<U> {
-        Arena::with(|arena| {
-            let m = arena.get(self.node);
-            m.and_then(|n| n.downcast_ref::<T>()).map(fun)
-        })
+        S::try_with(self.node, fun)
     }
 
     /// Applies a function to the current stored value and returns the result.
@@ -122,10 +264,7 @@ impl<T: 'static> StoredValue<T> {
         &self,
         fun: impl FnOnce(&mut T) -> U,
     ) -> Option<U> {
-        Arena::with_mut(|arena| {
-            let m = arena.get_mut(self.node);
-            m.and_then(|n| n.downcast_mut::<T>()).map(fun)
-        })
+        S::try_with_mut(self.node, fun)
     }
 
     /// Updates the stored value by applying the given closure.
@@ -146,39 +285,22 @@ impl<T: 'static> StoredValue<T> {
 
     /// Tries to set the value. If the value has been disposed, returns `Some(value)`.
     pub fn try_set_value(&self, value: T) -> Option<T> {
-        Arena::with_mut(|arena| {
-            let m = arena.get_mut(self.node);
-            match m.and_then(|n| n.downcast_mut::<T>()) {
-                Some(inner) => {
-                    *inner = value;
-                    None
-                }
-                None => Some(value),
-            }
-        })
+        S::try_set(self.node, value)
     }
 
     /// Sets the value to a new value.
     pub fn set_value(&self, value: T) {
         self.update_value(|n| *n = value);
     }
-
-    /// Returns `true` if the value has not yet been disposed.
-    pub fn exists(&self) -> bool
-    where
-        T: Clone,
-    {
-        Arena::with(|arena| arena.contains_key(self.node))
-    }
 }
 
-impl<T> IsDisposed for StoredValue<T> {
+impl<T, S> IsDisposed for StoredValue<T, S> {
     fn is_disposed(&self) -> bool {
         Arena::with(|arena| arena.contains_key(self.node))
     }
 }
 
-impl<T> StoredValue<T>
+impl<T, S: Storage<T>> StoredValue<T, S>
 where
     T: Clone + 'static,
 {
@@ -194,13 +316,9 @@ where
     pub fn get_value(&self) -> T {
         self.with_value(T::clone)
     }
-
-    pub(crate) fn get(&self) -> Option<T> {
-        self.try_get_value()
-    }
 }
 
-impl<T> Dispose for StoredValue<T> {
+impl<T, S> Dispose for StoredValue<T, S> {
     fn dispose(self) {
         Arena::with_mut(|arena| arena.remove(self.node));
     }
@@ -210,8 +328,9 @@ impl<T> Dispose for StoredValue<T> {
 #[inline(always)]
 #[track_caller]
 #[deprecated = "This function is being removed to conform to Rust idioms. \
-                Please use `StoredValue::new()` instead."]
-pub fn store_value<T>(value: T) -> StoredValue<T>
+                Please use `StoredValue::new()` or `StoredValue::new_local()` \
+                instead."]
+pub fn store_value<T>(value: T) -> StoredValue<T, SyncStorage>
 where
     T: Send + Sync + 'static,
 {

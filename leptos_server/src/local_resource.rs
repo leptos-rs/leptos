@@ -7,7 +7,7 @@ use reactive_graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::use_context,
+    owner::{use_context, LocalStorage},
     signal::guards::{AsyncPlain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
 };
@@ -169,7 +169,7 @@ impl<T> Subscriber for ArcLocalResource<T> {
 }
 
 pub struct LocalResource<T> {
-    data: AsyncDerived<T>,
+    data: AsyncDerived<T, LocalStorage>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -184,9 +184,9 @@ impl<T> Copy for LocalResource<T> {}
 
 impl<T> LocalResource<T> {
     #[track_caller]
-    pub fn new<Fut>(fetcher: impl Fn() -> Fut + Send + Sync + 'static) -> Self
+    pub fn new<Fut>(fetcher: impl Fn() -> Fut + 'static) -> Self
     where
-        T: Send + Sync + 'static,
+        T: 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
         let fetcher = move || {
@@ -203,7 +203,7 @@ impl<T> LocalResource<T> {
             }
         };
         Self {
-            data: AsyncDerived::new(fetcher),
+            data: AsyncDerived::new_unsync(fetcher),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }

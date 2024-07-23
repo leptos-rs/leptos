@@ -20,7 +20,7 @@ use reactive_graph::{
         AsyncDerivedRefFuture,
     },
     graph::{Source, ToAnySubscriber},
-    owner::Owner,
+    owner::{Owner, SyncStorage},
     prelude::*,
 };
 use std::{future::IntoFuture, ops::Deref};
@@ -400,7 +400,7 @@ where
     T: Send + Sync + 'static,
 {
     ser: PhantomData<Ser>,
-    data: AsyncDerived<T>,
+    data: AsyncDerived<T, SyncStorage>,
 }
 
 impl<T: Send + Sync + 'static, Ser> Copy for Resource<T, Ser> {}
@@ -415,7 +415,7 @@ impl<T, Ser> Deref for Resource<T, Ser>
 where
     T: Send + Sync + 'static,
 {
-    type Target = AsyncDerived<T>;
+    type Target = AsyncDerived<T, SyncStorage>;
 
     fn deref(&self) -> &Self::Target {
         &self.data

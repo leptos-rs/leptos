@@ -35,7 +35,7 @@ pub fn Form<A>(
     version: Option<RwSignal<usize>>,
     /// A signal that will be set if the form submission ends in an error.
     #[prop(optional)]
-    error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    error: Option<RwSignal<Option<Box<dyn Error + Send + Sync>>>>,
     /// A callback will be called with the [`FormData`](web_sys::FormData) when the form is submitted.
     #[prop(optional)]
     on_form_data: Option<OnFormData>,
@@ -90,7 +90,7 @@ where
         action: ArcMemo<Option<String>>,
         enctype: Option<String>,
         version: Option<RwSignal<usize>>,
-        error: Option<RwSignal<Option<Box<dyn Error>>>>,
+        error: Option<RwSignal<Option<Box<dyn Error + Send + Sync>>>>,
         on_form_data: Option<OnFormData>,
         on_response: Option<OnResponse>,
         on_error: Option<OnError>,

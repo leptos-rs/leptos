@@ -505,6 +505,7 @@ mod stable {
         ($sig:ident $dry_resolve:literal) => {
             impl<V, R> Render<R> for $sig<V>
             where
+                $sig<V>: Get<Value = V>,
                 V: Render<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
 
@@ -528,6 +529,7 @@ mod stable {
 
             impl<V, R> AddAnyAttr<R> for $sig<V>
             where
+                $sig<V>: Get<Value = V>,
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
                 R: Renderer + 'static,
@@ -547,6 +549,7 @@ mod stable {
 
             impl<V, R> RenderHtml<R> for $sig<V>
             where
+                $sig<V>: Get<Value = V>,
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
 
@@ -611,6 +614,7 @@ mod stable {
 
             impl<V, R> AttributeValue<R> for $sig<V>
             where
+                $sig<V>: Get<Value = V>,
                 V: AttributeValue<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
                 R: Renderer,
@@ -668,10 +672,12 @@ mod stable {
         };
     }
 
-    macro_rules! signal_impl_unsend {
+    macro_rules! signal_impl_arena {
         ($sig:ident $dry_resolve:literal) => {
-            impl<V, R> Render<R> for $sig<V>
+            impl<V, R, S> Render<R> for $sig<V, S>
             where
+                $sig<V, S>: Get<Value = V>,
+                S: Send + Sync + 'static,
                 V: Render<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
 
@@ -693,13 +699,15 @@ mod stable {
                 }
             }
 
-            impl<V, R> AddAnyAttr<R> for $sig<V>
+            impl<V, R, S> AddAnyAttr<R> for $sig<V, S>
             where
+                $sig<V, S>: Get<Value = V>,
+                S: Send + Sync + 'static,
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
                 R: Renderer + 'static,
             {
-                type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
+                type Output<SomeNewAttr: Attribute<R>> = $sig<V, S>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
                     self,
@@ -712,8 +720,10 @@ mod stable {
                 }
             }
 
-            impl<V, R> RenderHtml<R> for $sig<V>
+            impl<V, R, S> RenderHtml<R> for $sig<V, S>
             where
+                $sig<V, S>: Get<Value = V>,
+                S: Send + Sync + 'static,
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
 
@@ -776,8 +786,10 @@ mod stable {
                 }
             }
 
-            impl<V, R> AttributeValue<R> for $sig<V>
+            impl<V, R, S> AttributeValue<R> for $sig<V, S>
             where
+                $sig<V, S>: Get<Value = V>,
+                S: Send + Sync + 'static,
                 V: AttributeValue<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: Renderer,
@@ -835,13 +847,13 @@ mod stable {
         };
     }
 
-    signal_impl!(RwSignal false);
-    signal_impl!(ReadSignal false);
-    signal_impl!(Memo true);
-    signal_impl!(Signal true);
-    signal_impl!(MaybeSignal true);
-    signal_impl_unsend!(ArcRwSignal false);
-    signal_impl_unsend!(ArcReadSignal false);
+    signal_impl_arena!(RwSignal false);
+    signal_impl_arena!(ReadSignal false);
+    signal_impl_arena!(Memo true);
+    signal_impl_arena!(Signal true);
+    signal_impl_arena!(MaybeSignal true);
+    signal_impl!(ArcRwSignal false);
+    signal_impl!(ArcReadSignal false);
     signal_impl!(ArcMemo false);
     signal_impl!(ArcSignal true);
 }

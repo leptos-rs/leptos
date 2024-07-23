@@ -1,5 +1,6 @@
 use reactive_graph::{
     actions::{ArcMultiAction, MultiAction},
+    owner::SyncStorage,
     traits::DefinedAt,
 };
 use server_fn::{ServerFn, ServerFnError};
@@ -92,13 +93,14 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    inner: MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>,
+    inner:
+        MultiAction<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
 
 impl<S> From<ServerMultiAction<S>>
-    for MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>
+    for MultiAction<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>
 where
     S: ServerFn + 'static,
     S::Output: 'static,
@@ -148,7 +150,8 @@ where
     S::Output: 'static,
     S::Error: 'static,
 {
-    type Target = MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>;
+    type Target =
+        MultiAction<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

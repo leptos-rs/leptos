@@ -452,11 +452,13 @@ where
 
 #[cfg(not(feature = "nightly"))]
 mod stable {
-    macro_rules! class_signal {
+    macro_rules! class_signal_arena {
         ($sig:ident) => {
-            impl<C, R> IntoClass<R> for $sig<C>
+            impl<C, R, S> IntoClass<R> for $sig<C, S>
             where
-                C: IntoClass<R> + Clone + Send + Sync + 'static,
+                $sig<C, S>: Get<Value = C>,
+                S: Send + Sync + 'static,
+                C: IntoClass<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
                 R: DomRenderer,
             {
@@ -504,8 +506,10 @@ mod stable {
                 }
             }
 
-            impl<R> IntoClass<R> for (&'static str, $sig<bool>)
+            impl<R, S> IntoClass<R> for (&'static str, $sig<bool, S>)
             where
+                $sig<bool, S>: Get<Value = bool>,
+                S: Send + 'static,
                 R: DomRenderer,
             {
                 type AsyncOutput = Self;
@@ -563,10 +567,11 @@ mod stable {
         };
     }
 
-    macro_rules! class_signal_unsend {
+    macro_rules! class_signal {
         ($sig:ident) => {
             impl<C, R> IntoClass<R> for $sig<C>
             where
+                $sig<C>: Get<Value = C>,
                 C: IntoClass<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
                 R: DomRenderer,
@@ -617,6 +622,7 @@ mod stable {
 
             impl<R> IntoClass<R> for (&'static str, $sig<bool>)
             where
+                $sig<bool>: Get<Value = bool>,
                 R: DomRenderer,
             {
                 type AsyncOutput = Self;
@@ -683,13 +689,13 @@ mod stable {
         wrappers::read::{ArcSignal, MaybeSignal, Signal},
     };
 
-    class_signal!(RwSignal);
-    class_signal!(ReadSignal);
-    class_signal!(Memo);
-    class_signal!(Signal);
-    class_signal!(MaybeSignal);
-    class_signal_unsend!(ArcRwSignal);
-    class_signal_unsend!(ArcReadSignal);
+    class_signal_arena!(RwSignal);
+    class_signal_arena!(ReadSignal);
+    class_signal_arena!(Memo);
+    class_signal_arena!(Signal);
+    class_signal_arena!(MaybeSignal);
+    class_signal!(ArcRwSignal);
+    class_signal!(ArcReadSignal);
     class_signal!(ArcMemo);
     class_signal!(ArcSignal);
 }

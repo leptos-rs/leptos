@@ -1,6 +1,6 @@
 use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
-    owner::StoredValue,
+    owner::{Storage, StoredValue, SyncStorage},
     traits::{
         DefinedAt, Dispose, IsDisposed, Trigger, UntrackableGuard, Writeable,
     },
@@ -51,27 +51,30 @@ use std::{hash::Hash, ops::DerefMut, panic::Location, sync::Arc};
 /// *set_count.write() += 1;
 /// assert_eq!(count.get(), 3);
 /// ```
-pub struct WriteSignal<T> {
+pub struct WriteSignal<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: StoredValue<ArcWriteSignal<T>>,
+    pub(crate) inner: StoredValue<ArcWriteSignal<T>, S>,
 }
 
-impl<T> Dispose for WriteSignal<T> {
+impl<T, S> Dispose for WriteSignal<T, S> {
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<T> Copy for WriteSignal<T> {}
+impl<T, S> Copy for WriteSignal<T, S> {}
 
-impl<T> Clone for WriteSignal<T> {
+impl<T, S> Clone for WriteSignal<T, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Debug for WriteSignal<T> {
+impl<T, S> Debug for WriteSignal<T, S>
+where
+    S: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WriteSignal")
             .field("type", &std::any::type_name::<T>())
@@ -80,21 +83,21 @@ impl<T> Debug for WriteSignal<T> {
     }
 }
 
-impl<T> PartialEq for WriteSignal<T> {
+impl<T, S> PartialEq for WriteSignal<T, S> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T> Eq for WriteSignal<T> {}
+impl<T, S> Eq for WriteSignal<T, S> {}
 
-impl<T> Hash for WriteSignal<T> {
+impl<T, S> Hash for WriteSignal<T, S> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T> DefinedAt for WriteSignal<T> {
+impl<T, S> DefinedAt for WriteSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -107,21 +110,29 @@ impl<T> DefinedAt for WriteSignal<T> {
     }
 }
 
-impl<T: 'static> IsDisposed for WriteSignal<T> {
+impl<T, S> IsDisposed for WriteSignal<T, S> {
     fn is_disposed(&self) -> bool {
-        !self.inner.exists()
+        self.inner.is_disposed()
     }
 }
 
-impl<T: 'static> Trigger for WriteSignal<T> {
+impl<T, S> Trigger for WriteSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcWriteSignal<T>>,
+{
     fn trigger(&self) {
-        if let Some(inner) = self.inner.get() {
+        if let Some(inner) = self.inner.try_get_value() {
             inner.trigger();
         }
     }
 }
 
-impl<T: 'static> Writeable for WriteSignal<T> {
+impl<T, S> Writeable for WriteSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcWriteSignal<T>>,
+{
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
