@@ -100,7 +100,7 @@ where
         Arena::with(|arena| {
             let m = arena.get(node);
             m.and_then(|n| n.downcast_ref::<SendWrapper<T>>())
-                .map(|inner| fun(&inner))
+                .map(|inner| fun(inner))
         })
     }
 

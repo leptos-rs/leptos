@@ -76,7 +76,7 @@ macro_rules! render_primitive {
                     self
                 }
 
-				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, mark_branches: bool) {
+				fn to_html_with_buf(self, buf: &mut String, position: &mut Position, _escape: bool, _mark_branches: bool) {
 					// add a comment node to separate from previous sibling, if any
 					if matches!(position, Position::NextChildAfterText) {
 						buf.push_str("<!>")

@@ -93,14 +93,13 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    inner:
-        MultiAction<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>,
+    inner: MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
 
 impl<S> From<ServerMultiAction<S>>
-    for MultiAction<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>
+    for MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>
 where
     S: ServerFn + 'static,
     S::Output: 'static,

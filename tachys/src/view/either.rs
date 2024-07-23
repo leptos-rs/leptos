@@ -357,7 +357,7 @@ where
         _buf: &mut String,
         _position: &mut Position,
         _escape: bool,
-        mark_branches: bool,
+        _mark_branches: bool,
     ) {
         todo!()
     }
