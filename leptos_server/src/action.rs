@@ -121,7 +121,7 @@ where
     S: ServerFn + 'static,
     S::Output: 'static,
 {
-    inner: Action<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>,
+    inner: Action<S, Result<S::Output, ServerFnError<S::Error>>>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }

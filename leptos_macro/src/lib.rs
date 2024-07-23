@@ -15,22 +15,6 @@ use proc_macro2::{Span, TokenTree};
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Mode {
-    Client,
-    Ssr,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        if cfg!(feature = "hydrate") || cfg!(feature = "csr") {
-            Mode::Client
-        } else {
-            Mode::Ssr
-        }
-    }
-}
-
 mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;

@@ -59,7 +59,7 @@ where
         buf: &mut String,
         position: &mut Position,
         escape: bool,
-        mark_branches: bool,
+        _mark_branches: bool,
     ) {
         // add a comment node to separate from previous sibling, if any
         if matches!(position, Position::NextChildAfterText) {

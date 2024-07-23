@@ -35,7 +35,7 @@ where
         buf: &mut String,
         position: &mut Position,
         _escape: bool,
-        mark_branches: bool,
+        _mark_branches: bool,
     ) {
         buf.push_str("<!>");
         *position = Position::NextChild;
