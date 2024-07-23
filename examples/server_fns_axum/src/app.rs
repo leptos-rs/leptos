@@ -1,7 +1,6 @@
 use futures::StreamExt;
 use http::Method;
 use leptos::{html::Input, prelude::*, spawn::spawn_local};
-use send_wrapper::SendWrapper;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use server_fn::{
     client::{browser::BrowserClient, Client},
@@ -362,10 +361,9 @@ pub fn FileUpload() -> impl IntoView {
         Ok(count)
     }
 
-    let upload_action = Action::new(|data: &SendWrapper<FormData>| {
-        let data = (**data).clone();
+    let upload_action = Action::new_local(|data: &FormData| {
         // `MultipartData` implements `From<FormData>`
-        file_length(data.into())
+        file_length(data.clone().into())
     });
 
     view! {
@@ -375,14 +373,15 @@ pub fn FileUpload() -> impl IntoView {
             ev.prevent_default();
             let target = ev.target().unwrap().unchecked_into::<HtmlFormElement>();
             let form_data = FormData::new_with_form(&target).unwrap();
-            upload_action.dispatch(SendWrapper::new(form_data));
+            upload_action.dispatch_local(form_data);
         }>
             <input type="file" name="file_to_upload"/>
             <input type="submit"/>
         </form>
         <p>
             {move || {
-                if upload_action.input().get().is_none() && upload_action.value().get().is_none() {
+                if upload_action.input().read().is_none() && upload_action.value().read().is_none()
+                {
                     "Upload a file.".to_string()
                 } else if upload_action.pending().get() {
                     "Uploading...".to_string()

@@ -40,7 +40,7 @@
 //!
 //! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
 
-use reactive_graph::owner::StoredValue;
+use reactive_graph::owner::{StoredValue, SyncStorage};
 use std::{fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
@@ -49,30 +49,7 @@ pub trait Callable<In: 'static, Out: 'static = ()> {
     fn call(&self, input: In) -> Out;
 }
 
-/// Callbacks define a standard way to store functions and closures.
-///
-/// # Example
-/// ```
-/// # use leptos::*;
-/// # use leptos::{Callable, Callback};
-/// #[component]
-/// fn MyComponent(
-///     #[prop(into)] render_number: Callback<i32, String>,
-/// ) -> impl IntoView {
-///     view! {
-///         <div>
-///             {render_number.call(42)}
-///         </div>
-///     }
-/// }
-///
-/// fn test() -> impl IntoView {
-///     view! {
-///         <MyComponent render_number=move |x: i32| x.to_string()/>
-///     }
-/// }
-/// ```
-
+/// A callback type that is not required to be `Send + Sync`.
 pub struct UnsyncCallback<In: 'static, Out: 'static = ()>(
     Rc<dyn Fn(In) -> Out>,
 );
@@ -168,10 +145,31 @@ impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
 }
 
 // TODO update these docs to swap the two
-/// A callback type that is `Send` and `Sync` if its input type is `Send` and `Sync`.
-/// Otherwise, you can use exactly the way you use [`Callback`].
+/// Callbacks define a standard way to store functions and closures.
+///
+/// # Example
+/// ```
+/// # use leptos::*;
+/// # use leptos::{Callable, Callback};
+/// #[component]
+/// fn MyComponent(
+///     #[prop(into)] render_number: Callback<i32, String>,
+/// ) -> impl IntoView {
+///     view! {
+///         <div>
+///             {render_number.call(42)}
+///         </div>
+///     }
+/// }
+///
+/// fn test() -> impl IntoView {
+///     view! {
+///         <MyComponent render_number=move |x: i32| x.to_string()/>
+///     }
+/// }
+/// ```
 pub struct Callback<In, Out = ()>(
-    StoredValue<Arc<dyn Fn(In) -> Out + Send + Sync>>,
+    StoredValue<Arc<dyn Fn(In) -> Out + Send + Sync>, SyncStorage>,
 )
 where
     In: 'static,
@@ -289,9 +287,7 @@ mod tests {
 
         let _callback: UnsyncCallback<String, HtmlElement<AnyElement>> =
             (|x: String| {
-                view! {
-                    <h1>{x}</h1>
-                }
+                view! { <h1>{x}</h1> }
             })
             .into();
         rt.dispose();
@@ -315,9 +311,7 @@ mod tests {
 
         let _callback: Callback<String, HtmlElement<AnyElement>> =
             (|x: String| {
-                view! {
-                    <h1>{x}</h1>
-                }
+                view! { <h1>{x}</h1> }
             })
             .into();
 

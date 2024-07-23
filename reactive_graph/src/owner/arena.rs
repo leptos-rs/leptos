@@ -6,7 +6,10 @@ use std::{any::Any, hash::Hash, sync::RwLock};
 #[cfg(feature = "sandboxed-arenas")]
 use std::{cell::RefCell, sync::Arc};
 
-new_key_type! { pub(crate) struct NodeId; }
+new_key_type! {
+    /// Unique identifier for an item stored in the arena.
+    pub struct NodeId;
+}
 
 pub(crate) struct Arena;
 

@@ -5,6 +5,7 @@ use crate::{
 use guardian::ArcRwLockWriteGuardian;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
+    owner::Storage,
     signal::{
         guards::{Plain, WriteGuard},
         ArcTrigger,
@@ -60,9 +61,10 @@ where
     }
 }
 
-impl<T> StoreField<T> for Store<T>
+impl<T, S> StoreField<T> for Store<T, S>
 where
     T: 'static,
+    S: Storage<ArcStore<T>>,
 {
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, ArcRwLockWriteGuardian<T>>;

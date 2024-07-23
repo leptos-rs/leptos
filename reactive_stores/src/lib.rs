@@ -1,5 +1,5 @@
 use reactive_graph::{
-    owner::StoredValue,
+    owner::{Storage, StoredValue},
     signal::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
@@ -131,26 +131,30 @@ impl<T: 'static> Trigger for ArcStore<T> {
     }
 }
 
-pub struct Store<T> {
+pub struct Store<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcStore<T>>,
+    inner: StoredValue<ArcStore<T>, S>,
 }
 
-impl<T> Store<T>
+impl<T, S> Store<T, S>
 where
     T: Send + Sync + 'static,
+    S: Storage<ArcStore<T>>,
 {
     pub fn new(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(ArcStore::new(value)),
+            inner: StoredValue::new_with_storage(ArcStore::new(value)),
         }
     }
 }
 
-impl<T: Debug> Debug for Store<T> {
+impl<T: Debug, S> Debug for Store<T, S>
+where
+    S: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = f.debug_struct("Store");
         #[cfg(debug_assertions)]
@@ -159,15 +163,15 @@ impl<T: Debug> Debug for Store<T> {
     }
 }
 
-impl<T> Clone for Store<T> {
+impl<T, S> Clone for Store<T, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Copy for Store<T> {}
+impl<T, S> Copy for Store<T, S> {}
 
-impl<T> DefinedAt for Store<T> {
+impl<T, S> DefinedAt for Store<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -180,19 +184,20 @@ impl<T> DefinedAt for Store<T> {
     }
 }
 
-impl<T> IsDisposed for Store<T>
+impl<T, S> IsDisposed for Store<T, S>
 where
     T: 'static,
 {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
-        !self.inner.exists()
+        self.inner.is_disposed()
     }
 }
 
-impl<T> ReadUntracked for Store<T>
+impl<T, S> ReadUntracked for Store<T, S>
 where
     T: 'static,
+    S: Storage<ArcStore<T>>,
 {
     type Value = ReadGuard<T, Plain<T>>;
 
@@ -203,7 +208,11 @@ where
     }
 }
 
-impl<T: 'static> Track for Store<T> {
+impl<T, S> Track for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
     fn track(&self) {
         if let Some(inner) = self.inner.try_get_value() {
             inner.track();
@@ -211,7 +220,11 @@ impl<T: 'static> Track for Store<T> {
     }
 }
 
-impl<T: 'static> Trigger for Store<T> {
+impl<T, S> Trigger for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
     fn trigger(&self) {
         if let Some(inner) = self.inner.try_get_value() {
             inner.trigger();
