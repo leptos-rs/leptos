@@ -52,12 +52,10 @@ pub(crate) fn fragment_to_tokens(
                 None,
             )?;
 
-            let node = quote_spanned! {span=>
-                #[allow(unused_braces)] {#node}
-            };
+            let node = quote_spanned!(span => { #node });
 
             Some(quote! {
-                ::leptos::IntoView::into_view(#node)
+                ::leptos::IntoView::into_view(#[allow(unused_braces)] #node)
             })
         })
         .peekable();
@@ -339,9 +337,7 @@ pub(crate) fn element_to_tokens(
             quote! {}
         };
         let ide_helper_close_tag = ide_helper_close_tag.into_iter();
-        Some(quote_spanned! {node.span()=>
-            #[allow(unused_braces)]
-            {
+        let result = quote_spanned! {node.span()=> {
             #(#ide_helper_close_tag)*
             #name
                 #(#attrs)*
@@ -352,7 +348,10 @@ pub(crate) fn element_to_tokens(
                 #(#children)*
                 #view_marker
             }
-        })
+        };
+
+        // We need to move "allow" out of "quote_spanned" because it breaks hovering in rust-analyzer
+        Some(quote!(#[allow(unused_braces)] #result))
     }
 }
 

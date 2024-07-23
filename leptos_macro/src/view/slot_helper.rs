@@ -61,12 +61,10 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned! {value.span()=>
-                #[allow(unused_braces)] {#value}
-            };
+            let value = quote_spanned!(value.span()=> { #value });
 
             quote_spanned! {attr.span()=>
-                .#name(#value)
+                .#name(#[allow(unused_braces)] #value)
             }
         });
 
@@ -187,7 +185,7 @@ pub(crate) fn slot_to_tokens(
     };
 
     let slot = quote_spanned! {node.span()=>
-        #[allow(unused_braces)] {
+        {
             let slot = #component_name::builder()
                 #(#props)*
                 #(#slots)*
@@ -199,6 +197,9 @@ pub(crate) fn slot_to_tokens(
             slot.into()
         },
     };
+
+    // We need to move "allow" out of "quote_spanned" because it breaks hovering in rust-analyzer
+    let slot = quote!(#[allow(unused_braces)] #slot);
 
     parent_slots
         .entry(name)
