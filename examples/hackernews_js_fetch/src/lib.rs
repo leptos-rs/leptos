@@ -1,46 +1,71 @@
-use leptos::{component, view, IntoView};
-use leptos_meta::*;
-use leptos_router::*;
+use leptos::prelude::*;
 mod api;
-pub mod error_template;
-#[cfg(feature = "ssr")]
-pub mod fallback;
 mod routes;
+use leptos_meta::{provide_meta_context, Link, Meta, MetaTags, Stylesheet};
+use leptos_router::{
+    components::{FlatRoutes, Route, Router, RoutingProgress},
+    ParamSegment, StaticSegment,
+};
 use routes::{nav::*, stories::*, story::*, users::*};
-use wasm_bindgen::prelude::wasm_bindgen;
+use std::time::Duration;
+
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone()/>
+                <HydrationScripts options/>
+                <MetaTags/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
 
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    let (is_routing, set_is_routing) = signal(false);
+
     view! {
-        <Link rel="shortcut icon" type_="image/ico" href="/public/favicon.ico"/>
         <Stylesheet id="leptos" href="/public/style.css"/>
+        <Link rel="shortcut icon" type_="image/ico" href="/public/favicon.ico"/>
         <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
-        <Router>
-            <Nav />
+        <Router set_is_routing>
+            // shows a progress bar while async data are loading
+            <div class="routing-progress">
+                <RoutingProgress is_routing max_time=Duration::from_millis(250)/>
+            </div>
+            <Nav/>
             <main>
-                <Routes>
-                    <Route path="users/:id" view=User/>
-                    <Route path="stories/:id" view=Story/>
-                    <Route path=":stories?" view=Stories/>
-                </Routes>
+                <FlatRoutes fallback=|| "Not found.">
+                    <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
+                    <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
+                    <Route path=ParamSegment("stories") view=Stories/>
+                    // TODO allow optional params without duplication
+                    <Route path=StaticSegment("") view=Stories/>
+                </FlatRoutes>
             </main>
         </Router>
     }
 }
 
 #[cfg(feature = "hydrate")]
-#[wasm_bindgen]
+#[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
-    _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    leptos::mount_to_body(App);
+    leptos::mount::hydrate_body(App);
 }
 
 #[cfg(feature = "ssr")]
 mod ssr_imports {
-    use crate::App;
-    use axum::{routing::post, Router};
+    use crate::{shell, App};
+    use axum::Router;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use log::{info, Level};
@@ -59,12 +84,15 @@ mod ssr_imports {
                 .output_name("client")
                 .site_pkg_dir("pkg")
                 .build();
+
             let routes = generate_route_list(App);
 
             // build our application with a route
-            let app: axum::Router<()> = Router::new()
-                .leptos_routes(&leptos_options, routes, App)
-                .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
+            let app = Router::new()
+                .leptos_routes(&leptos_options, routes, {
+                    let leptos_options = leptos_options.clone();
+                    move || shell(leptos_options.clone())
+                })
                 .with_state(leptos_options);
 
             info!("creating handler instance");
