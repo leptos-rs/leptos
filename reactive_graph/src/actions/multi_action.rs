@@ -1,6 +1,6 @@
 use crate::{
     diagnostics::is_suppressing_resource_load,
-    owner::StoredValue,
+    owner::{Storage, StoredValue, SyncStorage},
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::{DefinedAt, Dispose, GetUntracked, Set, Update},
     unwrap_signal,
@@ -45,23 +45,19 @@ use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 /// assert_eq!(submissions.with(Vec::len), 3);
 /// # });
 /// ```
-pub struct MultiAction<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-    inner: StoredValue<ArcMultiAction<I, O>>,
+pub struct MultiAction<I, O, S = SyncStorage> {
+    inner: StoredValue<ArcMultiAction<I, O>, S>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
 
-impl<I: 'static, O: 'static> Dispose for MultiAction<I, O> {
+impl<I, O, S> Dispose for MultiAction<I, O, S> {
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<I, O> DefinedAt for MultiAction<I, O>
+impl<I, O, S> DefinedAt for MultiAction<I, O, S>
 where
     I: 'static,
     O: 'static,
@@ -78,14 +74,14 @@ where
     }
 }
 
-impl<I, O> Copy for MultiAction<I, O>
+impl<I, O, S> Copy for MultiAction<I, O, S>
 where
     I: 'static,
     O: 'static,
 {
 }
 
-impl<I, O> Clone for MultiAction<I, O>
+impl<I, O, S> Clone for MultiAction<I, O, S>
 where
     I: 'static,
     O: 'static,
@@ -95,7 +91,7 @@ where
     }
 }
 
-impl<I, O> MultiAction<I, O>
+impl<I, O> MultiAction<I, O, SyncStorage>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
@@ -134,12 +130,21 @@ where
         Fut: Future<Output = O> + Send + 'static,
     {
         Self {
-            inner: StoredValue::new(ArcMultiAction::new(action_fn)),
+            inner: StoredValue::new_with_storage(ArcMultiAction::new(
+                action_fn,
+            )),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
     }
+}
 
+impl<I, O, S> MultiAction<I, O, S>
+where
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
+    S: Storage<ArcMultiAction<I, O>>,
+{
     /// Calls the `async` function with a reference to the input type as its argument.
     ///
     /// This can be called any number of times: each submission will be dispatched, running
@@ -230,7 +235,15 @@ where
     pub fn dispatch_sync(&self, value: O) {
         self.inner.with_value(|inner| inner.dispatch_sync(value));
     }
+}
 
+impl<I, O, S> MultiAction<I, O, S>
+where
+    I: 'static,
+    O: 'static,
+    S: Storage<ArcMultiAction<I, O>>
+        + Storage<ArcReadSignal<Vec<ArcSubmission<I, O>>>>,
+{
     /// The set of all submissions to this multi-action.
     /// ```rust
     /// # use reactive_graph::actions::*;
@@ -257,13 +270,21 @@ where
     /// assert_eq!(submissions.with(Vec::len), 3);
     /// # });
     /// ```
-    pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>> {
+    pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>, S> {
         self.inner
             .try_with_value(|inner| inner.submissions())
             .unwrap_or_else(unwrap_signal!(self))
             .into()
     }
+}
 
+impl<I, O, S> MultiAction<I, O, S>
+where
+    I: 'static,
+    O: 'static,
+    S: Storage<ArcMultiAction<I, O>>
+        + Storage<ArcReadSignal<Vec<ArcSubmission<I, O>>>>,
+{
     /// How many times an action has successfully resolved.
     /// ```rust
     /// # use reactive_graph::actions::*;
@@ -294,7 +315,7 @@ where
     /// assert_eq!(version.get(), 3);
     /// # });
     /// ```
-    pub fn version(&self) -> RwSignal<usize> {
+    pub fn version(&self) -> RwSignal<usize, SyncStorage> {
         self.inner
             .try_with_value(|inner| inner.version())
             .unwrap_or_else(unwrap_signal!(self))
@@ -339,11 +360,7 @@ where
 /// assert_eq!(submissions.with(Vec::len), 3);
 /// # });
 /// ```
-pub struct ArcMultiAction<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
+pub struct ArcMultiAction<I, O> {
     version: ArcRwSignal<usize>,
     submissions: ArcRwSignal<Vec<ArcSubmission<I, O>>>,
     #[allow(clippy::complexity)]
@@ -379,11 +396,7 @@ where
     }
 }
 
-impl<I, O> ArcMultiAction<I, O>
-where
-    I: Send + Sync + 'static,
-    O: Send + Sync + 'static,
-{
+impl<I, O> ArcMultiAction<I, O> {
     /// Creates a new multi-action.
     ///
     /// The input to the `async` function should always be a single value,
@@ -427,7 +440,13 @@ where
             action_fn,
         }
     }
+}
 
+impl<I, O> ArcMultiAction<I, O>
+where
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
+{
     /// Calls the `async` function with a reference to the input type as its argument.
     ///
     /// This can be called any number of times: each submission will be dispatched, running
@@ -556,7 +575,9 @@ where
             .try_update(|subs| subs.push(submission.clone()));
         self.version.try_update(|n| *n += 1);
     }
+}
 
+impl<I, O> ArcMultiAction<I, O> {
     /// The set of all submissions to this multi-action.
     /// ```rust
     /// # use reactive_graph::actions::*;
@@ -624,11 +645,7 @@ where
 
 /// An action that has been submitted by dispatching it to a [`MultiAction`].
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct ArcSubmission<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
+pub struct ArcSubmission<I, O> {
     /// The current argument that was dispatched to the `async` function.
     /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
     input: ArcRwSignal<Option<I>>,
@@ -692,25 +709,26 @@ impl<I, O> Clone for ArcSubmission<I, O> {
 
 /// An action that has been submitted by dispatching it to a [`MultiAction`].
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Submission<I, O>
+pub struct Submission<I, O, S = SyncStorage>
 where
     I: 'static,
     O: 'static,
 {
     /// The current argument that was dispatched to the `async` function.
     /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
-    input: RwSignal<Option<I>>,
+    input: RwSignal<Option<I>, S>,
     /// The most recent return value of the `async` function.
-    value: RwSignal<Option<O>>,
-    pending: RwSignal<bool>,
+    value: RwSignal<Option<O>, S>,
+    pending: RwSignal<bool, SyncStorage>,
     /// Controls this submission has been canceled.
-    canceled: RwSignal<bool>,
+    canceled: RwSignal<bool, SyncStorage>,
 }
 
-impl<I, O> From<ArcSubmission<I, O>> for Submission<I, O>
+impl<I, O, S> From<ArcSubmission<I, O>> for Submission<I, O, S>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
+    S: Storage<ArcRwSignal<Option<I>>> + Storage<ArcRwSignal<Option<O>>>,
 {
     fn from(value: ArcSubmission<I, O>) -> Self {
         let ArcSubmission {
@@ -728,33 +746,39 @@ where
     }
 }
 
-impl<I, O> Submission<I, O>
+impl<I, O, S> Submission<I, O, S>
 where
-    I: Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    S: Storage<ArcRwSignal<Option<I>>> + Storage<ArcReadSignal<Option<I>>>,
 {
     /// The current argument that was dispatched to the `async` function.
     /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
     #[track_caller]
-    pub fn input(&self) -> ReadSignal<Option<I>> {
+    pub fn input(&self) -> ReadSignal<Option<I>, S> {
         self.input.read_only()
     }
+}
 
+impl<I, O, S> Submission<I, O, S>
+where
+    S: Storage<ArcRwSignal<Option<O>>> + Storage<ArcReadSignal<Option<O>>>,
+{
     /// The most recent return value of the `async` function.
     #[track_caller]
-    pub fn value(&self) -> ReadSignal<Option<O>> {
+    pub fn value(&self) -> ReadSignal<Option<O>, S> {
         self.value.read_only()
     }
+}
 
+impl<I, O, S> Submission<I, O, S> {
     /// Whether this submision is still waiting to resolve.
     #[track_caller]
-    pub fn pending(&self) -> ReadSignal<bool> {
+    pub fn pending(&self) -> ReadSignal<bool, SyncStorage> {
         self.pending.read_only()
     }
 
     /// Whether this submission has been canceled.
     #[track_caller]
-    pub fn canceled(&self) -> ReadSignal<bool> {
+    pub fn canceled(&self) -> ReadSignal<bool, SyncStorage> {
         self.canceled.read_only()
     }
 
@@ -766,10 +790,10 @@ where
     }
 }
 
-impl<I, O> Clone for Submission<I, O> {
+impl<I, O, S> Clone for Submission<I, O, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<I, O> Copy for Submission<I, O> {}
+impl<I, O, S> Copy for Submission<I, O, S> {}

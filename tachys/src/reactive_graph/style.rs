@@ -201,6 +201,7 @@ mod stable {
         ($sig:ident) => {
             impl<C, R> IntoStyle<R> for $sig<C>
             where
+                $sig<C>: Get<Value = C>,
                 C: IntoStyle<R> + Clone + Send + Sync + 'static,
                 C::State: 'static,
                 R: DomRenderer,
@@ -247,6 +248,7 @@ mod stable {
 
             impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
             where
+                $sig<S>: Get<Value = S>,
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
                 R: DomRenderer,
             {
@@ -301,10 +303,12 @@ mod stable {
         };
     }
 
-    macro_rules! style_signal_unsend {
+    macro_rules! style_signal_arena {
         ($sig:ident) => {
-            impl<C, R> IntoStyle<R> for $sig<C>
+            impl<C, R, S> IntoStyle<R> for $sig<C, S>
             where
+                $sig<C, S>: Get<Value = C>,
+                S: Send + Sync + 'static,
                 C: IntoStyle<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
                 R: DomRenderer,
@@ -349,8 +353,10 @@ mod stable {
                 }
             }
 
-            impl<R, S> IntoStyle<R> for (&'static str, $sig<S>)
+            impl<R, S, St> IntoStyle<R> for (&'static str, $sig<S, St>)
             where
+                $sig<S, St>: Get<Value = S>,
+                St: Send + Sync + 'static,
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
                 R: DomRenderer,
             {
@@ -415,13 +421,13 @@ mod stable {
     };
     use std::borrow::Cow;
 
-    style_signal!(RwSignal);
-    style_signal!(ReadSignal);
-    style_signal!(Memo);
-    style_signal!(Signal);
-    style_signal!(MaybeSignal);
-    style_signal_unsend!(ArcRwSignal);
-    style_signal_unsend!(ArcReadSignal);
+    style_signal_arena!(RwSignal);
+    style_signal_arena!(ReadSignal);
+    style_signal_arena!(Memo);
+    style_signal_arena!(Signal);
+    style_signal_arena!(MaybeSignal);
+    style_signal!(ArcRwSignal);
+    style_signal!(ArcReadSignal);
     style_signal!(ArcMemo);
     style_signal!(ArcSignal);
 }

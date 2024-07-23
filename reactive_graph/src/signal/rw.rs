@@ -1,11 +1,11 @@
 use super::{
     guards::{Plain, ReadGuard},
     subscriber_traits::AsSubscriberSet,
-    ArcRwSignal, ReadSignal, WriteSignal,
+    ArcReadSignal, ArcRwSignal, ArcWriteSignal, ReadSignal, WriteSignal,
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    owner::StoredValue,
+    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, ReadUntracked, Trigger,
@@ -99,19 +99,22 @@ use std::{
 /// count.set(1);
 /// assert_eq!(double_count(), 2);
 /// ```
-pub struct RwSignal<T> {
+pub struct RwSignal<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcRwSignal<T>>,
+    inner: StoredValue<ArcRwSignal<T>, S>,
 }
 
-impl<T: Send + Sync + 'static> Dispose for RwSignal<T> {
+impl<T, S> Dispose for RwSignal<T, S> {
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<T: Send + Sync + 'static> RwSignal<T> {
+impl<T> RwSignal<T, SyncStorage>
+where
+    T: Send + Sync + 'static,
+{
     /// Creates a new signal, taking the initial value as its argument.
     #[cfg_attr(
         feature = "tracing",
@@ -119,63 +122,118 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
     )]
     #[track_caller]
     pub fn new(value: T) -> Self {
+        Self::new_with_storage(value)
+    }
+}
+
+impl<T, S> RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
+    /// Creates a new signal with the given arena storage method.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    #[track_caller]
+    pub fn new_with_storage(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(ArcRwSignal::new(value)),
+            inner: StoredValue::new_with_storage(ArcRwSignal::new(value)),
         }
     }
+}
 
+impl<T> RwSignal<T, LocalStorage>
+where
+    T: 'static,
+{
+    /// Creates a new signal, taking the initial value as its argument. Unlike [`RwSignal::new`],
+    /// this pins the value to the current thread. Accessing it from any other thread will panic.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all,)
+    )]
+    #[track_caller]
+    pub fn new_local(value: T) -> Self {
+        Self::new_with_storage(value)
+    }
+}
+
+impl<T, S> RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>> + Storage<ArcReadSignal<T>>,
+{
     /// Returns a read-only handle to the signal.
     #[inline(always)]
     #[track_caller]
-    pub fn read_only(&self) -> ReadSignal<T> {
+    pub fn read_only(&self) -> ReadSignal<T, S> {
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(
+            inner: StoredValue::new_with_storage(
                 self.inner
-                    .get()
+                    .try_get_value()
                     .map(|inner| inner.read_only())
                     .unwrap_or_else(unwrap_signal!(self)),
             ),
         }
     }
+}
 
+impl<T, S> RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>> + Storage<ArcWriteSignal<T>>,
+{
     /// Returns a write-only handle to the signal.
     #[inline(always)]
     #[track_caller]
-    pub fn write_only(&self) -> WriteSignal<T> {
+    pub fn write_only(&self) -> WriteSignal<T, S> {
         WriteSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(
+            inner: StoredValue::new_with_storage(
                 self.inner
-                    .get()
+                    .try_get_value()
                     .map(|inner| inner.write_only())
                     .unwrap_or_else(unwrap_signal!(self)),
             ),
         }
     }
+}
 
+impl<T, S> RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>
+        + Storage<ArcWriteSignal<T>>
+        + Storage<ArcReadSignal<T>>,
+{
     /// Splits the signal into its readable and writable halves.
     #[track_caller]
     #[inline(always)]
-    pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
+    pub fn split(&self) -> (ReadSignal<T, S>, WriteSignal<T, S>) {
         (self.read_only(), self.write_only())
     }
 
     /// Reunites the two halves of a signal. Returns `None` if the two signals
     /// provided were not created from the same signal.
     #[track_caller]
-    pub fn unite(read: ReadSignal<T>, write: WriteSignal<T>) -> Option<Self> {
-        match (read.inner.get(), write.inner.get()) {
+    pub fn unite(
+        read: ReadSignal<T, S>,
+        write: WriteSignal<T, S>,
+    ) -> Option<Self> {
+        match (read.inner.try_get_value(), write.inner.try_get_value()) {
             (Some(read), Some(write)) => {
                 if Arc::ptr_eq(&read.inner, &write.inner) {
                     Some(Self {
                         #[cfg(debug_assertions)]
                         defined_at: Location::caller(),
-                        inner: StoredValue::new(ArcRwSignal {
+                        inner: StoredValue::new_with_storage(ArcRwSignal {
                             #[cfg(debug_assertions)]
                             defined_at: Location::caller(),
                             value: Arc::clone(&read.value),
@@ -191,15 +249,18 @@ impl<T: Send + Sync + 'static> RwSignal<T> {
     }
 }
 
-impl<T> Copy for RwSignal<T> {}
+impl<T, S> Copy for RwSignal<T, S> {}
 
-impl<T> Clone for RwSignal<T> {
+impl<T, S> Clone for RwSignal<T, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Debug for RwSignal<T> {
+impl<T, S> Debug for RwSignal<T, S>
+where
+    S: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RwSignal")
             .field("type", &std::any::type_name::<T>())
@@ -208,28 +269,32 @@ impl<T> Debug for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static + Default> Default for RwSignal<T> {
+impl<T, S> Default for RwSignal<T, S>
+where
+    T: Default + 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
     #[track_caller]
     fn default() -> Self {
-        Self::new(T::default())
+        Self::new_with_storage(T::default())
     }
 }
 
-impl<T> PartialEq for RwSignal<T> {
+impl<T, S> PartialEq for RwSignal<T, S> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T> Eq for RwSignal<T> {}
+impl<T, S> Eq for RwSignal<T, S> {}
 
-impl<T> Hash for RwSignal<T> {
+impl<T, S> Hash for RwSignal<T, S> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T> DefinedAt for RwSignal<T> {
+impl<T, S> DefinedAt for RwSignal<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -242,13 +307,16 @@ impl<T> DefinedAt for RwSignal<T> {
     }
 }
 
-impl<T: 'static> IsDisposed for RwSignal<T> {
+impl<T: 'static, S> IsDisposed for RwSignal<T, S> {
     fn is_disposed(&self) -> bool {
-        !self.inner.exists()
+        self.inner.is_disposed()
     }
 }
 
-impl<T: 'static> AsSubscriberSet for RwSignal<T> {
+impl<T, S> AsSubscriberSet for RwSignal<T, S>
+where
+    S: Storage<ArcRwSignal<T>>,
+{
     type Output = Arc<RwLock<SubscriberSet>>;
 
     fn as_subscriber_set(&self) -> Option<Self::Output> {
@@ -258,21 +326,34 @@ impl<T: 'static> AsSubscriberSet for RwSignal<T> {
     }
 }
 
-impl<T: 'static> ReadUntracked for RwSignal<T> {
+impl<T, S> ReadUntracked for RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
     type Value = ReadGuard<T, Plain<T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.inner.get().map(|inner| inner.read_untracked())
+        self.inner
+            .try_get_value()
+            .map(|inner| inner.read_untracked())
     }
 }
 
-impl<T: 'static> Trigger for RwSignal<T> {
+impl<T, S> Trigger for RwSignal<T, S>
+where
+    S: Storage<ArcRwSignal<T>>,
+{
     fn trigger(&self) {
         self.mark_dirty();
     }
 }
 
-impl<T: 'static> Writeable for RwSignal<T> {
+impl<T, S> Writeable for RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
@@ -288,27 +369,42 @@ impl<T: 'static> Writeable for RwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> From<ArcRwSignal<T>> for RwSignal<T> {
+impl<T, S> From<ArcRwSignal<T>> for RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
     #[track_caller]
     fn from(value: ArcRwSignal<T>) -> Self {
         RwSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(value),
+            inner: StoredValue::new_with_storage(value),
         }
     }
 }
 
-impl<'a, T: Send + Sync + 'static> From<&'a ArcRwSignal<T>> for RwSignal<T> {
+impl<'a, T, S> From<&'a ArcRwSignal<T>> for RwSignal<T, S>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
     #[track_caller]
     fn from(value: &'a ArcRwSignal<T>) -> Self {
         value.clone().into()
     }
 }
 
-impl<T: Send + Sync + 'static> From<RwSignal<T>> for ArcRwSignal<T> {
+impl<T, S> From<RwSignal<T, S>> for ArcRwSignal<T>
+where
+    T: 'static,
+    S: Storage<ArcRwSignal<T>>,
+{
     #[track_caller]
-    fn from(value: RwSignal<T>) -> Self {
-        value.inner.get().unwrap_or_else(unwrap_signal!(value))
+    fn from(value: RwSignal<T, S>) -> Self {
+        value
+            .inner
+            .try_get_value()
+            .unwrap_or_else(unwrap_signal!(value))
     }
 }

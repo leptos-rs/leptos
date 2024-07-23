@@ -1,7 +1,7 @@
 use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
-    owner::{Owner, StoredValue},
+    owner::{LocalStorage, Owner, Storage, StoredValue, SyncStorage},
     signal::{ArcRwSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, Update},
     unwrap_signal,
@@ -88,11 +88,7 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// // if there are multiple arguments, use a tuple
 /// let action3 = ArcAction::new(|input: &(usize, String)| async { todo!() });
 /// ```
-pub struct ArcAction<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
+pub struct ArcAction<I, O> {
     in_flight: ArcRwSignal<usize>,
     input: ArcRwSignal<Option<I>>,
     value: ArcRwSignal<Option<O>>,
@@ -105,11 +101,7 @@ where
     defined_at: &'static Location<'static>,
 }
 
-impl<I, O> Clone for ArcAction<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
+impl<I, O> Clone for ArcAction<I, O> {
     fn clone(&self) -> Self {
         Self {
             in_flight: self.in_flight.clone(),
@@ -261,7 +253,13 @@ where
             });
         }
     }
+}
 
+impl<I, O> ArcAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
     /// Calls the `async` function with a reference to the input type as its argument,
     /// ensuring that it is spawned on the current thread.
     #[track_caller]
@@ -318,7 +316,7 @@ where
 impl<I, O> ArcAction<I, O>
 where
     I: 'static,
-    O: Send + Sync + 'static,
+    O: 'static,
 {
     /// Creates a new action, which will only be run on the thread in which it is created.
     ///
@@ -571,23 +569,19 @@ where
 /// // if there are multiple arguments, use a tuple
 /// let action3 = Action::new(|input: &(usize, String)| async { todo!() });
 /// ```
-pub struct Action<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-    inner: StoredValue<ArcAction<I, O>>,
+pub struct Action<I, O, S = SyncStorage> {
+    inner: StoredValue<ArcAction<I, O>, S>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
 
-impl<I: 'static, O: 'static> Dispose for Action<I, O> {
+impl<I, O, S> Dispose for Action<I, O, S> {
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<I, O> Action<I, O>
+impl<I, O> Action<I, O, SyncStorage>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
@@ -672,7 +666,52 @@ where
             defined_at: Location::caller(),
         }
     }
+}
 
+impl<I, O> Action<I, O, LocalStorage>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// Creates a new action, which does not require its inputs or outputs to be `Send`. In all other
+    /// ways, this is the same as [`Action::new`]. If this action is accessed from outside the
+    /// thread on which it was created, it panics.
+    #[track_caller]
+    pub fn new_local<F, Fu>(action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + Send + 'static,
+    {
+        Self {
+            inner: StoredValue::new_local(ArcAction::new_unsync(action_fn)),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+
+    /// Creates a new action with the initial value, which does not require its inputs or outputs to be `Send`. In all other
+    /// ways, this is the same as [`Action::new_with_value`]. If this action is accessed from outside the
+    /// thread on which it was created, it panics.
+    #[track_caller]
+    pub fn new_local_with_value<F, Fu>(value: Option<O>, action_fn: F) -> Self
+    where
+        F: Fn(&I) -> Fu + 'static,
+        Fu: Future<Output = O> + Send + 'static,
+    {
+        Self {
+            inner: StoredValue::new_local(ArcAction::new_unsync_with_value(
+                value, action_fn,
+            )),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+}
+
+impl<I, O, S> Action<I, O, S>
+where
+    S: Storage<ArcAction<I, O>>,
+{
     /// The number of times the action has successfully completed.
     ///
     /// ```rust
@@ -696,7 +735,7 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn version(&self) -> RwSignal<usize> {
+    pub fn version(&self) -> RwSignal<usize, SyncStorage> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.version())
@@ -704,6 +743,44 @@ where
         inner.into()
     }
 
+    /// Whether the action has been dispatched and is currently waiting to resolve.
+    ///
+    /// ```rust
+    /// # use reactive_graph::actions::*;
+    /// # use reactive_graph::prelude::*;
+    /// # tokio_test::block_on(async move {
+    /// # any_spawner::Executor::init_tokio();
+    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
+    /// let act = Action::new(|n: &u8| {
+    ///     let n = n.to_owned();
+    ///     async move { n * 2 }
+    /// });
+    ///
+    /// let pending = act.pending();
+    /// assert_eq!(pending.get(), false);
+    /// act.dispatch(3);
+    /// assert_eq!(pending.get(), true);
+    ///
+    /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    /// // after it resolves
+    /// assert_eq!(pending.get(), false);
+    /// # });
+    /// ```
+    #[track_caller]
+    pub fn pending(&self) -> Memo<bool, SyncStorage> {
+        let inner = self
+            .inner
+            .try_with_value(|inner| inner.pending())
+            .unwrap_or_else(unwrap_signal!(self));
+        inner.into()
+    }
+}
+
+impl<I, O, S> Action<I, O, S>
+where
+    I: 'static,
+    S: Storage<ArcAction<I, O>> + Storage<ArcRwSignal<Option<I>>>,
+{
     /// The current argument that was dispatched to the async function. This value will
     /// be `Some` while we are waiting for it to resolve, and `None` after it has resolved.
     ///
@@ -729,14 +806,20 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> RwSignal<Option<I>> {
+    pub fn input(&self) -> RwSignal<Option<I>, S> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.input())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
     }
+}
 
+impl<I, O, S> Action<I, O, S>
+where
+    O: 'static,
+    S: Storage<ArcAction<I, O>> + Storage<ArcRwSignal<Option<O>>>,
+{
     /// The most recent return value of the `async` function. This will be `None` before
     /// the action has ever run successfully, and subsequently will always be `Some(_)`,
     /// holding the old value until a new value has been received.
@@ -766,59 +849,49 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> RwSignal<Option<O>> {
+    pub fn value(&self) -> RwSignal<Option<O>, S> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.value())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
     }
+}
 
+impl<I, O, S> Action<I, O, S>
+where
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
+    S: Storage<ArcAction<I, O>>,
+{
     /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
     pub fn dispatch(&self, input: I) {
         self.inner.with_value(|inner| inner.dispatch(input));
     }
+}
 
-    /// Whether the action has been dispatched and is currently waiting to resolve.
-    ///
-    /// ```rust
-    /// # use reactive_graph::actions::*;
-    /// # use reactive_graph::prelude::*;
-    /// # tokio_test::block_on(async move {
-    /// # any_spawner::Executor::init_tokio();
-    /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
-    /// let act = Action::new(|n: &u8| {
-    ///     let n = n.to_owned();
-    ///     async move { n * 2 }
-    /// });
-    ///
-    /// let pending = act.pending();
-    /// assert_eq!(pending.get(), false);
-    /// act.dispatch(3);
-    /// assert_eq!(pending.get(), true);
-    ///
-    /// # tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    /// // after it resolves
-    /// assert_eq!(pending.get(), false);
-    /// # });
-    /// ```
+impl<I, O, S> Action<I, O, S>
+where
+    I: 'static,
+    O: 'static,
+    S: Storage<ArcAction<I, O>>,
+{
+    /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
-    pub fn pending(&self) -> Memo<bool> {
-        let inner = self
-            .inner
-            .try_with_value(|inner| inner.pending())
-            .unwrap_or_else(unwrap_signal!(self));
-        inner.into()
+    pub fn dispatch_local(&self, input: I) {
+        self.inner.with_value(|inner| inner.dispatch_local(input));
     }
 }
 
-impl<I, O> Action<I, O>
+impl<I, O, S> Action<I, O, S>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
+    S: Storage<ArcAction<I, O>>,
 {
-    /// Creates a new action, which does not require its input to be `Send`.
+    /// Creates a new action, which does not require the action itself to be `Send`, but will run
+    /// it on the same thread it was created on.
     ///
     /// In all other ways, this is identical to [`Action::new`].
     #[track_caller]
@@ -828,14 +901,16 @@ where
         Fu: Future<Output = O> + 'static,
     {
         Self {
-            inner: StoredValue::new(ArcAction::new_unsync(action_fn)),
+            inner: StoredValue::new_with_storage(ArcAction::new_unsync(
+                action_fn,
+            )),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
     }
 
-    /// Creates a new action, which does not require its input to be `Send`,
-    /// initializing it with the given value.
+    /// Creates a new action, which does not require the action itself to be `Send`, but will run
+    /// it on the same thread it was created on, and gives an initial value.
     ///
     /// In all other ways, this is identical to [`Action::new`].
     #[track_caller]
@@ -845,20 +920,16 @@ where
         Fu: Future<Output = O> + 'static,
     {
         Self {
-            inner: StoredValue::new(ArcAction::new_unsync_with_value(
-                value, action_fn,
-            )),
+            inner: StoredValue::new_with_storage(
+                ArcAction::new_unsync_with_value(value, action_fn),
+            ),
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
     }
 }
 
-impl<I, O> DefinedAt for Action<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
+impl<I, O, S> DefinedAt for Action<I, O, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -871,22 +942,13 @@ where
     }
 }
 
-impl<I, O> Clone for Action<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
+impl<I, O, S> Clone for Action<I, O, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<I, O> Copy for Action<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-}
+impl<I, O, S> Copy for Action<I, O, S> {}
 
 /// Creates a new action. This is lazy: it does not run the action function until some value
 /// is dispatched.
@@ -933,7 +995,7 @@ where
 #[track_caller]
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `Action::new()` instead."]
-pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O>
+pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O, SyncStorage>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,

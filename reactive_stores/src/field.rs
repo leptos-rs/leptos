@@ -4,7 +4,7 @@ use crate::{
     ArcField, AtIndex, StoreField, Subfield,
 };
 use reactive_graph::{
-    owner::StoredValue,
+    owner::{Storage, StoredValue},
     signal::ArcTrigger,
     traits::{
         DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
@@ -17,16 +17,19 @@ use std::{
     sync::Arc,
 };
 
-pub struct Field<T>
+pub struct Field<T, S = SyncStorage>
 where
     T: 'static,
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcField<T>>,
+    inner: StoredValue<ArcField<T>, S>,
 }
 
-impl<T> StoreField<T> for Field<T> {
+impl<T, S> StoreField<T> for Field<T, S>
+where
+    S: Storage<ArcField<T>>,
+{
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
@@ -53,9 +56,10 @@ impl<T> StoreField<T> for Field<T> {
     }
 }
 
-impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for Field<T>
+impl<Inner, Prev, T, S> From<Subfield<Inner, Prev, T>> for Field<T, S>
 where
     T: Send + Sync,
+    S: Storage<ArcField<T>>,
     Subfield<Inner, Prev, T>: Clone,
     Inner: StoreField<Prev> + Send + Sync + 'static,
     Prev: 'static,
@@ -65,14 +69,15 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(value.into()),
+            inner: StoredValue::new_with_storage(value.into()),
         }
     }
 }
 
-impl<Inner, Prev> From<AtIndex<Inner, Prev>> for Field<Prev::Output>
+impl<Inner, Prev, S> From<AtIndex<Inner, Prev>> for Field<Prev::Output, S>
 where
     AtIndex<Inner, Prev>: Clone,
+    S: Storage<ArcField<Prev::Output>>,
     Inner: StoreField<Prev> + Send + Sync + 'static,
     Prev: IndexMut<usize> + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
@@ -82,20 +87,20 @@ where
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(value.into()),
+            inner: StoredValue::new_with_storage(value.into()),
         }
     }
 }
 
-impl<T> Clone for Field<T> {
+impl<T, S> Clone for Field<T, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Copy for Field<T> {}
+impl<T, S> Copy for Field<T, S> {}
 
-impl<T> DefinedAt for Field<T> {
+impl<T, S> DefinedAt for Field<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -108,7 +113,10 @@ impl<T> DefinedAt for Field<T> {
     }
 }
 
-impl<T> Trigger for Field<T> {
+impl<T, S> Trigger for Field<T, S>
+where
+    S: Storage<ArcField<T>>,
+{
     fn trigger(&self) {
         if let Some(inner) = self.inner.try_get_value() {
             inner.trigger();
@@ -116,7 +124,10 @@ impl<T> Trigger for Field<T> {
     }
 }
 
-impl<T> Track for Field<T> {
+impl<T, S> Track for Field<T, S>
+where
+    S: Storage<ArcField<T>>,
+{
     fn track(&self) {
         if let Some(inner) = self.inner.try_get_value() {
             inner.track();
@@ -124,7 +135,10 @@ impl<T> Track for Field<T> {
     }
 }
 
-impl<T> ReadUntracked for Field<T> {
+impl<T, S> ReadUntracked for Field<T, S>
+where
+    S: Storage<ArcField<T>>,
+{
     type Value = StoreFieldReader<T>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
@@ -134,8 +148,8 @@ impl<T> ReadUntracked for Field<T> {
     }
 }
 
-impl<T> IsDisposed for Field<T> {
+impl<T, S> IsDisposed for Field<T, S> {
     fn is_disposed(&self) -> bool {
-        !self.inner.exists()
+        self.inner.is_disposed()
     }
 }

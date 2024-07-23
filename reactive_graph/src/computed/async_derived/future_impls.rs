@@ -1,6 +1,7 @@
 use super::{ArcAsyncDerived, AsyncDerived};
 use crate::{
     graph::{AnySource, ToAnySource},
+    owner::Storage,
     signal::guards::{AsyncPlain, Mapped, ReadGuard},
     traits::{DefinedAt, Track},
     unwrap_signal,
@@ -63,16 +64,20 @@ where
     }
 }
 
-impl<T> IntoFuture for AsyncDerived<T>
+impl<T, S> IntoFuture for AsyncDerived<T, S>
 where
     T: Clone + 'static,
+    S: Storage<ArcAsyncDerived<T>>,
 {
     type Output = T;
     type IntoFuture = AsyncDerivedFuture<T>;
 
     #[track_caller]
     fn into_future(self) -> Self::IntoFuture {
-        let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
+        let this = self
+            .inner
+            .try_get_value()
+            .unwrap_or_else(unwrap_signal!(self));
         this.into_future()
     }
 }
@@ -125,12 +130,19 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> AsyncDerived<T> {
+impl<T, S> AsyncDerived<T, S>
+where
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
+{
     /// Returns a `Future` that resolves when the computation is finished, and accesses the inner
     /// value by reference rather than by cloning it.
     #[track_caller]
     pub fn by_ref(&self) -> AsyncDerivedRefFuture<T> {
-        let this = self.inner.get().unwrap_or_else(unwrap_signal!(self));
+        let this = self
+            .inner
+            .try_get_value()
+            .unwrap_or_else(unwrap_signal!(self));
         this.by_ref()
     }
 }
