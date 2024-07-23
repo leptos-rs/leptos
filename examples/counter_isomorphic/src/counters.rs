@@ -76,18 +76,9 @@ pub fn Counters() -> impl IntoView {
             </nav>
             <main>
                 <FlatRoutes fallback=|| "Not found.">
-                    <Route
-                        path=StaticSegment("")
-                        view=Counter
-                    />
-                    <Route
-                        path=StaticSegment("form")
-                        view=FormCounter
-                    />
-                    <Route
-                        path=StaticSegment("multi")
-                        view=MultiuserCounter
-                    />
+                    <Route path=StaticSegment("") view=Counter/>
+                    <Route path=StaticSegment("form") view=FormCounter/>
+                    <Route path=StaticSegment("multi") view=MultiuserCounter/>
                 </FlatRoutes>
             </main>
         </Router>
@@ -124,10 +115,7 @@ pub fn Counter() -> impl IntoView {
                 <div>
                     <button on:click=move |_| clear.dispatch(())>"Clear"</button>
                     <button on:click=move |_| dec.dispatch(())>"-1"</button>
-                    <span>
-                        "Value: "
-                        <Suspense>{counter} "!" </Suspense>
-                    </span>
+                    <span>"Value: " <Suspense>{counter} "!"</Suspense></span>
                     <button on:click=move |_| inc.dispatch(())>"+1"</button>
                 </div>
             </ErrorBoundary>

@@ -11,6 +11,7 @@ mod rw;
 mod subscriber_traits;
 mod write;
 
+use crate::owner::{LocalStorage, SyncStorage};
 pub use arc_read::*;
 pub use arc_rw::*;
 pub use arc_trigger::*;
@@ -107,8 +108,22 @@ pub fn arc_signal<T>(value: T) -> (ArcReadSignal<T>, ArcWriteSignal<T>) {
 /// ```
 #[inline(always)]
 #[track_caller]
-pub fn signal<T: Send + Sync>(value: T) -> (ReadSignal<T>, WriteSignal<T>) {
+pub fn signal<T: Send + Sync + 'static>(
+    value: T,
+) -> (ReadSignal<T, SyncStorage>, WriteSignal<T, SyncStorage>) {
     RwSignal::new(value).split()
+}
+
+/// Creates an arena-allocated signal.
+///
+/// Unlike [`signal`], this does not require the value to be `Send + Sync`. Instead, it is stored
+/// on a local arena. Accessing either of the returned signals from another thread will panic.
+#[inline(always)]
+#[track_caller]
+pub fn signal_local<T: 'static>(
+    value: T,
+) -> (ReadSignal<T, LocalStorage>, WriteSignal<T, LocalStorage>) {
+    RwSignal::new_local(value).split()
 }
 
 /// Creates an arena-allocated signal, the basic reactive primitive.
@@ -155,8 +170,8 @@ pub fn signal<T: Send + Sync>(value: T) -> (ReadSignal<T>, WriteSignal<T>) {
 #[track_caller]
 #[deprecated = "This function is being renamed to `signal()` to conform to \
                 Rust idioms."]
-pub fn create_signal<T: Send + Sync>(
+pub fn create_signal<T: Send + Sync + 'static>(
     value: T,
-) -> (ReadSignal<T>, WriteSignal<T>) {
+) -> (ReadSignal<T, SyncStorage>, WriteSignal<T, SyncStorage>) {
     signal(value)
 }

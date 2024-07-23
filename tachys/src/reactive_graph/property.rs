@@ -101,6 +101,7 @@ mod stable {
         ($sig:ident) => {
             impl<V, R> IntoProperty<R> for $sig<V>
             where
+                $sig<V>: Get<Value = V>,
                 V: IntoProperty<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
@@ -140,10 +141,12 @@ mod stable {
         };
     }
 
-    macro_rules! property_signal_unsend {
+    macro_rules! property_signal_arena {
         ($sig:ident) => {
-            impl<V, R> IntoProperty<R> for $sig<V>
+            impl<V, R, S> IntoProperty<R> for $sig<V, S>
             where
+                $sig<V, S>: Get<Value = V>,
+                S: Send + Sync + 'static,
                 V: IntoProperty<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
@@ -183,13 +186,13 @@ mod stable {
         };
     }
 
-    property_signal!(RwSignal);
-    property_signal!(ReadSignal);
-    property_signal!(Memo);
-    property_signal!(Signal);
-    property_signal!(MaybeSignal);
-    property_signal_unsend!(ArcRwSignal);
-    property_signal_unsend!(ArcReadSignal);
+    property_signal_arena!(RwSignal);
+    property_signal_arena!(ReadSignal);
+    property_signal_arena!(Memo);
+    property_signal_arena!(Signal);
+    property_signal_arena!(MaybeSignal);
+    property_signal!(ArcRwSignal);
+    property_signal!(ArcReadSignal);
     property_signal!(ArcMemo);
     property_signal!(ArcSignal);
 }

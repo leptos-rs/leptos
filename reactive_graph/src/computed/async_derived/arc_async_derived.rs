@@ -409,7 +409,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ReadUntracked for ArcAsyncDerived<T> {
+impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
     type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {

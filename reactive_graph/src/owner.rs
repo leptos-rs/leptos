@@ -21,7 +21,9 @@ pub use arena::sandboxed::Sandboxed;
 use arena::NodeId;
 pub use context::*;
 #[allow(deprecated)] // allow exporting deprecated fn
-pub use stored_value::{store_value, StoredValue};
+pub use stored_value::{
+    store_value, LocalStorage, Storage, StoredValue, SyncStorage,
+};
 
 /// A reactive owner, which manages
 /// 1) the cancelation of [`Effect`](crate::effect::Effect)s,

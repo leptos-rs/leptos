@@ -5,7 +5,7 @@ use crate::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
         WithObserver,
     },
-    owner::{Owner, StoredValue},
+    owner::{LocalStorage, Owner, StoredValue},
     traits::Dispose,
 };
 use any_spawner::Executor;
@@ -73,7 +73,7 @@ use std::{
 ///    and you can call browser-specific APIs within the effect function without causing issues.
 ///    If you need an effect to run on the server, use [`Effect::new_isomorphic`].
 pub struct Effect {
-    inner: StoredValue<Option<Arc<RwLock<EffectInner>>>>,
+    inner: StoredValue<Option<Arc<RwLock<EffectInner>>>, LocalStorage>,
 }
 
 impl Dispose for Effect {
@@ -148,7 +148,7 @@ impl Effect {
         }
 
         Self {
-            inner: StoredValue::new(Some(inner)),
+            inner: StoredValue::new_with_storage(Some(inner)),
         }
     }
 
@@ -195,7 +195,7 @@ impl Effect {
         }
 
         Self {
-            inner: StoredValue::new(Some(inner)),
+            inner: StoredValue::new_with_storage(Some(inner)),
         }
     }
 
@@ -237,7 +237,7 @@ impl Effect {
             }
         });
         Self {
-            inner: StoredValue::new(Some(inner)),
+            inner: StoredValue::new_with_storage(Some(inner)),
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::StoredValue,
+    owner::{Storage, StoredValue, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
@@ -96,30 +96,37 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 ///   stream of values.
 /// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
 ///   of values into a memo containing the latest value.
-pub struct Memo<T> {
+pub struct Memo<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcMemo<T>>,
+    inner: StoredValue<ArcMemo<T>, S>,
 }
 
-impl<T: 'static> Dispose for Memo<T> {
+impl<T, S> Dispose for Memo<T, S> {
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<T: Send + Sync + 'static> From<ArcMemo<T>> for Memo<T> {
+impl<T, S> From<ArcMemo<T>> for Memo<T, S>
+where
+    T: 'static,
+    S: Storage<ArcMemo<T>>,
+{
     #[track_caller]
     fn from(value: ArcMemo<T>) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(value),
+            inner: StoredValue::new_with_storage(value),
         }
     }
 }
 
-impl<T: Send + Sync + 'static> Memo<T> {
+impl<T> Memo<T, SyncStorage>
+where
+    T: Send + Sync + 'static,
+{
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
@@ -151,7 +158,7 @@ impl<T: Send + Sync + 'static> Memo<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(ArcMemo::new(fun)),
+            inner: StoredValue::new_with_storage(ArcMemo::new(fun)),
         }
     }
 
@@ -176,7 +183,9 @@ impl<T: Send + Sync + 'static> Memo<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(ArcMemo::new_with_compare(fun, changed)),
+            inner: StoredValue::new_with_storage(ArcMemo::new_with_compare(
+                fun, changed,
+            )),
         }
     }
 
@@ -201,20 +210,22 @@ impl<T: Send + Sync + 'static> Memo<T> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new(ArcMemo::new_owning(fun)),
+            inner: StoredValue::new_with_storage(ArcMemo::new_owning(fun)),
         }
     }
 }
+impl<T, S> Copy for Memo<T, S> {}
 
-impl<T> Copy for Memo<T> {}
-
-impl<T> Clone for Memo<T> {
+impl<T, S> Clone for Memo<T, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Debug for Memo<T> {
+impl<T, S> Debug for Memo<T, S>
+where
+    S: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Memo")
             .field("type", &std::any::type_name::<T>())
@@ -223,21 +234,21 @@ impl<T> Debug for Memo<T> {
     }
 }
 
-impl<T> PartialEq for Memo<T> {
+impl<T, S> PartialEq for Memo<T, S> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T> Eq for Memo<T> {}
+impl<T, S> Eq for Memo<T, S> {}
 
-impl<T> Hash for Memo<T> {
+impl<T, S> Hash for Memo<T, S> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T> DefinedAt for Memo<T> {
+impl<T, S> DefinedAt for Memo<T, S> {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -250,31 +261,49 @@ impl<T> DefinedAt for Memo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Track for Memo<T> {
+impl<T, S> Track for Memo<T, S>
+where
+    T: 'static,
+    S: Storage<ArcMemo<T>>,
+    ArcMemo<T>: Track,
+{
     #[track_caller]
     fn track(&self) {
-        if let Some(inner) = self.inner.get() {
+        if let Some(inner) = self.inner.try_get_value() {
             inner.track();
         }
     }
 }
 
-impl<T: Send + Sync + 'static> ReadUntracked for Memo<T> {
+impl<T, S> ReadUntracked for Memo<T, S>
+where
+    T: 'static,
+    S: Storage<ArcMemo<T>>,
+{
     type Value = ReadGuard<T, Mapped<Plain<MemoInner<T>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
-        self.inner.get().map(|inner| inner.read_untracked())
+        self.inner
+            .try_get_value()
+            .map(|inner| inner.read_untracked())
     }
 }
 
-impl<T: Send + Sync + 'static> From<Memo<T>> for ArcMemo<T> {
+impl<T, S> From<Memo<T, S>> for ArcMemo<T>
+where
+    T: 'static,
+    S: Storage<ArcMemo<T>>,
+{
     #[track_caller]
-    fn from(value: Memo<T>) -> Self {
-        value.inner.get().unwrap_or_else(unwrap_signal!(value))
+    fn from(value: Memo<T, S>) -> Self {
+        value
+            .inner
+            .try_get_value()
+            .unwrap_or_else(unwrap_signal!(value))
     }
 }
 
-impl<T> From<ArcReadSignal<T>> for Memo<T>
+impl<T> From<ArcReadSignal<T>> for Memo<T, SyncStorage>
 where
     T: Clone + PartialEq + Send + Sync + 'static,
 {

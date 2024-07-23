@@ -94,6 +94,7 @@ mod stable {
         ($sig:ident) => {
             impl<V, R> InnerHtmlValue<R> for $sig<V>
             where
+                $sig<V>: Get<Value = V>,
                 V: InnerHtmlValue<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
@@ -144,10 +145,12 @@ mod stable {
         };
     }
 
-    macro_rules! inner_html_signal_unsend {
+    macro_rules! inner_html_signal_arena {
         ($sig:ident) => {
-            impl<V, R> InnerHtmlValue<R> for $sig<V>
+            impl<V, R, S> InnerHtmlValue<R> for $sig<V, S>
             where
+                $sig<V, S>: Get<Value = V>,
+                S: Send + Sync + 'static,
                 V: InnerHtmlValue<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
@@ -198,13 +201,13 @@ mod stable {
         };
     }
 
-    inner_html_signal!(RwSignal);
-    inner_html_signal!(ReadSignal);
-    inner_html_signal!(Memo);
-    inner_html_signal!(Signal);
-    inner_html_signal!(MaybeSignal);
-    inner_html_signal_unsend!(ArcRwSignal);
-    inner_html_signal_unsend!(ArcReadSignal);
+    inner_html_signal_arena!(RwSignal);
+    inner_html_signal_arena!(ReadSignal);
+    inner_html_signal_arena!(Memo);
+    inner_html_signal_arena!(Signal);
+    inner_html_signal_arena!(MaybeSignal);
+    inner_html_signal!(ArcRwSignal);
+    inner_html_signal!(ArcReadSignal);
     inner_html_signal!(ArcMemo);
     inner_html_signal!(ArcSignal);
 }
