@@ -1,33 +1,27 @@
 ---
 source: leptos_macro/src/view/tests.rs
-assertion_line: 101
 expression: result
 ---
 TokenStream [
     Punct {
         char: '#',
         spacing: Alone,
-        span: bytes(10..331),
     },
     Group {
         delimiter: Bracket,
         stream: TokenStream [
             Ident {
                 sym: allow,
-                span: bytes(10..331),
             },
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
                     Ident {
                         sym: unused_braces,
-                        span: bytes(10..331),
                     },
                 ],
-                span: bytes(10..331),
             },
         ],
-        span: bytes(10..331),
     },
     Group {
         delimiter: Brace,
@@ -153,27 +147,22 @@ TokenStream [
                     Punct {
                         char: '#',
                         spacing: Alone,
-                        span: bytes(28..83),
                     },
                     Group {
                         delimiter: Bracket,
                         stream: TokenStream [
                             Ident {
                                 sym: allow,
-                                span: bytes(28..83),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
                                     Ident {
                                         sym: unused_braces,
-                                        span: bytes(28..83),
                                     },
                                 ],
-                                span: bytes(28..83),
                             },
                         ],
-                        span: bytes(28..83),
                     },
                     Group {
                         delimiter: Brace,
@@ -404,27 +393,22 @@ TokenStream [
                     Punct {
                         char: '#',
                         spacing: Alone,
-                        span: bytes(96..176),
                     },
                     Group {
                         delimiter: Bracket,
                         stream: TokenStream [
                             Ident {
                                 sym: allow,
-                                span: bytes(96..176),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
                                     Ident {
                                         sym: unused_braces,
-                                        span: bytes(96..176),
                                     },
                                 ],
-                                span: bytes(96..176),
                             },
                         ],
-                        span: bytes(96..176),
                     },
                     Group {
                         delimiter: Brace,
@@ -697,27 +681,22 @@ TokenStream [
                     Punct {
                         char: '#',
                         spacing: Alone,
-                        span: bytes(189..223),
                     },
                     Group {
                         delimiter: Bracket,
                         stream: TokenStream [
                             Ident {
                                 sym: allow,
-                                span: bytes(189..223),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
                                     Ident {
                                         sym: unused_braces,
-                                        span: bytes(189..223),
                                     },
                                 ],
-                                span: bytes(189..223),
                             },
                         ],
-                        span: bytes(189..223),
                     },
                     Group {
                         delimiter: Brace,
@@ -902,27 +881,22 @@ TokenStream [
                     Punct {
                         char: '#',
                         spacing: Alone,
-                        span: bytes(236..316),
                     },
                     Group {
                         delimiter: Bracket,
                         stream: TokenStream [
                             Ident {
                                 sym: allow,
-                                span: bytes(236..316),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
                                     Ident {
                                         sym: unused_braces,
-                                        span: bytes(236..316),
                                     },
                                 ],
-                                span: bytes(236..316),
                             },
                         ],
-                        span: bytes(236..316),
                     },
                     Group {
                         delimiter: Brace,
