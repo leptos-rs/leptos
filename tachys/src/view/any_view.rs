@@ -368,6 +368,7 @@ where
         (self.to_html)(self.value, buf, position, escape, mark_branches);
         #[cfg(not(feature = "ssr"))]
         {
+            _ = mark_branches;
             _ = buf;
             _ = position;
             _ = escape;
@@ -410,6 +411,7 @@ where
             _ = buf;
             _ = position;
             _ = escape;
+            _ = mark_branches;
             panic!(
                 "You are rendering AnyView to HTML without the `ssr` feature \
                  enabled."
