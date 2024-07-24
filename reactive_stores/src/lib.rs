@@ -1,5 +1,5 @@
 use reactive_graph::{
-    owner::{Storage, StoredValue},
+    owner::{Storage,SyncStorage, StoredValue},
     signal::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
