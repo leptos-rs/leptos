@@ -123,7 +123,7 @@ where
     }
 }
 
-impl<T> Memo<T, SyncStorage>
+impl<T> Memo<T>
 where
     T: Send + Sync + 'static,
 {
@@ -303,7 +303,7 @@ where
     }
 }
 
-impl<T> From<ArcReadSignal<T>> for Memo<T, SyncStorage>
+impl<T> From<ArcReadSignal<T>> for Memo<T>
 where
     T: Clone + PartialEq + Send + Sync + 'static,
 {

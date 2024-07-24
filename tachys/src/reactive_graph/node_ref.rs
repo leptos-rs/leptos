@@ -3,7 +3,6 @@ use crate::{
     renderer::{dom::Dom, Renderer},
 };
 use reactive_graph::{
-    owner::SyncStorage,
     signal::RwSignal,
     traits::{DefinedAt, Set, Track, WithUntracked},
 };
@@ -12,7 +11,7 @@ use wasm_bindgen::JsCast;
 
 /// A reactive reference to a DOM node that can be used with the `node_ref` attribute.
 #[derive(Debug)]
-pub struct NodeRef<E>(RwSignal<Option<SendWrapper<E::Output>>, SyncStorage>)
+pub struct NodeRef<E>(RwSignal<Option<SendWrapper<E::Output>>>)
 where
     E: ElementType,
     E::Output: 'static;

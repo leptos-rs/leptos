@@ -111,7 +111,7 @@ impl<T, S> Dispose for RwSignal<T, S> {
     }
 }
 
-impl<T> RwSignal<T, SyncStorage>
+impl<T> RwSignal<T>
 where
     T: Send + Sync + 'static,
 {

@@ -55,7 +55,7 @@ pub fn Router<Chil>(
     base: Option<Cow<'static, str>>,
     /// A signal that will be set while the navigation process is underway.
     #[prop(optional, into)]
-    set_is_routing: Option<SignalSetter<bool, SyncStorage>>,
+    set_is_routing: Option<SignalSetter<bool>>,
     // TODO trailing slashes
     ///// How trailing slashes should be handled in [`Route`] paths.
     //#[prop(optional)]
@@ -106,7 +106,7 @@ pub(crate) struct RouterContext {
     pub current_url: ArcRwSignal<Url>,
     pub location: Location,
     pub state: ArcRwSignal<State>,
-    pub set_is_routing: Option<SignalSetter<bool, SyncStorage>>,
+    pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
 impl RouterContext {
@@ -471,7 +471,7 @@ pub fn provide_server_redirect(handler: impl Fn(&str) + Send + Sync + 'static) {
 pub fn RoutingProgress(
     /// Whether the router is currently loading the new page.
     #[prop(into)]
-    is_routing: Signal<bool, SyncStorage>,
+    is_routing: Signal<bool>,
     /// The maximum expected time for loading, which is used to
     /// calibrate the animation process.
     #[prop(optional, into)]

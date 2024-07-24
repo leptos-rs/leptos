@@ -209,7 +209,7 @@ where
     }
 }
 
-impl<T> StoredValue<T, SyncStorage>
+impl<T> StoredValue<T>
 where
     T: Send + Sync + 'static,
 {
@@ -330,7 +330,7 @@ impl<T, S> Dispose for StoredValue<T, S> {
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `StoredValue::new()` or `StoredValue::new_local()` \
                 instead."]
-pub fn store_value<T>(value: T) -> StoredValue<T, SyncStorage>
+pub fn store_value<T>(value: T) -> StoredValue<T>
 where
     T: Send + Sync + 'static,
 {

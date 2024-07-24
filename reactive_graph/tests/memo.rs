@@ -189,14 +189,14 @@ async fn dynamic_dependencies() {
     // we forget it so it continues running
     // if it's dropped, it will stop listening
     println!("[Initial]");
-    mem::forget(Effect::new_sync({
+    Effect::new_sync({
         let combined_count = Arc::clone(&combined_count);
         move |_| {
             println!("Effect running.");
             _ = name.get();
             *combined_count.write().unwrap() += 1;
         }
-    }));
+    });
     Executor::tick().await;
     println!("[After 1 tick]");
 

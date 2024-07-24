@@ -400,7 +400,7 @@ where
     T: Send + Sync + 'static,
 {
     ser: PhantomData<Ser>,
-    data: AsyncDerived<T, SyncStorage>,
+    data: AsyncDerived<T>,
 }
 
 impl<T: Send + Sync + 'static, Ser> Copy for Resource<T, Ser> {}
@@ -415,7 +415,7 @@ impl<T, Ser> Deref for Resource<T, Ser>
 where
     T: Send + Sync + 'static,
 {
-    type Target = AsyncDerived<T, SyncStorage>;
+    type Target = AsyncDerived<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.data

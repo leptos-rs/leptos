@@ -172,7 +172,7 @@ where
     S::Error: Send + Sync + 'static,
 {
     type Target =
-        Action<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>;
+        Action<S, Result<S::Output, ServerFnError<S::Error>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -180,7 +180,7 @@ where
 }
 
 impl<S> From<ServerAction<S>>
-    for Action<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>
+    for Action<S, Result<S::Output, ServerFnError<S::Error>>>
 where
     S: ServerFn + 'static,
     S::Output: 'static,

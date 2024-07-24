@@ -91,7 +91,7 @@ where
     }
 }
 
-impl<I, O> MultiAction<I, O, SyncStorage>
+impl<I, O> MultiAction<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
@@ -315,7 +315,7 @@ where
     /// assert_eq!(version.get(), 3);
     /// # });
     /// ```
-    pub fn version(&self) -> RwSignal<usize, SyncStorage> {
+    pub fn version(&self) -> RwSignal<usize> {
         self.inner
             .try_with_value(|inner| inner.version())
             .unwrap_or_else(unwrap_signal!(self))
@@ -719,9 +719,9 @@ where
     input: RwSignal<Option<I>, S>,
     /// The most recent return value of the `async` function.
     value: RwSignal<Option<O>, S>,
-    pending: RwSignal<bool, SyncStorage>,
+    pending: RwSignal<bool>,
     /// Controls this submission has been canceled.
-    canceled: RwSignal<bool, SyncStorage>,
+    canceled: RwSignal<bool>,
 }
 
 impl<I, O, S> From<ArcSubmission<I, O>> for Submission<I, O, S>
@@ -772,13 +772,13 @@ where
 impl<I, O, S> Submission<I, O, S> {
     /// Whether this submision is still waiting to resolve.
     #[track_caller]
-    pub fn pending(&self) -> ReadSignal<bool, SyncStorage> {
+    pub fn pending(&self) -> ReadSignal<bool> {
         self.pending.read_only()
     }
 
     /// Whether this submission has been canceled.
     #[track_caller]
-    pub fn canceled(&self) -> ReadSignal<bool, SyncStorage> {
+    pub fn canceled(&self) -> ReadSignal<bool> {
         self.canceled.read_only()
     }
 
