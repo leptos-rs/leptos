@@ -336,3 +336,12 @@ where
 {
     StoredValue::new(value)
 }
+
+/// Converts some value into a locally-stored type, using [`LocalStorage`].
+///
+/// This is modeled on [`From`] but special-cased for this thread-local storage method, which
+/// allows for better type inference for the default case.
+pub trait FromLocal<T> {
+    /// Converts between the types.
+    fn from_local(value: T) -> Self;
+}

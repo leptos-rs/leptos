@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, ReadUntracked, Trigger,
@@ -369,10 +369,9 @@ where
     }
 }
 
-impl<T, S> From<ArcRwSignal<T>> for RwSignal<T, S>
+impl<T> From<ArcRwSignal<T>> for RwSignal<T>
 where
-    T: 'static,
-    S: Storage<ArcRwSignal<T>>,
+    T: Send + Sync + 'static,
 {
     #[track_caller]
     fn from(value: ArcRwSignal<T>) -> Self {
@@ -384,14 +383,27 @@ where
     }
 }
 
-impl<'a, T, S> From<&'a ArcRwSignal<T>> for RwSignal<T, S>
+impl<'a, T> From<&'a ArcRwSignal<T>> for RwSignal<T>
 where
-    T: 'static,
-    S: Storage<ArcRwSignal<T>>,
+    T: Send + Sync + 'static,
 {
     #[track_caller]
     fn from(value: &'a ArcRwSignal<T>) -> Self {
         value.clone().into()
+    }
+}
+
+impl<T> FromLocal<ArcRwSignal<T>> for RwSignal<T, LocalStorage>
+where
+    T: 'static,
+{
+    #[track_caller]
+    fn from_local(value: ArcRwSignal<T>) -> Self {
+        RwSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(value),
+        }
     }
 }
 

@@ -22,7 +22,7 @@ use arena::NodeId;
 pub use context::*;
 #[allow(deprecated)] // allow exporting deprecated fn
 pub use stored_value::{
-    store_value, LocalStorage, Storage, StoredValue, SyncStorage,
+    store_value, FromLocal, LocalStorage, Storage, StoredValue, SyncStorage,
 };
 
 /// A reactive owner, which manages

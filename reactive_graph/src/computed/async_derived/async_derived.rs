@@ -4,7 +4,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{AsyncPlain, ReadGuard},
     traits::{DefinedAt, Dispose, ReadUntracked},
     unwrap_signal,
@@ -90,12 +90,26 @@ impl<T, S> Dispose for AsyncDerived<T, S> {
     }
 }
 
-impl<T, S> From<ArcAsyncDerived<T>> for AsyncDerived<T, S>
+impl<T> From<ArcAsyncDerived<T>> for AsyncDerived<T>
 where
-    T: 'static,
-    S: Storage<ArcAsyncDerived<T>>,
+    T: Send + Sync + 'static,
 {
     fn from(value: ArcAsyncDerived<T>) -> Self {
+        #[cfg(debug_assertions)]
+        let defined_at = value.defined_at;
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at,
+            inner: StoredValue::new_with_storage(value),
+        }
+    }
+}
+
+impl<T> FromLocal<ArcAsyncDerived<T>> for AsyncDerived<T, LocalStorage>
+where
+    T: 'static,
+{
+    fn from_local(value: ArcAsyncDerived<T>) -> Self {
         #[cfg(debug_assertions)]
         let defined_at = value.defined_at;
         Self {

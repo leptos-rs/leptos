@@ -4,11 +4,12 @@
 pub mod read {
     use crate::{
         computed::{ArcMemo, Memo},
-        owner::{Storage, StoredValue, SyncStorage},
+        owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::{DefinedAt, Dispose, Get, With, WithUntracked},
         untrack, unwrap_signal,
     };
+    use send_wrapper::SendWrapper;
     use std::{panic::Location, sync::Arc};
 
     /// Possibilities for the inner type of a [`Signal`].
@@ -343,10 +344,9 @@ pub mod read {
         }
     }
 
-    impl<T, S> Signal<T, S>
+    impl<T> Signal<T>
     where
-        T: 'static,
-        S: Storage<SignalTypes<T>>,
+        T: Send + Sync + 'static,
     {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
@@ -388,13 +388,48 @@ pub mod read {
         }
     }
 
-    impl<T, S> Default for Signal<T, S>
+    impl<T> Signal<T, LocalStorage>
     where
-        T: Default + 'static,
-        S: Storage<SignalTypes<T>>,
+        T: 'static,
+    {
+        /// Wraps a derived signal. Works like [`Signal::derive`] but uses [`LocalStorage`].
+        #[track_caller]
+        pub fn derive_local(derived_signal: impl Fn() -> T + 'static) -> Self {
+            let derived_signal = SendWrapper::new(derived_signal);
+            #[cfg(feature = "tracing")]
+            let span = ::tracing::Span::current();
+
+            let derived_signal = move || {
+                #[cfg(feature = "tracing")]
+                let _guard = span.enter();
+                derived_signal()
+            };
+
+            Self {
+                inner: StoredValue::new_local(SignalTypes::DerivedSignal(
+                    Arc::new(derived_signal),
+                )),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> Default for Signal<T>
+    where
+        T: Send + Sync + Default + 'static,
     {
         fn default() -> Self {
             Self::derive(|| Default::default())
+        }
+    }
+
+    impl<T> Default for Signal<T, LocalStorage>
+    where
+        T: Default + 'static,
+    {
+        fn default() -> Self {
+            Self::derive_local(|| Default::default())
         }
     }
 
@@ -405,10 +440,9 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<T> for Signal<T, S>
+    impl<T> From<T> for Signal<T>
     where
         T: Clone + Send + Sync + 'static,
-        S: Storage<SignalTypes<T>>,
     {
         #[track_caller]
         fn from(value: T) -> Self {
@@ -416,17 +450,40 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<ArcSignal<T>> for Signal<T, S>
+    impl<T> From<T> for Signal<T, LocalStorage>
     where
-        T: 'static,
-        S: Storage<SignalTypes<T>>,
+        T: Clone + 'static,
+    {
+        #[track_caller]
+        fn from(value: T) -> Self {
+            Self::derive_local(move || value.clone())
+        }
+    }
+
+    impl<T> From<ArcSignal<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
     {
         #[track_caller]
         fn from(value: ArcSignal<T>) -> Self {
             Signal {
                 #[cfg(debug_assertions)]
                 defined_at: Location::caller(),
-                inner: StoredValue::new_with_storage(value.inner),
+                inner: StoredValue::new(value.inner),
+            }
+        }
+    }
+
+    impl<T> FromLocal<ArcSignal<T>> for Signal<T, LocalStorage>
+    where
+        T: 'static,
+    {
+        #[track_caller]
+        fn from_local(value: ArcSignal<T>) -> Self {
+            Signal {
+                #[cfg(debug_assertions)]
+                defined_at: Location::caller(),
+                inner: StoredValue::new_local(value.inner),
             }
         }
     }
@@ -448,15 +505,28 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<ReadSignal<T, S>> for Signal<T, S>
+    impl<T> From<ReadSignal<T>> for Signal<T>
     where
-        T: 'static,
-        S: Storage<SignalTypes<T>> + Storage<ArcReadSignal<T>>,
+        T: Send + Sync + 'static,
     {
         #[track_caller]
-        fn from(value: ReadSignal<T, S>) -> Self {
+        fn from(value: ReadSignal<T>) -> Self {
             Self {
-                inner: StoredValue::new_with_storage(SignalTypes::ReadSignal(
+                inner: StoredValue::new(SignalTypes::ReadSignal(value.into())),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<ReadSignal<T, LocalStorage>> for Signal<T, LocalStorage>
+    where
+        T: 'static,
+    {
+        #[track_caller]
+        fn from(value: ReadSignal<T, LocalStorage>) -> Self {
+            Self {
+                inner: StoredValue::new_local(SignalTypes::ReadSignal(
                     value.into(),
                 )),
                 #[cfg(debug_assertions)]
@@ -465,17 +535,14 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<RwSignal<T, S>> for Signal<T, S>
+    impl<T> From<RwSignal<T>> for Signal<T>
     where
-        T: 'static,
-        S: Storage<SignalTypes<T>>
-            + Storage<ArcRwSignal<T>>
-            + Storage<ArcReadSignal<T>>,
+        T: Send + Sync + 'static,
     {
         #[track_caller]
-        fn from(value: RwSignal<T, S>) -> Self {
+        fn from(value: RwSignal<T>) -> Self {
             Self {
-                inner: StoredValue::new_with_storage(SignalTypes::ReadSignal(
+                inner: StoredValue::new(SignalTypes::ReadSignal(
                     value.read_only().into(),
                 )),
                 #[cfg(debug_assertions)]
@@ -484,17 +551,44 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<Memo<T, S>> for Signal<T, S>
+    impl<T> From<RwSignal<T, LocalStorage>> for Signal<T, LocalStorage>
     where
         T: 'static,
-        S: Storage<SignalTypes<T>> + Storage<ArcMemo<T>>,
     {
         #[track_caller]
-        fn from(value: Memo<T, S>) -> Self {
+        fn from(value: RwSignal<T, LocalStorage>) -> Self {
             Self {
-                inner: StoredValue::new_with_storage(SignalTypes::Memo(
-                    value.into(),
+                inner: StoredValue::new_local(SignalTypes::ReadSignal(
+                    value.read_only().into(),
                 )),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<Memo<T>> for Signal<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        #[track_caller]
+        fn from(value: Memo<T>) -> Self {
+            Self {
+                inner: StoredValue::new(SignalTypes::Memo(value.into())),
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }
+        }
+    }
+
+    impl<T> From<Memo<T, LocalStorage>> for Signal<T, LocalStorage>
+    where
+        T: 'static,
+    {
+        #[track_caller]
+        fn from(value: Memo<T, LocalStorage>) -> Self {
+            Self {
+                inner: StoredValue::new_local(SignalTypes::Memo(value.into())),
                 #[cfg(debug_assertions)]
                 defined_at: std::panic::Location::caller(),
             }
@@ -599,9 +693,9 @@ pub mod read {
         }
     }
 
-    impl<T, S> MaybeSignal<T, S>
+    impl<T> MaybeSignal<T>
     where
-        S: Storage<SignalTypes<T>>,
+        T: Send + Sync,
     {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
@@ -612,67 +706,110 @@ pub mod read {
         }
     }
 
+    impl<T> MaybeSignal<T, LocalStorage> {
+        /// Wraps a derived signal, i.e., any computation that accesses one or more
+        /// reactive signals.
+        pub fn derive_local(derived_signal: impl Fn() -> T + 'static) -> Self {
+            Self::Dynamic(Signal::derive_local(derived_signal))
+        }
+    }
+
     impl<T, S> From<T> for MaybeSignal<T, S> {
         fn from(value: T) -> Self {
             Self::Static(value)
         }
     }
 
-    impl<T, S> From<ReadSignal<T, S>> for MaybeSignal<T, S>
+    impl<T> From<ReadSignal<T>> for MaybeSignal<T>
     where
-        S: Storage<SignalTypes<T>> + Storage<ArcReadSignal<T>>,
+        T: Send + Sync,
     {
-        fn from(value: ReadSignal<T, S>) -> Self {
+        fn from(value: ReadSignal<T>) -> Self {
             Self::Dynamic(value.into())
         }
     }
 
-    impl<T, S> From<RwSignal<T, S>> for MaybeSignal<T, S>
-    where
-        S: Storage<SignalTypes<T>>
-            + Storage<ArcRwSignal<T>>
-            + Storage<ArcReadSignal<T>>,
-    {
-        fn from(value: RwSignal<T, S>) -> Self {
+    impl<T> From<ReadSignal<T, LocalStorage>> for MaybeSignal<T, LocalStorage> {
+        fn from(value: ReadSignal<T, LocalStorage>) -> Self {
             Self::Dynamic(value.into())
         }
     }
 
-    impl<T, S> From<Memo<T, S>> for MaybeSignal<T, S>
+    impl<T> From<RwSignal<T>> for MaybeSignal<T>
     where
-        S: Storage<SignalTypes<T>> + Storage<ArcMemo<T>>,
+        T: Send + Sync,
     {
-        fn from(value: Memo<T, S>) -> Self {
+        fn from(value: RwSignal<T>) -> Self {
             Self::Dynamic(value.into())
         }
     }
 
-    impl<T, S> From<ArcReadSignal<T>> for MaybeSignal<T, S>
+    impl<T> From<RwSignal<T, LocalStorage>> for MaybeSignal<T, LocalStorage> {
+        fn from(value: RwSignal<T, LocalStorage>) -> Self {
+            Self::Dynamic(value.into())
+        }
+    }
+
+    impl<T> From<Memo<T>> for MaybeSignal<T>
     where
-        S: Storage<SignalTypes<T>> + Storage<ArcReadSignal<T>>,
+        T: Send + Sync,
+    {
+        fn from(value: Memo<T>) -> Self {
+            Self::Dynamic(value.into())
+        }
+    }
+
+    impl<T> From<Memo<T, LocalStorage>> for MaybeSignal<T, LocalStorage> {
+        fn from(value: Memo<T, LocalStorage>) -> Self {
+            Self::Dynamic(value.into())
+        }
+    }
+
+    impl<T> From<ArcReadSignal<T>> for MaybeSignal<T>
+    where
+        T: Send + Sync,
     {
         fn from(value: ArcReadSignal<T>) -> Self {
             ReadSignal::from(value).into()
         }
     }
 
-    impl<T, S> From<ArcRwSignal<T>> for MaybeSignal<T, S>
+    impl<T> FromLocal<ArcReadSignal<T>> for MaybeSignal<T, LocalStorage> {
+        fn from_local(value: ArcReadSignal<T>) -> Self {
+            ReadSignal::from_local(value).into()
+        }
+    }
+
+    impl<T> From<ArcRwSignal<T>> for MaybeSignal<T>
     where
-        S: Storage<SignalTypes<T>>
-            + Storage<ArcRwSignal<T>>
-            + Storage<ArcReadSignal<T>>,
+        T: Send + Sync + 'static,
     {
         fn from(value: ArcRwSignal<T>) -> Self {
             RwSignal::from(value).into()
         }
     }
 
-    impl<T, S> From<ArcMemo<T>> for MaybeSignal<T, S>
+    impl<T> FromLocal<ArcRwSignal<T>> for MaybeSignal<T, LocalStorage>
     where
-        S: Storage<SignalTypes<T>> + Storage<ArcMemo<T>>,
+        T: 'static,
+    {
+        fn from_local(value: ArcRwSignal<T>) -> Self {
+            RwSignal::from_local(value).into()
+        }
+    }
+
+    impl<T> From<ArcMemo<T>> for MaybeSignal<T>
+    where
+        T: Send + Sync,
     {
         fn from(value: ArcMemo<T>) -> Self {
             Memo::from(value).into()
+        }
+    }
+
+    impl<T> FromLocal<ArcMemo<T>> for MaybeSignal<T, LocalStorage> {
+        fn from_local(value: ArcMemo<T>) -> Self {
+            Memo::from_local(value).into()
         }
     }
 
@@ -780,9 +917,9 @@ pub mod read {
         }
     }
 
-    impl<T, S> MaybeProp<T, S>
+    impl<T> MaybeProp<T>
     where
-        S: Storage<SignalTypes<Option<T>>>,
+        T: Send + Sync,
     {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
@@ -793,106 +930,213 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<T> for MaybeProp<T, S> {
+    impl<T> From<T> for MaybeProp<T> {
         fn from(value: T) -> Self {
             Self(Some(MaybeSignal::from(Some(value))))
         }
     }
 
-    impl<T, S> From<Option<T>> for MaybeProp<T, S> {
+    impl<T> From<Option<T>> for MaybeProp<T> {
         fn from(value: Option<T>) -> Self {
             Self(Some(MaybeSignal::from(value)))
         }
     }
 
-    impl<T, S> From<MaybeSignal<Option<T>, S>> for MaybeProp<T, S> {
-        fn from(value: MaybeSignal<Option<T>, S>) -> Self {
+    impl<T> From<MaybeSignal<Option<T>>> for MaybeProp<T> {
+        fn from(value: MaybeSignal<Option<T>>) -> Self {
             Self(Some(value))
         }
     }
 
-    impl<T, S> From<Option<MaybeSignal<Option<T>, S>>> for MaybeProp<T, S> {
-        fn from(value: Option<MaybeSignal<Option<T>, S>>) -> Self {
+    impl<T> From<Option<MaybeSignal<Option<T>>>> for MaybeProp<T> {
+        fn from(value: Option<MaybeSignal<Option<T>>>) -> Self {
             Self(value)
         }
     }
 
-    impl<T, S> From<ReadSignal<Option<T>, S>> for MaybeProp<T, S>
+    impl<T> From<ReadSignal<Option<T>>> for MaybeProp<T>
     where
-        S: Storage<SignalTypes<Option<T>>> + Storage<ArcReadSignal<Option<T>>>,
+        T: Send + Sync,
     {
-        fn from(value: ReadSignal<Option<T>, S>) -> Self {
+        fn from(value: ReadSignal<Option<T>>) -> Self {
             Self(Some(value.into()))
         }
     }
 
-    impl<T, S> From<RwSignal<Option<T>, S>> for MaybeProp<T, S>
+    impl<T> From<RwSignal<Option<T>>> for MaybeProp<T>
     where
-        S: Storage<SignalTypes<Option<T>>>
-            + Storage<ArcRwSignal<Option<T>>>
-            + Storage<ArcReadSignal<Option<T>>>,
+        T: Send + Sync,
     {
-        fn from(value: RwSignal<Option<T>, S>) -> Self {
+        fn from(value: RwSignal<Option<T>>) -> Self {
             Self(Some(value.into()))
         }
     }
 
-    impl<T, S> From<Memo<Option<T>, S>> for MaybeProp<T, S>
+    impl<T> From<Memo<Option<T>>> for MaybeProp<T>
     where
-        S: Storage<SignalTypes<Option<T>>> + Storage<ArcMemo<Option<T>>>,
+        T: Send + Sync,
     {
-        fn from(value: Memo<Option<T>, S>) -> Self {
+        fn from(value: Memo<Option<T>>) -> Self {
             Self(Some(value.into()))
         }
     }
 
-    impl<T, S> From<Signal<Option<T>, S>> for MaybeProp<T, S> {
-        fn from(value: Signal<Option<T>, S>) -> Self {
+    impl<T> From<Signal<Option<T>>> for MaybeProp<T> {
+        fn from(value: Signal<Option<T>>) -> Self {
             Self(Some(value.into()))
         }
     }
 
-    impl<T, S> From<ReadSignal<T, S>> for MaybeProp<T, S>
+    impl<T> From<ReadSignal<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
-        S: Storage<SignalTypes<Option<T>>> + Storage<ArcReadSignal<T>>,
     {
-        fn from(value: ReadSignal<T, S>) -> Self {
+        fn from(value: ReadSignal<T>) -> Self {
             Self(Some(MaybeSignal::derive(move || Some(value.get()))))
         }
     }
 
-    impl<T, S> From<RwSignal<T, S>> for MaybeProp<T, S>
+    impl<T> From<RwSignal<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
-        S: Storage<SignalTypes<Option<T>>> + Storage<ArcRwSignal<T>>,
     {
-        fn from(value: RwSignal<T, S>) -> Self {
+        fn from(value: RwSignal<T>) -> Self {
             Self(Some(MaybeSignal::derive(move || Some(value.get()))))
         }
     }
 
-    impl<T, S> From<Memo<T, S>> for MaybeProp<T, S>
+    impl<T> From<Memo<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
-        S: Storage<SignalTypes<Option<T>>> + Storage<ArcMemo<T>>,
     {
-        fn from(value: Memo<T, S>) -> Self {
+        fn from(value: Memo<T>) -> Self {
             Self(Some(MaybeSignal::derive(move || Some(value.get()))))
         }
     }
 
-    impl<T, S> From<Signal<T, S>> for MaybeProp<T, S>
+    impl<T> From<Signal<T>> for MaybeProp<T>
     where
         T: Send + Sync + Clone,
-        S: Storage<SignalTypes<Option<T>>> + Storage<SignalTypes<T>>,
     {
-        fn from(value: Signal<T, S>) -> Self {
+        fn from(value: Signal<T>) -> Self {
             Self(Some(MaybeSignal::derive(move || Some(value.get()))))
         }
     }
 
-    impl<S> From<&str> for MaybeProp<String, S> {
+    impl From<&str> for MaybeProp<String> {
+        fn from(value: &str) -> Self {
+            Self(Some(MaybeSignal::from(Some(value.to_string()))))
+        }
+    }
+
+    impl<T> MaybeProp<T, LocalStorage> {
+        /// Wraps a derived signal, i.e., any computation that accesses one or more
+        /// reactive signals.
+        pub fn derive_local(
+            derived_signal: impl Fn() -> Option<T> + 'static,
+        ) -> Self {
+            Self(Some(MaybeSignal::derive_local(derived_signal)))
+        }
+    }
+
+    impl<T> FromLocal<T> for MaybeProp<T, LocalStorage> {
+        fn from_local(value: T) -> Self {
+            Self(Some(MaybeSignal::from(Some(value))))
+        }
+    }
+
+    impl<T> FromLocal<Option<T>> for MaybeProp<T, LocalStorage> {
+        fn from_local(value: Option<T>) -> Self {
+            Self(Some(MaybeSignal::from(value)))
+        }
+    }
+
+    impl<T> From<MaybeSignal<Option<T>, LocalStorage>>
+        for MaybeProp<T, LocalStorage>
+    {
+        fn from(value: MaybeSignal<Option<T>, LocalStorage>) -> Self {
+            Self(Some(value))
+        }
+    }
+
+    impl<T> From<Option<MaybeSignal<Option<T>, LocalStorage>>>
+        for MaybeProp<T, LocalStorage>
+    {
+        fn from(value: Option<MaybeSignal<Option<T>, LocalStorage>>) -> Self {
+            Self(value)
+        }
+    }
+
+    impl<T> From<ReadSignal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync,
+    {
+        fn from(value: ReadSignal<Option<T>, LocalStorage>) -> Self {
+            Self(Some(value.into()))
+        }
+    }
+
+    impl<T> From<RwSignal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync,
+    {
+        fn from(value: RwSignal<Option<T>, LocalStorage>) -> Self {
+            Self(Some(value.into()))
+        }
+    }
+
+    impl<T> From<Memo<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync,
+    {
+        fn from(value: Memo<Option<T>, LocalStorage>) -> Self {
+            Self(Some(value.into()))
+        }
+    }
+
+    impl<T> From<Signal<Option<T>, LocalStorage>> for MaybeProp<T, LocalStorage> {
+        fn from(value: Signal<Option<T>, LocalStorage>) -> Self {
+            Self(Some(value.into()))
+        }
+    }
+
+    impl<T> From<ReadSignal<T, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync + Clone,
+    {
+        fn from(value: ReadSignal<T, LocalStorage>) -> Self {
+            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+        }
+    }
+
+    impl<T> From<RwSignal<T, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync + Clone,
+    {
+        fn from(value: RwSignal<T, LocalStorage>) -> Self {
+            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+        }
+    }
+
+    impl<T> From<Memo<T, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync + Clone,
+    {
+        fn from(value: Memo<T, LocalStorage>) -> Self {
+            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+        }
+    }
+
+    impl<T> From<Signal<T, LocalStorage>> for MaybeProp<T, LocalStorage>
+    where
+        T: Send + Sync + Clone,
+    {
+        fn from(value: Signal<T, LocalStorage>) -> Self {
+            Self(Some(MaybeSignal::derive_local(move || Some(value.get()))))
+        }
+    }
+
+    impl From<&str> for MaybeProp<String, LocalStorage> {
         fn from(value: &str) -> Self {
             Self(Some(MaybeSignal::from(Some(value.to_string()))))
         }
