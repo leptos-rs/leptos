@@ -1,6 +1,6 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
+    Render, RenderHtml,
 };
 use crate::{
     html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
@@ -178,10 +178,19 @@ where
                        position: &mut Position,
                        escape: bool,
                        mark_branches: bool| {
+            let type_id = mark_branches
+                .then(|| format!("{:?}", TypeId::of::<T>()))
+                .unwrap_or_default();
             let value = value
                 .downcast::<T>()
                 .expect("AnyView::to_html could not be downcast");
+            if mark_branches {
+                buf.open_branch(&type_id);
+            }
             value.to_html_with_buf(buf, position, escape, mark_branches);
+            if mark_branches {
+                buf.close_branch(&type_id);
+            }
         };
         #[cfg(feature = "ssr")]
         let to_html_async = |value: Box<dyn Any>,
@@ -189,15 +198,24 @@ where
                              position: &mut Position,
                              escape: bool,
                              mark_branches: bool| {
+            let type_id = mark_branches
+                .then(|| format!("{:?}", TypeId::of::<T>()))
+                .unwrap_or_default();
             let value = value
                 .downcast::<T>()
                 .expect("AnyView::to_html could not be downcast");
+            if mark_branches {
+                buf.open_branch(&type_id);
+            }
             value.to_html_async_with_buf::<false>(
                 buf,
                 position,
                 escape,
                 mark_branches,
             );
+            if mark_branches {
+                buf.close_branch(&type_id);
+            }
         };
         #[cfg(feature = "ssr")]
         let to_html_async_ooo =
