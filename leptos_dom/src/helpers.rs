@@ -112,7 +112,7 @@ pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
 // Closure::once_into_js only frees the callback when it's actually
 // called, so this instead uses into_js_value, which can be freed by
 // the host JS engine's GC if it supports weak references (which all
-// modern brower engines do).  The way this works is that the provided
+// modern browser engines do).  The way this works is that the provided
 // callback's captured data is dropped immediately after being called,
 // as before, but it leaves behind a small stub closure rust-side that
 // will be freed "eventually" by the JS GC.  If the function is never

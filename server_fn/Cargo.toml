@@ -14,7 +14,7 @@ server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
 const_format = "0.2"
 xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
-# used across multiple featurs
+# used across multiple features
 serde = { version = "1", features = ["derive"] }
 send_wrapper = { version = "0.6", features = ["futures"], optional = true }
 

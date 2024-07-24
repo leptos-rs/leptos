@@ -27,7 +27,7 @@ pub static LOGOUT_BUTTON_ID: &'static str = "logout_button_id";
 pub static LOGIN_BUTTON_ID: &'static str = "login_button_id";
 /// This function is for use in kratos_html, it takes the name of the input node and it
 /// matches it according to what we've specified in the kratos schema file. If we change the schema.
-/// I.e use a phone instead of an email, the identifer id will change and break tests that expect an email.
+/// I.e use a phone instead of an email, the identifier id will change and break tests that expect an email.
 /// i.e use oidc instead of password, as auth method... that will break tests too.
 /// Which is good.
 pub fn match_name_to_id(name: String) -> &'static str {
