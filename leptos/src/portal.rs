@@ -2,6 +2,7 @@ use crate::ChildrenFn;
 use cfg_if::cfg_if;
 use leptos_dom::IntoView;
 use leptos_macro::component;
+use leptos_reactive::untrack;
 
 /// Renders components somewhere else in the DOM.
 ///
@@ -36,6 +37,7 @@ pub fn Portal(
             .unwrap_or_else(|| document().body().expect("body to exist").unchecked_into());
 
         create_effect(move |_| {
+            leptos::logging::log!("inside Portal effect");
             let tag = if is_svg { "g" } else { "div" };
 
             let container = document()
@@ -53,7 +55,8 @@ pub fn Portal(
                 container.clone()
             };
 
-            let _ = render_root.append_child(&children().into_view().get_mountable_node());
+            let children = untrack(|| children().into_view().get_mountable_node());
+            let _ = render_root.append_child(&children);
 
             let _ = mount.append_child(&container);
 
