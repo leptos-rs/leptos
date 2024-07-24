@@ -581,7 +581,7 @@ impl<I, O, S> Dispose for Action<I, O, S> {
     }
 }
 
-impl<I, O> Action<I, O, SyncStorage>
+impl<I, O> Action<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
@@ -735,7 +735,7 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn version(&self) -> RwSignal<usize, SyncStorage> {
+    pub fn version(&self) -> RwSignal<usize> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.version())
@@ -767,7 +767,7 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn pending(&self) -> Memo<bool, SyncStorage> {
+    pub fn pending(&self) -> Memo<bool> {
         let inner = self
             .inner
             .try_with_value(|inner| inner.pending())
@@ -995,7 +995,7 @@ impl<I, O, S> Copy for Action<I, O, S> {}
 #[track_caller]
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `Action::new()` instead."]
-pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O, SyncStorage>
+pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,

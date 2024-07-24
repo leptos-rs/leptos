@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<T> AsyncDerived<T, SyncStorage>
+impl<T> AsyncDerived<T>
 where
     T: 'static,
 {
