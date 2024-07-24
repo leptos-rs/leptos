@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.0-alpha2"
+version = "0.7.0-beta"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
