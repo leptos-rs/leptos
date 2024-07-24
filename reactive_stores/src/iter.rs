@@ -17,7 +17,6 @@ use std::{
     marker::PhantomData,
     ops::{DerefMut, IndexMut},
     panic::Location,
-    sync::{Arc, RwLock},
 };
 
 #[derive(Debug)]
