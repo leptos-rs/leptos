@@ -12,13 +12,7 @@ use reactive_graph::{
         Writeable,
     },
 };
-use std::{
-    iter,
-    marker::PhantomData,
-    ops::DerefMut,
-    panic::Location,
-    sync::{Arc, RwLock},
-};
+use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
 #[derive(Debug)]
 pub struct Subfield<Inner, Prev, T>
