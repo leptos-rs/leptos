@@ -13,11 +13,7 @@ use reactive_graph::{
     traits::{DefinedAt, UntrackableGuard},
     unwrap_signal,
 };
-use std::{
-    iter,
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
+use std::{iter, ops::Deref, sync::Arc};
 
 pub trait StoreField<T>: Sized {
     type Reader: Deref<Target = T>;
