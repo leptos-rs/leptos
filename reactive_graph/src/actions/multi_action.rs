@@ -1,6 +1,6 @@
 use crate::{
     diagnostics::is_suppressing_resource_load,
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
     traits::{DefinedAt, Dispose, GetUntracked, Set, Update},
     unwrap_signal,
@@ -237,12 +237,10 @@ where
     }
 }
 
-impl<I, O, S> MultiAction<I, O, S>
+impl<I, O> MultiAction<I, O>
 where
-    I: 'static,
-    O: 'static,
-    S: Storage<ArcMultiAction<I, O>>
-        + Storage<ArcReadSignal<Vec<ArcSubmission<I, O>>>>,
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
 {
     /// The set of all submissions to this multi-action.
     /// ```rust
@@ -270,7 +268,7 @@ where
     /// assert_eq!(submissions.with(Vec::len), 3);
     /// # });
     /// ```
-    pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>, S> {
+    pub fn submissions(&self) -> ReadSignal<Vec<ArcSubmission<I, O>>> {
         self.inner
             .try_with_value(|inner| inner.submissions())
             .unwrap_or_else(unwrap_signal!(self))
@@ -724,11 +722,10 @@ where
     canceled: RwSignal<bool>,
 }
 
-impl<I, O, S> From<ArcSubmission<I, O>> for Submission<I, O, S>
+impl<I, O> From<ArcSubmission<I, O>> for Submission<I, O>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
-    S: Storage<ArcRwSignal<Option<I>>> + Storage<ArcRwSignal<Option<O>>>,
 {
     fn from(value: ArcSubmission<I, O>) -> Self {
         let ArcSubmission {
@@ -740,6 +737,27 @@ where
         Self {
             input: input.into(),
             value: value.into(),
+            pending: pending.into(),
+            canceled: canceled.into(),
+        }
+    }
+}
+
+impl<I, O> FromLocal<ArcSubmission<I, O>> for Submission<I, O, LocalStorage>
+where
+    I: 'static,
+    O: 'static,
+{
+    fn from_local(value: ArcSubmission<I, O>) -> Self {
+        let ArcSubmission {
+            input,
+            value,
+            pending,
+            canceled,
+        } = value;
+        Self {
+            input: RwSignal::from_local(input),
+            value: RwSignal::from_local(value),
             pending: pending.into(),
             canceled: canceled.into(),
         }

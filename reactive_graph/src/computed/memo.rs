@@ -1,6 +1,6 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
@@ -108,13 +108,26 @@ impl<T, S> Dispose for Memo<T, S> {
     }
 }
 
-impl<T, S> From<ArcMemo<T>> for Memo<T, S>
+impl<T> From<ArcMemo<T>> for Memo<T>
 where
-    T: 'static,
-    S: Storage<ArcMemo<T>>,
+    T: Send + Sync + 'static,
 {
     #[track_caller]
     fn from(value: ArcMemo<T>) -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(value),
+        }
+    }
+}
+
+impl<T> FromLocal<ArcMemo<T>> for Memo<T, LocalStorage>
+where
+    T: 'static,
+{
+    #[track_caller]
+    fn from_local(value: ArcMemo<T>) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
