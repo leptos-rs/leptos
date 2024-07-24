@@ -1,7 +1,9 @@
 use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
-    owner::{LocalStorage, Owner, Storage, StoredValue, SyncStorage},
+    owner::{
+        FromLocal, LocalStorage, Owner, Storage, StoredValue, SyncStorage,
+    },
     signal::{ArcRwSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, Update},
     unwrap_signal,
@@ -779,7 +781,7 @@ where
 impl<I, O, S> Action<I, O, S>
 where
     I: 'static,
-    S: Storage<ArcAction<I, O>> + Storage<ArcRwSignal<Option<I>>>,
+    S: Storage<ArcAction<I, O>>,
 {
     /// The current argument that was dispatched to the async function. This value will
     /// be `Some` while we are waiting for it to resolve, and `None` after it has resolved.
@@ -806,19 +808,35 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn input(&self) -> RwSignal<Option<I>, S> {
+    pub fn input(&self) -> RwSignal<Option<I>>
+    where
+        I: Send + Sync,
+    {
         let inner = self
             .inner
             .try_with_value(|inner| inner.input())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
     }
+
+    /// The current argument that was dispatched to the async function. This value will
+    /// be `Some` while we are waiting for it to resolve, and `None` after it has resolved.
+    ///
+    /// Returns a thread-local signal using [`LocalStorage`].
+    #[track_caller]
+    pub fn input_local(&self) -> RwSignal<Option<I>, LocalStorage> {
+        let inner = self
+            .inner
+            .try_with_value(|inner| inner.input())
+            .unwrap_or_else(unwrap_signal!(self));
+        RwSignal::from_local(inner)
+    }
 }
 
 impl<I, O, S> Action<I, O, S>
 where
     O: 'static,
-    S: Storage<ArcAction<I, O>> + Storage<ArcRwSignal<Option<O>>>,
+    S: Storage<ArcAction<I, O>>,
 {
     /// The most recent return value of the `async` function. This will be `None` before
     /// the action has ever run successfully, and subsequently will always be `Some(_)`,
@@ -849,12 +867,32 @@ where
     /// # });
     /// ```
     #[track_caller]
-    pub fn value(&self) -> RwSignal<Option<O>, S> {
+    pub fn value(&self) -> RwSignal<Option<O>>
+    where
+        O: Send + Sync,
+    {
         let inner = self
             .inner
             .try_with_value(|inner| inner.value())
             .unwrap_or_else(unwrap_signal!(self));
         inner.into()
+    }
+
+    /// The most recent return value of the `async` function. This will be `None` before
+    /// the action has ever run successfully, and subsequently will always be `Some(_)`,
+    /// holding the old value until a new value has been received.
+    ///
+    /// Returns a thread-local signal using [`LocalStorage`].
+    #[track_caller]
+    pub fn value_local(&self) -> RwSignal<Option<O>, LocalStorage>
+    where
+        O: Send + Sync,
+    {
+        let inner = self
+            .inner
+            .try_with_value(|inner| inner.value())
+            .unwrap_or_else(unwrap_signal!(self));
+        RwSignal::from_local(inner)
     }
 }
 

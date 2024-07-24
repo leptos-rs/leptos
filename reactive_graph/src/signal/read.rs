@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
@@ -149,13 +149,26 @@ where
     }
 }
 
-impl<T, S> From<ArcReadSignal<T>> for ReadSignal<T, S>
+impl<T> From<ArcReadSignal<T>> for ReadSignal<T>
 where
-    T: 'static,
-    S: Storage<ArcReadSignal<T>>,
+    T: Send + Sync + 'static,
 {
     #[track_caller]
     fn from(value: ArcReadSignal<T>) -> Self {
+        ReadSignal {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(value),
+        }
+    }
+}
+
+impl<T> FromLocal<ArcReadSignal<T>> for ReadSignal<T, LocalStorage>
+where
+    T: 'static,
+{
+    #[track_caller]
+    fn from_local(value: ArcReadSignal<T>) -> Self {
         ReadSignal {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
