@@ -149,8 +149,7 @@ where
     S::Output: 'static,
     S::Error: 'static,
 {
-    type Target =
-        MultiAction<S, Result<S::Output, ServerFnError<S::Error>>, SyncStorage>;
+    type Target = MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

@@ -11,7 +11,7 @@ mod rw;
 mod subscriber_traits;
 mod write;
 
-use crate::owner::{LocalStorage, SyncStorage};
+use crate::owner::LocalStorage;
 pub use arc_read::*;
 pub use arc_rw::*;
 pub use arc_trigger::*;
@@ -110,7 +110,7 @@ pub fn arc_signal<T>(value: T) -> (ArcReadSignal<T>, ArcWriteSignal<T>) {
 #[track_caller]
 pub fn signal<T: Send + Sync + 'static>(
     value: T,
-) -> (ReadSignal<T, SyncStorage>, WriteSignal<T, SyncStorage>) {
+) -> (ReadSignal<T>, WriteSignal<T>) {
     RwSignal::new(value).split()
 }
 
@@ -172,6 +172,6 @@ pub fn signal_local<T: 'static>(
                 Rust idioms."]
 pub fn create_signal<T: Send + Sync + 'static>(
     value: T,
-) -> (ReadSignal<T, SyncStorage>, WriteSignal<T, SyncStorage>) {
+) -> (ReadSignal<T>, WriteSignal<T>) {
     signal(value)
 }

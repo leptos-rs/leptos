@@ -40,7 +40,7 @@
 //!
 //! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
 
-use reactive_graph::owner::{StoredValue, SyncStorage};
+use reactive_graph::owner::StoredValue;
 use std::{fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
@@ -169,7 +169,7 @@ impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
 /// }
 /// ```
 pub struct Callback<In, Out = ()>(
-    StoredValue<Arc<dyn Fn(In) -> Out + Send + Sync>, SyncStorage>,
+    StoredValue<Arc<dyn Fn(In) -> Out + Send + Sync>>,
 )
 where
     In: 'static,

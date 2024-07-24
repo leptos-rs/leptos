@@ -7,7 +7,7 @@ use leptos_macro::component;
 use reactive_graph::{
     computed::{suspense::SuspenseContext, ArcMemo},
     effect::Effect,
-    owner::{provide_context, Owner, SyncStorage},
+    owner::{provide_context, Owner},
     signal::ArcRwSignal,
     traits::{Get, Set, Track, With},
     wrappers::write::SignalSetter,
@@ -25,7 +25,7 @@ pub fn Transition<Chil>(
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
     #[prop(optional, into)]
-    set_pending: Option<SignalSetter<bool, SyncStorage>>,
+    set_pending: Option<SignalSetter<bool>>,
     children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
