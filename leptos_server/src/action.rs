@@ -1,6 +1,6 @@
 use reactive_graph::{
     actions::{Action, ArcAction},
-    owner::{use_context, SyncStorage},
+    owner::use_context,
     traits::DefinedAt,
 };
 use server_fn::{error::ServerFnErrorSerde, ServerFn, ServerFnError};
@@ -171,8 +171,7 @@ where
     S::Output: Send + Sync + 'static,
     S::Error: Send + Sync + 'static,
 {
-    type Target =
-        Action<S, Result<S::Output, ServerFnError<S::Error>>>;
+    type Target = Action<S, Result<S::Output, ServerFnError<S::Error>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

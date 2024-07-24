@@ -20,7 +20,7 @@ use reactive_graph::{
         AsyncDerivedRefFuture,
     },
     graph::{Source, ToAnySubscriber},
-    owner::{Owner, SyncStorage},
+    owner::Owner,
     prelude::*,
 };
 use std::{future::IntoFuture, ops::Deref};
