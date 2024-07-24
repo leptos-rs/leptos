@@ -17,7 +17,7 @@ use std::{
     sync::Arc,
 };
 
-pub struct Field<T, S = SyncStorage>
+pub struct Field<T, S = reactive_graph::owner::SyncStorage>
 where
     T: 'static,
 {

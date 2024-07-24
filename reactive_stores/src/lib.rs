@@ -131,7 +131,7 @@ impl<T: 'static> Trigger for ArcStore<T> {
     }
 }
 
-pub struct Store<T, S = SyncStorage> {
+pub struct Store<T, S = reactive_graph::owner::SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: StoredValue<ArcStore<T>, S>,
