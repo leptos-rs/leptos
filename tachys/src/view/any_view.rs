@@ -1,6 +1,8 @@
+#[cfg(feature = "ssr")]
+use super::MarkBranch;
 use super::{
-    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
-    Render, RenderHtml,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml,
 };
 use crate::{
     html::attribute::Attribute, hydration::Cursor, renderer::Renderer,
