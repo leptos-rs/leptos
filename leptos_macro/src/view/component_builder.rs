@@ -70,12 +70,10 @@ pub(crate) fn component_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned! {value.span()=>
-                #[allow(unused_braces)] {#value}
-            };
+            let value = quote_spanned!(value.span()=> { #value });
 
             quote_spanned! {attr.span()=>
-                .#name(#value)
+                .#name(#[allow(unused_braces)] #value)
             }
         });
 

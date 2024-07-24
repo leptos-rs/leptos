@@ -145,27 +145,27 @@ TokenStream [
                     Punct {
                         char: '#',
                         spacing: Alone,
-                        span: bytes(51..52),
+                        span: bytes(37..52),
                     },
                     Group {
                         delimiter: Bracket,
                         stream: TokenStream [
                             Ident {
                                 sym: allow,
-                                span: bytes(51..52),
+                                span: bytes(37..52),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
                                     Ident {
                                         sym: unused_braces,
-                                        span: bytes(51..52),
+                                        span: bytes(37..52),
                                     },
                                 ],
-                                span: bytes(51..52),
+                                span: bytes(37..52),
                             },
                         ],
-                        span: bytes(51..52),
+                        span: bytes(37..52),
                     },
                     Group {
                         delimiter: Brace,
@@ -195,27 +195,27 @@ TokenStream [
                     Punct {
                         char: '#',
                         spacing: Alone,
-                        span: bytes(70..71),
+                        span: bytes(65..71),
                     },
                     Group {
                         delimiter: Bracket,
                         stream: TokenStream [
                             Ident {
                                 sym: allow,
-                                span: bytes(70..71),
+                                span: bytes(65..71),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
                                     Ident {
                                         sym: unused_braces,
-                                        span: bytes(70..71),
+                                        span: bytes(65..71),
                                     },
                                 ],
-                                span: bytes(70..71),
+                                span: bytes(65..71),
                             },
                         ],
-                        span: bytes(70..71),
+                        span: bytes(65..71),
                     },
                     Group {
                         delimiter: Brace,
