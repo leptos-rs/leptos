@@ -1,6 +1,5 @@
 use reactive_graph::{
     actions::{ArcMultiAction, MultiAction},
-    owner::SyncStorage,
     traits::DefinedAt,
 };
 use server_fn::{ServerFn, ServerFnError};
