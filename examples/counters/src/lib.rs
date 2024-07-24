@@ -68,7 +68,7 @@ pub fn Counters() -> impl IntoView {
 
 #[component]
 fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
-    let value = RwSignal::from(value);
+    let value: RwSignal<i32> = value.into();
     let CounterUpdater { set_counters } = use_context().unwrap();
 
     view! {

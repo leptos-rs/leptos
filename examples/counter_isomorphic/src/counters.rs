@@ -1,4 +1,7 @@
-use leptos::{prelude::*, reactive_graph::actions::Action};
+use leptos::{
+    prelude::*,
+    reactive_graph::{actions::Action, traits::FromStream},
+};
 use leptos_router::{
     components::{FlatRoutes, Route, Router, A},
     StaticSegment,
@@ -196,7 +199,7 @@ pub fn MultiuserCounter() -> impl IntoView {
             gloo_net::eventsource::futures::EventSource::new("/api/events")
                 .expect("couldn't connect to SSE stream"),
         );
-        let s = ReadSignal::from_stream_unsync(
+        let s: ReadSignal<Option<String>> = ReadSignal::from_stream_unsync(
             source
                 .subscribe("message")
                 .unwrap()

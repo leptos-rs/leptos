@@ -4,18 +4,12 @@ use crate::{
     ArcField, AtIndex, StoreField, Subfield,
 };
 use reactive_graph::{
-    owner::{Storage, StoredValue},
+    owner::{Storage, StoredValue, SyncStorage},
     signal::ArcTrigger,
-    traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
-    },
+    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
     unwrap_signal,
 };
-use std::{
-    ops::{Deref, DerefMut, IndexMut},
-    panic::Location,
-    sync::Arc,
-};
+use std::{ops::IndexMut, panic::Location};
 
 pub struct Field<T, S = SyncStorage>
 where
