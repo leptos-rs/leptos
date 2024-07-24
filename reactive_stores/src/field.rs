@@ -4,7 +4,7 @@ use crate::{
     ArcField, AtIndex, StoreField, Subfield,
 };
 use reactive_graph::{
-    owner::{Storage, StoredValue},
+    owner::{Storage, StoredValue, SyncStorage},
     signal::ArcTrigger,
     traits::{
         DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
