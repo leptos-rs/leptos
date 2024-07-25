@@ -181,20 +181,22 @@ impl TitleView {
     }
 }
 
-#[allow(dead_code)] // TODO these should be used to rebuild the attributes, I guess
 struct TitleViewState {
-    el: HtmlTitleElement,
-    formatter: Option<Formatter>,
-    text: Option<TextProp>,
     effect: RenderEffect<Oco<'static, str>>,
 }
 
 impl Render<Dom> for TitleView {
     type State = TitleViewState;
 
-    fn build(self) -> Self::State {
+    fn build(mut self) -> Self::State {
         let el = self.el();
         let meta = self.meta;
+        if let Some(formatter) = self.formatter.take() {
+            *meta.title.formatter.write().or_poisoned() = Some(formatter);
+        }
+        if let Some(text) = self.text.take() {
+            *meta.title.text.write().or_poisoned() = Some(text);
+        }
         let effect = RenderEffect::new({
             let el = el.clone();
             move |prev| {
@@ -207,16 +209,11 @@ impl Render<Dom> for TitleView {
                 text
             }
         });
-        TitleViewState {
-            el,
-            formatter: self.formatter,
-            text: self.text,
-            effect,
-        }
+        TitleViewState { effect }
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        // TODO  should this rebuild?
+    fn rebuild(self, state: &mut Self::State) {
+        *state = self.build();
     }
 }
 
@@ -257,12 +254,18 @@ impl RenderHtml<Dom> for TitleView {
     }
 
     fn hydrate<const FROM_SERVER: bool>(
-        self,
+        mut self,
         _cursor: &Cursor<Dom>,
         _position: &PositionState,
     ) -> Self::State {
         let el = self.el();
         let meta = self.meta;
+        if let Some(formatter) = self.formatter.take() {
+            *meta.title.formatter.write().or_poisoned() = Some(formatter);
+        }
+        if let Some(text) = self.text.take() {
+            *meta.title.text.write().or_poisoned() = Some(text);
+        }
         let effect = RenderEffect::new({
             let el = el.clone();
             move |prev| {
@@ -277,9 +280,6 @@ impl RenderHtml<Dom> for TitleView {
             }
         });
         TitleViewState {
-            el,
-            formatter: self.formatter,
-            text: self.text,
             effect,
         }
     }
