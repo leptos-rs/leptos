@@ -9,7 +9,7 @@ use std::{
     error,
     fmt::{self, Display},
     future::Future,
-    ops,
+    mem, ops,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -92,9 +92,25 @@ thread_local! {
     static ERROR_HOOK: RefCell<Option<Arc<dyn ErrorHook>>> = RefCell::new(None);
 }
 
+/// Resets the error hook to its previous state when dropped.
+pub struct ResetErrorHookOnDrop(Option<Arc<dyn ErrorHook>>);
+
+impl Drop for ResetErrorHookOnDrop {
+    fn drop(&mut self) {
+        ERROR_HOOK.with_borrow_mut(|this| *this = self.0.take())
+    }
+}
+
+/// Returns the current error hook.
+pub fn get_error_hook() -> Option<Arc<dyn ErrorHook>> {
+    ERROR_HOOK.with_borrow(Clone::clone)
+}
+
 /// Sets the current thread-local error hook, which will be invoked when [`throw`] is called.
-pub fn set_error_hook(hook: Arc<dyn ErrorHook>) {
-    ERROR_HOOK.with_borrow_mut(|this| *this = Some(hook))
+pub fn set_error_hook(hook: Arc<dyn ErrorHook>) -> ResetErrorHookOnDrop {
+    ResetErrorHookOnDrop(
+        ERROR_HOOK.with_borrow_mut(|this| mem::replace(this, Some(hook))),
+    )
 }
 
 /// Invokes the error hook set by [`set_error_hook`] with the given error.
@@ -140,9 +156,10 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        if let Some(hook) = &this.hook {
-            set_error_hook(Arc::clone(hook))
-        }
+        let _hook = this
+            .hook
+            .as_ref()
+            .map(|hook| set_error_hook(Arc::clone(hook)));
         this.inner.poll(cx)
     }
 }
