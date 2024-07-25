@@ -1,12 +1,12 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::Span;
 use proc_macro_error::{abort, abort_call_site, proc_macro_error};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
-    Data, Field, Fields, Generics, Ident, Index, Meta, MetaList, Result, Token,
-    Type, Visibility, WhereClause,
+    Field, Generics, Ident, Index, Meta, Result, Token, Type, Visibility,
+    WhereClause,
 };
 
 #[proc_macro_error]
