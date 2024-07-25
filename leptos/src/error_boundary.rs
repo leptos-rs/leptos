@@ -144,8 +144,9 @@ where
     type State = RenderEffect<ErrorBoundaryViewState<Chil::State, Fal::State>>;
 
     fn build(mut self) -> Self::State {
-        let mut children = Some(self.children.build());
         let hook = Arc::clone(&self.hook);
+        let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+        let mut children = Some(self.children.build());
         RenderEffect::new(
             move |prev: Option<
                 ErrorBoundaryViewState<Chil::State, Fal::State>,
@@ -315,7 +316,7 @@ where
     ) where
         Self: Sized,
     {
-        let hook = throw_error::set_error_hook(self.hook);
+        let _hook = throw_error::set_error_hook(self.hook);
         // first, attempt to serialize the children to HTML, then check for errors
         let mut new_buf = StreamBuilder::new(buf.clone_id());
         let mut new_pos = *position;
