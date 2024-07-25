@@ -15,9 +15,10 @@ use reactive_graph::{
 };
 use std::{iter, ops::Deref, sync::Arc};
 
-pub trait StoreField<T>: Sized {
-    type Reader: Deref<Target = T>;
-    type Writer: UntrackableGuard<Target = T>;
+pub trait StoreField: Sized {
+    type Value;
+    type Reader: Deref<Target = Self::Value>;
+    type Writer: UntrackableGuard<Target = Self::Value>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger;
 
@@ -28,10 +29,11 @@ pub trait StoreField<T>: Sized {
     fn writer(&self) -> Option<Self::Writer>;
 }
 
-impl<T> StoreField<T> for ArcStore<T>
+impl<T> StoreField for ArcStore<T>
 where
     T: 'static,
 {
+    type Value = T;
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, ArcRwLockWriteGuardian<T>>;
 
@@ -57,11 +59,12 @@ where
     }
 }
 
-impl<T, S> StoreField<T> for Store<T, S>
+impl<T, S> StoreField for Store<T, S>
 where
     T: 'static,
     S: Storage<ArcStore<T>>,
 {
+    type Value = T;
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, ArcRwLockWriteGuardian<T>>;
 

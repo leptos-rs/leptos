@@ -24,6 +24,12 @@ impl StorePath {
     pub fn pop(&mut self) -> Option<StorePathSegment> {
         self.0.pop()
     }
+
+    pub fn replace_last(&mut self, segment: impl Into<StorePathSegment>) {
+        if let Some(last) = self.0.last_mut() {
+            *last = segment.into();
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

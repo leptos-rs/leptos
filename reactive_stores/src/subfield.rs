@@ -17,7 +17,7 @@ use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 #[derive(Debug)]
 pub struct Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -30,7 +30,7 @@ where
 
 impl<Inner, Prev, T> Clone for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev> + Clone,
+    Inner: StoreField<Value = Prev> + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -46,13 +46,13 @@ where
 }
 
 impl<Inner, Prev, T> Copy for Subfield<Inner, Prev, T> where
-    Inner: StoreField<Prev> + Copy
+    Inner: StoreField<Value = Prev> + Copy
 {
 }
 
 impl<Inner, Prev, T> Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
 {
     #[track_caller]
     pub fn new(
@@ -73,11 +73,12 @@ where
     }
 }
 
-impl<Inner, Prev, T> StoreField<T> for Subfield<Inner, Prev, T>
+impl<Inner, Prev, T> StoreField for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
+    type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
     type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
 
@@ -106,7 +107,7 @@ where
 
 impl<Inner, Prev, T> DefinedAt for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
@@ -122,7 +123,7 @@ where
 
 impl<Inner, Prev, T> IsDisposed for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev> + IsDisposed,
+    Inner: StoreField<Value = Prev> + IsDisposed,
 {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
@@ -131,7 +132,7 @@ where
 
 impl<Inner, Prev, T> Trigger for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
     fn trigger(&self) {
@@ -142,7 +143,7 @@ where
 
 impl<Inner, Prev, T> Track for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev> + 'static,
+    Inner: StoreField<Value = Prev> + 'static,
     Prev: 'static,
     T: 'static,
 {
@@ -154,10 +155,10 @@ where
 
 impl<Inner, Prev, T> ReadUntracked for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
-    type Value = <Self as StoreField<T>>::Reader;
+    type Value = <Self as StoreField>::Reader;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.reader()
@@ -167,7 +168,7 @@ where
 impl<Inner, Prev, T> Writeable for Subfield<Inner, Prev, T>
 where
     T: 'static,
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
     type Value = T;
