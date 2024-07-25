@@ -20,10 +20,11 @@ where
     inner: StoredValue<ArcField<T>, S>,
 }
 
-impl<T, S> StoreField<T> for Field<T, S>
+impl<T, S> StoreField for Field<T, S>
 where
     S: Storage<ArcField<T>>,
 {
+    type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
@@ -55,7 +56,7 @@ where
     T: Send + Sync,
     S: Storage<ArcField<T>>,
     Subfield<Inner, Prev, T>: Clone,
-    Inner: StoreField<Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: 'static,
 {
     #[track_caller]
@@ -72,7 +73,7 @@ impl<Inner, Prev, S> From<AtIndex<Inner, Prev>> for Field<Prev::Output, S>
 where
     AtIndex<Inner, Prev>: Clone,
     S: Storage<ArcField<Prev::Output>>,
-    Inner: StoreField<Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: IndexMut<usize> + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
 {

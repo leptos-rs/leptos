@@ -71,7 +71,8 @@ impl<T> UntrackableGuard for StoreFieldWriter<T> {
     }
 }
 
-impl<T> StoreField<T> for ArcField<T> {
+impl<T> StoreField for ArcField<T> {
+    type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
@@ -96,7 +97,7 @@ impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for ArcField<T>
 where
     T: Send + Sync,
     Subfield<Inner, Prev, T>: Clone,
-    Inner: StoreField<Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: 'static,
 {
     #[track_caller]
@@ -125,7 +126,7 @@ where
 impl<Inner, Prev> From<AtIndex<Inner, Prev>> for ArcField<Prev::Output>
 where
     AtIndex<Inner, Prev>: Clone,
-    Inner: StoreField<Prev> + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
     Prev: IndexMut<usize> + Send + Sync + 'static,
     Prev::Output: Sized + Send + Sync,
 {

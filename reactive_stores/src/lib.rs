@@ -1,5 +1,5 @@
 use reactive_graph::{
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
     signal::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
@@ -16,6 +16,7 @@ use std::{
 mod arc_field;
 mod field;
 mod iter;
+mod patch;
 mod path;
 mod store_field;
 mod subfield;
@@ -23,6 +24,7 @@ mod subfield;
 pub use arc_field::ArcField;
 pub use field::Field;
 pub use iter::*;
+pub use patch::*;
 use path::StorePath;
 pub use store_field::StoreField;
 pub use subfield::Subfield;
@@ -138,12 +140,24 @@ pub struct Store<T, S = SyncStorage> {
     inner: StoredValue<ArcStore<T>, S>,
 }
 
-impl<T, S> Store<T, S>
+impl<T> Store<T>
 where
     T: Send + Sync + 'static,
-    S: Storage<ArcStore<T>>,
 {
     pub fn new(value: T) -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+        }
+    }
+}
+
+impl<T> Store<T, LocalStorage>
+where
+    T: 'static,
+{
+    pub fn new_local(value: T) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
@@ -235,12 +249,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, Store, StoreFieldIterator};
+    use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
     use reactive_graph::{
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Writeable},
     };
-    use reactive_stores_macro::Store;
+    use reactive_stores_macro::{Patch, Store};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -250,13 +264,13 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_micros(1)).await;
     }
 
-    #[derive(Debug, Store)]
+    #[derive(Debug, Store, Patch)]
     struct Todos {
         user: String,
         todos: Vec<Todo>,
     }
 
-    #[derive(Debug, Store)]
+    #[derive(Debug, Store, Patch)]
     struct Todo {
         label: String,
         completed: bool,
@@ -398,7 +412,55 @@ mod tests {
         store.todos().write().push(Todo::new("???"));
         tick().await;
         store.todos().write().push(Todo::new("Profit!"));
-        // the effect reads from `user`, so it should trigger every time
+        // the effect only reads from `todos`, so it should trigger only the first time
         assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn patching_only_notifies_changed_field() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(Todos {
+            user: "Alice".into(),
+            todos: vec![],
+        });
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.todos().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.patch(Todos {
+            user: "Bob".into(),
+            todos: vec![],
+        });
+        tick().await;
+        store.patch(Todos {
+            user: "Carol".into(),
+            todos: vec![],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+
+        store.patch(Todos {
+            user: "Carol".into(),
+            todos: vec![Todo {
+                label: "First Todo".into(),
+                completed: false,
+            }],
+        });
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 2);
     }
 }

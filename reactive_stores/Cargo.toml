@@ -6,7 +6,9 @@ rust-version.workspace = true
 
 [dependencies]
 guardian = "1.1.0"
+itertools = "0.13.0"
 or_poisoned = { workspace = true }
+paste = "1.0.15"
 reactive_graph = { workspace = true }
 rustc-hash = "2"
 
