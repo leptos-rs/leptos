@@ -6,7 +6,8 @@ use crate::{
     view::{iterators::OptionState, Mountable, Render, Renderer},
 };
 use either_of::Either;
-use throw_error::Error as AnyError;
+use std::sync::Arc;
+use throw_error::{Error as AnyError, ErrorHook};
 
 impl<R, T, E> Render<R> for Result<T, E>
 where
@@ -17,6 +18,7 @@ where
     type State = ResultState<T, R>;
 
     fn build(self) -> Self::State {
+        let hook = throw_error::get_error_hook();
         let (state, error) = match self {
             Ok(view) => (Either::Left(view.build()), None),
             Err(e) => (
@@ -24,10 +26,11 @@ where
                 Some(throw_error::throw(e.into())),
             ),
         };
-        ResultState { state, error }
+        ResultState { state, error, hook }
     }
 
     fn rebuild(self, state: &mut Self::State) {
+        let _guard = state.hook.clone().map(throw_error::set_error_hook);
         match (&mut state.state, self) {
             // both errors: throw the new error and replace
             (Either::Right(_), Err(new)) => {
@@ -68,6 +71,7 @@ where
     /// The view state.
     state: OptionState<T, R>,
     error: Option<throw_error::ErrorId>,
+    hook: Option<Arc<dyn ErrorHook>>,
 }
 
 impl<T, R> Drop for ResultState<T, R>
@@ -164,6 +168,7 @@ where
                 inner.to_html_with_buf(buf, position, escape, mark_branches)
             }
             Err(e) => {
+                buf.push_str("<!>");
                 throw_error::throw(e);
             }
         }
@@ -186,6 +191,7 @@ where
                 mark_branches,
             ),
             Err(e) => {
+                buf.push_sync("<!>");
                 throw_error::throw(e);
             }
         }
@@ -196,6 +202,7 @@ where
         cursor: &Cursor<R>,
         position: &PositionState,
     ) -> Self::State {
+        let hook = throw_error::get_error_hook();
         let (state, error) = match self {
             Ok(view) => (
                 Either::Left(view.hydrate::<FROM_SERVER>(cursor, position)),
@@ -210,6 +217,6 @@ where
                 (Either::Right(state), Some(throw_error::throw(e.into())))
             }
         };
-        ResultState { state, error }
+        ResultState { state, error, hook }
     }
 }

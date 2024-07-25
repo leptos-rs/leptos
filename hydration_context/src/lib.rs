@@ -44,6 +44,12 @@ pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 /// from the server to the client.
 pub struct SerializedDataId(usize);
 
+impl From<SerializedDataId> for ErrorId {
+    fn from(value: SerializedDataId) -> Self {
+        value.0.into()
+    }
+}
+
 /// Information that will be shared between the server and the client.
 pub trait SharedContext: Debug {
     /// Whether the application is running in the browser.

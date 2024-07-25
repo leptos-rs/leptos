@@ -9,7 +9,7 @@ use reactive_graph::{
     traits::{Get, Update, With, WithUntracked},
 };
 use rustc_hash::FxHashMap;
-use std::{marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
@@ -72,12 +72,11 @@ where
     });
     let hook = hook as Arc<dyn ErrorHook>;
 
-    // provide the error hook and render children
-    // TODO unset this outside the ErrorBoundary
-    throw_error::set_error_hook(Arc::clone(&hook));
+    let _guard = throw_error::set_error_hook(Arc::clone(&hook));
     let children = children.into_inner()();
 
     ErrorBoundaryView {
+        hook,
         boundary_id,
         errors_empty,
         children,
@@ -87,8 +86,8 @@ where
     }
 }
 
-#[derive(Debug)]
 struct ErrorBoundaryView<Chil, FalFn, Rndr> {
+    hook: Arc<dyn ErrorHook>,
     boundary_id: SerializedDataId,
     errors_empty: ArcMemo<bool>,
     children: Chil,
@@ -146,10 +145,12 @@ where
 
     fn build(mut self) -> Self::State {
         let mut children = Some(self.children.build());
+        let hook = Arc::clone(&self.hook);
         RenderEffect::new(
             move |prev: Option<
                 ErrorBoundaryViewState<Chil::State, Fal::State>,
             >| {
+                let _hook = throw_error::set_error_hook(Arc::clone(&hook));
                 if let Some(mut state) = prev {
                     match (self.errors_empty.get(), &mut state.fallback) {
                         // no errors, and was showing fallback
@@ -216,6 +217,7 @@ where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
         let ErrorBoundaryView {
+            hook,
             boundary_id,
             errors_empty,
             children,
@@ -224,6 +226,7 @@ where
             rndr,
         } = self;
         ErrorBoundaryView {
+            hook,
             boundary_id,
             errors_empty,
             children: children.add_any_attr(attr.into_cloneable_owned()),
@@ -252,6 +255,7 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         let ErrorBoundaryView {
+            hook,
             boundary_id,
             errors_empty,
             children,
@@ -260,6 +264,7 @@ where
             ..
         } = self;
         ErrorBoundaryView {
+            hook,
             boundary_id,
             errors_empty,
             children: children.resolve().await,
@@ -277,6 +282,7 @@ where
         mark_branches: bool,
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
+        let _hook = throw_error::set_error_hook(self.hook);
         let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
         let mut new_pos = *position;
         self.children.to_html_with_buf(
@@ -309,6 +315,7 @@ where
     ) where
         Self: Sized,
     {
+        let hook = throw_error::set_error_hook(self.hook);
         // first, attempt to serialize the children to HTML, then check for errors
         let mut new_buf = StreamBuilder::new(buf.clone_id());
         let mut new_pos = *position;
@@ -345,12 +352,14 @@ where
         position: &PositionState,
     ) -> Self::State {
         let mut children = Some(self.children);
+        let hook = Arc::clone(&self.hook);
         let cursor = cursor.to_owned();
         let position = position.to_owned();
         RenderEffect::new(
             move |prev: Option<
                 ErrorBoundaryViewState<Chil::State, Fal::State>,
             >| {
+                let _hook = throw_error::set_error_hook(Arc::clone(&hook));
                 if let Some(mut state) = prev {
                     match (self.errors_empty.get(), &mut state.fallback) {
                         // no errors, and was showing fallback
@@ -424,7 +433,10 @@ impl ErrorBoundaryErrorHook {
 impl ErrorHook for ErrorBoundaryErrorHook {
     fn throw(&self, error: Error) -> ErrorId {
         // generate a unique ID
-        let key = ErrorId::default(); // TODO unique ID...
+        let key: ErrorId = Owner::current_shared_context()
+            .map(|sc| sc.next_id())
+            .unwrap_or_default()
+            .into();
 
         // register it with the shared context, so that it can be serialized from server to client
         // as needed
