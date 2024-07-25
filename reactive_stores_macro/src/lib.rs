@@ -17,6 +17,14 @@ pub fn derive_store(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .into()
 }
 
+#[proc_macro_error]
+#[proc_macro_derive(Patch, attributes(store))]
+pub fn derive_patch(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    syn::parse_macro_input!(input as PatchModel)
+        .into_token_stream()
+        .into()
+}
+
 struct Model {
     pub vis: Visibility,
     pub struct_name: Ident,
@@ -173,11 +181,11 @@ impl ToTokens for Model {
                     } = &w;
                     quote! {
                         #where_token
-                            #any_store_field: #library_path::StoreField<#struct_name #generics>,
+                            #any_store_field: #library_path::StoreField<Value = #struct_name #generics>,
                             #predicates
                     }
                 })
-                .unwrap_or_else(|| quote! { where #any_store_field: #library_path::StoreField<#struct_name #generics> })
+                .unwrap_or_else(|| quote! { where #any_store_field: #library_path::StoreField<Value = #struct_name #generics> })
         };
 
         // define an extension trait that matches this struct
@@ -219,6 +227,84 @@ impl ToTokens for Model {
             #where_with_orig
             {
                #(#read_fields)*
+            }
+        });
+    }
+}
+
+struct PatchModel {
+    pub struct_name: Ident,
+    pub generics: Generics,
+    pub fields: Vec<Field>,
+}
+
+impl Parse for PatchModel {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let input = syn::DeriveInput::parse(input)?;
+
+        let syn::Data::Struct(s) = input.data else {
+            abort_call_site!("only structs can be used with `Patch`");
+        };
+
+        let fields = match s.fields {
+            syn::Fields::Unit => {
+                abort!(s.semi_token, "unit structs are not supported");
+            }
+            syn::Fields::Named(fields) => {
+                fields.named.into_iter().collect::<Vec<_>>()
+            }
+            syn::Fields::Unnamed(fields) => {
+                fields.unnamed.into_iter().collect::<Vec<_>>()
+            }
+        };
+
+        Ok(Self {
+            struct_name: input.ident,
+            generics: input.generics,
+            fields,
+        })
+    }
+}
+
+impl ToTokens for PatchModel {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let library_path = quote! { reactive_stores };
+        let PatchModel {
+            struct_name,
+            generics,
+            fields,
+        } = &self;
+
+        let fields = fields.iter().enumerate().map(|(idx, field)| {
+            let field_name = match &field.ident {
+                Some(ident) => quote! { #ident },
+                None => quote! { #idx },
+            };
+            quote! {
+                #library_path::PatchField::patch_field(
+                    &mut self.#field_name,
+                    new.#field_name,
+                    &new_path,
+                    notify
+                );
+                new_path.replace_last(#idx + 1);
+            }
+        });
+
+        // read access
+        tokens.extend(quote! {
+            impl #library_path::PatchField for #struct_name #generics
+            {
+                fn patch_field(
+                    &mut self,
+                    new: Self,
+                    path: &#library_path::StorePath,
+                    notify: &mut dyn FnMut(&#library_path::StorePath),
+                ) {
+                    let mut new_path = path.clone();
+                    new_path.push(0);
+                    #(#fields)*
+                }
             }
         });
     }

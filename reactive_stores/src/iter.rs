@@ -22,7 +22,7 @@ use std::{
 #[derive(Debug)]
 pub struct AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
 {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -33,7 +33,7 @@ where
 
 impl<Inner, Prev> Clone for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev> + Clone,
+    Inner: StoreField<Value = Prev> + Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -47,13 +47,13 @@ where
 }
 
 impl<Inner, Prev> Copy for AtIndex<Inner, Prev> where
-    Inner: StoreField<Prev> + Copy
+    Inner: StoreField<Value = Prev> + Copy
 {
 }
 
 impl<Inner, Prev> AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
 {
     #[track_caller]
     pub fn new(inner: Inner, index: usize) -> Self {
@@ -67,12 +67,13 @@ where
     }
 }
 
-impl<Inner, Prev> StoreField<Prev::Output> for AtIndex<Inner, Prev>
+impl<Inner, Prev> StoreField for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized,
 {
+    type Value = Prev::Output;
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
         MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
@@ -112,7 +113,7 @@ where
 
 impl<Inner, Prev> DefinedAt for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
@@ -128,7 +129,7 @@ where
 
 impl<Inner, Prev> IsDisposed for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev> + IsDisposed,
+    Inner: StoreField<Value = Prev> + IsDisposed,
 {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
@@ -137,7 +138,7 @@ where
 
 impl<Inner, Prev> Trigger for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized,
 {
@@ -149,7 +150,7 @@ where
 
 impl<Inner, Prev> Track for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev> + Send + Sync + Clone + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + Clone + 'static,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized + 'static,
 {
@@ -161,11 +162,11 @@ where
 
 impl<Inner, Prev> ReadUntracked for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized,
 {
-    type Value = <Self as StoreField<Prev::Output>>::Reader;
+    type Value = <Self as StoreField>::Reader;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.reader()
@@ -174,7 +175,7 @@ where
 
 impl<Inner, Prev> Writeable for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized + 'static,
 {
@@ -200,7 +201,7 @@ pub trait StoreFieldIterator<Prev>: Sized {
 
 impl<Inner, Prev> StoreFieldIterator<Prev> for Inner
 where
-    Inner: StoreField<Prev>,
+    Inner: StoreField<Value = Prev>,
     Prev::Output: Sized,
     Prev: IndexMut<usize> + AsRef<[Prev::Output]>,
 {
@@ -231,7 +232,7 @@ pub struct StoreFieldIter<Inner, Prev> {
 
 impl<Inner, Prev> Iterator for StoreFieldIter<Inner, Prev>
 where
-    Inner: StoreField<Prev> + Clone + 'static,
+    Inner: StoreField<Value = Prev> + Clone + 'static,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized + 'static,
 {
