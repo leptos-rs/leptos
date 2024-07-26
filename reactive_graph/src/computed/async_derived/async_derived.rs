@@ -205,6 +205,21 @@ where
             ),
         }
     }
+
+    #[doc(hidden)]
+    pub fn new_mock_unsync<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+    {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(
+                ArcAsyncDerived::new_mock_unsync(fun),
+            ),
+        }
+    }
 }
 
 impl<T, S> AsyncDerived<T, S>

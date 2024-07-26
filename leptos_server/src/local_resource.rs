@@ -202,8 +202,13 @@ impl<T> LocalResource<T> {
                 }
             }
         };
+
         Self {
-            data: AsyncDerived::new_unsync(fetcher),
+            data: if cfg!(feature = "ssr") {
+                AsyncDerived::new_mock_unsync(fetcher)
+            } else {
+                AsyncDerived::new_unsync(fetcher)
+            },
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
         }
