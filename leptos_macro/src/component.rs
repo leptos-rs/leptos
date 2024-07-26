@@ -375,16 +375,15 @@ impl ToTokens for Model {
             } else {
                 quote! {}
             };
-            let deserialize_island_props = quote! {}; /*if is_island_with_other_props {
-                                                          quote! {
-                                                              let props = el.dataset().get("props") // TODO ::leptos::wasm_bindgen::intern("props"))
-                                                                  .and_then(|data| ::leptos::serde_json::from_str::<#props_serialized_name>(&data).ok())
-                                                                  .expect("could not deserialize props");
-                                                          }
-                                                      } else {
-                                                          quote! {}
-                                                      };*/
-            // TODO
+            let deserialize_island_props = if is_island_with_other_props {
+                quote! {
+                    let props = el.dataset().get(::leptos::wasm_bindgen::intern("props"))
+                        .and_then(|data| ::leptos::serde_json::from_str::<#props_serialized_name>(&data).ok())
+                        .expect("could not deserialize props");
+                }
+            } else {
+                quote! {}
+            };
 
             quote! {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
