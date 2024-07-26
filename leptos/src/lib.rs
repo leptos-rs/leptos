@@ -296,10 +296,17 @@ pub mod spawn {
     }
 }
 
+// these reexports are used in islands
+#[cfg(feature = "experimental-islands")]
 #[doc(hidden)]
-pub use wasm_bindgen; // used in islands
+pub use serde;
+#[cfg(feature = "experimental-islands")]
 #[doc(hidden)]
-pub use web_sys; // used in islands
+pub use serde_json;
+#[doc(hidden)]
+pub use wasm_bindgen;
+#[doc(hidden)]
+pub use web_sys;
 
 /*mod additional_attributes;
 pub use additional_attributes::*;
