@@ -228,28 +228,26 @@ macro_rules! spawn_derived {
         let initial_fut = Sandboxed::new(initial_fut);
         let mut initial_fut = Box::pin(initial_fut);
 
-        let was_ready = {
+        let (was_ready, mut initial_fut) = {
             if is_ready {
-                true
+                (true, None)
             } else {
                 // if we don't already know that it's ready, we need to poll once, initially
                 // so that the correct value is set synchronously
                 let initial = initial_fut.as_mut().now_or_never();
                 match initial {
-                    None => false,
+                    None => (false, Some(initial_fut)),
                     Some(orig_value) => {
                         let mut guard = this.inner.write().or_poisoned();
 
                         guard.dirty = false;
                         *value.blocking_write() = Some(orig_value);
                         this.loading.store(false, Ordering::Relaxed);
-                        true
+                        (true, None)
                     }
                 }
             }
         };
-
-        let mut initial_fut = Some(initial_fut);
 
         let mut first_run = {
             let (ready_tx, ready_rx) = oneshot::channel();
@@ -270,7 +268,7 @@ macro_rules! spawn_derived {
                 let loading = Arc::downgrade(&this.loading);
                 let fut = async move {
                     while rx.next().await.is_some() {
-                        if first_run.is_some() || any_subscriber.update_if_necessary() {
+                        if any_subscriber.with_observer(|| any_subscriber.update_if_necessary()) || first_run.is_some() {
                             match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
                                 (Some(value), Some(inner), Some(wakers), Some(loading)) => {
                                     // generate new Future
@@ -292,15 +290,8 @@ macro_rules! spawn_derived {
                                         ready_tx
                                     });
 
-
-                                    // notify reactive subscribers that we're now loading
-                                    loading.store(true, Ordering::Relaxed);
-                                    inner.write().or_poisoned().dirty = true;
-                                    for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
-                                        sub.mark_check();
-                                    }
-
                                     // generate and assign new value
+                                    loading.store(true, Ordering::Relaxed);
                                     let new_value = fut.await;
                                     loading.store(false, Ordering::Relaxed);
                                     *value.write().await = Some(new_value);
@@ -314,7 +305,7 @@ macro_rules! spawn_derived {
 
                                     // notify reactive subscribers that we're not loading any more
                                     for sub in (&inner.read().or_poisoned().subscribers).into_iter() {
-                                        sub.mark_check();
+                                        sub.mark_dirty();
                                     }
 
                                     // notify async .awaiters
