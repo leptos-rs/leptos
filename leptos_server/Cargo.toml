@@ -13,7 +13,6 @@ rust-version.workspace = true
 leptos_reactive = { workspace = true }
 leptos_macro = { workspace = true }
 server_fn = { workspace = true }
-lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tracing = "0.1"
