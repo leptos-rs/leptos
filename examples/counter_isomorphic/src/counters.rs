@@ -6,7 +6,7 @@ use tracing::instrument;
 
 #[cfg(feature = "ssr")]
 pub mod ssr_imports {
-    pub std::sync::LazyLock;
+    pub use std::sync::LazyLock;
     pub use broadcaster::BroadcastChannel;
     pub use once_cell::sync::OnceCell;
     pub use std::sync::atomic::{AtomicI32, Ordering};
