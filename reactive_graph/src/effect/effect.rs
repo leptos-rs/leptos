@@ -26,8 +26,9 @@ use std::{
 /// signals inside effects. (If you need to define a signal that depends on the value of
 /// other signals, use a derived signal or a [`Memo`](crate::computed::Memo)).
 ///
-/// The effect function is called with an argument containing whatever value it returned
-/// the last time it ran. On the initial run, this is `None`.
+/// You can provide an effect function without parameters or one with one parameter.
+/// If you provide such a parameter, the effect function is called with an argument containing
+/// whatever value it returned the last time it ran. On the initial run, this is `None`.
 ///
 /// Effects stop running when their reactive [`Owner`] is disposed.
 ///
@@ -46,7 +47,7 @@ use std::{
 /// let b = RwSignal::new(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// Effect::new(move |_| {
+/// Effect::new(move || {
 ///   // on the next “tick” prints "Value: 0" and subscribes to `a`
 ///   println!("Value: {}", a.get());
 /// });
@@ -55,7 +56,7 @@ use std::{
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
-/// Effect::new(move |_| {
+/// Effect::new(move || {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
 ///   b.set(a.get() + 1);
