@@ -56,7 +56,7 @@ use std::future::Future;
 ///             // handles the error from the resource
 ///             <ErrorBoundary fallback=|_| {view! {<p>"Something went wrong"</p>}}>
 ///                 {move || {
-///                     user.read().map(move |x| {
+///                     user.get().map(move |x| {
 ///                         // the resource has a result
 ///                         x.map(move |y| {
 ///                             // successful call from the server fn
