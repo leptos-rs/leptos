@@ -1,6 +1,8 @@
 use crate::{logging, IntoView};
 use any_spawner::Executor;
 use reactive_graph::owner::Owner;
+#[cfg(debug_assertions)]
+use std::cell::Cell;
 use std::marker::PhantomData;
 use tachys::{
     dom::body,
@@ -27,6 +29,11 @@ where
     owner.forget();
 }
 
+#[cfg(debug_assertions)]
+thread_local! {
+    static FIRST_CALL: Cell<bool> = Cell::new(true);
+}
+
 #[cfg(feature = "hydrate")]
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn hydrate_from<F, N>(
@@ -45,15 +52,19 @@ where
     // already initialized, which is not an issue
     _ = Executor::init_wasm_bindgen();
 
-    if !cfg!(feature = "hydrate") {
-        logging::warn!(
-            "It seems like you're trying to use Leptos in hydration mode, but \
-             the `hydrate` feature is not enabled on the `leptos` crate. Add \
-             `features = [\"hydrate\"]` to your Cargo.toml for the crate to \
-             work properly.\n\nNote that hydration and client-side rendering \
-             now use separate functions from leptos::mount: you are calling a \
-             hydration function."
-        );
+    #[cfg(debug_assertions)]
+    {
+        if !cfg!(feature = "hydrate") && FIRST_CALL.get() {
+            logging::warn!(
+                "It seems like you're trying to use Leptos in hydration mode, \
+                 but the `hydrate` feature is not enabled on the `leptos` \
+                 crate. Add `features = [\"hydrate\"]` to your Cargo.toml for \
+                 the crate to work properly.\n\nNote that hydration and \
+                 client-side rendering now use separate functions from \
+                 leptos::mount: you are calling a hydration function."
+            );
+        }
+        FIRST_CALL.set(false);
     }
 
     // create a new reactive owner and use it as the root node to run the app
@@ -100,16 +111,20 @@ where
     // already initialized, which is not an issue
     _ = Executor::init_wasm_bindgen();
 
-    if !cfg!(feature = "csr") {
-        logging::warn!(
-            "It seems like you're trying to use Leptos in client-side \
-             rendering mode, but the `csr` feature is not enabled on the \
-             `leptos` crate. Add `features = [\"csr\"]` to your Cargo.toml \
-             for the crate to work properly.\n\nNote that hydration and \
-             client-side rendering now use different functions from \
-             leptos::mount. You are using a client-side rendering mount \
-             function."
-        );
+    #[cfg(debug_assertions)]
+    {
+        if !cfg!(feature = "csr") && FIRST_CALL.get() {
+            logging::warn!(
+                "It seems like you're trying to use Leptos in client-side \
+                 rendering mode, but the `csr` feature is not enabled on the \
+                 `leptos` crate. Add `features = [\"csr\"]` to your \
+                 Cargo.toml for the crate to work properly.\n\nNote that \
+                 hydration and client-side rendering now use different \
+                 functions from leptos::mount. You are using a client-side \
+                 rendering mount function."
+            );
+        }
+        FIRST_CALL.set(false);
     }
 
     // create a new reactive owner and use it as the root node to run the app
@@ -173,6 +188,9 @@ pub fn hydrate_islands() {
     // we ignore the return value because an Err here just means the wasm-bindgen executor is
     // already initialized, which is not an issue
     _ = Executor::init_wasm_bindgen();
+
+    #[cfg(debug_assertions)]
+    FIRST_CALL.set(false);
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
