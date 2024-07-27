@@ -23,7 +23,6 @@ miniserde = "0.1"
 gloo = "0.8"
 uuid = { version = "1", features = ["serde", "v4", "wasm-bindgen"] }
 wasm-bindgen = "0.2"
-lazy_static = "1"
 log = "0.4"
 strum = "0.24"
 strum_macros = "0.24"

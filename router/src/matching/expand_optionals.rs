@@ -59,9 +59,8 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
 #[doc(hidden)]
 #[cfg(feature = "ssr")]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<'_, str>> {
-    use std::sync::LazyLock;
-
     use regex::Regex;
+    use std::sync::LazyLock;
 
     static OPTIONAL_RE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(OPTIONAL).expect("could not compile OPTIONAL_RE")

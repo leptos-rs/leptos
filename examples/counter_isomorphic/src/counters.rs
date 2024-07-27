@@ -6,15 +6,14 @@ use tracing::instrument;
 
 #[cfg(feature = "ssr")]
 pub mod ssr_imports {
+    pub std::sync::LazyLock;
     pub use broadcaster::BroadcastChannel;
     pub use once_cell::sync::OnceCell;
     pub use std::sync::atomic::{AtomicI32, Ordering};
 
     pub static COUNT: AtomicI32 = AtomicI32::new(0);
 
-    lazy_static::lazy_static! {
-        pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
-    }
+    pub static COUNT_CHANNEL: LazyLock<BroadcastChannel<i32>> = LazyLock::new(|| BroadcastChannel::new());
 
     static LOG_INIT: OnceCell<()> = OnceCell::new();
 
