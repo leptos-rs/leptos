@@ -1,13 +1,17 @@
+#[cfg(feature = "effects")]
 use any_spawner::Executor;
+#[cfg(feature = "effects")]
 use reactive_graph::{
     effect::{Effect, RenderEffect},
     prelude::*,
     signal::RwSignal,
 };
+#[cfg(feature = "effects")]
 use std::{
     mem,
     sync::{Arc, RwLock},
 };
+#[cfg(feature = "effects")]
 use tokio::task;
 
 #[cfg(feature = "effects")]
@@ -57,7 +61,7 @@ async fn effect_runs() {
 
             Effect::new({
                 let b = b.clone();
-                move |_| {
+                move || {
                     let formatted = format!("Value is {}", a.get());
                     *b.write().unwrap() = formatted;
                 }
@@ -90,7 +94,7 @@ async fn dynamic_dependencies() {
 
             mem::forget(RenderEffect::new({
                 let combined_count = Arc::clone(&combined_count);
-                move |_| {
+                move || {
                     *combined_count.write().unwrap() += 1;
                     if use_last.get() {
                         println!("{} {}", first.get(), last.get());
