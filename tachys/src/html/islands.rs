@@ -156,6 +156,11 @@ where
         cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
+        if position.get() == Position::FirstChild {
+            cursor.child();
+        } else if position.get() == Position::NextChild {
+            cursor.sibling();
+        }
         position.set(Position::FirstChild);
         self.view.hydrate::<FROM_SERVER>(cursor, position)
     }
