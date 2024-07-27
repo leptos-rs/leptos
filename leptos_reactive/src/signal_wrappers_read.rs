@@ -46,11 +46,11 @@ where
 /// - [`.get()`](#impl-SignalGet-for-Signal<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Signal<T>) clones the value of the signal
+/// - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Signal<T>) clones the value of the signal
 ///   without reactively tracking it.
 /// - [`.with()`](#impl-SignalWith-for-Signal<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
-///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Signal<T>) allows you to access the signal’s
+/// - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Signal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
 /// - [`.to_stream()`](#impl-SignalStream<T>-for-Signal<T>) converts the signal to an `async` stream of values.
 ///
@@ -494,11 +494,11 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// - [`.get()`](#impl-SignalGet-for-MaybeSignal<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeSignal<T>) clones the value of the signal
+/// - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeSignal<T>) clones the value of the signal
 ///   without reactively tracking it.
 /// - [`.with()`](#impl-SignalWith-for-MaybeSignal<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
-///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeSignal<T>) allows you to access the signal’s
+/// - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeSignal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
 /// - [`.to_stream()`](#impl-SignalStream<T>-for-MaybeSignal<T>) converts the signal to an `async` stream of values.
 ///
@@ -889,11 +889,11 @@ where
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeProp<T>) clones the value of the signal
-///   without reactively tracking it.
+///     without reactively tracking it.
 /// - [`.with()`](#impl-SignalWith-for-MaybeProp<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeProp<T>) allows you to access the signal’s
-///   value without reactively tracking it.
+///     value without reactively tracking it.
 /// - [`.to_stream()`](#impl-SignalStream<T>-for-MaybeProp<T>) converts the signal to an `async` stream of values.
 ///
 /// ## Examples
