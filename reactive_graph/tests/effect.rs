@@ -94,7 +94,7 @@ async fn dynamic_dependencies() {
 
             mem::forget(RenderEffect::new({
                 let combined_count = Arc::clone(&combined_count);
-                move || {
+                move |_| {
                     *combined_count.write().unwrap() += 1;
                     if use_last.get() {
                         println!("{} {}", first.get(), last.get());
