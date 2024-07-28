@@ -11,6 +11,7 @@ rust-version.workspace = true
 
 [dependencies]
 leptos = { workspace = true }
+leptos_router_macro = { workspace = true }
 any_spawner = { workspace = true }
 either_of = { workspace = true }
 or_poisoned = { workspace = true }
