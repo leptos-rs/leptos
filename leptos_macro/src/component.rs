@@ -227,7 +227,7 @@ impl ToTokens for Model {
         };
         let island_serialized_props = if is_island_with_other_props {
             quote! {
-                .attr("data-props", _leptos_ser_props)
+                .with_props( _leptos_ser_props)
             }
         } else {
             quote! {}

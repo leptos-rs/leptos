@@ -8,10 +8,10 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-// TODO serialized props, too
 /// An island of interactivity in an otherwise-inert HTML document.
 pub struct Island<Rndr, View> {
     component: &'static str,
+    props_json: String,
     view: View,
     rndr: PhantomData<Rndr>,
 }
@@ -23,19 +23,31 @@ impl<Rndr, View> Island<Rndr, View> {
     pub fn new(component: &'static str, view: View) -> Self {
         Island {
             component,
+            props_json: String::new(),
             view,
             rndr: PhantomData,
         }
     }
 
-    fn open_tag(component: &'static str, buf: &mut String) {
+    /// Adds serialized component props as JSON.
+    pub fn with_props(mut self, props_json: String) -> Self {
+        self.props_json = props_json;
+        self
+    }
+
+    fn open_tag(component: &'static str, props: &str, buf: &mut String) {
         buf.push('<');
         buf.push_str(ISLAND_TAG);
         buf.push(' ');
         buf.push_str("data-component=\"");
         buf.push_str(component);
-        buf.push_str("\">");
-        // TODO insert serialized props
+        buf.push('"');
+        if !props.is_empty() {
+            buf.push_str(" data-props=\"");
+            buf.push_str(&html_escape::encode_double_quoted_attribute(&props));
+            buf.push('"');
+        }
+        buf.push('>');
     }
 
     fn close_tag(buf: &mut String) {
@@ -78,11 +90,13 @@ where
     {
         let Island {
             component,
+            props_json,
             view,
             rndr,
         } = self;
         Island {
             component,
+            props_json,
             view: view.add_any_attr(attr),
             rndr,
         }
@@ -117,7 +131,7 @@ where
         escape: bool,
         mark_branches: bool,
     ) {
-        Self::open_tag(self.component, buf);
+        Self::open_tag(self.component, &self.props_json, buf);
         self.view
             .to_html_with_buf(buf, position, escape, mark_branches);
         Self::close_tag(buf);
@@ -134,7 +148,7 @@ where
     {
         // insert the opening tag synchronously
         let mut tag = String::new();
-        Self::open_tag(self.component, &mut tag);
+        Self::open_tag(self.component, &self.props_json, &mut tag);
         buf.push_sync(&tag);
 
         // streaming render for the view
