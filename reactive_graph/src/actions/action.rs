@@ -91,6 +91,7 @@ use std::{future::Future, panic::Location, pin::Pin, sync::Arc};
 /// let action3 = ArcAction::new(|input: &(usize, String)| async { todo!() });
 /// ```
 pub struct ArcAction<I, O> {
+    orig_owner: Option<Owner>,
     in_flight: ArcRwSignal<usize>,
     input: ArcRwSignal<Option<I>>,
     value: ArcRwSignal<Option<O>>,
@@ -106,6 +107,7 @@ pub struct ArcAction<I, O> {
 impl<I, O> Clone for ArcAction<I, O> {
     fn clone(&self) -> Self {
         Self {
+            orig_owner: self.orig_owner.clone(),
             in_flight: self.in_flight.clone(),
             input: self.input.clone(),
             value: self.value.clone(),
@@ -189,6 +191,7 @@ where
         Fu: Future<Output = O> + Send + 'static,
     {
         ArcAction {
+            orig_owner: Owner::current(),
             in_flight: ArcRwSignal::new(0),
             input: Default::default(),
             value: ArcRwSignal::new(value),
@@ -213,12 +216,17 @@ where
 
             // abort this task if the owner is cleaned up
             let (abort_tx, mut abort_rx) = oneshot::channel();
-            Owner::on_cleanup(move || {
-                abort_tx.send(()).expect(
-                    "tried to cancel a future in ArcAction::dispatch(), but \
-                     the channel has already closed",
-                );
-            });
+            if let Some(owner) = &self.orig_owner {
+                owner.with(|| {
+                    Owner::on_cleanup(move || {
+                        abort_tx.send(()).expect(
+                            "tried to cancel a future in \
+                             ArcAction::dispatch(), but the channel has \
+                             already closed",
+                        );
+                    })
+                });
+            }
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
@@ -344,6 +352,7 @@ where
     {
         let action_fn = SendWrapper::new(action_fn);
         ArcAction {
+            orig_owner: Owner::current(),
             in_flight: ArcRwSignal::new(0),
             input: Default::default(),
             value: ArcRwSignal::new(value),
