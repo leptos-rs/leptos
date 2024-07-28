@@ -256,21 +256,20 @@ impl Owner {
     #[cfg(feature = "hydration")]
     pub fn with_hydration<T>(fun: impl FnOnce() -> T + 'static) -> T {
         fn inner<T>(fun: Box<dyn FnOnce() -> T>) -> T {
-            OWNER.with_borrow(|o| {
-                match o
-                    .as_ref()
-                    .and_then(|current| current.shared_context.as_ref())
-                {
-                    None => fun(),
-                    Some(sc) => {
-                        let prev = sc.get_is_hydrating();
-                        sc.set_is_hydrating(true);
-                        let value = fun();
-                        sc.set_is_hydrating(prev);
-                        value
-                    }
+            let sc = OWNER.with_borrow(|o| {
+                o.as_ref()
+                    .and_then(|current| current.shared_context.clone())
+            });
+            match sc {
+                None => fun(),
+                Some(sc) => {
+                    let prev = sc.get_is_hydrating();
+                    sc.set_is_hydrating(true);
+                    let value = fun();
+                    sc.set_is_hydrating(prev);
+                    value
                 }
-            })
+            }
         }
 
         inner(Box::new(fun))
