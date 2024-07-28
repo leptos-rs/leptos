@@ -151,6 +151,10 @@ where
             async move {
                 let value = fut.await;
                 drop(id);
+                // waiting a tick here allows Suspense to remount if necessary, which prevents some
+                // edge cases in which a rebuild can't happen while unmounted because the DOM node
+                // has no parent
+                any_spawner::Executor::tick().await;
                 Some(value).rebuild(&mut *state.borrow_mut());
             }
         });
