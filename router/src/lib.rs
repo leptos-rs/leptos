@@ -25,3 +25,4 @@ pub use navigate::*;
 //pub use router::*;
 pub use ssr_mode::*;
 pub use static_route::*;
+pub use leptos_router_macro::path;
