@@ -48,6 +48,12 @@ impl<T> ArcLocalResource<T> {
                 if cfg!(feature = "ssr") {
                     pending().await
                 } else {
+                    // LocalResources that are immediately available can cause a hydration error,
+                    // because the future *looks* like it is alredy ready (and therefore would
+                    // already have been rendered to html on the server), but in fact was ignored
+                    // on the server. the simplest way to avoid this is to ensure that we always
+                    // wait a tick before resolving any value for a localresource.
+                    any_spawner::Executor::tick().await;
                     fut.await
                 }
             }
@@ -198,6 +204,12 @@ impl<T> LocalResource<T> {
                 if cfg!(feature = "ssr") {
                     pending().await
                 } else {
+                    // LocalResources that are immediately available can cause a hydration error,
+                    // because the future *looks* like it is alredy ready (and therefore would
+                    // already have been rendered to html on the server), but in fact was ignored
+                    // on the server. the simplest way to avoid this is to ensure that we always
+                    // wait a tick before resolving any value for a localresource.
+                    any_spawner::Executor::tick().await;
                     fut.await
                 }
             }
