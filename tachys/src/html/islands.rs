@@ -108,7 +108,7 @@ where
     View: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    type AsyncOutput = View::AsyncOutput;
+    type AsyncOutput = Island<Rndr, View::AsyncOutput>;
 
     const MIN_LENGTH: usize = ISLAND_TAG.len() * 2
         + "<>".len()
@@ -121,7 +121,18 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        self.view.resolve().await
+        let Island {
+            component,
+            props_json,
+            view,
+            rndr,
+        } = self;
+        Island {
+            component,
+            props_json,
+            view: view.resolve().await,
+            rndr,
+        }
     }
 
     fn to_html_with_buf(
@@ -248,7 +259,7 @@ where
     View: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    type AsyncOutput = View::AsyncOutput;
+    type AsyncOutput = IslandChildren<Rndr, View::AsyncOutput>;
 
     const MIN_LENGTH: usize = ISLAND_CHILDREN_TAG.len() * 2
         + "<>".len()
@@ -260,8 +271,11 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        // TODO should this be wrapped?
-        self.view.resolve().await
+        let IslandChildren { view, rndr } = self;
+        IslandChildren {
+            view: view.resolve().await,
+            rndr,
+        }
     }
 
     fn to_html_with_buf(
