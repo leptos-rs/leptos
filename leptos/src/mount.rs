@@ -181,7 +181,7 @@ where
 /// Hydrates any islands that are currently present on the page.
 #[cfg(feature = "hydrate")]
 pub fn hydrate_islands() {
-    use hydration_context::HydrateSharedContext;
+    use hydration_context::{HydrateSharedContext, SharedContext};
     use std::sync::Arc;
 
     // use wasm-bindgen-futures to drive the reactive system
@@ -193,7 +193,9 @@ pub fn hydrate_islands() {
     FIRST_CALL.set(false);
 
     // create a new reactive owner and use it as the root node to run the app
-    let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
+    let sc = HydrateSharedContext::new();
+    sc.set_is_hydrating(false); // islands mode starts in "not hydrating"
+    let owner = Owner::new_root(Some(Arc::new(sc)));
     owner.set();
     std::mem::forget(owner);
 }
