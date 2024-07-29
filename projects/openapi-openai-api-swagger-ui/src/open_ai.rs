@@ -37,7 +37,7 @@ pub fn make_openapi_call_via_gpt(message:String) -> ChatCompletionParameters {
         // This name will be given to the OpenAI API as part of our functions
         let name = operation.operation_id.clone().expect("Each operation to have an operation id");
 
-        // we'll use the descrition
+        // we'll use the description
         let desc = operation.description.clone().expect("Each operation to have a description, this is how GPT knows what the functiond does and it is helpful for calling it.");
         let mut required_list = vec![];
         let mut properties = serde_json::Map::new();

@@ -93,7 +93,7 @@ pub fn kratos_html(node: UiNode, body: RwSignal<HashMap<String, String>>) -> imp
                 body.update(|map| {
                     _ = map.insert(name.clone(), value.clone());
                 });
-                // this expects the identifer to be an email, but it could be telelphone etc so code is extra fragile
+                // this expects the identifier to be an email, but it could be telephone etc so code is extra fragile
                 view! {<input type="hidden" value=value name=name /> }.into_view()
             }
         }

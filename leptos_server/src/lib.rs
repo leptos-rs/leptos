@@ -108,7 +108,7 @@
 ////! HTML forms don’t support `PUT` or `DELETE`, and they don’t support sending JSON. This means that if you use anything
 ////! but a `GET` or `POST` request with URL-encoded data, it can only work once WASM has loaded.
 ////!
-////! The CBOR encoding is suported for historical reasons; an earlier version of server functions used a URL encoding that
+////! The CBOR encoding is supported for historical reasons; an earlier version of server functions used a URL encoding that
 ////! didn’t support nested objects like structs or vectors as server function arguments, which CBOR did. But note that the
 ////! CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of
 ////! your app is not available.
