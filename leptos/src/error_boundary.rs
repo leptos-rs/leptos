@@ -327,10 +327,6 @@ where
             mark_branches,
         );
 
-        if let Some(sc) = Owner::current_shared_context() {
-            sc.seal_errors(&self.boundary_id);
-        }
-
         // any thrown errors would've been caught here
         if self.errors.with_untracked(|map| map.is_empty()) {
             buf.append(new_buf);
