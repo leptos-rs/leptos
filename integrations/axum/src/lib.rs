@@ -44,6 +44,7 @@ use axum::{
     routing::{delete, get, patch, post, put},
 };
 use futures::{stream::once, Future, Stream, StreamExt};
+use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
     context::{provide_context, use_context},
@@ -1166,7 +1167,7 @@ where
 {
     init_executor();
 
-    let owner = Owner::new_root(None);
+    let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
     let routes = owner
         .with(|| {
             // stub out a path for now

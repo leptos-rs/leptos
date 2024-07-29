@@ -16,6 +16,7 @@ use actix_web::{
 };
 use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
+use hydration_context::SsrSharedContext;
 use leptos::{
     context::{provide_context, use_context},
     reactive_graph::{computed::ScopedFuture, owner::Owner},
@@ -944,7 +945,7 @@ where
 {
     let _ = any_spawner::Executor::init_tokio();
 
-    let owner = Owner::new_root(None);
+    let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
     let (mock_meta, _) = ServerMetaContext::new();
     let routes = owner
         .with(|| {
