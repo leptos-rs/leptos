@@ -2,6 +2,7 @@ use crate::ChildrenFn;
 use cfg_if::cfg_if;
 use leptos_dom::IntoView;
 use leptos_macro::component;
+#[cfg(all(target_arch = "wasm32", any(feature = "hydrate", feature = "csr")))] 
 use leptos_reactive::untrack;
 
 /// Renders components somewhere else in the DOM.
