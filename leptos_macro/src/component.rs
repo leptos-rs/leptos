@@ -260,11 +260,21 @@ impl ToTokens for Model {
         let component = if *is_island {
             quote! {
                 {
-                    ::leptos::tachys::html::islands::Island::new(
-                        #component_id,
-                        #component
-                    )
-                     #island_serialized_props
+                    if ::leptos::reactive_graph::owner::Owner::current_shared_context()
+                        .map(|sc| sc.get_is_hydrating())
+                        .unwrap_or(false) {
+                        ::leptos::either::Either::Left(
+                            #component
+                        )
+                    } else {
+                        ::leptos::either::Either::Right(
+                            ::leptos::tachys::html::islands::Island::new(
+                                #component_id,
+                                #component
+                            )
+                             #island_serialized_props
+                        )
+                    }
                 }
             }
         } else {
@@ -285,7 +295,15 @@ impl ToTokens for Model {
             let wrapped_children = if is_island_with_children {
                 quote! {
                     use leptos::tachys::view::any_view::IntoAny;
-                    let children = Box::new(|| ::leptos::tachys::html::islands::IslandChildren::new(children()).into_any());
+                    let children = Box::new(|| {
+                        let sc = ::leptos::reactive_graph::owner::Owner::current_shared_context().unwrap();
+                        let prev = sc.get_is_hydrating();
+                        let value = ::leptos::reactive_graph::owner::Owner::with_no_hydration(||
+                            ::leptos::tachys::html::islands::IslandChildren::new(children()).into_any()
+                        );
+                        sc.set_is_hydrating(prev);
+                        value
+                    });
                 }
             } else {
                 quote! {}
