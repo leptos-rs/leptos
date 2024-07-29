@@ -219,11 +219,10 @@ where
             if let Some(owner) = &self.orig_owner {
                 owner.with(|| {
                     Owner::on_cleanup(move || {
-                        abort_tx.send(()).expect(
-                            "tried to cancel a future in \
-                             ArcAction::dispatch(), but the channel has \
-                             already closed",
-                        );
+                        // If this fails, it is because the receiver has already dropped, i.e.,
+                        // because the dispatched task has already completed. This means it can be
+                        // safely ignored, because it doesn't need to be aborted in any case.
+                        let _ = abort_tx.send(());
                     })
                 });
             }
