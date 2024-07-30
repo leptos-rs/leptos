@@ -6,7 +6,7 @@ use self::{
     slot_helper::{get_slot, slot_to_tokens},
 };
 use convert_case::{Case::Snake, Casing};
-use leptos_hot_reload::parsing::is_component_node;
+use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error::abort;
 use quote::{quote, quote_spanned, ToTokens};
@@ -319,6 +319,10 @@ pub(crate) fn element_to_tokens(
             })
         };
 
+        let global_class_expr = global_class.map(|class| {
+            quote! { .class((#class, true)) }
+        });
+
         let self_closing = is_self_closing(node);
         let children = if !self_closing {
             element_children_to_tokens(
@@ -348,6 +352,7 @@ pub(crate) fn element_to_tokens(
             #name
             #children
             #attributes
+            #global_class_expr
         })
     }
 }
@@ -373,8 +378,7 @@ fn is_spread_marker(node: &NodeElement) -> bool {
 fn attribute_to_tokens(
     tag_type: TagType,
     node: &NodeAttribute,
-    // TODO global_class support
-    _global_class: Option<&TokenTree>,
+    global_class: Option<&TokenTree>,
     is_custom: bool,
 ) -> TokenStream {
     match node {
@@ -463,6 +467,19 @@ fn attribute_to_tokens(
             } else {
                 let key = attribute_name(&node.key);
                 let value = attribute_value(node);
+
+                // special case of global_class and class attribute
+                if &node.key.to_string() == "class"
+                    && global_class.is_some()
+                    && node.value().and_then(value_to_string).is_none()
+                {
+                    let span = node.key.span();
+                    proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
+            and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
+            toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+                };
+
                 quote! {
                     .#key(#value)
                 }
