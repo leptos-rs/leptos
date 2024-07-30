@@ -182,6 +182,8 @@ impl TitleView {
 }
 
 struct TitleViewState {
+    // effect is stored in the view state to keep it alive until rebuild
+    #[allow(dead_code)]
     effect: RenderEffect<Oco<'static, str>>,
 }
 
@@ -279,9 +281,7 @@ impl RenderHtml<Dom> for TitleView {
                 text
             }
         });
-        TitleViewState {
-            effect,
-        }
+        TitleViewState { effect }
     }
 }
 

@@ -31,7 +31,7 @@ where
 
 #[cfg(debug_assertions)]
 thread_local! {
-    static FIRST_CALL: Cell<bool> = Cell::new(true);
+    static FIRST_CALL: Cell<bool> = const { Cell::new(true) };
 }
 
 #[cfg(feature = "hydrate")]
