@@ -8,14 +8,14 @@ use tracing::instrument;
 
 #[cfg(feature = "ssr")]
 pub mod ssr_imports {
+    pus use std::sync::LazyLock;
     pub use broadcaster::BroadcastChannel;
     pub use std::sync::atomic::{AtomicI32, Ordering};
 
     pub static COUNT: AtomicI32 = AtomicI32::new(0);
 
-    lazy_static::lazy_static! {
-        pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
-    }
+    pub static COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
+
 }
 
 #[server]
