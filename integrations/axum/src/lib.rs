@@ -313,10 +313,13 @@ async fn handle_server_fns_inner(
 ) -> impl IntoResponse {
     use server_fn::middleware::Service;
 
+    let method = req.method().clone();
     let path = req.uri().path().to_string();
     let (req, parts) = generate_request_and_parts(req);
 
-    if let Some(mut service) = server_fn::axum::get_server_fn_service(&path) {
+    if let Some(mut service) =
+        server_fn::axum::get_server_fn_service(&path, method)
+    {
         let owner = Owner::new();
         owner
             .with(|| {
