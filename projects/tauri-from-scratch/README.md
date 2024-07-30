@@ -5,7 +5,7 @@ First
 cargo new leptos_tauri_from_scratch
 ```
 
-Then, make our two seperate project folders. We need one for our actual app, 'src-orig' and the other is required when using `cargo tauri`
+Then, make our two separate project folders. We need one for our actual app, 'src-orig' and the other is required when using `cargo tauri`
 ```sh
 mkdir src-orig && mkdir src-tauri
 ```

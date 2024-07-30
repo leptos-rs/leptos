@@ -1,7 +1,8 @@
 use crate::{children::TypedChildrenFn, mount, IntoView};
 use leptos_dom::helpers::document;
 use leptos_macro::component;
-use reactive_graph::{effect::Effect, owner::Owner};
+use reactive_graph::{effect::Effect, owner::Owner, untrack};
+
 use std::sync::Arc;
 
 /// Renders components somewhere else in the DOM.
@@ -62,12 +63,12 @@ where
                 container.clone()
             };
 
-            // SendWrapper: this is only created in a single-threaded browser environment
             let _ = mount.append_child(&container);
             let handle = SendWrapper::new((
                 mount::mount_to(render_root.unchecked_into(), {
                     let children = Arc::clone(&children);
-                    move || children()
+                    move || untrack(|| children())
+
                 }),
                 mount.clone(),
                 container,

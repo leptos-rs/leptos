@@ -13,10 +13,7 @@ pub mod ssr_imports {
     pub use std::sync::atomic::{AtomicI32, Ordering};
 
     pub static COUNT: AtomicI32 = AtomicI32::new(0);
-
     pub static COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
-
-}
 
 #[server]
 #[cfg_attr(feature = "ssr", instrument)]

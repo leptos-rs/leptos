@@ -364,7 +364,9 @@ impl Effect {
                                 &mut *dep_value.write().or_poisoned(),
                             );
                             let new_dep_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| dependency_fn())
+
+                                subscriber.with_observer(&mut dependency_fn)
+
                             });
 
                             let old_watch_value = mem::take(
@@ -434,7 +436,9 @@ impl Effect {
                                 &mut *dep_value.write().or_poisoned(),
                             );
                             let new_dep_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| dependency_fn())
+
+                                subscriber.with_observer(&mut dependency_fn)
+
                             });
 
                             let old_watch_value = mem::take(

@@ -249,6 +249,13 @@ pub fn Admin() -> impl IntoView {
     }
 }
 
+#[component]
+pub fn Admin() -> impl IntoView {
+    view! {
+        <p>"You can only see this page if you're logged in."</p>
+    }
+}
+
 // Dummy API
 
 static POSTS: Lazylock<Vec<Post>> = LazyLock::new(||vec![

@@ -41,6 +41,7 @@ exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.7.0-beta"
+
 # Required by use of std::sync::LazyLock
 rust-version = "1.80"
 

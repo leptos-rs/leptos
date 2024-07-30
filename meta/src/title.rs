@@ -182,12 +182,14 @@ impl TitleView {
 }
 
 struct TitleViewState {
+    // effect is stored in the view state to keep it alive until rebuild
+    #[allow(dead_code)]
     effect: RenderEffect<Oco<'static, str>>,
 }
 
 impl Render<Dom> for TitleView {
     type State = TitleViewState;
-
+  
     fn build(mut self) -> Self::State {
         let el = self.el();
         let meta = self.meta;
@@ -279,9 +281,24 @@ impl RenderHtml<Dom> for TitleView {
                 text
             }
         });
-        TitleViewState {
-            effect,
-        }
+        TitleViewState { effect }
+    }
+}
+
+impl Mountable<Dom> for TitleViewState {
+    fn unmount(&mut self) {}
+
+    fn mount(
+        &mut self,
+        _parent: &<Dom as Renderer>::Element,
+        _marker: Option<&<Dom as Renderer>::Node>,
+    ) {
+        // <title> doesn't need to be mounted
+        // TitleView::el() guarantees that there is a <title> in the <head>
+    }
+
+    fn insert_before_this(&self, _child: &mut dyn Mountable<Dom>) -> bool {
+        false
     }
 }
 

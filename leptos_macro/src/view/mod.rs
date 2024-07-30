@@ -6,7 +6,7 @@ use self::{
     slot_helper::{get_slot, slot_to_tokens},
 };
 use convert_case::{Case::Snake, Casing};
-use leptos_hot_reload::parsing::is_component_node;
+use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error::abort;
 use quote::{quote, quote_spanned, ToTokens};
@@ -125,6 +125,113 @@ fn children_to_tokens(
             Some(tokens) => vec![tokens],
             None => vec![],
         }
+        nodes
+    }
+}
+
+fn node_to_tokens(
+    node: &Node,
+    parent_type: TagType,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
+    global_class: Option<&TokenTree>,
+    view_marker: Option<&str>,
+) -> Option<TokenStream> {
+    match node {
+        Node::Comment(_) => None,
+        Node::Doctype(node) => {
+            let value = node.value.to_string_best();
+            Some(quote! { ::leptos::tachys::html::doctype(#value) })
+        }
+        Node::Fragment(fragment) => fragment_to_tokens(
+            &fragment.children,
+            parent_type,
+            parent_slots,
+            global_class,
+            view_marker,
+        ),
+        Node::Block(block) => Some(quote! { #block }),
+        Node::Text(text) => Some(text_to_tokens(&text.value)),
+        Node::RawText(raw) => {
+            let text = raw.to_string_best();
+            let text = syn::LitStr::new(&text, raw.span());
+            Some(text_to_tokens(&text))
+        }
+        Node::Element(node) => element_to_tokens(
+            node,
+            parent_type,
+            parent_slots,
+            global_class,
+            view_marker,
+        ),
+    }
+}
+
+fn text_to_tokens(text: &LitStr) -> TokenStream {
+    // on nightly, can use static string optimization
+    if cfg!(feature = "nightly") {
+        quote! {
+            ::leptos::tachys::view::static_types::Static::<#text>
+        }
+    }
+    // otherwise, just use the literal string
+    else {
+        quote! { #text }
+    }
+}
+
+pub(crate) fn element_to_tokens(
+    node: &NodeElement,
+    mut parent_type: TagType,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
+    global_class: Option<&TokenTree>,
+    view_marker: Option<&str>,
+) -> Option<TokenStream> {
+    let name = node.name();
+    if is_component_node(node) {
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(node, slot, parent_slots, global_class);
+            None
+        } else {
+            Some(component_to_tokens(node, global_class))
+        }
+    } else if is_spread_marker(node) {
+        let mut attributes = Vec::new();
+        let mut additions = Vec::new();
+        for node in node.attributes() {
+            match node {
+                NodeAttribute::Block(block) => {
+                    if let NodeBlock::ValidBlock(block) = block {
+                        match block.stmts.first() {
+                            Some(Stmt::Expr(
+                                Expr::Range(ExprRange {
+                                    start: None,
+                                    limits: RangeLimits::HalfOpen(_),
+                                    end: Some(end),
+                                    ..
+                                }),
+                                _,
+                            )) => {
+                                additions.push(quote! { #end });
+                            }
+                            _ => {
+                                additions.push(quote! { #block });
+                            }
+                        }
+                    } else {
+                        additions.push(quote! { #block });
+                    }
+                }
+                NodeAttribute::Attribute(node) => {
+                    if let Some(content) = attribute_absolute(node, true) {
+                        attributes.push(content);
+                    }
+                }
+            }
+        }
+        Some(quote! {
+            (#(#attributes,)*)
+            #(.add_any_attr(#additions))*
+        })
     } else {
         let mut slots = HashMap::new();
         let nodes = nodes
@@ -319,6 +426,11 @@ pub(crate) fn element_to_tokens(
             })
         };
 
+        let global_class_expr = global_class.map(|class| {
+            quote! { .class((#class, true)) }
+        });
+
+
         let self_closing = is_self_closing(node);
         let children = if !self_closing {
             element_children_to_tokens(
@@ -348,6 +460,7 @@ pub(crate) fn element_to_tokens(
             #name
             #children
             #attributes
+            #global_class_expr
         })
     }
 }
@@ -373,8 +486,8 @@ fn is_spread_marker(node: &NodeElement) -> bool {
 fn attribute_to_tokens(
     tag_type: TagType,
     node: &NodeAttribute,
-    // TODO global_class support
-    _global_class: Option<&TokenTree>,
+    global_class: Option<&TokenTree>,
+
     is_custom: bool,
 ) -> TokenStream {
     match node {
@@ -463,6 +576,19 @@ fn attribute_to_tokens(
             } else {
                 let key = attribute_name(&node.key);
                 let value = attribute_value(node);
+
+                // special case of global_class and class attribute
+                if &node.key.to_string() == "class"
+                    && global_class.is_some()
+                    && node.value().and_then(value_to_string).is_none()
+                {
+                    let span = node.key.span();
+                    proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
+            and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
+            toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+                };
+
                 quote! {
                     .#key(#value)
                 }
