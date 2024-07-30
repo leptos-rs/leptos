@@ -394,11 +394,11 @@ pub fn create_signal_from_stream<T>(
 /// - [`.get()`](#impl-SignalGet<T>-for-ReadSignal<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-ReadSignal<T>) clones the value of the signal
+/// - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-ReadSignal<T>) clones the value of the signal
 ///   without reactively tracking it.
 /// - [`.with()`](#impl-SignalWith<T>-for-ReadSignal<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
-///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-ReadSignal<T>) allows you to access the signal’s
+/// - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-ReadSignal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
 /// - [`.to_stream()`](#impl-SignalStream<T>-for-ReadSignal<T>) converts the signal to an `async` stream of values.
 ///
@@ -817,11 +817,11 @@ impl<T> Hash for ReadSignal<T> {
 /// - [`.set()`](#impl-SignalSet<T>-for-WriteSignal<T>) (or calling the setter as a function)
 ///   sets the signal’s value, and notifies all subscribers that the signal’s value has changed.
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-WriteSignal<T>) sets the signal’s value
+/// - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-WriteSignal<T>) sets the signal’s value
 ///   without notifying its subscribers.
 /// - [`.update()`](#impl-SignalUpdate<T>-for-WriteSignal<T>) mutates the signal’s value in place
 ///   and notifies all subscribers that the signal’s value has changed.
-///   - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-WriteSignal<T>) mutates the signal’s value
+/// - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-WriteSignal<T>) mutates the signal’s value
 ///   in place without notifying its subscribers.
 ///
 /// ## Examples
@@ -1165,20 +1165,20 @@ pub fn create_rw_signal<T>(value: T) -> RwSignal<T> {
 /// - [`.get()`](#impl-SignalGet<T>-for-RwSignal<T>) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-RwSignal<T>) clones the value of the signal
+/// - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-RwSignal<T>) clones the value of the signal
 ///   without reactively tracking it.
 /// - [`.with()`](#impl-SignalWith<T>-for-RwSignal<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
-///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-RwSignal<T>) allows you to access the signal’s
+/// - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-RwSignal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
 /// - [`.set()`](#impl-SignalSet<T>-for-RwSignal<T>) sets the signal’s value,
 ///   and notifies all subscribers that the signal’s value has changed.
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-RwSignal<T>) sets the signal’s value
+/// - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-RwSignal<T>) sets the signal’s value
 ///   without notifying its subscribers.
 /// - [`.update()`](#impl-SignalUpdate<T>-for-RwSignal<T>) mutates the signal’s value in place
 ///   and notifies all subscribers that the signal’s value has changed.
-///   - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-RwSignal<T>) mutates the signal’s value
+/// - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-RwSignal<T>) mutates the signal’s value
 ///   in place without notifying its subscribers.
 /// - [`.to_stream()`](#impl-SignalStream<T>-for-RwSignal<T>) converts the signal to an `async` stream of values.
 ///

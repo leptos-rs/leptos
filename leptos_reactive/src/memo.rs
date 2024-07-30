@@ -174,7 +174,7 @@ where
 ///
 /// Unlike a "derived signal," a memo comes with two guarantees:
 /// 1. The memo will only run *once* per change, no matter how many times you
-/// access its value.
+///    access its value.
 /// 2. The memo will only notify its dependents if the value of the computation changes.
 ///
 /// This makes a memo the perfect tool for expensive computations.
@@ -190,11 +190,11 @@ where
 /// - [`.get()`](#impl-SignalGet<T>-for-Memo<T>) (or calling the signal as a function) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
-///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Memo<T>) clones the value of the signal
+/// - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Memo<T>) clones the value of the signal
 ///   without reactively tracking it.
 /// - [`.with()`](#impl-SignalWith<T>-for-Memo<T>) allows you to reactively access the signal’s value without
 ///   cloning by applying a callback function.
-///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Memo<T>) allows you to access the signal’s
+/// - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Memo<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
 /// - [`.to_stream()`](#impl-SignalStream<T>-for-Memo<T>) converts the signal to an `async` stream of values.
 ///
