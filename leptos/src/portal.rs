@@ -1,12 +1,7 @@
 use crate::{children::TypedChildrenFn, mount, IntoView};
 use leptos_dom::helpers::document;
 use leptos_macro::component;
-#[cfg(all(
-    target_arch = "wasm32",
-    any(feature = "hydrate", feature = "csr")
-))]
-use reactive_graph::untrack;
-use reactive_graph::{effect::Effect, owner::Owner};
+use reactive_graph::{effect::Effect, owner::Owner, untrack};
 use std::sync::Arc;
 
 /// Renders components somewhere else in the DOM.
@@ -71,7 +66,7 @@ where
             let handle = SendWrapper::new((
                 mount::mount_to(render_root.unchecked_into(), {
                     let children = Arc::clone(&children);
-                    move || untrack(children())
+                    move || untrack(|| children())
                 }),
                 mount.clone(),
                 container,
