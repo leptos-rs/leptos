@@ -1401,7 +1401,7 @@ where
     T: actix_web::FromRequest,
     <T as FromRequest>::Error: Display,
 {
-    let req = use_context::<HttpRequest>().ok_or_else(|| {
+    let req = use_context::<Request>().ok_or_else(|| {
         ServerFnError::new("HttpRequest should have been provided via context")
     })?;
 
