@@ -13,7 +13,7 @@ leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
-gloo-net = { version = "0.2", features = ["http"] }
+gloo-net = { version = "0.6", features = ["http"] }
 log = "0.4"
 
 # dependencies for client (enable when csr or hydrate set)

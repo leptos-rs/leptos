@@ -22,11 +22,11 @@ log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1.0.148", features = ["derive"] }
 tracing = "0.1"
-gloo-net = { version = "0.4.0", features = ["http"] }
-reqwest = { version = "0.11.13", features = ["json"] }
+gloo-net = { version = "0.6", features = ["http"] }
+reqwest = { version = "0.12", features = ["json"] }
 axum = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4.13", optional = true }
-http = { version = "0.2.11", optional = true }
+http = { version = "1.0", optional = true }
 web-sys = { version = "0.3", features = [
   "AbortController",
   "AbortSignal",

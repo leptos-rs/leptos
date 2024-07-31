@@ -13,20 +13,18 @@ lto = true
 [dependencies]
 console_log = "1.0"
 console_error_panic_hook = "0.1"
-leptos = { path = "../../leptos", features = [
-  "experimental-islands",
-] }
+leptos = { path = "../../leptos", features = ["experimental-islands"] }
 leptos_axum = { path = "../../integrations/axum", optional = true, features = [
   "experimental-islands",
 ] }
 leptos_meta = { path = "../../meta" }
-leptos_router = { path = "../../router"}
+leptos_router = { path = "../../router" }
 log = "0.4"
 simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
-gloo-net = { version = "0.4", features = ["http"] }
-reqwest = { version = "0.11", features = ["json"] }
+gloo-net = { version = "0.6", features = ["http"] }
+reqwest = { version = "0.12", features = ["json"] }
 axum = { version = "0.7", optional = true, features = ["http2"] }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = [
@@ -39,7 +37,11 @@ http = { version = "1.0", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 wasm-bindgen = "0.2"
 lazy_static = "1.4.0"
-rust-embed = { version = "8", features = ["axum", "mime_guess", "tokio"], optional = true  }
+rust-embed = { version = "8", features = [
+  "axum",
+  "mime_guess",
+  "tokio",
+], optional = true }
 mime_guess = { version = "2.0.4", optional = true }
 
 [features]
