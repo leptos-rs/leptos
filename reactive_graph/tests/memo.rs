@@ -1,17 +1,31 @@
-use any_spawner::Executor;
 use reactive_graph::{
     computed::{ArcMemo, Memo},
-    effect::{Effect, RenderEffect},
     prelude::*,
     signal::RwSignal,
     wrappers::read::Signal,
 };
 use std::{
-    mem,
     rc::Rc,
     sync::{Arc, RwLock},
 };
-use tokio::task;
+
+#[cfg(feature = "effects")]
+pub mod imports {
+    pub use any_spawner::Executor;
+    pub use reactive_graph::{
+        computed::{ArcMemo, Memo},
+        effect::{Effect, RenderEffect},
+        prelude::*,
+        signal::RwSignal,
+        wrappers::read::Signal,
+    };
+    pub use std::{
+        mem,
+        rc::Rc,
+        sync::{Arc, RwLock},
+    };
+    pub use tokio::task;
+}
 
 #[test]
 fn memo_calculates_value() {
@@ -173,6 +187,8 @@ fn diamond_problem() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn dynamic_dependencies() {
+    use imports::*;
+
     _ = Executor::init_tokio();
 
     let first = RwSignal::new("Greg");
@@ -248,6 +264,8 @@ async fn dynamic_dependencies() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
+    use imports::*;
+
     _ = Executor::init_tokio();
 
     task::LocalSet::new()
@@ -289,6 +307,8 @@ async fn render_effect_doesnt_rerun_if_memo_didnt_change() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_doesnt_rerun_if_memo_didnt_change() {
+    use imports::*;
+
     _ = Executor::init_tokio();
 
     task::LocalSet::new()
@@ -323,6 +343,8 @@ async fn effect_doesnt_rerun_if_memo_didnt_change() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_depending_on_signal_and_memo_doesnt_rerun_unnecessarily() {
+    use imports::*;
+
     _ = Executor::init_tokio();
 
     task::LocalSet::new()
