@@ -286,6 +286,9 @@ where
         let mut initial_state = state.borrow_mut();
         if url_snapshot.path() == initial_state.path {
             initial_state.url.set(url_snapshot.to_owned());
+            if let Some(location) = location {
+                location.ready_to_complete();
+            }
             return;
         }
 
@@ -304,6 +307,9 @@ where
         // if it's the same route, we just update the params
         if new_id == initial_state.id {
             initial_state.params.set(matched_params);
+            if let Some(location) = location {
+                location.ready_to_complete();
+            }
             return;
         }
 
@@ -377,7 +383,6 @@ where
                             if let Some(location) = location {
                                 location.ready_to_complete();
                             }
-
                             drop(old_owner);
                             drop(old_params);
                             drop(old_url);

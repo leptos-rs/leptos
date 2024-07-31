@@ -119,10 +119,12 @@ impl LocationProvider for BrowserUrl {
                     Self::complete_navigation(&loc);
                 }
                 let pending = Arc::clone(&pending);
+                let (tx, rx) = oneshot::channel::<()>();
+                if !same_path {
+                    *pending.lock().or_poisoned() = Some(tx);
+                }
                 async move {
                     if !same_path {
-                        let (tx, rx) = oneshot::channel::<()>();
-                        *pending.lock().or_poisoned() = Some(tx);
                         // if it has been canceled, ignore
                         // otherwise, complete navigation -- i.e., set URL in address bar
                         if rx.await.is_ok() {
