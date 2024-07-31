@@ -1324,7 +1324,7 @@ impl LeptosRoutes for &mut ServiceConfig {
         let mut router = self;
 
         // register server functions first to allow for wildcard route in Leptos's Router
-        for (path, method) in server_fn::actix::server_fn_paths() {
+        for (path, _) in server_fn::actix::server_fn_paths() {
             let additional_context = additional_context.clone();
             let handler = handle_server_fns_with_context(additional_context);
             router = router.route(path, handler);
