@@ -13,7 +13,7 @@ pub mod read {
     use std::{panic::Location, sync::Arc};
 
     /// Possibilities for the inner type of a [`Signal`].
-    pub enum SignalTypes<T, S>
+    pub enum SignalTypes<T, S = SyncStorage>
     where
         S: Storage<T>,
     {
