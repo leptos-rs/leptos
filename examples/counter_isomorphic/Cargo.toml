@@ -23,7 +23,7 @@ leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router" }
 log = "0.4"
 once_cell = "1.18"
-gloo-net = { git = "https://github.com/rustwasm/gloo" }
+gloo-net = { version = "0.6" }
 wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 simple_logger = "4.3"
@@ -33,12 +33,12 @@ send_wrapper = "0.6.0"
 [features]
 hydrate = ["leptos/hydrate"]
 ssr = [
-	"dep:actix-files",
-	"dep:actix-web",
-	"dep:tracing",
-	"leptos/ssr",
-	"leptos_actix",
-	"leptos_router/ssr",
+  "dep:actix-files",
+  "dep:actix-web",
+  "dep:tracing",
+  "leptos/ssr",
+  "leptos_actix",
+  "leptos_router/ssr",
 ]
 
 [package.metadata.cargo-all-features]

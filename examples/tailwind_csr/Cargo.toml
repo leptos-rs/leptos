@@ -7,5 +7,5 @@ edition = "2021"
 leptos = { path = "../../leptos", features = ["csr"] }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
-gloo-net = { version = "0.5", features = ["http"] }
+gloo-net = { version = "0.6", features = ["http"] }
 console_error_panic_hook = { version = "0.1" }
