@@ -1,18 +1,23 @@
-use any_spawner::Executor;
-use reactive_graph::{
-    effect::{Effect, RenderEffect},
-    prelude::*,
-    signal::RwSignal,
-};
-use std::{
-    mem,
-    sync::{Arc, RwLock},
-};
-use tokio::task;
+#[cfg(feature = "effects")]
+pub mod imports {
+    pub use any_spawner::Executor;
+    pub use reactive_graph::{
+        effect::{Effect, RenderEffect},
+        prelude::*,
+        signal::RwSignal,
+    };
+    pub use std::{
+        mem,
+        sync::{Arc, RwLock},
+    };
+    pub use tokio::task;
+}
 
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn render_effect_runs() {
+    use imports::*;
+
     _ = Executor::init_tokio();
     task::LocalSet::new()
         .run_until(async {
@@ -46,6 +51,8 @@ async fn render_effect_runs() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn effect_runs() {
+    use imports::*;
+
     _ = Executor::init_tokio();
 
     task::LocalSet::new()
@@ -78,6 +85,8 @@ async fn effect_runs() {
 #[cfg(feature = "effects")]
 #[tokio::test]
 async fn dynamic_dependencies() {
+    use imports::*;
+
     _ = Executor::init_tokio();
 
     task::LocalSet::new()
