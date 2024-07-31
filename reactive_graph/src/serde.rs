@@ -35,8 +35,8 @@ where
 
 impl<T, St> Serialize for Memo<T, St>
 where
-    T: Send + Sync + Serialize + 'static,
-    St: Storage<ArcMemo<T>>,
+    T: Serialize + 'static,
+    St: Storage<ArcMemo<T, St>> + Storage<T>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -64,7 +64,7 @@ impl<T: Serialize + 'static> Serialize for ArcRwSignal<T> {
     }
 }
 
-impl<T: Send + Sync + Serialize + 'static> Serialize for ArcMemo<T> {
+impl<T: Serialize + 'static, St: Storage<T>> Serialize for ArcMemo<T, St> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -76,7 +76,7 @@ impl<T: Send + Sync + Serialize + 'static> Serialize for ArcMemo<T> {
 impl<T, St> Serialize for MaybeSignal<T, St>
 where
     T: Send + Sync + Serialize,
-    St: Storage<SignalTypes<T>>,
+    St: Storage<SignalTypes<T, St>> + Storage<T>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -89,7 +89,7 @@ where
 impl<T, St> Serialize for MaybeProp<T, St>
 where
     T: Send + Sync + Serialize,
-    St: Storage<SignalTypes<Option<T>>>,
+    St: Storage<SignalTypes<Option<T>, St>> + Storage<Option<T>>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -112,7 +112,7 @@ where
 impl<T, St> Serialize for Signal<T, St>
 where
     T: Send + Sync + Serialize + 'static,
-    St: Storage<SignalTypes<T>>,
+    St: Storage<SignalTypes<T, St>> + Storage<T>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -146,7 +146,10 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for ArcRwSignal<T> {
     }
 }
 
-impl<'de, T: Deserialize<'de>, S> Deserialize<'de> for MaybeSignal<T, S> {
+impl<'de, T: Deserialize<'de>, St> Deserialize<'de> for MaybeSignal<T, St>
+where
+    St: Storage<T>,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

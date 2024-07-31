@@ -96,24 +96,30 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 ///   stream of values.
 /// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
 ///   of values into a memo containing the latest value.
-pub struct Memo<T, S = SyncStorage> {
+pub struct Memo<T, S = SyncStorage>
+where
+    S: Storage<T>,
+{
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcMemo<T>, S>,
+    inner: StoredValue<ArcMemo<T, S>, S>,
 }
 
-impl<T, S> Dispose for Memo<T, S> {
+impl<T, S> Dispose for Memo<T, S>
+where
+    S: Storage<T>,
+{
     fn dispose(self) {
         self.inner.dispose()
     }
 }
 
-impl<T> From<ArcMemo<T>> for Memo<T>
+impl<T> From<ArcMemo<T, SyncStorage>> for Memo<T>
 where
     T: Send + Sync + 'static,
 {
     #[track_caller]
-    fn from(value: ArcMemo<T>) -> Self {
+    fn from(value: ArcMemo<T, SyncStorage>) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
@@ -122,12 +128,12 @@ where
     }
 }
 
-impl<T> FromLocal<ArcMemo<T>> for Memo<T, LocalStorage>
+impl<T> FromLocal<ArcMemo<T, LocalStorage>> for Memo<T, LocalStorage>
 where
     T: 'static,
 {
     #[track_caller]
-    fn from_local(value: ArcMemo<T>) -> Self {
+    fn from_local(value: ArcMemo<T, LocalStorage>) -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
@@ -227,9 +233,13 @@ where
         }
     }
 }
-impl<T, S> Copy for Memo<T, S> {}
 
-impl<T, S> Clone for Memo<T, S> {
+impl<T, S> Copy for Memo<T, S> where S: Storage<T> {}
+
+impl<T, S> Clone for Memo<T, S>
+where
+    S: Storage<T>,
+{
     fn clone(&self) -> Self {
         *self
     }
@@ -237,7 +247,7 @@ impl<T, S> Clone for Memo<T, S> {
 
 impl<T, S> Debug for Memo<T, S>
 where
-    S: Debug,
+    S: Debug + Storage<T>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Memo")
@@ -247,21 +257,30 @@ where
     }
 }
 
-impl<T, S> PartialEq for Memo<T, S> {
+impl<T, S> PartialEq for Memo<T, S>
+where
+    S: Storage<T>,
+{
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<T, S> Eq for Memo<T, S> {}
+impl<T, S> Eq for Memo<T, S> where S: Storage<T> {}
 
-impl<T, S> Hash for Memo<T, S> {
+impl<T, S> Hash for Memo<T, S>
+where
+    S: Storage<T>,
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<T, S> DefinedAt for Memo<T, S> {
+impl<T, S> DefinedAt for Memo<T, S>
+where
+    S: Storage<T>,
+{
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
         {
@@ -277,8 +296,8 @@ impl<T, S> DefinedAt for Memo<T, S> {
 impl<T, S> Track for Memo<T, S>
 where
     T: 'static,
-    S: Storage<ArcMemo<T>>,
-    ArcMemo<T>: Track,
+    S: Storage<ArcMemo<T, S>> + Storage<T>,
+    ArcMemo<T, S>: Track,
 {
     #[track_caller]
     fn track(&self) {
@@ -291,9 +310,9 @@ where
 impl<T, S> ReadUntracked for Memo<T, S>
 where
     T: 'static,
-    S: Storage<ArcMemo<T>>,
+    S: Storage<ArcMemo<T, S>> + Storage<T>,
 {
-    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T>>, T>>;
+    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T, S>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner
@@ -302,10 +321,10 @@ where
     }
 }
 
-impl<T, S> From<Memo<T, S>> for ArcMemo<T>
+impl<T, S> From<Memo<T, S>> for ArcMemo<T, S>
 where
     T: 'static,
-    S: Storage<ArcMemo<T>>,
+    S: Storage<ArcMemo<T, S>> + Storage<T>,
 {
     #[track_caller]
     fn from(value: Memo<T, S>) -> Self {

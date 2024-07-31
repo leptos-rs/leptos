@@ -13,16 +13,22 @@ pub mod read {
     use std::{panic::Location, sync::Arc};
 
     /// Possibilities for the inner type of a [`Signal`].
-    pub enum SignalTypes<T> {
+    pub enum SignalTypes<T, S>
+    where
+        S: Storage<T>,
+    {
         /// A readable signal.
         ReadSignal(ArcReadSignal<T>),
         /// A memo.
-        Memo(ArcMemo<T>),
+        Memo(ArcMemo<T, S>),
         /// A derived signal.
         DerivedSignal(Arc<dyn Fn() -> T + Send + Sync>),
     }
 
-    impl<T> Clone for SignalTypes<T> {
+    impl<T, S> Clone for SignalTypes<T, S>
+    where
+        S: Storage<T>,
+    {
         fn clone(&self) -> Self {
             match self {
                 Self::ReadSignal(arg0) => Self::ReadSignal(arg0.clone()),
@@ -32,7 +38,10 @@ pub mod read {
         }
     }
 
-    impl<T> core::fmt::Debug for SignalTypes<T> {
+    impl<T, S> core::fmt::Debug for SignalTypes<T, S>
+    where
+        S: Storage<T>,
+    {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             match self {
                 Self::ReadSignal(arg0) => {
@@ -46,7 +55,10 @@ pub mod read {
         }
     }
 
-    impl<T> PartialEq for SignalTypes<T> {
+    impl<T, S> PartialEq for SignalTypes<T, S>
+    where
+        S: Storage<T>,
+    {
         fn eq(&self, other: &Self) -> bool {
             match (self, other) {
                 (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,
@@ -66,13 +78,19 @@ pub mod read {
     /// This allows you to create APIs that take any kind of `ArcSignal<T>` as an argument,
     /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
     /// function call, `with()`, and `get()` APIs as other signals.
-    pub struct ArcSignal<T: 'static> {
+    pub struct ArcSignal<T: 'static, S = SyncStorage>
+    where
+        S: Storage<T>,
+    {
         #[cfg(debug_assertions)]
         defined_at: &'static Location<'static>,
-        inner: SignalTypes<T>,
+        inner: SignalTypes<T, S>,
     }
 
-    impl<T> Clone for ArcSignal<T> {
+    impl<T, S> Clone for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn clone(&self) -> Self {
             Self {
                 #[cfg(debug_assertions)]
@@ -82,7 +100,10 @@ pub mod read {
         }
     }
 
-    impl<T> core::fmt::Debug for ArcSignal<T> {
+    impl<T, S> core::fmt::Debug for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut s = f.debug_struct("ArcSignal");
             s.field("inner", &self.inner);
@@ -92,17 +113,20 @@ pub mod read {
         }
     }
 
-    impl<T> Eq for ArcSignal<T> {}
+    impl<T, S> Eq for ArcSignal<T, S> where S: Storage<T> {}
 
-    impl<T> PartialEq for ArcSignal<T> {
+    impl<T, S> PartialEq for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn eq(&self, other: &Self) -> bool {
             self.inner == other.inner
         }
     }
 
-    impl<T> ArcSignal<T>
+    impl<T> ArcSignal<T, SyncStorage>
     where
-        T: Send + Sync + 'static,
+        SyncStorage: Storage<T>,
     {
         /// Wraps a derived signal, i.e., any computation that accesses one or more
         /// reactive signals.
@@ -145,7 +169,7 @@ pub mod read {
         }
     }
 
-    impl<T> Default for ArcSignal<T>
+    impl<T> Default for ArcSignal<T, SyncStorage>
     where
         T: Default + Send + Sync + 'static,
     {
@@ -154,7 +178,7 @@ pub mod read {
         }
     }
 
-    impl<T: Send + Sync> From<ArcReadSignal<T>> for ArcSignal<T> {
+    impl<T: Send + Sync> From<ArcReadSignal<T>> for ArcSignal<T, SyncStorage> {
         #[track_caller]
         fn from(value: ArcReadSignal<T>) -> Self {
             Self {
@@ -165,7 +189,7 @@ pub mod read {
         }
     }
 
-    impl<T: Send + Sync> From<ArcRwSignal<T>> for ArcSignal<T> {
+    impl<T: Send + Sync> From<ArcRwSignal<T>> for ArcSignal<T, SyncStorage> {
         #[track_caller]
         fn from(value: ArcRwSignal<T>) -> Self {
             Self {
@@ -176,9 +200,12 @@ pub mod read {
         }
     }
 
-    impl<T: Send + Sync> From<ArcMemo<T>> for ArcSignal<T> {
+    impl<T, S> From<ArcMemo<T, S>> for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         #[track_caller]
-        fn from(value: ArcMemo<T>) -> Self {
+        fn from(value: ArcMemo<T, S>) -> Self {
             Self {
                 inner: SignalTypes::Memo(value),
                 #[cfg(debug_assertions)]
@@ -187,7 +214,10 @@ pub mod read {
         }
     }
 
-    impl<T> DefinedAt for ArcSignal<T> {
+    impl<T, S> DefinedAt for ArcSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
             #[cfg(debug_assertions)]
             {
@@ -200,9 +230,9 @@ pub mod read {
         }
     }
 
-    impl<T> WithUntracked for ArcSignal<T>
+    impl<T, S> WithUntracked for ArcSignal<T, S>
     where
-        T: Send + Sync,
+        S: Storage<T>,
     {
         type Value = T;
 
@@ -218,9 +248,10 @@ pub mod read {
         }
     }
 
-    impl<T> With for ArcSignal<T>
+    impl<T, S> With for ArcSignal<T, S>
     where
-        T: Send + Sync + Clone,
+        S: Storage<T>,
+        T: Clone,
     {
         type Value = T;
 
@@ -242,29 +273,38 @@ pub mod read {
     /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
     /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
     /// function call, `with()`, and `get()` APIs as other signals.
-    pub struct Signal<T, S = SyncStorage> {
+    pub struct Signal<T, S = SyncStorage>
+    where
+        S: Storage<T>,
+    {
         #[cfg(debug_assertions)]
         defined_at: &'static Location<'static>,
-        inner: StoredValue<SignalTypes<T>, S>,
+        inner: StoredValue<SignalTypes<T, S>, S>,
     }
 
-    impl<T, S> Dispose for Signal<T, S> {
+    impl<T, S> Dispose for Signal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn dispose(self) {
             self.inner.dispose()
         }
     }
 
-    impl<T, S> Clone for Signal<T, S> {
+    impl<T, S> Clone for Signal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn clone(&self) -> Self {
             *self
         }
     }
 
-    impl<T, S> Copy for Signal<T, S> {}
+    impl<T, S> Copy for Signal<T, S> where S: Storage<T> {}
 
     impl<T, S> core::fmt::Debug for Signal<T, S>
     where
-        S: std::fmt::Debug,
+        S: std::fmt::Debug + Storage<T>,
     {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut s = f.debug_struct("Signal");
@@ -275,15 +315,21 @@ pub mod read {
         }
     }
 
-    impl<T, S> Eq for Signal<T, S> {}
+    impl<T, S> Eq for Signal<T, S> where S: Storage<T> {}
 
-    impl<T, S> PartialEq for Signal<T, S> {
+    impl<T, S> PartialEq for Signal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn eq(&self, other: &Self) -> bool {
             self.inner == other.inner
         }
     }
 
-    impl<T, S> DefinedAt for Signal<T, S> {
+    impl<T, S> DefinedAt for Signal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
             #[cfg(debug_assertions)]
             {
@@ -299,7 +345,7 @@ pub mod read {
     impl<T, S> WithUntracked for Signal<T, S>
     where
         T: 'static,
-        S: Storage<SignalTypes<T>>,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
     {
         type Value = T;
 
@@ -323,8 +369,8 @@ pub mod read {
 
     impl<T, S> With for Signal<T, S>
     where
-        T: Send + Sync + 'static,
-        S: Storage<SignalTypes<T>>,
+        T: 'static,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
     {
         type Value = T;
 
@@ -433,7 +479,7 @@ pub mod read {
         }
     }
 
-    impl<T: Clone + Send + Sync + 'static> From<T> for ArcSignal<T> {
+    impl<T: Clone + Send + Sync + 'static> From<T> for ArcSignal<T, SyncStorage> {
         #[track_caller]
         fn from(value: T) -> Self {
             Self::derive(move || value.clone())
@@ -460,12 +506,12 @@ pub mod read {
         }
     }
 
-    impl<T> From<ArcSignal<T>> for Signal<T>
+    impl<T> From<ArcSignal<T, SyncStorage>> for Signal<T>
     where
         T: Send + Sync + 'static,
     {
         #[track_caller]
-        fn from(value: ArcSignal<T>) -> Self {
+        fn from(value: ArcSignal<T, SyncStorage>) -> Self {
             Signal {
                 #[cfg(debug_assertions)]
                 defined_at: Location::caller(),
@@ -474,12 +520,12 @@ pub mod read {
         }
     }
 
-    impl<T> FromLocal<ArcSignal<T>> for Signal<T, LocalStorage>
+    impl<T> FromLocal<ArcSignal<T, LocalStorage>> for Signal<T, LocalStorage>
     where
         T: 'static,
     {
         #[track_caller]
-        fn from_local(value: ArcSignal<T>) -> Self {
+        fn from_local(value: ArcSignal<T, LocalStorage>) -> Self {
             Signal {
                 #[cfg(debug_assertions)]
                 defined_at: Location::caller(),
@@ -488,9 +534,9 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<Signal<T, S>> for ArcSignal<T>
+    impl<T, S> From<Signal<T, S>> for ArcSignal<T, S>
     where
-        S: Storage<SignalTypes<T>>,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
     {
         #[track_caller]
         fn from(value: Signal<T, S>) -> Self {
@@ -626,6 +672,7 @@ pub mod read {
     pub enum MaybeSignal<T, S = SyncStorage>
     where
         T: 'static,
+        S: Storage<T>,
     {
         /// An unchanging value of type `T`.
         Static(T),
@@ -633,7 +680,10 @@ pub mod read {
         Dynamic(Signal<T, S>),
     }
 
-    impl<T: Clone, S> Clone for MaybeSignal<T, S> {
+    impl<T: Clone, S> Clone for MaybeSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn clone(&self) -> Self {
             match self {
                 Self::Static(item) => Self::Static(item.clone()),
@@ -642,15 +692,21 @@ pub mod read {
         }
     }
 
-    impl<T: Copy, S> Copy for MaybeSignal<T, S> {}
+    impl<T: Copy, S> Copy for MaybeSignal<T, S> where S: Storage<T> {}
 
-    impl<T: Default, S> Default for MaybeSignal<T, S> {
+    impl<T: Default, S> Default for MaybeSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn default() -> Self {
             Self::Static(Default::default())
         }
     }
 
-    impl<T, S> DefinedAt for MaybeSignal<T, S> {
+    impl<T, S> DefinedAt for MaybeSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
             // TODO this could be improved, but would require moving from an enum to a struct here.
             // Probably not worth it for relatively small benefits.
@@ -660,7 +716,7 @@ pub mod read {
 
     impl<T, S> WithUntracked for MaybeSignal<T, S>
     where
-        S: Storage<SignalTypes<T>>,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
     {
         type Value = T;
 
@@ -678,7 +734,7 @@ pub mod read {
     impl<T, S> With for MaybeSignal<T, S>
     where
         T: Send + Sync + 'static,
-        S: Storage<SignalTypes<T>>,
+        S: Storage<SignalTypes<T, S>> + Storage<T>,
     {
         type Value = T;
 
@@ -714,8 +770,20 @@ pub mod read {
         }
     }
 
-    impl<T, S> From<T> for MaybeSignal<T, S> {
+    impl<T> From<T> for MaybeSignal<T, SyncStorage>
+    where
+        SyncStorage: Storage<T>,
+    {
         fn from(value: T) -> Self {
+            Self::Static(value)
+        }
+    }
+
+    impl<T> FromLocal<T> for MaybeSignal<T, LocalStorage>
+    where
+        LocalStorage: Storage<T>,
+    {
+        fn from_local(value: T) -> Self {
             Self::Static(value)
         }
     }
@@ -807,19 +875,25 @@ pub mod read {
         }
     }
 
-    impl<T> FromLocal<ArcMemo<T>> for MaybeSignal<T, LocalStorage> {
-        fn from_local(value: ArcMemo<T>) -> Self {
+    impl<T> FromLocal<ArcMemo<T, LocalStorage>> for MaybeSignal<T, LocalStorage> {
+        fn from_local(value: ArcMemo<T, LocalStorage>) -> Self {
             Memo::from_local(value).into()
         }
     }
 
-    impl<T, S> From<Signal<T, S>> for MaybeSignal<T, S> {
+    impl<T, S> From<Signal<T, S>> for MaybeSignal<T, S>
+    where
+        S: Storage<T>,
+    {
         fn from(value: Signal<T, S>) -> Self {
             Self::Dynamic(value)
         }
     }
 
-    impl<S> From<&str> for MaybeSignal<String, S> {
+    impl<S> From<&str> for MaybeSignal<String, S>
+    where
+        S: Storage<String>,
+    {
         fn from(value: &str) -> Self {
             Self::Static(value.to_string())
         }
@@ -859,23 +933,34 @@ pub mod read {
     #[derive(Debug, PartialEq, Eq)]
     pub struct MaybeProp<T: 'static, S = SyncStorage>(
         pub(crate) Option<MaybeSignal<Option<T>, S>>,
-    );
+    )
+    where
+        S: Storage<Option<T>>;
 
-    impl<T: Clone, S> Clone for MaybeProp<T, S> {
+    impl<T: Clone, S> Clone for MaybeProp<T, S>
+    where
+        S: Storage<Option<T>>,
+    {
         fn clone(&self) -> Self {
             Self(self.0.clone())
         }
     }
 
-    impl<T: Copy, S> Copy for MaybeProp<T, S> {}
+    impl<T: Copy, S> Copy for MaybeProp<T, S> where S: Storage<Option<T>> {}
 
-    impl<T, S> Default for MaybeProp<T, S> {
+    impl<T, S> Default for MaybeProp<T, S>
+    where
+        S: Storage<Option<T>>,
+    {
         fn default() -> Self {
             Self(None)
         }
     }
 
-    impl<T, S> DefinedAt for MaybeProp<T, S> {
+    impl<T, S> DefinedAt for MaybeProp<T, S>
+    where
+        S: Storage<Option<T>>,
+    {
         fn defined_at(&self) -> Option<&'static Location<'static>> {
             // TODO this can be improved by adding a defined_at field
             None
@@ -884,7 +969,7 @@ pub mod read {
 
     impl<T, S> WithUntracked for MaybeProp<T, S>
     where
-        S: Storage<SignalTypes<Option<T>>>,
+        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
     {
         type Value = Option<T>;
 
@@ -902,7 +987,7 @@ pub mod read {
     impl<T, S> With for MaybeProp<T, S>
     where
         T: Send + Sync + 'static,
-        S: Storage<SignalTypes<Option<T>>>,
+        S: Storage<SignalTypes<Option<T>, S>> + Storage<Option<T>>,
     {
         type Value = Option<T>;
 
@@ -930,25 +1015,37 @@ pub mod read {
         }
     }
 
-    impl<T> From<T> for MaybeProp<T> {
+    impl<T> From<T> for MaybeProp<T>
+    where
+        SyncStorage: Storage<Option<T>>,
+    {
         fn from(value: T) -> Self {
             Self(Some(MaybeSignal::from(Some(value))))
         }
     }
 
-    impl<T> From<Option<T>> for MaybeProp<T> {
+    impl<T> From<Option<T>> for MaybeProp<T>
+    where
+        SyncStorage: Storage<Option<T>>,
+    {
         fn from(value: Option<T>) -> Self {
             Self(Some(MaybeSignal::from(value)))
         }
     }
 
-    impl<T> From<MaybeSignal<Option<T>>> for MaybeProp<T> {
+    impl<T> From<MaybeSignal<Option<T>>> for MaybeProp<T>
+    where
+        SyncStorage: Storage<Option<T>>,
+    {
         fn from(value: MaybeSignal<Option<T>>) -> Self {
             Self(Some(value))
         }
     }
 
-    impl<T> From<Option<MaybeSignal<Option<T>>>> for MaybeProp<T> {
+    impl<T> From<Option<MaybeSignal<Option<T>>>> for MaybeProp<T>
+    where
+        SyncStorage: Storage<Option<T>>,
+    {
         fn from(value: Option<MaybeSignal<Option<T>>>) -> Self {
             Self(value)
         }
@@ -981,7 +1078,10 @@ pub mod read {
         }
     }
 
-    impl<T> From<Signal<Option<T>>> for MaybeProp<T> {
+    impl<T> From<Signal<Option<T>>> for MaybeProp<T>
+    where
+        SyncStorage: Storage<Option<T>>,
+    {
         fn from(value: Signal<Option<T>>) -> Self {
             Self(Some(value.into()))
         }
@@ -1041,13 +1141,13 @@ pub mod read {
 
     impl<T> FromLocal<T> for MaybeProp<T, LocalStorage> {
         fn from_local(value: T) -> Self {
-            Self(Some(MaybeSignal::from(Some(value))))
+            Self(Some(MaybeSignal::from_local(Some(value))))
         }
     }
 
     impl<T> FromLocal<Option<T>> for MaybeProp<T, LocalStorage> {
         fn from_local(value: Option<T>) -> Self {
-            Self(Some(MaybeSignal::from(value)))
+            Self(Some(MaybeSignal::from_local(value)))
         }
     }
 
@@ -1138,7 +1238,7 @@ pub mod read {
 
     impl From<&str> for MaybeProp<String, LocalStorage> {
         fn from(value: &str) -> Self {
-            Self(Some(MaybeSignal::from(Some(value.to_string()))))
+            Self(Some(MaybeSignal::from_local(Some(value.to_string()))))
         }
     }
 }
