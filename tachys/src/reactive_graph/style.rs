@@ -308,6 +308,7 @@ mod stable {
             impl<C, R, S> IntoStyle<R> for $sig<C, S>
             where
                 $sig<C, S>: Get<Value = C>,
+                S: Storage<C> + Storage<Option<C>>,
                 S: Send + Sync + 'static,
                 C: IntoStyle<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
@@ -357,6 +358,7 @@ mod stable {
             where
                 $sig<S, St>: Get<Value = S>,
                 St: Send + Sync + 'static,
+                St: Storage<S> + Storage<Option<S>>,
                 S: Into<Cow<'static, str>> + Send + Sync + Clone + 'static,
                 R: DomRenderer,
             {
@@ -415,6 +417,7 @@ mod stable {
     use crate::{html::style::IntoStyle, renderer::DomRenderer};
     use reactive_graph::{
         computed::{ArcMemo, Memo},
+        owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
         wrappers::read::{ArcSignal, MaybeSignal, Signal},

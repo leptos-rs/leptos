@@ -92,6 +92,7 @@ mod stable {
     use reactive_graph::{
         computed::{ArcMemo, Memo},
         effect::RenderEffect,
+        owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
         wrappers::read::{ArcSignal, MaybeSignal, Signal},
@@ -147,6 +148,7 @@ mod stable {
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
+                S: Storage<V> + Storage<Option<V>>,
                 V: IntoProperty<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
                 R: DomRenderer,
