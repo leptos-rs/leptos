@@ -458,6 +458,7 @@ mod stable {
             where
                 $sig<C, S>: Get<Value = C>,
                 S: Send + Sync + 'static,
+                S: Storage<C> + Storage<Option<C>>,
                 C: IntoClass<R> + Send + Sync + Clone + 'static,
                 C::State: 'static,
                 R: DomRenderer,
@@ -510,6 +511,7 @@ mod stable {
             where
                 $sig<bool, S>: Get<Value = bool>,
                 S: Send + 'static,
+                S: Storage<bool>,
                 R: DomRenderer,
             {
                 type AsyncOutput = Self;
@@ -684,6 +686,7 @@ mod stable {
     use crate::{html::class::IntoClass, renderer::DomRenderer};
     use reactive_graph::{
         computed::{ArcMemo, Memo},
+        owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
         wrappers::read::{ArcSignal, MaybeSignal, Signal},

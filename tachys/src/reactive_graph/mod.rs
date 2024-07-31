@@ -496,6 +496,7 @@ mod stable {
     };
     use reactive_graph::{
         computed::{ArcMemo, Memo},
+        owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
         wrappers::read::{ArcSignal, MaybeSignal, Signal},
@@ -678,6 +679,7 @@ mod stable {
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
+                S: Storage<V> + Storage<Option<V>>,
                 V: Render<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
 
@@ -703,6 +705,7 @@ mod stable {
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
+                S: Storage<V> + Storage<Option<V>>,
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
                 R: Renderer + 'static,
@@ -724,6 +727,7 @@ mod stable {
             where
                 $sig<V, S>: Get<Value = V>,
                 S: Send + Sync + 'static,
+                S: Storage<V> + Storage<Option<V>>,
                 V: RenderHtml<R> + Clone + Send + Sync + 'static,
                 V::State: 'static,
 
@@ -789,6 +793,7 @@ mod stable {
             impl<V, R, S> AttributeValue<R> for $sig<V, S>
             where
                 $sig<V, S>: Get<Value = V>,
+                S: Storage<V> + Storage<Option<V>>,
                 S: Send + Sync + 'static,
                 V: AttributeValue<R> + Send + Sync + Clone + 'static,
                 V::State: 'static,
