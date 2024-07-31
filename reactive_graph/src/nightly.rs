@@ -1,5 +1,6 @@
 use crate::{
     computed::{ArcMemo, Memo},
+    owner::Storage,
     signal::{
         ArcReadSignal, ArcRwSignal, ArcWriteSignal, ReadSignal, RwSignal,
         WriteSignal,
@@ -111,7 +112,7 @@ macro_rules! impl_get_fn_traits_get_arena {
     ($($ty:ident),*) => {
         $(
             #[cfg(feature = "nightly")]
-            impl<T, S> FnOnce<()> for $ty<T, S> where $ty<T, S>: Get {
+            impl<T, S> FnOnce<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> {
                 type Output = <Self as Get>::Value;
 
                 #[inline(always)]
@@ -121,7 +122,7 @@ macro_rules! impl_get_fn_traits_get_arena {
             }
 
             #[cfg(feature = "nightly")]
-            impl<T, S> FnMut<()> for $ty<T, S> where $ty<T, S>: Get {
+            impl<T, S> FnMut<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                     self.get()
@@ -129,7 +130,7 @@ macro_rules! impl_get_fn_traits_get_arena {
             }
 
             #[cfg(feature = "nightly")]
-            impl<T, S> Fn<()> for $ty<T, S> where $ty<T, S>: Get {
+            impl<T, S> Fn<()> for $ty<T, S> where $ty<T, S>: Get, S: Storage<T> + Storage<Option<T>> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                     self.get()
@@ -139,13 +140,15 @@ macro_rules! impl_get_fn_traits_get_arena {
     };
 }
 
-impl_get_fn_traits_get![ArcReadSignal, ArcRwSignal, ArcMemo, ArcSignal];
+impl_get_fn_traits_get![ArcReadSignal, ArcRwSignal];
 impl_get_fn_traits_get_arena![
     ReadSignal,
     RwSignal,
-    Memo,
+    ArcMemo,
+    ArcSignal,
     Signal,
     MaybeSignal,
+    Memo,
     MaybeProp
 ];
 impl_set_fn_traits![ArcRwSignal, ArcWriteSignal];

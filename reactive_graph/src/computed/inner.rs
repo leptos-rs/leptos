@@ -3,7 +3,7 @@ use crate::{
         AnySource, AnySubscriber, Observer, ReactiveNode, ReactiveNodeState,
         Source, SourceSet, Subscriber, SubscriberSet, WithObserver,
     },
-    owner::Owner,
+    owner::{Owner, Storage, StorageAccess},
 };
 use or_poisoned::OrPoisoned;
 use std::{
@@ -11,8 +11,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub struct MemoInner<T> {
-    pub(crate) value: Option<T>,
+pub struct MemoInner<T, S>
+where
+    S: Storage<T>,
+{
+    pub(crate) value: Option<S::Wrapped>,
     #[allow(clippy::type_complexity)]
     pub(crate) fun: Arc<dyn Fn(Option<T>) -> (T, bool) + Send + Sync>,
     pub(crate) owner: Owner,
@@ -22,13 +25,19 @@ pub struct MemoInner<T> {
     pub(crate) any_subscriber: AnySubscriber,
 }
 
-impl<T> Debug for MemoInner<T> {
+impl<T, S> Debug for MemoInner<T, S>
+where
+    S: Storage<T>,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoInner").finish_non_exhaustive()
     }
 }
 
-impl<T: 'static> MemoInner<T> {
+impl<T: 'static, S> MemoInner<T, S>
+where
+    S: Storage<T>,
+{
     #[allow(clippy::type_complexity)]
     pub fn new(
         fun: Arc<dyn Fn(Option<T>) -> (T, bool) + Send + Sync>,
@@ -46,7 +55,10 @@ impl<T: 'static> MemoInner<T> {
     }
 }
 
-impl<T: 'static> ReactiveNode for RwLock<MemoInner<T>> {
+impl<T: 'static, S> ReactiveNode for RwLock<MemoInner<T, S>>
+where
+    S: Storage<T>,
+{
     fn mark_dirty(&self) {
         self.write().or_poisoned().state = ReactiveNodeState::Dirty;
         self.mark_subscribers_check();
@@ -94,11 +106,13 @@ impl<T: 'static> ReactiveNode for RwLock<MemoInner<T>> {
             let any_subscriber =
                 { self.read().or_poisoned().any_subscriber.clone() };
             any_subscriber.clear_sources(&any_subscriber);
-            let (new_value, changed) = owner
-                .with_cleanup(|| any_subscriber.with_observer(|| fun(value)));
+            let (new_value, changed) = owner.with_cleanup(|| {
+                any_subscriber
+                    .with_observer(|| fun(value.map(StorageAccess::into_taken)))
+            });
 
             let mut lock = self.write().or_poisoned();
-            lock.value = Some(new_value);
+            lock.value = Some(S::wrap(new_value));
             lock.state = ReactiveNodeState::Clean;
 
             if changed {
@@ -123,7 +137,10 @@ impl<T: 'static> ReactiveNode for RwLock<MemoInner<T>> {
     }
 }
 
-impl<T: 'static> Source for RwLock<MemoInner<T>> {
+impl<T: 'static, S> Source for RwLock<MemoInner<T, S>>
+where
+    S: Storage<T>,
+{
     fn add_subscriber(&self, subscriber: AnySubscriber) {
         self.write().or_poisoned().subscribers.subscribe(subscriber);
     }
@@ -140,7 +157,10 @@ impl<T: 'static> Source for RwLock<MemoInner<T>> {
     }
 }
 
-impl<T: 'static> Subscriber for RwLock<MemoInner<T>> {
+impl<T: 'static, S> Subscriber for RwLock<MemoInner<T, S>>
+where
+    S: Storage<T>,
+{
     fn add_source(&self, source: AnySource) {
         self.write().or_poisoned().sources.insert(source);
     }

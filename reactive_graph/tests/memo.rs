@@ -4,9 +4,11 @@ use reactive_graph::{
     effect::{Effect, RenderEffect},
     prelude::*,
     signal::RwSignal,
+    wrappers::read::Signal,
 };
 use std::{
     mem,
+    rc::Rc,
     sync::{Arc, RwLock},
 };
 use tokio::task;
@@ -355,4 +357,25 @@ async fn effect_depending_on_signal_and_memo_doesnt_rerun_unnecessarily() {
             assert_eq!(*combined_count.read().unwrap(), 2);
         })
         .await
+}
+
+#[test]
+fn unsync_derived_signal_and_memo() {
+    let a = RwSignal::new_local(Rc::new(1));
+    let b = RwSignal::new(2);
+    let c = RwSignal::new(3);
+    let d = Memo::new(move |_| *a.get() + b.get() + c.get());
+
+    let e = Rc::new(0);
+    let f = Signal::derive_local(move || d.get() + *e);
+
+    assert_eq!(d.read(), 6);
+    assert_eq!(d.with_untracked(|n| *n), 6);
+    assert_eq!(d.with(|n| *n), 6);
+    assert_eq!(d.get_untracked(), 6);
+
+    // derived signal also works
+    assert_eq!(f.with_untracked(|n| *n), 6);
+    assert_eq!(f.with(|n| *n), 6);
+    assert_eq!(f.get_untracked(), 6);
 }

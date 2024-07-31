@@ -9,13 +9,42 @@ use crate::{
 use send_wrapper::SendWrapper;
 use std::{any::Any, hash::Hash, marker::PhantomData, panic::Location};
 
+/// A trait for borrowing and taking data.
+pub trait StorageAccess<T> {
+    /// Borrows the value.
+    fn as_borrowed(&self) -> &T;
+
+    /// Takes the value.
+    fn into_taken(self) -> T;
+}
+
+impl<T> StorageAccess<T> for T {
+    fn as_borrowed(&self) -> &T {
+        self
+    }
+
+    fn into_taken(self) -> T {
+        self
+    }
+}
+
+impl<T> StorageAccess<T> for SendWrapper<T> {
+    fn as_borrowed(&self) -> &T {
+        self
+    }
+
+    fn into_taken(self) -> T {
+        self.take()
+    }
+}
+
 /// A way of storing a [`StoredValue`], either as itself or with a wrapper to make it threadsafe.
 ///
 /// This exists because all items stored in the arena must be `Send + Sync`, but in single-threaded
 /// environments you might want or need to use thread-unsafe types.
 pub trait Storage<T>: Send + Sync + 'static {
     /// The type being stored, once it has been wrapped.
-    type Wrapped: Send + Sync + 'static;
+    type Wrapped: StorageAccess<T> + Send + Sync + 'static;
 
     /// Adds any needed wrapper to the type.
     fn wrap(value: T) -> Self::Wrapped;

@@ -4,6 +4,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
+    owner::{Storage, StorageAccess, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
@@ -88,13 +89,19 @@ use std::{
 ///   stream of values.
 /// - [`::from_stream()`](crate::traits::FromStream) converts an `async` stream
 ///   of values into a memo containing the latest value.
-pub struct ArcMemo<T> {
+pub struct ArcMemo<T, S = SyncStorage>
+where
+    S: Storage<T>,
+{
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: Arc<RwLock<MemoInner<T>>>,
+    inner: Arc<RwLock<MemoInner<T, S>>>,
 }
 
-impl<T: Send + Sync + 'static> ArcMemo<T> {
+impl<T: 'static> ArcMemo<T, SyncStorage>
+where
+    SyncStorage: Storage<T>,
+{
     /// Creates a new memo by passing a function that computes the value.
     ///
     /// This is lazy: the function will not be called until the memo's value is read for the first
@@ -170,7 +177,10 @@ impl<T: Send + Sync + 'static> ArcMemo<T> {
     }
 }
 
-impl<T> Clone for ArcMemo<T> {
+impl<T, S> Clone for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn clone(&self) -> Self {
         Self {
             #[cfg(debug_assertions)]
@@ -180,7 +190,10 @@ impl<T> Clone for ArcMemo<T> {
     }
 }
 
-impl<T> DefinedAt for ArcMemo<T> {
+impl<T, S> DefinedAt for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
@@ -194,7 +207,10 @@ impl<T> DefinedAt for ArcMemo<T> {
     }
 }
 
-impl<T> Debug for ArcMemo<T> {
+impl<T, S> Debug for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ArcMemo")
             .field("type", &std::any::type_name::<T>())
@@ -203,21 +219,30 @@ impl<T> Debug for ArcMemo<T> {
     }
 }
 
-impl<T> PartialEq for ArcMemo<T> {
+impl<T, S> PartialEq for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.inner, &other.inner)
     }
 }
 
-impl<T> Eq for ArcMemo<T> {}
+impl<T, S> Eq for ArcMemo<T, S> where S: Storage<T> {}
 
-impl<T> Hash for ArcMemo<T> {
+impl<T, S> Hash for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::ptr::hash(&Arc::as_ptr(&self.inner), state);
     }
 }
 
-impl<T: 'static> ReactiveNode for ArcMemo<T> {
+impl<T: 'static, S> ReactiveNode for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn mark_dirty(&self) {
         self.inner.mark_dirty();
     }
@@ -235,7 +260,10 @@ impl<T: 'static> ReactiveNode for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ToAnySource for ArcMemo<T> {
+impl<T: 'static, S> ToAnySource for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn to_any_source(&self) -> AnySource {
         AnySource(
             Arc::as_ptr(&self.inner) as usize,
@@ -246,7 +274,10 @@ impl<T: Send + Sync + 'static> ToAnySource for ArcMemo<T> {
     }
 }
 
-impl<T: 'static> Source for ArcMemo<T> {
+impl<T: 'static, S> Source for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn add_subscriber(&self, subscriber: AnySubscriber) {
         self.inner.add_subscriber(subscriber);
     }
@@ -260,7 +291,10 @@ impl<T: 'static> Source for ArcMemo<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> ToAnySubscriber for ArcMemo<T> {
+impl<T: 'static, S> ToAnySubscriber for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn to_any_subscriber(&self) -> AnySubscriber {
         AnySubscriber(
             Arc::as_ptr(&self.inner) as usize,
@@ -269,7 +303,10 @@ impl<T: Send + Sync + 'static> ToAnySubscriber for ArcMemo<T> {
     }
 }
 
-impl<T: 'static> Subscriber for ArcMemo<T> {
+impl<T: 'static, S> Subscriber for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
     fn add_source(&self, source: AnySource) {
         self.inner.write().or_poisoned().sources.insert(source);
     }
@@ -283,8 +320,11 @@ impl<T: 'static> Subscriber for ArcMemo<T> {
     }
 }
 
-impl<T: 'static> ReadUntracked for ArcMemo<T> {
-    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T>>, T>>;
+impl<T: 'static, S> ReadUntracked for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
+    type Value = ReadGuard<T, Mapped<Plain<MemoInner<T, S>>, T>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.update_if_necessary();
@@ -292,13 +332,13 @@ impl<T: 'static> ReadUntracked for ArcMemo<T> {
         Mapped::try_new(Arc::clone(&self.inner), |t| {
             // safe to unwrap here because update_if_necessary
             // guarantees the value is Some
-            t.value.as_ref().unwrap()
+            t.value.as_ref().unwrap().as_borrowed()
         })
         .map(ReadGuard::new)
     }
 }
 
-impl<T> From<ArcReadSignal<T>> for ArcMemo<T>
+impl<T> From<ArcReadSignal<T>> for ArcMemo<T, SyncStorage>
 where
     T: Clone + PartialEq + Send + Sync + 'static,
 {
