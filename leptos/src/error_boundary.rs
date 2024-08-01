@@ -22,6 +22,29 @@ use tachys::{
 };
 use throw_error::{Error, ErrorHook, ErrorId};
 
+/// When you render a `Result<_, _>` in your view, in the `Err` case it will
+/// render nothing, and search up through the view tree for an `<ErrorBoundary/>`.
+/// This component lets you define a fallback that should be rendered in that
+/// error case, allowing you to handle errors within a section of the interface.
+///
+/// ```
+/// # use leptos::prelude::*;
+/// #[component]
+/// pub fn ErrorBoundaryExample() -> impl IntoView {
+///   let (value, set_value) = signal(Ok(0));
+///   let on_input =
+///     move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
+///
+///   view! {
+///     <input type="text" on:input=on_input/>
+///     <ErrorBoundary
+///       fallback=move |_| view! { <p class="error">"Enter a valid number."</p>}
+///     >
+///       <p>"Value is: " {move || value.get()}</p>
+///     </ErrorBoundary>
+///   }
+/// }
+/// ```
 ///
 /// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::error::Error.
 /// `ErrorBoundary` requires your `Result<T,E>` to implement [IntoView](https://docs.rs/leptos/latest/leptos/trait.IntoView.html).

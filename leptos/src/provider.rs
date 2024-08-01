@@ -9,7 +9,8 @@ use tachys::reactive_graph::OwnedView;
 /// This prevents issues related to “context shadowing.”
 ///
 /// ```rust
-/// # use leptos::prelude::*;
+/// use leptos::{context::Provider, prelude::*};
+///
 /// #[component]
 /// pub fn App() -> impl IntoView {
 ///     // each Provider will only provide the value to its children

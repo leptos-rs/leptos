@@ -1,4 +1,4 @@
-//#!rdeny(missing_docs)] // TODO restore
+#!rdeny(missing_docs)]
 #![forbid(unsafe_code)]
 //! # About Leptos
 //!
@@ -98,25 +98,25 @@
 //! # A Simple Counter
 //!
 //! ```rust
-//! use leptos::*;
+//! use leptos::prelude::*;
 //!
 //! #[component]
-//! pub fn SimpleCounter( initial_value: i32) -> impl IntoView {
+//! pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
 //!     // create a reactive signal with the initial value
-//!     let (value, set_value) = create_signal( initial_value);
+//!     let (value, set_value) = signal( initial_value);
 //!
 //!     // create event handlers for our buttons
 //!     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
 //!     let clear = move |_| set_value.set(0);
-//!     let decrement = move |_| set_value.update(|value| *value -= 1);
-//!     let increment = move |_| set_value.update(|value| *value += 1);
+//!     let decrement = move |_| *set_value.write() -= 1;
+//!     let increment = move |_| *set_value.write() += 1;
 //!
 //!     view! {
 //!
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
-//!             <span>"Value: " {move || value.get().to_string()} "!"</span>
+//!             <span>"Value: " {value} "!"</span>
 //!             <button on:click=increment>"+1"</button>
 //!         </div>
 //!     }
@@ -125,18 +125,19 @@
 //!
 //! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
 //! ```
-//! # use leptos::*;
-//! # if false { // can't run in doctests
+//! use leptos::{mount::mount_to_body, prelude::*};
 //!
 //! #[component]
 //! fn SimpleCounter(initial_value: i32) -> impl IntoView {
-//!     todo!()
+//!     // ...
+//!     # _ = initial_value;
 //! }
 //!
 //! pub fn main() {
+//! # if false { // can't run in doctest
 //!     mount_to_body(|| view! { <SimpleCounter initial_value=3 /> })
-//! }
 //! # }
+//! }
 //! ```
 
 #![cfg_attr(feature = "nightly", feature(fn_traits))]

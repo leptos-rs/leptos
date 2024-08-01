@@ -6,7 +6,8 @@
 //! Callbacks can be created manually from any function or closure, but the easiest way
 //! to create them is to use `#[prop(into)]]` when defining a component.
 //! ```
-//! # use leptos::*;
+//! use leptos::prelude::*;
+//!
 //! #[component]
 //! fn MyComponent(
 //!     #[prop(into)] render_number: Callback<i32, String>,
@@ -118,8 +119,7 @@ macro_rules! impl_from_fn {
     };
 }
 
-// TODO
-//impl_from_fn!(UnsyncCallback);
+impl_from_fn!(UnsyncCallback);
 
 #[cfg(feature = "nightly")]
 impl<In, Out> FnOnce<(In,)> for UnsyncCallback<In, Out> {
@@ -144,13 +144,12 @@ impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
     }
 }
 
-// TODO update these docs to swap the two
 /// Callbacks define a standard way to store functions and closures.
 ///
 /// # Example
 /// ```
-/// # use leptos::*;
-/// # use leptos::{Callable, Callback};
+/// # use leptos::prelude::*;
+/// # use leptos::callback::{Callable, Callback};
 /// #[component]
 /// fn MyComponent(
 ///     #[prop(into)] render_number: Callback<i32, String>,
@@ -246,75 +245,30 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        callback::{Callback, UnsyncCallback},
-        create_runtime,
-    };
+    use crate::callback::{Callback, UnsyncCallback};
 
     struct NoClone {}
 
     #[test]
     fn clone_callback() {
-        let rt = create_runtime();
-        let callback =
-            UnsyncCallback::new(move |_no_clone: NoClone| NoClone {});
+        let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback.clone();
-        rt.dispose();
     }
 
     #[test]
-    fn clone_sync_callback() {
-        let rt = create_runtime();
-        let callback = Callback::new(move |_no_clone: NoClone| NoClone {});
+    fn clone_unsync_callback() {
+        let callback =
+            UnsyncCallback::new(move |_no_clone: NoClone| NoClone {});
         let _cloned = callback.clone();
-        rt.dispose();
     }
 
     #[test]
     fn callback_from() {
-        let rt = create_runtime();
-        let _callback: UnsyncCallback<(), String> = (|()| "test").into();
-        rt.dispose();
-    }
-
-    #[test]
-    fn callback_from_html() {
-        let rt = create_runtime();
-        use leptos::{
-            html::{AnyElement, HtmlElement},
-            prelude::*,
-        };
-
-        let _callback: UnsyncCallback<String, HtmlElement<AnyElement>> =
-            (|x: String| {
-                view! { <h1>{x}</h1> }
-            })
-            .into();
-        rt.dispose();
+        let _callback: Callback<(), String> = (|()| "test").into();
     }
 
     #[test]
     fn sync_callback_from() {
-        let rt = create_runtime();
-        let _callback: Callback<(), String> = (|()| "test").into();
-        rt.dispose();
-    }
-
-    #[test]
-    fn sync_callback_from_html() {
-        use leptos::{
-            html::{AnyElement, HtmlElement},
-            prelude::*,
-        };
-
-        let rt = create_runtime();
-
-        let _callback: Callback<String, HtmlElement<AnyElement>> =
-            (|x: String| {
-                view! { <h1>{x}</h1> }
-            })
-            .into();
-
-        rt.dispose();
+        let _callback: UnsyncCallback<(), String> = (|()| "test").into();
     }
 }

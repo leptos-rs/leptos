@@ -15,7 +15,61 @@ use reactive_graph::{
 use slotmap::{DefaultKey, SlotMap};
 use tachys::reactive_graph::OwnedView;
 
-/// TODO docs!
+/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
+/// component, it will show the `fallback` while they are loading. Once all are resolved,
+/// it will render the `children`.
+///
+/// Unlike [`Suspense`](crate::Suspense), this will not fall
+/// back to the `fallback` state if there are further changes after the initial load.
+///
+/// Note that the `children` will be rendered initially (in order to capture the fact that
+/// those resources are read under the suspense), so you cannot assume that resources read
+/// synchronously have
+/// `Some` value in `children`. However, you can read resources asynchronously by using
+/// [Suspend](crate::prelude::Suspend).
+///
+/// ```
+/// # use leptos::prelude::*;
+/// # if false { // don't run in doctests
+/// async fn fetch_cats(how_many: u32) -> Vec<String> { vec![] }
+///
+/// let (cat_count, set_cat_count) = signal::<u32>(1);
+///
+/// let cats = Resource::new(move || cat_count.get(), |count| fetch_cats(count));
+///
+/// view! {
+///   <div>
+///     <Transition fallback=move || view! { <p>"Loading (Suspense Fallback)..."</p> }>
+///       // you can access a resource synchronously
+///       {move || {
+///           cats.get().map(|data| {
+///             data
+///               .into_iter()
+///               .map(|src| {
+///                   view! {
+///                     <img src={src}/>
+///                   }
+///               })
+///               .collect_view()
+///           })
+///         }
+///       }
+///       // or you can use `Suspend` to read resources asynchronously
+///       {move || Suspend::new(async move {
+///         cats.await
+///               .into_iter()
+///               .map(|src| {
+///                   view! {
+///                     <img src={src}/>
+///                   }
+///               })
+///               .collect_view()
+///       })}
+///     </Transition>
+///   </div>
+/// }
+/// # ;}
+/// ```
 #[component]
 pub fn Transition<Chil>(
     /// Will be displayed while resources are pending. By default this is the empty view.

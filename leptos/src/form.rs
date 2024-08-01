@@ -34,8 +34,8 @@ use web_sys::{
 /// should make use of indexing notation of `serde_qs`.
 ///
 /// ```rust
-/// # use leptos::*;
-/// # use leptos_router::*;
+/// # use leptos::prelude::*;
+/// use leptos::form::ActionForm;
 ///
 /// #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 /// struct HeftyData {
@@ -45,7 +45,7 @@ use web_sys::{
 ///
 /// #[component]
 /// fn ComplexInput() -> impl IntoView {
-///     let submit = Action::<VeryImportantFn, _>::server();
+///     let submit = ServerAction::<VeryImportantFn>::new();
 ///
 ///     view! {
 ///       <ActionForm action=submit>
@@ -145,10 +145,6 @@ where
     } else {
         Either::Right(action_form)
     }
-    // TODO add other attributes
-    /*for (attr_name, attr_value) in attributes {
-        action_form = action_form.attr(attr_name, attr_value);
-    }*/
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
@@ -216,10 +212,6 @@ where
     } else {
         Either::Right(action_form)
     }
-    // TODO add other attributes
-    /*for (attr_name, attr_value) in attributes {
-        action_form = action_form.attr(attr_name, attr_value);
-    }*/
 }
 
 /// Resolves a redirect location to an (absolute) URL.

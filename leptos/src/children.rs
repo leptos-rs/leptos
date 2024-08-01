@@ -47,70 +47,44 @@ type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom> + Send>;
 /// to know exactly what children type the component expects. This is used internally by the
 /// `view!` macro implementation, and can also be used explicitly when using the builder syntax.
 ///
-/// # Examples
 ///
-/// ## Without ToChildren
+/// Different component types take different types for their `children` prop, some of which cannot
+/// be directly constructed. Using `ToChildren` allows the component user to pass children without
+/// explicity constructing the correct type.
 ///
-/// Without [ToChildren], consumers need to explicitly provide children using the type expected
-/// by the component. For example, [Provider][crate::Provider]'s children need to wrapped in
-/// a [Box], while [Show][crate::Show]'s children need to be wrapped in an [Rc].
+/// ## Examples
 ///
 /// ```
-/// # use leptos::{ProviderProps, ShowProps};
-/// # use leptos_dom::html::p;
-/// # use leptos_dom::IntoView;
+/// # use leptos::prelude::*;
+/// # use leptos::html::p;
+/// # use leptos::IntoView;
 /// # use leptos_macro::component;
-/// # use std::rc::Rc;
-/// #
+/// # use leptos::children::ToChildren;
+/// use leptos::context::{Provider, ProviderProps};
+/// use leptos::control_flow::{Show, ShowProps};
+///
 /// #[component]
 /// fn App() -> impl IntoView {
 ///     (
-///         ProviderProps::builder()
-///             .children(Box::new(|| p().child("Foo").into_view().into()))
-///             // ...
-/// #           .value("Foo")
-/// #           .build(),
-///         ShowProps::builder()
-///             .children(Rc::new(|| p().child("Foo").into_view().into()))
-///             // ...
-/// #           .when(|| true)
-/// #           .fallback(|| p().child("foo"))
-/// #           .build(),
-///     )
-/// }
-/// ```
-///
-/// ## With ToChildren
-///
-/// With [ToChildren], consumers don't need to know exactly which type a component uses for
-/// its children.
-///
-/// ```
-/// # use leptos::{ProviderProps, ShowProps};
-/// # use leptos_dom::html::p;
-/// # use leptos_dom::IntoView;
-/// # use leptos_macro::component;
-/// # use std::rc::Rc;
-/// # use leptos::ToChildren;
-/// #
-/// #[component]
-/// fn App() -> impl IntoView {
-///     (
+///       Provider(
 ///         ProviderProps::builder()
 ///             .children(ToChildren::to_children(|| {
-///                 p().child("Foo").into_view().into()
+///                 p().child("Foo")
 ///             }))
 ///             // ...
-/// #           .value("Foo")
-/// #           .build(),
-///         ShowProps::builder()
+///            .value("Foo")
+///            .build(),
+///        ),
+///        Show(
+///          ShowProps::builder()
 ///             .children(ToChildren::to_children(|| {
-///                 p().child("Foo").into_view().into()
+///                 p().child("Foo")
 ///             }))
 ///             // ...
-/// #           .when(|| true)
-/// #           .fallback(|| p().child("foo"))
-/// #           .build(),
+///             .when(|| true)
+///             .fallback(|| p().child("foo"))
+///             .build(),
+///        )
 ///     )
 /// }
 pub trait ToChildren<F> {

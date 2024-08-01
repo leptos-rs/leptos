@@ -10,7 +10,7 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 /// as it avoids re-creating DOM nodes that are not being changed.
 ///
 /// ```
-/// # use leptos::*;
+/// # use leptos::prelude::*;
 ///
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// struct Counter {
@@ -80,25 +80,24 @@ where
 mod tests {
     use crate::prelude::*;
     use leptos_macro::view;
-    use tachys::{
-        html::element::HtmlElement, prelude::ElementChild,
-        renderer::mock_dom::MockDom, view::Render,
-    };
+    use tachys::{html::element::HtmlElement, prelude::ElementChild};
 
     #[test]
     fn creates_list() {
-        let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
-        let list: HtmlElement<_, _, _, MockDom> = view! {
-            <ol>
-                <For each=move || values.get() key=|i| *i let:i>
-                    <li>{i}</li>
-                </For>
-            </ol>
-        };
-        let list = list.build();
-        assert_eq!(
-            list.el.to_debug_html(),
-            "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li></ol>"
-        );
+        Owner::new().with(|| {
+            let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
+            let list: HtmlElement<_, _, _, Dom> = view! {
+                <ol>
+                    <For each=move || values.get() key=|i| *i let:i>
+                        <li>{i}</li>
+                    </For>
+                </ol>
+            };
+            assert_eq!(
+                list.to_html(),
+                "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><!></\
+                 ol>"
+            );
+        });
     }
 }
