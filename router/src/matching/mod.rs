@@ -141,7 +141,7 @@ where
     ) -> impl IntoIterator<Item = GeneratedRouteData> + '_;
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq)]
 pub struct GeneratedRouteData {
     pub segments: Vec<PathSegment>,
     pub ssr_mode: SsrMode,
@@ -150,49 +150,40 @@ pub struct GeneratedRouteData {
 #[cfg(test)]
 mod tests {
     use super::{NestedRoute, ParamSegment, Routes};
-    use crate::{MatchInterface, PathSegment, StaticSegment, WildcardSegment};
-    use std::marker::PhantomData;
+    use crate::{
+        matching::MatchParams, MatchInterface, PathSegment, StaticSegment,
+        WildcardSegment,
+    };
     use tachys::renderer::dom::Dom;
 
     #[test]
     pub fn matches_single_root_route() {
-        let routes = Routes::<_, Dom>::new(NestedRoute {
-            segments: StaticSegment("/"),
-            children: (),
-            data: (),
-            view: |_| (),
-            rndr: PhantomData,
-        });
+        let routes =
+            Routes::<_, Dom>::new(NestedRoute::new(StaticSegment("/"), || ()));
         let matched = routes.match_route("/");
         assert!(matched.is_some());
         let matched = routes.match_route("");
         assert!(matched.is_some());
         let (base, paths) = routes.generate_routes();
         assert_eq!(base, None);
-        let paths = paths.into_iter().collect::<Vec<_>>();
+        let paths = paths.into_iter().map(|g| g.segments).collect::<Vec<_>>();
         assert_eq!(paths, vec![vec![PathSegment::Static("/".into())]]);
     }
 
     #[test]
     pub fn matches_nested_route() {
-        let routes = Routes::new(NestedRoute {
-            segments: StaticSegment(""),
-            children: NestedRoute {
-                segments: (StaticSegment("author"), StaticSegment("contact")),
-                children: (),
-                data: (),
-                view: |_| "Contact Me",
-                rndr: PhantomData,
-            },
-            data: (),
-            view: |_| "Home",
-            rndr: PhantomData,
-        });
+        let routes: Routes<_, Dom> =
+            Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
+                NestedRoute::new(
+                    (StaticSegment("author"), StaticSegment("contact")),
+                    || "Contact Me",
+                ),
+            ));
 
         // route generation
         let (base, paths) = routes.generate_routes();
         assert_eq!(base, None);
-        let paths = paths.into_iter().collect::<Vec<_>>();
+        let paths = paths.into_iter().map(|g| g.segments).collect::<Vec<_>>();
         assert_eq!(
             paths,
             vec![vec![
@@ -203,86 +194,47 @@ mod tests {
         );
 
         let matched = routes.match_route("/author/contact").unwrap();
-        assert_eq!(matched.matched(), "");
-        assert_eq!(matched.to_child().unwrap().matched(), "/author/contact");
-
-        let view = matched.to_view();
-        assert_eq!(*view, "Home");
-        assert_eq!(*matched.to_child().unwrap().to_view(), "Contact Me");
+        assert_eq!(MatchInterface::<Dom>::as_matched(&matched), "");
+        let (_, child) = MatchInterface::<Dom>::into_view_and_child(matched);
+        assert_eq!(
+            MatchInterface::<Dom>::as_matched(&child.unwrap()),
+            "/author/contact"
+        );
     }
 
     #[test]
     pub fn does_not_match_incomplete_route() {
-        let routes = Routes::new(NestedRoute {
-            segments: StaticSegment(""),
-            children: NestedRoute {
-                segments: (StaticSegment("author"), StaticSegment("contact")),
-                children: (),
-                data: (),
-                view: "Contact Me",
-                rndr: PhantomData,
-            },
-            data: (),
-            view: "Home",
-            rndr: PhantomData,
-        });
+        let routes: Routes<_, Dom> =
+            Routes::new(NestedRoute::new(StaticSegment(""), || "Home").child(
+                NestedRoute::new(
+                    (StaticSegment("author"), StaticSegment("contact")),
+                    || "Contact Me",
+                ),
+            ));
         let matched = routes.match_route("/");
         assert!(matched.is_none());
     }
 
     #[test]
     pub fn chooses_between_nested_routes() {
-        let routes = Routes::new((
-            NestedRoute {
-                segments: StaticSegment("/"),
-                children: (
-                    NestedRoute {
-                        segments: StaticSegment(""),
-                        children: (),
-                        data: (),
-                        view: || (),
-                        rndr: PhantomData,
-                    },
-                    NestedRoute {
-                        segments: StaticSegment("about"),
-                        children: (),
-                        data: (),
-                        view: || (),
-                        rndr: PhantomData,
-                    },
+        let routes: Routes<_, Dom> = Routes::new((
+            NestedRoute::new(StaticSegment("/"), || ()).child((
+                NestedRoute::new(StaticSegment(""), || ()),
+                NestedRoute::new(StaticSegment("about"), || ()),
+            )),
+            NestedRoute::new(StaticSegment("/blog"), || ()).child((
+                NestedRoute::new(StaticSegment(""), || ()),
+                NestedRoute::new(
+                    (StaticSegment("post"), ParamSegment("id")),
+                    || (),
                 ),
-                data: (),
-                view: || (),
-                rndr: PhantomData,
-            },
-            NestedRoute {
-                segments: StaticSegment("/blog"),
-                children: (
-                    NestedRoute {
-                        segments: StaticSegment(""),
-                        children: (),
-                        data: (),
-                        view: || (),
-                        rndr: PhantomData,
-                    },
-                    NestedRoute {
-                        segments: (StaticSegment("post"), ParamSegment("id")),
-                        children: (),
-                        data: (),
-                        view: || (),
-                        rndr: PhantomData,
-                    },
-                ),
-                data: (),
-                view: || (),
-                rndr: PhantomData,
-            },
+            )),
         ));
 
         // generates routes correctly
         let (base, paths) = routes.generate_routes();
         assert_eq!(base, None);
-        let paths = paths.into_iter().collect::<Vec<_>>();
+        let paths = paths.into_iter().map(|g| g.segments).collect::<Vec<_>>();
         assert_eq!(
             paths,
             vec![
@@ -314,77 +266,29 @@ mod tests {
         assert!(params.is_empty());
         let matched = routes.match_route("/blog/post/42").unwrap();
         let params = matched.to_params().collect::<Vec<_>>();
-        assert_eq!(params, vec![("id", "42")]);
+        assert_eq!(params, vec![("id".into(), "42".into())]);
     }
 
     #[test]
     pub fn arbitrary_nested_routes() {
-        let routes = Routes::new_with_base(
+        let routes: Routes<_, Dom> = Routes::new_with_base(
             (
-                NestedRoute {
-                    segments: StaticSegment("/"),
-                    children: (
-                        NestedRoute {
-                            segments: StaticSegment("/"),
-                            children: (),
-                            data: (),
-                            view: || (),
-                            rndr: PhantomData,
-                        },
-                        NestedRoute {
-                            segments: StaticSegment("about"),
-                            children: (),
-                            data: (),
-                            view: || (),
-                            rndr: PhantomData,
-                        },
+                NestedRoute::new(StaticSegment("/"), || ()).child((
+                    NestedRoute::new(StaticSegment("/"), || ()),
+                    NestedRoute::new(StaticSegment("about"), || ()),
+                )),
+                NestedRoute::new(StaticSegment("/blog"), || ()).child((
+                    NestedRoute::new(StaticSegment(""), || ()),
+                    NestedRoute::new(StaticSegment("category"), || ()),
+                    NestedRoute::new(
+                        (StaticSegment("post"), ParamSegment("id")),
+                        || (),
                     ),
-                    data: (),
-                    view: || (),
-                    rndr: PhantomData,
-                },
-                NestedRoute {
-                    segments: StaticSegment("/blog"),
-                    children: (
-                        NestedRoute {
-                            segments: StaticSegment(""),
-                            children: (),
-                            data: (),
-                            view: || (),
-                            rndr: PhantomData,
-                        },
-                        NestedRoute {
-                            segments: StaticSegment("category"),
-                            children: (),
-                            data: (),
-                            view: || (),
-                            rndr: PhantomData,
-                        },
-                        NestedRoute {
-                            segments: (
-                                StaticSegment("post"),
-                                ParamSegment("id"),
-                            ),
-                            children: (),
-                            data: (),
-                            view: || (),
-                            rndr: PhantomData,
-                        },
-                    ),
-                    data: (),
-                    view: || (),
-                    rndr: PhantomData,
-                },
-                NestedRoute {
-                    segments: (
-                        StaticSegment("/contact"),
-                        WildcardSegment("any"),
-                    ),
-                    children: (),
-                    data: (),
-                    view: || (),
-                    rndr: PhantomData,
-                },
+                )),
+                NestedRoute::new(
+                    (StaticSegment("/contact"), WildcardSegment("any")),
+                    || (),
+                ),
             ),
             "/portfolio",
         );
@@ -402,15 +306,15 @@ mod tests {
 
         let matched = routes.match_route("/portfolio/blog/post/42").unwrap();
         let params = matched.to_params().collect::<Vec<_>>();
-        assert_eq!(params, vec![("id", "42")]);
+        assert_eq!(params, vec![("id".into(), "42".into())]);
 
         let matched = routes.match_route("/portfolio/contact").unwrap();
         let params = matched.to_params().collect::<Vec<_>>();
-        assert_eq!(params, vec![("any", "")]);
+        assert_eq!(params, vec![("any".into(), "".into())]);
 
         let matched = routes.match_route("/portfolio/contact/foobar").unwrap();
         let params = matched.to_params().collect::<Vec<_>>();
-        assert_eq!(params, vec![("any", "foobar")]);
+        assert_eq!(params, vec![("any".into(), "foobar".into())]);
     }
 }
 

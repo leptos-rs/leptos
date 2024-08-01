@@ -292,7 +292,7 @@ pub fn Route<Segments, View>(
 where
     View: ChooseView<Dom>,
 {
-    NestedRoute::new(path, view, ssr)
+    NestedRoute::new(path, view).ssr_mode(ssr)
 }
 
 #[component]
@@ -306,7 +306,7 @@ where
     View: ChooseView<Dom>,
 {
     let children = children.into_inner();
-    NestedRoute::new(path, view, ssr).child(children)
+    NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
 
 #[component]
@@ -343,7 +343,7 @@ where
         })
         .into_any()
     };
-    NestedRoute::new(path, view, ssr)
+    NestedRoute::new(path, view).ssr_mode(ssr)
 }
 
 #[component]
@@ -388,7 +388,7 @@ where
         })
         .into_any()
     };
-    NestedRoute::new(path, view, ssr).child(children)
+    NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
 
 /// Redirects the user to a new URL, whether on the client side or on the server

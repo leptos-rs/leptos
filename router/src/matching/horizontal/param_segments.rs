@@ -102,7 +102,7 @@ mod tests {
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "");
         let params = matched.params().collect::<Vec<_>>();
-        assert_eq!(params[0], ("a", "foo"));
+        assert_eq!(params[0], ("a".into(), "foo".into()));
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(matched.matched(), "/foo");
         assert_eq!(matched.remaining(), "/");
         let params = matched.params().collect::<Vec<_>>();
-        assert_eq!(params[0], ("a", "foo"));
+        assert_eq!(params[0], ("a".into(), "foo".into()));
     }
 
     #[test]
@@ -124,8 +124,8 @@ mod tests {
         assert_eq!(matched.matched(), "/foo/bar");
         assert_eq!(matched.remaining(), "");
         let params = matched.params().collect::<Vec<_>>();
-        assert_eq!(params[0], ("a", "foo"));
-        assert_eq!(params[1], ("b", "bar"));
+        assert_eq!(params[0], ("a".into(), "foo".into()));
+        assert_eq!(params[1], ("b".into(), "bar".into()));
     }
 
     #[test]
@@ -140,6 +140,6 @@ mod tests {
         assert_eq!(matched.matched(), "/foo/bar/////");
         assert_eq!(matched.remaining(), "");
         let params = matched.params().collect::<Vec<_>>();
-        assert_eq!(params[0], ("rest", "////"));
+        assert_eq!(params[0], ("rest".into(), "////".into()));
     }
 }

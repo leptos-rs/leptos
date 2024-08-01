@@ -54,19 +54,21 @@ mod tests {
 
     #[test]
     pub fn should_parse_url_without_origin() {
-        let url = RequestUrl::parse("/foo/bar").unwrap();
+        let url = RequestUrl::new("/foo/bar").parse().unwrap();
         assert_eq!(url.path(), "/foo/bar");
     }
 
     #[test]
     pub fn should_not_parse_url_without_slash() {
-        let url = RequestUrl::parse("foo/bar").unwrap();
+        let url = RequestUrl::new("foo/bar").parse().unwrap();
         assert_eq!(url.path(), "/foo/bar");
     }
 
     #[test]
     pub fn should_parse_with_base() {
-        let url = RequestUrl::parse("https://www.example.com/foo/bar").unwrap();
+        let url = RequestUrl::new("https://www.example.com/foo/bar")
+            .parse()
+            .unwrap();
         assert_eq!(url.origin(), "https://www.example.com");
         assert_eq!(url.path(), "/foo/bar");
     }

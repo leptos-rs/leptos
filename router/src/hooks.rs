@@ -246,13 +246,10 @@ pub(crate) fn use_resolved_path(
 /// server rendering.
 ///
 /// ```rust
-/// # use leptos::{request_animation_frame, create_runtime};
-/// # let runtime = create_runtime();
 /// # if false { // can't actually navigate, no <Router/>
-/// let navigate = leptos_router::use_navigate();
+/// let navigate = leptos_router::hooks::use_navigate();
 /// navigate("/", Default::default());
 /// # }
-/// # runtime.dispose();
 /// ```
 #[track_caller]
 pub fn use_navigate() -> impl Fn(&str, NavigateOptions) + Clone {

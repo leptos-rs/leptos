@@ -22,12 +22,12 @@ static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 #[derive(Debug, Copy, PartialEq, Eq)]
 pub struct NestedRoute<Segments, Children, Data, View, R> {
     id: u16,
-    pub segments: Segments,
-    pub children: Option<Children>,
-    pub data: Data,
-    pub view: View,
-    pub rndr: PhantomData<R>,
-    pub ssr_mode: SsrMode,
+    segments: Segments,
+    children: Option<Children>,
+    data: Data,
+    view: View,
+    rndr: PhantomData<R>,
+    ssr_mode: SsrMode,
 }
 
 impl<Segments, Children, Data, View, R> Clone
@@ -52,7 +52,7 @@ where
 }
 
 impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
-    pub fn new(path: Segments, view: View, ssr_mode: SsrMode) -> Self
+    pub fn new(path: Segments, view: View) -> Self
     where
         View: ChooseView<R>,
         R: Renderer + 'static,
@@ -64,7 +64,7 @@ impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
             data: (),
             view,
             rndr: PhantomData,
-            ssr_mode,
+            ssr_mode: Default::default(),
         }
     }
 }
@@ -92,6 +92,11 @@ impl<Segments, Data, View, R> NestedRoute<Segments, (), Data, View, R> {
             ssr_mode,
             rndr,
         }
+    }
+
+    pub fn ssr_mode(mut self, ssr_mode: SsrMode) -> Self {
+        self.ssr_mode = ssr_mode;
+        self
     }
 }
 
