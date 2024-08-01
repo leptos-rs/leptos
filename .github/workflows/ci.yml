@@ -40,4 +40,4 @@ jobs:
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "ci"
-      toolchain: nightly-2024-04-14
+      toolchain: nightly-2024-07-21
