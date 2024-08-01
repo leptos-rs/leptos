@@ -11,8 +11,8 @@ use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error::abort;
 use quote::{quote, quote_spanned, ToTokens};
 use rstml::node::{
-    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
-    NodeNameFragment,
+    CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
+    NodeBlock, NodeElement, NodeName, NodeNameFragment,
 };
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprRange, Lit, LitStr, RangeLimits, Stmt};
@@ -55,7 +55,7 @@ pub fn render_view(
 }
 
 fn element_children_to_tokens(
-    nodes: &[Node],
+    nodes: &[Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -83,7 +83,7 @@ fn element_children_to_tokens(
 }
 
 fn fragment_to_tokens(
-    nodes: &[Node],
+    nodes: &[Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -108,7 +108,7 @@ fn fragment_to_tokens(
 }
 
 fn children_to_tokens(
-    nodes: &[Node],
+    nodes: &[Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -152,7 +152,7 @@ fn children_to_tokens(
 }
 
 fn node_to_tokens(
-    node: &Node,
+    node: &Node<impl CustomNode>,
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -185,6 +185,7 @@ fn node_to_tokens(
             global_class,
             view_marker,
         ),
+        Node::Custom(node) => Some(node.to_token_stream()),
     }
 }
 
@@ -202,7 +203,7 @@ fn text_to_tokens(text: &LitStr) -> TokenStream {
 }
 
 pub(crate) fn element_to_tokens(
-    node: &NodeElement,
+    node: &NodeElement<impl CustomNode>,
     mut parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -244,7 +245,7 @@ pub(crate) fn element_to_tokens(
                     }
                 }
                 NodeAttribute::Attribute(node) => {
-                    if let Some(content) = attribute_absolute(node, true) {
+                    if let Some(content) = attribute_absolute(&node, true) {
                         attributes.push(content);
                     }
                 }
@@ -357,7 +358,7 @@ pub(crate) fn element_to_tokens(
     }
 }
 
-fn is_spread_marker(node: &NodeElement) -> bool {
+fn is_spread_marker(node: &NodeElement<impl CustomNode>) -> bool {
     match node.name() {
         NodeName::Block(block) => matches!(
             block.stmts.first(),
@@ -715,7 +716,7 @@ fn is_custom_element(tag: &str) -> bool {
     tag.contains('-')
 }
 
-fn is_self_closing(node: &NodeElement) -> bool {
+fn is_self_closing(node: &NodeElement<impl CustomNode>) -> bool {
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
     [
@@ -863,20 +864,40 @@ fn attribute_name(name: &NodeName) -> TokenStream {
 }
 
 fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
-    match attr.value() {
-        Some(value) => {
-            if let Expr::Lit(lit) = value {
-                if cfg!(feature = "nightly") {
-                    if let Lit::Str(str) = &lit.lit {
-                        return quote! {
-                            ::leptos::tachys::view::static_types::Static::<#str>
-                        };
+    match attr.possible_value.to_value() {
+        None => quote! { true },
+        Some(value) => match &value.value {
+            KVAttributeValue::Expr(expr) => {
+                // value must be a block or literal
+                if !matches!(expr, Expr::Block(_) | Expr::Lit(_)) {
+                    emit_error!(
+                        expr.span(),
+                        "attribute values must be surrounded by braces or be literals";
+                        help = "wrap the expression in braces: {{{}}}", expr.to_token_stream(),
+                    )
+                }
+
+                if let Expr::Lit(lit) = expr {
+                    if cfg!(feature = "nightly") {
+                        if let Lit::Str(str) = &lit.lit {
+                            return quote! {
+                                ::leptos::tachys::view::static_types::Static::<#str>
+                            };
+                        }
                     }
                 }
+
+                quote! {
+                    {#expr}
+                }
             }
-            quote! { #value }
-        }
-        None => quote! { true },
+            // any value in braces: expand as-is to give proper r-a support
+            KVAttributeValue::InvalidBraced(block) => {
+                quote! {
+                    #block
+                }
+            }
+        },
     }
 }
 

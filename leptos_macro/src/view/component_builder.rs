@@ -3,13 +3,13 @@ use crate::view::attribute_absolute;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{
-    KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement, NodeName,
+    CustomNode, KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement, NodeName
 };
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
-    node: &NodeElement,
+    node: &NodeElement<impl CustomNode>,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let name = node.name();
@@ -155,7 +155,7 @@ pub(crate) fn component_to_tokens(
                     }
                 }))
             } else if let NodeAttribute::Attribute(node) = attr {
-                attribute_absolute(node, idx >= spread_marker)
+                attribute_absolute(&node, idx >= spread_marker)
             } else {
                 None
             }

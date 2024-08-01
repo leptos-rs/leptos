@@ -7,9 +7,9 @@ fn simple_ssr_test() {
     let (value, set_value) = signal(0);
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div>
-            <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+            <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
             <span>"Value: " {move || value.get().to_string()} "!"</span>
-            <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+            <button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
         </div>
     };
 
@@ -29,9 +29,9 @@ fn ssr_test_with_components() {
         let (value, set_value) = signal(initial_value);
         view! {
             <div>
-                <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+                <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
                 <span>"Value: " {move || value.get().to_string()} "!"</span>
-                <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+                <button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
             </div>
         }
     }
@@ -60,9 +60,9 @@ fn ssr_test_with_snake_case_components() {
         let (value, set_value) = signal(initial_value);
         view! {
             <div>
-                <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+                <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
                 <span>"Value: " {move || value.get().to_string()} "!"</span>
-                <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+                <button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
             </div>
         }
     }
@@ -106,7 +106,7 @@ fn ssr_with_styles() {
     let styles = "myclass";
     let rendered: HtmlElement<_, _, _, Dom> = view! { class=styles,
         <div>
-            <button class="btn" on:click=move |_| set_value.update(|value| *value -= 1)>
+            <button class="btn" on:click={move |_| set_value.update(|value| *value -= 1)}>
                 "-1"
             </button>
         </div>

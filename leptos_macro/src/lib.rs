@@ -303,10 +303,17 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
     let nodes_output = view::render_view(&nodes, global_class.as_ref(), None);
+
+    // The allow lint needs to be put here instead of at the expansion of
+    // view::attribute_value(). Adding this next to the expanded expression
+    // seems to break rust-analyzer, but it works when the allow is put here.
     quote! {
         {
-            #(#errors;)*
-            #nodes_output
+            #[allow(unused_braces)]
+            {
+                #(#errors;)*
+                #nodes_output
+            }
         }
     }
     .into()
