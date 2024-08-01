@@ -21,8 +21,8 @@ log = "0.4"
 simple_logger = "4.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
-gloo-net = { version = "0.4", features = ["http"] }
-reqwest = { version = "0.11", features = ["json"] }
+gloo-net = { version = "0.6", features = ["http"] }
+reqwest = { version = "0.12", features = ["json"] }
 axum = { version = "0.7", optional = true }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = ["fs"], optional = true }
