@@ -1268,6 +1268,7 @@ pub async fn build_static_routes<IV>(
 {
     let options = options.clone();
     let routes = routes.to_owned();
+    #[allow(unused_variables, clippy::let_unit_value)]
     let handle = spawn_task!(async move {
         leptos_router::build_static_routes(
             &options,
@@ -1278,6 +1279,7 @@ pub async fn build_static_routes<IV>(
         .await
         .expect("could not build static routes")
     });
+    #[cfg(all(not(feature = "wasm"), feature = "default"))]
     let _ = handle.await;
 }
 
