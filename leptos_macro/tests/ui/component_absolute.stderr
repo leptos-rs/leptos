@@ -1,11 +1,3 @@
-error: return type is incorrect
- --> tests/ui/component_absolute.rs:2:1
-  |
-2 | fn missing_return_type() {}
-  | ^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = help: return signature must be `-> impl IntoView`
-
 error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `default`, `into` and `attrs`
  --> tests/ui/component_absolute.rs:5:31
   |

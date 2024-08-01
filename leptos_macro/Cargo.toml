@@ -34,6 +34,7 @@ log = "0.4"
 typed-builder = "0.18"
 trybuild = "1"
 leptos = { path = "../leptos" }
+server_fn = { path = "../server_fn", features = ["cbor"] }
 insta = "1.29"
 serde = "1"
 
