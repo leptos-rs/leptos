@@ -11,12 +11,8 @@ rust-version.workspace = true
 [dependencies]
 tachys = { workspace = true }
 reactive_graph = { workspace = true }
-hydration_context = { workspace = true }
 or_poisoned = { workspace = true }
-base64 = { version = "0.21", optional = true }
-getrandom = { version = "0.2", optional = true }
 js-sys = "0.3"
-rand = { version = "0.8", optional = true }
 send_wrapper = "0.6"
 tracing = "0.1"
 wasm-bindgen = "0.2"
@@ -30,11 +26,6 @@ features = ["Location"]
 
 [features]
 default = []
-nightly = ["reactive_graph/nightly"]
-# TODO implement nonces
-nonce = ["dep:base64", "dep:getrandom", "dep:rand"]
-experimental-islands = []
-trace-component-props = ["tracing"]
 tracing = []
 
 [package.metadata.docs.rs]
