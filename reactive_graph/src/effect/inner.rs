@@ -8,11 +8,12 @@ use crate::{
 use or_poisoned::OrPoisoned;
 use std::sync::{Arc, RwLock, Weak};
 
+/// Handles internal subscription logic for effects.
 #[derive(Debug)]
-pub(crate) struct EffectInner {
-    pub dirty: bool,
-    pub observer: Sender,
-    pub sources: SourceSet,
+pub struct EffectInner {
+    pub(crate) dirty: bool,
+    pub(crate) observer: Sender,
+    pub(crate) sources: SourceSet,
 }
 
 impl ToAnySubscriber for Arc<RwLock<EffectInner>> {
