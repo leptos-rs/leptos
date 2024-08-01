@@ -34,14 +34,19 @@
 
 use axum::{
     body::{Body, Bytes},
-    extract::{FromRef, FromRequestParts, MatchedPath, State},
+    extract::{FromRequestParts, MatchedPath},
     http::{
         header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
         request::Parts,
-        HeaderMap, Method, Request, Response, StatusCode, Uri,
+        HeaderMap, Method, Request, Response, StatusCode,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
+};
+#[cfg(feature = "default")]
+use axum::{
+    extract::{FromRef, State},
+    http::Uri,
 };
 use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
@@ -63,6 +68,7 @@ use leptos_router::{
 use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::{fmt::Debug, io, pin::Pin, sync::Arc};
+#[cfg(feature = "default")]
 use tower::ServiceExt;
 #[cfg(feature = "default")]
 use tower_http::services::ServeDir;
