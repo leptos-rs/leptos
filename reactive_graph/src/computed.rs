@@ -69,13 +69,14 @@ pub use selector::*;
 ///     |state, n| state.name = n,
 /// );
 ///
+/// # if false { // don't run effects in doctest
 /// Effect::new(move |_| {
-///     // note: in the browser, use leptos::log! instead
 ///     println!("name is {}", name.get());
 /// });
 /// Effect::new(move |_| {
 ///     println!("count is {}", count.get());
 /// });
+/// # }
 ///
 /// // setting count only causes count to log, not name
 /// set_count.set(42);
