@@ -61,6 +61,8 @@ where
     E::Output: JsCast + 'static,
 {
     fn load(self, el: &<Dom as Renderer>::Element) {
+        // safe to construct SendWrapper here, because it will only run in the browser
+        // so it will always be accessed or dropped from the main thread
         self.0
             .set(Some(SendWrapper::new(el.clone().unchecked_into())));
     }

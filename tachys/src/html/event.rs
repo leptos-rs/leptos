@@ -111,7 +111,7 @@ where
 {
     On {
         event,
-        cb: SendWrapper::new(cb),
+        cb: Some(SendWrapper::new(cb)),
         ty: PhantomData,
     }
 }
@@ -137,7 +137,7 @@ where
 /// An [`Attribute`] that adds an event listener to an element.
 pub struct On<E, F, R> {
     event: E,
-    cb: SendWrapper<F>,
+    cb: Option<SendWrapper<F>>,
     ty: PhantomData<R>,
 }
 
@@ -177,7 +177,7 @@ where
             }
         }
 
-        let mut cb = self.cb.take();
+        let mut cb = self.cb.expect("callback removed before attaching").take();
 
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
@@ -266,7 +266,7 @@ where
 
     fn into_cloneable(self) -> Self::Cloneable {
         On {
-            cb: SendWrapper::new(self.cb.take().into_shared()),
+            cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
             event: self.event,
             ty: self.ty,
         }
@@ -274,13 +274,19 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         On {
-            cb: SendWrapper::new(self.cb.take().into_shared()),
+            cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
             event: self.event,
             ty: self.ty,
         }
     }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        // dry_resolve() only runs during SSR, and we should use it to
+        // synchronously remove and drop the SendWrapper value
+        // we don't need this value during SSR and leaving it here could drop it
+        // from a different thread
+        self.cb.take();
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         self

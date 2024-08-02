@@ -146,6 +146,8 @@ impl DomRenderer for Dom {
         // return the remover
         RemoveEventHandler::new({
             let name = name.to_owned();
+            // safe to construct this here, because it will only run in the browser
+            // so it will always be accessed or dropped from the main thread
             let cb = send_wrapper::SendWrapper::new(cb);
             move |el: &Self::Element| {
                 or_debug!(
@@ -257,6 +259,8 @@ impl DomRenderer for Dom {
         // return the remover
         RemoveEventHandler::new({
             let key = key.to_owned();
+            // safe to construct this here, because it will only run in the browser
+            // so it will always be accessed or dropped from the main thread
             let cb = send_wrapper::SendWrapper::new(cb);
             move |el: &Self::Element| {
                 drop(cb.take());
