@@ -102,7 +102,9 @@ impl ResponseParts {
 ///
 /// If you provide your own handler, you will need to provide `ResponseOptions` via context
 /// yourself if you want to access it via context.
-/// ```rust,ignore
+/// ```
+/// use leptos::prelude::*;
+///
 /// #[server]
 /// pub async fn get_opts() -> Result<(), ServerFnError> {
 ///     let opts = expect_context::<leptos_axum::ResponseOptions>();
@@ -235,7 +237,7 @@ pub fn generate_request_and_parts(
 ///
 /// ```
 /// use axum::{handler::Handler, routing::post, Router};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use std::net::SocketAddr;
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -398,8 +400,7 @@ pub type PinnedHtmlStream =
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use axum::{handler::Handler, Router};
-/// use leptos::*;
-/// use leptos_config::get_configuration;
+/// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -417,8 +418,7 @@ pub type PinnedHtmlStream =
 ///
 ///     // build our application with a route
 ///     let app = Router::new().fallback(leptos_axum::render_app_to_stream(
-///         leptos_options,
-///         || view! { <MyApp/> },
+///         || { /* your application here */ },
 ///     ));
 ///
 ///     // run our app with hyper
@@ -486,8 +486,7 @@ where
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use axum::{handler::Handler, Router};
-/// use leptos::*;
-/// use leptos_config::get_configuration;
+/// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -504,11 +503,9 @@ where
 ///     let addr = leptos_options.site_addr.clone();
 ///
 ///     // build our application with a route
-///     let app =
-///         Router::new().fallback(leptos_axum::render_app_to_stream_in_order(
-///             leptos_options,
-///             || view! { <MyApp/> },
-///         ));
+///     let app = Router::new().fallback(
+///         leptos_axum::render_app_to_stream_in_order(|| view! { <MyApp/> }),
+///     );
 ///
 ///     // run our app with hyper
 ///     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
@@ -546,14 +543,25 @@ where
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
-/// ```ignore
-/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
-///     let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
-///     || {
-///         provide_context(id.clone());
-///     },
-///     || view! { <TodoApp/> }
-/// );
+/// ```
+/// use axum::{
+///     body::Body,
+///     extract::Path,
+///     response::{IntoResponse, Response},
+/// };
+/// use http::Request;
+/// use leptos::{config::LeptosOptions, context::provide_context, prelude::*};
+///
+/// async fn custom_handler(
+///     Path(id): Path<String>,
+///     req: Request<Body>,
+/// ) -> Response {
+///     let handler = leptos_axum::render_app_to_stream_with_context(
+///         move || {
+///             provide_context(id.clone());
+///         },
+///         || { /* your app here */ },
+///     );
 ///     handler(req).await.into_response()
 /// }
 /// ```
@@ -704,14 +712,25 @@ where
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
-/// ```ignore
-/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
-///     let handler = leptos_axum::render_app_to_stream_in_order_with_context((*options).clone(),
-///     move || {
-///         provide_context(id.clone());
-///     },
-///     || view! { <TodoApp/> }
-/// );
+/// ```
+/// use axum::{
+///     body::Body,
+///     extract::Path,
+///     response::{IntoResponse, Response},
+/// };
+/// use http::Request;
+/// use leptos::context::provide_context;
+///
+/// async fn custom_handler(
+///     Path(id): Path<String>,
+///     req: Request<Body>,
+/// ) -> Response {
+///     let handler = leptos_axum::render_app_to_stream_in_order_with_context(
+///         move || {
+///             provide_context(id.clone());
+///         },
+///         || { /* your application here */ },
+///     );
 ///     handler(req).await.into_response()
 /// }
 /// ```
@@ -844,8 +863,7 @@ fn provide_contexts(
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use axum::{handler::Handler, Router};
-/// use leptos::*;
-/// use leptos_config::get_configuration;
+/// use leptos::{config::get_configuration, prelude::*};
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -862,10 +880,8 @@ fn provide_contexts(
 ///     let addr = leptos_options.site_addr.clone();
 ///
 ///     // build our application with a route
-///     let app = Router::new().fallback(leptos_axum::render_app_async(
-///         leptos_options,
-///         || view! { <MyApp/> },
-///     ));
+///     let app = Router::new()
+///         .fallback(leptos_axum::render_app_async(|| view! { <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -906,14 +922,25 @@ where
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
-/// ```ignore
-/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
-///     let handler = leptos_axum::render_app_async_with_context((*options).clone(),
-///     move || {
-///         provide_context(id.clone());
-///     },
-///     || view! { <TodoApp/> }
-/// );
+/// ```
+/// use axum::{
+///     body::Body,
+///     extract::Path,
+///     response::{IntoResponse, Response},
+/// };
+/// use http::Request;
+/// use leptos::context::provide_context;
+///
+/// async fn custom_handler(
+///     Path(id): Path<String>,
+///     req: Request<Body>,
+/// ) -> Response {
+///     let handler = leptos_axum::render_app_async_with_context(
+///         move || {
+///             provide_context(id.clone());
+///         },
+///         || { /* your application here */ },
+///     );
 ///     handler(req).await.into_response()
 /// }
 /// ```
@@ -960,14 +987,25 @@ where
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
-/// ```ignore
-/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
-///     let handler = leptos_axum::render_app_async_with_context((*options).clone(),
-///     move || {
-///         provide_context(id.clone());
-///     },
-///     || view! { <TodoApp/> }
-/// );
+/// ```
+/// use axum::{
+///     body::Body,
+///     extract::Path,
+///     response::{IntoResponse, Response},
+/// };
+/// use http::Request;
+/// use leptos::context::provide_context;
+///
+/// async fn custom_handler(
+///     Path(id): Path<String>,
+///     req: Request<Body>,
+/// ) -> Response {
+///     let handler = leptos_axum::render_app_async_with_context(
+///         move || {
+///             provide_context(id.clone());
+///         },
+///         || { /* your application here */ },
+///     );
 ///     handler(req).await.into_response()
 /// }
 /// ```
@@ -1686,15 +1724,19 @@ where
 ///
 /// Any error that occurs during extraction is converted to a [`ServerFnError`].
 ///
-/// ```rust,ignore
-/// // MyQuery is some type that implements `Deserialize + Serialize`
-/// #[server]
-/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
-///     use axum::{extract::Query, http::Method};
-///     use leptos_axum::*;
-///     let Query(query) = extract().await?;
+/// ```rust
+/// use leptos::prelude::*;
 ///
-///     Ok(query)
+/// #[server]
+/// pub async fn request_method() -> Result<String, ServerFnError> {
+///     use http::Method;
+///     use leptos_axum::extract;
+///
+///     // you can extract anything that a regular Axum extractor can extract
+///     // from the head (not from the body of the request)
+///     let method: Method = extract().await?;
+///
+///     Ok(format!("{method:?}"))
 /// }
 /// ```
 pub async fn extract<T>() -> Result<T, ServerFnError>
@@ -1712,18 +1754,6 @@ where
 /// therefore be used in an extractor. The compiler can often infer this type.
 ///
 /// Any error that occurs during extraction is converted to a [`ServerFnError`].
-///
-/// ```rust,ignore
-/// // MyQuery is some type that implements `Deserialize + Serialize`
-/// #[server]
-/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
-///     use axum::{extract::Query, http::Method};
-///     use leptos_axum::*;
-///     let Query(query) = extract().await?;
-///
-///     Ok(query)
-/// }
-/// ```
 pub async fn extract_with_state<T, S>(state: &S) -> Result<T, ServerFnError>
 where
     T: Sized + FromRequestParts<S>,

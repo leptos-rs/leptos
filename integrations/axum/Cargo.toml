@@ -32,7 +32,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 axum = "0.7"
-tokio = { version = "1", features = ["net"] }
+tokio = { version = "1", features = ["net", "rt-multi-thread"] }
 
 [features]
 wasm = []
