@@ -173,6 +173,7 @@ pub struct ServerMetaContext {
     /// Attributes for the `<body>` element.
     pub(crate) body: Sender<String>,
     /// Arbitrary elements to be added to the `<head>` as HTML.
+    #[allow(unused)] // used in SSR
     pub(crate) elements: Sender<String>,
 }
 
