@@ -15,7 +15,7 @@ jobs:
   test:
     needs: [get-leptos-changed]
     if: needs.get-leptos-changed.outputs.leptos_changed == 'true' && github.event.pull_request.labels[0].name != 'breaking'
-    name: Run semver check (nightly-2024-08-01)
+    name: Run semver check (nightly-2024-07-26)
     runs-on: ubuntu-latest
 
     steps:
@@ -25,4 +25,4 @@ jobs:
       - name: Semver Checks
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
-          rust-toolchain: nightly-2024-08-01
+          rust-toolchain: nightly-2024-07-26
