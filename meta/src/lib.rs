@@ -11,7 +11,7 @@
 //! HTML that should be injected into the `<head>` of the HTML document being rendered.
 //!
 //! ```
-//! use leptos::*;
+//! use leptos::prelude::*;
 //! use leptos_meta::*;
 //!
 //! #[component]
