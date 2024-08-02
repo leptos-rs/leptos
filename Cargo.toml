@@ -41,7 +41,8 @@ exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.7.0-beta"
-rust-version = "1.75"
+# MSRV: Now using std::sync::LazyLock, which is stabilized in 1.80
+rust-version = "1.80"
 
 [workspace.dependencies]
 throw_error = { path = "./any_error/", version = "0.2.0-beta" }

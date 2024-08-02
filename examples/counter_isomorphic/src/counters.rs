@@ -13,9 +13,8 @@ pub mod ssr_imports {
 
     pub static COUNT: AtomicI32 = AtomicI32::new(0);
 
-    lazy_static::lazy_static! {
-        pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
-    }
+    pub static COUNT_CHANNEL: LazyLock<BroadcastChannel<i32>> = LazyLock::new(|| BroadcastChannel::new());
+
 }
 
 #[server]
