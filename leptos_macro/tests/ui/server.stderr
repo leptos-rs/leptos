@@ -5,43 +5,43 @@ error: positional argument follows keyword argument
   |                                ^^^^^^
 
 error: keyword argument repeated: `endpoint`
- --> tests/ui/server.rs:8:30
+ --> tests/ui/server.rs:9:30
   |
-8 | #[server(endpoint = "first", endpoint = "second")]
+9 | #[server(endpoint = "first", endpoint = "second")]
   |                              ^^^^^^^^
 
 error: expected string literal
-  --> tests/ui/server.rs:13:15
+  --> tests/ui/server.rs:14:15
    |
-13 | #[server(Foo, Bar)]
+14 | #[server(Foo, Bar)]
    |               ^^^
 
 error: expected string literal
-  --> tests/ui/server.rs:17:15
+  --> tests/ui/server.rs:18:15
    |
-17 | #[server(Foo, Bar, bazz)]
+18 | #[server(Foo, Bar, bazz)]
    |               ^^^
 
 error: expected identifier
-  --> tests/ui/server.rs:22:10
+  --> tests/ui/server.rs:23:10
    |
-22 | #[server("Foo")]
+23 | #[server("Foo")]
    |          ^^^^^
 
 error: expected `,`
-  --> tests/ui/server.rs:27:14
+  --> tests/ui/server.rs:28:14
    |
-27 | #[server(Foo Bar)]
+28 | #[server(Foo Bar)]
    |              ^^^
 
 error: unexpected extra argument
-  --> tests/ui/server.rs:32:49
+  --> tests/ui/server.rs:33:49
    |
-32 | #[server(FooBar, "/foo/bar", "Cbor", "my_path", "extra")]
+33 | #[server(FooBar, "/foo/bar", "Cbor", "my_path", "extra")]
    |                                                 ^^^^^^^
 
 error: Encoding not found.
-  --> tests/ui/server.rs:37:21
+  --> tests/ui/server.rs:38:21
    |
-37 | #[server(encoding = "wrong")]
+38 | #[server(encoding = "wrong")]
    |                     ^^^^^^^
