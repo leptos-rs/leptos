@@ -386,7 +386,7 @@ pub fn handle_server_fns_with_context(
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use actix_web::{App, HttpServer};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
@@ -408,11 +408,7 @@ pub fn handle_server_fns_with_context(
 ///             // the actual routing will be handled by `leptos_router`
 ///             .route(
 ///                 "/{tail:.*}",
-///                 leptos_actix::render_app_to_stream(
-///                     leptos_options.to_owned(),
-///                     || view! { <MyApp/> },
-///                     Method::Get,
-///                 ),
+///                 leptos_actix::render_app_to_stream(MyApp, Method::Get),
 ///             )
 ///     })
 ///     .bind(&addr)?
@@ -454,7 +450,7 @@ where
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use actix_web::{App, HttpServer};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
@@ -477,8 +473,7 @@ where
 ///             .route(
 ///                 "/{tail:.*}",
 ///                 leptos_actix::render_app_to_stream_in_order(
-///                     leptos_options.to_owned(),
-///                     || view! { <MyApp/> },
+///                     MyApp,
 ///                     Method::Get,
 ///                 ),
 ///             )
@@ -520,7 +515,7 @@ where
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use actix_web::{App, HttpServer};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
@@ -542,11 +537,7 @@ where
 ///             // the actual routing will be handled by `leptos_router`
 ///             .route(
 ///                 "/{tail:.*}",
-///                 leptos_actix::render_app_async(
-///                     leptos_options.to_owned(),
-///                     || view! { <MyApp/> },
-///                     Method::Get,
-///                 ),
+///                 leptos_actix::render_app_async(MyApp, Method::Get),
 ///             )
 ///     })
 ///     .bind(&addr)?
@@ -1382,18 +1373,21 @@ impl LeptosRoutes for &mut ServiceConfig {
 ///
 /// Any error that occurs during extraction is converted to a [`ServerFnError`].
 ///
-/// ```rust,ignore
-/// // MyQuery is some type that implements `Deserialize + Serialize`
+/// ```rust
+/// use leptos::prelude::*;
+///
 /// #[server]
-/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
-///     use actix_web::web::Query;
+/// pub async fn extract_connection_info() -> Result<String, ServerFnError> {
+///     use actix_web::dev::ConnectionInfo;
 ///     use leptos_actix::*;
 ///
-///     let Query(data) = extract().await?;
+///     // this can be any type you can use an Actix extractor with, as long as
+///     // it works on the head, not the body of the request
+///     let info: ConnectionInfo = extract().await?;
 ///
 ///     // do something with the data
 ///
-///     Ok(data)
+///     Ok(format!("{info:?}"))
 /// }
 /// ```
 pub async fn extract<T>() -> Result<T, ServerFnError>
