@@ -41,7 +41,7 @@ serde = "1"
 [features]
 csr = []
 hydrate = []
-ssr = ["server_fn_macro/ssr"]
+ssr = ["server_fn_macro/ssr", "leptos/ssr"]
 nightly = ["server_fn_macro/nightly"]
 tracing = []
 experimental-islands = []
