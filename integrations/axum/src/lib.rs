@@ -221,18 +221,21 @@ pub async fn handle_server_fns(req: Request<Body>) -> impl IntoResponse {
 /// to panic so we define a macro to conditionally compile the correct code.
 macro_rules! spawn_task {
     ($block:expr) => {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "wasm")] {
-                spawn_local($block);
-            } else if #[cfg(feature = "default")] {
-                let pool_handle = get_leptos_pool();
-                pool_handle.spawn_pinned(move || { $block });
-            } else {
-                eprintln!("It appears you have set 'default-features = false' on 'leptos_axum', \
-                but are not using the 'wasm' feature. Either remove 'default-features = false' or, \
-                if you are running in a JS-hosted WASM server environment, add the 'wasm' feature.");
-                spawn_local($block);
+        {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "wasm")] {
+                    let handle = spawn_local($block);
+                } else if #[cfg(feature = "default")] {
+                    let pool_handle = get_leptos_pool();
+                    let handle = pool_handle.spawn_pinned(move || { $block });
+                } else {
+                    eprintln!("It appears you have set 'default-features = false' on 'leptos_axum', \
+                    but are not using the 'wasm' feature. Either remove 'default-features = false' or, \
+                    if you are running in a JS-hosted WASM server environment, add the 'wasm' feature.");
+                    let handle = spawn_local($block);
+                }
             }
+            handle
         }
     };
 }
@@ -1254,7 +1257,7 @@ where
     generate_route_list_with_exclusions_and_ssg(app_fn, excluded_routes).0
 }
 
-/// TODO docs
+/// Build and output each route to the `./target/site` directory. This is useful for static site generation.
 pub async fn build_static_routes<IV>(
     options: &LeptosOptions,
     app_fn: impl Fn() -> IV + 'static + Send + Clone,
@@ -1265,7 +1268,8 @@ pub async fn build_static_routes<IV>(
 {
     let options = options.clone();
     let routes = routes.to_owned();
-    spawn_task!(async move {
+    #[allow(unused_variables, clippy::let_unit_value)]
+    let handle = spawn_task!(async move {
         leptos_router::build_static_routes(
             &options,
             app_fn,
@@ -1275,6 +1279,8 @@ pub async fn build_static_routes<IV>(
         .await
         .expect("could not build static routes")
     });
+    #[cfg(all(not(feature = "wasm"), feature = "default"))]
+    let _ = handle.await;
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically

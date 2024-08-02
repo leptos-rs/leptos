@@ -47,6 +47,7 @@ pub struct StaticPath<'b, 'a: 'b> {
     path: &'a str,
     segments: Vec<StaticPathSegment<'a>>,
     params: LinearMap<&'a str, &'b Vec<String>>,
+    trailing_slash: bool,
 }
 
 #[doc(hidden)]
@@ -72,6 +73,7 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                 })
                 .collect::<Vec<_>>(),
             params: LinearMap::new(),
+            trailing_slash: path != "/" && path.ends_with("/"),
         }
     }
 
@@ -118,6 +120,11 @@ impl<'b, 'a: 'b> StaticPath<'b, 'a> {
                     }
                     paths = new_paths;
                 }
+            }
+        }
+        if let Some(last) = paths.last_mut() {
+            if self.trailing_slash {
+                *last = ResolvedStaticPath(format!("{last}/"));
             }
         }
         paths
@@ -203,8 +210,15 @@ impl ResolvedStaticPath {
         IV: IntoView + 'static,
     {
         let html = self.build(options, app_fn, additional_context).await;
-        let file_path = static_file_path(options, &self.0);
+        // If the path ends with a trailing slash, we generate the path
+        // as a directory with a index.html file inside.
+        let file_path = if self.0 != "/" && self.0.ends_with("/") {
+            static_file_path(options, &format!("{}index", self.0))
+        } else {
+            static_file_path(options, &self.0)
+        };
         let path = Path::new(&file_path);
+        println!("writing static route to: {file_path}");
         if let Some(path) = path.parent() {
             std::fs::create_dir_all(path)?
         }
