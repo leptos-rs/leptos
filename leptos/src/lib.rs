@@ -423,7 +423,7 @@ extern crate self as leptos;
 ///     #[prop(optional, into)] class: Option<AttributeValue>,
 /// ) -> impl IntoView {
 ///     view! {
-///       <h1 class=class>{text}</h1>
+///       <h1 class={class}>{text}</h1>
 ///     }
 /// }
 /// ```

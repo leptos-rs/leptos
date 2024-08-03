@@ -24,8 +24,8 @@ use leptos_reactive::{
 /// view! {
 ///     <div
 ///         class="hover-me"
-///         on:mouseenter=move |_| show.set(true)
-///         on:mouseleave=move |_| show.set(false)
+///         on:mouseenter={move |_| show.set(true)}
+///         on:mouseleave={move |_| show.set(false)}
 ///     >
 ///         "Hover Me"
 ///     </div>
@@ -34,7 +34,7 @@ use leptos_reactive::{
 ///        when=show
 ///        show_class="fade-in-1000"
 ///        hide_class="fade-out-1000"
-///        hide_delay=Duration::from_millis(1000)
+///        hide_delay={Duration::from_millis(1000)}
 ///     >
 ///        <div class="here-i-am">
 ///            "Here I Am!"

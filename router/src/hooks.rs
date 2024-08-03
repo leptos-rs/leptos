@@ -67,10 +67,10 @@ where
 ///
 ///     view! {
 ///         <div>
-///             <button on:click=clear>"Clear"</button>
-///             <button on:click=decrement>"-1"</button>
+///             <button on:click={clear}>"Clear"</button>
+///             <button on:click={decrement}>"-1"</button>
 ///             <span>"Value: " {move || count.get().unwrap_or(0)} "!"</span>
-///             <button on:click=increment>"+1"</button>
+///             <button on:click={increment}>"+1"</button>
 ///         </div>
 ///     }
 /// }

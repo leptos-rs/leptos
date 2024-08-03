@@ -40,7 +40,7 @@ use leptos::{
 ///
 ///     view! {
 ///       <main>
-///         <Body {..} class=body_class id="body"/>
+///         <Body {..} class={body_class} id="body"/>
 ///       </main>
 ///     }
 /// }

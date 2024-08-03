@@ -27,7 +27,7 @@ use leptos_reactive::{
 ///
 /// view! {
 ///     <Await
-///         future=|| fetch_monkeys(3)
+///         future={|| fetch_monkeys(3)}
 ///         let:data
 ///     >
 ///         <p>{*data} " little monkeys, jumping on the bed."</p>
@@ -66,7 +66,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// view! {
     ///     <Await
-    ///         future=|| fetch_monkeys(3)
+    ///         future={|| fetch_monkeys(3)}
     ///         let:data
     ///     >
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
@@ -86,10 +86,10 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// view! {
     ///     <Await
-    ///         future=|| fetch_monkeys(3)
-    ///         children=|data| view! {
+    ///         future={|| fetch_monkeys(3)}
+    ///         children={|data| view! {
     ///           <p>{*data} " little monkeys, jumping on the bed."</p>
-    ///         }
+    ///         }}
     ///     />
     /// }
     /// # ;

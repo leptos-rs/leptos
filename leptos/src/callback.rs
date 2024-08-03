@@ -163,7 +163,7 @@ impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
 ///
 /// fn test() -> impl IntoView {
 ///     view! {
-///         <MyComponent render_number=move |x: i32| x.to_string()/>
+///         <MyComponent render_number={move |x: i32| x.to_string()} />
 ///     }
 /// }
 /// ```

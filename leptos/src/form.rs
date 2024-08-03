@@ -48,7 +48,7 @@ use web_sys::{
 ///     let submit = ServerAction::<VeryImportantFn>::new();
 ///
 ///     view! {
-///       <ActionForm action=submit>
+///       <ActionForm action={submit}>
 ///         <input type="text" name="hefty_arg[first_name]" value="leptos"/>
 ///         <input
 ///           type="text"
