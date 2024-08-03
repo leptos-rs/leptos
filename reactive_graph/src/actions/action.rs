@@ -2,7 +2,7 @@ use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
     owner::{
-        FromLocal, LocalStorage, Owner, Storage, StoredValue, SyncStorage,
+        FromLocal, LocalStorage, Storage, StoredValue, SyncStorage,
     },
     signal::{ArcRwSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, Update},
@@ -200,6 +200,24 @@ where
     }
 }
 
+/// A handle that allows aborting an in-flight action. It is returned from [`Action::dispatch`] or
+/// [`ArcAction::dispatch`].
+#[derive(Debug)]
+pub struct ActionAbortHandle(oneshot::Sender<()>);
+
+impl ActionAbortHandle {
+    /// Aborts the action.
+    ///
+    /// This will cause the dispatched task to complete, without updating the action's value. The
+    /// dispatched action's `Future` will no longer be polled. This does not guarantee that side
+    /// effects created by that `Future` no longer run: for example, if the action dispatches an
+    /// HTTP request, whether that request is actually canceled or not depends on whether the
+    /// request library actually cancels a request when its `Future` is dropped.
+    pub fn abort(self) {
+        let _ = self.0.send(());
+    }
+}
+
 impl<I, O> ArcAction<I, O>
 where
     I: Send + Sync + 'static,
@@ -207,18 +225,10 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
-    pub fn dispatch(&self, input: I) {
+    pub fn dispatch(&self, input: I) -> ActionAbortHandle {
+        let (abort_tx, mut abort_rx) = oneshot::channel();
         if !is_suppressing_resource_load() {
             let mut fut = (self.action_fn)(&input).fuse();
-
-            // abort this task if the owner is cleaned up
-            let (abort_tx, mut abort_rx) = oneshot::channel();
-            Owner::on_cleanup(move || {
-                // If this fails, it is because the receiver has already dropped, i.e.,
-                // because the dispatched task has already completed. This means it can be
-                // safely ignored, because it doesn't need to be aborted in any case.
-                let _ = abort_tx.send(());
-            });
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
@@ -246,14 +256,16 @@ where
                                 version.update(|n| *n += 1);
                                 value.update(|n| *n = Some(result));
                             }
-                            if in_flight.get_untracked() == 0 {
-                                input.update(|inp| *inp = None);
-                            }
                         }
+                    }
+                    if in_flight.get_untracked() == 0 {
+                        input.update(|inp| *inp = None);
                     }
                 }
             });
         }
+
+        ActionAbortHandle(abort_tx)
     }
 }
 
@@ -265,18 +277,10 @@ where
     /// Calls the `async` function with a reference to the input type as its argument,
     /// ensuring that it is spawned on the current thread.
     #[track_caller]
-    pub fn dispatch_local(&self, input: I) {
+    pub fn dispatch_local(&self, input: I) -> ActionAbortHandle {
+        let (abort_tx, mut abort_rx) = oneshot::channel();
         if !is_suppressing_resource_load() {
             let mut fut = (self.action_fn)(&input).fuse();
-
-            // abort this task if the owner is cleaned up
-            let (abort_tx, mut abort_rx) = oneshot::channel();
-            Owner::on_cleanup(move || {
-                abort_tx.send(()).expect(
-                    "tried to cancel a future in ArcAction::dispatch(), but \
-                     the channel has already closed",
-                );
-            });
 
             // Update the state before loading
             self.in_flight.update(|n| *n += 1);
@@ -304,14 +308,15 @@ where
                                 version.update(|n| *n += 1);
                                 value.update(|n| *n = Some(result));
                             }
-                            if in_flight.get_untracked() == 0 {
-                                input.update(|inp| *inp = None);
-                            }
                         }
+                    }
+                    if in_flight.get_untracked() == 0 {
+                        input.update(|inp| *inp = None);
                     }
                 }
             });
         }
+        ActionAbortHandle(abort_tx)
     }
 }
 
@@ -904,8 +909,8 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
-    pub fn dispatch(&self, input: I) {
-        self.inner.with_value(|inner| inner.dispatch(input));
+    pub fn dispatch(&self, input: I) -> ActionAbortHandle {
+        self.inner.with_value(|inner| inner.dispatch(input))
     }
 }
 
@@ -917,8 +922,8 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[track_caller]
-    pub fn dispatch_local(&self, input: I) {
-        self.inner.with_value(|inner| inner.dispatch_local(input));
+    pub fn dispatch_local(&self, input: I) -> ActionAbortHandle {
+        self.inner.with_value(|inner| inner.dispatch_local(input))
     }
 }
 
