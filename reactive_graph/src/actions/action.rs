@@ -1,9 +1,7 @@
 use crate::{
     computed::{ArcMemo, Memo},
     diagnostics::is_suppressing_resource_load,
-    owner::{
-        FromLocal, LocalStorage, Storage, StoredValue, SyncStorage,
-    },
+    owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::{ArcRwSignal, RwSignal},
     traits::{DefinedAt, Dispose, Get, GetUntracked, Update},
     unwrap_signal,
