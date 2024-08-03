@@ -10,17 +10,17 @@ pub fn SpreadingExample() -> impl IntoView {
     // you can easily create sets of spreadable attributes by using the <{..} ___/> syntax
     // this is expanded to a tuple of attributes; it has no meaning on its own, but can be spread
     // onto an HTML element or component
-    let attrs_only = view! { <{..} class="foo"/> };
-    let event_handlers_only = view! { <{..} on:click=move |_| {
-        alert("event_handlers_only clicked");
-    }/> };
-    let combined = view! { <{..} class="bar" on:click=move |_| alert("combined clicked") /> };
+    let attrs_only = view! { <{..} class="foo" /> };
+    let event_handlers_only = view! {
+        <{..} on:click={move |_| {
+            alert("event_handlers_only clicked");
+        }} />
+    };
+    let combined = view! { <{..} class="bar" on:click={move |_| alert("combined clicked")} /> };
     let partial_attrs =
         view! { <{..} id="snood" class="baz" data-foo="bar" /> };
-    let partial_event_handlers = view! { <{..} on:click=move |_| alert("partial_event_handlers clicked") /> };
-    let spread_onto_component = view! {
-        <{..} aria-label="a component with attribute spreading"/>
-    };
+    let partial_event_handlers = view! { <{..} on:click={move |_| alert("partial_event_handlers clicked")} /> };
+    let spread_onto_component = view! { <{..} aria-label="a component with attribute spreading" /> };
 
     /* with the correct imports, you can use a tuple/builder syntax as well
         let attrs_only = class("foo");
@@ -53,7 +53,7 @@ pub fn SpreadingExample() -> impl IntoView {
             "<div {..partial_attrs} {..partial_event_handlers} />"
         </div>
 
-        <hr/>
+        <hr />
 
         <p>
             "The .. is not required to spread; you can pass any valid attribute in a block by itself."
@@ -68,7 +68,7 @@ pub fn SpreadingExample() -> impl IntoView {
             "<div {partial_attrs} {partial_event_handlers} />"
         </div>
 
-        <hr/>
+        <hr />
 
         // attributes that are spread onto a component will be applied to *all* elements returned as part of
         // the component's view. to apply attributes to a subset of the component, pass them via a component prop
@@ -77,7 +77,7 @@ pub fn SpreadingExample() -> impl IntoView {
             class:foo=true
             style:font-weight="bold"
             prop:cool=42
-            on:click=move |_| alert("clicked ComponentThatTakesSpread")
+            on:click={move |_| alert("clicked ComponentThatTakesSpread")}
             // props are passed as they usually are on components
             some_prop=13
             // to pass a plain HTML attribute, prefix it with attr:

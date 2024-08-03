@@ -182,31 +182,27 @@ pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
             <section class="todoapp">
                 <header class="header">
                     <h1>"todos"</h1>
-                    <input
-                        class="new-todo"
-                        placeholder="What needs to be done?"
-                        autofocus
-                    />
+                    <input class="new-todo" placeholder="What needs to be done?" autofocus />
                 </header>
-                <section class="main" class:hidden=move || todos.with(|t| t.is_empty())>
+                <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <input
                         id="toggle-all"
                         class="toggle-all"
                         r#type="checkbox"
-                        //prop:checked=move || todos.with(|t| t.remaining() > 0)
-                        on:input=move |_| set_todos.update(|t| t.toggle_all())
+                        // prop:checked=move || todos.with(|t| t.remaining() > 0)
+                        on:input={move |_| set_todos.update(|t| t.toggle_all())}
                     />
                     <label r#for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
-                        {move || {
-                            keyed(filtered_todos.get(), |todo| todo.id, Todo)
-                        }}
+                        {move || { keyed(filtered_todos.get(), |todo| todo.id, Todo) }}
                     </ul>
                 </section>
-                <footer class="footer" class:hidden=move || todos.with(|t| t.is_empty())>
+                <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <span class="todo-count">
                         <strong>{move || todos.with(|t| t.remaining().to_string())}</strong>
-                        {move || if todos.with(|t| t.remaining()) == 1 { " item" } else { " items" }}
+                        {move || {
+                            if todos.with(|t| t.remaining()) == 1 { " item" } else { " items" }
+                        }}
                         " left"
                     </span>
                     <ul class="filters">
@@ -214,26 +210,29 @@ pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
                             <a
                                 href="#/"
                                 class="selected"
-                                class:selected=move || mode() == Mode::All
+                                class:selected={move || mode() == Mode::All}
                             >
                                 "All"
                             </a>
                         </li>
                         <li>
-                            <a href="#/active" class:selected=move || mode() == Mode::Active>
+                            <a href="#/active" class:selected={move || mode() == Mode::Active}>
                                 "Active"
                             </a>
                         </li>
                         <li>
-                            <a href="#/completed" class:selected=move || mode() == Mode::Completed>
+                            <a
+                                href="#/completed"
+                                class:selected={move || mode() == Mode::Completed}
+                            >
                                 "Completed"
                             </a>
                         </li>
                     </ul>
                     <button
                         class="clear-completed hidden"
-                        class:hidden=move || todos.with(|t| t.completed() == 0)
-                        on:click=move |_| set_todos.update(|t| t.clear_completed())
+                        class:hidden={move || todos.with(|t| t.completed() == 0)}
+                        on:click={move |_| set_todos.update(|t| t.clear_completed())}
                     >
                         "Clear completed"
                     </button>
@@ -264,26 +263,7 @@ pub fn Todo(todo: Todo) -> impl Render<Dom> + RenderHtml<Dom> {
     };
 
     view! {
-        <li class="todo" class:editing=editing class:completed=move || (todo.completed)()>
-            /* <div class="view">
-                <input class="toggle" r#type="checkbox"/>
-                <label on:dblclick=move |_| set_editing(true)>{move || todo.title.get()}</label>
-                <button
-                    class="destroy"
-                    on:click=move |_| set_todos.update(|t| t.remove(todo.id))
-                ></button>
-            </div>
-            {move || {
-                editing()
-                    .then(|| {
-                        view! {
-                            <input
-                                class="edit"
-                                class:hidden=move || !(editing)()
-                            />
-                        }
-                    })
-            }} */
+        <li class="todo" class:editing={editing} class:completed={move || (todo.completed)()}>
         </li>
     }
 }

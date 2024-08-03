@@ -44,11 +44,9 @@ where
 {
     let value = value.to_owned();
     view! {
-        <button on:click=move |_| {
+        <button on:click={move |_| {
             callback(5);
-        }>
-            {value}
-        </button>
-        <TestComponent key="test"/>
+        }}>{value}</button>
+        <TestComponent key="test" />
     }
 }

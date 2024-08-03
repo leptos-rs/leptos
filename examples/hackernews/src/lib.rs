@@ -15,22 +15,22 @@ pub fn App() -> impl IntoView {
     let (is_routing, set_is_routing) = signal(false);
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
+        <Stylesheet id="leptos" href="/pkg/hackernews.css" />
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico" />
+        <Meta name="description" content="Leptos implementation of a HackerNews demo." />
         <Router set_is_routing>
             // shows a progress bar while async data are loading
             <div class="routing-progress">
-                <RoutingProgress is_routing max_time=Duration::from_millis(250)/>
+                <RoutingProgress is_routing max_time={Duration::from_millis(250)} />
             </div>
             <Nav />
             <main>
-                <FlatRoutes fallback=|| "Not found.">
-                    <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
-                    <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
-                    <Route path=ParamSegment("stories") view=Stories/>
+                <FlatRoutes fallback={|| "Not found."}>
+                    <Route path={(StaticSegment("users"), ParamSegment("id"))} view={User} />
+                    <Route path={(StaticSegment("stories"), ParamSegment("id"))} view={Story} />
+                    <Route path={ParamSegment("stories")} view={Stories} />
                     // TODO allow optional params without duplication
-                    <Route path=StaticSegment("") view=Stories/>
+                    <Route path={StaticSegment("")} view={Stories} />
                 </FlatRoutes>
             </main>
         </Router>

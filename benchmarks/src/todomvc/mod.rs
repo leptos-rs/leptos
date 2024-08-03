@@ -14,7 +14,7 @@ fn leptos_todomvc_ssr(b: &mut Bencher) {
         use crate::todomvc::leptos::*;
 
         let html = ::leptos::ssr::render_to_string(|| {
-            view! { <TodoMVC todos=Todos::new()/> }
+            view! { <TodoMVC todos={Todos::new()} /> }
         });
         assert!(html.len() > 1);
     });
@@ -45,10 +45,7 @@ fn sycamore_todomvc_ssr(b: &mut Bencher) {
     b.iter(|| {
         _ = create_scope(|cx| {
             let rendered = render_to_string(|cx| {
-                view! {
-                    cx,
-                    App()
-                }
+                view! { cx, App() }
             });
 
             assert!(rendered.len() > 1);
@@ -77,9 +74,7 @@ fn leptos_todomvc_ssr_with_1000(b: &mut Bencher) {
         use ::leptos::*;
 
         let html = ::leptos::ssr::render_to_string(|| {
-            view! {
-                <TodoMVC todos=Todos::new_with_1000()/>
-            }
+            view! { <TodoMVC todos={Todos::new_with_1000()} /> }
         });
         assert!(html.len() > 1);
     });
@@ -107,10 +102,7 @@ fn sycamore_todomvc_ssr_with_1000(b: &mut Bencher) {
     b.iter(|| {
         _ = create_scope(|cx| {
             let rendered = render_to_string(|cx| {
-                view! {
-                    cx,
-                    AppWith1000()
-                }
+                view! { cx, AppWith1000() }
             });
 
             assert!(rendered.len() > 1);
@@ -140,7 +132,7 @@ fn tera_todomvc_ssr(b: &mut Bencher) {
         use crate::todomvc::leptos::*;
 
         let html = ::leptos::ssr::render_to_string(|| {
-            view! { <TodoMVC todos=Todos::new()/> }
+            view! { <TodoMVC todos={Todos::new()} /> }
         });
         assert!(html.len() > 1);
     });

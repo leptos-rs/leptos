@@ -38,8 +38,8 @@ fn ssr_test_with_components() {
 
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div class="counters">
-            <Counter initial_value=1/>
-            <Counter initial_value=2/>
+            <Counter initial_value=1 />
+            <Counter initial_value=2 />
         </div>
     };
 
@@ -68,8 +68,8 @@ fn ssr_test_with_snake_case_components() {
     }
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div class="counters">
-            <SnakeCaseCounter initial_value=1/>
-            <SnakeCaseCounter initial_value=2/>
+            <SnakeCaseCounter initial_value=1 />
+            <SnakeCaseCounter initial_value=2 />
         </div>
     };
 
@@ -89,9 +89,9 @@ fn test_classes() {
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div
             class="my big"
-            class:a=move || { value.get() > 10 }
+            class:a={move || { value.get() > 10 }}
             class:red=true
-            class:car=move || { value.get() > 1 }
+            class:car={move || { value.get() > 1 }}
         ></div>
     };
 

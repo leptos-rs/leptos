@@ -22,7 +22,7 @@ pub async fn file_and_error_handler(
     } else {
         let handler = leptos_axum::render_app_to_stream(
             options.to_owned(),
-            || view! {"Error! Error! Error!"},
+            || view! { "Error! Error! Error!" },
         );
         handler(req).await.into_response()
     }

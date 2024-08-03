@@ -83,11 +83,11 @@ pub async fn logout() -> Result<(), ServerFnError> {
 pub fn LogoutButton() -> impl IntoView {
     let logout = Action::<Logout, _>::server();
     view! {
-        <button id=ids::LOGOUT_BUTTON_ID on:click=move|_|logout.dispatch(Logout{})>
+        <button id={ids::LOGOUT_BUTTON_ID} on:click={move |_| logout.dispatch(Logout {})}>
             Logout
-            <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            { move || logout.value().get().map(|resp|resp.into_view())}
-            </ErrorBoundary>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>{move || logout.value().get().map(|resp| resp.into_view())}</ErrorBoundary>
         </button>
     }
 }

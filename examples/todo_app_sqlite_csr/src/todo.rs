@@ -6,18 +6,18 @@ use server_fn::ServerFnError;
 
 pub fn shell(leptos_options: &LeptosOptions) -> impl IntoView {
     view! {
-        <!DOCTYPE html>
+        <!DOCTYPE html> 
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=leptos_options.clone() />
-                <HydrationScripts options=leptos_options.clone()/>
-                <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_csr.css"/>
-                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <AutoReload options={leptos_options.clone()} />
+                <HydrationScripts options={leptos_options.clone()} />
+                <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_csr.css" />
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
             </head>
             <body>
-                <TodoApp/>
+                <TodoApp />
             </body>
         </html>
     }
@@ -110,7 +110,7 @@ pub fn TodoApp() -> impl IntoView {
             <h1>"My Tasks"</h1>
         </header>
         <main>
-            <Todos/>
+            <Todos />
         </main>
     }
 }
@@ -148,10 +148,9 @@ pub fn Todos() -> impl IntoView {
                                     let id = todo.id;
                                     view! {
                                         <li>
-                                            {todo.title.clone()}
-                                            <ActionForm action=delete_todo>
-                                                <input type="hidden" name="id" value=id/>
-                                                <input type="submit" value="X"/>
+                                            {todo.title.clone()} <ActionForm action={delete_todo}>
+                                                <input type="hidden" name="id" value={id} />
+                                                <input type="submit" value="X" />
                                             </ActionForm>
                                         </li>
                                     }
@@ -164,13 +163,13 @@ pub fn Todos() -> impl IntoView {
     };
 
     view! {
-        <MultiActionForm action=add_todo>
-            <label>"Add a Todo" <input type="text" name="title"/></label>
-            <input type="submit" value="Add"/>
+        <MultiActionForm action={add_todo}>
+            <label>"Add a Todo" <input type="text" name="title" /></label>
+            <input type="submit" value="Add" />
         </MultiActionForm>
         <div>
-            <Transition fallback=move || view! { <p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors/> }>
+            <Transition fallback={move || view! { <p>"Loading..."</p> }}>
+                <ErrorBoundary fallback={|errors| view! { <ErrorTemplate errors /> }}>
                     <ul>
                         {existing_todos}
                         {move || {

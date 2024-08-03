@@ -39,23 +39,26 @@ pub fn RouterExample() -> impl IntoView {
                 <A href="/about">"About"</A>
                 <A href="/settings">"Settings"</A>
                 <A href="/redirect-home">"Redirect to Home"</A>
-                <button on:click=move |_| {
+                <button on:click={move |_| {
                     set_logged_in.update(|n| *n = !*n)
-                }>{move || if logged_in.get() { "Log Out" } else { "Log In" }}</button>
+                }}>{move || if logged_in.get() { "Log Out" } else { "Log In" }}</button>
             </nav>
             <main>
-                <Routes fallback=|| "This page could not be found.">
+                <Routes fallback={|| "This page could not be found."}>
                     // paths can be created using the path!() macro, or provided as types like
                     // StaticSegment("about")
-                    <Route path=path!("about") view=About/>
+                    <Route path={path!("about")} view={About} />
                     <ProtectedRoute
-                        path=path!("settings")
-                        condition=move || Some(logged_in.get())
-                        redirect_path=|| "/"
-                        view=Settings
+                        path={path!("settings")}
+                        condition={move || Some(logged_in.get())}
+                        redirect_path={|| "/"}
+                        view={Settings}
                     />
-                    <Route path=path!("redirect-home") view=|| view! { <Redirect path="/"/> }/>
-                    <ContactRoutes/>
+                    <Route
+                        path={path!("redirect-home")}
+                        view={|| view! { <Redirect path="/" /> }}
+                    />
+                    <ContactRoutes />
                 </Routes>
             </main>
         </Router>
@@ -67,9 +70,9 @@ pub fn RouterExample() -> impl IntoView {
 #[component]
 pub fn ContactRoutes() -> impl MatchNestedRoutes<Dom> + Clone {
     view! {
-        <ParentRoute path=path!("") view=ContactList>
-            <Route path=path!("/") view=|| "Select a contact."/>
-            <Route path=path!("/:id") view=Contact/>
+        <ParentRoute path={path!("")} view={ContactList}>
+            <Route path={path!("/")} view={|| "Select a contact."} />
+            <Route path={path!("/:id")} view={Contact} />
         </ParentRoute>
     }
 }
@@ -99,7 +102,7 @@ pub fn ContactList() -> impl IntoView {
                 .map(|contact| {
                     view! {
                         <li>
-                            <A href=contact.id.to_string()>
+                            <A href={contact.id.to_string()}>
                                 <span>{contact.first_name} " " {contact.last_name}</span>
                             </A>
                         </li>
@@ -112,10 +115,10 @@ pub fn ContactList() -> impl IntoView {
     view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
-            <Suspense fallback=move || view! { <p>"Loading contacts..."</p> }>
+            <Suspense fallback={move || view! { <p>"Loading contacts..."</p> }}>
                 <ul>{contacts}</ul>
             </Suspense>
-            <Outlet/>
+            <Outlet />
         </div>
     }
 }
@@ -159,7 +162,7 @@ pub fn Contact() -> impl IntoView {
                 Some(contact) => Either::Right(view! {
                     <section class="card">
                         <h1>{contact.first_name} " " {contact.last_name}</h1>
-                        <p>{contact.address_1} <br/> {contact.address_2}</p>
+                        <p>{contact.address_1} <br /> {contact.address_2}</p>
                     </section>
                 }),
             }
@@ -168,9 +171,9 @@ pub fn Contact() -> impl IntoView {
 
     view! {
         <div class="contact">
-            <Transition fallback=move || {
+            <Transition fallback={move || {
                 view! { <p>"Loading..."</p> }
-            }>{contact_display}</Transition>
+            }}>{contact_display}</Transition>
         </div>
     }
 }
@@ -196,7 +199,7 @@ pub fn About() -> impl IntoView {
     // you should ordinarily use a link instead,
     // both semantically and so your link will work before WASM loads
     view! {
-        <button on:click=move |_| navigate("/", Default::default())>"Home"</button>
+        <button on:click={move |_| navigate("/", Default::default())}>"Home"</button>
         <h1>"About"</h1>
         <p>
             "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
@@ -217,10 +220,10 @@ pub fn Settings() -> impl IntoView {
         <Form action="">
             <fieldset>
                 <legend>"Name"</legend>
-                <input type="text" name="first_name" placeholder="First"/>
-                <input type="text" name="last_name" placeholder="Last"/>
+                <input type="text" name="first_name" placeholder="First" />
+                <input type="text" name="last_name" placeholder="Last" />
             </fieldset>
-            <input type="submit"/>
+            <input type="submit" />
             <p>
                 "This uses the " <code>"<Form/>"</code>
                 " component, which enhances forms by using client-side navigation for "

@@ -10,19 +10,16 @@ pub fn NavBar(
     view! {
         <nav>
             <Show
-                when=move || logged_in.get()
-                fallback=|| {
+                when={move || logged_in.get()}
+                fallback={|| {
                     view! {
-                        <A href=Page::Login.path()>"Login"</A>
+                        <A href={Page::Login.path()}>"Login"</A>
                         " | "
-                        <A href=Page::Register.path()>"Register"</A>
+                        <A href={Page::Register.path()}>"Register"</A>
                     }
-                }
+                }}
             >
-                <a
-                    href="#"
-                    on:click=move |_| on_logout.call(())
-                >
+                <a href="#" on:click={move |_| on_logout.call(())}>
                     "Logout"
                 </a>
             </Show>

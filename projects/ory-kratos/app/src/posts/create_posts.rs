@@ -21,14 +21,14 @@ pub async fn post_post(content: String) -> Result<(), ServerFnError> {
 pub fn CreatePost() -> impl IntoView {
     let post_post = Action::<PostPost, _>::server();
     view! {
-        <ActionForm action=post_post>
-            <textarea type="text" name="content" id=ids::POST_POST_TEXT_AREA_ID/>
-            <input type="submit" value="Post Post" id=ids::POST_POST_SUBMIT_ID/>
+        <ActionForm action={post_post}>
+            <textarea type="text" name="content" id={ids::POST_POST_TEXT_AREA_ID} />
+            <input type="submit" value="Post Post" id={ids::POST_POST_SUBMIT_ID} />
         </ActionForm>
-        <Suspense fallback=move||view!{}>
-        <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            { move || post_post.value().get()}
-        </ErrorBoundary>
+        <Suspense fallback={move || view! {}}>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>{move || post_post.value().get()}</ErrorBoundary>
         </Suspense>
     }
 }

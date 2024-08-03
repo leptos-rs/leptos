@@ -53,11 +53,11 @@ pub fn Login(
         <CredentialsForm
             title="Please login to your account"
             action_label="Login"
-            action=login_action
-            error=login_error.into()
+            action={login_action}
+            error={login_error.into()}
             disabled
         />
         <p>"Don't have an account?"</p>
-        <A href=Page::Register.path()>"Register"</A>
+        <A href={Page::Register.path()}>"Register"</A>
     }
 }

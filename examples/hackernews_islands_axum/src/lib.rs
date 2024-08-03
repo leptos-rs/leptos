@@ -12,17 +12,17 @@ pub mod fallback;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
-        <!DOCTYPE html>
+        <!DOCTYPE html> 
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone() />
-                <HydrationScripts options islands=true/>
-                <MetaTags/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <AutoReload options={options.clone()} />
+                <HydrationScripts options islands=true />
+                <MetaTags />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -33,18 +33,18 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
+        <Stylesheet id="leptos" href="/pkg/hackernews.css" />
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico" />
+        <Meta name="description" content="Leptos implementation of a HackerNews demo." />
         <Router>
             <Nav />
             <main>
-                <FlatRoutes fallback=|| "Not found.">
-                    <Route path=(StaticSegment("users"), ParamSegment("id")) view=User/>
-                    <Route path=(StaticSegment("stories"), ParamSegment("id")) view=Story/>
-                    <Route path=ParamSegment("stories") view=Stories/>
+                <FlatRoutes fallback={|| "Not found."}>
+                    <Route path={(StaticSegment("users"), ParamSegment("id"))} view={User} />
+                    <Route path={(StaticSegment("stories"), ParamSegment("id"))} view={Story} />
+                    <Route path={ParamSegment("stories")} view={Stories} />
                     // TODO allow optional params without duplication
-                    <Route path=StaticSegment("") view=Stories/>
+                    <Route path={StaticSegment("")} view={Stories} />
                 </FlatRoutes>
             </main>
         </Router>

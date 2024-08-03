@@ -54,18 +54,18 @@ pub fn App() -> impl IntoView {
             .todos()
             .iter()
             .enumerate()
-            .map(|(idx, todo)| view! { <TodoRow store idx todo/> })
+            .map(|(idx, todo)| view! { <TodoRow store idx todo /> })
             .collect_view()
     };
 
     view! {
         <p>"Hello, " {move || store.user().get()}</p>
-        <form on:submit=move |ev| {
+        <form on:submit={move |ev| {
             ev.prevent_default();
             store.todos().write().push(Todo::new(input_ref.get().unwrap().value()));
-        }>
-            <label>"Add a Todo" <input type="text" node_ref=input_ref/></label>
-            <input type="submit"/>
+        }}>
+            <label>"Add a Todo" <input type="text" node_ref={input_ref} /></label>
+            <input type="submit" />
         </form>
         <ol>{rows}</ol>
         <div style="display: flex"></div>
@@ -85,46 +85,46 @@ fn TodoRow(
 
     view! {
         <li
-            style:text-decoration=move || {
+            style:text-decoration={move || {
                 completed.get().then_some("line-through").unwrap_or_default()
-            }
+            }}
 
-            class:foo=move || completed.get()
+            class:foo={move || completed.get()}
         >
             <p
-                class:hidden=move || editing.get()
-                on:click=move |_| {
+                class:hidden={move || editing.get()}
+                on:click={move |_| {
                     editing.update(|n| *n = !*n);
-                }
+                }}
             >
 
                 {move || title.get()}
             </p>
             <input
-                class:hidden=move || !(editing.get())
+                class:hidden={move || !(editing.get())}
                 type="text"
-                prop:value=move || title.get()
-                on:change=move |ev| {
+                prop:value={move || title.get()}
+                on:change={move |ev| {
                     title.set(event_target_value(&ev));
                     editing.set(false);
-                }
+                }}
 
-                on:blur=move |_| editing.set(false)
+                on:blur={move |_| editing.set(false)}
                 autofocus
             />
             <input
                 type="checkbox"
-                prop:checked=move || completed.get()
-                on:click=move |_| { completed.update(|n| *n = !*n) }
+                prop:checked={move || completed.get()}
+                on:click={move |_| { completed.update(|n| *n = !*n) }}
             />
 
-            <button on:click=move |_| {
+            <button on:click={move |_| {
                 store
                     .todos()
                     .update(|todos| {
                         todos.remove(idx);
                     });
-            }>"X"</button>
+            }}>"X"</button>
         </li>
     }
 }

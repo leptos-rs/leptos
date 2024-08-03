@@ -31,19 +31,14 @@ pub fn ErrorTemplate(
     }
 
     view! {
-        <h1>{move || {
-            if errors.read().len() > 1 {
-                "Errors"
-            } else {
-                "Error"
-            }}}
-        </h1>
+        <h1>{move || { if errors.read().len() > 1 { "Errors" } else { "Error" } }}</h1>
         {move || {
-            errors.get()
+            errors
+                .get()
                 .into_iter()
                 .map(|error| {
                     let error_string = error.to_string();
-                    let error_code= error.status_code();
+                    let error_code = error.status_code();
                     view! {
                         <h2>{error_code.to_string()}</h2>
                         <p>"Error: " {error_string}</p>

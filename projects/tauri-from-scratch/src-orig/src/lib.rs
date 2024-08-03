@@ -20,14 +20,11 @@ pub fn App() -> impl IntoView {
             }
         }
     });
-    view! {<button
-        on:click=move |_| {
-            action.dispatch(HelloWorldServer{});
-        }
-        >"Hello world."</button>
-        {
-            move || vals.get()
-        }
+    view! {
+        <button on:click={move |_| {
+            action.dispatch(HelloWorldServer {});
+        }}>"Hello world."</button>
+        {move || vals.get()}
     }
 }
 cfg_if::cfg_if! {

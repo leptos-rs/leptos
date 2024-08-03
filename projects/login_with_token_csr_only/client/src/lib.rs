@@ -96,37 +96,37 @@ pub fn App() -> impl IntoView {
 
     view! {
         <Router>
-            <NavBar logged_in on_logout/>
+            <NavBar logged_in on_logout />
             <main>
                 <Routes>
                     <Route
-                        path=Page::Home.path()
-                        view=move || {
-                            view! { <Home user_info=user_info.into()/> }
-                        }
+                        path={Page::Home.path()}
+                        view={move || {
+                            view! { <Home user_info={user_info.into()} /> }
+                        }}
                     />
                     <Route
-                        path=Page::Login.path()
-                        view=move || {
+                        path={Page::Login.path()}
+                        view={move || {
                             view! {
                                 <Login
-                                    api=unauthorized_api
-                                    on_success=move |api| {
+                                    api={unauthorized_api}
+                                    on_success={move |api| {
                                         log::info!("Successfully logged in");
                                         authorized_api.update(|v| *v = Some(api));
                                         let navigate = use_navigate();
                                         navigate(Page::Home.path(), Default::default());
                                         fetch_user_info.dispatch(());
-                                    }
+                                    }}
                                 />
                             }
-                        }
+                        }}
                     />
                     <Route
-                        path=Page::Register.path()
-                        view=move || {
-                            view! { <Register api=unauthorized_api/> }
-                        }
+                        path={Page::Register.path()}
+                        view={move || {
+                            view! { <Register api={unauthorized_api} /> }
+                        }}
                     />
                 </Routes>
             </main>

@@ -15,17 +15,17 @@ use thiserror::Error;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
-        <!DOCTYPE html>
+        <!DOCTYPE html> 
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone() />
-                <HydrationScripts options/>
-                <MetaTags/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <AutoReload options={options.clone()} />
+                <HydrationScripts options />
+                <MetaTags />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -55,23 +55,30 @@ pub fn App() -> impl IntoView {
         Resource::new(move || toggle_admin.version().get(), |_| is_admin());
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
-        <Title text="Welcome to Leptos"/>
-        <Meta name="color-scheme" content="dark light"/>
+        <Stylesheet id="leptos" href="/pkg/ssr_modes.css" />
+        <Title text="Welcome to Leptos" />
+        <Meta name="color-scheme" content="dark light" />
         <Router>
             <nav>
                 <a href="/">"Home"</a>
                 <a href="/admin">"Admin"</a>
                 <Transition>
-                    <ActionForm action=toggle_admin>
-                        <input type="hidden" name="is_admin"
-                            value=move || (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default()).to_string()
+                    <ActionForm action={toggle_admin}>
+                        <input
+                            type="hidden"
+                            name="is_admin"
+                            value={move || {
+                                (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default())
+                                    .to_string()
+                            }}
                         />
                         <button>
-                            {move || if is_admin.get().and_then(Result::ok).unwrap_or_default() {
-                                "Log Out"
-                            } else {
-                                "Log In"
+                            {move || {
+                                if is_admin.get().and_then(Result::ok).unwrap_or_default() {
+                                    "Log Out"
+                                } else {
+                                    "Log In"
+                                }
                             }}
                         </button>
                     </ActionForm>
@@ -80,30 +87,30 @@ pub fn App() -> impl IntoView {
             <main>
                 <FlatRoutes fallback>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path=StaticSegment("") view=HomePage/>
+                    <Route path={StaticSegment("")} view={HomePage} />
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
                     <Route
-                        path=(StaticSegment("post"), ParamSegment("id"))
-                        view=Post
-                        ssr=SsrMode::Async
+                        path={(StaticSegment("post"), ParamSegment("id"))}
+                        view={Post}
+                        ssr={SsrMode::Async}
                     />
                     <Route
-                        path=(StaticSegment("post_in_order"), ParamSegment("id"))
-                        view=Post
-                        ssr=SsrMode::InOrder
+                        path={(StaticSegment("post_in_order"), ParamSegment("id"))}
+                        view={Post}
+                        ssr={SsrMode::InOrder}
                     />
                     <Route
-                        path=(StaticSegment("post_partially_blocked"), ParamSegment("id"))
-                        view=Post
+                        path={(StaticSegment("post_partially_blocked"), ParamSegment("id"))}
+                        view={Post}
                     />
                     <ProtectedRoute
-                        path=StaticSegment("admin")
-                        view=Admin
-                        ssr=SsrMode::Async
-                        condition=move || is_admin.get().map(|n| n.unwrap_or(false))
-                        redirect_path=|| "/"
+                        path={StaticSegment("admin")}
+                        view={Admin}
+                        ssr={SsrMode::Async}
+                        condition={move || is_admin.get().map(|n| n.unwrap_or(false))}
+                        redirect_path={|| "/"}
                     />
                 </FlatRoutes>
             </main>
@@ -130,18 +137,24 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"My Great Blog"</h1>
-        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+        <Suspense fallback={move || view! { <p>"Loading posts..."</p> }}>
             <p>"number of posts: " {Suspend::new(async move { posts2.await })}</p>
         </Suspense>
-        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+        <Suspense fallback={move || view! { <p>"Loading posts..."</p> }}>
             <ul>
-                <For each=posts key=|post| post.id let:post>
+                <For each={posts} key={|post| post.id} let:post>
                     <li>
-                        <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
+                        <a href={format!("/post/{}", post.id)}>{post.title.clone()}</a>
                         "|"
-                        <a href=format!("/post_in_order/{}", post.id)>{post.title.clone()} "(in order)"</a>
+                        <a href={format!(
+                            "/post_in_order/{}",
+                            post.id,
+                        )}>{post.title.clone()} "(in order)"</a>
                         "|"
-                        <a href=format!("/post_partially_blocked/{}", post.id)>{post.title} "(partially blocked)"</a>
+                        <a href={format!(
+                            "/post_partially_blocked/{}",
+                            post.id,
+                        )}>{post.title} "(partially blocked)"</a>
                     </li>
                 </For>
             </ul>
@@ -192,8 +205,8 @@ fn Post() -> impl IntoView {
                     // since we're using async rendering for this page,
                     // this metadata should be included in the actual HTML <head>
                     // when it's first served
-                    <Title text=post.title/>
-                    <Meta name="description" content=post.content/>
+                    <Title text={post.title} />
+                    <Meta name="description" content={post.content} />
                 })
             }
             _ => Err(PostError::ServerError),
@@ -204,12 +217,10 @@ fn Post() -> impl IntoView {
             Ok(comments) => Ok(view! {
                 <h1>"Comments"</h1>
                 <ul>
-                    {comments.into_iter()
-                        .map(|comment| view! {
-                            <li>{comment}</li>
-                        })
-                        .collect_view()
-                    }
+                    {comments
+                        .into_iter()
+                        .map(|comment| view! { <li>{comment}</li> })
+                        .collect_view()}
                 </ul>
             }),
             _ => Err(PostError::ServerError),
@@ -218,8 +229,8 @@ fn Post() -> impl IntoView {
 
     view! {
         <em>"The world's best content."</em>
-        <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
-            <ErrorBoundary fallback=|errors| {
+        <Suspense fallback={move || view! { <p>"Loading post..."</p> }}>
+            <ErrorBoundary fallback={|errors| {
                 view! {
                     <div class="error">
                         <h1>"Something went wrong."</h1>
@@ -235,19 +246,17 @@ fn Post() -> impl IntoView {
                         </ul>
                     </div>
                 }
-            }>{post_view}</ErrorBoundary>
+            }}>{post_view}</ErrorBoundary>
         </Suspense>
-        <Suspense fallback=move || view! { <p>"Loading comments..."</p> }>
-            {comments_view}
-        </Suspense>
+        <Suspense fallback={move || {
+            view! { <p>"Loading comments..."</p> }
+        }}>{comments_view}</Suspense>
     }
 }
 
 #[component]
 pub fn Admin() -> impl IntoView {
-    view! {
-        <p>"You can only see this page if you're logged in."</p>
-    }
+    view! { <p>"You can only see this page if you're logged in."</p> }
 }
 
 // Dummy API

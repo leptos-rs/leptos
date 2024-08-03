@@ -43,72 +43,72 @@ pub fn App() -> impl IntoView {
                 <A href="/async">"Async"</A>
             </nav>
             <main>
-                <Routes fallback=|| "Page not found.">
+                <Routes fallback={|| "Page not found."}>
                     <Route
-                        path=StaticSegment("")
-                        view=|| view! { <Redirect path="/out-of-order"/> }
+                        path={StaticSegment("")}
+                        view={|| view! { <Redirect path="/out-of-order" /> }}
                     />
                     // out-of-order
                     <ParentRoute
-                        path=StaticSegment("out-of-order")
-                        view=|| {
+                        path={StaticSegment("out-of-order")}
+                        view={|| {
                             view! {
-                                <SecondaryNav/>
+                                <SecondaryNav />
                                 <h1>"Out-of-Order"</h1>
-                                <Outlet/>
+                                <Outlet />
                             }
-                        }
+                        }}
                     >
 
-                        <Route path=StaticSegment("") view=Nested/>
-                        <Route path=StaticSegment("inside") view=NestedResourceInside/>
-                        <Route path=StaticSegment("single") view=Single/>
-                        <Route path=StaticSegment("parallel") view=Parallel/>
-                        <Route path=StaticSegment("inside-component") view=InsideComponent/>
-                        <Route path=StaticSegment("local") view=LocalResource/>
-                        <Route path=StaticSegment("none") view=None/>
+                        <Route path={StaticSegment("")} view={Nested} />
+                        <Route path={StaticSegment("inside")} view={NestedResourceInside} />
+                        <Route path={StaticSegment("single")} view={Single} />
+                        <Route path={StaticSegment("parallel")} view={Parallel} />
+                        <Route path={StaticSegment("inside-component")} view={InsideComponent} />
+                        <Route path={StaticSegment("local")} view={LocalResource} />
+                        <Route path={StaticSegment("none")} view={None} />
                     </ParentRoute>
                     // in-order
                     <ParentRoute
-                        path=StaticSegment("in-order")
-                        ssr=SsrMode::InOrder
-                        view=|| {
+                        path={StaticSegment("in-order")}
+                        ssr={SsrMode::InOrder}
+                        view={|| {
                             view! {
-                                <SecondaryNav/>
+                                <SecondaryNav />
                                 <h1>"In-Order"</h1>
-                                <Outlet/>
+                                <Outlet />
                             }
-                        }
+                        }}
                     >
 
-                        <Route path=StaticSegment("") view=Nested/>
-                        <Route path=StaticSegment("inside") view=NestedResourceInside/>
-                        <Route path=StaticSegment("single") view=Single/>
-                        <Route path=StaticSegment("parallel") view=Parallel/>
-                        <Route path=StaticSegment("inside-component") view=InsideComponent/>
-                        <Route path=StaticSegment("local") view=LocalResource/>
-                        <Route path=StaticSegment("none") view=None/>
+                        <Route path={StaticSegment("")} view={Nested} />
+                        <Route path={StaticSegment("inside")} view={NestedResourceInside} />
+                        <Route path={StaticSegment("single")} view={Single} />
+                        <Route path={StaticSegment("parallel")} view={Parallel} />
+                        <Route path={StaticSegment("inside-component")} view={InsideComponent} />
+                        <Route path={StaticSegment("local")} view={LocalResource} />
+                        <Route path={StaticSegment("none")} view={None} />
                     </ParentRoute>
                     // async
                     <ParentRoute
-                        path=StaticSegment("async")
-                        ssr=SsrMode::Async
-                        view=|| {
+                        path={StaticSegment("async")}
+                        ssr={SsrMode::Async}
+                        view={|| {
                             view! {
-                                <SecondaryNav/>
+                                <SecondaryNav />
                                 <h1>"Async"</h1>
-                                <Outlet/>
+                                <Outlet />
                             }
-                        }
+                        }}
                     >
 
-                        <Route path=StaticSegment("") view=Nested/>
-                        <Route path=StaticSegment("inside") view=NestedResourceInside/>
-                        <Route path=StaticSegment("single") view=Single/>
-                        <Route path=StaticSegment("parallel") view=Parallel/>
-                        <Route path=StaticSegment("inside-component") view=InsideComponent/>
-                        <Route path=StaticSegment("local") view=LocalResource/>
-                        <Route path=StaticSegment("none") view=None/>
+                        <Route path={StaticSegment("")} view={Nested} />
+                        <Route path={StaticSegment("inside")} view={NestedResourceInside} />
+                        <Route path={StaticSegment("single")} view={Single} />
+                        <Route path={StaticSegment("parallel")} view={Parallel} />
+                        <Route path={StaticSegment("inside-component")} view={InsideComponent} />
+                        <Route path={StaticSegment("local")} view={LocalResource} />
+                        <Route path={StaticSegment("none")} view={None} />
                     </ParentRoute>
                 </Routes>
             </main>
@@ -143,24 +143,24 @@ fn Nested() -> impl IntoView {
 
     view! {
         <div>
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 "Loading 1..."
-            }>
+            }}>
                 {move || {
                     one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
-                <Suspense fallback=|| {
+                <Suspense fallback={|| {
                     "Loading 2..."
-                }>
+                }}>
                     {move || {
                         two_second
                             .get()
                             .map(|_| {
                                 view! {
                                     <p id="loaded-2">"Two Second: Loaded 2!"</p>
-                                    <button on:click=move |_| {
+                                    <button on:click={move |_| {
                                         set_count.update(|n| *n += 1)
-                                    }>{count}</button>
+                                    }}>{count}</button>
                                 }
                             })
                     }}
@@ -178,9 +178,9 @@ fn NestedResourceInside() -> impl IntoView {
 
     view! {
         <div>
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 "Loading 1..."
-            }>
+            }}>
                 {Suspend::new(async move {
                     _ = one_second.await;
                     let two_second = Resource::new(
@@ -189,12 +189,14 @@ fn NestedResourceInside() -> impl IntoView {
                     );
                     view! {
                         <p id="loaded-1">"One Second: Loaded 1!"</p>
-                        <Suspense fallback=|| "Loading 2...">
+                        <Suspense fallback={|| "Loading 2..."}>
                             <span id="loaded-2">
                                 "Loaded 2 (created inside first suspense)!: "
                                 {Suspend::new(async move { format!("{:?}", two_second.await) })}
                             </span>
-                            <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
+                            <button on:click={move |_| {
+                                set_count.update(|n| *n += 1)
+                            }}>{count}</button>
                         </Suspense>
                     }
                 })}
@@ -212,26 +214,26 @@ fn Parallel() -> impl IntoView {
 
     view! {
         <div>
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 "Loading 1..."
-            }>
+            }}>
                 {move || {
                     one_second
                         .get()
                         .map(move |_| {
                             view! {
                                 <p id="loaded-1">"One Second: Loaded 1!"</p>
-                                <button on:click=move |_| {
+                                <button on:click={move |_| {
                                     set_count.update(|n| *n += 1)
-                                }>{count}</button>
+                                }}>{count}</button>
                             }
                         })
                 }}
 
             </Suspense>
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 "Loading 2..."
-            }>
+            }}>
                 {move || {
                     two_second
                         .get()
@@ -240,7 +242,7 @@ fn Parallel() -> impl IntoView {
                                 <p id="loaded-2">"Two Second: Loaded 2!"</p>
                                 <button
                                     id="second-count"
-                                    on:click=move |_| set_count.update(|n| *n += 1)
+                                    on:click={move |_| set_count.update(|n| *n += 1)}
                                 >
                                     {count}
                                 </button>
@@ -260,9 +262,9 @@ fn Single() -> impl IntoView {
 
     view! {
         <div>
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 "Loading 1..."
-            }>
+            }}>
                 {move || {
                     one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
@@ -270,7 +272,7 @@ fn Single() -> impl IntoView {
             </Suspense>
             <p id="following-message">"Children following Suspense should hydrate properly."</p>
             <div>
-                <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
+                <button on:click={move |_| set_count.update(|n| *n += 1)}>{count}</button>
             </div>
         </div>
     }
@@ -283,10 +285,10 @@ fn InsideComponent() -> impl IntoView {
     view! {
         <div>
             <p id="inside-message">"Suspense inside another component should work."</p>
-            <InsideComponentChild/>
+            <InsideComponentChild />
             <p id="following-message">"Children following Suspense should hydrate properly."</p>
             <div>
-                <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
+                <button on:click={move |_| set_count.update(|n| *n += 1)}>{count}</button>
             </div>
         </div>
     }
@@ -296,9 +298,9 @@ fn InsideComponent() -> impl IntoView {
 fn InsideComponentChild() -> impl IntoView {
     let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
     view! {
-        <Suspense fallback=|| {
+        <Suspense fallback={|| {
             "Loading 1..."
-        }>
+        }}>
             {move || {
                 one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
             }}
@@ -315,9 +317,9 @@ fn LocalResource() -> impl IntoView {
 
     view! {
         <div>
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 "Loading 1..."
-            }>
+            }}>
                 {move || {
                     one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
@@ -331,7 +333,7 @@ fn LocalResource() -> impl IntoView {
             </Suspense>
             <p id="following-message">"Children following Suspense should hydrate properly."</p>
             <div>
-                <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
+                <button on:click={move |_| set_count.update(|n| *n += 1)}>{count}</button>
             </div>
         </div>
     }
@@ -343,13 +345,13 @@ fn None() -> impl IntoView {
 
     view! {
         <div>
-            <Suspense fallback=|| "Loading 1...">
+            <Suspense fallback={|| "Loading 1..."}>
                 <p id="inside-message">"Children inside Suspense should hydrate properly."</p>
-                <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
+                <button on:click={move |_| set_count.update(|n| *n += 1)}>{count}</button>
             </Suspense>
             <p id="following-message">"Children following Suspense should hydrate properly."</p>
             <div>
-                <button id="second-count" on:click=move |_| set_count.update(|n| *n += 1)>
+                <button id="second-count" on:click={move |_| set_count.update(|n| *n += 1)}>
                     {count}
                 </button>
             </div>

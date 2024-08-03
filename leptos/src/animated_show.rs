@@ -99,8 +99,8 @@ pub fn AnimatedShow(
     });
 
     view! {
-        <Show when=move || show.get() fallback=|| ()>
-            <div class=move || cls.get()>{children()}</div>
+        <Show when={move || show.get()} fallback={|| ()}>
+            <div class={move || cls.get()}>{children()}</div>
         </Show>
     }
 }

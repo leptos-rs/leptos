@@ -21,11 +21,13 @@ pub async fn session_who_am_i() -> Result<ViewableSession, ServerFnError> {
 pub fn HasSession() -> impl IntoView {
     let check_session = Action::<SessionWhoAmI, _>::server();
     view! {
-        <button on:click=move|_|check_session.dispatch(SessionWhoAmI{})>
+        <button on:click={move |_| {
+            check_session.dispatch(SessionWhoAmI {})
+        }}>
             Check Session Status
-            <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-                { move || check_session.value().get().map(|sesh|sesh.into_view()) }
-            </ErrorBoundary>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>{move || check_session.value().get().map(|sesh| sesh.into_view())}</ErrorBoundary>
         </button>
     }
 }

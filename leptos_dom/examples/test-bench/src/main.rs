@@ -30,31 +30,31 @@ fn view_fn() -> impl IntoView {
     view! {
         <h2>"Passing Tests"</h2>
         <ul>
-            <Test from=[1] to=[]/>
-            <Test from=[1, 2] to=[3, 2] then=vec![2]/>
-            <Test from=[1, 2] to=[]/>
-            <Test from=[1, 2, 3] to=[]/>
-            <hr/>
-            <Test from=[] to=[1]/>
-            <Test from=[1, 2] to=[1]/>
-            <Test from=[2, 1] to=[1]/>
-            <hr/>
-            <Test from=[1, 2, 3] to=[1, 2]/>
-            <Test from=[2] to=[1, 2]/>
-            <Test from=[1] to=[1, 2]/>
-            <Test from=[] to=[1, 2, 3]/>
-            <Test from=[2] to=[1, 2, 3]/>
-            <Test from=[1] to=[1, 2, 3]/>
-            <Test from=[1, 3, 2] to=[1, 2, 3]/>
-            <Test from=[2, 1, 3] to=[1, 2, 3]/>
-            <Test from=[3] to=[1, 2, 3]/>
-            <Test from=[3, 1] to=[1, 2, 3]/>
-            <Test from=[3, 2, 1] to=[1, 2, 3]/>
-            <hr/>
-            <Test from=[1, 4, 2, 3] to=[1, 2, 3, 4]/>
-            <hr/>
-            <Test from=[1, 4, 3, 2, 5] to=[1, 2, 3, 4, 5]/>
-            <Test from=[4, 5, 3, 1, 2] to=[1, 2, 3, 4, 5]/>
+            <Test from={[1]} to={[]} />
+            <Test from={[1, 2]} to={[3, 2]} then={vec![2]} />
+            <Test from={[1, 2]} to={[]} />
+            <Test from={[1, 2, 3]} to={[]} />
+            <hr />
+            <Test from={[]} to={[1]} />
+            <Test from={[1, 2]} to={[1]} />
+            <Test from={[2, 1]} to={[1]} />
+            <hr />
+            <Test from={[1, 2, 3]} to={[1, 2]} />
+            <Test from={[2]} to={[1, 2]} />
+            <Test from={[1]} to={[1, 2]} />
+            <Test from={[]} to={[1, 2, 3]} />
+            <Test from={[2]} to={[1, 2, 3]} />
+            <Test from={[1]} to={[1, 2, 3]} />
+            <Test from={[1, 3, 2]} to={[1, 2, 3]} />
+            <Test from={[2, 1, 3]} to={[1, 2, 3]} />
+            <Test from={[3]} to={[1, 2, 3]} />
+            <Test from={[3, 1]} to={[1, 2, 3]} />
+            <Test from={[3, 2, 1]} to={[1, 2, 3]} />
+            <hr />
+            <Test from={[1, 4, 2, 3]} to={[1, 2, 3, 4]} />
+            <hr />
+            <Test from={[1, 4, 3, 2, 5]} to={[1, 2, 3, 4, 5]} />
+            <Test from={[4, 5, 3, 1, 2]} to={[1, 2, 3, 4, 5]} />
         </ul>
     }
 }
@@ -91,30 +91,30 @@ where
 
     view! {
         <li>
-            "from: [" {move || {
-                from
-                    .iter()
+            "from: ["
+            {move || {
+                from.iter()
                     .map(ToString::to_string)
                     .intersperse(", ".to_string())
                     .collect::<String>()
-            }} "]" <br/> "to: [" {
+            }} "]" <br /> "to: ["
+            {
                 let then = then.clone();
                 move || {
-                    then
-                        .clone()
+                    then.clone()
                         .unwrap_or(to.iter().copied().collect())
                         .iter()
                         .map(ToString::to_string)
                         .intersperse(", ".to_string())
                         .collect::<String>()
                 }
-            } "]" <br/> "result: ["
+            } "]" <br /> "result: ["
             <For
-                each=list
-                key=|i| *i
-                view=|i| {
+                each={list}
+                key={|i| *i}
+                view={|i| {
                     view! { <span>{i} ", "</span> }
-                }
+                }}
             /> "]"
         </li>
     }

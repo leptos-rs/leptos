@@ -6,18 +6,18 @@ use leptos_router::{
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
-        <!DOCTYPE html>
+        <!DOCTYPE html> 
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone()/>
-                <HydrationScripts options=options islands=true/>
-                <link rel="stylesheet" id="leptos" href="/pkg/islands.css"/>
-                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <AutoReload options={options.clone()} />
+                <HydrationScripts options={options} islands=true />
+                <link rel="stylesheet" id="leptos" href="/pkg/islands.css" />
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -37,11 +37,11 @@ pub fn App() -> impl IntoView {
             </nav>
             <main>
                 <p>
-                    <label>"Home Checkbox" <input type="checkbox"/></label>
+                    <label>"Home Checkbox" <input type="checkbox" /></label>
                 </p>
-                <FlatRoutes fallback=|| "Not found.">
-                    <Route path=StaticSegment("") view=PageA/>
-                    <Route path=StaticSegment("b") view=PageB/>
+                <FlatRoutes fallback={|| "Not found."}>
+                    <Route path={StaticSegment("")} view={PageA} />
+                    <Route path={StaticSegment("b")} view={PageB} />
                 </FlatRoutes>
             </main>
         </Router>
@@ -50,10 +50,10 @@ pub fn App() -> impl IntoView {
 
 #[component]
 pub fn PageA() -> impl IntoView {
-    view! { <label>"Page A" <input type="checkbox"/></label> }
+    view! { <label>"Page A" <input type="checkbox" /></label> }
 }
 
 #[component]
 pub fn PageB() -> impl IntoView {
-    view! { <label>"Page B" <input type="checkbox"/></label> }
+    view! { <label>"Page B" <input type="checkbox" /></label> }
 }

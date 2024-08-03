@@ -39,9 +39,9 @@ pub fn Counters() -> impl IntoView {
 
     view! {
         <div>
-            <button on:click=add_counter>"Add Counter"</button>
-            <button on:click=add_many_counters>{format!("Add {MANY_COUNTERS} Counters")}</button>
-            <button on:click=clear_counters>"Clear Counters"</button>
+            <button on:click={add_counter}>"Add Counter"</button>
+            <button on:click={add_many_counters}>{format!("Add {MANY_COUNTERS} Counters")}</button>
+            <button on:click={clear_counters}>"Clear Counters"</button>
             <p>
                 "Total: "
                 <span>
@@ -54,11 +54,11 @@ pub fn Counters() -> impl IntoView {
             </p>
             <ul>
                 <For
-                    each=move || counters.get()
-                    key=|counter| counter.0
-                    children=move |(id, value)| {
-                        view! { <Counter id value/> }
-                    }
+                    each={move || counters.get()}
+                    key={|counter| counter.0}
+                    children={move |(id, value)| {
+                        view! { <Counter id value /> }
+                    }}
                 />
 
             </ul>
@@ -73,21 +73,21 @@ fn Counter(id: usize, value: ArcRwSignal<i32>) -> impl IntoView {
 
     view! {
         <li>
-            <button on:click=move |_| value.update(move |value| *value -= 1)>"-1"</button>
+            <button on:click={move |_| value.update(move |value| *value -= 1)}>"-1"</button>
             <input
                 type="text"
-                prop:value=value
-                on:input:target=move |ev| {
+                prop:value={value}
+                on:input:target={move |ev| {
                     value.set(ev.target().value().parse::<i32>().unwrap_or_default())
-                }
+                }}
             />
 
             <span>{value}</span>
-            <button on:click=move |_| value.update(move |value| *value += 1)>"+1"</button>
-            <button on:click=move |_| {
+            <button on:click={move |_| value.update(move |value| *value += 1)}>"+1"</button>
+            <button on:click={move |_| {
                 set_counters
                     .update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))
-            }>"x"</button>
+            }}>"x"</button>
         </li>
     }
 }

@@ -30,27 +30,27 @@ pub fn App() -> impl IntoView {
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
-                class:red=red
-                class:right=right
-                class:italics=italics
-                class:smallcaps=smallcaps
+                class:red={red}
+                class:right={right}
+                class:italics={italics}
+                class:smallcaps={smallcaps}
             >
                 "Lorem ipsum sit dolor amet."
             </p>
 
             // Button A: pass the signal setter
-            <ButtonA setter=set_red/>
+            <ButtonA setter={set_red} />
 
             // Button B: pass a closure
-            <ButtonB on_click=move |_| set_right.update(|value| *value = !*value)/>
+            <ButtonB on_click={move |_| set_right.update(|value| *value = !*value)} />
 
             // Button C: use a regular event listener
             // setting an event listener on a component like this applies it
             // to each of the top-level elements the component returns
-            <ButtonC on:click=move |_| set_italics.update(|value| *value = !*value)/>
+            <ButtonC on:click={move |_| set_italics.update(|value| *value = !*value)} />
 
             // Button D gets its setter from context rather than props
-            <ButtonD/>
+            <ButtonD />
         </main>
     }
 }
@@ -61,7 +61,7 @@ pub fn ButtonA(
     /// Signal that will be toggled when the button is clicked.
     setter: WriteSignal<bool>,
 ) -> impl IntoView {
-    view! { <button on:click=move |_| setter.update(|value| *value = !*value)>"Toggle Red"</button> }
+    view! { <button on:click={move |_| setter.update(|value| *value = !*value)}>"Toggle Red"</button> }
 }
 
 /// Button B receives a closure
@@ -70,7 +70,7 @@ pub fn ButtonB(
     /// Callback that will be invoked when the button is clicked.
     on_click: impl FnMut(MouseEvent) + 'static,
 ) -> impl IntoView {
-    view! { <button on:click=on_click>"Toggle Right"</button> }
+    view! { <button on:click={on_click}>"Toggle Right"</button> }
 }
 
 /// Button C is a dummy: it renders a button but doesn't handle
@@ -87,8 +87,8 @@ pub fn ButtonD() -> impl IntoView {
     let setter = use_context::<SmallcapsContext>().unwrap().0;
 
     view! {
-        <button on:click=move |_| {
+        <button on:click={move |_| {
             setter.update(|value| *value = !*value)
-        }>"Toggle Small Caps"</button>
+        }}>"Toggle Small Caps"</button>
     }
 }

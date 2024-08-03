@@ -24,11 +24,14 @@ pub fn TimerDemo() -> impl IntoView {
             <div>{count_a}</div>
             <div>"Count B (dynamic interval, currently " {interval} " ms)"</div>
             <div>{count_b}</div>
-            <input prop:value=interval on:input:target=move |ev| {
-                if let Ok(value) = ev.target().value().parse::<u64>() {
-                    interval.set(value);
-                }
-            }/>
+            <input
+                prop:value={interval}
+                on:input:target={move |ev| {
+                    if let Ok(value) = ev.target().value().parse::<u64>() {
+                        interval.set(value);
+                    }
+                }}
+            />
         </div>
     }
 }

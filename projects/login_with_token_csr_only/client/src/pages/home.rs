@@ -8,14 +8,11 @@ pub fn Home(user_info: Signal<Option<UserInfo>>) -> impl IntoView {
     view! {
         <h2>"Leptos Login example"</h2>
         {move || match user_info.get() {
-            Some(info) => {
-                view! { <p>"You are logged in with " {info.email} "."</p> }
-                    .into_view()
-            }
+            Some(info) => view! { <p>"You are logged in with " {info.email} "."</p> }.into_view(),
             None => {
                 view! {
                     <p>"You are not logged in."</p>
-                    <A href=Page::Login.path()>"Login now."</A>
+                    <A href={Page::Login.path()}>"Login now."</A>
                 }
                     .into_view()
             }

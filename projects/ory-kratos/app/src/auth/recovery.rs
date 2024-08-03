@@ -31,7 +31,7 @@ impl IntoView for ViewableContinueWith {
                 ContinueWith::ContinueWithRecoveryUi { flow } => todo!(),
                 ContinueWith::ContinueWithSettingsUi {
                     flow: box ContinueWithSettingsUiFlow { id },
-                } => view! {<Redirect path=format!("/settings?flow={id}")/>}.into_view(),
+                } => view! { <Redirect path={format!("/settings?flow={id}")} /> }.into_view(),
                 ContinueWith::ContinueWithVerificationUi { flow } => todo!(),
             }
         } else {
@@ -174,53 +174,74 @@ pub fn RecoveryPage() -> impl IntoView {
     });
     let body = create_rw_signal(HashMap::new());
     view! {
-        <Suspense fallback=||view!{}>
-            <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            {
-                move ||
-                recovery_flow.get().map(|resp|
-                      match resp {
-                        Ok(ViewableRecoveryFlow(RecoveryFlow{
-                            continue_with,
-                            ui:box UiContainer{nodes,action,messages,..},..})) => {
+        <Suspense fallback={|| view! {}}>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>
+                {move || {
+                    recovery_flow
+                        .get()
+                        .map(|resp| match resp {
+                            Ok(
+                                ViewableRecoveryFlow(
+                                    RecoveryFlow {
+                                        continue_with,
+                                        ui: box UiContainer { nodes, action, messages, .. },
+                                        ..
+                                    },
+                                ),
+                            ) => {
                                 if let Some(continue_with) = continue_with {
                                     return ViewableContinueWith(continue_with).into_view();
                                 }
-                            let form_inner_html = nodes.into_iter().map(|node|kratos_html(node,body)).collect_view();
-                            body.update(move|map|{_=map.insert(String::from("action"),action);});
-                                view!{
-                                    <form id=ids::RECOVERY_FORM_ID
-                                    on:submit=move|e|{
-                                        if body.get().get(&String::from("code")).is_some() {
-                                            // if we have a code we need to drop the email which will be stored from earlier.
-                                            // if we include the email then ory kratos server will not try to validate the code.
-                                            // but instead send another recovery email.
-                                            body.update(move|map|{_=map.remove(&String::from("email"));});
-                                        }
-                                        e.prevent_default();
-                                        e.stop_propagation();
-                                        recovery.dispatch(ProcessRecovery{body:body.get_untracked()});
-                                    }>
-                                    {form_inner_html}
-                                    {messages.map(|messages|{
-                                        view!{
-                                            <For
-                                                each=move || messages.clone().into_iter()
-                                                key=|text| text.id
-                                                children=move |text: UiText| {
-                                                  view! {
-                                                    <p id=text.id>{text.text}</p>
-                                                  }
+                                let form_inner_html = nodes
+                                    .into_iter()
+                                    .map(|node| kratos_html(node, body))
+                                    .collect_view();
+                                body.update(move |map| {
+                                    _ = map.insert(String::from("action"), action);
+                                });
+                                view! {
+                                    <form
+                                        id={ids::RECOVERY_FORM_ID}
+                                        on:submit={move |e| {
+                                            if body.get().get(&String::from("code")).is_some() {
+                                                // if we have a code we need to drop the email which will be stored from earlier.
+                                                // if we include the email then ory kratos server will not try to validate the code.
+                                                // but instead send another recovery email.
+                                                body.update(move |map| {
+                                                    _ = map.remove(&String::from("email"));
+                                                });
+                                            }
+                                            e.prevent_default();
+                                            e.stop_propagation();
+                                            recovery
+                                                .dispatch(ProcessRecovery {
+                                                    body: body.get_untracked(),
+                                                });
+                                        }}
+                                    >
+                                        {form_inner_html}
+                                        {messages
+                                            .map(|messages| {
+                                                view! {
+                                                    <For
+                                                        each={move || messages.clone().into_iter()}
+                                                        key={|text| text.id}
+                                                        children={move |text: UiText| {
+                                                            view! { <p id={text.id}>{text.text}</p> }
+                                                        }}
+                                                    />
                                                 }
-                                            />
-                                        }
-                                    }).unwrap_or_default()}
+                                            })
+                                            .unwrap_or_default()}
                                     </form>
-                                }.into_view()
-                          },
-                          err => err.into_view(),
-                      })
-                }
+                                }
+                                    .into_view()
+                            }
+                            err => err.into_view(),
+                        })
+                }}
             </ErrorBoundary>
         </Suspense>
     }

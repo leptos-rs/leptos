@@ -10,15 +10,15 @@ pub fn App() -> impl IntoView {
             "Type an integer (or something that's not an integer!)"
             <input
                 type="number"
-                value=move || value.get().unwrap_or_default()
+                value={move || value.get().unwrap_or_default()}
                 // when input changes, try to parse a number from the input
-                on:input:target=move |ev| set_value.set(ev.target().value().parse::<i32>())
+                on:input:target={move |ev| set_value.set(ev.target().value().parse::<i32>())}
             />
             // If an `Err(_) has been rendered inside the <ErrorBoundary/>,
             // the fallback will be displayed. Otherwise, the children of the
             // <ErrorBoundary/> will be displayed.
             // the fallback receives a signal containing current errors
-            <ErrorBoundary fallback=|errors| {
+            <ErrorBoundary fallback={|errors| {
                 let errors = errors.clone();
                 view! {
                     <div class="error">
@@ -37,7 +37,7 @@ pub fn App() -> impl IntoView {
                         </ul>
                     </div>
                 }
-            }>
+            }}>
 
                 <p>
                     "You entered "

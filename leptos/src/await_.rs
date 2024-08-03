@@ -115,7 +115,7 @@ where
     let view = store_value(children);
 
     view! {
-        <Suspense fallback=|| ()>
+        <Suspense fallback={|| ()}>
             {move || res.map(|data| view.with_value(|view| view(data)))}
         </Suspense>
     }

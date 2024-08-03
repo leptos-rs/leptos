@@ -8,11 +8,11 @@ fn DefaultApp() -> impl IntoView {
     view! {
         <Router>
             <Routes>
-                <Route path="/foo" view/>
-                <Route path="/bar/" view/>
-                <Route path="/baz/:id" view/>
-                <Route path="/baz/:name/" view/>
-                <Route path="/baz/*any" view/>
+                <Route path="/foo" view />
+                <Route path="/bar/" view />
+                <Route path="/baz/:id" view />
+                <Route path="/baz/:name/" view />
+                <Route path="/baz/*any" view />
             </Routes>
         </Router>
     }
@@ -44,11 +44,11 @@ fn ExactApp() -> impl IntoView {
     view! {
         <Router trailing_slash>
             <Routes>
-                <Route path="/foo" view/>
-                <Route path="/bar/" view/>
-                <Route path="/baz/:id" view/>
-                <Route path="/baz/:name/" view/>
-                <Route path="/baz/*any" view/>
+                <Route path="/foo" view />
+                <Route path="/bar/" view />
+                <Route path="/baz/:id" view />
+                <Route path="/baz/:name/" view />
+                <Route path="/baz/*any" view />
             </Routes>
         </Router>
     }
@@ -86,11 +86,11 @@ fn RedirectApp() -> impl IntoView {
     view! {
         <Router trailing_slash>
             <Routes>
-                <Route path="/foo" view/>
-                <Route path="/bar/" view/>
-                <Route path="/baz/:id" view/>
-                <Route path="/baz/:name/" view/>
-                <Route path="/baz/*any" view/>
+                <Route path="/foo" view />
+                <Route path="/bar/" view />
+                <Route path="/baz/:id" view />
+                <Route path="/baz/:name/" view />
+                <Route path="/baz/*any" view />
             </Routes>
         </Router>
     }

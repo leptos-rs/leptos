@@ -167,7 +167,7 @@ pub fn TodoMVC(todos: Todos) -> impl IntoView {
         }
     });
 
-    view! { 
+    view! {
         <main>
             <section class="todoapp">
                 <header class="header">
@@ -176,32 +176,34 @@ pub fn TodoMVC(todos: Todos) -> impl IntoView {
                         class="new-todo"
                         placeholder="What needs to be done?"
                         autofocus=""
-                        on:keydown=add_todo
+                        on:keydown={add_todo}
                     />
                 </header>
-                <section class="main" class:hidden=move || todos.with(|t| t.is_empty())>
+                <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <input
                         id="toggle-all"
                         class="toggle-all"
                         type="checkbox"
-                        prop:checked=move || todos.with(|t| t.remaining() > 0)
-                        on:input=move |_| set_todos.update(|t| t.toggle_all())
+                        prop:checked={move || todos.with(|t| t.remaining() > 0)}
+                        on:input={move |_| set_todos.update(|t| t.toggle_all())}
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
                         <For
-                            each=filtered_todos
-                            key=|todo| todo.id
-                            children=move |todo: Todo| {
-                                view! { <Todo todo=todo.clone()/> }
-                            }
+                            each={filtered_todos}
+                            key={|todo| todo.id}
+                            children={move |todo: Todo| {
+                                view! { <Todo todo={todo.clone()} /> }
+                            }}
                         />
                     </ul>
                 </section>
-                <footer class="footer" class:hidden=move || todos.with(|t| t.is_empty())>
+                <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <span class="todo-count">
                         <strong>{move || todos.with(|t| t.remaining().to_string())}</strong>
-                        {move || if todos.with(|t| t.remaining()) == 1 { " item" } else { " items" }}
+                        {move || {
+                            if todos.with(|t| t.remaining()) == 1 { " item" } else { " items" }
+                        }}
                         " left"
                     </span>
                     <ul class="filters">
@@ -209,26 +211,29 @@ pub fn TodoMVC(todos: Todos) -> impl IntoView {
                             <a
                                 href="#/"
                                 class="selected"
-                                class:selected=move || mode() == Mode::All
+                                class:selected={move || mode() == Mode::All}
                             >
                                 "All"
                             </a>
                         </li>
                         <li>
-                            <a href="#/active" class:selected=move || mode() == Mode::Active>
+                            <a href="#/active" class:selected={move || mode() == Mode::Active}>
                                 "Active"
                             </a>
                         </li>
                         <li>
-                            <a href="#/completed" class:selected=move || mode() == Mode::Completed>
+                            <a
+                                href="#/completed"
+                                class:selected={move || mode() == Mode::Completed}
+                            >
                                 "Completed"
                             </a>
                         </li>
                     </ul>
                     <button
                         class="clear-completed hidden"
-                        class:hidden=move || todos.with(|t| t.completed() == 0)
-                        on:click=move |_| set_todos.update(|t| t.clear_completed())
+                        class:hidden={move || todos.with(|t| t.completed() == 0)}
+                        on:click={move |_| set_todos.update(|t| t.clear_completed())}
                     >
                         "Clear completed"
                     </button>
@@ -259,33 +264,35 @@ pub fn Todo(todo: Todo) -> impl IntoView {
         set_editing(false);
     };
 
-    view! { 
-        <li class="todo" class:editing=editing class:completed=move || (todo.completed)()>
+    view! {
+        <li class="todo" class:editing={editing} class:completed={move || (todo.completed)()}>
             <div class="view">
-                <input class="toggle" type="checkbox" prop:checked=move || (todo.completed)()/>
-                <label on:dblclick=move |_| set_editing(true)>{move || todo.title.get()}</label>
+                <input class="toggle" type="checkbox" prop:checked={move || (todo.completed)()} />
+                <label on:dblclick={move |_| set_editing(true)}>{move || todo.title.get()}</label>
                 <button
                     class="destroy"
-                    on:click=move |_| set_todos.update(|t| t.remove(todo.id))
+                    on:click={move |_| set_todos.update(|t| t.remove(todo.id))}
                 ></button>
             </div>
             {move || {
                 editing()
                     .then(|| {
-                        view! { 
+                        view! {
                             <input
                                 class="edit"
-                                class:hidden=move || !(editing)()
-                                prop:value=move || todo.title.get()
-                                on:focusout=move |ev| save(&event_target_value(&ev))
-                                on:keyup=move |ev| {
-                                    let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
+                                class:hidden={move || !(editing)()}
+                                prop:value={move || todo.title.get()}
+                                on:focusout={move |ev| save(&event_target_value(&ev))}
+                                on:keyup={move |ev| {
+                                    let key_code = ev
+                                        .unchecked_ref::<web_sys::KeyboardEvent>()
+                                        .key_code();
                                     if key_code == ENTER_KEY {
                                         save(&event_target_value(&ev));
                                     } else if key_code == ESCAPE_KEY {
                                         set_editing(false);
                                     }
-                                }
+                                }}
                             />
                         }
                     })

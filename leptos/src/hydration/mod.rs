@@ -54,7 +54,11 @@ pub fn HydrationScripts(
     };
 
     view! {
-        <link rel="modulepreload" href={format!("/{pkg_path}/{output_name}.js")} nonce={nonce.clone()}/>
+        <link
+            rel="modulepreload"
+            href={format!("/{pkg_path}/{output_name}.js")}
+            nonce={nonce.clone()}
+        />
         <link
             rel="preload"
             href={format!("/{pkg_path}/{wasm_output_name}.wasm")}

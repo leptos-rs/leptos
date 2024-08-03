@@ -74,15 +74,15 @@ pub fn fetch_example() -> impl IntoView {
                 "How many cats would you like?"
                 <input
                     type="number"
-                    prop:value=move || cat_count.get().to_string()
-                    on:input:target=move |ev| {
+                    prop:value={move || cat_count.get().to_string()}
+                    on:input:target={move |ev| {
                         let val = ev.target().value().parse::<CatCount>().unwrap_or(0);
                         set_cat_count.set(val);
-                    }
+                    }}
                 />
 
             </label>
-            <Transition fallback=|| view! { <div>"Loading..."</div> } {..spreadable}>
+            <Transition fallback={|| view! { <div>"Loading..."</div> }} {..spreadable}>
                 <ErrorBoundary fallback>
                     <ul>
                         {move || Suspend::new(async move {
@@ -92,7 +92,7 @@ pub fn fetch_example() -> impl IntoView {
                                         .map(|s| {
                                             view! {
                                                 <li>
-                                                    <img src=s.clone()/>
+                                                    <img src={s.clone()} />
                                                 </li>
                                             }
                                         })

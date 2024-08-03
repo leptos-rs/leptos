@@ -75,10 +75,10 @@ pub fn Counters() -> impl IntoView {
                 </ul>
             </nav>
             <main>
-                <FlatRoutes fallback=|| "Not found.">
-                    <Route path=StaticSegment("") view=Counter/>
-                    <Route path=StaticSegment("form") view=FormCounter/>
-                    <Route path=StaticSegment("multi") view=MultiuserCounter/>
+                <FlatRoutes fallback={|| "Not found."}>
+                    <Route path={StaticSegment("")} view={Counter} />
+                    <Route path={StaticSegment("form")} view={FormCounter} />
+                    <Route path={StaticSegment("multi")} view={MultiuserCounter} />
                 </FlatRoutes>
             </main>
         </Router>
@@ -111,12 +111,12 @@ pub fn Counter() -> impl IntoView {
             <p>
                 "This counter sets the value on the server and automatically reloads the new value."
             </p>
-            <ErrorBoundary fallback=|errors| move || format!("Error: {:#?}", errors.get())>
+            <ErrorBoundary fallback={|errors| move || format!("Error: {:#?}", errors.get())}>
                 <div>
-                    <button on:click=move |_| clear.dispatch(())>"Clear"</button>
-                    <button on:click=move |_| dec.dispatch(())>"-1"</button>
+                    <button on:click={move |_| clear.dispatch(())}>"Clear"</button>
+                    <button on:click={move |_| dec.dispatch(())}>"-1"</button>
                     <span>"Value: " <Suspense>{counter} "!"</Suspense></span>
-                    <button on:click=move |_| inc.dispatch(())>"+1"</button>
+                    <button on:click={move |_| inc.dispatch(())}>"+1"</button>
                 </div>
             </ErrorBoundary>
         </div>
@@ -154,21 +154,21 @@ pub fn FormCounter() -> impl IntoView {
             <div>
                 // calling a server function is the same as POSTing to its API URL
                 // so we can just do that with a form and button
-                <ActionForm action=clear>
-                    <input type="submit" value="Clear"/>
+                <ActionForm action={clear}>
+                    <input type="submit" value="Clear" />
                 </ActionForm>
                 // We can submit named arguments to the server functions
                 // by including them as input values with the same name
-                <ActionForm action=adjust>
-                    <input type="hidden" name="delta" value="-1"/>
-                    <input type="hidden" name="msg" value="form value down"/>
-                    <input type="submit" value="-1"/>
+                <ActionForm action={adjust}>
+                    <input type="hidden" name="delta" value="-1" />
+                    <input type="hidden" name="msg" value="form value down" />
+                    <input type="submit" value="-1" />
                 </ActionForm>
                 <span>"Value: " <Suspense>{value} "!"</Suspense></span>
-                <ActionForm action=adjust>
-                    <input type="hidden" name="delta" value="1"/>
-                    <input type="hidden" name="msg" value="form value up"/>
-                    <input type="submit" value="+1"/>
+                <ActionForm action={adjust}>
+                    <input type="hidden" name="delta" value="1" />
+                    <input type="hidden" name="msg" value="form value up" />
+                    <input type="submit" value="+1" />
                 </ActionForm>
             </div>
         </div>
@@ -224,12 +224,12 @@ pub fn MultiuserCounter() -> impl IntoView {
                 "This one uses server-sent events (SSE) to live-update when other users make changes."
             </p>
             <div>
-                <button on:click=move |_| clear.dispatch(())>"Clear"</button>
-                <button on:click=move |_| dec.dispatch(())>"-1"</button>
+                <button on:click={move |_| clear.dispatch(())}>"Clear"</button>
+                <button on:click={move |_| dec.dispatch(())}>"-1"</button>
                 <span>
                     "Multiplayer Value: " {move || multiplayer_value.get().unwrap_or_default()}
                 </span>
-                <button on:click=move |_| inc.dispatch(())>"+1"</button>
+                <button on:click={move |_| inc.dispatch(())}>"+1"</button>
             </div>
         </div>
     }

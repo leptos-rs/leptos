@@ -17,26 +17,26 @@ pub fn App() -> impl IntoView {
     let fallback = || view! { "Page not found." }.into_view();
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
-        <Title text="Welcome to Leptos"/>
-        <Meta name="color-scheme" content="dark light"/>
+        <Stylesheet id="leptos" href="/pkg/ssr_modes.css" />
+        <Title text="Welcome to Leptos" />
+        <Meta name="color-scheme" content="dark light" />
         <Router>
             <main>
                 <FlatRoutes fallback>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path=StaticSegment("") view=HomePage/>
+                    <Route path={StaticSegment("")} view={HomePage} />
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
                     <Route
-                        path=(StaticSegment("post"), ParamSegment("id"))
-                        view=Post
-                        ssr=SsrMode::Async
+                        path={(StaticSegment("post"), ParamSegment("id"))}
+                        view={Post}
+                        ssr={SsrMode::Async}
                     />
                     <Route
-                        path=(StaticSegment("post_in_order"), ParamSegment("id"))
-                        view=Post
-                        ssr=SsrMode::InOrder
+                        path={(StaticSegment("post_in_order"), ParamSegment("id"))}
+                        view={Post}
+                        ssr={SsrMode::InOrder}
                     />
                 </FlatRoutes>
             </main>
@@ -63,16 +63,19 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"My Great Blog"</h1>
-        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+        <Suspense fallback={move || view! { <p>"Loading posts..."</p> }}>
             <p>"number of posts: " {Suspend::new(async move { posts2.await })}</p>
         </Suspense>
-        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
+        <Suspense fallback={move || view! { <p>"Loading posts..."</p> }}>
             <ul>
-                <For each=posts key=|post| post.id let:post>
+                <For each={posts} key={|post| post.id} let:post>
                     <li>
-                        <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
+                        <a href={format!("/post/{}", post.id)}>{post.title.clone()}</a>
                         "|"
-                        <a href=format!("/post_in_order/{}", post.id)>{post.title} "(in order)"</a>
+                        <a href={format!(
+                            "/post_in_order/{}",
+                            post.id,
+                        )}>{post.title} "(in order)"</a>
                     </li>
                 </For>
             </ul>
@@ -114,8 +117,8 @@ fn Post() -> impl IntoView {
                 // since we're using async rendering for this page,
                 // this metadata should be included in the actual HTML <head>
                 // when it's first served
-                <Title text=post.title/>
-                <Meta name="description" content=post.content/>
+                <Title text={post.title} />
+                <Meta name="description" content={post.content} />
             }),
             _ => Err(PostError::ServerError),
         }
@@ -123,8 +126,8 @@ fn Post() -> impl IntoView {
 
     view! {
         <em>"The world's best content."</em>
-        <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
-            <ErrorBoundary fallback=|errors| {
+        <Suspense fallback={move || view! { <p>"Loading post..."</p> }}>
+            <ErrorBoundary fallback={|errors| {
                 view! {
                     <div class="error">
                         <h1>"Something went wrong."</h1>
@@ -140,7 +143,7 @@ fn Post() -> impl IntoView {
                         </ul>
                     </div>
                 }
-            }>{post_view}</ErrorBoundary>
+            }}>{post_view}</ErrorBoundary>
         </Suspense>
     }
 }

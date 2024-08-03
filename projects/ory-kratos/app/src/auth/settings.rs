@@ -291,45 +291,66 @@ pub fn SettingsPage() -> impl IntoView {
     });
     let body = create_rw_signal(HashMap::new());
     view! {
-    <Suspense fallback=||"loading settings...".into_view()>
-        <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            {
-                move || flow.get().map(|resp|
-                    match resp {
-                        Ok(
-                            ViewableSettingsFlow(SettingsFlow{id,ui:box UiContainer{nodes,action,messages,..},..})
-                        ) => {
-                            let form_inner_html = nodes.into_iter().map(|node|kratos_html(node,body)).collect_view();
-                        body.update(move|map|{_=map.insert(String::from("action"),action);});
-                        let id = create_rw_signal(id);
-                            view!{
-                                <form id=ids::SETTINGS_FORM_ID
-                                on:submit=move|e|{
-                                    e.prevent_default();
-                                    e.stop_propagation();
-                                    update_settings_action.dispatch(UpdateSettings{flow_id:id.get_untracked(),body:body.get_untracked()});
-                                }>
-                                {form_inner_html}
-                                {messages.map(|messages|{
-                                    view!{
-                                        <For
-                                            each=move || messages.clone().into_iter()
-                                            key=|text| text.id
-                                            children=move |text: UiText| {
-                                              view! {
-                                                <p id=text.id>{text.text}</p>
-                                              }
-                                            }
-                                        />
-                                    }
-                                }).unwrap_or_default()}
-                                </form>
-                            }.into_view()
-                        },
-                        err => err.into_view()
-                    })
-                }
+        <Suspense fallback={|| "loading settings...".into_view()}>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>
+                {move || {
+                    flow
+                        .get()
+                        .map(|resp| match resp {
+                            Ok(
+                                ViewableSettingsFlow(
+                                    SettingsFlow {
+                                        id,
+                                        ui: box UiContainer { nodes, action, messages, .. },
+                                        ..
+                                    },
+                                ),
+                            ) => {
+                                let form_inner_html = nodes
+                                    .into_iter()
+                                    .map(|node| kratos_html(node, body))
+                                    .collect_view();
+                                body.update(move |map| {
+                                    _ = map.insert(String::from("action"), action);
+                                });
+                                let id = create_rw_signal(id);
+                                view! {
+                                    <form
+                                        id={ids::SETTINGS_FORM_ID}
+                                        on:submit={move |e| {
+                                            e.prevent_default();
+                                            e.stop_propagation();
+                                            update_settings_action
+                                                .dispatch(UpdateSettings {
+                                                    flow_id: id.get_untracked(),
+                                                    body: body.get_untracked(),
+                                                });
+                                        }}
+                                    >
+                                        {form_inner_html}
+                                        {messages
+                                            .map(|messages| {
+                                                view! {
+                                                    <For
+                                                        each={move || messages.clone().into_iter()}
+                                                        key={|text| text.id}
+                                                        children={move |text: UiText| {
+                                                            view! { <p id={text.id}>{text.text}</p> }
+                                                        }}
+                                                    />
+                                                }
+                                            })
+                                            .unwrap_or_default()}
+                                    </form>
+                                }
+                                    .into_view()
+                            }
+                            err => err.into_view(),
+                        })
+                }}
             </ErrorBoundary>
-            </Suspense>
-        }
+        </Suspense>
+    }
 }

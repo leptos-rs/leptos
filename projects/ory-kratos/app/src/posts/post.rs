@@ -10,8 +10,8 @@ pub fn Post(post: PostData) -> impl IntoView {
     } = post;
     view! {
         <div>{content}</div>
-        <AddEditor post_id=post_id.clone()/>
-        <EditPost post_id=post_id.clone()/>
+        <AddEditor post_id={post_id.clone()} />
+        <EditPost post_id={post_id.clone()} />
     }
 }
 
@@ -52,17 +52,17 @@ pub async fn server_add_editor(post_id: String, email: String) -> Result<(), Ser
 pub fn AddEditor(post_id: String) -> impl IntoView {
     let add_editor = Action::<ServerAddEditor, _>::server();
     view! {
-        <ActionForm action=add_editor>
+        <ActionForm action={add_editor}>
             <label value="Add Editor Email">
-            <input type="text"  name="email" id=ids::POST_ADD_EDITOR_INPUT_ID/>
-            <input type="hidden" name="post_id" value=post_id/>
+                <input type="text" name="email" id={ids::POST_ADD_EDITOR_INPUT_ID} />
+                <input type="hidden" name="post_id" value={post_id} />
             </label>
-            <input type="submit" id=ids::POST_ADD_EDITOR_SUBMIT_ID/>
+            <input type="submit" id={ids::POST_ADD_EDITOR_SUBMIT_ID} />
         </ActionForm>
-        <Suspense fallback=||view!{}>
-            <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            { move || add_editor.value().get()}
-            </ErrorBoundary>
+        <Suspense fallback={|| view! {}}>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>{move || add_editor.value().get()}</ErrorBoundary>
         </Suspense>
     }
 }
@@ -90,17 +90,17 @@ pub async fn server_edit_post(post_id: String, content: String) -> Result<(), Se
 pub fn EditPost(post_id: String) -> impl IntoView {
     let edit_post = Action::<ServerEditPost, _>::server();
     view! {
-        <ActionForm action=edit_post>
+        <ActionForm action={edit_post}>
             <label value="New Content:">
-            <textarea name="content" id=ids::POST_EDIT_TEXT_AREA_ID/>
-            <input type="hidden" name="post_id" value=post_id/>
+                <textarea name="content" id={ids::POST_EDIT_TEXT_AREA_ID} />
+                <input type="hidden" name="post_id" value={post_id} />
             </label>
-            <input type="submit" id=ids::POST_EDIT_SUBMIT_ID/>
+            <input type="submit" id={ids::POST_EDIT_SUBMIT_ID} />
         </ActionForm>
-        <Suspense fallback=||view!{}>
-            <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-                { move || edit_post.value().get()}
-            </ErrorBoundary>
+        <Suspense fallback={|| view! {}}>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>{move || edit_post.value().get()}</ErrorBoundary>
         </Suspense>
     }
 }

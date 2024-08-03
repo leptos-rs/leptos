@@ -82,7 +82,11 @@ pub fn App() -> impl IntoView {
     let data = "Hello World!";
 
     view! {
-        <a href="#" use:copy_to_clipboard=data>"Copy \"" {data} "\" to clipboard"</a>
+        <a href="#" use:copy_to_clipboard={data}>
+            "Copy \""
+            {data}
+            "\" to clipboard"
+        </a>
         // automatically applies the directive to every root element in `SomeComponent`
         <SomeComponent use:highlight />
         // no value will default to `().into()`

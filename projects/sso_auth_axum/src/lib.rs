@@ -120,21 +120,27 @@ pub fn App() -> impl IntoView {
     });
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/sso_auth_axum.css"/>
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Title text="SSO Auth Axum"/>
+        <Stylesheet id="leptos" href="/pkg/sso_auth_axum.css" />
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico" />
+        <Title text="SSO Auth Axum" />
         <Router>
             <main>
                 <Routes>
-                    <Route path="" view=move || {
-                        view!{
-                            {display_email}
-                            <Show when=move || email.get().is_some() fallback=||view!{<SignIn/>}>
-                                <LogOut/>
-                            </Show>
+                    <Route
+                        path=""
+                        view={move || {
+                            view! {
+                                {display_email}
+                                <Show
+                                    when={move || email.get().is_some()}
+                                    fallback={|| view! { <SignIn /> }}
+                                >
+                                    <LogOut />
+                                </Show>
                             }
-                        }/>
-                    <Route path="g_auth" view=||view!{<HandleGAuth/>}/>
+                        }}
+                    />
+                    <Route path="g_auth" view={|| view! { <HandleGAuth /> }} />
                 </Routes>
             </main>
         </Router>
