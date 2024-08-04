@@ -148,24 +148,25 @@ fn Post() -> impl IntoView {
 
 // Dummy API
 
-static POSTS: LazyLock<[Post;3]>> = LazyLock(|| [
-    Post {
-        id: 0,
-        title: "My first post".to_string(),
-        content: "This is my first post".to_string(),
-    },
-    Post {
-        id: 1,
-        title: "My second post".to_string(),
-        content: "This is my second post".to_string(),
-    },
-    Post {
-        id: 2,
-        title: "My third post".to_string(),
-        content: "This is my third post".to_string(),
-    },
-]);
-
+static POSTS: LazyLock<[Post; 3]> = LazyLock::new(|| {
+    [
+        Post {
+            id: 0,
+            title: "My first post".to_string(),
+            content: "This is my first post".to_string(),
+        },
+        Post {
+            id: 1,
+            title: "My second post".to_string(),
+            content: "This is my second post".to_string(),
+        },
+        Post {
+            id: 2,
+            title: "My third post".to_string(),
+            content: "This is my third post".to_string(),
+        },
+    ]
+});
 
 #[derive(Error, Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PostError {
