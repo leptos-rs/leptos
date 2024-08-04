@@ -169,3 +169,64 @@ async fn watch_ignores_callback() {
         })
         .await
 }
+
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn deprecated_watch_runs() {
+    _ = Executor::init_tokio();
+
+    task::LocalSet::new()
+        .run_until(async {
+            let a = RwSignal::new(-1);
+
+            // simulate an arbitrary side effect
+            let b = Arc::new(RwLock::new(String::new()));
+
+            #[allow(deprecated)]
+            let effect = reactive_graph::effect::watch(
+                move || a.get(),
+                {
+                    let b = b.clone();
+
+                    move |a, prev_a, prev_ret| {
+                        let formatted = format!(
+                            "Value is {a}; Prev is {prev_a:?}; Prev return is \
+                             {prev_ret:?}"
+                        );
+                        *b.write().unwrap() = formatted;
+
+                        a + 10
+                    }
+                },
+                false,
+            );
+
+            Executor::tick().await;
+            assert_eq!(b.read().unwrap().as_str(), "");
+
+            a.set(1);
+
+            Executor::tick().await;
+            assert_eq!(
+                b.read().unwrap().as_str(),
+                "Value is 1; Prev is Some(-1); Prev return is None"
+            );
+
+            a.set(2);
+
+            Executor::tick().await;
+            assert_eq!(
+                b.read().unwrap().as_str(),
+                "Value is 2; Prev is Some(1); Prev return is Some(11)"
+            );
+
+            effect();
+
+            *b.write().unwrap() = "nothing happened".to_string();
+            a.set(3);
+
+            Executor::tick().await;
+            assert_eq!(b.read().unwrap().as_str(), "nothing happened");
+        })
+        .await
+}
