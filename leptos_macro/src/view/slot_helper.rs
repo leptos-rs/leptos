@@ -32,7 +32,7 @@ pub(crate) fn slot_to_tokens(
 
     let attrs = node.attributes().iter().filter_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
-            if is_slot(&node) {
+            if is_slot(node) {
                 None
             } else {
                 Some(node)
@@ -214,10 +214,12 @@ pub(crate) fn is_slot(node: &KeyedAttribute) -> bool {
     key == "slot" || key.starts_with("slot:")
 }
 
-pub(crate) fn get_slot(node: &NodeElement<impl CustomNode>) -> Option<&KeyedAttribute> {
+pub(crate) fn get_slot(
+    node: &NodeElement<impl CustomNode>,
+) -> Option<&KeyedAttribute> {
     node.attributes().iter().find_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
-            if is_slot(&node) {
+            if is_slot(node) {
                 Some(node)
             } else {
                 None
