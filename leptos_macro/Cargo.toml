@@ -13,11 +13,11 @@ rust-version.workspace = true
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.9", features = ["syn-full"]}
+attribute-derive = { version = "0.9", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
-itertools = "0.12"
-prettyplease = "0.2.4"
+itertools = "0.13"
+prettyplease = "0.2.20"
 proc-macro-error = { version = "1", default-features = false }
 proc-macro2 = "1"
 quote = "1"
@@ -27,15 +27,15 @@ leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
 uuid = { version = "1", features = ["v4"] }
-tracing = "0.1.37"
+tracing = "0.1.40"
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = "0.18"
+typed-builder = "0.19"
 trybuild = "1"
 leptos = { path = "../leptos" }
 server_fn = { path = "../server_fn", features = ["cbor"] }
-insta = "1.29"
+insta = "1.39"
 serde = "1"
 
 [features]

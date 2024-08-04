@@ -22,7 +22,7 @@ thiserror = "1"
 
 # registration system
 inventory = { version = "0.3", optional = true }
-dashmap = "5"
+dashmap = "6"
 once_cell = "1"
 
 ## servers 
@@ -37,7 +37,7 @@ tower = { version = "0.4", optional = true }
 tower-layer = { version = "0.3", optional = true }
 
 ## input encodings 
-serde_qs = { version = "0.12", optional = true }
+serde_qs = { version = "0.13", optional = true }
 multer = { version = "3", optional = true }
 
 ## output encodings 
@@ -49,13 +49,13 @@ http = { version = "1" }
 ciborium = { version = "0.2", optional = true }
 hyper = { version = "1", optional = true }
 bytes = "1"
-http-body-util = { version = "0.1.0", optional = true }
+http-body-util = { version = "0.1.2", optional = true }
 rkyv = { version = "0.7", features = [
   "validation",
   "uuid",
   "strict",
 ], optional = true }
-rmp-serde = { version = "1.1", optional = true }
+rmp-serde = { version = "1.3", optional = true }
 
 # client
 gloo-net = { version = "0.6", optional = true }
@@ -77,7 +77,7 @@ reqwest = { version = "0.12", default-features = false, optional = true, feature
   "stream",
 ] }
 url = "2"
-pin-project-lite = "0.2.13"
+pin-project-lite = "0.2.14"
 
 [features]
 default = ["json"]

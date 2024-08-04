@@ -21,7 +21,7 @@ slotmap = "1"
 thiserror = "1"
 tracing = { version = "0.1", optional = true }
 guardian = "1"
-async-lock = "3.3.0"
+async-lock = "3.4.0"
 send_wrapper = { version = "0.6.0", features = ["futures"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
