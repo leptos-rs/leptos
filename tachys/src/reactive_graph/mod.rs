@@ -273,7 +273,7 @@ where
     R: Renderer,
 {
     type AsyncOutput = V::AsyncOutput;
-    type State = RenderEffectState<V::State>;
+    type State = RenderEffect<V::State>;
     type Cloneable = SharedReactiveFunction<V>;
     type CloneableOwned = SharedReactiveFunction<V>;
 
@@ -306,7 +306,6 @@ where
                 value.hydrate::<FROM_SERVER>(&key, &el)
             }
         })
-        .into()
     }
 
     fn build(
@@ -327,11 +326,25 @@ where
                 value.build(&el, &key)
             }
         })
-        .into()
     }
 
-    fn rebuild(self, _key: &str, _state: &mut Self::State) {
-        // TODO rebuild
+    fn rebuild(mut self, key: &str, state: &mut Self::State) {
+        let key = R::intern(key);
+        let key = key.to_owned();
+        let prev_value = state.take_value();
+
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&key, &mut state);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            prev_value,
+        );
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
@@ -496,6 +509,7 @@ mod stable {
     };
     use reactive_graph::{
         computed::{ArcMemo, Memo},
+        effect::RenderEffect,
         owner::Storage,
         signal::{ArcReadSignal, ArcRwSignal, ReadSignal, RwSignal},
         traits::Get,
@@ -621,7 +635,7 @@ mod stable {
                 R: Renderer,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffect<V::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -652,8 +666,8 @@ mod stable {
                     (move || self.get()).build(el, key)
                 }
 
-                fn rebuild(self, _key: &str, _state: &mut Self::State) {
-                    // TODO rebuild
+                fn rebuild(self, key: &str, state: &mut Self::State) {
+                    (move || self.get()).rebuild(key, state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
@@ -800,7 +814,7 @@ mod stable {
                 R: Renderer,
             {
                 type AsyncOutput = Self;
-                type State = RenderEffectState<V::State>;
+                type State = RenderEffect<V::State>;
                 type Cloneable = Self;
                 type CloneableOwned = Self;
 
@@ -831,8 +845,8 @@ mod stable {
                     (move || self.get()).build(el, key)
                 }
 
-                fn rebuild(self, _key: &str, _state: &mut Self::State) {
-                    // TODO rebuild
+                fn rebuild(self, key: &str, state: &mut Self::State) {
+                    (move || self.get()).rebuild(key, state)
                 }
 
                 fn into_cloneable(self) -> Self::Cloneable {
