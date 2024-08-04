@@ -648,7 +648,7 @@ fn component_macro(s: TokenStream, island: bool) -> TokenStream {
 /// fn App() -> impl IntoView {
 ///     view! {
 ///         <ComponentWithSlot>
-///           <SlotWithChildren slot:slot on:click=move |_| {}>
+///           <SlotWithChildren slot:slot on:click={|_| {}}>
 ///             <h1>"Hello, World!"</h1>
 ///           </SlotWithChildren>
 ///         </ComponentWithSlot>
@@ -675,7 +675,7 @@ fn component_macro(s: TokenStream, island: bool) -> TokenStream {
 ///     view! {
 ///         <ComponentWithSlot>
 ///           <SlotWithChildren slot:slot>
-///             <div on:click=move |_| {}>
+///             <div on:click={|_| {}}>
 ///               <h1>"Hello, World!"</h1>
 ///             </div>
 ///           </SlotWithChildren>
