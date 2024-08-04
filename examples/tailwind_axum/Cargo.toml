@@ -19,7 +19,7 @@ tower-http = { version = "0.5", features = ["fs"], optional = true }
 wasm-bindgen = "0.2"
 thiserror = "1.0"
 tracing = { version = "0.1", optional = true }
-http = "1.0"
+http = "1.1"
 
 [features]
 hydrate = ["leptos/hydrate"]

@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 console_error_panic_hook = "0.1"
 futures = "0.3"
-http = "1.0"
+http = "1.1"
 leptos = { path = "../../leptos", features = [
 	"tracing",
 	"experimental-islands",

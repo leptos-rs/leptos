@@ -15,8 +15,8 @@ leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router" }
 log = "0.4"
 wasm-bindgen = "0.2"
-serde = "1.0.159"
-tokio = { version = "1.29", features = ["time", "rt"], optional = true }
+serde = "1.0.204"
+tokio = { version = "1.39", features = ["time", "rt"], optional = true }
 
 [features]
 hydrate = ["leptos/hydrate"]

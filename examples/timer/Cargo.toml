@@ -19,4 +19,4 @@ version = "0.3"
 features = ["Window"]
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "0.3.42"
