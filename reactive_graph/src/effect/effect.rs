@@ -72,6 +72,7 @@ use std::{
 ///    this with a web framework, this generally means that effects **do not run on the server**.
 ///    and you can call browser-specific APIs within the effect function without causing issues.
 ///    If you need an effect to run on the server, use [`Effect::new_isomorphic`].
+#[derive(Debug, Clone, Copy)]
 pub struct Effect<S> {
     inner: Option<StoredValue<StoredEffect, S>>,
 }
@@ -514,4 +515,23 @@ where
     T: 'static,
 {
     Effect::new(fun)
+}
+
+/// Creates an [`Effect`], equivalent to [Effect::watch].
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust \
+                idioms. Please use `Effect::watch()` instead."]
+pub fn watch<W, T>(
+    deps: impl Fn() -> W + 'static,
+    callback: impl Fn(&W, Option<&W>, Option<T>) -> T + Clone + 'static,
+    immediate: bool,
+) -> impl Fn() + Clone
+where
+    W: Clone + 'static,
+    T: 'static,
+{
+    let watch = Effect::watch(deps, callback, immediate);
+
+    move || watch.stop()
 }
