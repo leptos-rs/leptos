@@ -18,7 +18,7 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 				}
 			}
 
-			let rendered = view! { 
+			let rendered = view! {
 				<main>
 					<h1>"Welcome to our benchmark page."</h1>
 					<p>"Here's some introductory text."</p>
@@ -58,7 +58,7 @@ fn tachys_ssr_bench(b: &mut Bencher) {
 			}
 		}
 
-		let rendered = view! { 
+		let rendered = view! {
 			<main>
 				<h1>"Welcome to our benchmark page."</h1>
 				<p>"Here's some introductory text."</p>
@@ -92,13 +92,13 @@ fn tera_ssr_bench(b: &mut Bencher) {
 	{% endfor %}
 	</main>"#;
 
-    lazy_static::lazy_static! {
-        static ref TERA: Tera = {
-            let mut tera = Tera::default();
-            tera.add_raw_templates(vec![("template.html", TEMPLATE)]).unwrap();
-            tera
-        };
-    }
+
+    static  LazyCell<TERA>: Tera = LazyLock::new(|| {
+        let mut tera = Tera::default();
+        tera.add_raw_templates(vec![("template.html", TEMPLATE)]).unwrap();
+        tera
+    });
+
 
     #[derive(Serialize, Deserialize)]
     struct Counter {
