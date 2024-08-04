@@ -506,8 +506,8 @@ where
 /// Creates an [`Effect`].
 #[inline(always)]
 #[track_caller]
-#[deprecated = "This function is being removed to conform to Rust \
-                idioms.Please use `Effect::new()` instead."]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `Effect::watch()` instead."]
 pub fn create_effect<T>(
     fun: impl FnMut(Option<T>) -> T + 'static,
 ) -> Effect<LocalStorage>
@@ -520,8 +520,8 @@ where
 /// Creates an [`Effect`], equivalent to [Effect::watch].
 #[inline(always)]
 #[track_caller]
-#[deprecated = "This function is being removed to conform to Rust \
-                idioms. Please use `Effect::watch()` instead."]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `Effect::watch()` instead."]
 pub fn watch<W, T>(
     deps: impl Fn() -> W + 'static,
     callback: impl Fn(&W, Option<&W>, Option<T>) -> T + Clone + 'static,
