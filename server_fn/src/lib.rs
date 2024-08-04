@@ -362,7 +362,9 @@ macro_rules! initialize_server_fn_map {
         once_cell::sync::Lazy::new(|| {
             $crate::inventory::iter::<ServerFnTraitObj<$req, $res>>
                 .into_iter()
-                .map(|obj| (obj.path(), obj.clone()))
+                .map(|obj| {
+                    ((obj.path().to_string(), obj.method()), obj.clone())
+                })
                 .collect()
         })
     };
@@ -442,7 +444,7 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> =
-    Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
+    Lazy<DashMap<(String, Method), ServerFnTraitObj<Req, Res>>>;
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -481,7 +483,7 @@ pub mod axum {
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            T::PATH,
+            (T::PATH.into(), T::InputEncoding::METHOD),
             ServerFnTraitObj::new(
                 T::PATH,
                 T::InputEncoding::METHOD,
@@ -502,7 +504,9 @@ pub mod axum {
     pub async fn handle_server_fn(req: Request<Body>) -> Response<Body> {
         let path = req.uri().path();
 
-        if let Some(mut service) = get_server_fn_service(path) {
+        if let Some(mut service) =
+            get_server_fn_service(path, req.method().clone())
+        {
             service.run(req).await
         } else {
             Response::builder()
@@ -524,8 +528,10 @@ pub mod axum {
     /// Returns the server function at the given path as a service that can be modified.
     pub fn get_server_fn_service(
         path: &str,
+        method: Method,
     ) -> Option<BoxedService<Request<Body>, Response<Body>>> {
-        REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
+        let key = (path.into(), method);
+        REGISTERED_SERVER_FUNCTIONS.get(&key).map(|server_fn| {
             let middleware = (server_fn.middleware)();
             let mut service = BoxedService::new(server_fn.clone());
             for middleware in middleware {
@@ -565,7 +571,7 @@ pub mod actix {
             > + 'static,
     {
         REGISTERED_SERVER_FUNCTIONS.insert(
-            T::PATH,
+            (T::PATH.into(), T::InputEncoding::METHOD),
             ServerFnTraitObj::new(
                 T::PATH,
                 T::InputEncoding::METHOD,
@@ -588,13 +594,8 @@ pub mod actix {
         payload: Payload,
     ) -> HttpResponse {
         let path = req.uri().path();
-        if let Some(server_fn) = REGISTERED_SERVER_FUNCTIONS.get(path) {
-            let middleware = (server_fn.middleware)();
-            // http::Method is the only non-Copy type here
-            let mut service = BoxedService::new(server_fn.clone());
-            for middleware in middleware {
-                service = middleware.layer(service);
-            }
+        let method = req.method();
+        if let Some(mut service) = get_server_fn_service(path, method) {
             service
                 .0
                 .run(ActixRequest::from((req, payload)))
@@ -618,14 +619,31 @@ pub mod actix {
     /// Returns the server function at the given path as a service that can be modified.
     pub fn get_server_fn_service(
         path: &str,
+        method: &actix_web::http::Method,
     ) -> Option<BoxedService<ActixRequest, ActixResponse>> {
-        REGISTERED_SERVER_FUNCTIONS.get(path).map(|server_fn| {
-            let middleware = (server_fn.middleware)();
-            let mut service = BoxedService::new(server_fn.clone());
-            for middleware in middleware {
-                service = middleware.layer(service);
-            }
-            service
-        })
+        use actix_web::http::Method as ActixMethod;
+
+        let method = match *method {
+            ActixMethod::GET => Method::GET,
+            ActixMethod::POST => Method::POST,
+            ActixMethod::PUT => Method::PUT,
+            ActixMethod::PATCH => Method::PATCH,
+            ActixMethod::DELETE => Method::DELETE,
+            ActixMethod::HEAD => Method::HEAD,
+            ActixMethod::TRACE => Method::TRACE,
+            ActixMethod::OPTIONS => Method::OPTIONS,
+            ActixMethod::CONNECT => Method::CONNECT,
+            _ => unreachable!(),
+        };
+        REGISTERED_SERVER_FUNCTIONS.get(&(path.into(), method)).map(
+            |server_fn| {
+                let middleware = (server_fn.middleware)();
+                let mut service = BoxedService::new(server_fn.clone());
+                for middleware in middleware {
+                    service = middleware.layer(service);
+                }
+                service
+            },
+        )
     }
 }

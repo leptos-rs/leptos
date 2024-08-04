@@ -6,7 +6,7 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_http::header::{HeaderName, HeaderValue, ACCEPT};
+use actix_http::header::{HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -14,26 +14,33 @@ use actix_web::{
     web::{Payload, ServiceConfig},
     *,
 };
-use futures::{Stream, StreamExt};
+use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
+use hydration_context::SsrSharedContext;
 use leptos::{
-    ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
-    *,
+    context::{provide_context, use_context},
+    reactive_graph::{computed::ScopedFuture, owner::Owner},
+    IntoView, *,
 };
-use leptos_integration_utils::{build_async_response, html_parts_separated};
-use leptos_meta::*;
-use leptos_router::*;
+use leptos_integration_utils::{
+    BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
+};
+use leptos_meta::ServerMetaContext;
+use leptos_router::{
+    components::provide_server_redirect, location::RequestUrl, PathSegment,
+    RouteList, RouteListing, SsrMode, StaticDataMap, StaticMode, *,
+};
 use parking_lot::RwLock;
-use regex::Regex;
-use server_fn::{redirect::REDIRECT_HEADER, request::actix::ActixRequest};
+use send_wrapper::SendWrapper;
+use server_fn::{
+    redirect::REDIRECT_HEADER, request::actix::ActixRequest, ServerFnError,
+};
 use std::{
     fmt::{Debug, Display},
-    future::Future,
-    pin::Pin,
+    ops::{Deref, DerefMut},
     sync::Arc,
 };
-#[cfg(debug_assertions)]
-use tracing::instrument;
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -51,6 +58,7 @@ impl ResponseParts {
     ) {
         self.headers.insert(key, value);
     }
+
     /// Append a header, leaving any header with the same key intact
     pub fn append_header(
         &mut self,
@@ -58,6 +66,35 @@ impl ResponseParts {
         value: header::HeaderValue,
     ) {
         self.headers.append(key, value);
+    }
+}
+
+/// A wrapper for an Actix [`HttpRequest`](actix_web::HttpRequest) that allows it to be used in an
+/// `Send`/`Sync` setting like Leptos's Context API.
+#[derive(Debug, Clone)]
+pub struct Request(SendWrapper<HttpRequest>);
+
+impl Request {
+    pub fn new(req: &HttpRequest) -> Self {
+        Self(SendWrapper::new(req.clone()))
+    }
+
+    pub fn into_inner(self) -> HttpRequest {
+        self.0.take()
+    }
+}
+
+impl Deref for Request {
+    type Target = HttpRequest;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Request {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -99,6 +136,50 @@ impl ResponseOptions {
     }
 }
 
+struct ActixResponse(HttpResponse);
+
+impl ExtendResponse for ActixResponse {
+    type ResponseOptions = ResponseOptions;
+
+    fn from_stream(
+        stream: impl Stream<Item = String> + Send + 'static,
+    ) -> Self {
+        ActixResponse(
+            HttpResponse::Ok()
+                .content_type("text/html")
+                .streaming(stream.map(|chunk| {
+                    Ok(web::Bytes::from(chunk)) as Result<web::Bytes>
+                })),
+        )
+    }
+
+    fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
+        let mut res_options = res_options.0.write();
+
+        let headers = self.0.headers_mut();
+        for (key, value) in std::mem::take(&mut res_options.headers) {
+            headers.append(key, value);
+        }
+
+        // Set status to what is returned in the function
+        if let Some(status) = res_options.status {
+            *self.0.status_mut() = status;
+        }
+    }
+
+    fn set_default_content_type(&mut self, content_type: &str) {
+        let headers = self.0.headers_mut();
+        if !headers.contains_key(header::CONTENT_TYPE) {
+            // Set the Content Type headers on all responses. This makes Firefox show the page source
+            // without complaining
+            headers.insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_str(content_type).unwrap(),
+            );
+        }
+    }
+}
+
 /// Provides an easy way to redirect the user from within a server function.
 ///
 /// This sets the `Location` header to the URL given.
@@ -114,10 +195,9 @@ impl ResponseOptions {
 /// the redirect with client-side routing.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn redirect(path: &str) {
-    if let (Some(req), Some(res)) = (
-        use_context::<HttpRequest>(),
-        use_context::<ResponseOptions>(),
-    ) {
+    if let (Some(req), Some(res)) =
+        (use_context::<Request>(), use_context::<ResponseOptions>())
+    {
         // insert the Location header in any case
         res.insert_header(
             header::LOCATION,
@@ -222,48 +302,58 @@ pub fn handle_server_fns_with_context(
             let additional_context = additional_context.clone();
 
             let path = req.path();
+            let method = req.method();
             if let Some(mut service) =
-                server_fn::actix::get_server_fn_service(path)
+                server_fn::actix::get_server_fn_service(path, method)
             {
-                let runtime = create_runtime();
+                let owner = Owner::new();
+                owner
+                    .with(|| {
+                        ScopedFuture::new(async move {
+                            additional_context();
+                            provide_context(Request::new(&req));
+                            let res_options = ResponseOptions::default();
+                            provide_context(res_options.clone());
 
-                // Add additional info to the context of the server function
-                additional_context();
-                provide_context(req.clone());
-                let res_parts = ResponseOptions::default();
-                provide_context(res_parts.clone());
+                            // store Accepts and Referer in case we need them for redirect (below)
+                            let accepts_html = req
+                                .headers()
+                                .get(ACCEPT)
+                                .and_then(|v| v.to_str().ok())
+                                .map(|v| v.contains("text/html"))
+                                .unwrap_or(false);
+                            let referrer = req.headers().get(REFERER).cloned();
 
-                let mut res = service
-                    .0
-                    .run(ActixRequest::from((req, payload)))
+                            // actually run the server fn
+                            let mut res = ActixResponse(
+                                service
+                                    .0
+                                    .run(ActixRequest::from((req, payload)))
+                                    .await
+                                    .take(),
+                            );
+
+                            // it it accepts text/html (i.e., is a plain form post) and doesn't already have a
+                            // Location set, then redirect to to Referer
+                            if accepts_html {
+                                if let Some(referrer) = referrer {
+                                    let has_location =
+                                        res.0.headers().get(LOCATION).is_some();
+                                    if !has_location {
+                                        *res.0.status_mut() = StatusCode::FOUND;
+                                        res.0
+                                            .headers_mut()
+                                            .insert(LOCATION, referrer);
+                                    }
+                                }
+                            }
+
+                            // apply status code and headers if used changed them
+                            res.extend_response(&res_options);
+                            res.0
+                        })
+                    })
                     .await
-                    .take();
-
-                // Override StatusCode if it was set in a Resource or Element
-                if let Some(status) = res_parts.0.read().status {
-                    *res.status_mut() = status;
-                }
-
-                // Use provided ResponseParts headers if they exist
-                let headers = res.headers_mut();
-                let mut res_parts = res_parts.0.write();
-
-                // Location is set to redirect to Referer in the server handler handler by default,
-                // but it can only have a single value
-                //
-                // if we have used redirect() we will end up appending this second Location value
-                // to the first one, which will cause an invalid response
-                // see https://github.com/leptos-rs/leptos/issues/2506
-                for location in res_parts.headers.remove(header::LOCATION) {
-                    headers.insert(header::LOCATION, location);
-                }
-                for (k, v) in std::mem::take(&mut res_parts.headers) {
-                    headers.append(k, v);
-                }
-
-                // clean up the scope
-                runtime.dispose();
-                res
             } else {
                 HttpResponse::BadRequest().body(format!(
                     "Could not find a server function at the route {:?}. \
@@ -296,7 +386,7 @@ pub fn handle_server_fns_with_context(
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use actix_web::{App, HttpServer};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
@@ -308,7 +398,7 @@ pub fn handle_server_fns_with_context(
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
@@ -318,11 +408,7 @@ pub fn handle_server_fns_with_context(
 ///             // the actual routing will be handled by `leptos_router`
 ///             .route(
 ///                 "/{tail:.*}",
-///                 leptos_actix::render_app_to_stream(
-///                     leptos_options.to_owned(),
-///                     || view! { <MyApp/> },
-///                     Method::Get,
-///                 ),
+///                 leptos_actix::render_app_to_stream(MyApp, Method::Get),
 ///             )
 ///     })
 ///     .bind(&addr)?
@@ -340,14 +426,13 @@ pub fn handle_server_fns_with_context(
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
-    options: LeptosOptions,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    render_app_to_stream_with_context(options, || {}, app_fn, method)
+    render_app_to_stream_with_context(|| {}, app_fn, method)
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -365,7 +450,7 @@ where
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use actix_web::{App, HttpServer};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
@@ -377,7 +462,7 @@ where
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
@@ -388,8 +473,7 @@ where
 ///             .route(
 ///                 "/{tail:.*}",
 ///                 leptos_actix::render_app_to_stream_in_order(
-///                     leptos_options.to_owned(),
-///                     || view! { <MyApp/> },
+///                     MyApp,
 ///                     Method::Get,
 ///                 ),
 ///             )
@@ -409,14 +493,13 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
-    options: LeptosOptions,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    render_app_to_stream_in_order_with_context(options, || {}, app_fn, method)
+    render_app_to_stream_in_order_with_context(|| {}, app_fn, method)
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -432,7 +515,7 @@ where
 /// This can then be set up at an appropriate route in your application:
 /// ```
 /// use actix_web::{App, HttpServer};
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
@@ -444,7 +527,7 @@ where
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let conf = get_configuration(Some("Cargo.toml")).unwrap();
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
@@ -454,11 +537,7 @@ where
 ///             // the actual routing will be handled by `leptos_router`
 ///             .route(
 ///                 "/{tail:.*}",
-///                 leptos_actix::render_app_async(
-///                     leptos_options.to_owned(),
-///                     || view! { <MyApp/> },
-///                     Method::Get,
-///                 ),
+///                 leptos_actix::render_app_async(MyApp, Method::Get),
 ///             )
 ///     })
 ///     .bind(&addr)?
@@ -476,14 +555,13 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async<IV>(
-    options: LeptosOptions,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    render_app_async_with_context(options, || {}, app_fn, method)
+    render_app_async_with_context(|| {}, app_fn, method)
 }
 
 /// Returns an Actix [struct@Route] that listens for a `GET` request and tries
@@ -500,16 +578,14 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
     render_app_to_stream_with_context_and_replace_blocks(
-        options,
         additional_context,
         app_fn,
         method,
@@ -536,48 +612,21 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
     replace_blocks: bool,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    let handler = move |req: HttpRequest| {
-        let options = options.clone();
-        let app_fn = app_fn.clone();
-        let additional_context = additional_context.clone();
-        let res_options = ResponseOptions::default();
-
-        async move {
-            let app = {
-                let app_fn = app_fn.clone();
-                let res_options = res_options.clone();
-                move || {
-                    provide_contexts(&req, res_options);
-                    (app_fn)().into_view()
-                }
-            };
-
-            stream_app(
-                &options,
-                app,
-                res_options,
-                additional_context,
-                replace_blocks,
-            )
-            .await
-        }
-    };
-    match method {
-        Method::Get => web::get().to(handler),
-        Method::Post => web::post().to(handler),
-        Method::Put => web::put().to(handler),
-        Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler),
-    }
+    _ = replace_blocks; // TODO
+    handle_response(method, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            Box::pin(app.to_html_stream_out_of_order().chain(chunks()))
+                as PinnedStream<String>
+        })
+    })
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -594,41 +643,19 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    let handler = move |req: HttpRequest| {
-        let options = options.clone();
-        let app_fn = app_fn.clone();
-        let additional_context = additional_context.clone();
-        let res_options = ResponseOptions::default();
-
-        async move {
-            let app = {
-                let app_fn = app_fn.clone();
-                let res_options = res_options.clone();
-                move || {
-                    provide_contexts(&req, res_options);
-                    (app_fn)().into_view()
-                }
-            };
-
-            stream_app_in_order(&options, app, res_options, additional_context)
-                .await
-        }
-    };
-    match method {
-        Method::Get => web::get().to(handler),
-        Method::Post => web::post().to(handler),
-        Method::Put => web::put().to(handler),
-        Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler),
-    }
+    handle_response(method, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            Box::pin(app.to_html_stream_in_order().chain(chunks()))
+                as PinnedStream<String>
+        })
+    })
 }
 
 /// Returns an Actix [struct@Route](actix_web::Route) that listens for a `GET` request and tries
@@ -646,59 +673,36 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
-    options: LeptosOptions,
     additional_context: impl Fn() + 'static + Clone + Send,
-    app_fn: impl Fn() -> IV + Clone + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
 ) -> Route
 where
-    IV: IntoView,
+    IV: IntoView + 'static,
 {
-    let handler = move |req: HttpRequest| {
-        let options = options.clone();
-        let app_fn = app_fn.clone();
-        let additional_context = additional_context.clone();
-        let res_options = ResponseOptions::default();
-
-        async move {
-            let app = {
-                let app_fn = app_fn.clone();
-                let res_options = res_options.clone();
-                move || {
-                    provide_contexts(&req, res_options);
-                    (app_fn)().into_view()
-                }
-            };
-
-            render_app_async_helper(
-                &options,
-                app,
-                res_options,
-                additional_context,
-            )
-            .await
-        }
-    };
-    match method {
-        Method::Get => web::get().to(handler),
-        Method::Post => web::post().to(handler),
-        Method::Put => web::put().to(handler),
-        Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler),
-    }
+    handle_response(method, additional_context, app_fn, |app, chunks| {
+        Box::pin(async move {
+            let app = app.to_html_stream_in_order().collect::<String>().await;
+            let chunks = chunks();
+            Box::pin(once(async move { app }).chain(chunks))
+                as PinnedStream<String>
+        })
+    })
 }
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
-fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
-    let path = leptos_corrected_path(req);
+fn provide_contexts(
+    req: Request,
+    meta_context: &ServerMetaContext,
+    res_options: &ResponseOptions,
+) {
+    let path = leptos_corrected_path(&req);
 
-    let integration = ServerIntegration { path };
-    provide_context(RouterIntegrationContext::new(integration));
-    provide_context(MetaContext::new());
-    provide_context(res_options);
-    provide_context(req.clone());
+    provide_context(RequestUrl::new(&path));
+    provide_context(meta_context.clone());
+    provide_context(res_options.clone());
+    provide_context(req);
     provide_server_redirect(redirect);
-    #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
 
@@ -711,135 +715,56 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
         "http://leptos".to_string() + path + "?" + query
     }
 }
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-async fn stream_app(
-    options: &LeptosOptions,
-    app: impl FnOnce() -> View + 'static,
-    res_options: ResponseOptions,
+
+fn handle_response<IV>(
+    method: Method,
     additional_context: impl Fn() + 'static + Clone + Send,
-    replace_blocks: bool,
-) -> HttpResponse<BoxBody> {
-    let (stream, runtime) =
-        render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
-            app,
-            move || generate_head_metadata_separated().1.into(),
-            additional_context,
-            replace_blocks
-        );
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    stream_builder: fn(
+        IV,
+        BoxedFnOnce<PinnedStream<String>>,
+    ) -> PinnedFuture<PinnedStream<String>>,
+) -> Route
+where
+    IV: IntoView + 'static,
+{
+    let handler = move |req: HttpRequest| {
+        let app_fn = app_fn.clone();
+        let add_context = additional_context.clone();
 
-    build_stream_response(options, res_options, stream, runtime).await
-}
-#[cfg_attr(any(debug_assertions), instrument(level = "trace", skip_all,))]
-async fn stream_app_in_order(
-    options: &LeptosOptions,
-    app: impl FnOnce() -> View + 'static,
-    res_options: ResponseOptions,
-    additional_context: impl Fn() + 'static + Clone + Send,
-) -> HttpResponse<BoxBody> {
-    let (stream, runtime) =
-        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
-            app,
-            move || {
-                generate_head_metadata_separated().1.into()
-            },
-            additional_context,
-        );
+        async move {
+            let res_options = ResponseOptions::default();
+            let (meta_context, meta_output) = ServerMetaContext::new();
 
-    build_stream_response(options, res_options, stream, runtime).await
-}
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-async fn build_stream_response(
-    options: &LeptosOptions,
-    res_options: ResponseOptions,
-    stream: impl Stream<Item = String> + 'static,
-    runtime: RuntimeId,
-) -> HttpResponse {
-    let mut stream = Box::pin(stream);
+            let additional_context = {
+                let meta_context = meta_context.clone();
+                let res_options = res_options.clone();
+                let req = Request::new(&req);
+                move || {
+                    provide_contexts(req, &meta_context, &res_options);
+                    add_context();
+                }
+            };
 
-    // wait for any blocking resources to load before pulling metadata
-    let first_app_chunk = stream.next().await.unwrap_or_default();
-
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>().as_ref());
-
-    let mut stream = Box::pin(
-        futures::stream::once(async move { head.clone() })
-            .chain(
-                futures::stream::once(async move { first_app_chunk })
-                    .chain(stream),
+            let res = ActixResponse::from_app(
+                app_fn,
+                meta_output,
+                additional_context,
+                res_options,
+                stream_builder,
             )
-            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-    );
+            .await;
 
-    // Get the first and second in the stream, which renders the app shell, and thus allows Resources to run
-
-    let first_chunk = stream.next().await;
-
-    let second_chunk = stream.next().await;
-
-    let res_options = res_options.0.read();
-
-    let (status, headers) = (res_options.status, res_options.headers.clone());
-    let status = status.unwrap_or_default();
-
-    let complete_stream =
-        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-            .chain(stream)
-            .chain(
-                futures::stream::once(async move {
-                    runtime.dispose();
-                    tail.to_string()
-                })
-                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-            );
-    let mut res = HttpResponse::Ok()
-        .content_type("text/html")
-        .streaming(complete_stream);
-
-    // Add headers manipulated in the response
-    for (key, value) in headers.into_iter() {
-        res.headers_mut().append(key, value);
+            res.0
+        }
+    };
+    match method {
+        Method::Get => web::get().to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
     }
-
-    // Set status to what is returned in the function
-    let res_status = res.status_mut();
-    *res_status = status;
-    // Return the response
-    res
-}
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-async fn render_app_async_helper(
-    options: &LeptosOptions,
-    app: impl FnOnce() -> View + 'static,
-    res_options: ResponseOptions,
-    additional_context: impl Fn() + 'static + Clone + Send,
-) -> HttpResponse<BoxBody> {
-    let (stream, runtime) =
-        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
-            app,
-            move || "".into(),
-            additional_context,
-        );
-
-    let html = build_async_response(stream, options, runtime).await;
-
-    let res_options = res_options.0.read();
-
-    let (status, headers) = (res_options.status, res_options.headers.clone());
-    let status = status.unwrap_or_default();
-
-    let mut res = HttpResponse::Ok().content_type("text/html").body(html);
-
-    // Add headers manipulated in the response
-    for (key, value) in headers.into_iter() {
-        res.headers_mut().append(key, value);
-    }
-
-    // Set status to what is returned in the function
-    let res_status = res.status_mut();
-    *res_status = status;
-    // Return the response
-    res
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -847,7 +772,7 @@ async fn render_app_async_helper(
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
-) -> Vec<RouteListing>
+) -> Vec<ActixRouteListing>
 where
     IV: IntoView + 'static,
 {
@@ -859,7 +784,7 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list_with_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
-) -> (Vec<RouteListing>, StaticDataMap)
+) -> (Vec<ActixRouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
@@ -873,7 +798,7 @@ where
 pub fn generate_route_list_with_exclusions<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
-) -> Vec<RouteListing>
+) -> Vec<ActixRouteListing>
 where
     IV: IntoView + 'static,
 {
@@ -887,7 +812,7 @@ where
 pub fn generate_route_list_with_exclusions_and_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
-) -> (Vec<RouteListing>, StaticDataMap)
+) -> (Vec<ActixRouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
@@ -896,6 +821,105 @@ where
         excluded_routes,
         || {},
     )
+}
+
+trait ActixPath {
+    fn to_actix_path(&self) -> String;
+}
+
+impl ActixPath for &[PathSegment] {
+    fn to_actix_path(&self) -> String {
+        let mut path = String::new();
+        for segment in self.iter() {
+            // TODO trailing slash handling
+            let raw = segment.as_raw_str();
+            if !raw.is_empty() && !raw.starts_with('/') {
+                path.push('/');
+            }
+            match segment {
+                PathSegment::Static(s) => path.push_str(s),
+                PathSegment::Param(s) => {
+                    path.push('{');
+                    path.push_str(s);
+                    path.push('}');
+                }
+                PathSegment::Splat(s) => {
+                    path.push('{');
+                    path.push_str(s);
+                    path.push_str(":.*}");
+                }
+                PathSegment::Unit => {}
+            }
+        }
+        path
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+/// A route that this application can serve.
+pub struct ActixRouteListing {
+    path: String,
+    mode: SsrMode,
+    methods: Vec<leptos_router::Method>,
+    static_mode: Option<(StaticMode, StaticDataMap)>,
+}
+
+impl From<RouteListing> for ActixRouteListing {
+    fn from(value: RouteListing) -> Self {
+        let path = value.path().to_actix_path();
+        let path = if path.is_empty() {
+            "/".to_string()
+        } else {
+            path
+        };
+        let mode = value.mode();
+        let methods = value.methods().collect();
+        let static_mode = value.into_static_parts();
+        Self {
+            path,
+            mode,
+            methods,
+            static_mode,
+        }
+    }
+}
+
+impl ActixRouteListing {
+    /// Create a route listing from its parts.
+    pub fn new(
+        path: String,
+        mode: SsrMode,
+        methods: impl IntoIterator<Item = leptos_router::Method>,
+        static_mode: Option<(StaticMode, StaticDataMap)>,
+    ) -> Self {
+        Self {
+            path,
+            mode,
+            methods: methods.into_iter().collect(),
+            static_mode,
+        }
+    }
+
+    /// The path this route handles.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// The rendering mode for this path.
+    pub fn mode(&self) -> SsrMode {
+        self.mode
+    }
+
+    /// The HTTP request methods this path can handle.
+    pub fn methods(&self) -> impl Iterator<Item = leptos_router::Method> + '_ {
+        self.methods.iter().copied()
+    }
+
+    /// Whether this route is statically rendered.
+    #[inline(always)]
+    pub fn static_mode(&self) -> Option<StaticMode> {
+        self.static_mode.as_ref().map(|n| n.0)
+    }
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -907,66 +931,38 @@ pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
     additional_context: impl Fn() + 'static + Clone,
-) -> (Vec<RouteListing>, StaticDataMap)
+) -> (Vec<ActixRouteListing>, StaticDataMap)
 where
     IV: IntoView + 'static,
 {
-    let (mut routes, static_data_map) =
-        leptos_router::generate_route_list_inner_with_context(
-            app_fn,
-            additional_context,
-        );
+    let _ = any_spawner::Executor::init_tokio();
 
-    // Actix's Router doesn't follow Leptos's
-    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
-    let wildcard_re = Regex::new(r"\*.*").unwrap();
-    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
-    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
+    let owner = Owner::new_root(Some(Arc::new(SsrSharedContext::new())));
+    let (mock_meta, _) = ServerMetaContext::new();
+    let routes = owner
+        .with(|| {
+            // stub out a path for now
+            provide_context(RequestUrl::new(""));
+            provide_context(ResponseOptions::default());
+            provide_context(mock_meta);
+            additional_context();
+            RouteList::generate(&app_fn)
+        })
+        .unwrap_or_default();
 
-    // Empty strings screw with Actix pathing, they need to be "/"
-    routes = routes
+    // Axum's Router defines Root routes as "/" not ""
+    let mut routes = routes
+        .into_inner()
         .into_iter()
-        .map(|listing| {
-            let path = listing.path();
-            if path.is_empty() {
-                return RouteListing::new(
-                    "/".to_string(),
-                    listing.path(),
-                    listing.mode(),
-                    listing.methods(),
-                    listing.static_mode(),
-                );
-            }
-            RouteListing::new(
-                listing.path(),
-                listing.path(),
-                listing.mode(),
-                listing.methods(),
-                listing.static_mode(),
-            )
-        })
-        .map(|listing| {
-            let path = wildcard_re
-                .replace_all(listing.path(), "{tail:.*}")
-                .to_string();
-            let path = capture_re.replace_all(&path, "{$1}").to_string();
-            RouteListing::new(
-                path,
-                listing.path(),
-                listing.mode(),
-                listing.methods(),
-                listing.static_mode(),
-            )
-        })
+        .map(ActixRouteListing::from)
         .collect::<Vec<_>>();
 
     (
         if routes.is_empty() {
-            vec![RouteListing::new(
-                "/",
-                "",
+            vec![ActixRouteListing::new(
+                "/".to_string(),
                 Default::default(),
-                [Method::Get],
+                [leptos_router::Method::Get],
                 None,
             )]
         } else {
@@ -977,7 +973,8 @@ where
             }
             routes
         },
-        static_data_map,
+        StaticDataMap::new(), // TODO
+                              //static_data_map,
     )
 }
 
@@ -986,6 +983,8 @@ pub enum DataResponse<T> {
     Response(actix_web::dev::Response<BoxBody>),
 }
 
+// TODO static response
+/*
 fn handle_static_response<'a, IV>(
     path: &'a str,
     options: &'a LeptosOptions,
@@ -1158,14 +1157,14 @@ where
         }
     }
 }
+*/
 
 /// This trait allows one to pass a list of routes and a render function to Actix's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
-        options: LeptosOptions,
-        paths: Vec<RouteListing>,
+        paths: Vec<ActixRouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1173,8 +1172,7 @@ pub trait LeptosRoutes {
 
     fn leptos_routes_with_context<IV>(
         self,
-        options: LeptosOptions,
-        paths: Vec<RouteListing>,
+        paths: Vec<ActixRouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1196,21 +1194,19 @@ where
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
-        options: LeptosOptions,
-        paths: Vec<RouteListing>,
+        paths: Vec<ActixRouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(options, paths, || {}, app_fn)
+        self.leptos_routes_with_context(paths, || {}, app_fn)
     }
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
-        options: LeptosOptions,
-        paths: Vec<RouteListing>,
+        paths: Vec<ActixRouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1238,23 +1234,24 @@ where
                     additional_context();
                 };
                 router = if let Some(static_mode) = listing.static_mode() {
-                    router.route(
-                        path,
-                        static_route(
-                            options.clone(),
-                            app_fn.clone(),
-                            additional_context_and_method.clone(),
-                            method,
-                            static_mode,
-                        ),
-                    )
+                    _ = static_mode;
+                    todo!() /*
+                            router.route(
+                                path,
+                                static_route(
+                                    app_fn.clone(),
+                                    additional_context_and_method.clone(),
+                                    method,
+                                    static_mode,
+                                ),
+                            )
+                            */
                 } else {
                     router.route(
                     path,
                     match mode {
                         SsrMode::OutOfOrder => {
                             render_app_to_stream_with_context(
-                                options.clone(),
                                 additional_context_and_method.clone(),
                                 app_fn.clone(),
                                 method,
@@ -1262,7 +1259,6 @@ where
                         }
                         SsrMode::PartiallyBlocked => {
                             render_app_to_stream_with_context_and_replace_blocks(
-                                options.clone(),
                                 additional_context_and_method.clone(),
                                 app_fn.clone(),
                                 method,
@@ -1271,14 +1267,12 @@ where
                         }
                         SsrMode::InOrder => {
                             render_app_to_stream_in_order_with_context(
-                                options.clone(),
                                 additional_context_and_method.clone(),
                                 app_fn.clone(),
                                 method,
                             )
                         }
                         SsrMode::Async => render_app_async_with_context(
-                            options.clone(),
                             additional_context_and_method.clone(),
                             app_fn.clone(),
                             method,
@@ -1299,21 +1293,19 @@ impl LeptosRoutes for &mut ServiceConfig {
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
-        options: LeptosOptions,
-        paths: Vec<RouteListing>,
+        paths: Vec<ActixRouteListing>,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(options, paths, || {}, app_fn)
+        self.leptos_routes_with_context(paths, || {}, app_fn)
     }
 
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
-        options: LeptosOptions,
-        paths: Vec<RouteListing>,
+        paths: Vec<ActixRouteListing>,
         additional_context: impl Fn() + 'static + Clone + Send,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1336,41 +1328,37 @@ impl LeptosRoutes for &mut ServiceConfig {
 
             for method in listing.methods() {
                 router = router.route(
-                    path,
-                    match mode {
-                        SsrMode::OutOfOrder => {
-                            render_app_to_stream_with_context(
-                                options.clone(),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                                method,
-                            )
-                        }
-                        SsrMode::PartiallyBlocked => {
-                            render_app_to_stream_with_context_and_replace_blocks(
-                                options.clone(),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                                method,
-                                true,
-                            )
-                        }
-                        SsrMode::InOrder => {
-                            render_app_to_stream_in_order_with_context(
-                                options.clone(),
-                                additional_context.clone(),
-                                app_fn.clone(),
-                                method,
-                            )
-                        }
-                        SsrMode::Async => render_app_async_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                            method,
-                        ),
-                    },
-                );
+                            path,
+                            match mode {
+                                SsrMode::OutOfOrder => {
+                                    render_app_to_stream_with_context(
+                                        additional_context.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                    )
+                                }
+                                SsrMode::PartiallyBlocked => {
+                                    render_app_to_stream_with_context_and_replace_blocks(
+                                        additional_context.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                        true,
+                                    )
+                                }
+                                SsrMode::InOrder => {
+                                    render_app_to_stream_in_order_with_context(
+                                        additional_context.clone(),
+                                        app_fn.clone(),
+                                        method,
+                                    )
+                                }
+                                SsrMode::Async => render_app_async_with_context(
+                                    additional_context.clone(),
+                                    app_fn.clone(),
+                                    method,
+                                ),
+                            },
+                        );
             }
         }
 
@@ -1385,18 +1373,21 @@ impl LeptosRoutes for &mut ServiceConfig {
 ///
 /// Any error that occurs during extraction is converted to a [`ServerFnError`].
 ///
-/// ```rust,ignore
-/// // MyQuery is some type that implements `Deserialize + Serialize`
+/// ```rust
+/// use leptos::prelude::*;
+///
 /// #[server]
-/// pub async fn query_extract() -> Result<MyQuery, ServerFnError> {
-///     use actix_web::web::Query;
+/// pub async fn extract_connection_info() -> Result<String, ServerFnError> {
+///     use actix_web::dev::ConnectionInfo;
 ///     use leptos_actix::*;
 ///
-///     let Query(data) = extract().await?;
+///     // this can be any type you can use an Actix extractor with, as long as
+///     // it works on the head, not the body of the request
+///     let info: ConnectionInfo = extract().await?;
 ///
 ///     // do something with the data
 ///
-///     Ok(data)
+///     Ok(format!("{info:?}"))
 /// }
 /// ```
 pub async fn extract<T>() -> Result<T, ServerFnError>
@@ -1404,7 +1395,7 @@ where
     T: actix_web::FromRequest,
     <T as FromRequest>::Error: Display,
 {
-    let req = use_context::<HttpRequest>().ok_or_else(|| {
+    let req = use_context::<Request>().ok_or_else(|| {
         ServerFnError::new("HttpRequest should have been provided via context")
     })?;
 

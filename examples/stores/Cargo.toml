@@ -1,0 +1,20 @@
+[package]
+name = "stores"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = 'z'
+codegen-units = 1
+lto = true
+
+[dependencies]
+leptos = { path = "../../leptos", features = ["csr"] }
+reactive_stores = { path = "../../reactive_stores" }
+reactive_stores_macro = { path = "../../reactive_stores_macro" }
+console_error_panic_hook = "0.1.7"
+
+[dev-dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-test = "0.3.0"
+web-sys = "0.3"

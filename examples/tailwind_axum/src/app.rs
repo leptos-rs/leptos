@@ -1,25 +1,46 @@
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::*;
+use leptos_router::{
+    components::{FlatRoutes, Route, Router},
+    StaticSegment,
+};
+
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options/>
+                <link rel="stylesheet" id="leptos" href="/pkg/leptos_tailwind.css"/>
+                <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                <MetaTags/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
 
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/leptos_tailwind.css"/>
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Router>
-            <Routes>
-                <Route path="" view=  move || view! { <Home/> }/>
-            </Routes>
+            <FlatRoutes fallback=|| "Page not found.">
+                <Route path=StaticSegment("") view=Home/>
+            </FlatRoutes>
         </Router>
     }
 }
 
 #[component]
 fn Home() -> impl IntoView {
-    let (value, set_value) = create_signal(0);
+    let (value, set_value) = signal(0);
 
     // thanks to https://tailwindcomponents.com/component/blue-buttons-example for the showcase layout
     view! {

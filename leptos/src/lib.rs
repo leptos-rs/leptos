@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#!rdeny(missing_docs)]
 #![forbid(unsafe_code)]
 //! # About Leptos
 //!
@@ -98,25 +98,25 @@
 //! # A Simple Counter
 //!
 //! ```rust
-//! use leptos::*;
+//! use leptos::prelude::*;
 //!
 //! #[component]
-//! pub fn SimpleCounter( initial_value: i32) -> impl IntoView {
+//! pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
 //!     // create a reactive signal with the initial value
-//!     let (value, set_value) = create_signal( initial_value);
+//!     let (value, set_value) = signal( initial_value);
 //!
 //!     // create event handlers for our buttons
 //!     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
 //!     let clear = move |_| set_value.set(0);
-//!     let decrement = move |_| set_value.update(|value| *value -= 1);
-//!     let increment = move |_| set_value.update(|value| *value += 1);
+//!     let decrement = move |_| *set_value.write() -= 1;
+//!     let increment = move |_| *set_value.write() += 1;
 //!
 //!     view! {
 //!
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
-//!             <span>"Value: " {move || value.get().to_string()} "!"</span>
+//!             <span>"Value: " {value} "!"</span>
 //!             <button on:click=increment>"+1"</button>
 //!         </div>
 //!     }
@@ -125,21 +125,191 @@
 //!
 //! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
 //! ```
-//! # use leptos::*;
-//! # if false { // can't run in doctests
+//! use leptos::{mount::mount_to_body, prelude::*};
 //!
 //! #[component]
 //! fn SimpleCounter(initial_value: i32) -> impl IntoView {
-//!     todo!()
+//!     // ...
+//!     # _ = initial_value;
 //! }
 //!
 //! pub fn main() {
+//! # if false { // can't run in doctest
 //!     mount_to_body(|| view! { <SimpleCounter initial_value=3 /> })
-//! }
 //! # }
+//! }
 //! ```
 
-mod additional_attributes;
+#![cfg_attr(feature = "nightly", feature(fn_traits))]
+#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
+#![cfg_attr(feature = "nightly", feature(auto_traits))]
+#![cfg_attr(feature = "nightly", feature(negative_impls))]
+
+extern crate self as leptos;
+
+/// Exports all the core types of the library.
+pub mod prelude {
+    // Traits
+    // These should always be exported from the prelude
+    pub use reactive_graph::prelude::*;
+    pub use tachys::prelude::*;
+
+    // Structs
+    // In the future, maybe we should remove this blanket export
+    // However, it is definitely useful relative to looking up every struct etc.
+    mod export_types {
+        #[cfg(feature = "nonce")]
+        pub use crate::nonce::*;
+        pub use crate::{
+            callback::*, children::*, component::*, control_flow::*, error::*,
+            form::*, hydration::*, into_view::*, mount::*, suspense::*,
+        };
+        pub use leptos_config::*;
+        pub use leptos_dom::{helpers::*, *};
+        pub use leptos_macro::*;
+        pub use leptos_server::*;
+        pub use oco_ref::*;
+        pub use reactive_graph::{
+            actions::*, computed::*, effect::*, owner::*, signal::*,
+            wrappers::read::*, *,
+        };
+        pub use server_fn::{self, ServerFnError};
+        pub use tachys::{
+            self,
+            reactive_graph::{node_ref::*, Suspend},
+            view::template::ViewTemplate,
+        };
+    }
+    pub use export_types::*;
+}
+
+/// Components used for working with HTML forms, like `<ActionForm>`.
+pub mod form;
+
+/// A standard way to wrap functions and closures to pass them to components.
+pub mod callback;
+
+/// Types that can be passed as the `children` prop of a component.
+pub mod children;
+
+#[doc(hidden)]
+/// Traits used to implement component constructors.
+pub mod component;
+mod error_boundary;
+
+/// Tools for handling errors.
+pub mod error {
+    pub use crate::error_boundary::*;
+    pub use throw_error::*;
+}
+
+/// Control-flow components like `<Show>` and `<For>`.
+pub mod control_flow {
+    pub use crate::{for_loop::*, show::*};
+}
+mod for_loop;
+mod show;
+
+/// A component that allows rendering a component somewhere else.
+pub mod portal;
+
+/// Components to enable server-side rendering and client-side hydration.
+pub mod hydration;
+
+/// Utilities for exporting nonces to be used for a Content Security Policy.
+#[cfg(feature = "nonce")]
+pub mod nonce;
+
+/// Components to load asynchronous data.
+pub mod suspense {
+    pub use crate::{suspense_component::*, transition::*};
+}
+
+#[macro_use]
+mod suspense_component;
+
+/// Types for reactive string properties for components.
+pub mod text_prop;
+mod transition;
+pub use leptos_macro::*;
+pub use server_fn;
+#[doc(hidden)]
+pub use typed_builder;
+#[doc(hidden)]
+pub use typed_builder_macro;
+mod into_view;
+pub use into_view::IntoView;
+pub use leptos_dom;
+mod provider;
+pub use tachys;
+/// Tools to mount an application to the DOM, or to hydrate it from server-rendered HTML.
+pub mod mount;
+pub use leptos_config as config;
+pub use oco_ref as oco;
+mod from_form_data;
+pub use either_of as either;
+pub use reactive_graph;
+
+/// Provide and access data along the reactive graph, sharing data without directly passing arguments.
+pub mod context {
+    pub use crate::provider::*;
+    pub use reactive_graph::owner::{provide_context, use_context};
+}
+
+pub use leptos_server as server;
+/// HTML attribute types.
+pub use tachys::html::attribute as attr;
+/// HTML element types.
+pub use tachys::html::element as html;
+/// HTML event types.
+#[doc(no_inline)]
+pub use tachys::html::event as ev;
+/// MathML element types.
+pub use tachys::mathml as math;
+/// SVG element types.
+pub use tachys::svg;
+
+/// Utilities for simple isomorphic logging to the console or terminal.
+pub mod logging {
+    pub use leptos_dom::{debug_warn, error, log, warn};
+}
+
+pub mod spawn {
+    pub use any_spawner::Executor;
+    use std::future::Future;
+
+    /// Spawns a thread-safe [`Future`].
+    #[track_caller]
+    #[inline(always)]
+    pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
+        Executor::spawn(fut)
+    }
+
+    /// Spawns a [`Future`] that cannot be sent across threads.
+    #[track_caller]
+    #[inline(always)]
+    pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
+        Executor::spawn_local(fut)
+    }
+
+    pub async fn tick() {
+        Executor::tick().await
+    }
+}
+
+// these reexports are used in islands
+#[cfg(feature = "experimental-islands")]
+#[doc(hidden)]
+pub use serde;
+#[cfg(feature = "experimental-islands")]
+#[doc(hidden)]
+pub use serde_json;
+#[doc(hidden)]
+pub use wasm_bindgen;
+#[doc(hidden)]
+pub use web_sys;
+
+/*mod additional_attributes;
 pub use additional_attributes::*;
 mod await_;
 pub use await_::*;
@@ -167,10 +337,6 @@ pub use leptos_dom::{
     CollectView, Errors, EventHandlerFn, Fragment, HtmlElement, IntoAttribute,
     IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
-/// Utilities for simple isomorphic logging to the console or terminal.
-pub mod logging {
-    pub use leptos_dom::{debug_warn, error, log, warn};
-}
 
 /// Types to make it easier to handle errors in your application.
 pub mod error {
@@ -209,10 +375,9 @@ pub use serde;
 #[cfg(feature = "experimental-islands")]
 pub use serde_json;
 pub use show::*;
-pub use suspense_component::*;
+//pub use suspense_component::*;
 mod suspense_component;
-mod transition;
-
+//mod transition;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
@@ -373,4 +538,4 @@ where
     fn construct(self, props: P) -> View {
         (self)(props).into_view()
     }
-}
+}*/

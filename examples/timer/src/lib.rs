@@ -1,4 +1,4 @@
-use leptos::{leptos_dom::helpers::IntervalHandle, *};
+use leptos::prelude::*;
 use std::time::Duration;
 
 /// Timer example, demonstrating the use of `use_interval`.
@@ -6,16 +6,16 @@ use std::time::Duration;
 pub fn TimerDemo() -> impl IntoView {
     // count_a updates with a fixed interval of 1000 ms, whereas count_b has a dynamic
     // update interval.
-    let (count_a, set_count_a) = create_signal(0_i32);
-    let (count_b, set_count_b) = create_signal(0_i32);
+    let count_a = RwSignal::new(0_i32);
+    let count_b = RwSignal::new(0_i32);
 
-    let (interval, set_interval) = create_signal(1000);
+    let interval = RwSignal::new(1000);
 
     use_interval(1000, move || {
-        set_count_a.update(|c| *c += 1);
+        count_a.update(|c| *c += 1);
     });
     use_interval(interval, move || {
-        set_count_b.update(|c| *c += 1);
+        count_b.update(|c| *c += 1);
     });
 
     view! {
@@ -24,9 +24,9 @@ pub fn TimerDemo() -> impl IntoView {
             <div>{count_a}</div>
             <div>"Count B (dynamic interval, currently " {interval} " ms)"</div>
             <div>{count_b}</div>
-            <input prop:value=interval on:input=move |ev| {
-                if let Ok(value) = event_target_value(&ev).parse::<u64>() {
-                    set_interval.set(value);
+            <input prop:value=interval on:input:target=move |ev| {
+                if let Ok(value) = ev.target().value().parse::<u64>() {
+                    interval.set(value);
                 }
             }/>
         </div>
@@ -41,7 +41,7 @@ where
     T: Into<MaybeSignal<u64>> + 'static,
 {
     let interval_millis = interval_millis.into();
-    create_effect(move |prev_handle: Option<IntervalHandle>| {
+    Effect::new(move |prev_handle: Option<IntervalHandle>| {
         // effects get their previous return value as an argument
         // each time the effect runs, it will return the interval handle
         // so if we have a previous one, we cancel it

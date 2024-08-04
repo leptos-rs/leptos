@@ -1,177 +1,125 @@
-use leptos::ViewFn;
-use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
+use crate::{
+    children::{TypedChildren, ViewFnOnce},
+    suspense_component::SuspenseBoundary,
+    IntoView,
+};
 use leptos_macro::component;
-use leptos_reactive::{
-    create_isomorphic_effect, create_rw_signal, use_context, RwSignal,
-    SignalGet, SignalGetUntracked, SignalSet, SignalSetter, SuspenseContext,
+use reactive_graph::{
+    computed::{suspense::SuspenseContext, ArcMemo},
+    effect::Effect,
+    owner::{provide_context, Owner},
+    signal::ArcRwSignal,
+    traits::{Get, Set, Track, With},
+    wrappers::write::SignalSetter,
 };
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use slotmap::{DefaultKey, SlotMap};
+use tachys::reactive_graph::OwnedView;
 
-/// If any [`Resource`](leptos_reactive::Resource)s are read in the `children` of this
+/// If any [`Resource`](leptos_reactive::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
-/// it will render the `children`. Unlike [`Suspense`](crate::Suspense), this will not fall
+/// it will render the `children`.
+///
+/// Unlike [`Suspense`](crate::Suspense), this will not fall
 /// back to the `fallback` state if there are further changes after the initial load.
 ///
 /// Note that the `children` will be rendered initially (in order to capture the fact that
-/// those resources are read under the suspense), so you cannot assume that resources have
-/// `Some` value in `children`.
+/// those resources are read under the suspense), so you cannot assume that resources read
+/// synchronously have
+/// `Some` value in `children`. However, you can read resources asynchronously by using
+/// [Suspend](crate::prelude::Suspend).
 ///
 /// ```
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*;
-/// # use leptos::*;
-/// # if false {
-/// # let runtime = create_runtime();
-/// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> {
-///     Some(vec![])
-/// }
+/// # use leptos::prelude::*;
+/// # if false { // don't run in doctests
+/// async fn fetch_cats(how_many: u32) -> Vec<String> { vec![] }
 ///
-/// let (cat_count, set_cat_count) = create_signal::<u32>(1);
-/// let (pending, set_pending) = create_signal(false);
+/// let (cat_count, set_cat_count) = signal::<u32>(1);
 ///
-/// let cats =
-///     create_resource(move || cat_count.get(), |count| fetch_cats(count));
+/// let cats = Resource::new(move || cat_count.get(), |count| fetch_cats(count));
 ///
 /// view! {
 ///   <div>
-///     <Transition
-///       fallback=move || view! {  <p>"Loading..."</p>}
-///       set_pending
-///     >
+///     <Transition fallback=move || view! { <p>"Loading (Suspense Fallback)..."</p> }>
+///       // you can access a resource synchronously
 ///       {move || {
-///           cats.read().map(|data| match data {
-///             None => view! { <pre>"Error"</pre> }.into_view(),
-///             Some(cats) => cats
-///                 .iter()
-///                 .map(|src| {
-///                     view! {
-///                       <img src={src}/>
-///                     }
-///                 })
-///                 .collect_view(),
+///           cats.get().map(|data| {
+///             data
+///               .into_iter()
+///               .map(|src| {
+///                   view! {
+///                     <img src={src}/>
+///                   }
+///               })
+///               .collect_view()
 ///           })
 ///         }
 ///       }
+///       // or you can use `Suspend` to read resources asynchronously
+///       {move || Suspend::new(async move {
+///         cats.await
+///               .into_iter()
+///               .map(|src| {
+///                   view! {
+///                     <img src={src}/>
+///                   }
+///               })
+///               .collect_view()
+///       })}
 ///     </Transition>
 ///   </div>
-/// };
-/// # runtime.dispose();
-/// # }
+/// }
+/// # ;}
 /// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all)
-)]
-#[component(transparent)]
-pub fn Transition(
+#[component]
+pub fn Transition<Chil>(
     /// Will be displayed while resources are pending. By default this is the empty view.
     #[prop(optional, into)]
-    fallback: ViewFn,
+    fallback: ViewFnOnce,
     /// A function that will be called when the component transitions into or out of
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
     #[prop(optional, into)]
     set_pending: Option<SignalSetter<bool>>,
-    /// Will be displayed once all resources have resolved.
-    children: Box<dyn Fn() -> Fragment>,
-) -> impl IntoView {
-    let prev_children = Rc::new(RefCell::new(None::<View>));
-
-    let first_run = create_rw_signal(true);
-    let child_runs = Cell::new(0);
-    let held_suspense_context = Rc::new(RefCell::new(None::<SuspenseContext>));
-
-    crate::Suspense(
-        crate::SuspenseProps::builder()
-            .fallback({
-                let prev_child = Rc::clone(&prev_children);
-                move || {
-                    let suspense_context = use_context::<SuspenseContext>()
-                        .expect("there to be a SuspenseContext");
-
-                    let was_first_run =
-                        cfg!(feature = "csr") && first_run.get();
-                    let is_first_run =
-                        is_first_run(first_run, &suspense_context);
-                    if was_first_run {
-                        first_run.set(false)
-                    }
-
-                    if let Some(prev_children) = &*prev_child.borrow() {
-                        if is_first_run || was_first_run {
-                            fallback.run()
-                        } else {
-                            prev_children.clone()
-                        }
-                    } else {
-                        fallback.run()
-                    }
-                }
+    children: TypedChildren<Chil>,
+) -> impl IntoView
+where
+    Chil: IntoView + Send + 'static,
+{
+    let (starts_local, id) = {
+        Owner::current_shared_context()
+            .map(|sc| {
+                let id = sc.next_id();
+                (sc.get_incomplete_chunk(&id), id)
             })
-            .children(Rc::new(move || {
-                let frag = children().into_view();
-
-                if let Some(suspense_context) = use_context::<SuspenseContext>()
-                {
-                    *held_suspense_context.borrow_mut() =
-                        Some(suspense_context);
-                }
-                let suspense_context = held_suspense_context.borrow().unwrap();
-
-                if cfg!(feature = "hydrate")
-                    || !first_run.get_untracked()
-                    || (cfg!(feature = "csr") && first_run.get())
-                {
-                    *prev_children.borrow_mut() = Some(frag.clone());
-                }
-                if is_first_run(first_run, &suspense_context) {
-                    let has_local_only = suspense_context.has_local_only()
-                        || cfg!(feature = "csr")
-                        || !HydrationCtx::is_hydrating();
-                    if (!has_local_only || child_runs.get() > 0)
-                        && !cfg!(feature = "csr")
-                    {
-                        first_run.set(false);
-                    }
-                }
-                child_runs.set(child_runs.get() + 1);
-
-                create_isomorphic_effect(move |_| {
-                    if let Some(set_pending) = set_pending {
-                        set_pending.set(!suspense_context.none_pending())
-                    }
-                });
-                frag
-            }))
-            .build(),
-    )
-}
-
-fn is_first_run(
-    first_run: RwSignal<bool>,
-    suspense_context: &SuspenseContext,
-) -> bool {
-    if cfg!(feature = "csr")
-        || (cfg!(feature = "hydrate") && !HydrationCtx::is_hydrating())
-    {
-        false
-    } else {
-        match (
-            first_run.get_untracked(),
-            cfg!(feature = "hydrate"),
-            suspense_context.has_local_only(),
-        ) {
-            (false, _, _) => false,
-            // SSR and has non-local resources (so, has streamed)
-            (_, false, false) => false,
-            // SSR but with only local resources (so, has not streamed)
-            (_, false, true) => true,
-            // hydrate: it's the first run
-            (first_run, true, _) => HydrationCtx::is_hydrating() || first_run,
+            .unwrap_or_else(|| (false, Default::default()))
+    };
+    let fallback = fallback.run();
+    let children = children.into_inner()();
+    let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
+    provide_context(SuspenseContext {
+        tasks: tasks.clone(),
+    });
+    let none_pending = ArcMemo::new(move |prev: Option<&bool>| {
+        tasks.track();
+        if prev.is_none() && starts_local {
+            false
+        } else {
+            tasks.with(SlotMap::is_empty)
         }
+    });
+    if let Some(set_pending) = set_pending {
+        Effect::new_isomorphic({
+            let none_pending = none_pending.clone();
+            move |_| {
+                set_pending.set(!none_pending.get());
+            }
+        });
     }
+
+    OwnedView::new(SuspenseBoundary::<true, _, _> {
+        id,
+        none_pending,
+        fallback,
+        children,
+    })
 }

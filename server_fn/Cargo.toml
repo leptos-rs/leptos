@@ -10,6 +10,7 @@ readme = "../README.md"
 rust-version.workspace = true
 
 [dependencies]
+throw_error = { workspace = true }
 server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
 const_format = "0.2"
@@ -17,6 +18,7 @@ xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
 # used across multiple features
 serde = { version = "1", features = ["derive"] }
 send_wrapper = { version = "0.6", features = ["futures"], optional = true }
+thiserror = "1"
 
 # registration system
 inventory = { version = "0.3", optional = true }
@@ -47,7 +49,6 @@ http = { version = "1" }
 ciborium = { version = "0.2", optional = true }
 hyper = { version = "1", optional = true }
 bytes = "1"
-thiserror = "1"
 http-body-util = { version = "0.1.0", optional = true }
 rkyv = { version = "0.7", features = [
   "validation",
@@ -66,6 +67,8 @@ web-sys = { version = "0.3", optional = true, features = [
   "console",
   "ReadableStream",
   "ReadableStreamDefaultReader",
+  "AbortController",
+  "AbortSignal",
 ] }
 
 # reqwest client 
@@ -74,9 +77,10 @@ reqwest = { version = "0.12", default-features = false, optional = true, feature
   "stream",
 ] }
 url = "2"
+pin-project-lite = "0.2.13"
 
 [features]
-default = ["json", "cbor"]
+default = ["json"]
 axum-no-default = [
   "ssr",
   "dep:axum",

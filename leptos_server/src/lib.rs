@@ -1,6 +1,16 @@
 //#![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+mod action;
+pub use action::*;
+use std::borrow::Borrow;
+mod local_resource;
+pub use local_resource::*;
+mod multi_action;
+pub use multi_action::*;
+mod resource;
+pub use resource::*;
+mod shared;
 ////! # Leptos Server Functions
 ////!
 ////! This package is based on a simple idea: sometimes it’s useful to write functions
@@ -33,7 +43,7 @@
 ////! crate that is enabled).
 ////!
 ////! ```rust,ignore
-////! use leptos::*;
+////! use leptos::prelude::*;
 ////! #[server(ReadFromDB)]
 ////! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 ////!   // do some server-only work here to access the database
@@ -113,10 +123,184 @@
 ////! CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of
 ////! your app is not available.
 
-pub use server_fn::{error::ServerFnErrorErr, ServerFnError};
+//pub use server_fn::{error::ServerFnErrorErr, ServerFnError};
 
-mod action;
-mod multi_action;
-pub use action::*;
-pub use multi_action::*;
-extern crate tracing;
+//mod action;
+//mod multi_action;
+//pub use action::*;
+//pub use multi_action::*;
+//extern crate tracing;
+use base64::{engine::general_purpose::STANDARD_NO_PAD, DecodeError, Engine};
+pub use shared::*;
+pub trait IntoEncodedString {
+    fn into_encoded_string(self) -> String;
+}
+
+pub trait FromEncodedStr {
+    type DecodedType<'a>: Borrow<Self>;
+    type DecodingError;
+
+    fn from_encoded_str(
+        data: &str,
+    ) -> Result<Self::DecodedType<'_>, Self::DecodingError>;
+}
+
+impl IntoEncodedString for String {
+    fn into_encoded_string(self) -> String {
+        self
+    }
+}
+
+impl FromEncodedStr for str {
+    type DecodedType<'a> = &'a str;
+    type DecodingError = ();
+
+    fn from_encoded_str(
+        data: &str,
+    ) -> Result<Self::DecodedType<'_>, Self::DecodingError> {
+        Ok(data)
+    }
+}
+
+impl IntoEncodedString for Vec<u8> {
+    fn into_encoded_string(self) -> String {
+        STANDARD_NO_PAD.encode(self)
+    }
+}
+
+impl FromEncodedStr for [u8] {
+    type DecodedType<'a> = Vec<u8>;
+    type DecodingError = DecodeError;
+
+    fn from_encoded_str(
+        data: &str,
+    ) -> Result<Self::DecodedType<'_>, Self::DecodingError> {
+        STANDARD_NO_PAD.decode(data)
+    }
+}
+
+#[cfg(feature = "tachys")]
+mod view_implementations {
+    use crate::Resource;
+    use reactive_graph::traits::Read;
+    use std::{future::Future, pin::Pin};
+    use tachys::{
+        html::attribute::Attribute,
+        hydration::Cursor,
+        reactive_graph::{RenderEffectState, Suspend, SuspendState},
+        renderer::Renderer,
+        ssr::StreamBuilder,
+        view::{
+            add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
+        },
+    };
+
+    impl<T, R, Ser> Render<R> for Resource<T, Ser>
+    where
+        T: Render<R> + Send + Sync + Clone,
+        Ser: Send + 'static,
+        R: Renderer,
+    {
+        type State = RenderEffectState<SuspendState<T, R>>;
+
+        fn build(self) -> Self::State {
+            (move || Suspend::new(async move { self.await })).build()
+        }
+
+        fn rebuild(self, state: &mut Self::State) {
+            (move || Suspend::new(async move { self.await })).rebuild(state)
+        }
+    }
+
+    impl<T, R, Ser> AddAnyAttr<R> for Resource<T, Ser>
+    where
+        T: RenderHtml<R> + Send + Sync + Clone,
+        Ser: Send + 'static,
+        R: Renderer,
+    {
+        type Output<SomeNewAttr: Attribute<R>> = Box<
+            dyn FnMut() -> Suspend<
+                    Pin<
+                        Box<
+                            dyn Future<
+                                    Output = <T as AddAnyAttr<R>>::Output<
+                                        <SomeNewAttr::CloneableOwned as Attribute<R>>::CloneableOwned,
+                                    >,
+                                > + Send,
+                        >,
+                    >,
+                > + Send,
+        >;
+
+        fn add_any_attr<NewAttr: Attribute<R>>(
+            self,
+            attr: NewAttr,
+        ) -> Self::Output<NewAttr>
+        where
+            Self::Output<NewAttr>: RenderHtml<R>,
+        {
+            (move || Suspend::new(async move { self.await })).add_any_attr(attr)
+        }
+    }
+
+    impl<T, R, Ser> RenderHtml<R> for Resource<T, Ser>
+    where
+        T: RenderHtml<R> + Send + Sync + Clone,
+        Ser: Send + 'static,
+        R: Renderer,
+    {
+        type AsyncOutput = Option<T>;
+
+        const MIN_LENGTH: usize = 0;
+
+        fn dry_resolve(&mut self) {
+            self.read();
+        }
+
+        fn resolve(self) -> impl Future<Output = Self::AsyncOutput> + Send {
+            (move || Suspend::new(async move { self.await })).resolve()
+        }
+
+        fn to_html_with_buf(
+            self,
+            buf: &mut String,
+            position: &mut Position,
+            escape: bool,
+            mark_branches: bool,
+        ) {
+            (move || Suspend::new(async move { self.await })).to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
+        }
+
+        fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+            self,
+            buf: &mut StreamBuilder,
+            position: &mut Position,
+            escape: bool,
+            mark_branches: bool,
+        ) where
+            Self: Sized,
+        {
+            (move || Suspend::new(async move { self.await }))
+                .to_html_async_with_buf::<OUT_OF_ORDER>(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                );
+        }
+
+        fn hydrate<const FROM_SERVER: bool>(
+            self,
+            cursor: &Cursor<R>,
+            position: &PositionState,
+        ) -> Self::State {
+            (move || Suspend::new(async move { self.await }))
+                .hydrate::<FROM_SERVER>(cursor, position)
+        }
+    }
+}

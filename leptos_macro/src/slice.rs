@@ -40,7 +40,7 @@ impl ToTokens for SliceMacroInput {
         let path = &self.path;
 
         tokens.extend(quote! {
-            ::leptos::create_slice(
+            ::leptos::reactive_graph::computed::create_slice(
                 #root,
                 |st: &_| st.#path.clone(),
                 |st: &mut _, n| st.#path = n

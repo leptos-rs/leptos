@@ -1,7 +1,7 @@
 use http::status::StatusCode;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum AppError {
     #[error("Not Found")]
     NotFound,

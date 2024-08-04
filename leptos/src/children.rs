@@ -1,89 +1,90 @@
-use leptos_dom::Fragment;
-use std::rc::Rc;
+use crate::into_view::{IntoView, View};
+use std::{
+    fmt::{self, Debug},
+    sync::Arc,
+};
+use tachys::{
+    renderer::dom::Dom,
+    view::{
+        any_view::{AnyView, IntoAny},
+        fragment::{Fragment, IntoFragment},
+        RenderHtml,
+    },
+};
 
 /// The most common type for the `children` property on components,
 /// which can only be called once.
-pub type Children = Box<dyn FnOnce() -> Fragment>;
+///
+/// This does not support iterating over individual nodes within the children.
+/// To iterate over children, use [`ChildrenFragment`].
+pub type Children = Box<dyn FnOnce() -> AnyView<Dom> + Send>;
+
+/// A type for the `children` property on components that can be called only once,
+/// and provides a collection of all the children passed to this component.
+pub type ChildrenFragment = Box<dyn FnOnce() -> Fragment<Dom> + Send>;
 
 /// A type for the `children` property on components that can be called
 /// more than once.
-pub type ChildrenFn = Rc<dyn Fn() -> Fragment>;
+pub type ChildrenFn = Arc<dyn Fn() -> AnyView<Dom> + Send + Sync>;
+
+/// A type for the `children` property on components that can be called more than once,
+/// and provides a collection of all the children passed to this component.
+pub type ChildrenFragmentFn = Arc<dyn Fn() -> Fragment<Dom> + Send>;
 
 /// A type for the `children` property on components that can be called
 /// more than once, but may mutate the children.
-pub type ChildrenFnMut = Box<dyn FnMut() -> Fragment>;
+pub type ChildrenFnMut = Box<dyn FnMut() -> AnyView<Dom> + Send>;
 
-// This is to still support components that accept `Box<dyn Fn() -> Fragment>` as a children.
-type BoxedChildrenFn = Box<dyn Fn() -> Fragment>;
+/// A type for the `children` property on components that can be called more than once,
+/// but may mutate the children, and provides a collection of all the children
+/// passed to this component.
+pub type ChildrenFragmentMut = Box<dyn FnMut() -> Fragment<Dom> + Send>;
+
+// This is to still support components that accept `Box<dyn Fn() -> AnyView>` as a children.
+type BoxedChildrenFn = Box<dyn Fn() -> AnyView<Dom> + Send>;
 
 /// This trait can be used when constructing a component that takes children without needing
 /// to know exactly what children type the component expects. This is used internally by the
 /// `view!` macro implementation, and can also be used explicitly when using the builder syntax.
 ///
-/// # Examples
 ///
-/// ## Without ToChildren
+/// Different component types take different types for their `children` prop, some of which cannot
+/// be directly constructed. Using `ToChildren` allows the component user to pass children without
+/// explicity constructing the correct type.
 ///
-/// Without [ToChildren], consumers need to explicitly provide children using the type expected
-/// by the component. For example, [Provider][crate::Provider]'s children need to wrapped in
-/// a [Box], while [Show][crate::Show]'s children need to be wrapped in an [Rc].
+/// ## Examples
 ///
 /// ```
-/// # use leptos::{ProviderProps, ShowProps};
-/// # use leptos_dom::html::p;
-/// # use leptos_dom::IntoView;
+/// # use leptos::prelude::*;
+/// # use leptos::html::p;
+/// # use leptos::IntoView;
 /// # use leptos_macro::component;
-/// # use std::rc::Rc;
-/// #
+/// # use leptos::children::ToChildren;
+/// use leptos::context::{Provider, ProviderProps};
+/// use leptos::control_flow::{Show, ShowProps};
+///
 /// #[component]
 /// fn App() -> impl IntoView {
 ///     (
-///         ProviderProps::builder()
-///             .children(Box::new(|| p().child("Foo").into_view().into()))
-///             // ...
-/// #           .value("Foo")
-/// #           .build(),
-///         ShowProps::builder()
-///             .children(Rc::new(|| p().child("Foo").into_view().into()))
-///             // ...
-/// #           .when(|| true)
-/// #           .fallback(|| p().child("foo"))
-/// #           .build(),
-///     )
-/// }
-/// ```
-///
-/// ## With ToChildren
-///
-/// With [ToChildren], consumers don't need to know exactly which type a component uses for
-/// its children.
-///
-/// ```
-/// # use leptos::{ProviderProps, ShowProps};
-/// # use leptos_dom::html::p;
-/// # use leptos_dom::IntoView;
-/// # use leptos_macro::component;
-/// # use std::rc::Rc;
-/// # use leptos::ToChildren;
-/// #
-/// #[component]
-/// fn App() -> impl IntoView {
-///     (
+///       Provider(
 ///         ProviderProps::builder()
 ///             .children(ToChildren::to_children(|| {
-///                 p().child("Foo").into_view().into()
+///                 p().child("Foo")
 ///             }))
 ///             // ...
-/// #           .value("Foo")
-/// #           .build(),
-///         ShowProps::builder()
+///            .value("Foo")
+///            .build(),
+///        ),
+///        Show(
+///          ShowProps::builder()
 ///             .children(ToChildren::to_children(|| {
-///                 p().child("Foo").into_view().into()
+///                 p().child("Foo")
 ///             }))
 ///             // ...
-/// #           .when(|| true)
-/// #           .fallback(|| p().child("foo"))
-/// #           .build(),
+///             .when(|| true)
+///             .fallback(|| p().child("foo"))
+///             .build(),
+///        )
 ///     )
 /// }
 pub trait ToChildren<F> {
@@ -93,42 +94,212 @@ pub trait ToChildren<F> {
     fn to_children(f: F) -> Self;
 }
 
-impl<F> ToChildren<F> for Children
+impl<F, C> ToChildren<F> for Children
 where
-    F: FnOnce() -> Fragment + 'static,
+    F: FnOnce() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
-        Box::new(f)
+        Box::new(move || f().into_any())
     }
 }
 
-impl<F> ToChildren<F> for ChildrenFn
+impl<F, C> ToChildren<F> for ChildrenFn
 where
-    F: Fn() -> Fragment + 'static,
+    F: Fn() -> C + Send + Sync + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
-        Rc::new(f)
+        Arc::new(move || f().into_any())
     }
 }
 
-impl<F> ToChildren<F> for ChildrenFnMut
+impl<F, C> ToChildren<F> for ChildrenFnMut
 where
-    F: FnMut() -> Fragment + 'static,
+    F: Fn() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
-        Box::new(f)
+        Box::new(move || f().into_any())
     }
 }
 
-impl<F> ToChildren<F> for BoxedChildrenFn
+impl<F, C> ToChildren<F> for BoxedChildrenFn
 where
-    F: Fn() -> Fragment + 'static,
+    F: Fn() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
 {
     #[inline]
     fn to_children(f: F) -> Self {
-        Box::new(f)
+        Box::new(move || f().into_any())
+    }
+}
+
+impl<F, C> ToChildren<F> for ChildrenFragment
+where
+    F: FnOnce() -> C + Send + 'static,
+    C: IntoFragment<Dom>,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        Box::new(move || f().into_fragment())
+    }
+}
+
+impl<F, C> ToChildren<F> for ChildrenFragmentFn
+where
+    F: Fn() -> C + Send + 'static,
+    C: IntoFragment<Dom>,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        Arc::new(move || f().into_fragment())
+    }
+}
+
+impl<F, C> ToChildren<F> for ChildrenFragmentMut
+where
+    F: FnMut() -> C + Send + 'static,
+    C: IntoFragment<Dom>,
+{
+    #[inline]
+    fn to_children(mut f: F) -> Self {
+        Box::new(move || f().into_fragment())
+    }
+}
+
+/// New-type wrapper for a function that returns a view with `From` and `Default` traits implemented
+/// to enable optional props in for example `<Show>` and `<Suspense>`.
+#[derive(Clone)]
+pub struct ViewFn(Arc<dyn Fn() -> AnyView<Dom> + Send + Sync + 'static>);
+
+impl Default for ViewFn {
+    fn default() -> Self {
+        Self(Arc::new(|| ().into_any()))
+    }
+}
+
+impl<F, C> From<F> for ViewFn
+where
+    F: Fn() -> C + Send + Sync + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
+{
+    fn from(value: F) -> Self {
+        Self(Arc::new(move || value().into_any()))
+    }
+}
+
+impl ViewFn {
+    /// Execute the wrapped function
+    pub fn run(&self) -> AnyView<Dom> {
+        (self.0)()
+    }
+}
+
+/// New-type wrapper for a function, which will only be called once and returns a view with `From` and
+/// `Default` traits implemented to enable optional props in for example `<Show>` and `<Suspense>`.
+pub struct ViewFnOnce(Box<dyn FnOnce() -> AnyView<Dom> + Send + 'static>);
+
+impl Default for ViewFnOnce {
+    fn default() -> Self {
+        Self(Box::new(|| ().into_any()))
+    }
+}
+
+impl<F, C> From<F> for ViewFnOnce
+where
+    F: FnOnce() -> C + Send + 'static,
+    C: RenderHtml<Dom> + Send + 'static,
+{
+    fn from(value: F) -> Self {
+        Self(Box::new(move || value().into_any()))
+    }
+}
+
+impl ViewFnOnce {
+    /// Execute the wrapped function
+    pub fn run(self) -> AnyView<Dom> {
+        (self.0)()
+    }
+}
+
+/// A typed equivalent to [`Children`], which takes a generic but preserves type information to
+/// allow the compiler to optimize the view more effectively.
+pub struct TypedChildren<T>(Box<dyn FnOnce() -> View<T> + Send>);
+
+impl<T> TypedChildren<T> {
+    pub fn into_inner(self) -> impl FnOnce() -> View<T> + Send {
+        self.0
+    }
+}
+
+impl<F, C> ToChildren<F> for TypedChildren<C>
+where
+    F: FnOnce() -> C + Send + 'static,
+    C: IntoView,
+    C::AsyncOutput: Send,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        TypedChildren(Box::new(move || f().into_view()))
+    }
+}
+
+/// A typed equivalent to [`ChildrenMut`], which takes a generic but preserves type information to
+/// allow the compiler to optimize the view more effectively.
+pub struct TypedChildrenMut<T>(Box<dyn FnMut() -> View<T> + Send>);
+
+impl<T> Debug for TypedChildrenMut<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("TypedChildrenMut").finish()
+    }
+}
+
+impl<T> TypedChildrenMut<T> {
+    pub fn into_inner(self) -> impl FnMut() -> View<T> + Send {
+        self.0
+    }
+}
+
+impl<F, C> ToChildren<F> for TypedChildrenMut<C>
+where
+    F: FnMut() -> C + Send + 'static,
+    C: IntoView,
+    C::AsyncOutput: Send,
+{
+    #[inline]
+    fn to_children(mut f: F) -> Self {
+        TypedChildrenMut(Box::new(move || f().into_view()))
+    }
+}
+
+/// A typed equivalent to [`ChildrenFn`], which takes a generic but preserves type information to
+/// allow the compiler to optimize the view more effectively.
+pub struct TypedChildrenFn<T>(Arc<dyn Fn() -> View<T> + Send + Sync>);
+
+impl<T> Debug for TypedChildrenFn<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("TypedChildrenFn").finish()
+    }
+}
+
+impl<T> TypedChildrenFn<T> {
+    pub fn into_inner(self) -> Arc<dyn Fn() -> View<T> + Send + Sync> {
+        self.0
+    }
+}
+
+impl<F, C> ToChildren<F> for TypedChildrenFn<C>
+where
+    F: Fn() -> C + Send + Sync + 'static,
+    C: IntoView,
+    C::AsyncOutput: Send,
+{
+    #[inline]
+    fn to_children(f: F) -> Self {
+        TypedChildrenFn(Arc::new(move || f().into_view()))
     }
 }

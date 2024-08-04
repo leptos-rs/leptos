@@ -5,4 +5,14 @@ edition = "2021"
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] }
-gtk = { version = "0.5.0", package = "gtk4" }
+throw_error = { path = "../../any_error/" }
+any_spawner = { path = "../../any_spawner/" }
+next_tuple = { path = "../../next_tuple/" }
+gtk = { version = "0.8.0", package = "gtk4", optional = true }
+paste = "1.0.14"
+
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[features]
+gtk = ["dep:gtk", "any_spawner/glib"]
+wasm = ["any_spawner/wasm-bindgen", "dep:console_error_panic_hook"]

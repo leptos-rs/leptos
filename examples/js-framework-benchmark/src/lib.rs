@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use rand::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 static ADJECTIVES: &[&str] = &[
@@ -39,10 +39,10 @@ static NOUNS: &[&str] = &[
     "sandwich", "burger", "pizza", "mouse", "keyboard",
 ];
 
-#[derive(Copy, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct RowData {
     id: usize,
-    label: (ReadSignal<String>, WriteSignal<String>),
+    label: ArcRwSignal<String>,
 }
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -67,7 +67,7 @@ fn build_data(count: usize) -> Vec<RowData> {
 
         data.push(RowData {
             id: ID_COUNTER.load(Ordering::Relaxed),
-            label: create_signal(label),
+            label: ArcRwSignal::new(label),
         });
 
         ID_COUNTER
@@ -86,13 +86,8 @@ fn Button(
     text: &'static str,
 ) -> impl IntoView {
     view! {
-
         <div class="col-sm-6 smallpad">
-            <button
-                id=id
-                class="btn btn-primary btn-block"
-                type="button"
-            >
+            <button id=id class="btn btn-primary btn-block" type="button">
                 {text}
             </button>
         </div>
@@ -101,8 +96,8 @@ fn Button(
 
 #[component]
 pub fn App() -> impl IntoView {
-    let (data, set_data) = create_signal(Vec::<RowData>::new());
-    let (selected, set_selected) = create_signal(None::<usize>);
+    let (data, set_data) = signal(Vec::<RowData>::new());
+    let (selected, set_selected) = signal(None::<usize>);
 
     let remove = move |id: usize| {
         set_data.update(move |data| data.retain(|row| row.id != id));
@@ -125,7 +120,7 @@ pub fn App() -> impl IntoView {
     let update = move |_| {
         data.with(|data| {
             for row in data.iter().step_by(10) {
-                row.label.1.update(|n| n.push_str(" !!!"));
+                row.label.update(|n| n.push_str(" !!!"));
             }
         });
     };
@@ -143,22 +138,23 @@ pub fn App() -> impl IntoView {
         });
     };
 
-    let is_selected = create_selector(move || selected.get());
+    let is_selected = Selector::new(move || selected.get());
 
     view! {
-
         <div class="container">
             <div class="jumbotron">
                 <div class="row">
-                    <div class="col-md-6"><h1>"Leptos"</h1></div>
+                    <div class="col-md-6">
+                        <h1>"Leptos"</h1>
+                    </div>
                     <div class="col-md-6">
                         <div class="row">
-                            <Button id="run" text="Create 1,000 rows" on:click=run />
-                            <Button id="runlots" text="Create 10,000 rows" on:click=run_lots />
-                            <Button id="add" text="Append 1,000 rows" on:click=add />
-                            <Button id="update" text="Update every 10th row" on:click=update />
-                            <Button id="clear" text="Clear" on:click=clear />
-                            <Button id="swaprows" text="Swap Rows" on:click=swap_rows />
+                            <Button id="run" text="Create 1,000 rows" on:click=run/>
+                            <Button id="runlots" text="Create 10,000 rows" on:click=run_lots/>
+                            <Button id="add" text="Append 1,000 rows" on:click=add/>
+                            <Button id="update" text="Update every 10th row" on:click=update/>
+                            <Button id="clear" text="Clear" on:click=clear/>
+                            <Button id="swaprows" text="Swap Rows" on:click=swap_rows/>
                         </div>
                     </div>
                 </div>
@@ -166,32 +162,25 @@ pub fn App() -> impl IntoView {
             <table class="table table-hover table-striped test-data">
                 <tbody>
                     <For
-                        each=move || data.get()
+                        each={move || data.get()}
                         key={|row| row.id}
                         children=move |row: RowData| {
                             let row_id = row.id;
-                            let (label, _) = row.label;
-                            on_cleanup({
-                                let is_selected = is_selected.clone();
-                                move || {
-                                    label.dispose();
-                                    is_selected.remove(&Some(row_id));
-                                }
-                            });
+                            let label = row.label;
                             let is_selected = is_selected.clone();
-                            template! {
+                            ViewTemplate::new(view! {
                                 <tr class:danger={move || is_selected.selected(Some(row_id))}>
                                     <td class="col-md-1">{row_id.to_string()}</td>
-                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{label}</a></td>
+                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{move || label.get()}</a></td>
                                     <td class="col-md-1"><a on:click=move |_| remove(row_id)><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                                     <td class="col-md-6"/>
                                 </tr>
-                            }
+                            })
                         }
                     />
                 </tbody>
             </table>
-            <span class="preloadicon glyphicon glyphicon-remove" aria-hidden="true" />
+            <span class="preloadicon glyphicon glyphicon-remove" aria-hidden="true"></span>
         </div>
     }
 }

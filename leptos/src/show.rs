@@ -1,39 +1,15 @@
-use leptos::{component, ChildrenFn, ViewFn};
-use leptos_dom::IntoView;
-use leptos_reactive::signal_prelude::*;
+use crate::{
+    children::{TypedChildrenFn, ViewFn},
+    IntoView,
+};
+use leptos_macro::component;
+use reactive_graph::{computed::ArcMemo, traits::Get};
+use tachys::either::Either;
 
-/// A component that will show its children when the `when` condition is `true`,
-/// and show the fallback when it is `false`, without rerendering every time
-/// the condition changes.
-///
-/// The fallback prop is optional and defaults to rendering nothing.
-///
-/// ```rust
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*; use leptos::*;
-/// # let runtime = create_runtime();
-/// let (value, set_value) = create_signal(0);
-///
-/// view! {
-///   <Show
-///     when=move || value.get() < 5
-///     fallback=|| view! {  "Big number!" }
-///   >
-///     "Small number!"
-///   </Show>
-/// }
-/// # ;
-/// # runtime.dispose();
-/// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all)
-)]
 #[component]
-pub fn Show<W>(
+pub fn Show<W, C>(
     /// The children will be shown whenever the condition in the `when` closure returns `true`.
-    children: ChildrenFn,
+    children: TypedChildrenFn<C>,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false. By default this is the empty view.
@@ -41,12 +17,14 @@ pub fn Show<W>(
     fallback: ViewFn,
 ) -> impl IntoView
 where
-    W: Fn() -> bool + 'static,
+    W: Fn() -> bool + Send + Sync + 'static,
+    C: IntoView + 'static,
 {
-    let memoized_when = create_memo(move |_| when());
+    let memoized_when = ArcMemo::new(move |_| when());
+    let children = children.into_inner();
 
     move || match memoized_when.get() {
-        true => children().into_view(),
-        false => fallback.run(),
+        true => Either::Left(children()),
+        false => Either::Right(fallback.run()),
     }
 }

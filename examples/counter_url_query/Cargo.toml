@@ -9,9 +9,7 @@ lto = true
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] }
-leptos_router = { path = "../../router", features = ["csr"] }
-console_log = "1"
-log = "0.4"
+leptos_router = { path = "../../router", features = [] }
 console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]

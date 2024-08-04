@@ -1,6 +1,8 @@
-use leptos_dom::IntoView;
+use crate::into_view::IntoView;
 use leptos_macro::component;
+use reactive_graph::owner::Owner;
 use std::hash::Hash;
+use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 
 /// Iterates over children and displays them, keyed by the `key` function given.
 ///
@@ -8,7 +10,7 @@ use std::hash::Hash;
 /// as it avoids re-creating DOM nodes that are not being changed.
 ///
 /// ```
-/// # use leptos::*;
+/// # use leptos::prelude::*;
 ///
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// struct Counter {
@@ -38,64 +40,64 @@ use std::hash::Hash;
 ///   }
 /// }
 /// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all)
-)]
-#[component(transparent)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
+#[component]
 pub fn For<IF, I, T, EF, N, KF, K>(
     /// Items over which the component should iterate.
     each: IF,
     /// A key function that will be applied to each item.
     key: KF,
     /// A function that takes the item, and returns the view that will be displayed for each item.
-    ///
-    /// ## Syntax
-    /// This can be passed directly in the `view` children of the `<For/>` by using the
-    /// `let:` syntax to specify the name for the data variable passed in the argument.
-    ///
-    /// ```rust
-    /// # use leptos::*;
-    /// # if false {
-    /// let (data, set_data) = create_signal(vec![0, 1, 2]);
-    /// view! {
-    ///     <For
-    ///         each=move || data.get()
-    ///         key=|n| *n
-    ///         // stores the item in each row in a variable named `data`
-    ///         let:data
-    ///     >
-    ///         <p>{data}</p>
-    ///     </For>
-    /// }
-    /// # ;
-    /// # }
-    /// ```
-    /// is the same as
-    ///  ```rust
-    /// # use leptos::*;
-    /// # if false {
-    /// let (data, set_data) = create_signal(vec![0, 1, 2]);
-    /// view! {
-    ///     <For
-    ///         each=move || data.get()
-    ///         key=|n| *n
-    ///         children=|data| view! { <p>{data}</p> }
-    ///     />
-    /// }
-    /// # ;
-    /// # }
-    /// ```
     children: EF,
 ) -> impl IntoView
 where
-    IF: Fn() -> I + 'static,
-    I: IntoIterator<Item = T>,
-    EF: Fn(T) -> N + 'static,
+    IF: Fn() -> I + Send + 'static,
+    I: IntoIterator<Item = T> + Send + 'static,
+    EF: Fn(T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
-    KF: Fn(&T) -> K + 'static,
+    KF: Fn(&T) -> K + Send + Clone + 'static,
     K: Eq + Hash + 'static,
-    T: 'static,
+    T: Send + 'static,
 {
-    leptos_dom::Each::new(each, key, children).into_view()
+    // this takes the owner of the For itself
+    // this will end up with N + 1 children
+    // 1) the effect for the `move || keyed(...)` updates
+    // 2) an owner for each child
+    //
+    // this means
+    // a) the reactive owner for each row will not be cleared when the whole list updates
+    // b) context provided in each row will not wipe out the others
+    let parent = Owner::current().expect("no reactive owner");
+    let children = move |child| {
+        let owner = parent.with(Owner::new);
+        let view = owner.with(|| children(child));
+        OwnedView::new_with_owner(view, owner)
+    };
+    move || keyed(each(), key.clone(), children.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+    use leptos_macro::view;
+    use tachys::{html::element::HtmlElement, prelude::ElementChild};
+
+    #[test]
+    fn creates_list() {
+        Owner::new().with(|| {
+            let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
+            let list: HtmlElement<_, _, _, Dom> = view! {
+                <ol>
+                    <For each=move || values.get() key=|i| *i let:i>
+                        <li>{i}</li>
+                    </For>
+                </ol>
+            };
+            assert_eq!(
+                list.to_html(),
+                "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><!></\
+                 ol>"
+            );
+        });
+    }
 }

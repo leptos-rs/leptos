@@ -1,11 +1,13 @@
-use crate::use_head;
-use leptos::{nonce::use_nonce, *};
+use crate::register;
+use leptos::{
+    component, oco::Oco, prelude::*, tachys::html::element::script, IntoView,
+};
 
 /// Injects an [`HTMLScriptElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document
 /// head, accepting any of the valid attributes for that tag.
 ///
 /// ```
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_meta::*;
 ///
 /// #[component]
@@ -21,7 +23,7 @@ use leptos::{nonce::use_nonce, *};
 ///     }
 /// }
 /// ```
-#[component(transparent)]
+#[component]
 pub fn Script(
     /// An ID for the `<script>` tag.
     #[prop(optional, into)]
@@ -61,55 +63,22 @@ pub fn Script(
     blocking: Option<Oco<'static, str>>,
     /// The content of the `<script>` tag.
     #[prop(optional)]
-    children: Option<Box<dyn FnOnce() -> Fragment>>,
-    /// Custom attributes.
-    #[prop(attrs, optional)]
-    attrs: Vec<(&'static str, Attribute)>,
+    children: Option<Children>,
 ) -> impl IntoView {
-    let meta = use_head();
-    let next_id = meta.tags.get_next_id();
-    let mut id: Oco<'static, str> =
-        id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
-
-    let builder_el = leptos::leptos_dom::html::as_meta_tag({
-        let id = id.clone_inplace();
-        move || {
-            attrs
-                .into_iter()
-                .fold(
-                    leptos::leptos_dom::html::script(),
-                    |el, (name, value)| el.attr(name, value),
-                )
-                .attr("id", id)
-                .attr("async", async_)
-                .attr("crossorigin", crossorigin)
-                .attr("defer", defer)
-                .attr("fetchpriority ", fetchpriority)
-                .attr("integrity", integrity)
-                .attr("nomodule", nomodule)
-                .attr("nonce", nonce)
-                .attr("referrerpolicy", referrerpolicy)
-                .attr("src", src)
-                .attr("type", type_)
-                .attr("blocking", blocking)
-                .attr("nonce", use_nonce())
-        }
-    });
-    let builder_el = if let Some(children) = children {
-        let frag = children();
-        let mut script = String::new();
-        for node in frag.nodes {
-            match node {
-                View::Text(text) => script.push_str(&text.content),
-                _ => leptos::logging::warn!(
-                    "Only text nodes are supported as children of <Script/>."
-                ),
-            }
-        }
-        builder_el.child(script)
-    } else {
-        builder_el
-    };
-
-    meta.tags.register(id, builder_el.into_any());
+    register(
+        script()
+            .id(id)
+            .r#async(async_)
+            .crossorigin(crossorigin)
+            .defer(defer)
+            .fetchpriority(fetchpriority)
+            .integrity(integrity)
+            .nomodule(nomodule)
+            .nonce(nonce)
+            .referrerpolicy(referrerpolicy)
+            .src(src)
+            .r#type(type_)
+            .blocking(blocking)
+            .child(children.map(|c| c())),
+    )
 }

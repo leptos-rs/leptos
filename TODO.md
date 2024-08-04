@@ -1,0 +1,40 @@
+- core examples
+    - [x] counter
+    - [x] counters
+    - [x] fetch
+    - [x] todomvc 
+    - [x] error_boundary
+    - [x] parent\_child
+        - [x] on: on components
+    - [ ] router
+    - [ ] slots 
+    - [ ] hackernews
+    - [ ] counter\_isomorphic
+    - [ ] todo\_app\_sqlite
+- other ssr examples
+    - [ ] error boundary SSR
+- reactivity 
+    - Signal wrappers
+    - SignalDispose implementations on all Copy types
+    - untracked access warnings
+- ErrorBoundary
+    - [ ] RenderHtml implementation 
+    - [ ] Separate component?
+- Suspense/Transition components?
+- callbacks
+    - unsync StoredValue
+- SSR
+    - escaping HTML correctly (attributes + text nodes)
+- router
+    - nested routes
+    - trailing slashes
+- \_meta package (and use in hackernews)
+- integrations
+- update tests
+- hackernews example
+  - TODOs
+  - Suspense/Transition/Await components
+  - nicer routing components
+  - async routing (waiting for data to load before navigation)
+  - `<A>` component
+  - figure out rebuilding issues: list (needs new signal IDs) vs. regular rebuild

@@ -1,7 +1,26 @@
-use crate::Children;
-use leptos_dom::{Errors, HydrationCtx, IntoView};
-use leptos_macro::{component, view};
-use leptos_reactive::{provide_context, run_as_child, signal_prelude::*};
+use crate::{children::TypedChildren, IntoView};
+use hydration_context::{SerializedDataId, SharedContext};
+use leptos_macro::component;
+use reactive_graph::{
+    computed::ArcMemo,
+    effect::RenderEffect,
+    owner::Owner,
+    signal::ArcRwSignal,
+    traits::{Get, Update, With, WithUntracked},
+};
+use rustc_hash::FxHashMap;
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use tachys::{
+    html::attribute::Attribute,
+    hydration::Cursor,
+    renderer::Renderer,
+    ssr::StreamBuilder,
+    view::{
+        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+        RenderHtml,
+    },
+};
+use throw_error::{Error, ErrorHook, ErrorId};
 
 /// When you render a `Result<_, _>` in your view, in the `Err` case it will
 /// render nothing, and search up through the view tree for an `<ErrorBoundary/>`.
@@ -9,44 +28,22 @@ use leptos_reactive::{provide_context, run_as_child, signal_prelude::*};
 /// error case, allowing you to handle errors within a section of the interface.
 ///
 /// ```
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*; use leptos::*;
-/// # let runtime = create_runtime();
-/// # if false {
-/// let (value, set_value) = create_signal(Ok(0));
-/// let on_input =
+/// # use leptos::prelude::*;
+/// #[component]
+/// pub fn ErrorBoundaryExample() -> impl IntoView {
+///   let (value, set_value) = signal(Ok(0));
+///   let on_input =
 ///     move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 ///
-/// view! {
-///   <input type="text" on:input=on_input/>
-///   <ErrorBoundary
-///     fallback=move |_| view! { <p class="error">"Enter a valid number."</p>}
-///   >
-///     <p>"Value is: " {move || value.get()}</p>
-///   </ErrorBoundary>
+///   view! {
+///     <input type="text" on:input=on_input/>
+///     <ErrorBoundary
+///       fallback=move |_| view! { <p class="error">"Enter a valid number."</p>}
+///     >
+///       <p>"Value is: " {move || value.get()}</p>
+///     </ErrorBoundary>
+///   }
 /// }
-/// # ;
-/// # }
-/// # runtime.dispose();
-/// ```
-///
-/// ## Interaction with `<Suspense/>`
-/// If you use this with a `<Suspense/>` or `<Transition/>` component, note that the
-/// `<ErrorBoundary/>` should go inside the `<Suspense/>`, not the other way around,
-/// if there’s a chance that the `<ErrorBoundary/>` will begin in the error state.
-/// This is a limitation of the current design of the two components and the way they
-/// hydrate. Placing the `<ErrorBoundary/>` outside the `<Suspense/>` means that
-/// it is rendered on the server without any knowledge of the suspended view, so it
-/// will always be rendered on the server as if there were no errors, but might need
-/// to be hydrated with errors, depending on the actual result.
-///
-/// ```rust,ignore
-/// view! {
-///   <Suspense fallback=move || view! { <p>"Loading..."</p> }>
-///     <ErrorBoundary fallback=|errors| view! { <ErrorTemplate errors=errors/>}>
-///       {move || {
-///   /* etc. */
 /// ```
 ///
 /// ## Beginner's Tip: ErrorBoundary Requires Your Error To Implement std::error::Error.
@@ -71,57 +68,495 @@ use leptos_reactive::{provide_context, run_as_child, signal_prelude::*};
 /// For more information about how to easily implement `Error` see
 /// [thiserror](https://docs.rs/thiserror/latest/thiserror/)
 #[component]
-pub fn ErrorBoundary<F, IV>(
-    /// The components inside the tag which will get rendered
-    children: Children,
+pub fn ErrorBoundary<FalFn, Fal, Chil>(
+    /// The elements that will be rendered, which may include one or more `Result<_>` types.
+    children: TypedChildren<Chil>,
     /// A fallback that will be shown if an error occurs.
-    fallback: F,
+    fallback: FalFn,
 ) -> impl IntoView
 where
-    F: Fn(RwSignal<Errors>) -> IV + 'static,
-    IV: IntoView,
+    FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
+    Fal: IntoView + Send + 'static,
+    Chil: IntoView + Send + 'static,
 {
-    run_as_child(move || {
-        let before_children = HydrationCtx::next_error();
+    let sc = Owner::current_shared_context();
+    let boundary_id = sc.as_ref().map(|sc| sc.next_id()).unwrap_or_default();
+    let initial_errors =
+        sc.map(|sc| sc.errors(&boundary_id)).unwrap_or_default();
 
-        let errors: RwSignal<Errors> = create_rw_signal(Errors::default());
+    let hook = Arc::new(ErrorBoundaryErrorHook::new(
+        boundary_id.clone(),
+        initial_errors,
+    ));
+    let errors = hook.errors.clone();
+    let errors_empty = ArcMemo::new({
+        let errors = errors.clone();
+        move |_| errors.with(|map| map.is_empty())
+    });
+    let hook = hook as Arc<dyn ErrorHook>;
 
-        provide_context(errors);
+    let _guard = throw_error::set_error_hook(Arc::clone(&hook));
+    let children = children.into_inner()();
 
-        // Run children so that they render and execute resources
-        _ = HydrationCtx::next_error();
-        let children = children();
-        HydrationCtx::continue_from(before_children);
+    ErrorBoundaryView {
+        hook,
+        boundary_id,
+        errors_empty,
+        children,
+        errors,
+        fallback,
+        rndr: PhantomData,
+    }
+}
 
-        #[cfg(all(debug_assertions, feature = "hydrate"))]
-        {
-            use leptos_dom::View;
-            if children.nodes.iter().any(|child| {
-            matches!(child, View::Suspense(_, _))
-            || matches!(child, View::Component(repr) if repr.name() == "Transition")
-        }) {
-            leptos_dom::logging::console_warn("You are using a <Suspense/> or \
-            <Transition/> as the direct child of an <ErrorBoundary/>. To ensure correct \
-            hydration, these should be reorganized so that the <ErrorBoundary/> is a child \
-            of the <Suspense/> or <Transition/> instead: \n\
-            \nview! {{ \
-            \n  <Suspense fallback=todo!()>\n    <ErrorBoundary fallback=todo!()>\n      {{move || {{ /* etc. */")
+struct ErrorBoundaryView<Chil, FalFn, Rndr> {
+    hook: Arc<dyn ErrorHook>,
+    boundary_id: SerializedDataId,
+    errors_empty: ArcMemo<bool>,
+    children: Chil,
+    fallback: FalFn,
+    errors: ArcRwSignal<Errors>,
+    rndr: PhantomData<Rndr>,
+}
+
+struct ErrorBoundaryViewState<Chil, Fal> {
+    // the children are always present; we toggle between them and the fallback as needed
+    children: Chil,
+    fallback: Option<Fal>,
+}
+
+impl<Chil, Fal, Rndr> Mountable<Rndr> for ErrorBoundaryViewState<Chil, Fal>
+where
+    Chil: Mountable<Rndr>,
+    Fal: Mountable<Rndr>,
+    Rndr: Renderer,
+{
+    fn unmount(&mut self) {
+        if let Some(fallback) = &mut self.fallback {
+            fallback.unmount();
+        } else {
+            self.children.unmount();
         }
+    }
+
+    fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
+        if let Some(fallback) = &mut self.fallback {
+            fallback.mount(parent, marker);
+        } else {
+            self.children.mount(parent, marker);
+        }
+    }
+
+    fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
+        if let Some(fallback) = &self.fallback {
+            fallback.insert_before_this(child)
+        } else {
+            self.children.insert_before_this(child)
+        }
+    }
+}
+
+impl<Chil, FalFn, Fal, Rndr> Render<Rndr>
+    for ErrorBoundaryView<Chil, FalFn, Rndr>
+where
+    Chil: Render<Rndr> + 'static,
+    FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
+    Fal: Render<Rndr> + 'static,
+    Rndr: Renderer,
+{
+    type State = RenderEffect<ErrorBoundaryViewState<Chil::State, Fal::State>>;
+
+    fn build(mut self) -> Self::State {
+        let hook = Arc::clone(&self.hook);
+        let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+        let mut children = Some(self.children.build());
+        RenderEffect::new(
+            move |prev: Option<
+                ErrorBoundaryViewState<Chil::State, Fal::State>,
+            >| {
+                let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+                if let Some(mut state) = prev {
+                    match (self.errors_empty.get(), &mut state.fallback) {
+                        // no errors, and was showing fallback
+                        (true, Some(fallback)) => {
+                            fallback.insert_before_this(&mut state.children);
+                            fallback.unmount();
+                            state.fallback = None;
+                        }
+                        // yes errors, and was showing children
+                        (false, None) => {
+                            state.fallback = Some(
+                                (self.fallback)(self.errors.clone()).build(),
+                            );
+                            state
+                                .children
+                                .insert_before_this(&mut state.fallback);
+                            state.children.unmount();
+                        }
+                        // either there were no errors, and we were already showing the children
+                        // or there are errors, but we were already showing the fallback
+                        // in either case, rebuilding doesn't require us to do anything
+                        _ => {}
+                    }
+                    state
+                } else {
+                    let fallback = (!self.errors_empty.get())
+                        .then(|| (self.fallback)(self.errors.clone()).build());
+                    ErrorBoundaryViewState {
+                        children: children.take().unwrap(),
+                        fallback,
+                    }
+                }
+            },
+        )
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let new = self.build();
+        let mut old = std::mem::replace(state, new);
+        old.insert_before_this(state);
+        old.unmount();
+    }
+}
+
+impl<Chil, FalFn, Fal, Rndr> AddAnyAttr<Rndr>
+    for ErrorBoundaryView<Chil, FalFn, Rndr>
+where
+    Chil: RenderHtml<Rndr> + 'static,
+    FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
+    Fal: RenderHtml<Rndr> + Send + 'static,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = ErrorBoundaryView<
+        Chil::Output<SomeNewAttr::CloneableOwned>,
+        FalFn,
+        Rndr,
+    >;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let ErrorBoundaryView {
+            hook,
+            boundary_id,
+            errors_empty,
+            children,
+            fallback,
+            errors,
+            rndr,
+        } = self;
+        ErrorBoundaryView {
+            hook,
+            boundary_id,
+            errors_empty,
+            children: children.add_any_attr(attr.into_cloneable_owned()),
+            fallback,
+            errors,
+            rndr,
+        }
+    }
+}
+
+impl<Chil, FalFn, Fal, Rndr> RenderHtml<Rndr>
+    for ErrorBoundaryView<Chil, FalFn, Rndr>
+where
+    Chil: RenderHtml<Rndr> + Send + 'static,
+    FalFn: FnMut(ArcRwSignal<Errors>) -> Fal + Send + 'static,
+    Fal: RenderHtml<Rndr> + Send + 'static,
+    Rndr: Renderer,
+{
+    type AsyncOutput = ErrorBoundaryView<Chil::AsyncOutput, FalFn, Rndr>;
+
+    const MIN_LENGTH: usize = Chil::MIN_LENGTH;
+
+    fn dry_resolve(&mut self) {
+        self.children.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        let ErrorBoundaryView {
+            hook,
+            boundary_id,
+            errors_empty,
+            children,
+            fallback,
+            errors,
+            ..
+        } = self;
+        ErrorBoundaryView {
+            hook,
+            boundary_id,
+            errors_empty,
+            children: children.resolve().await,
+            fallback,
+            errors,
+            rndr: PhantomData,
+        }
+    }
+
+    fn to_html_with_buf(
+        mut self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        // first, attempt to serialize the children to HTML, then check for errors
+        let _hook = throw_error::set_error_hook(self.hook);
+        let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
+        let mut new_pos = *position;
+        self.children.to_html_with_buf(
+            &mut new_buf,
+            &mut new_pos,
+            escape,
+            mark_branches,
+        );
+
+        // any thrown errors would've been caught here
+        if self.errors.with_untracked(|map| map.is_empty()) {
+            buf.push_str(&new_buf);
+        } else {
+            // otherwise, serialize the fallback instead
+            (self.fallback)(self.errors).to_html_with_buf(
+                buf,
+                position,
+                escape,
+                mark_branches,
+            );
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        mut self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) where
+        Self: Sized,
+    {
+        let _hook = throw_error::set_error_hook(self.hook);
+        // first, attempt to serialize the children to HTML, then check for errors
+        let mut new_buf = StreamBuilder::new(buf.clone_id());
+        let mut new_pos = *position;
+        self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
+            &mut new_buf,
+            &mut new_pos,
+            escape,
+            mark_branches,
+        );
+
+        // any thrown errors would've been caught here
+        if self.errors.with_untracked(|map| map.is_empty()) {
+            buf.append(new_buf);
+        } else {
+            // otherwise, serialize the fallback instead
+            let mut fallback = String::with_capacity(Fal::MIN_LENGTH);
+            (self.fallback)(self.errors).to_html_with_buf(
+                &mut fallback,
+                position,
+                escape,
+                mark_branches,
+            );
+            buf.push_sync(&fallback);
+        }
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        mut self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        let mut children = Some(self.children);
+        let hook = Arc::clone(&self.hook);
+        let cursor = cursor.to_owned();
+        let position = position.to_owned();
+        RenderEffect::new(
+            move |prev: Option<
+                ErrorBoundaryViewState<Chil::State, Fal::State>,
+            >| {
+                let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+                if let Some(mut state) = prev {
+                    match (self.errors_empty.get(), &mut state.fallback) {
+                        // no errors, and was showing fallback
+                        (true, Some(fallback)) => {
+                            fallback.insert_before_this(&mut state.children);
+                            state.fallback.unmount();
+                            state.fallback = None;
+                        }
+                        // yes errors, and was showing children
+                        (false, None) => {
+                            state.fallback = Some(
+                                (self.fallback)(self.errors.clone()).build(),
+                            );
+                            state
+                                .children
+                                .insert_before_this(&mut state.fallback);
+                            state.children.unmount();
+                        }
+                        // either there were no errors, and we were already showing the children
+                        // or there are errors, but we were already showing the fallback
+                        // in either case, rebuilding doesn't require us to do anything
+                        _ => {}
+                    }
+                    state
+                } else {
+                    let children = children.take().unwrap();
+                    let (children, fallback) = if self.errors_empty.get() {
+                        (
+                            children.hydrate::<FROM_SERVER>(&cursor, &position),
+                            None,
+                        )
+                    } else {
+                        (
+                            children.build(),
+                            Some(
+                                (self.fallback)(self.errors.clone())
+                                    .hydrate::<FROM_SERVER>(&cursor, &position),
+                            ),
+                        )
+                    };
+
+                    ErrorBoundaryViewState { children, fallback }
+                }
+            },
+        )
+    }
+}
+
+#[derive(Debug)]
+struct ErrorBoundaryErrorHook {
+    errors: ArcRwSignal<Errors>,
+    id: SerializedDataId,
+    shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
+}
+
+impl ErrorBoundaryErrorHook {
+    pub fn new(
+        id: SerializedDataId,
+        initial_errors: impl IntoIterator<Item = (ErrorId, Error)>,
+    ) -> Self {
+        Self {
+            errors: ArcRwSignal::new(Errors(
+                initial_errors.into_iter().collect(),
+            )),
+            id,
+            shared_context: Owner::current_shared_context(),
+        }
+    }
+}
+
+impl ErrorHook for ErrorBoundaryErrorHook {
+    fn throw(&self, error: Error) -> ErrorId {
+        // generate a unique ID
+        let key: ErrorId = Owner::current_shared_context()
+            .map(|sc| sc.next_id())
+            .unwrap_or_default()
+            .into();
+
+        // register it with the shared context, so that it can be serialized from server to client
+        // as needed
+        if let Some(sc) = &self.shared_context {
+            sc.register_error(self.id.clone(), key.clone(), error.clone());
         }
 
-        let children = children.into_view();
-        let errors_empty = create_memo(move |_| errors.with(Errors::is_empty));
+        // add it to the reactive map of errors
+        self.errors.update(|map| {
+            map.insert(key.clone(), error);
+        });
 
-        move || {
-            if errors_empty.get() {
-                children.clone().into_view()
-            } else {
-                view! {
-                {fallback(errors)}
-                <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
-            }
-            .into_view()
-            }
-        }
-    })
+        // return the key, which will be owned by the Result being rendered and can be used to
+        // unregister this error if it is rebuilt
+        key
+    }
+
+    fn clear(&self, id: &throw_error::ErrorId) {
+        self.errors.update(|map| {
+            map.remove(id);
+        });
+    }
+}
+
+/// A struct to hold all the possible errors that could be provided by child Views
+#[derive(Debug, Clone, Default)]
+#[repr(transparent)]
+pub struct Errors(FxHashMap<ErrorId, Error>);
+
+impl Errors {
+    /// Returns `true` if there are no errors.
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
+    pub fn insert<E>(&mut self, key: ErrorId, error: E)
+    where
+        E: Into<Error>,
+    {
+        self.0.insert(key, error.into());
+    }
+
+    /// Add an error with the default key for errors outside the reactive system
+    pub fn insert_with_default_key<E>(&mut self, error: E)
+    where
+        E: Into<Error>,
+    {
+        self.0.insert(Default::default(), error.into());
+    }
+
+    /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
+    pub fn remove(&mut self, key: &ErrorId) -> Option<Error> {
+        self.0.remove(key)
+    }
+
+    /// An iterator over all the errors, in arbitrary order.
+    #[inline(always)]
+    pub fn iter(&self) -> Iter<'_> {
+        Iter(self.0.iter())
+    }
+}
+
+impl IntoIterator for Errors {
+    type Item = (ErrorId, Error);
+    type IntoIter = IntoIter;
+
+    #[inline(always)]
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self.0.into_iter())
+    }
+}
+
+/// An owning iterator over all the errors contained in the [`Errors`] struct.
+#[repr(transparent)]
+pub struct IntoIter(std::collections::hash_map::IntoIter<ErrorId, Error>);
+
+impl Iterator for IntoIter {
+    type Item = (ErrorId, Error);
+
+    #[inline(always)]
+    fn next(
+        &mut self,
+    ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        self.0.next()
+    }
+}
+
+/// An iterator over all the errors contained in the [`Errors`] struct.
+#[repr(transparent)]
+pub struct Iter<'a>(std::collections::hash_map::Iter<'a, ErrorId, Error>);
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a ErrorId, &'a Error);
+
+    #[inline(always)]
+    fn next(
+        &mut self,
+    ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        self.0.next()
+    }
 }

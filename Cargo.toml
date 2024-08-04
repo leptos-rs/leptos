@@ -3,18 +3,28 @@ resolver = "2"
 members = [
   # utilities
   "oco",
+  "any_spawner",
+  "const_str_slice_concat",
+  "either_of",
+  "next_tuple",
+  "oco",
+  "or_poisoned",
 
   # core
+  "hydration_context",
   "leptos",
   "leptos_dom",
   "leptos_config",
   "leptos_hot_reload",
   "leptos_macro",
-  "leptos_reactive",
   "leptos_server",
+  "reactive_graph",
+  "reactive_stores",
+  "reactive_stores_macro",
   "server_fn",
   "server_fn_macro",
   "server_fn/server_fn_macro_default",
+  "tachys",
 
   # integrations
   "integrations/actix",
@@ -24,28 +34,41 @@ members = [
   # libraries
   "meta",
   "router",
+  "router_macro",
+  "any_error",
 ]
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.6.13"
+version = "0.7.0-beta"
 rust-version = "1.75"
 
 [workspace.dependencies]
-oco_ref = { path = "./oco", version = "0.1.0" }
-leptos = { path = "./leptos", version = "0.6.13" }
-leptos_dom = { path = "./leptos_dom", version = "0.6.13" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.6.13" }
-leptos_macro = { path = "./leptos_macro", version = "0.6.13" }
-leptos_reactive = { path = "./leptos_reactive", version = "0.6.13" }
-leptos_server = { path = "./leptos_server", version = "0.6.13" }
-server_fn = { path = "./server_fn", version = "0.6.13" }
-server_fn_macro = { path = "./server_fn_macro", version = "0.6.13" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.6" }
-leptos_config = { path = "./leptos_config", version = "0.6.13" }
-leptos_router = { path = "./router", version = "0.6.13" }
-leptos_meta = { path = "./meta", version = "0.6.13" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.6.13" }
+throw_error = { path = "./any_error/", version = "0.2.0-beta" }
+any_spawner = { path = "./any_spawner/", version = "0.1" }
+const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
+either_of = { path = "./either_of/", version = "0.1" }
+hydration_context = { path = "./hydration_context", version = "0.2.0-beta" }
+leptos = { path = "./leptos", version = "0.7.0-beta" }
+leptos_config = { path = "./leptos_config", version = "0.7.0-beta" }
+leptos_dom = { path = "./leptos_dom", version = "0.7.0-beta" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.7.0-beta" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.7.0-beta" }
+leptos_macro = { path = "./leptos_macro", version = "0.7.0-beta" }
+leptos_router = { path = "./router", version = "0.7.0-beta" }
+leptos_router_macro = { path = "./router_macro", version = "0.7.0-beta" }
+leptos_server = { path = "./leptos_server", version = "0.7.0-beta" }
+leptos_meta = { path = "./meta", version = "0.7.0-beta" }
+next_tuple = { path = "./next_tuple", version = "0.1.0-beta" }
+oco_ref = { path = "./oco", version = "0.2" }
+or_poisoned = { path = "./or_poisoned", version = "0.1" }
+reactive_graph = { path = "./reactive_graph", version = "0.1.0-beta" }
+reactive_stores = { path = "./reactive_stores", version = "0.1.0-beta" }
+reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.1.0-beta" }
+server_fn = { path = "./server_fn", version = "0.7.0-beta" }
+server_fn_macro = { path = "./server_fn_macro", version = "0.7.0-beta" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.7.0-beta" }
+tachys = { path = "./tachys", version = "0.1.0-beta" }
 
 [profile.release]
 codegen-units = 1

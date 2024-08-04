@@ -1,23 +1,48 @@
-#[cfg(debug_assertions)]
-use super::ident_from_tag_name;
-use super::{
-    client_builder::{fragment_to_tokens, TagType},
-    event_from_attribute_node,
-};
-use crate::view::directive_call_from_attribute_node;
+use super::{fragment_to_tokens, TagType};
+use crate::view::attribute_absolute;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{NodeAttribute, NodeElement};
+use rstml::node::{
+    KeyedAttributeValue, NodeAttribute, NodeBlock, NodeElement, NodeName,
+};
 use std::collections::HashMap;
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
     node: &NodeElement,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let name = node.name();
+
+    #[allow(unused)] // TODO this is used by hot-reloading
     #[cfg(debug_assertions)]
-    let component_name = ident_from_tag_name(node.name());
+    let component_name = super::ident_from_tag_name(node.name());
+
+    // an attribute that contains {..} can be used to split props from attributes
+    // anything before it is a prop, unless it uses the special attribute syntaxes
+    // (attr:, style:, on:, prop:, etc.)
+    // anything after it is a plain HTML attribute to be spread onto the prop
+    let spread_marker = node
+        .attributes()
+        .iter()
+        .position(|node| match node {
+            NodeAttribute::Block(NodeBlock::ValidBlock(block)) => {
+                matches!(
+                    block.stmts.first(),
+                    Some(Stmt::Expr(
+                        Expr::Range(ExprRange {
+                            start: None,
+                            limits: RangeLimits::HalfOpen(_),
+                            end: None,
+                            ..
+                        }),
+                        _,
+                    ))
+                )
+            }
+            _ => false,
+        })
+        .unwrap_or_else(|| node.attributes().len());
 
     let attrs = node.attributes().iter().filter_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
@@ -27,40 +52,23 @@ pub(crate) fn component_to_tokens(
         }
     });
 
-    let spread_bindings = node.attributes().iter().filter_map(|node| {
-        use rstml::node::NodeBlock;
-        use syn::{Expr, ExprRange, RangeLimits, Stmt};
-
-        if let NodeAttribute::Block(NodeBlock::ValidBlock(block)) = node {
-            match block.stmts.first()? {
-                Stmt::Expr(
-                    Expr::Range(ExprRange {
-                        start: None,
-                        limits: RangeLimits::HalfOpen(_),
-                        end: Some(end),
-                        ..
-                    }),
-                    _,
-                ) => Some(
-                    quote! { .dyn_bindings(#[allow(unused_brace)] {#end}) },
-                ),
-                _ => None,
-            }
-        } else {
-            None
-        }
-    });
-
     let props = attrs
         .clone()
-        .filter(|attr| {
-            !attr.key.to_string().starts_with("let:")
-                && !attr.key.to_string().starts_with("clone:")
-                && !attr.key.to_string().starts_with("on:")
-                && !attr.key.to_string().starts_with("attr:")
-                && !attr.key.to_string().starts_with("use:")
+        .enumerate()
+        .filter(|(idx, attr)| {
+            idx < &spread_marker && {
+                let attr_key = attr.key.to_string();
+                !is_attr_let(&attr.key)
+                    && !attr_key.starts_with("clone:")
+                    && !attr_key.starts_with("class:")
+                    && !attr_key.starts_with("style:")
+                    && !attr_key.starts_with("attr:")
+                    && !attr_key.starts_with("prop:")
+                    && !attr_key.starts_with("on:")
+                    && !attr_key.starts_with("use:")
+            }
         })
-        .map(|attr| {
+        .map(|(_, attr)| {
             let name = &attr.key;
 
             let value = attr
@@ -80,10 +88,22 @@ pub(crate) fn component_to_tokens(
     let items_to_bind = attrs
         .clone()
         .filter_map(|attr| {
-            attr.key
-                .to_string()
-                .strip_prefix("let:")
-                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+            if !is_attr_let(&attr.key) {
+                return None;
+            }
+
+            let KeyedAttributeValue::Binding(binding) = &attr.possible_value
+            else {
+                if let Some(ident) = attr.key.to_string().strip_prefix("let:") {
+                    let ident1 =
+                        format_ident!("{ident}", span = attr.key.span());
+                    return Some(quote! { #ident1 });
+                } else {
+                    return None;
+                }
+            };
+            let inputs = &binding.inputs;
+            Some(quote! { #inputs })
         })
         .collect::<Vec<_>>();
 
@@ -97,19 +117,58 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
-    let events = attrs
-        .clone()
-        .filter(|attr| attr.key.to_string().starts_with("on:"))
-        .map(|attr| {
-            let (event_type, handler) = event_from_attribute_node(attr, true);
-            let on = quote_spanned!(attr.key.span()=> on);
-            quote! {
-                .#on(#event_type, #handler)
+    // include all attribute that are either
+    // 1) blocks ({..attrs} or {attrs}),
+    // 2) start with attr: and can be used as actual attributes, or
+    // 3) the custom attribute types (on:, class:, style:, prop:, use:)
+    let spreads = node
+        .attributes()
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, attr)| {
+            if idx == spread_marker {
+                return None;
+            }
+            use rstml::node::NodeBlock;
+            use syn::{Expr, ExprRange, RangeLimits, Stmt};
+
+            if let NodeAttribute::Block(block) = attr {
+                let dotted = if let NodeBlock::ValidBlock(block) = block {
+                    match block.stmts.first() {
+                        Some(Stmt::Expr(
+                            Expr::Range(ExprRange {
+                                start: None,
+                                limits: RangeLimits::HalfOpen(_),
+                                end: Some(end),
+                                ..
+                            }),
+                            _,
+                        )) => Some(quote! { #end }),
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+                Some(dotted.unwrap_or_else(|| {
+                    quote! {
+                        #node
+                    }
+                }))
+            } else if let NodeAttribute::Attribute(node) = attr {
+                attribute_absolute(node, idx >= spread_marker)
+            } else {
+                None
             }
         })
         .collect::<Vec<_>>();
 
-    let directives = attrs
+    let spreads = (!(spreads.is_empty())).then(|| {
+        quote! {
+            .add_any_attr((#(#spreads,)*))
+        }
+    });
+
+    /*let directives = attrs
         .clone()
         .filter_map(|attr| {
             attr.key
@@ -120,25 +179,7 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let events_and_directives =
-        events.into_iter().chain(directives).collect::<Vec<_>>();
-
-    let dyn_attrs = attrs
-        .filter(|attr| attr.key.to_string().starts_with("attr:"))
-        .filter_map(|attr| {
-            let name = &attr.key.to_string();
-            let name = name.strip_prefix("attr:");
-            let value = attr.value().map(|v| {
-                quote! { #v }
-            })?;
-            Some(quote! { (#name, ::leptos::IntoAttribute::into_attribute(#value)) })
-        })
-        .collect::<Vec<_>>();
-
-    let dyn_attrs = if dyn_attrs.is_empty() {
-        quote! {}
-    } else {
-        quote! { .dyn_attrs(vec![#(#dyn_attrs),*]) }
-    };
+        events.into_iter().chain(directives).collect::<Vec<_>>(); */
 
     let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
@@ -146,13 +187,14 @@ pub(crate) fn component_to_tokens(
     } else {
         let children = fragment_to_tokens(
             &node.children,
-            true,
             TagType::Unknown,
             Some(&mut slots),
             global_class,
             None,
         );
 
+        // TODO view marker for hot-reloading
+        /*
         cfg_if::cfg_if! {
             if #[cfg(debug_assertions)] {
                 let marker = format!("<{component_name}/>-children");
@@ -163,6 +205,7 @@ pub(crate) fn component_to_tokens(
                 let view_marker = quote! {};
             }
         }
+        */
 
         if let Some(children) = children {
             let bindables =
@@ -178,7 +221,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        move |#(#bindables)*| #children #view_marker
+                        move |#(#bindables)*| #children
                     })
                 }
             } else {
@@ -186,7 +229,7 @@ pub(crate) fn component_to_tokens(
                     .children({
                         #(#clonables)*
 
-                        ::leptos::ToChildren::to_children(move || #children #view_marker)
+                        ::leptos::children::ToChildren::to_children(move || #children)
                     })
                 }
             }
@@ -230,22 +273,24 @@ pub(crate) fn component_to_tokens(
     };
 
     let component_props_builder = quote_spanned! {name.span()=>
-        ::leptos::component_props_builder(#name_ref #generics)
+        ::leptos::component::component_props_builder(#name_ref #generics)
     };
 
     #[allow(unused_mut)] // used in debug
     let mut component = quote_spanned! {node.span()=>
-        ::leptos::component_view(
-            #[allow(clippy::needless_borrows_for_generic_args)]
-            #name_ref,
-            #component_props_builder
-                #(#props)*
-                #(#slots)*
-                #children
-                #build
-                #dyn_attrs
-                #(#spread_bindings)*
-        )
+        {
+            #[allow(unreachable_code)]
+            ::leptos::component::component_view(
+                #[allow(clippy::needless_borrows_for_generic_args)]
+                #name_ref,
+                #component_props_builder
+                    #(#props)*
+                    #(#slots)*
+                    #children
+                    #build
+            )
+            #spreads
+        }
     };
 
     // (Temporarily?) removed
@@ -253,12 +298,15 @@ pub(crate) fn component_to_tokens(
     /* #[cfg(debug_assertions)]
     IdeTagHelper::add_component_completion(&mut component, node); */
 
-    if events_and_directives.is_empty() {
-        component
+    component
+}
+
+fn is_attr_let(key: &NodeName) -> bool {
+    if key.to_string().starts_with("let:") {
+        true
+    } else if let NodeName::Path(ExprPath { path, .. }) = key {
+        path.segments.len() == 1 && path.segments[0].ident == "let"
     } else {
-        quote_spanned! {node.span()=>
-            ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
-            #(#events_and_directives)*
-        }
+        false
     }
 }

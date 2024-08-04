@@ -1,5 +1,5 @@
-use leptos::{create_runtime, create_rw_signal};
 use leptos_macro::slice;
+use leptos::prelude::RwSignal;
 
 #[derive(Default, PartialEq)]
 pub struct OuterState {
@@ -14,9 +14,7 @@ pub struct InnerState {
 }
 
 fn main() {
-    let _ = create_runtime();
-
-    let outer_signal = create_rw_signal(OuterState::default());
+    let outer_signal = RwSignal::new(OuterState::default());
 
     let (_, _) = slice!();
 

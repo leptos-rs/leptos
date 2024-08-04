@@ -1,4 +1,6 @@
-use leptos::*;
+use crate::{children::TypedChildren, component, IntoView};
+use reactive_graph::owner::{provide_context, Owner};
+use tachys::reactive_graph::OwnedView;
 
 #[component]
 /// Uses the context API to [`provide_context`] to its children and descendants,
@@ -7,7 +9,8 @@ use leptos::*;
 /// This prevents issues related to “context shadowing.”
 ///
 /// ```rust
-/// # use leptos::*;
+/// use leptos::{context::Provider, prelude::*};
+///
 /// #[component]
 /// pub fn App() -> impl IntoView {
 ///     // each Provider will only provide the value to its children
@@ -25,16 +28,22 @@ use leptos::*;
 ///     }
 /// }
 /// ```
-pub fn Provider<T>(
+pub fn Provider<T, Chil>(
     /// The value to be provided via context.
     value: T,
-    children: Children,
+    children: TypedChildren<Chil>,
 ) -> impl IntoView
 where
-    T: Clone + 'static,
+    T: Send + Sync + 'static,
+    Chil: IntoView,
 {
-    run_as_child(move || {
+    let owner = Owner::current()
+        .expect("no current reactive Owner found")
+        .child();
+    let children = children.into_inner();
+    let children = owner.with(|| {
         provide_context(value);
         children()
-    })
+    });
+    OwnedView::new_with_owner(children, owner)
 }
