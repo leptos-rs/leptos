@@ -46,7 +46,7 @@ async fn main() -> std::io::Result<()> {
                 let leptos_options = leptos_options.clone();
                 move || {
                     view! {
-                        <!DOCTYPE html> 
+                        <!DOCTYPE html>
                         <html lang="en">
                             <head>
                                 <meta charset="utf-8" />

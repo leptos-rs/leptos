@@ -23,7 +23,7 @@ pub async fn file_or_index_handler(
         res.into_response()
     } else {
         Html(view! {
-            <!DOCTYPE html> 
+            <!DOCTYPE html>
             <html lang="en">
                 <head>
                     <meta charset="utf-8" />
