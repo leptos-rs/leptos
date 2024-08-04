@@ -43,7 +43,7 @@ mod shared;
 ////! crate that is enabled).
 ////!
 ////! ```rust,ignore
-////! use leptos::*;
+////! use leptos::prelude::*;
 ////! #[server(ReadFromDB)]
 ////! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 ////!   // do some server-only work here to access the database

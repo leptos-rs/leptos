@@ -7,7 +7,7 @@ use leptos::{
 /// head, accepting any of the valid attributes for that tag.
 ///
 /// ```
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_meta::*;
 ///
 /// #[component]

@@ -625,8 +625,6 @@ impl Docs {
         let mut quote_ws = "".to_string();
         let mut view_code_fence_state = ViewCodeFenceState::Outside;
         // todo fix docs stuff
-        const RUST_START: &str = "# let runtime = ::leptos::create_runtime();";
-        const RUST_END: &str = "# runtime.dispose();";
         const RSX_START: &str = "# ::leptos::view! {";
         const RSX_END: &str = "# };";
 
@@ -654,15 +652,12 @@ impl Docs {
                                 .trim_start();
                             vec![
                                 format!("{leading_ws}{quotes}{rust_options}"),
-                                format!("{leading_ws}{RUST_START}"),
+                                format!("{leading_ws}"),
                             ]
                         }
                         ViewCodeFenceState::Rust if trimmed_doc == quotes => {
                             view_code_fence_state = ViewCodeFenceState::Outside;
-                            vec![
-                                format!("{leading_ws}{RUST_END}"),
-                                doc.to_owned(),
-                            ]
+                            vec![format!("{leading_ws}"), doc.to_owned()]
                         }
                         ViewCodeFenceState::Rust
                             if trimmed_doc.starts_with('<') =>
@@ -711,7 +706,7 @@ impl Docs {
 
         if view_code_fence_state != ViewCodeFenceState::Outside {
             if view_code_fence_state == ViewCodeFenceState::Rust {
-                attrs.push((format!("{quote_ws}{RUST_END}"), Span::call_site()))
+                attrs.push((quote_ws.clone(), Span::call_site()))
             } else {
                 attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()))
             }

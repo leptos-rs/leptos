@@ -111,7 +111,7 @@ where
 {
     On {
         event,
-        cb: SendWrapper::new(cb),
+        cb: Some(SendWrapper::new(cb)),
         ty: PhantomData,
     }
 }
@@ -137,7 +137,7 @@ where
 /// An [`Attribute`] that adds an event listener to an element.
 pub struct On<E, F, R> {
     event: E,
-    cb: SendWrapper<F>,
+    cb: Option<SendWrapper<F>>,
     ty: PhantomData<R>,
 }
 
@@ -177,7 +177,7 @@ where
             }
         }
 
-        let mut cb = self.cb.take();
+        let mut cb = self.cb.expect("callback removed before attaching").take();
 
         #[cfg(feature = "tracing")]
         let span = tracing::Span::current();
@@ -266,7 +266,7 @@ where
 
     fn into_cloneable(self) -> Self::Cloneable {
         On {
-            cb: SendWrapper::new(self.cb.take().into_shared()),
+            cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
             event: self.event,
             ty: self.ty,
         }
@@ -274,13 +274,19 @@ where
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         On {
-            cb: SendWrapper::new(self.cb.take().into_shared()),
+            cb: self.cb.map(|cb| SendWrapper::new(cb.take().into_shared())),
             event: self.event,
             ty: self.ty,
         }
     }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        // dry_resolve() only runs during SSR, and we should use it to
+        // synchronously remove and drop the SendWrapper value
+        // we don't need this value during SSR and leaving it here could drop it
+        // from a different thread
+        self.cb.take();
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         self
@@ -338,8 +344,85 @@ pub trait EventDescriptor: Clone {
     /// Return the options for this type. This is only used when you create a [`Custom`] event
     /// handler.
     #[inline(always)]
-    fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
-        &None
+    fn options(&self) -> Option<&web_sys::AddEventListenerOptions> {
+        None
+    }
+}
+
+/// A custom event.
+#[derive(Debug)]
+pub struct Custom<E: FromWasmAbi = web_sys::Event> {
+    name: Cow<'static, str>,
+    options: Option<SendWrapper<web_sys::AddEventListenerOptions>>,
+    _event_type: PhantomData<fn() -> E>,
+}
+
+impl<E: FromWasmAbi> Clone for Custom<E> {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            options: self.options.clone(),
+            _event_type: PhantomData,
+        }
+    }
+}
+
+impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
+    type EventType = E;
+
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
+
+    fn event_delegation_key(&self) -> Cow<'static, str> {
+        format!("$$${}", self.name).into()
+    }
+
+    const BUBBLES: bool = false;
+
+    #[inline(always)]
+    fn options(&self) -> Option<&web_sys::AddEventListenerOptions> {
+        self.options.as_deref()
+    }
+}
+
+impl<E: FromWasmAbi> Custom<E> {
+    /// Creates a custom event type that can be used within
+    /// [`OnAttribute::on`](crate::prelude::OnAttribute::on), for events
+    /// which are not covered in the [`ev`](crate::html::event) module.
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: name.into(),
+            options: None,
+            _event_type: PhantomData,
+        }
+    }
+
+    /// Modify the [`AddEventListenerOptions`] used for this event listener.
+    ///
+    /// ```rust
+    /// # use tachys::prelude::*;
+    /// # use tachys::html;
+    /// # use tachys::html::event as ev;
+    /// # fn custom_event() -> impl Render<Dom> {
+    /// let mut non_passive_wheel = ev::Custom::new("wheel");
+    /// non_passive_wheel.options_mut().passive(false);
+    ///
+    /// let canvas =
+    ///     html::element::canvas().on(non_passive_wheel, |e: ev::WheelEvent| {
+    ///         // handle event
+    ///     });
+    /// # canvas
+    /// # }
+    /// ```
+    ///
+    /// [`AddEventListenerOptions`]: web_sys::AddEventListenerOptions
+    pub fn options_mut(&mut self) -> &mut web_sys::AddEventListenerOptions {
+        // It is valid to construct a `SendWrapper` here because
+        // its inner data will only be accessed in the browser's main thread.
+        self.options.get_or_insert_with(|| {
+            SendWrapper::new(web_sys::AddEventListenerOptions::new())
+        })
     }
 }
 

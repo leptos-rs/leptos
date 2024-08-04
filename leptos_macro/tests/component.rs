@@ -1,5 +1,5 @@
 use core::num::NonZeroUsize;
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 fn Component(

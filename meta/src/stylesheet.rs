@@ -8,7 +8,7 @@ use leptos::{
 /// head that loads a stylesheet from the URL given by the `href` property.
 ///
 /// ```
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_meta::*;
 ///
 /// #[component]

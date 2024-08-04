@@ -73,7 +73,7 @@ where
 /// `<Title formatter=.../>` that will wrap each of the text values of `<Title/>` components created lower in the tree.
 ///
 /// ```
-/// use leptos::*;
+/// use leptos::prelude::*;
 /// use leptos_meta::*;
 ///
 /// #[component]

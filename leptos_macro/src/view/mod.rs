@@ -459,7 +459,7 @@ fn attribute_to_tokens(
                 (name.contains('-') && !name.starts_with("aria-"))
                 // TODO check: do we actually provide SVG attributes?
                 // we don't provide statically-checked methods for SVG attributes
-                || tag_type == TagType::Svg
+                || (tag_type == TagType::Svg && name != "inner_html")
             {
                 let value = attribute_value(node);
                 quote! {

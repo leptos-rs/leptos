@@ -45,17 +45,19 @@ where
     D: IntoDirective<T, P, R>,
     R: Renderer,
 {
-    Directive(SendWrapper::new(DirectiveInner {
+    Directive(Some(SendWrapper::new(DirectiveInner {
         handler,
         param,
         t: PhantomData,
         rndr: PhantomData,
-    }))
+    })))
 }
 
 /// Custom logic that runs in the browser when the element is created or hydrated.
 #[derive(Debug)]
-pub struct Directive<T, D, P, R>(SendWrapper<DirectiveInner<T, D, P, R>>);
+pub struct Directive<T, D, P, R>(
+    Option<SendWrapper<DirectiveInner<T, D, P, R>>>,
+);
 
 impl<T, D, P, R> Clone for Directive<T, D, P, R>
 where
@@ -118,19 +120,19 @@ where
     }
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
-        let inner = self.0.take();
+        let inner = self.0.expect("directive removed early").take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
     fn build(self, el: &R::Element) -> Self::State {
-        let inner = self.0.take();
+        let inner = self.0.expect("directive removed early").take();
         inner.handler.run(el.clone(), inner.param);
         el.clone()
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let inner = self.0.take();
+        let inner = self.0.expect("directive removed early").take();
         inner.handler.run(state.clone(), inner.param);
     }
 
@@ -139,21 +141,30 @@ where
     }
 
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
-        let DirectiveInner {
-            handler,
-            param,
-            t,
-            rndr,
-        } = self.0.take();
-        Directive(SendWrapper::new(DirectiveInner {
-            handler: handler.into_cloneable(),
-            param,
-            t,
-            rndr,
-        }))
+        let inner = self.0.map(|inner| {
+            let DirectiveInner {
+                handler,
+                param,
+                t,
+                rndr,
+            } = inner.take();
+            SendWrapper::new(DirectiveInner {
+                handler: handler.into_cloneable(),
+                param,
+                t,
+                rndr,
+            })
+        });
+        Directive(inner)
     }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        // dry_resolve() only runs during SSR, and we should use it to
+        // synchronously remove and drop the SendWrapper value
+        // we don't need this value during SSR and leaving it here could drop it
+        // from a different thread
+        self.0.take();
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         self

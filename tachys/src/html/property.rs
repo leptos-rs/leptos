@@ -17,7 +17,7 @@ where
 {
     Property {
         key,
-        value: SendWrapper::new(value),
+        value: Some(SendWrapper::new(value)),
         rndr: PhantomData,
     }
 }
@@ -27,7 +27,7 @@ where
 pub struct Property<K, P, R> {
     key: K,
     // property values will only be accessed in the browser
-    value: SendWrapper<P>,
+    value: Option<SendWrapper<P>>,
     rndr: PhantomData<R>,
 }
 
@@ -74,22 +74,31 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(self, el: &R::Element) -> Self::State {
         self.value
+            .expect("property removed early")
             .take()
             .hydrate::<FROM_SERVER>(el, self.key.as_ref())
     }
 
     fn build(self, el: &R::Element) -> Self::State {
-        self.value.take().build(el, self.key.as_ref())
+        self.value
+            .expect("property removed early")
+            .take()
+            .build(el, self.key.as_ref())
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        self.value.take().rebuild(state, self.key.as_ref())
+        self.value
+            .expect("property removed early")
+            .take()
+            .rebuild(state, self.key.as_ref())
     }
 
     fn into_cloneable(self) -> Self::Cloneable {
         Property {
             key: self.key.as_ref().into(),
-            value: SendWrapper::new(self.value.take().into_cloneable()),
+            value: self
+                .value
+                .map(|value| SendWrapper::new(value.take().into_cloneable())),
             rndr: self.rndr,
         }
     }
@@ -97,12 +106,20 @@ where
     fn into_cloneable_owned(self) -> Self::CloneableOwned {
         Property {
             key: self.key.as_ref().into(),
-            value: SendWrapper::new(self.value.take().into_cloneable_owned()),
+            value: self.value.map(|value| {
+                SendWrapper::new(value.take().into_cloneable_owned())
+            }),
             rndr: self.rndr,
         }
     }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        // dry_resolve() only runs during SSR, and we should use it to
+        // synchronously remove and drop the SendWrapper value
+        // we don't need this value during SSR and leaving it here could drop it
+        // from a different thread
+        self.value.take();
+    }
 
     async fn resolve(self) -> Self::AsyncOutput {
         self

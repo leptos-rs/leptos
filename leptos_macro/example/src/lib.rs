@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn TestComponent(
@@ -38,15 +38,13 @@ pub fn TestComponent(
 }
 
 #[component]
-fn TestMutCallback<F>(mut callback: F, value: &'static str) -> impl IntoView
+pub fn TestMutCallback<F>(mut callback: F, value: &'static str) -> impl IntoView
 where
     F: FnMut(u32) + 'static,
 {
     let value = value.to_owned();
     view! {
-        <button on:click={move |_| {
-            callback(5);
-        }}>{value}</button>
+        <button on:click={move |_| callback(5)}>{value}</button>
         <TestComponent key="test" />
     }
 }

@@ -110,7 +110,8 @@ fn field_to_tokens(
         if modes.len() == 1 {
             let mode = &modes[0];
             // Can replace with a match if additional modes added
-            let SubfieldMode::Keyed(keyed_by, key_ty) = mode;
+            // TODO keyed_by
+            let SubfieldMode::Keyed(_keyed_by, key_ty) = mode;
             let signature = quote! {
                 fn #ident(self) ->  #library_path::KeyedField<#any_store_field, #struct_name #generics, #ty, #key_ty>
             };

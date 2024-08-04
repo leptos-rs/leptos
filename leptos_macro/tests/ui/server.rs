@@ -1,7 +1,8 @@
-use leptos::*;
+use leptos::prelude::*;
 
 #[server(endpoint = "my_path", FooBar)]
-pub async fn positional_argument_follows_keyword_argument() -> Result<(), ServerFnError> {
+pub async fn positional_argument_follows_keyword_argument(
+) -> Result<(), ServerFnError> {
     Ok(())
 }
 
