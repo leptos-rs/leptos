@@ -344,8 +344,85 @@ pub trait EventDescriptor: Clone {
     /// Return the options for this type. This is only used when you create a [`Custom`] event
     /// handler.
     #[inline(always)]
-    fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
-        &None
+    fn options(&self) -> Option<&web_sys::AddEventListenerOptions> {
+        None
+    }
+}
+
+/// A custom event.
+#[derive(Debug)]
+pub struct Custom<E: FromWasmAbi = web_sys::Event> {
+    name: Cow<'static, str>,
+    options: Option<SendWrapper<web_sys::AddEventListenerOptions>>,
+    _event_type: PhantomData<fn() -> E>,
+}
+
+impl<E: FromWasmAbi> Clone for Custom<E> {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            options: self.options.clone(),
+            _event_type: PhantomData,
+        }
+    }
+}
+
+impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
+    type EventType = E;
+
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
+
+    fn event_delegation_key(&self) -> Cow<'static, str> {
+        format!("$$${}", self.name).into()
+    }
+
+    const BUBBLES: bool = false;
+
+    #[inline(always)]
+    fn options(&self) -> Option<&web_sys::AddEventListenerOptions> {
+        self.options.as_deref()
+    }
+}
+
+impl<E: FromWasmAbi> Custom<E> {
+    /// Creates a custom event type that can be used within
+    /// [`OnAttribute::on`](crate::prelude::OnAttribute::on), for events
+    /// which are not covered in the [`ev`](crate::html::event) module.
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: name.into(),
+            options: None,
+            _event_type: PhantomData,
+        }
+    }
+
+    /// Modify the [`AddEventListenerOptions`] used for this event listener.
+    ///
+    /// ```rust
+    /// # use tachys::prelude::*;
+    /// # use tachys::html;
+    /// # use tachys::html::event as ev;
+    /// # fn custom_event() -> impl Render<Dom> {
+    /// let mut non_passive_wheel = ev::Custom::new("wheel");
+    /// non_passive_wheel.options_mut().passive(false);
+    ///
+    /// let canvas =
+    ///     html::element::canvas().on(non_passive_wheel, |e: ev::WheelEvent| {
+    ///         // handle event
+    ///     });
+    /// # canvas
+    /// # }
+    /// ```
+    ///
+    /// [`AddEventListenerOptions`]: web_sys::AddEventListenerOptions
+    pub fn options_mut(&mut self) -> &mut web_sys::AddEventListenerOptions {
+        // It is valid to construct a `SendWrapper` here because
+        // its inner data will only be accessed in the browser's main thread.
+        self.options.get_or_insert_with(|| {
+            SendWrapper::new(web_sys::AddEventListenerOptions::new())
+        })
     }
 }
 
