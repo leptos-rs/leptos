@@ -30,7 +30,7 @@ pub fn render_view(
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
-    match nodes.len() {
+    let base = match nodes.len() {
         0 => {
             let span = Span::call_site();
             Some(quote_spanned! {
@@ -51,7 +51,18 @@ pub fn render_view(
             global_class,
             view_marker.as_deref(),
         ),
-    }
+    };
+    base.map(|view| {
+        if let Some(vm) = view_marker {
+            quote! {
+                #view
+                .into_view()
+                .with_view_marker(#vm)
+            }
+        } else {
+            view
+        }
+    })
 }
 
 fn element_children_to_tokens(

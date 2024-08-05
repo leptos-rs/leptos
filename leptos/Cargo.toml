@@ -17,6 +17,7 @@ cfg-if = "1"
 hydration_context = { workspace = true }
 either_of = { workspace = true }
 leptos_dom = { workspace = true }
+leptos_hot_reload = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_server = { workspace = true, features = ["tachys"] }
 leptos_config = { workspace = true }
