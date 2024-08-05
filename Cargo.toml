@@ -41,8 +41,7 @@ exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.7.0-beta"
-# std::sync::LazyLock is stabilized in Rust version 1.80.0
-rust-version = "1.80.0"
+rust-version = "1.75"
 
 [workspace.dependencies]
 throw_error = { path = "./any_error/", version = "0.2.0-beta" }
