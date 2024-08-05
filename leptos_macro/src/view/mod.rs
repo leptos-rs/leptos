@@ -60,7 +60,9 @@ pub fn render_view(
                 .with_view_marker(#vm)
             }
         } else {
-            view
+            quote! {
+                #view.into_view()
+            }
         }
     })
 }
