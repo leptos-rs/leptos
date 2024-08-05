@@ -8,7 +8,7 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr"] } # for actual benchmarking, add `nightly` and `event-delegation` features
+leptos = { path = "../../leptos", features = ["csr"] } # for actual benchmarking, add `nightly` and `delegation` features
 # used in rand, but we need to enable js feature
 getrandom = { version = "0.2.7", features = ["js"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
