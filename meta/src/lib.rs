@@ -167,14 +167,14 @@ impl Default for MetaContext {
 #[derive(Clone, Debug)]
 pub struct ServerMetaContext {
     /// Metadata associated with the `<title>` element.
-    pub(crate) title: TitleContext,
+    pub title: TitleContext,
     /// Attributes for the `<html>` element.
-    pub(crate) html: Sender<String>,
+    pub html: Sender<String>,
     /// Attributes for the `<body>` element.
-    pub(crate) body: Sender<String>,
+    pub body: Sender<String>,
     /// Arbitrary elements to be added to the `<head>` as HTML.
     #[allow(unused)] // used in SSR
-    pub(crate) elements: Sender<String>,
+    pub elements: Sender<String>,
 }
 
 /// Allows you to access `<head>` content that was inserted via [`ServerMetaContext`].
