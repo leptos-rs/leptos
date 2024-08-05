@@ -19,6 +19,7 @@ mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
+mod custom_view;
 mod slice;
 mod slot;
 
@@ -856,4 +857,37 @@ pub fn params_derive(
 #[proc_macro]
 pub fn slice(input: TokenStream) -> TokenStream {
     slice::slice_impl(input)
+}
+
+/// Implements the traits needed to make something [`IntoView`] on some type.
+///
+/// The renderer relies on the implementation of several traits, implementing which for a custom
+/// struct involves significant boilerplate. This macro is intended to make it easier to implement
+/// a view type for custom data, by allowing you to provide some custom view logic for the type.
+///
+/// ```rust
+/// use leptos::custom_view;
+///
+/// struct Foo<T>(T);
+///
+/// #[custom_view]
+/// impl<T> CustomView for Foo<T>
+/// where
+///     T: ToString + Send + 'static,
+/// {
+///     // this will usually be `AnyView<Rndr>`, but for simple types
+///     // you may be able to specify the output type easily
+///     type View = String;
+///
+///     fn into_view(self) -> Self::View {
+///         self.0.to_string().to_ascii_uppercase()
+///     }
+/// }
+#[proc_macro_error::proc_macro_error]
+#[proc_macro_attribute]
+pub fn custom_view(
+    _args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> TokenStream {
+    custom_view::custom_view_impl(s)
 }
