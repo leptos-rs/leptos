@@ -156,6 +156,8 @@ attributes! {
     r#as "as",
     /// The `async` attribute indicates that the script should be executed asynchronously.
     r#async "async",
+    /// The `attributionsrc` attribute indicates that you want the browser to send an `Attribution-Reporting-Eligible` header along with a request.
+    attributionsrc "attributionsrc",
     /// The `autocapitalize` attribute controls whether and how text input is automatically capitalized as it is entered/edited by the user.
     autocapitalize "autocapitalize",
     /// The `autocomplete` attribute indicates whether an input field can have its value automatically completed by the browser.
@@ -234,6 +236,8 @@ attributes! {
     download "download",
     /// The `draggable` attribute indicates whether the element is draggable.
     draggable "draggable",
+    /// The `elementtiming` attributes marks the element for observation by the `PerformanceElementTiming` API.
+    elementtiming "elementtiming",
     /// The `enctype` attribute specifies the MIME type of the form submission.
     enctype "enctype",
     /// The `enterkeyhint` attribute allows authors to specify what kind of action label or icon will be presented to users in a virtual keyboard's enter key.
