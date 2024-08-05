@@ -79,6 +79,10 @@ pub fn A<H>(
     /// will skip this page.)
     #[prop(optional)]
     replace: bool,
+    /// If `true`, and when `href` has a trailing slash, `aria-current` be only be set if `current_url` also has
+    /// a trailing slash.
+    #[prop(optional)]
+    strict_trailing_slash: bool,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -92,6 +96,7 @@ where
         #[allow(unused)] state: Option<State>,
         #[allow(unused)] replace: bool,
         children: Children,
+        strict_trailing_slash: bool,
     ) -> impl IntoView {
         let RouterContext { current_url, .. } =
             use_context().expect("tried to use <A/> outside a <Router/>.");
@@ -105,7 +110,7 @@ where
                         if exact {
                             loc == path
                         } else {
-                            is_active_for(path, loc)
+                            is_active_for(path, loc, strict_trailing_slash)
                         }
                     })
                 })
@@ -130,11 +135,23 @@ where
     }
 
     let href = use_resolved_path(move || href.to_href()());
-    inner(href, target, exact, state, replace, children)
+    inner(
+        href,
+        target,
+        exact,
+        state,
+        replace,
+        children,
+        strict_trailing_slash,
+    )
 }
 
 // Test if `href` is active for `location`.  Assumes _both_ `href` and `location` begin with a `'/'`.
-fn is_active_for(href: &str, location: &str) -> bool {
+fn is_active_for(
+    href: &str,
+    location: &str,
+    strict_trailing_slash: bool,
+) -> bool {
     let mut href_f = href.split('/');
     // location _must_ be consumed first to avoid draining href_f early
     // also using enumerate to special case _the first two_ so that the allowance for ignoring the comparison
@@ -142,10 +159,16 @@ fn is_active_for(href: &str, location: &str) -> bool {
     std::iter::zip(location.split('/'), href_f.by_ref())
         .enumerate()
         .all(|(c, (loc_p, href_p))| loc_p == href_p || href_p == "" && c > 1)
-    // ensure inactive if more href fragments remain (otherwise falsely set to active when href="/item/one",
-    // location="/item")
-    // or it's an empty string (otherwise href="/item/" is not active for location="/item")
-    && matches!(href_f.next(), None | Some(""))
+        && match href_f.next() {
+            // when no href fragments remain, location is definitely somewhere nested inside href
+            None => true,
+            // when an outstanding href fragment is an empty string, default `strict_trailing_slash` setting will
+            // have the typical expected case where href="/item/" is active for location="/item", but when toggled
+            // to true it becomes inactive; please refer to test case comments for explanation.
+            Some("") => !strict_trailing_slash,
+            // inactive when href fragments remain (otherwise false postive for href="/item/one", location="/item")
+            _ => false,
+        }
 }
 
 #[cfg(test)]
@@ -154,147 +177,219 @@ mod tests {
 
     #[test]
     fn is_active_for_matched() {
-        // root
-        assert!(is_active_for("/", "/"));
+        [false, true].into_iter().for_each(|f| {
+            // root
+            assert!(is_active_for("/", "/", f));
 
-        // both at one level for all combinations of trailing slashes
-        assert!(is_active_for("/item", "/item"));
-        assert!(is_active_for("/item", "/item/"));
-        assert!(is_active_for("/item/", "/item"));
-        assert!(is_active_for("/item/", "/item/"));
+            // both at one level for all combinations of trailing slashes
+            assert!(is_active_for("/item", "/item", f));
+            // assert!(is_active_for("/item/", "/item", f));
+            assert!(is_active_for("/item", "/item/", f));
+            assert!(is_active_for("/item/", "/item/", f));
 
-        // plus sub one level for all combinations of trailing slashes
-        assert!(is_active_for("/item", "/item/one"));
-        assert!(is_active_for("/item", "/item/one/"));
-        assert!(is_active_for("/item/", "/item/one"));
-        assert!(is_active_for("/item/", "/item/one/"));
+            // plus sub one level for all combinations of trailing slashes
+            assert!(is_active_for("/item", "/item/one", f));
+            assert!(is_active_for("/item", "/item/one/", f));
+            assert!(is_active_for("/item/", "/item/one", f));
+            assert!(is_active_for("/item/", "/item/one/", f));
 
-        // both at two levels for all combinations of trailing slashes
-        assert!(is_active_for("/item/1", "/item/1"));
-        assert!(is_active_for("/item/1", "/item/1/"));
-        assert!(is_active_for("/item/1/", "/item/1"));
-        assert!(is_active_for("/item/1/", "/item/1/"));
+            // both at two levels for all combinations of trailing slashes
+            assert!(is_active_for("/item/1", "/item/1", f));
+            // assert!(is_active_for("/item/1/", "/item/1", f));
+            assert!(is_active_for("/item/1", "/item/1/", f));
+            assert!(is_active_for("/item/1/", "/item/1/", f));
 
-        // plus sub various levels for all combinations of trailing slashes
-        assert!(is_active_for("/item/1", "/item/1/two"));
-        assert!(is_active_for("/item/1", "/item/1/three/four/"));
-        assert!(is_active_for("/item/1/", "/item/1/three/four"));
-        assert!(is_active_for("/item/1/", "/item/1/two/"));
+            // plus sub various levels for all combinations of trailing slashes
+            assert!(is_active_for("/item/1", "/item/1/two", f));
+            assert!(is_active_for("/item/1", "/item/1/three/four/", f));
+            assert!(is_active_for("/item/1/", "/item/1/three/four", f));
+            assert!(is_active_for("/item/1/", "/item/1/two/", f));
 
-        // both at various levels for various trailing slashes
-        assert!(is_active_for("/item/1/two/three", "/item/1/two/three"));
-        assert!(is_active_for(
-            "/item/1/two/three/444",
-            "/item/1/two/three/444/"
-        ));
+            // both at various levels for various trailing slashes
+            assert!(is_active_for("/item/1/two/three", "/item/1/two/three", f));
+            assert!(is_active_for(
+                "/item/1/two/three/444",
+                "/item/1/two/three/444/",
+                f
+            ));
+            // assert!(is_active_for(
+            //     "/item/1/two/three/444/FIVE/",
+            //     "/item/1/two/three/444/FIVE",
+            //     f
+            // ));
+            assert!(is_active_for(
+                "/item/1/two/three/444/FIVE/final/",
+                "/item/1/two/three/444/FIVE/final/",
+                f
+            ));
+
+            // sub various levels for various trailing slashes
+            assert!(is_active_for(
+                "/item/1/two/three",
+                "/item/1/two/three/three/two/1/item",
+                f
+            ));
+            assert!(is_active_for(
+                "/item/1/two/three/444",
+                "/item/1/two/three/444/just_one_more/",
+                f
+            ));
+            assert!(is_active_for(
+                "/item/1/two/three/444/final/",
+                "/item/1/two/three/444/final/just/kidding",
+                f
+            ));
+
+            // edge/weird/unexpected cases?
+
+            // since empty fragments are not checked, these all highlight
+            assert!(is_active_for(
+                "/item/////",
+                "/item/one/two/three/four/",
+                f
+            ));
+            assert!(is_active_for(
+                "/item/////",
+                "/item/1/two/three/three/two/1/item",
+                f
+            ));
+            assert!(is_active_for(
+                "/item/1///three//1",
+                "/item/1/two/three/three/two/1/item",
+                f
+            ));
+
+            // artifact of the checking algorithm, as it assumes empty segments denote termination of sort, so
+            // omission acts like a wildcard that isn't checked.
+            assert!(is_active_for(
+                "/item//foo",
+                "/item/this_is_not_empty/foo/bar/baz",
+                f
+            ));
+        });
+
+        // Refer to comment on the similar scenario on the next test case for explanation, as this assumes the
+        // "typical" case where the strict trailing slash flag is unset or false.
+        assert!(is_active_for("/item/", "/item", false));
+        assert!(is_active_for("/item/1/", "/item/1", false));
         assert!(is_active_for(
             "/item/1/two/three/444/FIVE/",
-            "/item/1/two/three/444/FIVE"
-        ));
-        assert!(is_active_for(
-            "/item/1/two/three/444/FIVE/final/",
-            "/item/1/two/three/444/FIVE/final/"
-        ));
-
-        // sub various levels for various trailing slashes
-        assert!(is_active_for(
-            "/item/1/two/three",
-            "/item/1/two/three/three/two/1/item"
-        ));
-        assert!(is_active_for(
-            "/item/1/two/three/444",
-            "/item/1/two/three/444/just_one_more/"
-        ));
-        assert!(is_active_for(
-            "/item/1/two/three/444/final/",
-            "/item/1/two/three/444/final/just/kidding"
-        ));
-
-        // edge/weird/unexpected cases?
-
-        // since empty fragments are not checked, these all highlight
-        assert!(is_active_for(
-            "/item/////",
-            "/item/1/two/three/three/two/1/item"
-        ));
-        assert!(is_active_for(
-            "/item/1///three//1",
-            "/item/1/two/three/three/two/1/item"
-        ));
-
-        // artifact of the checking algorithm, as it assumes empty segments denote termination of sort, so
-        // omission acts like a wildcard that isn't checked.
-        assert!(is_active_for(
-            "/item//foo",
-            "/item/this_is_not_empty/foo/bar/baz"
+            "/item/1/two/three/444/FIVE",
+            false
         ));
     }
 
     #[test]
     fn is_active_for_mismatched() {
-        // root
-        assert!(!is_active_for("/somewhere", "/"));
-        assert!(!is_active_for("/somewhere/", "/"));
-        assert!(!is_active_for("/else/where", "/"));
-        assert!(!is_active_for("/no/where/", "/"));
-        assert!(!is_active_for("/", "/somewhere"));
-        assert!(!is_active_for("/", "/somewhere/"));
-        assert!(!is_active_for("/", "/else/where"));
-        assert!(!is_active_for("/", "/no/where/"));
+        [false, true].into_iter().for_each(|f| {
+            // href="/"
+            assert!(!is_active_for("/", "/item", f));
+            assert!(!is_active_for("/", "/somewhere/", f));
+            assert!(!is_active_for("/", "/else/where", f));
+            assert!(!is_active_for("/", "/no/where/", f));
 
-        // mismatch either side all cominations of trailing slashes
-        assert!(!is_active_for("/level", "/item"));
-        assert!(!is_active_for("/level", "/item/"));
-        assert!(!is_active_for("/level/", "/item"));
-        assert!(!is_active_for("/level/", "/item/"));
+            // non root href but location at root
+            assert!(!is_active_for("/somewhere", "/", f));
+            assert!(!is_active_for("/somewhere/", "/", f));
+            assert!(!is_active_for("/else/where", "/", f));
+            assert!(!is_active_for("/no/where/", "/", f));
 
-        // one level parent for all combinations of trailing slashes
-        assert!(!is_active_for("/item/one", "/item"));
-        assert!(!is_active_for("/item/one/", "/item"));
-        assert!(!is_active_for("/item/one", "/item/"));
-        assert!(!is_active_for("/item/one/", "/item/"));
+            // mismatch either side all cominations of trailing slashes
+            assert!(!is_active_for("/level", "/item", f));
+            assert!(!is_active_for("/level", "/item/", f));
+            assert!(!is_active_for("/level/", "/item", f));
+            assert!(!is_active_for("/level/", "/item/", f));
 
-        // various parent levels for all combinations of trailing slashes
-        assert!(!is_active_for("/item/1/two", "/item/1"));
-        assert!(!is_active_for("/item/1/three/four/", "/item/1"));
-        assert!(!is_active_for("/item/1/three/four", "/item/"));
-        assert!(!is_active_for("/item/1/two/", "/item/"));
+            // one level parent for all combinations of trailing slashes
+            assert!(!is_active_for("/item/one", "/item", f));
+            assert!(!is_active_for("/item/one/", "/item", f));
+            assert!(!is_active_for("/item/one", "/item/", f));
+            assert!(!is_active_for("/item/one/", "/item/", f));
 
-        // sub various levels for various trailing slashes
-        assert!(!is_active_for(
-            "/item/1/two/three/three/two/1/item",
-            "/item/1/two/three"
-        ));
-        assert!(!is_active_for(
-            "/item/1/two/three/444/just_one_more/",
-            "/item/1/two/three/444"
-        ));
-        assert!(!is_active_for(
-            "/item/1/two/three/444/final/just/kidding",
-            "/item/1/two/three/444/final/"
-        ));
+            // various parent levels for all combinations of trailing slashes
+            assert!(!is_active_for("/item/1/two", "/item/1", f));
+            assert!(!is_active_for("/item/1/three/four/", "/item/1", f));
+            assert!(!is_active_for("/item/1/three/four", "/item/", f));
+            assert!(!is_active_for("/item/1/two/", "/item/", f));
 
-        // edge/weird/unexpected cases?
+            // sub various levels for various trailing slashes
+            assert!(!is_active_for(
+                "/item/1/two/three/three/two/1/item",
+                "/item/1/two/three",
+                f
+            ));
+            assert!(!is_active_for(
+                "/item/1/two/three/444/just_one_more/",
+                "/item/1/two/three/444",
+                f
+            ));
+            assert!(!is_active_for(
+                "/item/1/two/three/444/final/just/kidding",
+                "/item/1/two/three/444/final/",
+                f
+            ));
 
-        // first non-empty one is checked anyway, so it checks as if `href="/"`
-        assert!(!is_active_for(
-            "//////",
-            "/item/1/two/three/three/two/1/item"
-        ));
+            // edge/weird/unexpected cases?
 
-        // The following tests assumes the less common interpretation of `/item/` being a resource with proper
-        // subitems while `/item` just simply browsing the flat `item` while still currently at `/`, as the
-        // user hasn't "initiate the descent" into it (e.g. a certain filesystem tried to implement a feature
-        // where a directory can be opened as a file), it may be argued that when user is simply checking what
-        // `/item` is by going to that location, they are still active at `/` - only by actually going into
-        // `/item/` that they are truly active there.
+            // default trailing slash has the expected behavior of non-matching of any non-root location
+            // this checks as if `href="/"`
+            assert!(!is_active_for(
+                "//////",
+                "/item/1/two/three/three/two/1/item",
+                f
+            ));
+            // some weird root location?
+            assert!(!is_active_for(
+                "/item/1/two/three/three/two/1/item",
+                "//////",
+                f
+            ));
+
+            assert!(!is_active_for(
+                "/item/one/two/three/four/",
+                "/item/////",
+                f
+            ));
+            assert!(!is_active_for(
+                "/item/one/two/three/four/",
+                "/item////four/",
+                f
+            ));
+        });
+
+        // The following tests enables the `strict_trailing_slash` flag, which allows the less common
+        // interpretation of `/item/` being a resource with proper subitems while `/item` just simply browsing
+        // the flat `item` while still currently at `/`, as the user hasn't "initiate the descent" into it
+        // (e.g. a certain filesystem tried to implement a feature where a directory can be opened as a file),
+        // it may be argued that when user is simply checking what `/item` is by going to that location, they
+        // are still active at `/` - only by actually going into `/item/` that they are truly active there.
         //
         // In any case, the algorithm currently assumes the more "typical" case where the non-slash version is
         // an "alias" of the trailing-slash version (so aria-current is set), as "ordinarily" this is the case
         // expected by "ordinary" end-users who almost never encounter this particular scenario.
 
-        // assert!(!is_active_for("/item/", "/item"));
-        // assert!(!is_active_for("/item/1/", "/item/1"));
-        // assert!(!is_active_for("/item/1/two/three/444/FIVE/", "/item/1/two/three/444/FIVE"));
+        assert!(!is_active_for("/item/", "/item", true));
+        assert!(!is_active_for("/item/1/", "/item/1", true));
+        assert!(!is_active_for(
+            "/item/1/two/three/444/FIVE/",
+            "/item/1/two/three/444/FIVE",
+            true
+        ));
+
+        // That said, in this particular scenario, the definition above should result the following be asserted
+        // as true, but then it follows that every scenario may be true as the root was special cased - in
+        // which case it becomes a bit meaningless?
+        //
+        // assert!(is_active_for("/", "/item", true));
+        //
+        // Perhaps there needs to be a flag such that aria-curently applies only the _same level_, e.g
+        // assert!(is_same_level("/", "/"))
+        // assert!(is_same_level("/", "/anything"))
+        // assert!(!is_same_level("/", "/some/"))
+        // assert!(!is_same_level("/", "/some/level"))
+        // assert!(is_same_level("/some/", "/some/"))
+        // assert!(is_same_level("/some/", "/some/level"))
+        // assert!(!is_same_level("/some/", "/some/level/"))
+        // assert!(!is_same_level("/some/", "/some/level/deeper"))
     }
 }
