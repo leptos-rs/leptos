@@ -20,7 +20,8 @@ pub fn SpreadingExample() -> impl IntoView {
     let partial_attrs =
         view! { <{..} id="snood" class="baz" data-foo="bar" /> };
     let partial_event_handlers = view! { <{..} on:click={move |_| alert("partial_event_handlers clicked")} /> };
-    let spread_onto_component = view! { <{..} aria-label="a component with attribute spreading" /> };
+    let spread_onto_component =
+        view! { <{..} aria-label="a component with attribute spreading" /> };
 
     /* with the correct imports, you can use a tuple/builder syntax as well
         let attrs_only = class("foo");
