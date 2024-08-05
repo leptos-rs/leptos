@@ -15,7 +15,7 @@ or_poisoned = { workspace = true }
 futures = "0.3"
 hydration_context = { workspace = true, optional = true }
 pin-project-lite = "0.2"
-rustc-hash = "1.1.0"
+rustc-hash = "2"
 serde = { version = "1", features = ["derive"], optional = true }
 slotmap = "1"
 thiserror = "1"
