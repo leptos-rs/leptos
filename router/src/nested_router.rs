@@ -198,7 +198,7 @@ where
             }
         }
 
-        if let Some(outlet) = state.outlets.get(0) {
+        if let Some(outlet) = state.outlets.first() {
             self.outer_owner.with(|| outlet.provide_contexts());
         }
     }
