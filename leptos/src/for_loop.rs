@@ -108,11 +108,11 @@ where
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
-///         children=move |index: ReadSignal<usize>, counter: Counter| {
+///         children={move |index: ReadSignal<usize>, counter: Counter| {
 ///           view! {
 ///             <button>{move || index.get()} ". Value: " {move || counter.count.get()}</button>
 ///           }
-///         }
+///         }}
 ///       />
 ///     </div>
 ///   }
