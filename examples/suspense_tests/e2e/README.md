@@ -8,8 +8,8 @@ This example demonstrates e2e testing with Rust using executable requirements.
 |---|---|---|
 | [Cucumber](https://github.com/cucumber-rs/cucumber/tree/main) | Test Runner | Run [Gherkin](https://cucumber.io/docs/gherkin/reference/) specifications as Rust tests |
 | [Fantoccini](https://github.com/jonhoo/fantoccini/tree/main) | Browser Client | Interact with web pages through WebDriver |
-| [Cargo Leptos ](https://github.com/leptos-rs/cargo-leptos) | Build Tool |  Compile example and start the server and end-2-end tests |
-| [chromedriver](https://chromedriver.chromium.org/downloads) | WebDriver | Provide WebDriver for Chrome
+| [Cargo Leptos](https://github.com/leptos-rs/cargo-leptos) | Build Tool |  Compile example and start the server and end-2-end tests |
+| [chromedriver](https://chromedriver.chromium.org/downloads) | WebDriver | Provide WebDriver for Chrome |
 
 ## Testing Organization
 

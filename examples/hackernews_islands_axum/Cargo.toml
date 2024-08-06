@@ -40,7 +40,6 @@ rust-embed = { version = "8", features = [
 mime_guess = { version = "2.0.4", optional = true }
 
 [features]
-default = []
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = [

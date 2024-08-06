@@ -30,6 +30,7 @@ web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 send_wrapper = "0.6.0"
 
 [features]
+default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["dep:actix-files", "dep:actix-web", "dep:leptos_actix", "leptos/ssr"]

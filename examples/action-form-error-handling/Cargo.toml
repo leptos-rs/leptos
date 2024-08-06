@@ -19,7 +19,6 @@ wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 
 [features]
-csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = [
   "dep:actix-files",
