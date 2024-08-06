@@ -26,7 +26,7 @@ jobs:
 
       - name: Get example project directories that changed
         id: changed-dirs
-        uses: tj-actions/changed-files@v41
+        uses: tj-actions/changed-files@v44
         with:
           dir_names: true
           dir_names_max_depth: "2"

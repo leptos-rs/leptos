@@ -21,7 +21,7 @@ jobs:
 
       - name: Get source files that changed
         id: changed-source
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@v44
         with:
           files: |
             any_error/**
