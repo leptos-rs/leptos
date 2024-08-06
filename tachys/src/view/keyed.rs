@@ -19,17 +19,18 @@ use std::{
 type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 
 /// Creates a keyed list of views.
-pub fn keyed<T, I, K, KF, VF, V, Rndr>(
+pub fn keyed<T, I, K, KF, VF, VFS, V, Rndr>(
     items: I,
     key_fn: KF,
     view_fn: VF,
-) -> Keyed<T, I, K, KF, VF, V, Rndr>
+) -> Keyed<T, I, K, KF, VF, VFS, V, Rndr>
 where
     I: IntoIterator<Item = T>,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K,
     V: Render<Rndr>,
-    VF: Fn(T) -> V,
+    VF: Fn(usize, T) -> (VFS, V),
+    VFS: Fn(usize),
     Rndr: Renderer,
 {
     Keyed {
@@ -41,12 +42,13 @@ where
 }
 
 /// A keyed list of views.
-pub struct Keyed<T, I, K, KF, VF, V, Rndr>
+pub struct Keyed<T, I, K, KF, VF, VFS, V, Rndr>
 where
     I: IntoIterator<Item = T>,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K,
-    VF: Fn(T) -> V,
+    VF: Fn(usize, T) -> (VFS, V),
+    VFS: Fn(usize),
     Rndr: Renderer,
 {
     items: I,
@@ -56,28 +58,31 @@ where
 }
 
 /// Retained view state for a keyed list.
-pub struct KeyedState<K, V, Rndr>
+pub struct KeyedState<K, VFS, V, Rndr>
 where
     K: Eq + Hash + 'static,
+    VFS: Fn(usize),
     V: Render<Rndr>,
     Rndr: Renderer,
 {
     parent: Option<Rndr::Element>,
     marker: Rndr::Placeholder,
     hashed_items: IndexSet<K, BuildHasherDefault<FxHasher>>,
-    rendered_items: Vec<Option<V::State>>,
+    rendered_items: Vec<Option<(VFS, V::State)>>,
 }
 
-impl<T, I, K, KF, VF, V, Rndr> Render<Rndr> for Keyed<T, I, K, KF, VF, V, Rndr>
+impl<T, I, K, KF, VF, VFS, V, Rndr> Render<Rndr>
+    for Keyed<T, I, K, KF, VF, VFS, V, Rndr>
 where
     I: IntoIterator<Item = T>,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K,
     V: Render<Rndr>,
-    VF: Fn(T) -> V,
+    VF: Fn(usize, T) -> (VFS, V),
+    VFS: Fn(usize),
     Rndr: Renderer,
 {
-    type State = KeyedState<K, V, Rndr>;
+    type State = KeyedState<K, VFS, V, Rndr>;
     // TODO fallible state and try_build()/try_rebuild() here
 
     fn build(self) -> Self::State {
@@ -86,10 +91,10 @@ where
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
         let mut rendered_items = Vec::new();
-        for item in items {
+        for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
-            let view = (self.view_fn)(item);
-            rendered_items.push(Some(view.build()));
+            let (set_index, view) = (self.view_fn)(index, item);
+            rendered_items.push(Some((set_index, view.build())));
         }
         KeyedState {
             parent: None,
@@ -134,15 +139,16 @@ where
     }
 }
 
-impl<T, I, K, KF, VF, V, Rndr> AddAnyAttr<Rndr>
-    for Keyed<T, I, K, KF, VF, V, Rndr>
+impl<T, I, K, KF, VF, VFS, V, Rndr> AddAnyAttr<Rndr>
+    for Keyed<T, I, K, KF, VF, VFS, V, Rndr>
 where
     I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K + Send,
     V: RenderHtml<Rndr>,
     V: 'static,
-    VF: Fn(T) -> V + Send + 'static,
+    VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
+    VFS: Fn(usize) + 'static,
     T: 'static,
     Rndr: Renderer,
 {
@@ -153,11 +159,16 @@ where
         KF,
         Box<
             dyn Fn(
+                    usize,
                     T,
-                ) -> <V as AddAnyAttr<Rndr>>::Output<
-                    SomeNewAttr::CloneableOwned,
-                > + Send,
+                ) -> (
+                    VFS,
+                    <V as AddAnyAttr<Rndr>>::Output<
+                        SomeNewAttr::CloneableOwned,
+                    >,
+                ) + Send,
         >,
+        VFS,
         V::Output<SomeNewAttr::CloneableOwned>,
         Rndr,
     >;
@@ -179,22 +190,24 @@ where
         Keyed {
             items,
             key_fn,
-            view_fn: Box::new(move |item| {
-                view_fn(item).add_any_attr(attr.clone())
+            view_fn: Box::new(move |index, item| {
+                let (index, view) = view_fn(index, item);
+                (index, view.add_any_attr(attr.clone()))
             }),
             rndr,
         }
     }
 }
 
-impl<T, I, K, KF, VF, V, Rndr> RenderHtml<Rndr>
-    for Keyed<T, I, K, KF, VF, V, Rndr>
+impl<T, I, K, KF, VF, VFS, V, Rndr> RenderHtml<Rndr>
+    for Keyed<T, I, K, KF, VF, VFS, V, Rndr>
 where
     I: IntoIterator<Item = T> + Send,
     K: Eq + Hash + 'static,
     KF: Fn(&T) -> K + Send,
     V: RenderHtml<Rndr> + 'static,
-    VF: Fn(T) -> V + Send + 'static,
+    VF: Fn(usize, T) -> (VFS, V) + Send + 'static,
+    VFS: Fn(usize) + 'static,
     T: 'static,
     Rndr: Renderer,
 {
@@ -207,10 +220,12 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        futures::future::join_all(self.items.into_iter().map(|item| {
-            let view = (self.view_fn)(item);
-            view.resolve()
-        }))
+        futures::future::join_all(self.items.into_iter().enumerate().map(
+            |(index, item)| {
+                let (_, view) = (self.view_fn)(index, item);
+                view.resolve()
+            },
+        ))
         .await
         .into_iter()
         .collect::<Vec<_>>()
@@ -223,8 +238,8 @@ where
         escape: bool,
         mark_branches: bool,
     ) {
-        for item in self.items.into_iter() {
-            let item = (self.view_fn)(item);
+        for (index, item) in self.items.into_iter().enumerate() {
+            let (_, item) = (self.view_fn)(index, item);
             item.to_html_with_buf(buf, position, escape, mark_branches);
             *position = Position::NextChild;
         }
@@ -238,8 +253,8 @@ where
         escape: bool,
         mark_branches: bool,
     ) {
-        for item in self.items.into_iter() {
-            let item = (self.view_fn)(item);
+        for (index, item) in self.items.into_iter().enumerate() {
+            let (_, item) = (self.view_fn)(index, item);
             item.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
@@ -273,11 +288,11 @@ where
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
         let mut rendered_items = Vec::new();
-        for item in items {
+        for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
-            let view = (self.view_fn)(item);
+            let (set_index, view) = (self.view_fn)(index, item);
             let item = view.hydrate::<FROM_SERVER>(cursor, position);
-            rendered_items.push(Some(item));
+            rendered_items.push(Some((set_index, item)));
         }
         let marker = cursor.next_placeholder(position);
         KeyedState {
@@ -289,22 +304,23 @@ where
     }
 }
 
-impl<K, V, Rndr> Mountable<Rndr> for KeyedState<K, V, Rndr>
+impl<K, VFS, V, Rndr> Mountable<Rndr> for KeyedState<K, VFS, V, Rndr>
 where
     K: Eq + Hash + 'static,
+    VFS: Fn(usize),
     V: Render<Rndr>,
     Rndr: Renderer,
 {
     fn mount(&mut self, parent: &Rndr::Element, marker: Option<&Rndr::Node>) {
         self.parent = Some(parent.clone());
-        for item in self.rendered_items.iter_mut().flatten() {
+        for (_, item) in self.rendered_items.iter_mut().flatten() {
             item.mount(parent, marker);
         }
         self.marker.mount(parent, marker);
     }
 
     fn unmount(&mut self) {
-        for item in self.rendered_items.iter_mut().flatten() {
+        for (_, item) in self.rendered_items.iter_mut().flatten() {
             item.unmount();
         }
         self.marker.unmount();
@@ -313,7 +329,13 @@ where
     fn insert_before_this(&self, child: &mut dyn Mountable<Rndr>) -> bool {
         self.rendered_items
             .first()
-            .map(|n| n.insert_before_this(child))
+            .map(|item| {
+                if let Some((_, item)) = item {
+                    item.insert_before_this(child)
+                } else {
+                    false
+                }
+            })
             .unwrap_or_else(|| self.marker.insert_before_this(child))
     }
 }
@@ -497,14 +519,15 @@ impl Default for DiffOpAddMode {
     }
 }
 
-fn apply_diff<T, V, Rndr>(
+fn apply_diff<T, VFS, V, Rndr>(
     parent: &Rndr::Element,
     marker: &Rndr::Placeholder,
     diff: Diff,
-    children: &mut Vec<Option<V::State>>,
-    view_fn: impl Fn(T) -> V,
+    children: &mut Vec<Option<(VFS, V::State)>>,
+    view_fn: impl Fn(usize, T) -> (VFS, V),
     mut items: Vec<Option<T>>,
 ) where
+    VFS: Fn(usize),
     V: Render<Rndr>,
     Rndr: Renderer,
 {
@@ -517,7 +540,7 @@ fn apply_diff<T, V, Rndr>(
     // 6. Additions
     // 7. Removes holes
     if diff.clear {
-        for mut child in children.drain(0..) {
+        for (_, mut child) in children.drain(0..).flatten() {
             child.unmount();
         }
 
@@ -527,7 +550,7 @@ fn apply_diff<T, V, Rndr>(
     }
 
     for DiffOpRemove { at } in &diff.removed {
-        let mut item_to_remove = children[*at].take().unwrap();
+        let (_, mut item_to_remove) = children[*at].take().unwrap();
 
         item_to_remove.unmount();
     }
@@ -546,7 +569,9 @@ fn apply_diff<T, V, Rndr>(
         .enumerate()
         .filter(|(_, move_)| !move_.move_in_dom)
     {
-        children[*to] = moved_children[i].take();
+        children[*to] = moved_children[i]
+            .take()
+            .inspect(|(set_index, _)| set_index(*to));
     }
 
     for (i, DiffOpMove { to, .. }) in move_cmds
@@ -554,9 +579,10 @@ fn apply_diff<T, V, Rndr>(
         .enumerate()
         .filter(|(_, move_)| move_.move_in_dom)
     {
-        let mut each_item = moved_children[i].take().unwrap();
+        let (set_index, mut each_item) = moved_children[i].take().unwrap();
 
-        if let Some(Some(state)) = children.get_next_closest_mounted_sibling(to)
+        if let Some(Some((_, state))) =
+            children.get_next_closest_mounted_sibling(to)
         {
             state.insert_before_this_or_marker(
                 parent,
@@ -567,17 +593,18 @@ fn apply_diff<T, V, Rndr>(
             each_item.mount(parent, Some(marker.as_ref()));
         }
 
-        children[to] = Some(each_item);
+        set_index(to);
+        children[to] = Some((set_index, each_item));
     }
 
     for DiffOpAdd { at, mode } in add_cmds {
         let item = items[at].take().unwrap();
-        let item = view_fn(item);
+        let (set_index, item) = view_fn(at, item);
         let mut item = item.build();
 
         match mode {
             DiffOpAddMode::Normal => {
-                if let Some(Some(state)) =
+                if let Some(Some((_, state))) =
                     children.get_next_closest_mounted_sibling(at)
                 {
                     state.insert_before_this_or_marker(
@@ -594,7 +621,7 @@ fn apply_diff<T, V, Rndr>(
             }
         }
 
-        children[at] = Some(item);
+        children[at] = Some((set_index, item));
     }
 
     #[allow(unstable_name_collisions)]
