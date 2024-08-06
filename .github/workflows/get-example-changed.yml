@@ -21,7 +21,7 @@ jobs:
 
       - name: Get example files that changed
         id: changed-files
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@v44
         with:
           files: |
             examples/**
