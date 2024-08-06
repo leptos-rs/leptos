@@ -1,11 +1,13 @@
-#[cfg(debug_assertions)]
 use std::borrow::Cow;
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
-    renderer::dom::Dom,
+    renderer::{dom::Dom, Renderer},
     ssr::StreamBuilder,
-    view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
+    view::{
+        add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml,
+        ToTemplate,
+    },
 };
 
 #[derive(Debug)]
@@ -25,7 +27,9 @@ impl<T> View<T> {
 
     #[inline(always)]
     pub fn with_view_marker(
+        #[allow(unused_mut)] // used in debug
         mut self,
+        #[allow(unused_variables)] // used in debug
         view_marker: impl Into<Cow<'static, str>>,
     ) -> Self {
         #[cfg(debug_assertions)]
@@ -56,7 +60,7 @@ where
     }
 }
 
-impl<T: IntoView> Render<Dom> for View<T> {
+impl<T: Render<Rndr>, Rndr: Renderer> Render<Rndr> for View<T> {
     type State = T::State;
 
     fn build(self) -> Self::State {
@@ -68,10 +72,10 @@ impl<T: IntoView> Render<Dom> for View<T> {
     }
 }
 
-impl<T: IntoView> RenderHtml<Dom> for View<T> {
+impl<T: RenderHtml<Rndr>, Rndr: Renderer> RenderHtml<Rndr> for View<T> {
     type AsyncOutput = T::AsyncOutput;
 
-    const MIN_LENGTH: usize = <T as RenderHtml<Dom>>::MIN_LENGTH;
+    const MIN_LENGTH: usize = <T as RenderHtml<Rndr>>::MIN_LENGTH;
 
     async fn resolve(self) -> Self::AsyncOutput {
         self.inner.resolve().await
@@ -135,25 +139,48 @@ impl<T: IntoView> RenderHtml<Dom> for View<T> {
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        cursor: &Cursor<Dom>,
+        cursor: &Cursor<Rndr>,
         position: &PositionState,
     ) -> Self::State {
         self.inner.hydrate::<FROM_SERVER>(cursor, position)
     }
 }
 
-impl<T: IntoView> AddAnyAttr<Dom> for View<T> {
-    type Output<SomeNewAttr: Attribute<Dom>> =
-        <T as AddAnyAttr<Dom>>::Output<SomeNewAttr>;
+impl<T: ToTemplate> ToTemplate for View<T> {
+    fn to_template(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        T::to_template(buf, class, style, inner_html, position);
+    }
+}
 
-    fn add_any_attr<NewAttr: Attribute<Dom>>(
+impl<T: AddAnyAttr<Rndr>, Rndr> AddAnyAttr<Rndr> for View<T>
+where
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = View<T::Output<SomeNewAttr>>;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
         self,
         attr: NewAttr,
     ) -> Self::Output<NewAttr>
     where
-        Self::Output<NewAttr>: RenderHtml<Dom>,
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
-        self.inner.add_any_attr(attr)
+        let View {
+            inner,
+            #[cfg(debug_assertions)]
+            view_marker,
+        } = self;
+        View {
+            inner: inner.add_any_attr(attr),
+            #[cfg(debug_assertions)]
+            view_marker,
+        }
     }
 }
 
