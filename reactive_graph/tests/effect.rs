@@ -64,7 +64,7 @@ async fn effect_runs() {
 
             Effect::new({
                 let b = b.clone();
-                move |_| {
+                move || {
                     let formatted = format!("Value is {}", a.get());
                     *b.write().unwrap() = formatted;
                 }
