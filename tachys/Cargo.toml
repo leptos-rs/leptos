@@ -149,7 +149,7 @@ web-sys = { version = "0.3", features = [
 ] }
 drain_filter_polyfill = "0.1"
 indexmap = "2"
-rustc-hash = "1"
+rustc-hash = "2"
 futures = "0.3"
 parking_lot = "0.12"
 itertools = "0.12"
