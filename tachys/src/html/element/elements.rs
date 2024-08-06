@@ -250,7 +250,7 @@ html_self_closing_elements! {
     /// The `<hr>` HTML element represents a thematic break between paragraph-level elements: for example, a change of scene in a story, or a shift of topic within a section.
     hr HtmlHrElement [] true,
     /// The `<img>` HTML element embeds an image into the document.
-    img HtmlImageElement [alt, crossorigin, decoding, height, ismap, sizes, src, srcset, usemap, width] true,
+    img HtmlImageElement [alt, attributionsrc, crossorigin, decoding, elementtiming, fetchpriority, height, ismap, loading, referrerpolicy, sizes, src, srcset, usemap, width] true,
     /// The `<input>` HTML element is used to create interactive controls for web-based forms in order to accept data from the user; a wide variety of types of input data and control widgets are available, depending on the device and user agent. The `<input>` element is one of the most powerful and complex in all of HTML due to the sheer number of combinations of input types and attributes.
     input HtmlInputElement [accept, alt, autocomplete, capture, checked, disabled, form, formaction, formenctype, formmethod, formnovalidate, formtarget, height, list, max, maxlength, min, minlength, multiple, name, pattern, placeholder, popovertarget, popovertargetaction, readonly, required, size, src, step, r#type, value, width] true,
     ///	The `<link>` HTML element specifies relationships between the current document and an external resource. This element is most commonly used to link to CSS, but is also used to establish site icons (both "favicon" style icons and icons for the home screen and apps on mobile devices) among other things.
@@ -463,7 +463,7 @@ html_elements! {
     /// The `<var>` HTML element represents the name of a variable in a mathematical expression or a programming context. It's typically presented using an italicized version of the current typeface, although that behavior is browser-dependent.
     var HtmlElement [] true,
     /// The `<video>` HTML element embeds a media player which supports video playback into the document. You can use `<video>` for audio content as well, but the audio element may provide a more appropriate user experience.
-    video HtmlVideoElement [controls, controlslist, crossorigin, disablepictureinpicture, disableremoteplayback, height, r#loop, muted, playsinline, poster, preload, src, width] true,
+    video HtmlVideoElement [autoplay, controls, controlslist, crossorigin, disablepictureinpicture, disableremoteplayback, height, r#loop, muted, playsinline, poster, preload, src, width] true,
 }
 
 html_element_inner! {
