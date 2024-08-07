@@ -505,13 +505,7 @@ where
         key: &str,
         el: &R::Element,
     ) -> Self::State {
-        // if we're actually hydrating from SSRed HTML, we don't need to set the attribute
-        // if we're hydrating from a CSR-cloned <template>, we do need to set non-StaticAttr attributes
-        let state = if !FROM_SERVER {
-            self.map(|v| v.hydrate::<FROM_SERVER>(key, el))
-        } else {
-            None
-        };
+        let state = self.map(|v| v.hydrate::<FROM_SERVER>(key, el));
         (el.clone(), state)
     }
 
