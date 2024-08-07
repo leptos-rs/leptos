@@ -325,7 +325,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
 
 impl<T, S> IsDisposed for StoredValue<T, S> {
     fn is_disposed(&self) -> bool {
-        Arena::with(|arena| arena.contains_key(self.node))
+        Arena::with(|arena| !arena.contains_key(self.node))
     }
 }
 
