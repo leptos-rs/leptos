@@ -21,6 +21,7 @@ use reactive_graph::{
 use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
+    fmt::Debug,
     future::Future,
     iter,
     marker::PhantomData,
@@ -195,6 +196,10 @@ where
                     })
                 }
             }
+        }
+
+        if let Some(outlet) = state.outlets.first() {
+            self.outer_owner.with(|| outlet.provide_contexts());
         }
     }
 }
@@ -466,6 +471,20 @@ where
     view_fn: Arc<Mutex<OutletViewFn<R>>>,
 }
 
+impl<R: Renderer> Debug for RouteContext<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RouteContext")
+            .field("id", &self.id)
+            .field("trigger", &self.trigger)
+            .field("url", &self.url)
+            .field("params", &self.params)
+            .field("owner", &self.owner.debug_id())
+            .field("matched", &self.matched)
+            .field("base", &self.base)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<R> RouteContext<R>
 where
     R: Renderer + 'static,
@@ -591,15 +610,19 @@ where
                     provide_context(matched);
                     view.preload().await;
                     *view_fn.lock().or_poisoned() = Box::new(move || {
-                        let owner = owner.clone();
                         let view = view.clone();
-                        Suspend::new(Box::pin(async move {
-                            let view = SendWrapper::new(
-                                owner.with(|| ScopedFuture::new(view.choose())),
-                            );
-                            let view = view.await;
-                            owner.with(|| OwnedView::new(view).into_any())
-                        }))
+                        owner.with(|| {
+                            Suspend::new(Box::pin(async move {
+                                let view = SendWrapper::new(ScopedFuture::new(
+                                    view.choose(),
+                                ));
+                                let view = view.await;
+                                OwnedView::new(view).into_any()
+                            })
+                                as Pin<
+                                    Box<dyn Future<Output = AnyView<R>> + Send>,
+                                >)
+                        })
                     });
                     trigger
                 }
@@ -782,13 +805,14 @@ where
     R: Renderer + 'static,
 {
     _ = rndr;
-    let ctx = use_context::<RouteContext<R>>()
-        .expect("<Outlet/> used without RouteContext being provided.");
-    let RouteContext {
-        trigger, view_fn, ..
-    } = ctx;
     move || {
+        let ctx = use_context::<RouteContext<R>>()
+            .expect("<Outlet/> used without RouteContext being provided.");
+        let RouteContext {
+            trigger, view_fn, ..
+        } = ctx;
         trigger.track();
-        (view_fn.lock().or_poisoned())()
+        let view_fn = view_fn.lock().or_poisoned();
+        view_fn()
     }
 }
