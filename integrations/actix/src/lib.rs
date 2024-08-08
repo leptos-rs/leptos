@@ -193,6 +193,11 @@ impl ExtendResponse for ActixResponse {
 /// without actually setting the status code. This means that the client will not follow the
 /// redirect, and can therefore return the value of the server function and then handle
 /// the redirect with client-side routing.
+///
+/// Note that server functions using this should be encapsulated inside a [Resource::new_blocking],
+/// as it would ensure the redirect headers are set before they are read and sent to the client.
+/// Failing to do so may result in the headers not being sent at all and thus the redirect call
+/// will have no effect.
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
