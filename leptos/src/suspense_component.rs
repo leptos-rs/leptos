@@ -442,3 +442,101 @@ where
         })
     }
 }
+
+/// A wrapper that prevents [`Suspense`] from waiting for any resource reads that happen inside
+/// `Unsuspend`.
+pub struct Unsuspend<T>(Box<dyn FnOnce() -> T + Send>);
+
+impl<T> Unsuspend<T> {
+    /// Wraps the given function, such that it is not called until all resources are ready.
+    pub fn new(fun: impl FnOnce() -> T + Send + 'static) -> Self {
+        Self(Box::new(fun))
+    }
+}
+
+impl<T, Rndr> Render<Rndr> for Unsuspend<T>
+where
+    T: Render<Rndr>,
+    Rndr: Renderer,
+{
+    type State = T::State;
+
+    fn build(self) -> Self::State {
+        (self.0)().build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        (self.0)().rebuild(state);
+    }
+}
+
+impl<T, Rndr> AddAnyAttr<Rndr> for Unsuspend<T>
+where
+    T: AddAnyAttr<Rndr> + 'static,
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> =
+        Unsuspend<T::Output<SomeNewAttr::CloneableOwned>>;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        let attr = attr.into_cloneable_owned();
+        Unsuspend::new(move || (self.0)().add_any_attr(attr))
+    }
+}
+
+impl<T, Rndr> RenderHtml<Rndr> for Unsuspend<T>
+where
+    T: RenderHtml<Rndr> + 'static,
+    Rndr: Renderer,
+{
+    type AsyncOutput = Self;
+
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        self
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        (self.0)().to_html_with_buf(buf, position, escape, mark_branches);
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) where
+        Self: Sized,
+    {
+        (self.0)().to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            escape,
+            mark_branches,
+        );
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        (self.0)().hydrate::<FROM_SERVER>(cursor, position)
+    }
+}
