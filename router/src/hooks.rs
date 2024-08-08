@@ -214,7 +214,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Matched(pub ArcRwSignal<String>);
+pub(crate) struct Matched(pub ArcMemo<String>);
 
 /// Resolves the given path relative to the current route.
 #[track_caller]
