@@ -178,9 +178,21 @@ impl ExtendResponse for AxumResponse {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a StatusCode of 302 and a LOCATION header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+/// Provides an easy way to redirect the user from within a server function.
+///
+/// This sets a LOCATION header with the provided value, and a StatusCode of 302 is set if and only if the
+/// request's `Accept:` header contains `text/html`, as that is used to determine whether the server function
+/// is being called as a web API call from CSR or through a SSR request from a typical browser.  If called via
+/// CSR, setting the StatusCode to 302 will cause the browser to ignore that response as it will follow the
+/// redirect for the web service.
+///
+/// Note that server functions using this should be encapsulated inside a [Resource::new_blocking], as it
+/// would ensure the redirect headers are set before they are read and sent to the client.  Failing to do so
+/// may result in the headers not being sent at all and thus the redirect call will have no effect.
+///
+/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
+// FIXME what about issue of accessing the end point via a plain HTTP client such as `curl`? It won't trigger
+// the HTTP 302 path as it typically won't have the expected `Accept:` header.
 pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())
