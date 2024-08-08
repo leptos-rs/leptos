@@ -1,4 +1,5 @@
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
+
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::{
@@ -146,8 +147,9 @@ fn Post() -> impl IntoView {
 }
 
 // Dummy API
-lazy_static! {
-    static ref POSTS: Vec<Post> = vec![
+
+static POSTS: LazyLock<[Post; 3]> = LazyLock::new(|| {
+    [
         Post {
             id: 0,
             title: "My first post".to_string(),
@@ -163,8 +165,8 @@ lazy_static! {
             title: "My third post".to_string(),
             content: "This is my third post".to_string(),
         },
-    ];
-}
+    ]
+});
 
 #[derive(Error, Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PostError {
