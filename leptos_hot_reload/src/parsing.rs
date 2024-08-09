@@ -1,4 +1,4 @@
-use rstml::node::{NodeElement, NodeName};
+use rstml::node::{CustomNode, NodeElement, NodeName};
 
 /// Converts `syn::Block` to simple expression
 ///
@@ -65,6 +65,6 @@ pub fn is_component_tag_name(name: &NodeName) -> bool {
 }
 
 #[must_use]
-pub fn is_component_node(node: &NodeElement) -> bool {
+pub fn is_component_node(node: &NodeElement<impl CustomNode>) -> bool {
     is_component_tag_name(node.name())
 }

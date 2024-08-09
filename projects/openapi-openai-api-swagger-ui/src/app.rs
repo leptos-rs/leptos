@@ -9,27 +9,22 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-
-
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/openapi-swagger-ui.css"/>
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="Welcome to Leptos" />
 
         // content for this welcome page
-        <Router fallback=|| {
+        <Router fallback={|| {
             let mut outside_errors = Errors::default();
             outside_errors.insert_with_default_key(AppError::NotFound);
-            view! {
-                <ErrorTemplate outside_errors/>
-            }
-            .into_view()
-        }>
+            view! { <ErrorTemplate outside_errors /> }.into_view()
+        }}>
             <main>
                 <Routes>
-                    <Route path="" view=HomePage/>
+                    <Route path="" view={HomePage} />
                 </Routes>
             </main>
         </Router>
@@ -41,22 +36,28 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     let hello = Action::<HelloWorld,_>::server();
     view! {
-        <button on:click = move |_| hello.dispatch(HelloWorld{say_whut:SayHello{say:true}})>
-            "hello world"
-        </button>
-
-
-        <ErrorBoundary
-            fallback=|err| view! { <p>{format!("{err:#?}")}</p>}>
-            {
-                move || hello.value().get().map(|h|match h {
-                    Ok(h) => h.into_view(),
-                    err => err.into_view()
+        <button on:click={move |_| {
+            hello
+                .dispatch(HelloWorld {
+                    say_whut: SayHello { say: true },
                 })
-            }
+        }}>"hello world"</button>
+
+        <ErrorBoundary fallback={|err| {
+            view! { <p>{format!("{err:#?}")}</p> }
+        }}>
+            {move || {
+                hello
+                    .value()
+                    .get()
+                    .map(|h| match h {
+                        Ok(h) => h.into_view(),
+                        err => err.into_view(),
+                    })
+            }}
         </ErrorBoundary>
 
-        <AiSayHello/>
+        <AiSayHello />
     }
 }
 
@@ -130,45 +131,36 @@ pub async fn ai_msg(msg:String) -> Result<AiServerCall,ServerFnError> {
 pub fn AiSayHello() -> impl IntoView {
     let ai_msg = Action::<AiMsg, _>::server();
     let result = create_rw_signal(Vec::new());
-    view!{
-        <ActionForm action=ai_msg>
-        <label> "Tell the AI what function to call."
-        <input name="msg"/>
-        </label>
-        <input type="submit"/>
+    view! {
+        <ActionForm action={ai_msg}>
+            <label>"Tell the AI what function to call." <input name="msg" /></label>
+            <input type="submit" />
         </ActionForm>
         <div>
-        {
-            move || if let Some(Ok(AiServerCall{path,args})) = ai_msg.value().get() {
-                spawn_local(async move {
-                    let text = 
-                    reqwest::Client::new()
-                    .post(format!("http://127.0.0.1:3000/api/{}",path))
-                    .header("content-type","application/json")
-                    .body(args)
-                    .send()
-                    .await
-                    .unwrap()
-                    .text()
-                    .await
-                    .unwrap();
-                    result.update(|list|
-                            list.push(
-                                text
-                            )
-                        );
-                });
-            }
-        }
-        <For
-        each=move || result.get()
-        key=|_| uuid::Uuid::new_v4()
-        children=move |s:String| {
-          view! {
-            <p>{s}</p>
-          }
-        }
-      />
+            {move || {
+                if let Some(Ok(AiServerCall { path, args })) = ai_msg.value().get() {
+                    spawn_local(async move {
+                        let text = reqwest::Client::new()
+                            .post(format!("http://127.0.0.1:3000/api/{}", path))
+                            .header("content-type", "application/json")
+                            .body(args)
+                            .send()
+                            .await
+                            .unwrap()
+                            .text()
+                            .await
+                            .unwrap();
+                        result.update(|list| list.push(text));
+                    });
+                }
+            }}
+            <For
+                each={move || result.get()}
+                key={|_| uuid::Uuid::new_v4()}
+                children={move |s: String| {
+                    view! { <p>{s}</p> }
+                }}
+            />
         </div>
     }
 }

@@ -26,12 +26,12 @@ pub async fn file_or_index_handler(
             <!DOCTYPE html>
             <html lang="en">
                 <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <AutoReload options=options.clone() />
-                    <HydrationScripts options=options.clone()/>
-                    <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_csr.css"/>
-                    <link rel="shortcut icon" type="image/ico" href="/favicon.ico"/>
+                    <meta charset="utf-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1" />
+                    <AutoReload options={options.clone()} />
+                    <HydrationScripts options={options.clone()} />
+                    <link rel="stylesheet" id="leptos" href="/pkg/todo_app_sqlite_csr.css" />
+                    <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
                 </head>
                 <body></body>
             </html>

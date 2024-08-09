@@ -128,16 +128,16 @@ pub fn TodoApp() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/session_auth_axum.css"/>
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico" />
+        <Stylesheet id="leptos" href="/pkg/session_auth_axum.css" />
         <Router>
             <header>
                 <A href="/">
                     <h1>"My Tasks"</h1>
                 </A>
-                <Transition fallback=move || {
+                <Transition fallback={move || {
                     view! { <span>"Loading..."</span> }
-                }>
+                }}>
                     {move || {
                         user.get()
                             .map(|user| match user {
@@ -176,21 +176,21 @@ pub fn TodoApp() -> impl IntoView {
 
                 </Transition>
             </header>
-            <hr/>
+            <hr />
             <main>
                 <Routes>
                     // Route
-                    <Route path="" view=Todos/>
-                    <Route path="signup" view=move || view! { <Signup action=signup/> }/>
-                    <Route path="login" view=move || view! { <Login action=login/> }/>
+                    <Route path="" view={Todos} />
+                    <Route path="signup" view={move || view! { <Signup action={signup} /> }} />
+                    <Route path="login" view={move || view! { <Login action={login} /> }} />
                     <Route
                         path="settings"
-                        view=move || {
+                        view={move || {
                             view! {
                                 <h1>"Settings"</h1>
-                                <Logout action=logout/>
+                                <Logout action={logout} />
                             }
-                        }
+                        }}
                     />
 
                 </Routes>
@@ -213,14 +213,14 @@ pub fn Todos() -> impl IntoView {
 
     view! {
         <div>
-            <MultiActionForm action=add_todo>
-                <label>"Add a Todo" <input type="text" name="title"/></label>
-                <input type="submit" value="Add"/>
+            <MultiActionForm action={add_todo}>
+                <label>"Add a Todo" <input type="text" name="title" /></label>
+                <input type="submit" value="Add" />
             </MultiActionForm>
-            <Transition fallback=move || view! { <p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|errors| {
-                    view! { <ErrorTemplate errors=errors/> }
-                }>
+            <Transition fallback={move || view! { <p>"Loading..."</p> }}>
+                <ErrorBoundary fallback={|errors| {
+                    view! { <ErrorTemplate errors={errors} /> }
+                }}>
                     {move || {
                         let existing_todos = {
                             move || {
@@ -244,9 +244,9 @@ pub fn Todos() -> impl IntoView {
                                                             <li>
                                                                 {todo.title} ": Created at " {todo.created_at} " by "
                                                                 {todo.user.unwrap_or_default().username}
-                                                                <ActionForm action=delete_todo>
-                                                                    <input type="hidden" name="id" value=todo.id/>
-                                                                    <input type="submit" value="X"/>
+                                                                <ActionForm action={delete_todo}>
+                                                                    <input type="hidden" name="id" value={todo.id} />
+                                                                    <input type="submit" value="X" />
                                                                 </ActionForm>
                                                             </li>
                                                         }
@@ -286,7 +286,7 @@ pub fn Login(
     action: Action<Login, Result<(), ServerFnError>>,
 ) -> impl IntoView {
     view! {
-        <ActionForm action=action>
+        <ActionForm action={action}>
             <h1>"Log In"</h1>
             <label>
                 "User ID:"
@@ -298,17 +298,17 @@ pub fn Login(
                     class="auth-input"
                 />
             </label>
-            <br/>
+            <br />
             <label>
                 "Password:"
-                <input type="password" placeholder="Password" name="password" class="auth-input"/>
+                <input type="password" placeholder="Password" name="password" class="auth-input" />
             </label>
-            <br/>
+            <br />
             <label>
-                <input type="checkbox" name="remember" class="auth-input"/>
+                <input type="checkbox" name="remember" class="auth-input" />
                 "Remember me?"
             </label>
-            <br/>
+            <br />
             <button type="submit" class="button">
                 "Log In"
             </button>
@@ -321,7 +321,7 @@ pub fn Signup(
     action: Action<Signup, Result<(), ServerFnError>>,
 ) -> impl IntoView {
     view! {
-        <ActionForm action=action>
+        <ActionForm action={action}>
             <h1>"Sign Up"</h1>
             <label>
                 "User ID:"
@@ -333,12 +333,12 @@ pub fn Signup(
                     class="auth-input"
                 />
             </label>
-            <br/>
+            <br />
             <label>
                 "Password:"
-                <input type="password" placeholder="Password" name="password" class="auth-input"/>
+                <input type="password" placeholder="Password" name="password" class="auth-input" />
             </label>
-            <br/>
+            <br />
             <label>
                 "Confirm Password:"
                 <input
@@ -348,12 +348,12 @@ pub fn Signup(
                     class="auth-input"
                 />
             </label>
-            <br/>
+            <br />
             <label>
-                "Remember me?" <input type="checkbox" name="remember" class="auth-input"/>
+                "Remember me?" <input type="checkbox" name="remember" class="auth-input" />
             </label>
 
-            <br/>
+            <br />
             <button type="submit" class="button">
                 "Sign Up"
             </button>
@@ -367,7 +367,7 @@ pub fn Logout(
 ) -> impl IntoView {
     view! {
         <div id="loginbox">
-            <ActionForm action=action>
+            <ActionForm action={action}>
                 <button type="submit" class="button">
                     "Log Out"
                 </button>

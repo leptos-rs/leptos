@@ -21,15 +21,23 @@ pub fn App() -> impl IntoView {
     let search_results = create_rw_signal(Vec::<StockRow>::new());
     provide_context(search_results);
     view! {
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Meta name="description" content="Leptos implementation of a Meilisearch backed Searchbar."/>
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico" />
+        <Meta
+            name="description"
+            content="Leptos implementation of a Meilisearch backed Searchbar."
+        />
         <Router>
             <main>
                 <Routes>
-                    <Route path="/" view=||view!{
-                        <SearchBar/>
-                        <SearchResults/>
-                    }/>
+                    <Route
+                        path="/"
+                        view={|| {
+                            view! {
+                                <SearchBar />
+                                <SearchResults />
+                            }
+                        }}
+                    />
                 </Routes>
             </main>
         </Router>
@@ -92,10 +100,13 @@ pub fn SearchBar() -> impl IntoView {
     view! {
         <div>
             <label for="search">Search</label>
-            <input id="search" on:input=move|e|{
-                let query = event_target_value(&e);
-                search_query.dispatch(SearchQuery{query});
-            }/>
+            <input
+                id="search"
+                on:input={move |e| {
+                    let query = event_target_value(&e);
+                    search_query.dispatch(SearchQuery { query });
+                }}
+            />
         </div>
     }
 }
@@ -105,17 +116,30 @@ pub fn SearchResults() -> impl IntoView {
     let read_search_results = expect_context::<RwSignal<Vec<StockRow>>>().read_only();
     view! {
         <ul>
-               <For
-                    each=read_search_results
-                    key=|row| row.name.clone()
-                    children=move |StockRow{name,last,high,low,absolute_change,percentage_change,volume,..}: StockRow| {
-          view! {
-                <li>
-                    {format!("{name}; last: {last}; high: {high}; low: {low}; chg.: {absolute_change}; chg...:{percentage_change}; volume:{volume}")}
-                </li>
-          }
-        }
-      />
+            <For
+                each={read_search_results}
+                key={|row| row.name.clone()}
+                children={move |
+                    StockRow {
+                        name,
+                        last,
+                        high,
+                        low,
+                        absolute_change,
+                        percentage_change,
+                        volume,
+                        ..
+                    }: StockRow|
+                {
+                    view! {
+                        <li>
+                            {format!(
+                                "{name}; last: {last}; high: {high}; low: {low}; chg.: {absolute_change}; chg...:{percentage_change}; volume:{volume}",
+                            )}
+                        </li>
+                    }
+                }}
+            />
         </ul>
     }
 }

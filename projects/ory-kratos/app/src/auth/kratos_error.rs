@@ -27,8 +27,13 @@ impl KratosError {
 
 impl IntoView for KratosError {
     fn into_view(self) -> View {
-        view!{
-            <div>{self.code.map(|code|code.to_string()).unwrap_or("No Code included in error message".to_string())}</div>
+        view! {
+            <div>
+                {self
+                    .code
+                    .map(|code| code.to_string())
+                    .unwrap_or("No Code included in error message".to_string())}
+            </div>
             <div>{self.message.unwrap_or("No message in Kratos Error".to_string())}</div>
             <div>{self.reason.unwrap_or("No reason included in Kratos Error".to_string())}</div>
             <div>{self.debug.unwrap_or("No debug included in Kratos Error".to_string())}</div>
@@ -63,9 +68,9 @@ pub fn KratosErrorPage() -> impl IntoView {
     let id = move || use_query_map().get().get("id").cloned().unwrap_or_default();
     let fetch_error_resource = create_resource(move || id(), |id| fetch_error(id));
     view! {
-        <Suspense fallback=||"Error loading...".into_view()>
-            <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            { move ||
+        <Suspense fallback={||"Error loading...".into_view()}>
+            <ErrorBoundary fallback={|errors| view!{<ErrorTemplate errors/>}}>
+            {move ||
                 fetch_error_resource.get().map(|resp| match resp {
                     // kratos error isn't an error type, it's just a ui/data representation of a kratos error.
                     Ok(kratos_error) => kratos_error.into_view(),

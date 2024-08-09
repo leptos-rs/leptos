@@ -59,9 +59,9 @@ pub fn Stories() -> impl IntoView {
                                 view! {
                                     <a
                                         class="page-link"
-                                        href=move || {
+                                        href={move || {
                                             format!("/{}?page={}", story_type(), page() - 1)
-                                        }
+                                        }}
                                         aria-label="Previous Page"
                                     >
                                         "< prev"
@@ -80,9 +80,13 @@ pub fn Stories() -> impl IntoView {
                     }}
                 </span>
                 <span>"page " {page}</span>
-                <span class="page-link" class:disabled=hide_more_link aria-hidden=hide_more_link>
+                <span
+                    class="page-link"
+                    class:disabled={hide_more_link}
+                    aria-hidden={hide_more_link}
+                >
                     <a
-                        href=move || format!("/{}?page={}", story_type(), page() + 1)
+                        href={move || format!("/{}?page={}", story_type(), page() + 1)}
                         aria-label="Next Page"
                     >
                         "more >"
@@ -91,17 +95,17 @@ pub fn Stories() -> impl IntoView {
             </div>
             <main class="news-list">
                 <div>
-                    <Transition fallback=move || view! { <p>"Loading..."</p> } set_pending>
-                        <Show when=move || {
+                    <Transition fallback={move || view! { <p>"Loading..."</p> }} set_pending>
+                        <Show when={move || {
                             stories.read().as_ref().map(Option::is_none).unwrap_or(false)
-                        }>> <p>"Error loading stories."</p></Show>
+                        }}>> <p>"Error loading stories."</p></Show>
                         <ul>
                             <For
-                                each=move || stories.get().unwrap_or_default().unwrap_or_default()
-                                key=|story| story.id
+                                each={move || stories.get().unwrap_or_default().unwrap_or_default()}
+                                key={|story| story.id}
                                 let:story
                             >
-                                <Story story/>
+                                <Story story />
                             </For>
                         </ul>
                     </Transition>
@@ -121,7 +125,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     Either::Left(
                         view! {
                             <span>
-                                <a href=story.url target="_blank" rel="noreferrer">
+                                <a href={story.url} target="_blank" rel="noreferrer">
                                     {story.title.clone()}
                                 </a>
                                 <span class="host">"("{story.domain}")"</span>
@@ -130,10 +134,10 @@ fn Story(story: api::Story) -> impl IntoView {
                     )
                 } else {
                     let title = story.title.clone();
-                    Either::Right(view! { <A href=format!("/stories/{}", story.id)>{title}</A> })
+                    Either::Right(view! { <A href={format!("/stories/{}", story.id)}>{title}</A> })
                 }}
             </span>
-            <br/>
+            <br />
             <span class="meta">
                 {if story.story_type != "job" {
                     Either::Left(
@@ -144,13 +148,13 @@ fn Story(story: api::Story) -> impl IntoView {
                                     .user
                                     .map(|user| {
                                         view! {
-                                            <A href=format!("/users/{user}")>{user.clone()}</A>
+                                            <A href={format!("/users/{user}")}>{user.clone()}</A>
                                         }
                                     })} {format!(" {} | ", story.time_ago)}
-                                <A href=format!(
+                                <A href={format!(
                                     "/stories/{}",
                                     story.id,
-                                )>
+                                )}>
                                     {if story.comments_count.unwrap_or_default() > 0 {
                                         format!(
                                             "{} comments",
@@ -165,7 +169,7 @@ fn Story(story: api::Story) -> impl IntoView {
                     )
                 } else {
                     let title = story.title.clone();
-                    Either::Right(view! { <A href=format!("/item/{}", story.id)>{title}</A> })
+                    Either::Right(view! { <A href={format!("/item/{}", story.id)}>{title}</A> })
                 }}
             </span>
             {(story.story_type != "link")

@@ -21,14 +21,12 @@ pub fn App() -> impl IntoView {
     );
 
     view! {
-      <div>
         <div>
-          "This is some text"
+            <div>"This is some text"</div>
+            // <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+            {move || pending_thing.read().map(|n| view! { <ComponentA /> })}
+            // </Suspense>
         </div>
-        // <Suspense fallback=move || view! { <p>"Loading..."</p> }>
-          {move || pending_thing.read().map(|n| view! { <ComponentA/> })}
-        // </Suspense>
-      </div>
     }
 }
 
@@ -65,6 +63,6 @@ pub fn hydrate() {
     gloo::console::debug!("starting WASM");
 
     leptos::mount_to_body(move || {
-        view! { <App/> }
+        view! { <App /> }
     });
 }

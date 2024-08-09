@@ -27,16 +27,16 @@ async fn main() -> std::io::Result<()> {
                         <!DOCTYPE html>
                         <html lang="en">
                             <head>
-                                <meta charset="utf-8"/>
+                                <meta charset="utf-8" />
                                 <meta
                                     name="viewport"
                                     content="width=device-width, initial-scale=1"
                                 />
-                                <AutoReload options=leptos_options.clone()/>
-                                <HydrationScripts options=leptos_options.clone()/>
+                                <AutoReload options={leptos_options.clone()} />
+                                <HydrationScripts options={leptos_options.clone()} />
                             </head>
                             <body>
-                                <App/>
+                                <App />
                             </body>
                         </html>
                     }

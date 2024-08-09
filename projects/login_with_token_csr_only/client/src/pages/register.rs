@@ -49,23 +49,23 @@ pub fn Register(api: UnauthorizedApi) -> impl IntoView {
 
     view! {
         <Show
-            when=move || register_response.get().is_some()
-            fallback=move || {
+            when={move || register_response.get().is_some()}
+            fallback={move || {
                 view! {
                     <CredentialsForm
                         title="Please enter the desired credentials"
                         action_label="Register"
-                        action=register_action
-                        error=register_error.into()
+                        action={register_action}
+                        error={register_error.into()}
                         disabled
                     />
                     <p>"Your already have an account?"</p>
-                    <A href=Page::Login.path()>"Login"</A>
+                    <A href={Page::Login.path()}>"Login"</A>
                 }
-            }
+            }}
         >
             <p>"You have successfully registered."</p>
-            <p>"You can now " <A href=Page::Login.path()>"login"</A> " with your new account."</p>
+            <p>"You can now " <A href={Page::Login.path()}>"login"</A> " with your new account."</p>
         </Show>
     }
 }

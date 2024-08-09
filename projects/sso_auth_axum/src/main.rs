@@ -50,7 +50,7 @@ pub async fn leptos_routes_handler(
             provide_context(auth_session.clone());
             provide_context(app_state.pool.clone());
         },
-        move || view! {  <sso_auth_axum::App/> },
+        move || view! { <sso_auth_axum::App /> },
     );
 
     handler(request).await.into_response()

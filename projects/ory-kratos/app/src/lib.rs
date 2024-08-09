@@ -22,26 +22,26 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/ory-auth-example.css"/>
+        <Stylesheet id="leptos" href="/pkg/ory-auth-example.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="Welcome to Leptos" />
 
         // content for this welcome page
-        <Router fallback=|| {
+        <Router fallback={|| {
             let mut outside_errors = Errors::default();
             outside_errors.insert_with_default_key(AppError::NotFound);
-            view! { <ErrorTemplate outside_errors/> }.into_view()
-        }>
+            view! { <ErrorTemplate outside_errors /> }.into_view()
+        }}>
             <main>
                 <Routes>
-                    <Route path="" view=HomePage/>
-                    <Route path=ids::REGISTER_ROUTE view=RegistrationPage/>
-                    <Route path=ids::VERIFICATION_ROUTE view=VerificationPage/>
-                    <Route path=ids::LOGIN_ROUTE view=LoginPage/>
-                    <Route path=ids::KRATOS_ERROR_ROUTE view=KratosErrorPage/>
-                    <Route path=ids::RECOVERY_ROUTE view=RecoveryPage/>
-                    <Route path=ids::SETTINGS_ROUTE view=SettingsPage/>
+                    <Route path="" view={HomePage} />
+                    <Route path={ids::REGISTER_ROUTE} view={RegistrationPage} />
+                    <Route path={ids::VERIFICATION_ROUTE} view={VerificationPage} />
+                    <Route path={ids::LOGIN_ROUTE} view={LoginPage} />
+                    <Route path={ids::KRATOS_ERROR_ROUTE} view={KratosErrorPage} />
+                    <Route path={ids::RECOVERY_ROUTE} view={RecoveryPage} />
+                    <Route path={ids::SETTINGS_ROUTE} view={SettingsPage} />
                 </Routes>
             </main>
         </Router>
@@ -55,29 +55,39 @@ fn HomePage() -> impl IntoView {
     view! {
         <h1>"Welcome to Leptos!"</h1>
         <div>
-            <a href=ids::REGISTER_ROUTE id=ids::REGISTER_BUTTON_ID>Register</a>
+            <a href={ids::REGISTER_ROUTE} id={ids::REGISTER_BUTTON_ID}>
+                Register
+            </a>
         </div>
         <div>
-            <a href=ids::LOGIN_ROUTE id=ids::LOGIN_BUTTON_ID>"Login"</a>
+            <a href={ids::LOGIN_ROUTE} id={ids::LOGIN_BUTTON_ID}>
+                "Login"
+            </a>
         </div>
         <div>
-            <LogoutButton/>
+            <LogoutButton />
         </div>
         <div>
-            <button id=ids::CLEAR_COOKIES_BUTTON_ID
-            on:click=move|_|clear_cookies.dispatch(ClearCookies{})>Clear cookies </button>
+            <button
+                id={ids::CLEAR_COOKIES_BUTTON_ID}
+                on:click={move |_| clear_cookies.dispatch(ClearCookies {})}
+            >
+                Clear cookies
+            </button>
         </div>
         <div>
-            <HasSession/>
+            <HasSession />
         </div>
         <div>
-            <PostPage/>
+            <PostPage />
         </div>
         <div>
-            <a href=ids::RECOVERY_ROUTE id=ids::RECOVER_EMAIL_BUTTON_ID>"Recovery Email"</a>
+            <a href={ids::RECOVERY_ROUTE} id={ids::RECOVER_EMAIL_BUTTON_ID}>
+                "Recovery Email"
+            </a>
         </div>
         <div>
-            <a href=ids::SETTINGS_ROUTE>"Settings"</a>
+            <a href={ids::SETTINGS_ROUTE}>"Settings"</a>
         </div>
     }
 }

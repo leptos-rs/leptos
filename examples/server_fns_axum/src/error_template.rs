@@ -40,18 +40,18 @@ pub fn ErrorTemplate(
         <h1>"Errors"</h1>
         <For
             // a function that returns the items we're iterating over; a signal is fine
-            each=move || { errors.clone().into_iter().enumerate() }
+            each={move || { errors.clone().into_iter().enumerate() }}
             // a unique key for each item as a reference
-            key=|(index, _error)| *index
+            key={|(index, _error)| *index}
             // renders each item to a view
-            children=move |error| {
+            children={move |error| {
                 let error_string = error.1.to_string();
                 let error_code = error.1.status_code();
                 view! {
                     <h2>{error_code.to_string()}</h2>
                     <p>"Error: " {error_string}</p>
                 }
-            }
+            }}
         />
     }
 }

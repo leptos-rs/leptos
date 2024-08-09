@@ -23,17 +23,14 @@ pub fn SimpleQueryCounter() -> impl IntoView {
 
     view! {
         <div>
-            <button on:click=clear>"Clear"</button>
-            <button on:click=decrement>"-1"</button>
+            <button on:click={clear}>"Clear"</button>
+            <button on:click={decrement}>"-1"</button>
             <span>"Value: " {move || count.get().unwrap_or(0)} "!"</span>
-            <button on:click=increment>"+1"</button>
+            <button on:click={increment}>"+1"</button>
 
             <br />
 
-            <input
-                prop:value=move || msg.get().unwrap_or_default()
-                on:input=update_msg
-            />
+            <input prop:value={move || msg.get().unwrap_or_default()} on:input={update_msg} />
         </div>
     }
 }

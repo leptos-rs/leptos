@@ -7,9 +7,9 @@ fn simple_ssr_test() {
     let (value, set_value) = signal(0);
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div>
-            <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+            <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
             <span>"Value: " {move || value.get().to_string()} "!"</span>
-            <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+            <button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
         </div>
     };
 
@@ -29,17 +29,17 @@ fn ssr_test_with_components() {
         let (value, set_value) = signal(initial_value);
         view! {
             <div>
-                <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+                <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
                 <span>"Value: " {move || value.get().to_string()} "!"</span>
-                <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+                <button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
             </div>
         }
     }
 
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div class="counters">
-            <Counter initial_value=1/>
-            <Counter initial_value=2/>
+            <Counter initial_value=1 />
+            <Counter initial_value=2 />
         </div>
     };
 
@@ -60,16 +60,16 @@ fn ssr_test_with_snake_case_components() {
         let (value, set_value) = signal(initial_value);
         view! {
             <div>
-                <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+                <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
                 <span>"Value: " {move || value.get().to_string()} "!"</span>
-                <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+                <button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
             </div>
         }
     }
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div class="counters">
-            <SnakeCaseCounter initial_value=1/>
-            <SnakeCaseCounter initial_value=2/>
+            <SnakeCaseCounter initial_value=1 />
+            <SnakeCaseCounter initial_value=2 />
         </div>
     };
 
@@ -89,9 +89,9 @@ fn test_classes() {
     let rendered: HtmlElement<_, _, _, Dom> = view! {
         <div
             class="my big"
-            class:a=move || { value.get() > 10 }
+            class:a={move || { value.get() > 10 }}
             class:red=true
-            class:car=move || { value.get() > 1 }
+            class:car={move || { value.get() > 1 }}
         ></div>
     };
 
@@ -106,7 +106,7 @@ fn ssr_with_styles() {
     let styles = "myclass";
     let rendered: HtmlElement<_, _, _, Dom> = view! { class=styles,
         <div>
-            <button class="btn" on:click=move |_| set_value.update(|value| *value -= 1)>
+            <button class="btn" on:click={move |_| set_value.update(|value| *value -= 1)}>
                 "-1"
             </button>
         </div>

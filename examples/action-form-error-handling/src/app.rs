@@ -10,8 +10,8 @@ pub fn App() -> impl IntoView {
         // content for this welcome page
         <Router>
             <main id="app">
-                <FlatRoutes fallback=NotFound>
-                    <Route path=StaticSegment("") view=HomePage/>
+                <FlatRoutes fallback={NotFound}>
+                    <Route path={StaticSegment("")} view={HomePage} />
                 </FlatRoutes>
             </main>
         </Router>
@@ -48,12 +48,10 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"Test the action form!"</h1>
-        <ErrorBoundary fallback=move |error| {
-            move || format!("{:#?}", error.get())
-        }>
+        <ErrorBoundary fallback={move |error| { move || format!("{:#?}", error.get()) }}>
             <pre>{value}</pre>
-            <ActionForm action=do_something_action attr:class="form">
-                <label>"Should error: "<input type="checkbox" name="should_error"/></label>
+            <ActionForm action={do_something_action} attr:class="form">
+                <label>"Should error: "<input type="checkbox" name="should_error" /></label>
                 <button type="submit">Submit</button>
             </ActionForm>
         </ErrorBoundary>

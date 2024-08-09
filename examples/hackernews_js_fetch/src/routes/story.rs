@@ -28,10 +28,10 @@ pub fn Story() -> impl IntoView {
             None => Either::Left("Story not found."),
             Some(story) => {
                 Either::Right(view! {
-                    <Meta name="description" content=story.title.clone()/>
+                    <Meta name="description" content={story.title.clone()} />
                     <div class="item-view">
                         <div class="item-view-header">
-                            <a href=story.url target="_blank">
+                            <a href={story.url} target="_blank">
                                 <h1>{story.title}</h1>
                             </a>
                             <span class="host">"("{story.domain}")"</span>
@@ -41,7 +41,7 @@ pub fn Story() -> impl IntoView {
                                     view! {
                                         <p class="meta">
                                             {story.points} " points | by "
-                                            <A href=format!("/users/{user}")>{user.clone()}</A>
+                                            <A href={format!("/users/{user}")}>{user.clone()}</A>
                                             {format!(" {}", story.time_ago)}
                                         </p>
                                     }
@@ -57,11 +57,11 @@ pub fn Story() -> impl IntoView {
                             </p>
                             <ul class="comment-children">
                                 <For
-                                    each=move || story.comments.clone().unwrap_or_default()
-                                    key=|comment| comment.id
+                                    each={move || story.comments.clone().unwrap_or_default()}
+                                    key={|comment| comment.id}
                                     let:comment
                                 >
-                                    <Comment comment/>
+                                    <Comment comment />
                                 </For>
                             </ul>
                         </div>
@@ -79,21 +79,21 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
     view! {
         <li class="comment">
             <div class="by">
-                <A href=format!(
+                <A href={format!(
                     "/users/{}",
                     comment.user.clone().unwrap_or_default(),
-                )>{comment.user.clone()}</A>
+                )}>{comment.user.clone()}</A>
                 {format!(" {}", comment.time_ago)}
             </div>
-            <div class="text" inner_html=comment.content></div>
+            <div class="text" inner_html={comment.content}></div>
             {(!comment.comments.is_empty())
                 .then(|| {
                     view! {
                         <div>
-                            <div class="toggle" class:open=open>
-                                <a on:click=move |_| {
+                            <div class="toggle" class:open={open}>
+                                <a on:click={move |_| {
                                     set_open.update(|n| *n = !*n)
-                                }>
+                                }}>
                                     {
                                         let comments_len = comment.comments.len();
                                         move || {
@@ -118,11 +118,11 @@ pub fn Comment(comment: api::Comment) -> impl IntoView {
                                             view! {
                                                 <ul class="comment-children">
                                                     <For
-                                                        each=move || comments.clone()
-                                                        key=|comment| comment.id
+                                                        each={move || comments.clone()}
+                                                        key={|comment| comment.id}
                                                         let:comment
                                                     >
-                                                        <Comment comment/>
+                                                        <Comment comment />
                                                     </For>
                                                 </ul>
                                             }

@@ -328,7 +328,7 @@ pub fn set_timeout_with_handle(
 ///     });
 ///
 ///     view! {
-///       <button on:click=on_click>"Click me"</button>
+///       <button on:click={on_click}>"Click me"</button>
 ///     }
 /// }
 /// ```

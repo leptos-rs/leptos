@@ -11,20 +11,24 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 				let (value, set_value) = create_signal(initial);
 				view! {
 					<div>
-						<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+						<button on:click={move |_| {
+							set_value.update(|value| *value -= 1)
+						}}>"-1"</button>
 						<span>"Value: " {move || value().to_string()} "!"</span>
-						<button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+						<button on:click={move |_| {
+							set_value.update(|value| *value += 1)
+						}}>"+1"</button>
 					</div>
 				}
 			}
 
-			let rendered = view! { 
+			let rendered = view! {
 				<main>
 					<h1>"Welcome to our benchmark page."</h1>
 					<p>"Here's some introductory text."</p>
-					<Counter initial=1/>
-					<Counter initial=2/>
-					<Counter initial=3/>
+					<Counter initial=1 />
+					<Counter initial=2 />
+					<Counter initial=3 />
 				</main>
 			}.into_view().render_to_string();
 
@@ -51,14 +55,14 @@ fn tachys_ssr_bench(b: &mut Bencher) {
 			let (value, set_value) = create_signal(initial);
 			view! {
 				<div>
-					<button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+					<button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
 					<span>"Value: " {move || value().to_string()} "!"</span>
-					<button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+					<button on:click={move |_| set_value.update(|value| *value += 1)}>"+1"</button>
 				</div>
 			}
 		}
 
-		let rendered = view! { 
+		let rendered = view! {
 			<main>
 				<h1>"Welcome to our benchmark page."</h1>
 				<p>"Here's some introductory text."</p>

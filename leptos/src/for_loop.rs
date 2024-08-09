@@ -30,15 +30,15 @@ use tachys::{reactive_graph::OwnedView, view::keyed::keyed};
 ///     <div>
 ///       <For
 ///         // a function that returns the items we're iterating over; a signal is fine
-///         each=move || counters.get()
+///         each={move || counters.get()}
 ///         // a unique key for each item
-///         key=|counter| counter.id
+///         key={|counter| counter.id}
 ///         // renders each item to a view
-///         children=move |counter: Counter| {
+///         children={move |counter: Counter| {
 ///           view! {
 ///             <button>"Value: " {move || counter.count.get()}</button>
 ///           }
-///         }
+///         }}
 ///       />
 ///     </div>
 ///   }
@@ -170,7 +170,7 @@ mod tests {
             let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
             let list: HtmlElement<_, _, _, Dom> = view! {
                 <ol>
-                    <For each=move || values.get() key=|i| *i let:i>
+                    <For each={move || values.get()} key={|i| *i} let:i>
                         <li>{i}</li>
                     </For>
                 </ol>

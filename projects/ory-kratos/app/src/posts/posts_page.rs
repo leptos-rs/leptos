@@ -11,7 +11,7 @@ pub struct PostData {
 }
 impl IntoView for PostData {
     fn into_view(self) -> View {
-        view! {<Post post=self/>}
+        view! { <Post post={self} /> }
     }
 }
 
@@ -35,8 +35,8 @@ pub async fn get_post_list() -> Result<Vec<PostData>, ServerFnError> {
 #[component]
 pub fn PostPage() -> impl IntoView {
     view! {
-        <PostsList/>
-        <CreatePost/>
+        <PostsList />
+        <CreatePost />
     }
 }
 
@@ -45,25 +45,35 @@ pub fn PostsList() -> impl IntoView {
     let list_posts = Action::<GetPostList, _>::server();
 
     view! {
-        <button on:click=move|_|list_posts.dispatch(GetPostList{}) id=ids::POST_SHOW_LIST_BUTTON_ID>Show List</button>
-        <Suspense fallback=||"Post list loading...".into_view()>
-        <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
-            {
-                move || list_posts.value().get().map(|resp|
-                    match resp {
-                        Ok(list) => view!{
-                            <For
-                            each=move || list.clone()
-                            key=|_| uuid::Uuid::new_v4()
-                            children=move |post: PostData| {
-                              post.into_view()
+        <button
+            on:click={move |_| list_posts.dispatch(GetPostList {})}
+            id={ids::POST_SHOW_LIST_BUTTON_ID}
+        >
+            Show List
+        </button>
+        <Suspense fallback={|| "Post list loading...".into_view()}>
+            <ErrorBoundary fallback={|errors| {
+                view! { <ErrorTemplate errors /> }
+            }}>
+                {move || {
+                    list_posts
+                        .value()
+                        .get()
+                        .map(|resp| match resp {
+                            Ok(list) => {
+                                view! {
+                                    <For
+                                        each={move || list.clone()}
+                                        key={|_| uuid::Uuid::new_v4()}
+                                        children={move |post: PostData| { post.into_view() }}
+                                    />
+                                }
+                                    .into_view()
                             }
-                          />
-                        }.into_view(),
-                        err => err.into_view()
-                    })
-            }
-        </ErrorBoundary>
+                            err => err.into_view(),
+                        })
+                }}
+            </ErrorBoundary>
         </Suspense>
     }
 }

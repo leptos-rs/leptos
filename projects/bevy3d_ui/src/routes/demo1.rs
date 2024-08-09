@@ -27,24 +27,24 @@ pub fn Demo1() -> impl IntoView {
 
     view! {
         <div>
-            <button on:click=move |_| set_value.set(0)>"Clear"</button>
-            <button on:click=move |_| {
+            <button on:click={move |_| set_value.set(0)}>"Clear"</button>
+            <button on:click={move |_| {
                 set_value.update(|value| *value -= step);
                 let newpos = (step as f32) / 10.0;
                 sender_sig
                     .get()
                     .send(ClientInEvents::CounterEvt(CounterEvtData { value: -newpos }))
                     .expect("could not send event");
-            }>"-1"</button>
+            }}>"-1"</button>
             <span>"Value: " {value} "!"</span>
-            <button on:click=move |_| {
+            <button on:click={move |_| {
                 set_value.update(|value| *value += step);
                 let newpos = step as f32 / 10.0;
                 sender_sig
                     .get()
                     .send(ClientInEvents::CounterEvt(CounterEvtData { value: newpos }))
                     .expect("could not send event");
-            }>"+1"</button>
+            }}>"+1"</button>
         </div>
 
         <canvas id="bevy" width="800" height="600"></canvas>

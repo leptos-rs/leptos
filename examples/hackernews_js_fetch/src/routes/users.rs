@@ -20,9 +20,9 @@ pub fn User() -> impl IntoView {
     );
     view! {
         <div class="user-view">
-            <Suspense fallback=|| {
+            <Suspense fallback={|| {
                 view! { "Loading..." }
-            }>
+            }}>
                 {move || Suspend::new(async move {
                     match user.await.clone() {
                         None => Either::Left(view! { <h1>"User not found."</h1> }),
@@ -40,18 +40,18 @@ pub fn User() -> impl IntoView {
                                                 <span class="label">"Karma: "</span>
                                                 {user.karma}
                                             </li>
-                                            <li inner_html=user.about class="about"></li>
+                                            <li inner_html={user.about} class="about"></li>
                                         </ul>
                                         <p class="links">
-                                            <a href=format!(
+                                            <a href={format!(
                                                 "https://news.ycombinator.com/submitted?id={}",
                                                 user.id,
-                                            )>"submissions"</a>
+                                            )}>"submissions"</a>
                                             " | "
-                                            <a href=format!(
+                                            <a href={format!(
                                                 "https://news.ycombinator.com/threads?id={}",
                                                 user.id,
-                                            )>"comments"</a>
+                                            )}>"comments"</a>
                                         </p>
                                     </div>
                                 },

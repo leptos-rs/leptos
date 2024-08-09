@@ -118,45 +118,67 @@ pub fn VerificationPage() -> impl IntoView {
     });
     let body = create_rw_signal(HashMap::new());
     view! {
-        <Suspense fallback=||view!{Loading Verification Details}>
-        <ErrorBoundary fallback=|errors|format!("ERRORS: {:?}",errors.get_untracked()).into_view()>
-        {
-          move ||
-          verification_flow.get().map(|resp|{
-                match resp {
-                    Ok(Some(ViewableVerificationFlow(VerificationFlow{ui:box UiContainer{nodes,messages,action,..},..}))) => {
-                            let form_inner_html = nodes.into_iter().map(|node|kratos_html(node,body)).collect_view();
-                            body.update(|map|{_=map.insert(String::from("action"),action);});
-                            view!{
-                                <form on:submit=move|e|{
-                                    e.prevent_default();
-                                    e.stop_propagation();
-                                    verify.dispatch(Verify{body:body.get_untracked()});
-                                }
-                                id=ids::VERIFICATION_FORM_ID
-                                >
-                                {form_inner_html}
-                                {messages.map(|messages|{
-                                    view!{
-                                        <For
-                                            each=move || messages.clone().into_iter()
-                                            key=|text| text.id
-                                            children=move |text: UiText| {
-                                              view! {
-                                                <p id=text.id>{text.text}</p>
-                                              }
-                                            }
-                                        />
+        <Suspense fallback={|| view! { Loading Verification Details }}>
+            <ErrorBoundary fallback={|errors| {
+                format!("ERRORS: {:?}", errors.get_untracked()).into_view()
+            }}>
+                {move || {
+                    verification_flow
+                        .get()
+                        .map(|resp| {
+                            match resp {
+                                Ok(
+                                    Some(
+                                        ViewableVerificationFlow(
+                                            VerificationFlow {
+                                                ui: box UiContainer { nodes, messages, action, .. },
+                                                ..
+                                            },
+                                        ),
+                                    ),
+                                ) => {
+                                    let form_inner_html = nodes
+                                        .into_iter()
+                                        .map(|node| kratos_html(node, body))
+                                        .collect_view();
+                                    body.update(|map| {
+                                        _ = map.insert(String::from("action"), action);
+                                    });
+                                    view! {
+                                        <form
+                                            on:submit={move |e| {
+                                                e.prevent_default();
+                                                e.stop_propagation();
+                                                verify
+                                                    .dispatch(Verify {
+                                                        body: body.get_untracked(),
+                                                    });
+                                            }}
+                                            id={ids::VERIFICATION_FORM_ID}
+                                        >
+                                            {form_inner_html}
+                                            {messages
+                                                .map(|messages| {
+                                                    view! {
+                                                        <For
+                                                            each={move || messages.clone().into_iter()}
+                                                            key={|text| text.id}
+                                                            children={move |text: UiText| {
+                                                                view! { <p id={text.id}>{text.text}</p> }
+                                                            }}
+                                                        />
+                                                    }
+                                                })
+                                                .unwrap_or_default()}
+                                        </form>
                                     }
-                                }).unwrap_or_default()}
-                                </form>
-                            }.into_view()
-                    },
-                    err => err.into_view(),
-                }
-            })
-          }
-        </ErrorBoundary>
-      </Suspense>
+                                        .into_view()
+                                }
+                                err => err.into_view(),
+                            }
+                        })
+                }}
+            </ErrorBoundary>
+        </Suspense>
     }
 }

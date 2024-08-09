@@ -114,10 +114,10 @@
 //!     view! {
 //!
 //!         <div>
-//!             <button on:click=clear>"Clear"</button>
-//!             <button on:click=decrement>"-1"</button>
+//!             <button on:click={clear}>"Clear"</button>
+//!             <button on:click={decrement}>"-1"</button>
 //!             <span>"Value: " {value} "!"</span>
-//!             <button on:click=increment>"+1"</button>
+//!             <button on:click={increment}>"+1"</button>
 //!         </div>
 //!     }
 //! }
@@ -423,7 +423,7 @@ extern crate self as leptos;
 ///     #[prop(optional, into)] class: Option<AttributeValue>,
 /// ) -> impl IntoView {
 ///     view! {
-///       <h1 class=class>{text}</h1>
+///       <h1 class={class}>{text}</h1>
 ///     }
 /// }
 /// ```

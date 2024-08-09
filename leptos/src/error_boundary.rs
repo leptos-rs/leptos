@@ -36,9 +36,9 @@ use throw_error::{Error, ErrorHook, ErrorId};
 ///     move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 ///
 ///   view! {
-///     <input type="text" on:input=on_input/>
+///     <input type="text" on:input={on_input}/>
 ///     <ErrorBoundary
-///       fallback=move |_| view! { <p class="error">"Enter a valid number."</p>}
+///       fallback={move |_| view! { <p class="error">"Enter a valid number."</p>}}
 ///     >
 ///       <p>"Value is: " {move || value.get()}</p>
 ///     </ErrorBoundary>

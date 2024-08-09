@@ -7,7 +7,7 @@ pub fn main() {
     leptos::mount::mount_to_body(|| {
         view! {
             <Router>
-                <SimpleQueryCounter/>
+                <SimpleQueryCounter />
             </Router>
         }
     })

@@ -28,7 +28,7 @@ use tachys::{html::attribute::AttributeValue, renderer::Renderer};
 ///         // use `leptos_meta` to insert a <meta> tag with the CSP
 ///         <Meta
 ///             http_equiv="Content-Security-Policy"
-///             content=move || {
+///             content={move || {
 ///                 // this will insert the CSP with nonce on the server, be empty on client
 ///                 use_nonce()
 ///                     .map(|nonce| {
@@ -38,10 +38,10 @@ use tachys::{html::attribute::AttributeValue, renderer::Renderer};
 ///                         )
 ///                     })
 ///                     .unwrap_or_default()
-///             }
+///             }}
 ///         />
 ///         // manually insert nonce during SSR on inline script
-///         <script nonce=use_nonce()>"console.log('Hello, world!');"</script>
+///         <script nonce={use_nonce()}>"console.log('Hello, world!');"</script>
 ///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
 ///         <Style>"body { color: blue; }"</Style>
 ///         <p>"Test"</p>
@@ -128,7 +128,7 @@ where
 ///         // use `leptos_meta` to insert a <meta> tag with the CSP
 ///         <Meta
 ///             http_equiv="Content-Security-Policy"
-///             content=move || {
+///             content={move || {
 ///                 // this will insert the CSP with nonce on the server, be empty on client
 ///                 use_nonce()
 ///                     .map(|nonce| {
@@ -138,10 +138,10 @@ where
 ///                         )
 ///                     })
 ///                     .unwrap_or_default()
-///             }
+///             }}
 ///         />
 ///         // manually insert nonce during SSR on inline script
-///         <script nonce=use_nonce()>"console.log('Hello, world!');"</script>
+///         <script nonce={use_nonce()}>"console.log('Hello, world!');"</script>
 ///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
 ///         <Style>"body { color: blue; }"</Style>
 ///         <p>"Test"</p>

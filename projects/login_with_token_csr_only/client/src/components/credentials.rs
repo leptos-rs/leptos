@@ -19,7 +19,7 @@ pub fn CredentialsForm(
     });
 
     view! {
-        <form on:submit=|ev| ev.prevent_default()>
+        <form on:submit={|ev| ev.prevent_default()}>
             <p>{title}</p>
             {move || {
                 error
@@ -32,22 +32,22 @@ pub fn CredentialsForm(
                 type="email"
                 required
                 placeholder="Email address"
-                prop:disabled=move || disabled.get()
-                on:keyup=move |ev: ev::KeyboardEvent| {
+                prop:disabled={move || disabled.get()}
+                on:keyup={move |ev: ev::KeyboardEvent| {
                     let val = event_target_value(&ev);
                     set_email.update(|v| *v = val);
-                }
-                on:change=move |ev| {
+                }}
+                on:change={move |ev| {
                     let val = event_target_value(&ev);
                     set_email.update(|v| *v = val);
-                }
+                }}
             />
             <input
                 type="password"
                 required
                 placeholder="Password"
-                prop:disabled=move || disabled.get()
-                on:keyup=move |ev: ev::KeyboardEvent| {
+                prop:disabled={move || disabled.get()}
+                on:keyup={move |ev: ev::KeyboardEvent| {
                     match &*ev.key() {
                         "Enter" => {
                             dispatch_action();
@@ -57,15 +57,15 @@ pub fn CredentialsForm(
                             set_password.update(|p| *p = val);
                         }
                     }
-                }
-                on:change=move |ev| {
+                }}
+                on:change={move |ev| {
                     let val = event_target_value(&ev);
                     set_password.update(|p| *p = val);
-                }
+                }}
             />
             <button
-                prop:disabled=move || button_is_disabled.get()
-                on:click=move |_| dispatch_action()
+                prop:disabled={move || button_is_disabled.get()}
+                on:click={move |_| dispatch_action()}
             >
                 {action_label}
             </button>

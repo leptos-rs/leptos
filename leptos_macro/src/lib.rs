@@ -96,9 +96,9 @@ mod slot;
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
 /// view! {
-///   <button on:click=|ev| {
+///   <button on:click={|ev| {
 ///     log::debug!("click event: {ev:#?}");
-///   }>
+///   }}>
 ///     "Click me"
 ///   </button>
 /// }
@@ -119,7 +119,7 @@ mod slot;
 ///     name="user_name"
 ///     value={move || name.get()} // this only sets the default value!
 ///     prop:value={move || name.get()} // here's how you update values. Sorry, I didn’t invent the DOM.
-///     on:click=move |ev| set_name.set(event_target_value(&ev)) // `event_target_value` is a useful little Leptos helper
+///     on:click={move |ev| set_name.set(event_target_value(&ev))} // `event_target_value` is a useful little Leptos helper
 ///   />
 /// }
 /// # }
@@ -153,7 +153,7 @@ mod slot;
 /// # }
 /// ```
 ///
-/// However, you can pass arbitrary class names using the syntax `class=("name", value)`.
+/// However, you can pass arbitrary class names using the syntax `class={("name", value)}`.
 /// ```rust
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
@@ -161,7 +161,7 @@ mod slot;
 /// // this allows you to use CSS frameworks that include complex class names
 /// view! {
 ///   <div
-///     class=("is-[this_-_really]-necessary-42", move || count.get() < 3)
+///     class={("is-[this_-_really]-necessary-42", move || count.get() < 3)}
 ///   >
 ///     "Now you see me, now you don’t."
 ///   </div>
@@ -169,7 +169,7 @@ mod slot;
 /// # }
 /// ```
 ///
-/// 8. Individual styles can also be set with `style:` or `style=("property-name", value)` syntax.
+/// 8. Individual styles can also be set with `style:` or `style={("property-name", value)}` syntax.
 /// ```rust
 /// # use leptos::prelude::*;
 ///
@@ -179,9 +179,9 @@ mod slot;
 /// view! {
 ///   <div
 ///     style="position: absolute"
-///     style:left=move || format!("{}px", x.get())
-///     style:top=move || format!("{}px", y.get())
-///     style=("background-color", move || format!("rgb({}, {}, 100)", x.get(), y.get()))
+///     style:left={move || format!("{}px", x.get())}
+///     style:top={move || format!("{}px", y.get())}
+///     style={("background-color", move || format!("rgb({}, {}, 100)", x.get(), y.get()))}
 ///   >
 ///     "Moves when coordinates change"
 ///   </div>
@@ -199,7 +199,7 @@ mod slot;
 ///
 /// let (value, set_value) = signal(0);
 /// let my_input = NodeRef::<Input>::new();
-/// view! { <input type="text" node_ref=my_input/> }
+/// view! { <input type="text" node_ref={my_input}/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
 /// # ;
 /// # };
@@ -229,7 +229,7 @@ mod slot;
 /// # fn test() -> impl IntoView {
 /// let html = "<p>This HTML will be injected.</p>";
 /// view! {
-///   <div inner_html=html/>
+///   <div inner_html={html}/>
 /// }
 /// # }
 /// ```
@@ -249,10 +249,10 @@ mod slot;
 ///
 ///     view! {
 ///         <div>
-///             <button on:click=clear>"Clear"</button>
-///             <button on:click=decrement>"-1"</button>
+///             <button on:click={clear}>"Clear"</button>
+///             <button on:click={decrement}>"-1"</button>
 ///             <span>"Value: " {move || value.get().to_string()} "!"</span>
-///             <button on:click=increment>"+1"</button>
+///             <button on:click={increment}>"+1"</button>
 ///         </div>
 ///     }
 /// }
@@ -303,10 +303,17 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
     let nodes_output = view::render_view(&nodes, global_class.as_ref(), None);
+
+    // The allow lint needs to be put here instead of at the expansion of
+    // view::attribute_value(). Adding this next to the expanded expression
+    // seems to break rust-analyzer, but it works when the allow is put here.
     quote! {
         {
-            #(#errors;)*
-            #nodes_output
+            #[allow(unused_braces)]
+            {
+                #(#errors;)*
+                #nodes_output
+            }
         }
     }
     .into()
@@ -641,7 +648,7 @@ fn component_macro(s: TokenStream, island: bool) -> TokenStream {
 /// fn App() -> impl IntoView {
 ///     view! {
 ///         <ComponentWithSlot>
-///           <SlotWithChildren slot:slot on:click=move |_| {}>
+///           <SlotWithChildren slot:slot on:click={|_| {}}>
 ///             <h1>"Hello, World!"</h1>
 ///           </SlotWithChildren>
 ///         </ComponentWithSlot>
@@ -668,7 +675,7 @@ fn component_macro(s: TokenStream, island: bool) -> TokenStream {
 ///     view! {
 ///         <ComponentWithSlot>
 ///           <SlotWithChildren slot:slot>
-///             <div on:click=move |_| {}>
+///             <div on:click={|_| {}}>
 ///               <h1>"Hello, World!"</h1>
 ///             </div>
 ///           </SlotWithChildren>

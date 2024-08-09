@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
         HttpResponse::Ok().content_type("text/html").streaming(
             futures::stream::once(async move { head.clone() })
             .chain(render_to_stream( 
-                || view! { <App/> }.into_view(),
+                || view! { <App /> }.into_view(),
             ))
             .chain(futures::stream::once(async { tail.to_string() }))
             .inspect(|html| println!("{html}"))

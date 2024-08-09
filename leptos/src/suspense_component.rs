@@ -55,7 +55,7 @@ use throw_error::ErrorHookFuture;
 ///
 /// view! {
 ///   <div>
-///     <Suspense fallback=move || view! { <p>"Loading (Suspense Fallback)..."</p> }>
+///     <Suspense fallback={move || view! { <p>"Loading (Suspense Fallback)..."</p> }}>
 ///       // you can access a resource synchronously
 ///       {move || {
 ///           cats.get().map(|data| {

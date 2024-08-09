@@ -337,7 +337,7 @@ where
                     Unsuspend::new(move || match condition {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
-                        Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
+                        Some(false) => Either::Right(view! { <Redirect path={redirect_path()} /> }),
                         None => Either::Right(()),
                     })
                 }}
@@ -382,7 +382,7 @@ where
                     match condition() {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
-                        Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
+                        Some(false) => Either::Right(view! { <Redirect path={redirect_path()} /> }),
                         None => Either::Right(()),
                     }
                 }}
@@ -523,8 +523,8 @@ pub fn RoutingProgress(
     ));
 
     view! {
-        <Show when=move || is_showing.get() fallback=|| ()>
-            <progress min="0" max="100" value=move || progress.get()></progress>
+        <Show when={move || is_showing.get()} fallback={|| ()}>
+            <progress min="0" max="100" value={move || progress.get()}></progress>
         </Show>
     }
 }

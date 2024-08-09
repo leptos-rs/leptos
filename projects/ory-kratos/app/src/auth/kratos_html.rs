@@ -12,16 +12,18 @@ pub fn kratos_html(node: UiNode, body: RwSignal<HashMap<String, String>>) -> imp
     // each node MAY have messages (i.e password is bad, email is wrong form etc)
     let messages_html = view! {
         <For
-        // a function that returns the items we're iterating over; a signal is fine
-        each=move || node.messages.clone()
-        // a unique key for each item
-        key=|ui_text| ui_text.id
-        // renders each item to a view
-        children=move |UiText { text,_type,.. }: UiText| {
-            // colored red, because we assume _type == error...
-            view!{<p style="color:red;">{text}</p>}
-        }
-      />
+            // a function that returns the items we're iterating over; a signal is fine
+            each={move || node.messages.clone()}
+            // a unique key for each item
+            key={|ui_text| ui_text.id}
+            // renders each item to a view
+            children={move |UiText { text, _type, .. }: UiText| {
+                view! {
+                    // colored red, because we assume _type == error...
+                    <p style="color:red;">{text}</p>
+                }
+            }}
+        />
     };
 
     let node_html = match *node.attributes {
@@ -63,8 +65,8 @@ pub fn kratos_html(node: UiNode, body: RwSignal<HashMap<String, String>>) -> imp
                 view! {
                     // will be something like value="password" name="method"
                     // or value="oidc" name="method"
-                    <input type="hidden" value=value name=name/>
-                    <input type="submit" value=label/>
+                    <input type="hidden" value={value} name={name} />
+                    <input type="submit" value={label} />
                 }
                 .into_view()
             } else if _type != UiNodeAttributesTypeEnum::Hidden {
@@ -72,19 +74,25 @@ pub fn kratos_html(node: UiNode, body: RwSignal<HashMap<String, String>>) -> imp
 
                 view! {
                     <label>
-                       <span>{&label}</span>
-                      <input name=name
-                      id=id
-                      // we use replace here and in autocomplete because serde_json adds double quotes for some reason?
-                      type=_type_str.replace("\"","")
-                      value=move||body.get().get(&name_clone_2).cloned().unwrap_or_default()
-                      autocomplete=autocomplete.replace("\"","")
-                    disabled=disabled
-                    required=required placeholder=label
-                      on:input=move |ev|{
-                        let name = name_clone.clone();
-                        body.update(|map|{_=map.insert(name,event_target_value(&ev));})
-                      }
+                        <span>{&label}</span>
+                        <input
+                            name={name}
+                            id={id}
+                            // we use replace here and in autocomplete because serde_json adds double quotes for some reason?
+                            type={_type_str.replace("\"", "")}
+                            value={move || {
+                                body.get().get(&name_clone_2).cloned().unwrap_or_default()
+                            }}
+                            autocomplete={autocomplete.replace("\"", "")}
+                            disabled={disabled}
+                            required={required}
+                            placeholder={label}
+                            on:input={move |ev| {
+                                let name = name_clone.clone();
+                                body.update(|map| {
+                                    _ = map.insert(name, event_target_value(&ev));
+                                })
+                            }}
                         />
                     </label>
                 }
@@ -94,20 +102,24 @@ pub fn kratos_html(node: UiNode, body: RwSignal<HashMap<String, String>>) -> imp
                     _ = map.insert(name.clone(), value.clone());
                 });
                 // this expects the identifier to be an email, but it could be telephone etc so code is extra fragile
-                view! {<input type="hidden" value=value name=name /> }.into_view()
+                view! { <input type="hidden" value={value} name={name} /> }.into_view()
             }
         }
         UiNodeAttributes::UiNodeAnchorAttributes { href, id, title } => {
             let inner = title.text;
-            view! {<a href=href id=id>{inner}</a>}.into_view()
+            view! {
+                <a href={href} id={id}>
+                    {inner}
+                </a>
+            }.into_view()
         }
         UiNodeAttributes::UiNodeImageAttributes {
             height,
             id,
             src,
             width,
-        } => view! {<img src=src height=height width=width id=id/>}.into_view(),
-        UiNodeAttributes::UiNodeScriptAttributes { .. } => view! {script not supported}.into_view(),
+        } => view! { <img src={src} height={height} width={width} id={id} /> }.into_view(),
+        UiNodeAttributes::UiNodeScriptAttributes { .. } => view! { script not supported }.into_view(),
         UiNodeAttributes::UiNodeTextAttributes {
             id,
             text:
@@ -120,7 +132,7 @@ pub fn kratos_html(node: UiNode, body: RwSignal<HashMap<String, String>>) -> imp
                     // This could be, info, error, success. i.e context for msg responses on bad input etc
                     _type,
                 },
-        } => view! {<p id=id>{text}</p>}.into_view(),
+        } => view! { <p id={id}>{text}</p> }.into_view(),
     };
     view! {
         {node_html}

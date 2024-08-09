@@ -89,7 +89,7 @@ pub fn TodoApp() -> impl IntoView {
             <h1>"My Tasks"</h1>
         </header>
         <main>
-            <Todos/>
+            <Todos />
         </main>
     }
 }
@@ -127,9 +127,9 @@ pub fn Todos() -> impl IntoView {
                                     let id = todo.id;
                                     view! {
                                         <li>
-                                            {todo.title.clone()} <ActionForm action=delete_todo>
-                                                <input type="hidden" name="id" value=id/>
-                                                <input type="submit" value="X"/>
+                                            {todo.title.clone()} <ActionForm action={delete_todo}>
+                                                <input type="hidden" name="id" value={id} />
+                                                <input type="submit" value="X" />
                                             </ActionForm>
                                         </li>
                                     }
@@ -142,12 +142,12 @@ pub fn Todos() -> impl IntoView {
     };
 
     view! {
-        <MultiActionForm action=add_todo>
-            <label>"Add a Todo" <input type="text" name="title"/></label>
-            <input type="submit" value="Add"/>
+        <MultiActionForm action={add_todo}>
+            <label>"Add a Todo" <input type="text" name="title" /></label>
+            <input type="submit" value="Add" />
         </MultiActionForm>
         <div>
-            <Transition fallback=move || view! { <p>"Loading..."</p> }>
+            <Transition fallback={move || view! { <p>"Loading..."</p> }}>
                 // TODO: ErrorBoundary here seems to break Suspense in Actix
                 // <ErrorBoundary fallback=|errors| view! { <p>"Error: " {move || format!("{:?}", errors.get())}</p> }>
                 <ul>

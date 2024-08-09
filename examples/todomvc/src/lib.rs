@@ -224,26 +224,26 @@ pub fn TodoMVC() -> impl IntoView {
                         class="new-todo"
                         placeholder="What needs to be done?"
                         autofocus
-                        on:keydown=add_todo
-                        node_ref=input_ref
+                        on:keydown={add_todo}
+                        node_ref={input_ref}
                     />
                 </header>
-                <section class="main" class:hidden=move || todos.with(|t| t.is_empty())>
+                <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <input
                         id="toggle-all"
                         class="toggle-all"
                         type="checkbox"
-                        prop:checked=move || todos.with(|t| t.remaining() > 0)
-                        on:input=move |_| todos.with(|t| t.toggle_all())
+                        prop:checked={move || todos.with(|t| t.remaining() > 0)}
+                        on:input={move |_| todos.with(|t| t.toggle_all())}
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
-                        <For each=filtered_todos key=|todo| todo.id let:todo>
-                            <Todo todo/>
+                        <For each={filtered_todos} key={|todo| todo.id} let:todo>
+                            <Todo todo />
                         </For>
                     </ul>
                 </section>
-                <footer class="footer" class:hidden=move || todos.with(|t| t.is_empty())>
+                <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <span class="todo-count">
                         <strong>{move || todos.with(|t| t.remaining().to_string())}</strong>
                         {move || {
@@ -257,20 +257,20 @@ pub fn TodoMVC() -> impl IntoView {
                             <a
                                 href="#/"
                                 class="selected"
-                                class:selected=move || mode.get() == Mode::All
+                                class:selected={move || mode.get() == Mode::All}
                             >
                                 "All"
                             </a>
                         </li>
                         <li>
-                            <a href="#/active" class:selected=move || mode.get() == Mode::Active>
+                            <a href="#/active" class:selected={move || mode.get() == Mode::Active}>
                                 "Active"
                             </a>
                         </li>
                         <li>
                             <a
                                 href="#/completed"
-                                class:selected=move || mode.get() == Mode::Completed
+                                class:selected={move || mode.get() == Mode::Completed}
                             >
                                 "Completed"
                             </a>
@@ -278,8 +278,8 @@ pub fn TodoMVC() -> impl IntoView {
                     </ul>
                     <button
                         class="clear-completed hidden"
-                        class:hidden=move || todos.with(|t| t.completed() == 0)
-                        on:click=move |_| set_todos.update(|t| t.clear_completed())
+                        class:hidden={move || todos.with(|t| t.completed() == 0)}
+                        on:click={move |_| set_todos.update(|t| t.clear_completed())}
                     >
                         "Clear completed"
                     </button>
@@ -313,27 +313,27 @@ pub fn Todo(todo: Todo) -> impl IntoView {
     };
 
     view! {
-        <li class="todo" class:editing=editing class:completed=move || todo.completed.get()>
+        <li class="todo" class:editing={editing} class:completed={move || todo.completed.get()}>
             <div class="view">
                 <input
-                    node_ref=todo_input
+                    node_ref={todo_input}
                     class="toggle"
                     type="checkbox"
-                    prop:checked=move || todo.completed.get()
-                    on:input:target=move |ev| {
+                    prop:checked={move || todo.completed.get()}
+                    on:input:target={move |ev| {
                         todo.completed.set(ev.target().checked());
-                    }
+                    }}
                 />
 
-                <label on:dblclick=move |_| {
+                <label on:dblclick={move |_| {
                     set_editing.set(true);
                     if let Some(input) = todo_input.get() {
                         _ = input.focus();
                     }
-                }>{move || todo.title.get()}</label>
+                }}>{move || todo.title.get()}</label>
                 <button
                     class="destroy"
-                    on:click=move |_| set_todos.update(|t| t.remove(todo.id))
+                    on:click={move |_| set_todos.update(|t| t.remove(todo.id))}
                 ></button>
             </div>
             {move || {
@@ -343,17 +343,17 @@ pub fn Todo(todo: Todo) -> impl IntoView {
                         view! {
                             <input
                                 class="edit"
-                                class:hidden=move || !editing.get()
-                                prop:value=move || todo.title.get()
-                                on:focusout:target=move |ev| save(&ev.target().value())
-                                on:keyup:target=move |ev| {
+                                class:hidden={move || !editing.get()}
+                                prop:value={move || todo.title.get()}
+                                on:focusout:target={move |ev| save(&ev.target().value())}
+                                on:keyup:target={move |ev| {
                                     let key_code = ev.key_code();
                                     if key_code == ENTER_KEY {
                                         save(&ev.target().value());
                                     } else if key_code == ESCAPE_KEY {
                                         set_editing.set(false);
                                     }
-                                }
+                                }}
                             />
                         }
                     })

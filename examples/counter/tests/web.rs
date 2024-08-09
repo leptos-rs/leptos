@@ -17,7 +17,7 @@ async fn clear() {
     // note that we start at the initial value of 10
     let _dispose = mount_to(
         test_wrapper.clone().unchecked_into(),
-        || view! { <SimpleCounter initial_value=10 step=1/> },
+        || view! { <SimpleCounter initial_value=10 step=1 /> },
     );
 
     // now we extract the buttons by iterating over the DOM
@@ -85,7 +85,7 @@ async fn inc() {
 
     let _dispose = mount_to(
         test_wrapper.clone().unchecked_into(),
-        || view! { <SimpleCounter initial_value=0 step=1/> },
+        || view! { <SimpleCounter initial_value=0 step=1 /> },
     );
 
     // You can do testing with vanilla DOM operations
