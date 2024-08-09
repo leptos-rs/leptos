@@ -302,7 +302,11 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let parser = rstml::Parser::new(config);
     let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
-    let nodes_output = view::render_view(&nodes, global_class.as_ref(), None);
+    let nodes_output = view::render_view(
+        &nodes,
+        global_class.as_ref(),
+        normalized_call_site(proc_macro::Span::call_site()),
+    );
     quote! {
         {
             #(#errors;)*
@@ -310,6 +314,20 @@ pub fn view(tokens: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
+    cfg_if::cfg_if! {
+        if #[cfg(all(debug_assertions, feature = "nightly"))] {
+            Some(leptos_hot_reload::span_to_stable_id(
+                site.source_file().path(),
+                site.start().line()
+            ))
+        } else {
+            _ = site;
+            None
+        }
+    }
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.

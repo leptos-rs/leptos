@@ -1,4 +1,3 @@
-(function (reload_port, protocol) {
 let host = window.location.hostname;
 let ws = new WebSocket(`${protocol}${host}:${reload_port}/live_reload`);
 ws.onmessage = (ev) => {
@@ -20,4 +19,3 @@ ws.onmessage = (ev) => {
 	}
 };
 ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-})

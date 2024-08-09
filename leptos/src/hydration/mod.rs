@@ -24,8 +24,13 @@ pub fn AutoReload(
             leptos_config::ReloadWSProtocol::WSS => "'wss://'",
         };
 
-        let script = include_str!("reload_script.js");
-        view! { <script nonce=nonce>{format!("{script}({reload_port:?}, {protocol})")}</script> }
+        let script = format!(
+            "(function (reload_port, protocol) {{ {} {} }})({reload_port:?}, \
+             {protocol})",
+            leptos_hot_reload::HOT_RELOAD_JS,
+            include_str!("reload_script.js")
+        );
+        view! { <script nonce=nonce>{script}</script> }
     })
 }
 

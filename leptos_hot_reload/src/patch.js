@@ -1,12 +1,12 @@
-console.log("[HOT RELOADING] Connected to server.");
+console.log("[HOT RELOADING] Connected to server.\n\nNote: `cargo-leptos watch --hot-reload` only works with the `nightly` feature enabled on Leptos.");
 function patch(json) {
   try {
     const views = JSON.parse(json);
     for (const [id, patches] of views) {
       console.log("[HOT RELOAD]", id, patches);
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT),
-        open = `leptos-view|${id}|open`,
-        close = `leptos-view|${id}|close`;
+        open = `hot-reload|${id}|open`,
+        close = `hot-reload|${id}|close`;
       let start, end;
       const instances = [];
       while (walker.nextNode()) {
@@ -259,11 +259,11 @@ function patch(json) {
           node: walker.currentNode,
         });
       } else if (walker.currentNode.nodeType == Node.COMMENT_NODE) {
-        if (walker.currentNode.textContent.trim().startsWith("leptos-view")) {
+        if (walker.currentNode.textContent.trim().startsWith("hot-reload")) {
           if (walker.currentNode.textContent.trim().endsWith("-children|open")) {
             const startingName = walker.currentNode.textContent.trim();
-            const componentName = startingName.replace("-children|open").replace("leptos-view|");
-            const endingName = `leptos-view|${componentName}-children|close`;
+            const componentName = startingName.replace("-children|open").replace("hot-reload|");
+            const endingName = `hot-reload|${componentName}-children|close`;
             let start = walker.currentNode;
             let depth = 1;
 

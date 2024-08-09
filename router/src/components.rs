@@ -334,7 +334,9 @@ where
                     match condition() {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
-                        Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
+                        Some(false) => {
+                            Either::Right(view! { <Redirect path=redirect_path()/> }.into_inner())
+                        }
                         None => Either::Right(()),
                     }
                 }}
@@ -379,7 +381,9 @@ where
                     match condition() {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
-                        Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
+                        Some(false) => {
+                            Either::Right(view! { <Redirect path=redirect_path()/> }.into_inner())
+                        }
                         None => Either::Right(()),
                     }
                 }}
