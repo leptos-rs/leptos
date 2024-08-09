@@ -282,6 +282,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     ///
     /// // calling .with_value() to extract the value
     /// data.with_value(|data| assert_eq!(data.value, "a"));
+    /// ```
     pub fn with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> U {
         self.try_with_value(fun)
             .unwrap_or_else(unwrap_signal!(self))
