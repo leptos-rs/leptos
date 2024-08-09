@@ -165,11 +165,11 @@ mod js {
     }
 ")]
 extern "C" {
-    fn get_node(channel: &RawChannel, id: u32) -> Node;
+    fn get_node(channel: &JSChannel, id: u32) -> Node;
 
-    fn store_node(channel: &RawChannel, id: u32, node: Node);
+    fn store_node(channel: &JSChannel, id: u32, node: Node);
 
-    fn store_jsvalue(channel: &RawChannel, value: JsValue);
+    fn store_jsvalue(channel: &JSChannel, value: JsValue);
 }
 
 #[derive(Debug)]
