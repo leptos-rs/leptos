@@ -11,10 +11,10 @@ leptos = { path = "../../../leptos", features = ["csr"] }
 leptos_meta = { path = "../../../meta", features = ["csr"] }
 leptos_router = { path = "../../../router", features = ["csr"] }
 
-log = "0.4"
-console_error_panic_hook = "0.1"
-console_log = "1"
-gloo-net = "0.6"
-gloo-storage = "0.3"
+log = "0.4.22"
+console_error_panic_hook = "0.1.7"
+console_log = "1.0"
+gloo-net = "0.6.0"
+gloo-storage = "0.3.0"
 serde = "1.0"
 thiserror = "1.0"

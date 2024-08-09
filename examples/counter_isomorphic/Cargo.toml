@@ -11,23 +11,23 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-actix-files = { version = "0.6", optional = true }
-actix-web = { version = "4", optional = true, features = ["macros"] }
-broadcaster = "1"
-console_log = "1"
-console_error_panic_hook = "0.1"
-futures = "0.3"
-lazy_static = "1"
+actix-files = { version = "0.6.6", optional = true }
+actix-web = { version = "4.8", optional = true, features = ["macros"] }
+broadcaster = "1.0"
+console_log = "1.0"
+console_error_panic_hook = "0.1.7"
+futures = "0.3.30"
+lazy_static = "1.5"
 leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router" }
-log = "0.4"
+log = "0.4.22"
 once_cell = "1.19"
-gloo-net = { version = "0.6" }
-wasm-bindgen = "0.2"
-serde = { version = "1", features = ["derive"] }
+gloo-net = { version = "0.6.0" }
+wasm-bindgen = "0.2.92"
+serde = { version = "1.0", features = ["derive"] }
 simple_logger = "5.0"
-tracing = { version = "0.1", optional = true }
+tracing = { version = "0.1.40", optional = true }
 send_wrapper = "0.6.0"
 
 [features]

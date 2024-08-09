@@ -13,12 +13,12 @@ leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
 
 # dependencies for browser (enable when hydrate set)
-console_error_panic_hook = { version = "0.1", optional = true }
-wasm-bindgen = { version = "0.2", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+wasm-bindgen = { version = "0.2.92", optional = true }
 
 # dependencies for server (enable when ssr set)
-actix-files = { version = "0.6", optional = true }
-actix-web = { version = "4", features = ["macros"], optional = true }
+actix-files = { version = "0.6.6", optional = true }
+actix-web = { version = "4.8", features = ["macros"], optional = true }
 
 [features]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:console_error_panic_hook"]

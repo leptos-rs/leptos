@@ -10,4 +10,4 @@ description = "Utilities for working with enumerated types that contain one of 2
 rust-version.workspace = true
 
 [dependencies]
-pin-project-lite = "0.2"
+pin-project-lite = "0.2.14"

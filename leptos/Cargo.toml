@@ -12,28 +12,28 @@ rust-version.workspace = true
 [dependencies]
 throw_error = { workspace = true }
 any_spawner = { workspace = true, features = ["wasm-bindgen"] }
-base64 = { version = "0.22", optional = true }
-cfg-if = "1"
+base64 = { version = "0.22.1", optional = true }
+cfg-if = "1.0"
 hydration_context = { workspace = true }
 either_of = { workspace = true }
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_server = { workspace = true, features = ["tachys"] }
 leptos_config = { workspace = true }
-leptos-spin-macro = { version = "0.2", optional = true }
+leptos-spin-macro = { version = "0.2.0", optional = true }
 oco_ref = { workspace = true }
 or_poisoned = { workspace = true }
-paste = "1"
-rand = { version = "0.8", optional = true }
+paste = "1.0"
+rand = { version = "0.8.5", optional = true }
 reactive_graph = { workspace = true, features = ["serde"] }
-rustc-hash = "2"
+rustc-hash = "2.0"
 tachys = { workspace = true, features = ["reactive_graph", "oco"] }
-thiserror = "1"
-tracing = "0.1"
-typed-builder = "0.19"
-typed-builder-macro = "0.19"
-serde = "1"
-serde_json = { version = "1", optional = true }
+thiserror = "1.0"
+tracing = "0.1.40"
+typed-builder = "0.19.1"
+typed-builder-macro = "0.19.1"
+serde = "1.0"
+serde_json = { version = "1.0", optional = true }
 server_fn = { workspace = true, features = [
   "form-redirects",
   "browser",
@@ -44,14 +44,18 @@ web-sys = { version = "0.3.69", features = [
   "ShadowRootInit",
   "ShadowRootMode",
 ] }
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.92"
 serde_qs = "0.13.0"
-slotmap = "1.0.7"
+slotmap = "1.0"
 futures = "0.3.30"
 send_wrapper = "0.6.0"
 
 [features]
-hydration = ["reactive_graph/hydration", "leptos_server/hydration", "hydration_context/browser"]
+hydration = [
+  "reactive_graph/hydration",
+  "leptos_server/hydration",
+  "hydration_context/browser",
+]
 csr = ["leptos_macro/csr", "reactive_graph/effects"]
 hydrate = [
   "leptos_macro/hydrate",
@@ -76,13 +80,8 @@ tracing = [
 ] #, "leptos_macro/tracing", "leptos_dom/tracing"]
 nonce = ["base64", "rand"]
 spin = ["leptos-spin-macro"]
-experimental-islands = [
-  "leptos_macro/experimental-islands",
-  "dep:serde_json",
-]
-trace-component-props = [
-  "leptos_macro/trace-component-props",
-]
+experimental-islands = ["leptos_macro/experimental-islands", "dep:serde_json"]
+trace-component-props = ["leptos_macro/trace-component-props"]
 delegation = ["tachys/delegation"]
 
 [package.metadata.cargo-all-features]

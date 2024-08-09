@@ -5,18 +5,18 @@ edition = "2021"
 publish = false
 
 [dependencies]
-api-boundary = "=0.0.0"
+boundary-api = "0.0.1-alpha.2"
 
 anyhow = "1.0"
-axum = "0.7"
-axum-extra = { version = "0.9.2", features = ["typed-header"] }
-env_logger = "0.10"
-log = "0.4"
-mailparse = "0.14"
+axum = "0.7.5"
+axum-extra = { version = "0.9.3", features = ["typed-header"] }
+env_logger = "0.11.5"
+log = "0.4.22"
+mailparse = "0.15.0"
 pwhash = "1.0"
 thiserror = "1.0"
-tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }
-tower-http = { version = "0.5", features = ["cors"] }
-uuid = { version = "1.6", features = ["v4"] }
-parking_lot = "0.12.1"
+tokio = { version = "1.39", features = ["macros", "rt-multi-thread"] }
+tower-http = { version = "0.5.2", features = ["cors"] }
+uuid = { version = "1.10", features = ["v4"] }
+parking_lot = "0.12.3"
 headers = "0.4.0"

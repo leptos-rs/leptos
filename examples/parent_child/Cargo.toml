@@ -9,7 +9,7 @@ lto = true
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] }
-console_log = "1"
-log = "0.4"
+console_log = "1.0"
+log = "0.4.22"
 console_error_panic_hook = "0.1.7"
-web-sys = "0.3"
+web-sys = "0.3.69"

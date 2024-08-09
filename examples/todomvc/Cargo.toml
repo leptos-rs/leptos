@@ -10,9 +10,9 @@ lto = true
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] }
 console_error_panic_hook = "0.1.7"
-uuid = { version = "1", features = ["v4", "js", "serde"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+uuid = { version = "1.10", features = ["v4", "js", "serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 web-sys = { version = "0.3.69", features = ["Storage"] }
 
 [dev-dependencies]

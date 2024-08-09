@@ -10,12 +10,12 @@ codegen-units = 1
 panic = "abort"
 
 [dependencies]
-console_log = "1"
+console_log = "1.0"
 leptos = { path = "../../leptos", features = ["csr", "tracing"] }
-leptos_router = { path = "../../router" }              #, features = ["tracing"] }
+leptos_router = { path = "../../router" }                         #, features = ["tracing"] }
 leptos_router_macro = { path = "../../router_macro" }
-serde = { version = "1", features = ["derive"] }
-futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+futures = "0.3.30"
 console_error_panic_hook = "0.1.7"
 tracing-subscriber = "0.3.18"
 tracing-subscriber-wasm = "0.1.0"
