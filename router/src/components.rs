@@ -331,12 +331,15 @@ where
         (view! {
             <Transition>
                 {move || {
-                    match condition() {
+                    let condition = condition();
+                    let view = view.clone();
+                    let redirect_path = redirect_path.clone();
+                    Unsuspend::new(move || match condition {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
                         Some(false) => Either::Right(view! { <Redirect path=redirect_path()/> }),
                         None => Either::Right(()),
-                    }
+                    })
                 }}
 
             </Transition>
