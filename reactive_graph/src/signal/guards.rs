@@ -439,7 +439,7 @@ where
 }
 
 /// A mapped read guard in which the mapping function is a closure. If the mapping function is a
-/// function pointed, use [`Mapped`].
+/// function pointer, use [`Mapped`].
 pub struct MappedArc<Inner, U>
 where
     Inner: Deref,
@@ -518,7 +518,7 @@ where
 }
 
 /// A mapped write guard in which the mapping function is a closure. If the mapping function is a
-/// function pointed, use [`MappedMut`].
+/// function pointer, use [`MappedMut`].
 pub struct MappedMutArc<Inner, U>
 where
     Inner: Deref,
