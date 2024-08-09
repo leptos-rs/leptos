@@ -10,4 +10,4 @@ description = "Utilities for wrapping, throwing, and catching errors."
 rust-version.workspace = true
 
 [dependencies]
-pin-project-lite = "0.2"
+pin-project-lite = "0.2.14"

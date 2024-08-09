@@ -13,57 +13,57 @@ rust-version.workspace = true
 throw_error = { workspace = true }
 server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
-const_format = "0.2"
-xxhash-rust = { version = "0.8", features = ["const_xxh64"] }
+const_format = "0.2.32"
+xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
 # used across multiple features
-serde = { version = "1", features = ["derive"] }
-send_wrapper = { version = "0.6", features = ["futures"], optional = true }
-thiserror = "1"
+serde = { version = "1.0", features = ["derive"] }
+send_wrapper = { version = "0.6.0", features = ["futures"], optional = true }
+thiserror = "1.0"
 
 # registration system
-inventory = { version = "0.3", optional = true }
-dashmap = "5"
-once_cell = "1"
+inventory = { version = "0.3.15", optional = true }
+dashmap = "6.0"
+once_cell = "1.19"
 
 ## servers 
 # actix 
-actix-web = { version = "4", optional = true }
+actix-web = { version = "4.8", optional = true }
 
 # axum
-axum = { version = "0.7", optional = true, default-features = false, features = [
+axum = { version = "0.7.5", optional = true, default-features = false, features = [
   "multipart",
 ] }
-tower = { version = "0.4", optional = true }
-tower-layer = { version = "0.3", optional = true }
+tower = { version = "0.4.13", optional = true }
+tower-layer = { version = "0.3.2", optional = true }
 
 ## input encodings 
-serde_qs = { version = "0.12", optional = true }
-multer = { version = "3", optional = true }
+serde_qs = { version = "0.13.0", optional = true }
+multer = { version = "3.1", optional = true }
 
 ## output encodings 
 # serde 
-serde_json = "1"
-serde-lite = { version = "0.5", features = ["derive"], optional = true }
-futures = "0.3"
-http = { version = "1" }
-ciborium = { version = "0.2", optional = true }
-hyper = { version = "1", optional = true }
-bytes = "1"
-http-body-util = { version = "0.1.0", optional = true }
-rkyv = { version = "0.7", features = [
+serde_json = "1.0"
+serde-lite = { version = "0.5.0", features = ["derive"], optional = true }
+futures = "0.3.30"
+http = { version = "1.1" }
+ciborium = { version = "0.2.2", optional = true }
+hyper = { version = "1.4", optional = true }
+bytes = "1.7"
+http-body-util = { version = "0.1.2", optional = true }
+rkyv = { version = "0.7.44", features = [
   "validation",
   "uuid",
   "strict",
 ], optional = true }
-rmp-serde = { version = "1.1", optional = true }
+rmp-serde = { version = "1.3.0", optional = true }
 
 # client
-gloo-net = { version = "0.6", optional = true }
-js-sys = { version = "0.3", optional = true }
-wasm-bindgen = { version = "0.2", optional = true }
-wasm-bindgen-futures = { version = "0.4", optional = true }
-wasm-streams = { version = "0.4", optional = true }
-web-sys = { version = "0.3", optional = true, features = [
+gloo-net = { version = "0.6.0", optional = true }
+js-sys = { version = "0.3.69", optional = true }
+wasm-bindgen = { version = "0.2.92", optional = true }
+wasm-bindgen-futures = { version = "0.4.42", optional = true }
+wasm-streams = { version = "0.4.0", optional = true }
+web-sys = { version = "0.3.69", optional = true, features = [
   "console",
   "ReadableStream",
   "ReadableStreamDefaultReader",
@@ -72,12 +72,12 @@ web-sys = { version = "0.3", optional = true, features = [
 ] }
 
 # reqwest client 
-reqwest = { version = "0.12", default-features = false, optional = true, features = [
+reqwest = { version = "0.12.5", default-features = false, optional = true, features = [
   "multipart",
   "stream",
 ] }
 url = "2"
-pin-project-lite = "0.2.13"
+pin-project-lite = "0.2.14"
 
 [features]
 default = ["json"]

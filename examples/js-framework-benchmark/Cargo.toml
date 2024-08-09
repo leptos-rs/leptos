@@ -10,11 +10,11 @@ lto = true
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr"] } # for actual benchmarking, add `nightly` and `delegation` features
 # used in rand, but we need to enable js feature
-getrandom = { version = "0.2.7", features = ["js"] }
+getrandom = { version = "0.2.15", features = ["js"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
 console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen = "0.2"
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "0.3.42"
 web-sys = "0.3"

@@ -8,10 +8,10 @@ leptos = { path = "../../leptos", features = ["csr"] }
 throw_error = { path = "../../any_error/" }
 any_spawner = { path = "../../any_spawner/" }
 next_tuple = { path = "../../next_tuple/" }
-gtk = { version = "0.8.0", package = "gtk4", optional = true }
-paste = "1.0.14"
+gtk = { version = "0.9.0", package = "gtk4", optional = true }
+paste = "1.0"
 
-console_error_panic_hook = { version = "0.1", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
 
 [features]
 gtk = ["dep:gtk", "any_spawner/glib"]

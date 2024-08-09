@@ -9,11 +9,11 @@ description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
-quote = "1"
-syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
-proc-macro2 = "1"
-xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
-const_format = "0.2.30"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
+proc-macro2 = "1.0"
+xxhash-rust = { version = "0.8.12", features = ["const_xxh64"] }
+const_format = "0.2.32"
 convert_case = "0.6.0"
 
 [features]

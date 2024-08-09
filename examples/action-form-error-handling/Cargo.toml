@@ -7,16 +7,16 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-actix-files = { version = "0.6", optional = true }
-actix-web = { version = "4", optional = true, features = ["macros"] }
-console_error_panic_hook = "0.1"
-cfg-if = "1"
+actix-files = { version = "0.6.6", optional = true }
+actix-web = { version = "4.8", optional = true, features = ["macros"] }
+console_error_panic_hook = "0.1.7"
+cfg-if = "1.0"
 leptos = { path = "../../leptos" }
 leptos_meta = { path = "../../meta" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router" }
-wasm-bindgen = "0.2"
-serde = { version = "1", features = ["derive"] }
+wasm-bindgen = "0.2.92"
+serde = { version = "1.0", features = ["derive"] }
 
 [features]
 hydrate = ["leptos/hydrate"]

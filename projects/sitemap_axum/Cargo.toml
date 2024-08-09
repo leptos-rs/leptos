@@ -10,46 +10,46 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum = { version = "0.7", optional = true }
-console_error_panic_hook = "0.1"
-leptos = { version = "0.6", features = ["nightly"] }
-leptos_axum = { version = "0.6", optional = true }
-leptos_meta = { version = "0.6", features = ["nightly"] }
-leptos_router = { version = "0.6", features = ["nightly"] }
-tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+axum = { version = "0.7.5", optional = true }
+console_error_panic_hook = "0.1.7"
+leptos = { version = "0.6.13", features = ["nightly"] }
+leptos_axum = { version = "0.6.13", optional = true }
+leptos_meta = { version = "0.6.13", features = ["nightly"] }
+leptos_router = { version = "0.6.13", features = ["nightly"] }
+tokio = { version = "1.39", features = ["rt-multi-thread"], optional = true }
 tower = { version = "0.4", optional = true }
-tower-http = { version = "0.5", features = ["fs"], optional = true }
-wasm-bindgen = "=0.2.92"
-thiserror = "1"
-tracing = { version = "0.1", optional = true }
-http = "1"
+tower-http = { version = "0.5.2", features = ["fs"], optional = true }
+wasm-bindgen = "0.2.92"
+thiserror = "1.0"
+tracing = { version = "0.1.40", optional = true }
+http = "1.1"
 
 # Example specific crates
-sqlx = { version = "0.7", features = [
-    "postgres",
-    "runtime-tokio",
-    "tls-rustls",
-    "time",
+sqlx = { version = "0.8.0", features = [
+  "postgres",
+  "runtime-tokio",
+  "tls-rustls",
+  "time",
 ], optional = true }
-xml = { version = "0.8", optional = true }
-time = { version = "0.3", features = ["macros", "serde", "formatting"] }
-dotenvy = "0.15"
-anyhow = "1"
+xml = { version = "0.8.20", optional = true }
+time = { version = "0.3.36", features = ["macros", "serde", "formatting"] }
+dotenvy = "0.15.7"
+anyhow = "1.0"
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-    "dep:axum",
-    "dep:tokio",
-    "dep:tower",
-    "dep:tower-http",
-    "dep:leptos_axum",
-    "leptos/ssr",
-    "leptos_meta/ssr",
-    "leptos_router/ssr",
-    "dep:tracing",
-    "dep:sqlx",
-    "dep:xml",
+  "dep:axum",
+  "dep:tokio",
+  "dep:tower",
+  "dep:tower-http",
+  "dep:leptos_axum",
+  "leptos/ssr",
+  "leptos_meta/ssr",
+  "leptos_router/ssr",
+  "dep:tracing",
+  "dep:sqlx",
+  "dep:xml",
 ]
 
 # Defines a size-optimized profile for the WASM bundle in release mode

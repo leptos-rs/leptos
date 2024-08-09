@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dev-dependencies]
-anyhow = "1.0.72"
-async-trait = "0.1.72"
-cucumber = "0.19.1"
-fantoccini = "0.19.3"
-pretty_assertions = "1.4.0"
-serde_json = "1.0.104"
-tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread", "time"] }
-url = "2.4.0"
+anyhow = "1.0"
+async-trait = "0.1.81"
+cucumber = "0.21.1"
+fantoccini = "0.21.1"
+pretty_assertions = "1.4"
+serde_json = "1.0"
+tokio = { version = "1.39", features = ["macros", "rt-multi-thread", "time"] }
+url = "2.5"
 
 [[test]]
 name = "app_suite"
