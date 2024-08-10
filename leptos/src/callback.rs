@@ -31,15 +31,15 @@
 //! *Notes*:
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
 //! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`. On nightly, you can even do `my_callback(input)`
+//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.run(input)`.
 //! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
 //! - [`Callback`]
-//! - [`SyncCallback`]
+//! - [`UnsyncCallback`]
 //!
-//! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
+//! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
 use reactive_graph::owner::StoredValue;
 use std::{fmt, rc::Rc, sync::Arc};
@@ -83,64 +83,14 @@ impl<In: 'static, Out: 'static> Callable<In, Out> for UnsyncCallback<In, Out> {
     }
 }
 
-macro_rules! impl_from_fn {
-    ($ty:ident) => {
-        #[cfg(not(feature = "nightly"))]
-        impl<F, In, T, Out> From<F> for $ty<In, Out>
-        where
-            F: Fn(In) -> T + Send + Sync + 'static,
-            T: Into<Out> + 'static,
-            In: Send + Sync + 'static,
-        {
-            fn from(f: F) -> Self {
-                Self::new(move |x| f(x).into())
-            }
-        }
-
-        paste::paste! {
-            #[cfg(feature = "nightly")]
-            auto trait [<NotRaw $ty>] {}
-
-            #[cfg(feature = "nightly")]
-            impl<A, B> ![<NotRaw $ty>] for $ty<A, B> {}
-
-            #[cfg(feature = "nightly")]
-            impl<F, In, T, Out> From<F> for $ty<In, Out>
-            where
-                F: Fn(In) -> T + Send + Sync + [<NotRaw $ty>] + 'static,
-                T: Into<Out> + 'static,
-                In: Send + Sync + 'static
-            {
-                fn from(f: F) -> Self {
-                    Self::new(move |x| f(x).into())
-                }
-            }
-        }
-    };
-}
-
-impl_from_fn!(UnsyncCallback);
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnOnce<(In,)> for UnsyncCallback<In, Out> {
-    type Output = Out;
-
-    extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
-        Callable::call(&self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnMut<(In,)> for UnsyncCallback<In, Out> {
-    extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
-        Callable::call(&*self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
-    extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
-        Callable::call(self, args.0)
+impl<F, In, T, Out> From<F> for UnsyncCallback<In, Out>
+where
+    F: Fn(In) -> T + 'static,
+    T: Into<Out> + 'static,
+    In: 'static,
+{
+    fn from(f: F) -> Self {
+        Self::new(move |x| f(x).into())
     }
 }
 
@@ -196,6 +146,17 @@ impl<In, Out> Clone for Callback<In, Out> {
 
 impl<In, Out> Copy for Callback<In, Out> {}
 
+impl<F, In, T, Out> From<F> for Callback<In, Out>
+where
+    F: Fn(In) -> T + Send + Sync + 'static,
+    T: Into<Out> + 'static,
+    In: Send + Sync + 'static,
+{
+    fn from(f: F) -> Self {
+        Self::new(move |x| f(x).into())
+    }
+}
+
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
     pub fn new<F>(fun: F) -> Self
@@ -203,43 +164,6 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
         F: Fn(In) -> Out + Send + Sync + 'static,
     {
         Self(StoredValue::new(Arc::new(fun)))
-    }
-}
-
-impl_from_fn!(Callback);
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnOnce<(In,)> for Callback<In, Out>
-where
-    In: Send + Sync + 'static,
-    Out: 'static,
-{
-    type Output = Out;
-
-    extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
-        Callable::call(&self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnMut<(In,)> for Callback<In, Out>
-where
-    In: Send + Sync + 'static,
-    Out: 'static,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
-        Callable::call(&*self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> Fn<(In,)> for Callback<In, Out>
-where
-    In: Send + Sync + 'static,
-    Out: 'static,
-{
-    extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
-        Callable::call(self, args.0)
     }
 }
 
