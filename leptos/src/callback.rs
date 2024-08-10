@@ -41,7 +41,7 @@
 //!
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
-use reactive_graph::owner::StoredValue;
+use reactive_graph::owner::{LocalStorage, StoredValue};
 use std::{fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
@@ -52,7 +52,7 @@ pub trait Callable<In: 'static, Out: 'static = ()> {
 
 /// A callback type that is not required to be `Send + Sync`.
 pub struct UnsyncCallback<In: 'static, Out: 'static = ()>(
-    Rc<dyn Fn(In) -> Out>,
+    StoredValue<Rc<dyn Fn(In) -> Out>, LocalStorage>,
 );
 
 impl<In> fmt::Debug for UnsyncCallback<In> {
@@ -61,9 +61,11 @@ impl<In> fmt::Debug for UnsyncCallback<In> {
     }
 }
 
+impl<In, Out> Copy for UnsyncCallback<In, Out> {}
+
 impl<In, Out> Clone for UnsyncCallback<In, Out> {
     fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
+        *self
     }
 }
 
@@ -73,13 +75,13 @@ impl<In, Out> UnsyncCallback<In, Out> {
     where
         F: Fn(In) -> Out + 'static,
     {
-        Self(Rc::new(f))
+        Self(StoredValue::new_local(Rc::new(f)))
     }
 }
 
 impl<In: 'static, Out: 'static> Callable<In, Out> for UnsyncCallback<In, Out> {
     fn call(&self, input: In) -> Out {
-        (self.0)(input)
+        self.0.with_value(|fun| fun(input))
     }
 }
 
