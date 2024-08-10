@@ -180,19 +180,31 @@ impl ExtendResponse for AxumResponse {
 
 /// Provides an easy way to redirect the user from within a server function.
 ///
-/// This sets a LOCATION header with the provided value, and a StatusCode of 302 is set if and only if the
-/// request's `Accept:` header contains `text/html`, as that is used to determine whether the server function
-/// is being called as a web API call from CSR or through a SSR request from a typical browser.  If called via
-/// CSR, setting the StatusCode to 302 will cause the browser to ignore that response as it will follow the
-/// redirect for the web service.
+/// Calling `redirect` in a server function will redirect the browser in three
+/// situations:
+/// 1. A server function that is calling in a [blocking
+///    resource](leptos::server::Resource::new_blocking).
+/// 2. A server function that is called from WASM running in the client (e.g., a dispatched action
+///    or a spawned `Future`).
+/// 3. A `<form>` submitted to the server function endpoint using default browser APIs (often due
+///    to using [`ActionForm`](leptos::form::ActionForm) without JS/WASM present.)
 ///
-/// Note that server functions using this should be encapsulated inside a [Resource::new_blocking], as it
-/// would ensure the redirect headers are set before they are read and sent to the client.  Failing to do so
-/// may result in the headers not being sent at all and thus the redirect call will have no effect.
+/// Using it with a non-blocking [`Resource`](leptos::server::Resource) will not work if you are using streaming rendering,
+/// as the response's headers will already have been sent by the time the server function calls `redirect()`.
 ///
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
-// FIXME what about issue of accessing the end point via a plain HTTP client such as `curl`? It won't trigger
-// the HTTP 302 path as it typically won't have the expected `Accept:` header.
+/// ### Implementation
+///
+/// This sets the `Location` header to the URL given.
+///
+/// If the route or server function in which this is called is being accessed
+/// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
+/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
+/// header contains `text/html` as it does for an ordinary navigation.)
+///
+/// Otherwise, it sets a custom header that indicates to the client that it should redirect,
+/// without actually setting the status code. This means that the client will not follow the
+/// redirect, and can therefore return the value of the server function and then handle
+/// the redirect with client-side routing.
 pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())

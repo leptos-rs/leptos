@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use leptos::prelude::*;
+use leptos::{prelude::*, spawn::spawn_local};
 use leptos_meta::MetaTags;
 use leptos_meta::*;
 use leptos_router::{
@@ -20,7 +20,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone() />
+                <AutoReload options=options.clone()/>
                 <HydrationScripts options/>
                 <MetaTags/>
             </head>
@@ -42,6 +42,23 @@ pub async fn is_admin() -> Result<bool, ServerFnError> {
 #[server]
 pub async fn set_is_admin(is_admin: bool) -> Result<(), ServerFnError> {
     IS_ADMIN.store(is_admin, Ordering::Relaxed);
+    leptos_axum::redirect("/toggle");
+    Ok(())
+}
+
+#[server]
+pub async fn redirect1() -> Result<(), ServerFnError> {
+    leptos_axum::redirect("/1");
+    Ok(())
+}
+#[server]
+pub async fn redirect2() -> Result<(), ServerFnError> {
+    leptos_axum::redirect("/2");
+    Ok(())
+}
+#[server]
+pub async fn redirect3() -> Result<(), ServerFnError> {
+    leptos_axum::redirect("/3");
     Ok(())
 }
 
@@ -53,6 +70,7 @@ pub fn App() -> impl IntoView {
     let toggle_admin = ServerAction::<SetIsAdmin>::new();
     let is_admin =
         Resource::new(move || toggle_admin.version().get(), |_| is_admin());
+    let redirect1 = Resource::new_blocking(|| (), |_| redirect1());
 
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
@@ -62,17 +80,29 @@ pub fn App() -> impl IntoView {
             <nav>
                 <a href="/">"Home"</a>
                 <a href="/admin">"Admin"</a>
+                <button on:click=move |_| spawn_local(async {
+                    _ = redirect2().await;
+                })>"Redirect 2"</button>
                 <Transition>
                     <ActionForm action=toggle_admin>
-                        <input type="hidden" name="is_admin"
-                            value=move || (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default()).to_string()
+                        <input
+                            type="hidden"
+                            name="is_admin"
+                            value=move || {
+                                (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default())
+                                    .to_string()
+                            }
                         />
+
                         <button>
-                            {move || if is_admin.get().and_then(Result::ok).unwrap_or_default() {
-                                "Log Out"
-                            } else {
-                                "Log In"
+                            {move || {
+                                if is_admin.get().and_then(Result::ok).unwrap_or_default() {
+                                    "Log Out"
+                                } else {
+                                    "Log In"
+                                }
                             }}
+
                         </button>
                     </ActionForm>
                 </Transition>
@@ -139,9 +169,15 @@ fn HomePage() -> impl IntoView {
                     <li>
                         <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
                         "|"
-                        <a href=format!("/post_in_order/{}", post.id)>{post.title.clone()} "(in order)"</a>
+                        <a href=format!(
+                            "/post_in_order/{}",
+                            post.id,
+                        )>{post.title.clone()} "(in order)"</a>
                         "|"
-                        <a href=format!("/post_partially_blocked/{}", post.id)>{post.title} "(partially blocked)"</a>
+                        <a href=format!(
+                            "/post_partially_blocked/{}",
+                            post.id,
+                        )>{post.title} "(partially blocked)"</a>
                     </li>
                 </For>
             </ul>
@@ -204,12 +240,11 @@ fn Post() -> impl IntoView {
             Ok(comments) => Ok(view! {
                 <h1>"Comments"</h1>
                 <ul>
-                    {comments.into_iter()
-                        .map(|comment| view! {
-                            <li>{comment}</li>
-                        })
-                        .collect_view()
-                    }
+                    {comments
+                        .into_iter()
+                        .map(|comment| view! { <li>{comment}</li> })
+                        .collect_view()}
+
                 </ul>
             }),
             _ => Err(PostError::ServerError),
@@ -237,17 +272,13 @@ fn Post() -> impl IntoView {
                 }
             }>{post_view}</ErrorBoundary>
         </Suspense>
-        <Suspense fallback=move || view! { <p>"Loading comments..."</p> }>
-            {comments_view}
-        </Suspense>
+        <Suspense fallback=move || view! { <p>"Loading comments..."</p> }>{comments_view}</Suspense>
     }
 }
 
 #[component]
 pub fn Admin() -> impl IntoView {
-    view! {
-        <p>"You can only see this page if you're logged in."</p>
-    }
+    view! { <p>"You can only see this page if you're logged in."</p> }
 }
 
 // Dummy API
