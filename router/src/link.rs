@@ -158,7 +158,7 @@ fn is_active_for(
     // with the loc fragment on an emtpy href fragment for non root related parts.
     std::iter::zip(location.split('/'), href_f.by_ref())
         .enumerate()
-        .all(|(c, (loc_p, href_p))| loc_p == href_p || href_p == "" && c > 1)
+        .all(|(c, (loc_p, href_p))| loc_p == href_p || href_p.is_empty() && c > 1)
         && match href_f.next() {
             // when no href fragments remain, location is definitely somewhere nested inside href
             None => true,
