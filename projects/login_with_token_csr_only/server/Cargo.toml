@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-boundary-api = "0.0.1-alpha.2"
+api-boundary = { workspace = true }
 
 anyhow = "1.0"
 axum = "0.7.5"

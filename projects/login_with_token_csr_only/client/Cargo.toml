@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-api-boundary = "*"
+api-boundary = { workspace = true }
 
 leptos = { path = "../../../leptos", features = ["csr"] }
 leptos_meta = { path = "../../../meta", features = ["csr"] }
