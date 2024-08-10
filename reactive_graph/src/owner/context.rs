@@ -128,6 +128,118 @@ impl Owner {
 /// });
 /// # });
 /// ```
+///
+/// ## Warning: Shadowing Context Correctly
+///
+/// The reactive graph exists alongside the component tree. Generally
+/// speaking, context provided by a parent component can be accessed by its children
+/// and other descendants, and not vice versa. But components do not exist at
+/// runtime: a parent and children that are all rendered unconditionally exist in the same
+/// reactive scope.
+///
+/// This can have unexpected effects on context: namely, children can sometimes override
+/// contexts provided by their parents, including for their siblings, if they “shadow” context
+/// by providing another context of the same kind.
+/// ```rust
+/// use leptos::prelude::*;
+///
+/// #[component]
+/// fn Parent() -> impl IntoView {
+///     provide_context("parent_context");
+///     view! {
+///         <Child /> // this is receiving "parent_context" as expected
+///         <Child /> // but this is receiving "child_context" instead of "parent_context"!
+///     }
+/// }
+///
+/// #[component]
+/// fn Child() -> impl IntoView {
+///     // first, we receive context from parent (just before the override)
+///     let context = expect_context::<&'static str>();
+///     // then we provide context under the same type
+///     provide_context("child_context");
+///     view! {
+///         <div>{format!("child (context: {context})")}</div>
+///     }
+/// }
+/// ```
+/// In this case, neither of the children is rendered dynamically, so there is no wrapping
+/// effect created around either. All three components here have the same reactive owner, so
+/// providing a new context of the same type in the first `<Child/>` overrides the context
+/// that was provided in `<Parent/>`, meaning that the second `<Child/>` receives the context
+/// from its sibling instead.
+///
+/// ### Solution
+///
+/// If you are using the full Leptos framework, you can use the [`Provider`](leptos::context::Provider)
+/// component to solve this issue.
+///
+/// ```rust
+/// # use leptos::prelude::*;
+/// # use leptos::context::Provider;
+/// #[component]
+/// fn Child() -> impl IntoView {
+///     let context = expect_context::<&'static str>();
+///     // creates a new reactive node, which means the context will
+///     // only be provided to its children, not modified in the parent
+///     view! {
+///         <Provider value="child_context">
+///             <div>{format!("child (context: {context})")}</div>
+///         </Provider>
+///     }
+/// }
+/// ```
+///
+/// ### Alternate Solution
+///
+/// This can also be solved by introducing some additional reactivity. In this case, it’s simplest
+/// to simply make the body of `<Child/>` a function, which means it will be wrapped in a
+/// new reactive node when rendered:
+/// ```rust
+/// # use leptos::prelude::*;
+/// #[component]
+/// fn Child() -> impl IntoView {
+///     let context = expect_context::<&'static str>();
+///     // creates a new reactive node, which means the context will
+///     // only be provided to its children, not modified in the parent
+///     move || {
+///         provide_context("child_context");
+///         view! {
+///             <div>{format!("child (context: {context})")}</div>
+///         }
+///     }
+/// }
+/// ```
+///
+/// This is equivalent to the difference between two different forms of variable shadowing
+/// in ordinary Rust:
+/// ```rust
+/// // shadowing in a flat hierarchy overrides value for siblings
+/// // <Parent/>: declares variable
+/// let context = "parent_context";
+/// // First <Child/>: consumes variable, then shadows
+/// println!("{context:?}");
+/// let context = "child_context";
+/// // Second <Child/>: consumes variable, then shadows
+/// println!("{context:?}");
+/// let context = "child_context";
+///
+/// // but shadowing in nested scopes works as expected
+/// // <Parent/>
+/// let context = "parent_context";
+///
+/// // First <Child/>
+/// {
+///     println!("{context:?}");
+///     let context = "child_context";
+/// }
+///
+/// // Second <Child/>
+/// {
+///     println!("{context:?}");
+///     let context = "child_context";
+/// }
+/// ```
 pub fn provide_context<T: Send + Sync + 'static>(value: T) {
     if let Some(owner) = Owner::current() {
         owner.provide_context(value);
