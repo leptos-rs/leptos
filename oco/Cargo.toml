@@ -9,8 +9,8 @@ description = "A smart pointer for storing immutable values with relatively-chea
 rust-version.workspace = true
 
 [dependencies]
-serde = "1"
-thiserror = "1"
+serde = "1.0"
+thiserror = "1.0"
 
 [dev-dependencies]
-serde_json = "1"
+serde_json = "1.0"

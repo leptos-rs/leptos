@@ -6,7 +6,9 @@ members = ["client", "api-boundary", "server"]
 codegen-units = 1
 lto = true
 
-[patch.crates-io]
-leptos = { path = "../../leptos" } 
-leptos_router = { path = "../../router" }
+[workspace.dependencies]
 api-boundary = { path = "api-boundary" }
+
+[patch.crates-io]
+leptos = { path = "../../leptos" }
+leptos_router = { path = "../../router" }

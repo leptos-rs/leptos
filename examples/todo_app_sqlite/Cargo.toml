@@ -7,36 +7,36 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-actix-files = { version = "0.6.2", optional = true }
-actix-web = { version = "4.2.1", optional = true, features = ["macros"] }
-anyhow = "1.0.68"
-broadcaster = "1.0.0"
-console_log = "1.0.0"
+actix-files = { version = "0.6.6", optional = true }
+actix-web = { version = "4.8", optional = true, features = ["macros"] }
+anyhow = "1.0"
+broadcaster = "1.0"
+console_log = "1.0"
 console_error_panic_hook = "0.1.7"
-serde = { version = "1.0.152", features = ["derive"] }
-futures = "0.3.25"
-leptos = { path = "../../leptos"}
+serde = { version = "1.0", features = ["derive"] }
+futures = "0.3.30"
+leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-log = "0.4.17"
-simple_logger = "4.0.0"
+log = "0.4.22"
+simple_logger = "5.0"
 gloo = { git = "https://github.com/rustwasm/gloo" }
-sqlx = { version = "0.6.2", features = [
-	"runtime-tokio-rustls",
-	"sqlite",
+sqlx = { version = "0.8.0", features = [
+  "runtime-tokio-rustls",
+  "sqlite",
 ], optional = true }
-wasm-bindgen = "0.2"
-tokio = { version = "1", features = ["rt", "time"], optional = true }
+wasm-bindgen = "0.2.92"
+tokio = { version = "1.39", features = ["rt", "time"], optional = true }
 server_fn = { path = "../../server_fn", features = ["cbor"] }
 
 [features]
 hydrate = ["leptos/hydrate"]
 ssr = [
-	"dep:actix-files",
-	"dep:actix-web",
-	"dep:sqlx",
-	"leptos/ssr",
-	"leptos_actix",
-	"dep:tokio",
+  "dep:actix-files",
+  "dep:actix-web",
+  "dep:sqlx",
+  "leptos/ssr",
+  "leptos_actix",
+  "dep:tokio",
 ]
 
 [package.metadata.cargo-all-features]

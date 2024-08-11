@@ -5,10 +5,9 @@ edition = "2021"
 
 [dependencies]
 leptos = { path = "../../leptos", features = ["csr", "nightly"] }
-console_log = "1"
-log = "0.4"
+console_log = "1.0"
+log = "0.4.0"
 console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
-
