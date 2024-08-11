@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use leptos::{prelude::*, spawn::spawn_local};
+use leptos::prelude::*;
 use leptos_meta::MetaTags;
 use leptos_meta::*;
 use leptos_router::{
