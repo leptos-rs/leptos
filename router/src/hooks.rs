@@ -156,7 +156,7 @@ pub fn use_location() -> Location {
 }
 
 #[track_caller]
-fn use_params_raw() -> ArcRwSignal<ParamsMap> {
+fn use_params_raw() -> ArcMemo<ParamsMap> {
     use_context().expect(
         "Tried to access params outside the context of a matched <Route>.",
     )
@@ -165,9 +165,7 @@ fn use_params_raw() -> ArcRwSignal<ParamsMap> {
 /// Returns a raw key-value map of route params.
 #[track_caller]
 pub fn use_params_map() -> Memo<ParamsMap> {
-    // TODO this can be optimized in future to map over the signal, rather than cloning
-    let params = use_params_raw();
-    Memo::new(move |_| params.get())
+    use_params_raw().into()
 }
 
 /// Returns the current route params, parsed into the given type, or an error.

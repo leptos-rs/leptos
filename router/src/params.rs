@@ -2,8 +2,10 @@ use crate::location::{unescape, Url};
 use std::{borrow::Cow, mem, str::FromStr, sync::Arc};
 use thiserror::Error;
 
+type ParamsMapInner = Vec<(Cow<'static, str>, String)>;
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-pub struct ParamsMap(Vec<(Cow<'static, str>, String)>);
+pub struct ParamsMap(ParamsMapInner);
 
 impl ParamsMap {
     /// Creates an empty map.
@@ -85,6 +87,27 @@ where
                 .map(|(k, v)| (k.into(), v.into()))
                 .collect(),
         )
+    }
+}
+
+impl IntoIterator for ParamsMap {
+    type Item = (Cow<'static, str>, String);
+    type IntoIter = ParamsMapIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ParamsMapIter(self.0.into_iter())
+    }
+}
+
+/// An iterator over the keys and values of a [`ParamsMap`].
+#[derive(Debug)]
+pub struct ParamsMapIter(<ParamsMapInner as IntoIterator>::IntoIter);
+
+impl Iterator for ParamsMapIter {
+    type Item = (Cow<'static, str>, String);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
     }
 }
 
