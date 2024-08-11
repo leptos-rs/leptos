@@ -1,6 +1,9 @@
 use crate::{
-    html::attribute::{Attr, *},
-    view::add_attr::AddAnyAttr,
+    html::{
+        attribute::{Attr, *},
+        element::{CreateElement, ElementType, HtmlElement},
+    },
+    view::{add_attr::AddAnyAttr, RenderHtml},
 };
 
 /// Applies ARIA attributes to an HTML element.
@@ -405,9 +408,12 @@ where
     }
 }
 
-impl<T, Rndr, V> AriaAttributes<Rndr, V> for T
+impl<El, At, Ch, Rndr, V> AriaAttributes<Rndr, V>
+    for HtmlElement<El, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    El: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     V: AttributeValue<Rndr>,
     Rndr: Renderer,
 {
