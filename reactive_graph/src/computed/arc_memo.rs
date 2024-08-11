@@ -7,7 +7,7 @@ use crate::{
     owner::{Storage, StorageAccess, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
-        ArcReadSignal,
+        ArcReadSignal, ArcRwSignal,
     },
     traits::{DefinedAt, Get, ReadUntracked},
 };
@@ -344,6 +344,16 @@ where
 {
     #[track_caller]
     fn from(value: ArcReadSignal<T>) -> Self {
+        ArcMemo::new(move |_| value.get())
+    }
+}
+
+impl<T> From<ArcRwSignal<T>> for ArcMemo<T, SyncStorage>
+where
+    T: Clone + PartialEq + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcRwSignal<T>) -> Self {
         ArcMemo::new(move |_| value.get())
     }
 }
