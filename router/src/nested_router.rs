@@ -646,6 +646,7 @@ where
     ) {
         let parent_matches = outlets
             .iter()
+            .take(*items)
             .map(|route| route.matched.clone())
             .collect::<Vec<_>>();
         let current = outlets.get_mut(*items);
