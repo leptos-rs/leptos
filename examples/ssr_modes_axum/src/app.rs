@@ -42,23 +42,6 @@ pub async fn is_admin() -> Result<bool, ServerFnError> {
 #[server]
 pub async fn set_is_admin(is_admin: bool) -> Result<(), ServerFnError> {
     IS_ADMIN.store(is_admin, Ordering::Relaxed);
-    leptos_axum::redirect("/toggle");
-    Ok(())
-}
-
-#[server]
-pub async fn redirect1() -> Result<(), ServerFnError> {
-    leptos_axum::redirect("/1");
-    Ok(())
-}
-#[server]
-pub async fn redirect2() -> Result<(), ServerFnError> {
-    leptos_axum::redirect("/2");
-    Ok(())
-}
-#[server]
-pub async fn redirect3() -> Result<(), ServerFnError> {
-    leptos_axum::redirect("/3");
     Ok(())
 }
 
@@ -70,7 +53,6 @@ pub fn App() -> impl IntoView {
     let toggle_admin = ServerAction::<SetIsAdmin>::new();
     let is_admin =
         Resource::new(move || toggle_admin.version().get(), |_| is_admin());
-    let redirect1 = Resource::new_blocking(|| (), |_| redirect1());
 
     view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
@@ -80,9 +62,6 @@ pub fn App() -> impl IntoView {
             <nav>
                 <a href="/">"Home"</a>
                 <a href="/admin">"Admin"</a>
-                <button on:click=move |_| spawn_local(async {
-                    _ = redirect2().await;
-                })>"Redirect 2"</button>
                 <Transition>
                     <ActionForm action=toggle_admin>
                         <input
