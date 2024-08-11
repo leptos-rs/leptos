@@ -522,7 +522,7 @@ pub(crate) fn attribute_absolute(
                             let param = if let Some(value) = node.value() {
                                 quote!(#value)
                             } else {
-                                quote_spanned!(node.key.span()=> ())
+                                quote_spanned!(node.key.span()=> ().into())
                             };
                             Some(
                                 quote! {
@@ -1073,7 +1073,7 @@ pub(crate) fn directive_call_from_attribute_node(
     let param = if let Some(value) = attr.value() {
         quote!(#value)
     } else {
-        quote_spanned!(attr.key.span()=> ())
+        quote_spanned!(attr.key.span()=> ().into())
     };
 
     quote! { .directive(#handler, #[allow(clippy::useless_conversion)] #param) }

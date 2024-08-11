@@ -88,7 +88,7 @@ pub fn App() -> impl IntoView {
         </a>
         // automatically applies the directive to every root element in `SomeComponent`
         <SomeComponent use:highlight/>
-        // no value will default to `()`
+        // no value will default to `().into()`
         <button use:add_dot>"Add a dot"</button>
         // can manually call `.into()` to convert to the correct type
         // (automatically calling `.into()` prevents using generics in directive functions)
