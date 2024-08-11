@@ -178,9 +178,33 @@ impl ExtendResponse for AxumResponse {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
-/// it sets a StatusCode of 302 and a LOCATION header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+/// Provides an easy way to redirect the user from within a server function.
+///
+/// Calling `redirect` in a server function will redirect the browser in three
+/// situations:
+/// 1. A server function that is calling in a [blocking
+///    resource](leptos::server::Resource::new_blocking).
+/// 2. A server function that is called from WASM running in the client (e.g., a dispatched action
+///    or a spawned `Future`).
+/// 3. A `<form>` submitted to the server function endpoint using default browser APIs (often due
+///    to using [`ActionForm`](leptos::form::ActionForm) without JS/WASM present.)
+///
+/// Using it with a non-blocking [`Resource`](leptos::server::Resource) will not work if you are using streaming rendering,
+/// as the response's headers will already have been sent by the time the server function calls `redirect()`.
+///
+/// ### Implementation
+///
+/// This sets the `Location` header to the URL given.
+///
+/// If the route or server function in which this is called is being accessed
+/// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
+/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
+/// header contains `text/html` as it does for an ordinary navigation.)
+///
+/// Otherwise, it sets a custom header that indicates to the client that it should redirect,
+/// without actually setting the status code. This means that the client will not follow the
+/// redirect, and can therefore return the value of the server function and then handle
+/// the redirect with client-side routing.
 pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Parts>(), use_context::<ResponseOptions>())

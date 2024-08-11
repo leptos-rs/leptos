@@ -20,7 +20,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone() />
+                <AutoReload options=options.clone()/>
                 <HydrationScripts options/>
                 <MetaTags/>
             </head>
@@ -64,15 +64,24 @@ pub fn App() -> impl IntoView {
                 <a href="/admin">"Admin"</a>
                 <Transition>
                     <ActionForm action=toggle_admin>
-                        <input type="hidden" name="is_admin"
-                            value=move || (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default()).to_string()
+                        <input
+                            type="hidden"
+                            name="is_admin"
+                            value=move || {
+                                (!is_admin.get().and_then(|n| n.ok()).unwrap_or_default())
+                                    .to_string()
+                            }
                         />
+
                         <button>
-                            {move || if is_admin.get().and_then(Result::ok).unwrap_or_default() {
-                                "Log Out"
-                            } else {
-                                "Log In"
+                            {move || {
+                                if is_admin.get().and_then(Result::ok).unwrap_or_default() {
+                                    "Log Out"
+                                } else {
+                                    "Log In"
+                                }
                             }}
+
                         </button>
                     </ActionForm>
                 </Transition>
@@ -139,9 +148,15 @@ fn HomePage() -> impl IntoView {
                     <li>
                         <a href=format!("/post/{}", post.id)>{post.title.clone()}</a>
                         "|"
-                        <a href=format!("/post_in_order/{}", post.id)>{post.title.clone()} "(in order)"</a>
+                        <a href=format!(
+                            "/post_in_order/{}",
+                            post.id,
+                        )>{post.title.clone()} "(in order)"</a>
                         "|"
-                        <a href=format!("/post_partially_blocked/{}", post.id)>{post.title} "(partially blocked)"</a>
+                        <a href=format!(
+                            "/post_partially_blocked/{}",
+                            post.id,
+                        )>{post.title} "(partially blocked)"</a>
                     </li>
                 </For>
             </ul>
@@ -204,12 +219,11 @@ fn Post() -> impl IntoView {
             Ok(comments) => Ok(view! {
                 <h1>"Comments"</h1>
                 <ul>
-                    {comments.into_iter()
-                        .map(|comment| view! {
-                            <li>{comment}</li>
-                        })
-                        .collect_view()
-                    }
+                    {comments
+                        .into_iter()
+                        .map(|comment| view! { <li>{comment}</li> })
+                        .collect_view()}
+
                 </ul>
             }),
             _ => Err(PostError::ServerError),
@@ -237,17 +251,13 @@ fn Post() -> impl IntoView {
                 }
             }>{post_view}</ErrorBoundary>
         </Suspense>
-        <Suspense fallback=move || view! { <p>"Loading comments..."</p> }>
-            {comments_view}
-        </Suspense>
+        <Suspense fallback=move || view! { <p>"Loading comments..."</p> }>{comments_view}</Suspense>
     }
 }
 
 #[component]
 pub fn Admin() -> impl IntoView {
-    view! {
-        <p>"You can only see this page if you're logged in."</p>
-    }
+    view! { <p>"You can only see this page if you're logged in."</p> }
 }
 
 // Dummy API

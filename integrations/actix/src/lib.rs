@@ -182,6 +182,20 @@ impl ExtendResponse for ActixResponse {
 
 /// Provides an easy way to redirect the user from within a server function.
 ///
+/// Calling `redirect` in a server function will redirect the browser in three
+/// situations:
+/// 1. A server function that is calling in a [blocking
+///    resource](leptos::server::Resource::new_blocking).
+/// 2. A server function that is called from WASM running in the client (e.g., a dispatched action
+///    or a spawned `Future`).
+/// 3. A `<form>` submitted to the server function endpoint using default browser APIs (often due
+///    to using [`ActionForm`](leptos::form::ActionForm) without JS/WASM present.)
+///
+/// Using it with a non-blocking [`Resource`](leptos::server::Resource) will not work if you are using streaming rendering,
+/// as the response's headers will already have been sent by the time the server function calls `redirect()`.
+///
+/// ### Implementation
+///
 /// This sets the `Location` header to the URL given.
 ///
 /// If the route or server function in which this is called is being accessed
