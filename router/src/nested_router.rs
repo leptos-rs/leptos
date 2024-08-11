@@ -569,15 +569,27 @@ where
         // the matched signal will also be updated on every match
         // it's used for relative route resolution
         let matched = ArcRwSignal::new(self.as_matched().to_string());
+        let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
+            .iter()
+            .map(|route| (route.params.clone(), route.matched.clone()))
+            .unzip();
+        let params_including_parents = {
+            let params = params.clone();
+            ArcMemo::new({
+                move |_| {
+                    parent_params
+                        .iter()
+                        .flat_map(|params| params.get().into_iter())
+                        .chain(params.get())
+                        .collect::<ParamsMap>()
+                }
+            })
+        };
         let matched_including_parents = {
-            let parents = outlets
-                .iter()
-                .map(|route| route.matched.clone())
-                .collect::<Vec<_>>();
             let matched = matched.clone();
             ArcMemo::new({
                 move |_| {
-                    parents
+                    parent_matches
                         .iter()
                         .map(|matched| matched.get())
                         .chain(iter::once(matched.get()))
@@ -616,12 +628,11 @@ where
         loaders.push(Box::pin(owner.with(|| {
             ScopedFuture::new({
                 let owner = outlet.owner.clone();
-                let params = outlet.params.clone();
                 let url = outlet.url.clone();
                 let matched = Matched(matched_including_parents);
                 let view_fn = Arc::clone(&outlet.view_fn);
                 async move {
-                    provide_context(params);
+                    provide_context(params_including_parents);
                     provide_context(url);
                     provide_context(matched);
                     view.preload().await;
@@ -667,11 +678,11 @@ where
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
-        let parent_matches = outlets
+        let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
             .take(*items)
-            .map(|route| route.matched.clone())
-            .collect::<Vec<_>>();
+            .map(|route| (route.params.clone(), route.matched.clone()))
+            .unzip();
         let current = outlets.get_mut(*items);
         match current {
             // if there's nothing currently in the routes at this point, build from here
@@ -727,6 +738,18 @@ where
                             }
                         })
                     };
+                    let params_including_parents = {
+                        let params = current.params.clone();
+                        ArcMemo::new({
+                            move |_| {
+                                parent_params
+                                    .iter()
+                                    .flat_map(|params| params.get().into_iter())
+                                    .chain(params.get())
+                                    .collect::<ParamsMap>()
+                            }
+                        })
+                    };
 
                     // assign a new owner, so that contexts and signals owned by the previous route
                     // in this outlet can be dropped
@@ -742,11 +765,10 @@ where
                             let owner = owner.clone();
                             let trigger = current.trigger.clone();
                             let url = current.url.clone();
-                            let params = current.params.clone();
                             let matched = Matched(matched_including_parents);
                             let view_fn = Arc::clone(&current.view_fn);
                             async move {
-                                provide_context(params);
+                                provide_context(params_including_parents);
                                 provide_context(url);
                                 provide_context(matched);
                                 view.preload().await;

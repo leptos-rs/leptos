@@ -9,7 +9,7 @@ use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
 use futures::FutureExt;
 use reactive_graph::{
-    computed::ScopedFuture,
+    computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, Owner},
     signal::ArcRwSignal,
     traits::{ReadUntracked, Set},
@@ -202,6 +202,7 @@ where
                 .map(|n| n.to_params().into_iter().collect())
                 .unwrap_or_default(),
         );
+        let params_memo = ArcMemo::from(params.clone());
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
@@ -224,10 +225,9 @@ where
 
                 let mut view = Box::pin(owner.with(|| {
                     ScopedFuture::new({
-                        let params = params.clone();
                         let url = url.clone();
                         async move {
-                            provide_context(params);
+                            provide_context(params_memo);
                             provide_context(url);
                             view.choose().await
                         }
@@ -322,6 +322,7 @@ where
         let owner = outer_owner.child();
         let url = ArcRwSignal::new(url_snapshot.to_owned());
         let params = ArcRwSignal::new(matched_params);
+        let params_memo = ArcMemo::from(params.clone());
         let old_owner = mem::replace(&mut initial_state.owner, owner.clone());
         let old_url = mem::replace(&mut initial_state.url, url.clone());
         let old_params =
@@ -336,7 +337,7 @@ where
             None => {
                 owner.with(|| {
                     provide_context(url);
-                    provide_context(params);
+                    provide_context(params_memo);
                     EitherOf3::B(fallback())
                         .rebuild(&mut state.borrow_mut().view)
                 });
@@ -358,7 +359,7 @@ where
                         let state = Rc::clone(state);
                         async move {
                             provide_context(url);
-                            provide_context(params);
+                            provide_context(params_memo);
                             let view =
                                 if let Some(set_is_routing) = set_is_routing {
                                     set_is_routing.set(true);
@@ -439,6 +440,7 @@ where
                 .map(|n| n.to_params().into_iter().collect::<ParamsMap>())
                 .unwrap_or_default(),
         );
+        let params_memo = ArcMemo::from(params.clone());
         let view = match new_match {
             None => Either::Left((self.fallback)()),
             Some(matched) => {
@@ -447,7 +449,7 @@ where
                     .with(|| {
                         ScopedFuture::new(async move {
                             provide_context(url);
-                            provide_context(params);
+                            provide_context(params_memo);
                             view.choose().await
                         })
                     })
@@ -594,6 +596,7 @@ where
                 .map(|n| n.to_params().into_iter().collect())
                 .unwrap_or_default(),
         );
+        let params_memo = ArcMemo::from(params.clone());
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
@@ -617,10 +620,9 @@ where
 
                 let mut view = Box::pin(owner.with(|| {
                     ScopedFuture::new({
-                        let params = params.clone();
                         let url = url.clone();
                         async move {
-                            provide_context(params);
+                            provide_context(params_memo);
                             provide_context(url);
                             view.choose().await
                         }
