@@ -3,11 +3,12 @@ use crate::{
     html::{
         attribute::*,
         class::{class, Class, IntoClass},
-        element::HasElementType,
+        element::{CreateElement, ElementType, HasElementType, HtmlElement},
         event::{on, on_target, EventDescriptor, On, Targeted},
         property::{prop, IntoProperty, Property},
         style::{style, IntoStyle, Style},
     },
+    prelude::RenderHtml,
     renderer::DomRenderer,
     view::add_attr::AddAnyAttr,
 };
@@ -26,9 +27,12 @@ where
     fn class(self, value: C) -> Self::Output;
 }
 
-impl<T, C, Rndr> ClassAttribute<C, Rndr> for T
+impl<E, At, Ch, C, Rndr> ClassAttribute<C, Rndr>
+    for HtmlElement<E, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    E: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     C: IntoClass<Rndr>,
     Rndr: DomRenderer,
 {
@@ -52,9 +56,12 @@ where
     fn prop(self, key: K, value: P) -> Self::Output;
 }
 
-impl<T, K, P, Rndr> PropAttribute<K, P, Rndr> for T
+impl<E, At, Ch, K, P, Rndr> PropAttribute<K, P, Rndr>
+    for HtmlElement<E, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    E: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     K: AsRef<str> + Send,
     P: IntoProperty<Rndr>,
     Rndr: DomRenderer,
@@ -79,9 +86,12 @@ where
     fn style(self, value: S) -> Self::Output;
 }
 
-impl<T, S, Rndr> StyleAttribute<S, Rndr> for T
+impl<E, At, Ch, S, Rndr> StyleAttribute<S, Rndr>
+    for HtmlElement<E, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    E: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     S: IntoStyle<Rndr>,
     Rndr: DomRenderer,
 {
@@ -101,9 +111,12 @@ pub trait OnAttribute<E, F, Rndr> {
     fn on(self, event: E, cb: F) -> Self::Output;
 }
 
-impl<T, E, F, Rndr> OnAttribute<E, F, Rndr> for T
+impl<El, At, Ch, E, F, Rndr> OnAttribute<E, F, Rndr>
+    for HtmlElement<El, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    El: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
@@ -126,9 +139,12 @@ pub trait OnTargetAttribute<E, F, T, Rndr> {
     fn on_target(self, event: E, cb: F) -> Self::Output;
 }
 
-impl<T, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr> for T
+impl<El, At, Ch, E, F, Rndr> OnTargetAttribute<E, F, Self, Rndr>
+    for HtmlElement<El, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr> + HasElementType,
+    El: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<Rndr::Event>,
@@ -142,7 +158,9 @@ where
     >;
 
     fn on_target(self, event: E, cb: F) -> Self::Output {
-        self.add_any_attr(on_target::<E, T, Rndr, F>(event, cb))
+        self.add_any_attr(
+            on_target::<E, HtmlElement<El, At, Ch, Rndr>, Rndr, F>(event, cb),
+        )
     }
 }
 
@@ -380,9 +398,12 @@ where
     }
 }
 
-impl<T, Rndr, V> GlobalAttributes<Rndr, V> for T
+impl<El, At, Ch, Rndr, V> GlobalAttributes<Rndr, V>
+    for HtmlElement<El, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    El: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     V: AttributeValue<Rndr>,
     Rndr: Renderer,
 {
@@ -554,9 +575,12 @@ where
     }
 }
 
-impl<T, Rndr, V> GlobalOnAttributes<Rndr, V> for T
+impl<El, At, Ch, Rndr, V> GlobalOnAttributes<Rndr, V>
+    for HtmlElement<El, At, Ch, Rndr>
 where
-    T: AddAnyAttr<Rndr>,
+    El: ElementType + CreateElement<Rndr> + Send,
+    At: Attribute<Rndr> + Send,
+    Ch: RenderHtml<Rndr> + Send,
     V: AttributeValue<Rndr>,
     Rndr: Renderer,
 {
