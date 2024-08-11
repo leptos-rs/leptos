@@ -12,10 +12,10 @@ use futures::{future::join_all, FutureExt};
 use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::ScopedFuture,
+    computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{GetUntracked, ReadUntracked, Set, Track, Trigger},
+    traits::{Get, GetUntracked, ReadUntracked, Set, Track, Trigger},
     wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
@@ -569,6 +569,22 @@ where
         // the matched signal will also be updated on every match
         // it's used for relative route resolution
         let matched = ArcRwSignal::new(self.as_matched().to_string());
+        let matched_including_parents = {
+            let parents = outlets
+                .iter()
+                .map(|route| route.matched.clone())
+                .collect::<Vec<_>>();
+            let matched = matched.clone();
+            ArcMemo::new({
+                move |_| {
+                    parents
+                        .iter()
+                        .map(|matched| matched.get())
+                        .chain(iter::once(matched.get()))
+                        .collect::<String>()
+                }
+            })
+        };
 
         // the trigger and channel will be used to send new boxed AnyViews to the Outlet;
         // whenever we match a different route, the trigger will be triggered and a new view will
@@ -602,7 +618,7 @@ where
                 let owner = outlet.owner.clone();
                 let params = outlet.params.clone();
                 let url = outlet.url.clone();
-                let matched = Matched(outlet.matched.clone());
+                let matched = Matched(matched_including_parents);
                 let view_fn = Arc::clone(&outlet.view_fn);
                 async move {
                     provide_context(params);
@@ -651,6 +667,11 @@ where
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
+        let parent_matches = outlets
+            .iter()
+            .take(*items)
+            .map(|route| route.matched.clone())
+            .collect::<Vec<_>>();
         let current = outlets.get_mut(*items);
         match current {
             // if there's nothing currently in the routes at this point, build from here
@@ -694,6 +715,18 @@ where
                         &mut current.matched,
                         ArcRwSignal::new(new_match),
                     );
+                    let matched_including_parents = {
+                        ArcMemo::new({
+                            let matched = current.matched.clone();
+                            move |_| {
+                                parent_matches
+                                    .iter()
+                                    .map(|matched| matched.get())
+                                    .chain(iter::once(matched.get()))
+                                    .collect::<String>()
+                            }
+                        })
+                    };
 
                     // assign a new owner, so that contexts and signals owned by the previous route
                     // in this outlet can be dropped
@@ -710,7 +743,7 @@ where
                             let trigger = current.trigger.clone();
                             let url = current.url.clone();
                             let params = current.params.clone();
-                            let matched = Matched(current.matched.clone());
+                            let matched = Matched(matched_including_parents);
                             let view_fn = Arc::clone(&current.view_fn);
                             async move {
                                 provide_context(params);
