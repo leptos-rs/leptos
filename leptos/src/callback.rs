@@ -42,7 +42,7 @@
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
 use reactive_graph::owner::{LocalStorage, StoredValue};
-use std::{cell::RefCell, fmt, rc::Rc, sync::Arc};
+use std::{fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
 pub trait Callable<In: 'static, Out: 'static = ()> {
