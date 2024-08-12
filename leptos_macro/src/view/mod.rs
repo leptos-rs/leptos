@@ -520,7 +520,7 @@ pub(crate) fn attribute_absolute(
                         } else if id == "use" {
                             let key = &parts[1];
                             let param = if let Some(value) = node.value() {
-                                quote!(::std::convert::Into::into(#value))
+                                quote!(#value)
                             } else {
                                 quote_spanned!(node.key.span()=> ().into())
                             };
@@ -1071,7 +1071,7 @@ pub(crate) fn directive_call_from_attribute_node(
     let handler = syn::Ident::new(directive_name, attr.key.span());
 
     let param = if let Some(value) = attr.value() {
-        quote!(::std::convert::Into::into(#value))
+        quote!(#value)
     } else {
         quote_spanned!(attr.key.span()=> ().into())
     };
