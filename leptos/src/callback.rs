@@ -14,9 +14,9 @@
 //! ) -> impl IntoView {
 //!     view! {
 //!         <div>
-//!             {render_number.call(1)}
+//!             {render_number.run(1)}
 //!             // callbacks can be called multiple times
-//!             {render_number.call(42)}
+//!             {render_number.run(42)}
 //!         </div>
 //!     }
 //! }
@@ -42,12 +42,12 @@
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
 use reactive_graph::owner::{LocalStorage, StoredValue};
-use std::{fmt, rc::Rc, sync::Arc};
+use std::{cell::RefCell, fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
 pub trait Callable<In: 'static, Out: 'static = ()> {
     /// calls the callback with the specified argument.
-    fn call(&self, input: In) -> Out;
+    fn run(&self, input: In) -> Out;
 }
 
 /// A callback type that is not required to be `Send + Sync`.
@@ -80,7 +80,7 @@ impl<In, Out> UnsyncCallback<In, Out> {
 }
 
 impl<In: 'static, Out: 'static> Callable<In, Out> for UnsyncCallback<In, Out> {
-    fn call(&self, input: In) -> Out {
+    fn run(&self, input: In) -> Out {
         self.0.with_value(|fun| fun(input))
     }
 }
@@ -108,7 +108,7 @@ where
 /// ) -> impl IntoView {
 ///     view! {
 ///         <div>
-///             {render_number.call(42)}
+///             {render_number.run(42)}
 ///         </div>
 ///     }
 /// }
@@ -133,7 +133,7 @@ impl<In, Out> fmt::Debug for Callback<In, Out> {
 }
 
 impl<In, Out> Callable<In, Out> for Callback<In, Out> {
-    fn call(&self, input: In) -> Out {
+    fn run(&self, input: In) -> Out {
         self.0
             .try_with_value(|f| f(input))
             .expect("called a callback that has been disposed")
@@ -189,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    fn callback_from() {
+    fn runback_from() {
         let _callback: Callback<(), String> = (|()| "test").into();
     }
 
