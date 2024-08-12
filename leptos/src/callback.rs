@@ -14,9 +14,9 @@
 //! ) -> impl IntoView {
 //!     view! {
 //!         <div>
-//!             {render_number.call(1)}
+//!             {render_number.run(1)}
 //!             // callbacks can be called multiple times
-//!             {render_number.call(42)}
+//!             {render_number.run(42)}
 //!         </div>
 //!     }
 //! }
@@ -31,28 +31,28 @@
 //! *Notes*:
 //! - The `render_number` prop can receive any type that implements `Fn(i32) -> String`.
 //! - Callbacks are most useful when you want optional generic props.
-//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.call(input)`. On nightly, you can even do `my_callback(input)`
+//! - All callbacks implement the [`Callable`] trait, and can be invoked with `my_callback.run(input)`.
 //! - The callback types implement [`Copy`], so they can easily be moved into and out of other closures, just like signals.
 //!
 //! # Types
 //! This modules implements 2 callback types:
 //! - [`Callback`]
-//! - [`SyncCallback`]
+//! - [`UnsyncCallback`]
 //!
-//! Use `SyncCallback` when you want the function to be `Sync` and `Send`.
+//! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
-use reactive_graph::owner::StoredValue;
+use reactive_graph::owner::{LocalStorage, StoredValue};
 use std::{fmt, rc::Rc, sync::Arc};
 
 /// A wrapper trait for calling callbacks.
 pub trait Callable<In: 'static, Out: 'static = ()> {
     /// calls the callback with the specified argument.
-    fn call(&self, input: In) -> Out;
+    fn run(&self, input: In) -> Out;
 }
 
 /// A callback type that is not required to be `Send + Sync`.
 pub struct UnsyncCallback<In: 'static, Out: 'static = ()>(
-    Rc<dyn Fn(In) -> Out>,
+    StoredValue<Rc<dyn Fn(In) -> Out>, LocalStorage>,
 );
 
 impl<In> fmt::Debug for UnsyncCallback<In> {
@@ -61,9 +61,11 @@ impl<In> fmt::Debug for UnsyncCallback<In> {
     }
 }
 
+impl<In, Out> Copy for UnsyncCallback<In, Out> {}
+
 impl<In, Out> Clone for UnsyncCallback<In, Out> {
     fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
+        *self
     }
 }
 
@@ -73,74 +75,24 @@ impl<In, Out> UnsyncCallback<In, Out> {
     where
         F: Fn(In) -> Out + 'static,
     {
-        Self(Rc::new(f))
+        Self(StoredValue::new_local(Rc::new(f)))
     }
 }
 
 impl<In: 'static, Out: 'static> Callable<In, Out> for UnsyncCallback<In, Out> {
-    fn call(&self, input: In) -> Out {
-        (self.0)(input)
+    fn run(&self, input: In) -> Out {
+        self.0.with_value(|fun| fun(input))
     }
 }
 
-macro_rules! impl_from_fn {
-    ($ty:ident) => {
-        #[cfg(not(feature = "nightly"))]
-        impl<F, In, T, Out> From<F> for $ty<In, Out>
-        where
-            F: Fn(In) -> T + Send + Sync + 'static,
-            T: Into<Out> + 'static,
-            In: Send + Sync + 'static,
-        {
-            fn from(f: F) -> Self {
-                Self::new(move |x| f(x).into())
-            }
-        }
-
-        paste::paste! {
-            #[cfg(feature = "nightly")]
-            auto trait [<NotRaw $ty>] {}
-
-            #[cfg(feature = "nightly")]
-            impl<A, B> ![<NotRaw $ty>] for $ty<A, B> {}
-
-            #[cfg(feature = "nightly")]
-            impl<F, In, T, Out> From<F> for $ty<In, Out>
-            where
-                F: Fn(In) -> T + Send + Sync + [<NotRaw $ty>] + 'static,
-                T: Into<Out> + 'static,
-                In: Send + Sync + 'static
-            {
-                fn from(f: F) -> Self {
-                    Self::new(move |x| f(x).into())
-                }
-            }
-        }
-    };
-}
-
-impl_from_fn!(UnsyncCallback);
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnOnce<(In,)> for UnsyncCallback<In, Out> {
-    type Output = Out;
-
-    extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
-        Callable::call(&self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnMut<(In,)> for UnsyncCallback<In, Out> {
-    extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
-        Callable::call(&*self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
-    extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
-        Callable::call(self, args.0)
+impl<F, In, T, Out> From<F> for UnsyncCallback<In, Out>
+where
+    F: Fn(In) -> T + 'static,
+    T: Into<Out> + 'static,
+    In: 'static,
+{
+    fn from(f: F) -> Self {
+        Self::new(move |x| f(x).into())
     }
 }
 
@@ -156,7 +108,7 @@ impl<In, Out> Fn<(In,)> for UnsyncCallback<In, Out> {
 /// ) -> impl IntoView {
 ///     view! {
 ///         <div>
-///             {render_number.call(42)}
+///             {render_number.run(42)}
 ///         </div>
 ///     }
 /// }
@@ -181,7 +133,7 @@ impl<In, Out> fmt::Debug for Callback<In, Out> {
 }
 
 impl<In, Out> Callable<In, Out> for Callback<In, Out> {
-    fn call(&self, input: In) -> Out {
+    fn run(&self, input: In) -> Out {
         self.0
             .try_with_value(|f| f(input))
             .expect("called a callback that has been disposed")
@@ -196,6 +148,17 @@ impl<In, Out> Clone for Callback<In, Out> {
 
 impl<In, Out> Copy for Callback<In, Out> {}
 
+impl<F, In, T, Out> From<F> for Callback<In, Out>
+where
+    F: Fn(In) -> T + Send + Sync + 'static,
+    T: Into<Out> + 'static,
+    In: Send + Sync + 'static,
+{
+    fn from(f: F) -> Self {
+        Self::new(move |x| f(x).into())
+    }
+}
+
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
     pub fn new<F>(fun: F) -> Self
@@ -203,43 +166,6 @@ impl<In: 'static, Out: 'static> Callback<In, Out> {
         F: Fn(In) -> Out + Send + Sync + 'static,
     {
         Self(StoredValue::new(Arc::new(fun)))
-    }
-}
-
-impl_from_fn!(Callback);
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnOnce<(In,)> for Callback<In, Out>
-where
-    In: Send + Sync + 'static,
-    Out: 'static,
-{
-    type Output = Out;
-
-    extern "rust-call" fn call_once(self, args: (In,)) -> Self::Output {
-        Callable::call(&self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> FnMut<(In,)> for Callback<In, Out>
-where
-    In: Send + Sync + 'static,
-    Out: 'static,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (In,)) -> Self::Output {
-        Callable::call(&*self, args.0)
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<In, Out> Fn<(In,)> for Callback<In, Out>
-where
-    In: Send + Sync + 'static,
-    Out: 'static,
-{
-    extern "rust-call" fn call(&self, args: (In,)) -> Self::Output {
-        Callable::call(self, args.0)
     }
 }
 
@@ -263,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    fn callback_from() {
+    fn runback_from() {
         let _callback: Callback<(), String> = (|()| "test").into();
     }
 

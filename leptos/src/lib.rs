@@ -142,8 +142,6 @@
 
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]
-#![cfg_attr(feature = "nightly", feature(auto_traits))]
-#![cfg_attr(feature = "nightly", feature(negative_impls))]
 
 extern crate self as leptos;
 
