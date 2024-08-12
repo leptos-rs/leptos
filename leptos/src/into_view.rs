@@ -10,7 +10,7 @@ use tachys::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct View<T>
 where
     T: Sized,
@@ -21,6 +21,14 @@ where
 }
 
 impl<T> View<T> {
+    pub fn new(inner: T) -> Self {
+        Self {
+            inner,
+            #[cfg(debug_assertions)]
+            view_marker: None,
+        }
+    }
+
     pub fn into_inner(self) -> T {
         self.inner
     }

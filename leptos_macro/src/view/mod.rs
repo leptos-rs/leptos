@@ -48,7 +48,7 @@ pub fn render_view(
                 global_class,
                 view_marker.as_deref(),
             ),
-            // only add .into_view() and view marker to a regular HTML
+            // only add View wrapper and view marker to a regular HTML
             // element or component, not to a <{..} /> attribute list
             match &nodes[0] {
                 Node::Element(node) => !is_spread_marker(node),
@@ -71,13 +71,16 @@ pub fn render_view(
             view
         } else if let Some(vm) = view_marker {
             quote! {
-                #view
-                .into_view()
+                ::leptos::prelude::View::new(
+                    #view
+                )
                 .with_view_marker(#vm)
             }
         } else {
             quote! {
-                #view.into_view()
+                ::leptos::prelude::View::new(
+                    #view
+                )
             }
         }
     })
