@@ -357,7 +357,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// See [`StoredValue::try_update_value`] for a version without panic.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// # use reactive_graph::owner::StoredValue;
     ///
     /// #[derive(Default)] // Does not implement Clone
@@ -401,7 +401,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// would be too expensive, prefer [`StoredValue::try_update_value`].
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// # use reactive_graph::owner::StoredValue;
     /// # use reactive_graph::traits::Dispose;
     ///
