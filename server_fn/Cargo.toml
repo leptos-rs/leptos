@@ -1,13 +1,13 @@
 [package]
 name = "server_fn"
-version = { workspace = true }
-edition = "2021"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for any web framework."
 readme = "../README.md"
+version = { workspace = true }
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }

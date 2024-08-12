@@ -1,12 +1,12 @@
 [package]
 name = "any_spawner"
-edition = "2021"
 version = "0.1.1"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Spawn asynchronous tasks in an executor-independent way."
+edition.workspace = true
 
 [dependencies]
 futures = "0.3.30"

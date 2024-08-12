@@ -1,13 +1,13 @@
 [package]
 name = "leptos"
 version = { workspace = true }
-edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 readme = "../README.md"
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }

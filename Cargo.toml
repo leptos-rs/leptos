@@ -41,6 +41,7 @@ exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.7.0-beta"
+edition = "2021"
 rust-version = "1.75"
 
 [workspace.dependencies]
