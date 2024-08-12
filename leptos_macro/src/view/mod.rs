@@ -30,28 +30,60 @@ pub fn render_view(
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
-    match nodes.len() {
+    let (base, should_add_view) = match nodes.len() {
         0 => {
             let span = Span::call_site();
-            Some(quote_spanned! {
-                span => ()
-            })
+            (
+                Some(quote_spanned! {
+                    span => ()
+                }),
+                false,
+            )
         }
-        1 => node_to_tokens(
-            &nodes[0],
-            TagType::Unknown,
-            None,
-            global_class,
-            view_marker.as_deref(),
+        1 => (
+            node_to_tokens(
+                &nodes[0],
+                TagType::Unknown,
+                None,
+                global_class,
+                view_marker.as_deref(),
+            ),
+            // only add View wrapper and view marker to a regular HTML
+            // element or component, not to a <{..} /> attribute list
+            match &nodes[0] {
+                Node::Element(node) => !is_spread_marker(node),
+                _ => false,
+            },
         ),
-        _ => fragment_to_tokens(
-            nodes,
-            TagType::Unknown,
-            None,
-            global_class,
-            view_marker.as_deref(),
+        _ => (
+            fragment_to_tokens(
+                nodes,
+                TagType::Unknown,
+                None,
+                global_class,
+                view_marker.as_deref(),
+            ),
+            true,
         ),
-    }
+    };
+    base.map(|view| {
+        if !should_add_view {
+            view
+        } else if let Some(vm) = view_marker {
+            quote! {
+                ::leptos::prelude::View::new(
+                    #view
+                )
+                .with_view_marker(#vm)
+            }
+        } else {
+            quote! {
+                ::leptos::prelude::View::new(
+                    #view
+                )
+            }
+        }
+    })
 }
 
 fn element_children_to_tokens(

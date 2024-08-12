@@ -168,7 +168,7 @@ mod tests {
     fn creates_list() {
         Owner::new().with(|| {
             let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
-            let list: HtmlElement<_, _, _, Dom> = view! {
+            let list: View<HtmlElement<_, _, _, Dom>> = view! {
                 <ol>
                     <For each=move || values.get() key=|i| *i let:i>
                         <li>{i}</li>
@@ -187,7 +187,7 @@ mod tests {
     fn creates_list_enumerate() {
         Owner::new().with(|| {
             let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
-            let list: HtmlElement<_, _, _, Dom> = view! {
+            let list: View<HtmlElement<_, _, _, Dom>> = view! {
                 <ol>
                     <ForEnumerate each=move || values.get() key=|i| *i let(index, i)>
                         <li>{move || index.get()}"-"{i}</li>
@@ -200,7 +200,7 @@ mod tests {
                 <!>-<!>4</li><li>4<!>-<!>5</li><!></ol>"
             );
 
-            let list: HtmlElement<_, _, _, Dom> = view! {
+            let list: View<HtmlElement<_, _, _, Dom>> = view! {
                 <ol>
                     <ForEnumerate each=move || values.get() key=|i| *i let(index, i)>
                         <li>{move || index.get()}"-"{i}</li>
