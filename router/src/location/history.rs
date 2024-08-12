@@ -1,8 +1,9 @@
 use super::{handle_anchor_click, LocationChange, LocationProvider, Url};
-use crate::params::ParamsMap;
+use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
 use js_sys::{try_iter, Array, JsString};
+use leptos::prelude::*;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     signal::ArcRwSignal,
@@ -206,6 +207,24 @@ impl LocationProvider for BrowserUrl {
         // scroll to el
         Self::scroll_to_el(loc.scroll);
     }
+
+    fn redirect(loc: &str) {
+        let navigate = use_navigate();
+        let Some(url) = resolve_redirect_url(loc) else {
+            return; // resolve_redirect_url() already logs an error
+        };
+        let current_origin = helpers::location().origin().unwrap();
+        if url.origin() == current_origin {
+            let navigate = navigate.clone();
+            // delay by a tick here, so that the Action updates *before* the redirect
+            request_animation_frame(move || {
+                navigate(&url.href(), Default::default());
+            });
+            // Use set_href() if the conditions for client-side navigation were not satisfied
+        } else if let Err(e) = helpers::location().set_href(&url.href()) {
+            leptos::logging::error!("Failed to redirect: {e:#?}");
+        }
+    }
 }
 
 fn search_params_from_web_url(
@@ -224,4 +243,29 @@ fn search_params_from_web_url(
             })
         })
         .collect()
+}
+
+/// Resolves a redirect location to an (absolute) URL.
+pub(crate) fn resolve_redirect_url(loc: &str) -> Option<web_sys::Url> {
+    let origin = match window().location().origin() {
+        Ok(origin) => origin,
+        Err(e) => {
+            leptos::logging::error!("Failed to get origin: {:#?}", e);
+            return None;
+        }
+    };
+
+    // TODO: Use server function's URL as base instead.
+    let base = origin;
+
+    match web_sys::Url::new_with_base(loc, &base) {
+        Ok(url) => Some(url),
+        Err(e) => {
+            leptos::logging::error!(
+                "Invalid redirect location: {}",
+                e.as_string().unwrap_or_default(),
+            );
+            None
+        }
+    }
 }
