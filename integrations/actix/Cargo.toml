@@ -1,12 +1,12 @@
 [package]
 name = "leptos_actix"
-version = { workspace = true }
-edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Actix integrations for the Leptos web framework."
+version = { workspace = true }
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
 actix-http = "3.8"

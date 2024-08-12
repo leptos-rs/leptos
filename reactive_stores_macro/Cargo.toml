@@ -1,8 +1,8 @@
 [package]
 name = "reactive_stores_macro"
-edition = "2021"
 version = "0.1.0-beta"
 rust-version.workspace = true
+edition.workspace = true
 
 [lib]
 proc-macro = true

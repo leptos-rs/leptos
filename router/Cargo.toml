@@ -1,13 +1,13 @@
 [package]
 name = "leptos_router"
 version = "0.7.0-beta"
-edition = "2021"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Router for the Leptos web framework."
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
 leptos = { workspace = true }
