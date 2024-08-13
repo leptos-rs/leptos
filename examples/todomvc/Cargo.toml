@@ -15,7 +15,7 @@ console_error_panic_hook = "0.1.7"
 uuid = { version = "1", features = ["v4", "js", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-web-sys = { version = "0.3.60", features = ["Storage"] }
+web-sys = { version = "0.3.70", features = ["Storage"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
