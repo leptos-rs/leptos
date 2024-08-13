@@ -20,4 +20,4 @@ rstest = "0.22.0"
 
 [dev-dependencies.web-sys]
 features = ["HtmlElement", "XPathResult"]
-version = "0.3.69"
+version = "0.3.70"

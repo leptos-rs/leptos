@@ -32,7 +32,7 @@ thiserror = "1.0"
 wasm-bindgen = "0.2.92"
 serde_toml = "0.0.1"
 toml = "0.8.19"
-web-sys = { version = "0.3.69", features = ["FileList", "File"] }
+web-sys = { version = "0.3.70", features = ["FileList", "File"] }
 strum = { version = "0.26.3", features = ["strum_macros", "derive"] }
 notify = { version = "6.1", optional = true }
 pin-project-lite = "0.2.14"

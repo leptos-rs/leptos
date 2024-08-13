@@ -30,7 +30,7 @@ percent-encoding = { version = "2.3", optional = true }
 gloo-net = "0.6.0"
 
 [dependencies.web-sys]
-version = "0.3.69"
+version = "0.3.70"
 features = [
   "Document",
   "Window",
