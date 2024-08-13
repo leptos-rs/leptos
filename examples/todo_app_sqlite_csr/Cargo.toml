@@ -25,7 +25,7 @@ sqlx = { version = "0.8.0", features = [
   "sqlite",
 ], optional = true }
 thiserror = "1.0"
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.93"
 
 [features]
 csr = ["leptos/csr"]
