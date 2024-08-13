@@ -25,7 +25,7 @@ pin-project-lite = "0.2.14"
 wasm-bindgen = "0.2.93"
 html-escape = "0.2.13"
 js-sys = "0.3.69"
-web-sys = { version = "0.3.69", features = [
+web-sys = { version = "0.3.70", features = [
   "Window",
   "Document",
   "HtmlElement",

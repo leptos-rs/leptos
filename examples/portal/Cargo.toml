@@ -13,4 +13,4 @@ wasm-bindgen = "0.2.93"
 [dev-dependencies]
 wasm-bindgen-test = "0.3.42"
 wasm-bindgen = "0.2.93"
-web-sys = "0.3.69"
+web-sys = "0.3.70"
