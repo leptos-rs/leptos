@@ -19,6 +19,7 @@ mod params;
 mod view;
 use crate::component::unmodified_fn_name_from_fn_name;
 mod component;
+mod memo;
 mod slice;
 mod slot;
 
@@ -874,4 +875,36 @@ pub fn params_derive(
 #[proc_macro]
 pub fn slice(input: TokenStream) -> TokenStream {
     slice::slice_impl(input)
+}
+
+/// Generates a `memo` into a struct with a default getter.
+///
+/// Can be used to access deeply nested fields within a global state object.
+///
+/// ```rust
+/// # use leptos::prelude::*;
+/// # use leptos_macro::memo;
+///
+/// #[derive(Default)]
+/// pub struct Outer {
+///     count: i32,
+///     inner: Inner,
+/// }
+///
+/// #[derive(Default)]
+/// pub struct Inner {
+///     inner_count: i32,
+///     inner_name: String,
+/// }
+///
+/// let outer_signal = RwSignal::new(Outer::default());
+///
+/// let count = memo!(outer_signal.count);
+///
+/// let inner_count = memo!(outer_signal.inner.inner_count);
+/// let inner_name = memo!(outer_signal.inner.inner_name);
+/// ```
+#[proc_macro]
+pub fn memo(input: TokenStream) -> TokenStream {
+    memo::memo_impl(input)
 }
