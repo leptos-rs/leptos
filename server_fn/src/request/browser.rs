@@ -237,14 +237,16 @@ fn streaming_request(
         Ok(data) as Result<JsValue, JsValue>
     }))
     .into_raw();
+
     let headers = Headers::new()?;
     headers.append("Content-Type", content_type)?;
     headers.append("Accept", accepts)?;
-    let mut init = RequestInit::new();
-    init.headers(&headers)
-        .method("POST")
-        .signal(abort_signal.as_ref())
-        .body(Some(&stream));
+
+    let init = RequestInit::new();
+    init.set_headers(&headers);
+    init.set_method("POST");
+    init.set_signal(abort_signal.as_ref());
+    init.set_body(&stream);
 
     // Chrome requires setting `duplex: "half"` on streaming requests
     Reflect::set(
