@@ -23,11 +23,7 @@ pub fn copy_to_clipboard(el: HtmlElement<AnyElement>, content: &str) {
         evt.prevent_default();
         evt.stop_propagation();
 
-        let _ = window()
-            .navigator()
-            .clipboard()
-            .expect("navigator.clipboard to be available")
-            .write_text(&content);
+        let _ = window().navigator().clipboard().write_text(&content);
 
         let _ = el.clone().inner_html(format!("Copied \"{}\"", &content));
     });
@@ -76,9 +72,13 @@ pub fn App() -> impl IntoView {
     let data = "Hello World!";
 
     view! {
-        <a href="#" use:copy_to_clipboard=data>"Copy \"" {data} "\" to clipboard"</a>
+        <a href="#" use:copy_to_clipboard=data>
+            "Copy \""
+            {data}
+            "\" to clipboard"
+        </a>
         // automatically applies the directive to every root element in `SomeComponent`
-        <SomeComponent use:highlight />
+        <SomeComponent use:highlight/>
         // no value will default to `().into()`
         <button use:add_dot>"Add a dot"</button>
         // `5.into()` automatically called

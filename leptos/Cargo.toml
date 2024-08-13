@@ -28,7 +28,7 @@ server_fn = { workspace = true, features = [
   "url",
   "cbor",
 ] }
-web-sys = { version = "0.3.63", features = [
+web-sys = { version = "0.3.70", features = [
   "ShadowRoot",
   "ShadowRootInit",
   "ShadowRootMode",

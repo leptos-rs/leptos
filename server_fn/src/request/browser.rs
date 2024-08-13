@@ -192,8 +192,10 @@ fn streaming_request(
     let headers = Headers::new()?;
     headers.append("Content-Type", content_type)?;
     headers.append("Accept", accepts)?;
-    let mut init = RequestInit::new();
-    init.headers(&headers).method("POST").body(Some(&stream));
+    let init = RequestInit::new();
+    init.set_headers(&headers);
+    init.set_method("POST");
+    init.set_body(&stream);
 
     // Chrome requires setting `duplex: "half"` on streaming requests
     Reflect::set(
