@@ -127,3 +127,17 @@ where
     let setter = move |value| signal.update(|x| setter(x, value));
     setter.into_signal_setter()
 }
+
+/// Creates a new memoized, computed reactive value.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `Memo::new()` instead."]
+pub fn create_memo<T>(
+    fun: impl Fn(Option<&T>) -> T + Send + Sync + 'static,
+) -> Memo<T>
+where
+    T: PartialEq + Send + Sync + 'static,
+{
+    Memo::new(fun)
+}
