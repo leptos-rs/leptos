@@ -24,11 +24,7 @@ pub fn copy_to_clipboard(el: Element, content: &str) {
         evt.prevent_default();
         evt.stop_propagation();
 
-        let _ = window()
-            .navigator()
-            .clipboard()
-            .expect("navigator.clipboard to be available")
-            .write_text(&content);
+        let _ = window().navigator().clipboard().write_text(&content);
 
         el.set_inner_html(&format!("Copied \"{}\"", &content));
     });
