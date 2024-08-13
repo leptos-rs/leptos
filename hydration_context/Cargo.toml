@@ -14,7 +14,7 @@ throw_error = { workspace = true }
 or_poisoned = { workspace = true }
 futures = "0.3.30"
 serde = { version = "1.0", features = ["derive"] }
-wasm-bindgen = { version = "0.2.92", optional = true }
+wasm-bindgen = { version = "0.2.93", optional = true }
 js-sys = { version = "0.3.69", optional = true }
 once_cell = "1.19"
 pin-project-lite = "0.2.14"

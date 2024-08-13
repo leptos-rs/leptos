@@ -15,7 +15,7 @@ leptos = { path = "../../leptos" }
 leptos_meta = { path = "../../meta" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router" }
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.93"
 serde = { version = "1.0", features = ["derive"] }
 
 [features]

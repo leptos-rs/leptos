@@ -14,7 +14,7 @@ leptos_router = { path = "../../router" }
 
 # dependencies for browser (enable when hydrate set)
 console_error_panic_hook = { version = "0.1.7", optional = true }
-wasm-bindgen = { version = "0.2.92", optional = true }
+wasm-bindgen = { version = "0.2.93", optional = true }
 
 # dependencies for server (enable when ssr set)
 actix-files = { version = "0.6.6", optional = true }

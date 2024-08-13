@@ -37,12 +37,12 @@ members = [
   "router_macro",
   "any_error",
 ]
-exclude = ["benchmarks", "examples"]
+exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
 version = "0.7.0-beta"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.76"
 
 [workspace.dependencies]
 throw_error = { path = "./any_error/", version = "0.2.0-beta" }

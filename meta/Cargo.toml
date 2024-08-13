@@ -15,7 +15,7 @@ or_poisoned = { workspace = true }
 indexmap = "2.3"
 send_wrapper = "0.6.0"
 tracing = "0.1.40"
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.93"
 futures = "0.3.30"
 
 [dependencies.web-sys]

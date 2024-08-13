@@ -261,27 +261,81 @@ where
 }
 
 impl<T, S: Storage<T>> StoredValue<T, S> {
-    /// Same as [`StoredValue::with_value`] but returns `Some(O)` only if
-    /// the stored value has not yet been disposed, `None` otherwise.
+    /// Returns an [`Option`] of applying a function to the value within the [`StoredValue`].
+    ///
+    /// If the owner of the reactive node has not been disposed [`Some`] is returned. Calling this
+    /// function after the owner has been disposed will always return [`None`].
+    ///
+    /// See [`StoredValue::with_value`] for a version that panics in the case of the owner being
+    /// disposed.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::traits::Dispose;
+    ///
+    /// // Does not implement Clone
+    /// struct Data {
+    ///     rows: Vec<u8>,
+    /// }
+    ///
+    /// let data = StoredValue::new(Data {
+    ///     rows: vec![0, 1, 2, 3, 4],
+    /// });
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static.
+    /// // *NOTE* this is not the same thing as a derived signal!
+    /// // *NOTE* this will not be automatically rerun as StoredValue is NOT reactive!
+    /// let length_fn = move || data.try_with_value(|inner| inner.rows.len());
+    ///
+    /// let sum = data.try_with_value(|inner| inner.rows.iter().sum::<u8>());
+    ///
+    /// assert_eq!(sum, Some(10));
+    /// assert_eq!(length_fn(), Some(5));
+    ///
+    /// // You should not call dispose yourself in normal user code.
+    /// // This is shown here for the sake of the example.
+    /// data.dispose();
+    ///
+    /// let last = data.try_with_value(|inner| inner.rows.last().cloned());
+    ///
+    /// assert_eq!(last, None);
+    /// assert_eq!(length_fn(), None);
+    /// ```
     pub fn try_with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> Option<U> {
         S::try_with(self.node, fun)
     }
 
-    /// Applies a function to the current stored value and returns the result.
+    /// Returns the output of applying a function to the value within the [`StoredValue`].
     ///
     /// # Panics
-    /// Panics if you try to access a value owned by a reactive node that has been disposed.
+    ///
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_with_value`] for a version without panic.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// # use reactive_graph::owner::StoredValue;
-    /// pub struct MyUncloneableData {
-    ///     pub value: String,
-    /// }
-    /// let data = StoredValue::new(MyUncloneableData { value: "a".into() });
     ///
-    /// // calling .with_value() to extract the value
-    /// data.with_value(|data| assert_eq!(data.value, "a"));
+    /// // Does not implement Clone
+    /// struct Data {
+    ///     rows: Vec<u8>,
+    /// }
+    ///
+    /// let data = StoredValue::new(Data {
+    ///     rows: vec![1, 2, 3],
+    /// });
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static.
+    /// // *NOTE* this is not the same thing as a derived signal!
+    /// // *NOTE* this will not be automatically rerun as StoredValue is NOT reactive!
+    /// let length_fn = move || data.with_value(|inner| inner.rows.len());
+    ///
+    /// let sum = data.with_value(|inner| inner.rows.iter().sum::<u8>());
+    ///
+    /// assert_eq!(sum, 6);
+    /// assert_eq!(length_fn(), 3);
+    /// ```
     pub fn with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> U {
         self.try_with_value(fun)
             .unwrap_or_else(unwrap_signal!(self))
@@ -296,28 +350,126 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
         S::try_with_mut(self.node, fun)
     }
 
-    /// Updates the stored value by applying the given closure.
+    /// Updates the value within [`StoredValue`] by applying a function to it.
     ///
-    /// ## Examples
-    /// ```
+    /// # Panics
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_update_value`] for a version without panic.
+    ///
+    /// # Examples
+    /// ```rust
     /// # use reactive_graph::owner::StoredValue;
-    /// pub struct MyUncloneableData {
-    ///     pub value: String,
+    ///
+    /// #[derive(Default)] // Does not implement Clone
+    /// struct Data {
+    ///     rows: Vec<u8>,
     /// }
-    /// let data = StoredValue::new(MyUncloneableData { value: "a".into() });
-    /// data.update_value(|data| data.value = "b".into());
-    /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
+    ///
+    /// let data = StoredValue::new(Data::default());
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static.
+    /// // *NOTE* this is not the same thing as a derived signal!
+    /// // *NOTE* this will not be automatically rerun as StoredValue is NOT reactive!
+    /// let push_next = move || {
+    ///     data.update_value(|inner| match inner.rows.last().as_deref() {
+    ///         Some(n) => inner.rows.push(n + 1),
+    ///         None => inner.rows.push(0),
+    ///     })
+    /// };
+    ///
+    /// data.update_value(|inner| inner.rows = vec![5, 6, 7]);
+    /// data.with_value(|inner| assert_eq!(inner.rows.last(), Some(&7)));
+    ///
+    /// push_next();
+    /// data.with_value(|inner| assert_eq!(inner.rows.last(), Some(&8)));
+    ///
+    /// data.update_value(|inner| {
+    ///     std::mem::take(inner) // sets Data back to default
+    /// });
+    /// data.with_value(|inner| assert!(inner.rows.is_empty()));
     /// ```
     pub fn update_value<U>(&self, fun: impl FnOnce(&mut T) -> U) {
         self.try_update_value(fun);
     }
 
-    /// Tries to set the value. If the value has been disposed, returns `Some(value)`.
+    /// Sets the value within [`StoredValue`].
+    ///
+    /// Returns [`Some`] containing the passed value if the owner of the reactive node has been
+    /// disposed.
+    ///
+    /// For types that do not implement [`Clone`], or in cases where allocating the entire object
+    /// would be too expensive, prefer [`StoredValue::try_update_value`].
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::traits::Dispose;
+    ///
+    /// let data = StoredValue::new(String::default());
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static.
+    /// // *NOTE* this is not the same thing as a derived signal!
+    /// // *NOTE* this will not be automatically rerun as StoredValue is NOT reactive!
+    /// let say_hello = move || {
+    ///     // Note that using the `update` methods would be more efficient here.
+    ///     data.try_set_value("Hello, World!".into())
+    /// };
+    /// // *NOTE* this is not the same thing as a derived signal!
+    /// // *NOTE* this will not be automatically rerun as StoredValue is NOT reactive!
+    /// let reset = move || {
+    ///     // Note that using the `update` methods would be more efficient here.
+    ///     data.try_set_value(Default::default())
+    /// };
+    /// assert_eq!(data.get_value(), "");
+    ///
+    /// // None is returned because the value was able to be updated
+    /// assert_eq!(say_hello(), None);
+    ///
+    /// assert_eq!(data.get_value(), "Hello, World!");
+    ///
+    /// reset();
+    /// assert_eq!(data.get_value(), "");
+    ///
+    /// // You should not call dispose yourself in normal user code.
+    /// // This is shown here for the sake of the example.
+    /// data.dispose();
+    ///
+    /// // The reactive owner is disposed, so the value we intended to set is now
+    /// // returned as some.
+    /// assert_eq!(say_hello().as_deref(), Some("Hello, World!"));
+    /// assert_eq!(reset().as_deref(), Some(""));
+    /// ```
     pub fn try_set_value(&self, value: T) -> Option<T> {
         S::try_set(self.node, value)
     }
 
-    /// Sets the value to a new value.
+    /// Sets the value within [`StoredValue`].
+    ///
+    /// For types that do not implement [`Clone`], or in cases where allocating the entire object
+    /// would be too expensive, prefer [`StoredValue::update_value`].
+    ///
+    /// # Panics
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_set_value`] for a version without panic.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use reactive_graph::owner::StoredValue;
+    ///
+    /// let data = StoredValue::new(10);
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static.
+    /// // *NOTE* this is not the same thing as a derived signal!
+    /// // *NOTE* this will not be automatically rerun as StoredValue is NOT reactive!
+    /// let maxout = move || data.set_value(u8::MAX);
+    /// let zero = move || data.set_value(u8::MIN);
+    ///
+    /// maxout();
+    /// assert_eq!(data.get_value(), u8::MAX);
+    ///
+    /// zero();
+    /// assert_eq!(data.get_value(), u8::MIN);
+    /// ```
     pub fn set_value(&self, value: T) {
         self.update_value(|n| *n = value);
     }
@@ -333,15 +485,75 @@ impl<T, S: Storage<T>> StoredValue<T, S>
 where
     T: Clone + 'static,
 {
-    /// Clones and returns the current value, or `None` if it has already been disposed.
+    /// Returns the value within [`StoredValue`] by cloning.
+    ///
+    /// Returns [`Some`] containing the value if the owner of the reactive node has not been
+    /// disposed. When disposed, returns [`None`].
+    ///
+    /// See [`StoredValue::try_with_value`] for a version that avoids cloning. See
+    /// [`StoredValue::get_value`] for a version that clones, but panics if the node is disposed.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use reactive_graph::owner::StoredValue;
+    /// # use reactive_graph::traits::Dispose;
+    ///
+    /// // u8 is practically free to clone.
+    /// let data: StoredValue<u8> = StoredValue::new(10);
+    ///
+    /// // Larger data structures can become very expensive to clone.
+    /// // You may prefer to use StoredValue::try_with_value.
+    /// let _expensive: StoredValue<Vec<String>> = StoredValue::new(vec![]);
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static
+    /// let maxout = move || data.set_value(u8::MAX);
+    /// let zero = move || data.set_value(u8::MIN);
+    ///
+    /// maxout();
+    /// assert_eq!(data.try_get_value(), Some(u8::MAX));
+    ///
+    /// zero();
+    /// assert_eq!(data.try_get_value(), Some(u8::MIN));
+    ///
+    /// // You should not call dispose yourself in normal user code.
+    /// // This is shown here for the sake of the example.
+    /// data.dispose();
+    ///
+    /// assert_eq!(data.try_get_value(), None);
+    /// ```
     pub fn try_get_value(&self) -> Option<T> {
         self.try_with_value(T::clone)
     }
 
-    /// Clones and returns the current value.
+    /// Returns the value within [`StoredValue`] by cloning.
+    ///
+    /// See [`StoredValue::with_value`] for a version that avoids cloning.
     ///
     /// # Panics
-    /// Panics if you try to access a value owned by a reactive node that has been disposed.
+    /// This function panics when called after the owner of the reactive node has been disposed.
+    /// See [`StoredValue::try_get_value`] for a version without panic.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use reactive_graph::owner::StoredValue;
+    ///
+    /// // u8 is practically free to clone.
+    /// let data: StoredValue<u8> = StoredValue::new(10);
+    ///
+    /// // Larger data structures can become very expensive to clone.
+    /// // You may prefer to use StoredValue::try_with_value.
+    /// let _expensive: StoredValue<Vec<String>> = StoredValue::new(vec![]);
+    ///
+    /// // Easy to move into closures because StoredValue is Copy + 'static
+    /// let maxout = move || data.set_value(u8::MAX);
+    /// let zero = move || data.set_value(u8::MIN);
+    ///
+    /// maxout();
+    /// assert_eq!(data.get_value(), u8::MAX);
+    ///
+    /// zero();
+    /// assert_eq!(data.get_value(), u8::MIN);
+    /// ```
     pub fn get_value(&self) -> T {
         self.with_value(T::clone)
     }
@@ -356,9 +568,11 @@ impl<T, S> Dispose for StoredValue<T, S> {
 /// Creates a new [`StoredValue`].
 #[inline(always)]
 #[track_caller]
-#[deprecated = "This function is being removed to conform to Rust idioms. \
-                Please use `StoredValue::new()` or `StoredValue::new_local()` \
-                instead."]
+#[deprecated(
+    since = "0.7.0-beta",
+    note = "This function is being removed to conform to Rust idioms. Please \
+            use `StoredValue::new()` or `StoredValue::new_local()` instead."
+)]
 pub fn store_value<T>(value: T) -> StoredValue<T>
 where
     T: Send + Sync + 'static,

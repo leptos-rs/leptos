@@ -24,7 +24,7 @@ tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
 # serialization formats
 serde = { version = "1.0" }
 js-sys = { version = "0.3.69", optional = true }
-wasm-bindgen = { version = "0.2.92", optional = true }
+wasm-bindgen = { version = "0.2.93", optional = true }
 serde_json = { version = "1.0" }
 
 [features]
