@@ -37,7 +37,7 @@ members = [
   "router_macro",
   "any_error",
 ]
-exclude = ["benchmarks", "examples"]
+exclude = ["benchmarks", "examples", "projects"]
 
 [workspace.package]
 version = "0.7.0-beta"
