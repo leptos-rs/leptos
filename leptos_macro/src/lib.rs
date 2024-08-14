@@ -308,7 +308,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
     );
-  
+
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
     // seems to break rust-analyzer, but it works when the allow is put here.
