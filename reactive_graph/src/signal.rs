@@ -184,3 +184,12 @@ pub fn create_signal<T: Send + Sync + 'static>(
 pub fn create_rw_signal<T: Send + Sync + 'static>(value: T) -> RwSignal<T> {
     RwSignal::new(value)
 }
+
+/// A trigger is a data-less signal with the sole purpose of notifying other reactive code of a change.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `ArcTrigger::new()` instead."]
+pub fn create_trigger() -> ArcTrigger {
+    ArcTrigger::new()
+}
