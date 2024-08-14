@@ -19,6 +19,7 @@ use syn::{
 pub struct Model {
     is_island: bool,
     docs: Docs,
+    unknown_attrs: UnknownAttrs,
     vis: Visibility,
     name: Ident,
     props: Vec<Prop>,
@@ -32,6 +33,7 @@ impl Parse for Model {
         convert_impl_trait_to_generic(&mut item.sig);
 
         let docs = Docs::new(&item.attrs);
+        let unknown_attrs = UnknownAttrs::new(&item.attrs);
 
         let props = item
             .sig
@@ -61,6 +63,7 @@ impl Parse for Model {
         Ok(Self {
             is_island: false,
             docs,
+            unknown_attrs,
             vis: item.vis.clone(),
             name: convert_from_snake_case(&item.sig.ident),
             props,
@@ -100,6 +103,7 @@ impl ToTokens for Model {
         let Self {
             is_island,
             docs,
+            unknown_attrs,
             vis,
             name,
             props,
@@ -457,6 +461,7 @@ impl ToTokens for Model {
                 }
             } */
 
+            #unknown_attrs
             #docs_and_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #[allow(clippy::needless_lifetimes)]
@@ -496,7 +501,10 @@ pub struct DummyModel {
 
 impl Parse for DummyModel {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let attrs = input.call(Attribute::parse_outer)?;
+        let mut attrs = input.call(Attribute::parse_outer)?;
+        // Drop unknown attributes like #[deprecated]
+        drain_filter(&mut attrs, |attr| !attr.path().is_ident("doc"));
+
         let vis: Visibility = input.parse()?;
         let sig: Signature = input.parse()?;
 
@@ -742,6 +750,37 @@ impl Docs {
         } else {
             String::new()
         }
+    }
+}
+
+pub struct UnknownAttrs(Vec<(TokenStream, Span)>);
+
+impl UnknownAttrs {
+    pub fn new(attrs: &[Attribute]) -> Self {
+        let attrs = attrs
+            .iter()
+            .filter_map(|attr| {
+                if attr.path().is_ident("doc") {
+                    if let Meta::NameValue(_) = &attr.meta {
+                        return None;
+                    }
+                }
+
+                Some((attr.into_token_stream(), attr.span()))
+            })
+            .collect_vec();
+        Self(attrs)
+    }
+}
+
+impl ToTokens for UnknownAttrs {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let s = self
+            .0
+            .iter()
+            .map(|(attr, span)| quote_spanned!(*span=> #attr))
+            .collect::<TokenStream>();
+        tokens.append_all(s);
     }
 }
 
