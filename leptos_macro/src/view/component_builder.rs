@@ -78,10 +78,8 @@ pub(crate) fn component_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned!(value.span()=> { #value });
-
-            quote_spanned! {attr.span()=>
-                .#name(#[allow(unused_braces)] #value)
+            quote! {
+                .#name(#[allow(unused_braces)] { #value })
             }
         });
 
@@ -262,30 +260,18 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
-    let name_ref = quote_spanned! {name.span()=>
-        &#name
-    };
-
-    let build = quote_spanned! {name.span()=>
-        .build()
-    };
-
-    let component_props_builder = quote_spanned! {name.span()=>
-        ::leptos::component::component_props_builder(#name_ref #generics)
-    };
-
     #[allow(unused_mut)] // used in debug
-    let mut component = quote_spanned! {node.span()=>
+    let mut component = quote! {
         {
             #[allow(unreachable_code)]
             ::leptos::component::component_view(
                 #[allow(clippy::needless_borrows_for_generic_args)]
-                #name_ref,
-                #component_props_builder
+                &#name,
+                ::leptos::component::component_props_builder(&#name #generics)
                     #(#props)*
                     #(#slots)*
                     #children
-                    #build
+                    .build()
             )
             #spreads
         }

@@ -673,20 +673,14 @@ pub(crate) fn event_type_and_handler(
     let event_type = if is_custom {
         event_type
     } else if let Some(ev_name) = event_name_ident {
-        let span = ev_name.span();
-        quote_spanned! {
-            span => #ev_name
-        }
+        quote! { #ev_name }
     } else {
         event_type
     };
 
     let event_type = if is_force_undelegated {
         let undelegated = if let Some(undelegated) = undelegated_ident {
-            let span = undelegated.span();
-            quote_spanned! {
-                span => #undelegated
-            }
+            quote! { #undelegated }
         } else {
             quote! { undelegated }
         };
