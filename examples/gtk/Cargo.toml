@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-leptos = { path = "../../leptos", features = ["csr"] }
+leptos = { path = "../../leptos" }
 throw_error = { path = "../../any_error/" }
-any_spawner = { path = "../../any_spawner/" }
+
+# these are used to build the integration
+gtk = { version = "0.9.0", package = "gtk4" }
 next_tuple = { path = "../../next_tuple/" }
-gtk = { version = "0.9.0", package = "gtk4", optional = true }
 paste = "1.0"
 
-console_error_panic_hook = { version = "0.1.7", optional = true }
-
-[features]
-gtk = ["dep:gtk", "any_spawner/glib"]
-wasm = ["any_spawner/wasm-bindgen", "dep:console_error_panic_hook"]
+# we want to support using glib for the reactive runtime event loop
+any_spawner = { path = "../../any_spawner/", features = ["glib"] }
+# yes, we want effects to run: this is a "frontend," not a backend
+reactive_graph = { path = "../../reactive_graph", features = ["effects"] }

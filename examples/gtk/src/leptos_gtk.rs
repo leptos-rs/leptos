@@ -56,11 +56,12 @@ impl Mountable<LeptosGtk> for Element {
             .insert_before(&parent.0, marker.as_ref().map(|m| &m.0));
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<LeptosGtk>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<LeptosGtk>) -> bool {
+        if let Some(parent) = self.0.parent() {
+            child.mount(&Element(parent), Some(self));
+            return true;
+        }
+        false
     }
 }
 
@@ -79,11 +80,8 @@ impl Mountable<LeptosGtk> for Text {
             .insert_before(&parent.0, marker.as_ref().map(|m| &m.0));
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<LeptosGtk>,
-    ) -> bool {
-        child.mount(parent, Some(self.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<LeptosGtk>) -> bool {
+        self.0.insert_before_this(child)
     }
 }
 
@@ -332,16 +330,12 @@ where
         parent: &<LeptosGtk as Renderer>::Element,
         marker: Option<&<LeptosGtk as Renderer>::Node>,
     ) {
-        println!("mounting {}", std::any::type_name::<Widg>());
         self.children.mount(&self.widget, None);
         LeptosGtk::insert_node(parent, &self.widget, marker);
     }
 
-    fn insert_before_this(&self, 
-        child: &mut dyn Mountable<LeptosGtk>,
-    ) -> bool {
-        child.mount(parent, Some(self.widget.as_ref()));
-        true
+    fn insert_before_this(&self, child: &mut dyn Mountable<LeptosGtk>) -> bool {
+        self.widget.insert_before_this(child)
     }
 }
 
