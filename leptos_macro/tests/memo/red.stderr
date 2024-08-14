@@ -1,0 +1,31 @@
+error: unexpected end of input, expected identifier
+  --> tests/memo/red.rs:19:13
+   |
+19 |     let _ = memo!();
+   |             ^^^^^^^
+   |
+   = note: this error originates in the macro `memo` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected `.`
+  --> tests/memo/red.rs:21:13
+   |
+21 |     let _ = memo!(outer_signal);
+   |             ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `memo` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: unexpected end of input, expected identifier or integer
+  --> tests/memo/red.rs:23:13
+   |
+23 |     let _ = memo!(outer_signal.);
+   |             ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `memo` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: unexpected end of input, expected identifier or integer
+  --> tests/memo/red.rs:25:13
+   |
+25 |     let _ = memo!(outer_signal.inner.);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `memo` (in Nightly builds, run with -Z macro-backtrace for more info)
