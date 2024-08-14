@@ -238,6 +238,17 @@ where
     }
 }
 
+impl<T, S> Default for StoredValue<T, S>
+where
+    T: Default + 'static,
+    S: Storage<T>,
+{
+    #[track_caller] // Default trait is not annotated with #[track_caller]
+    fn default() -> Self {
+        Self::new_with_storage(Default::default())
+    }
+}
+
 impl<T> StoredValue<T>
 where
     T: Send + Sync + 'static,
