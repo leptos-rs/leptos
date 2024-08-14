@@ -141,3 +141,48 @@ where
 {
     Memo::new(fun)
 }
+
+/// Creates a new memo by passing a function that computes the value.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `Memo::new_owning()` instead."]
+pub fn create_owning_memo<T>(
+    fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
+) -> Memo<T>
+where
+    T: PartialEq + Send + Sync + 'static,
+{
+    Memo::new_owning(fun)
+}
+
+/// A conditional signal that only notifies subscribers when a change
+/// in the source signal’s value changes whether the given function is true.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `Selector::new()` instead."]
+pub fn create_selector<T>(
+    source: impl Fn() -> T + Clone + 'static,
+) -> Selector<T>
+where
+    T: PartialEq + Eq + Clone + std::hash::Hash + 'static,
+{
+    Selector::new(source)
+}
+
+/// Creates a conditional signal that only notifies subscribers when a change
+/// in the source signal’s value changes whether the given function is true.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `Selector::new_with_fn()` instead."]
+pub fn create_selector_with_fn<T>(
+    source: impl Fn() -> T + Clone + 'static,
+    f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
+) -> Selector<T>
+where
+    T: PartialEq + Eq + Clone + std::hash::Hash + 'static,
+{
+    Selector::new_with_fn(source, f)
+}
