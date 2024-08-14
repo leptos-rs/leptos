@@ -1,50 +1,25 @@
 name: CI
-
 on:
   push:
     branches:
       - main
+      - leptos_0.6
   pull_request:
     branches:
       - main
-
+      - leptos_0.6
 jobs:
   get-leptos-changed:
     uses: ./.github/workflows/get-leptos-changed.yml
-
+  get-leptos-matrix:
+    uses: ./.github/workflows/get-leptos-matrix.yml
   test:
     name: CI
-    needs: [get-leptos-changed]
+    needs: [get-leptos-changed, get-leptos-matrix]
     if: needs.get-leptos-changed.outputs.leptos_changed == 'true'
     strategy:
-      matrix:
-        directory:
-          [
-            any_error,
-            any_spawner,
-            const_str_slice_concat,
-            either_of,
-            hydration_context,
-            integrations/actix,
-            integrations/axum,
-            integrations/utils,
-            leptos,
-            leptos_config,
-            leptos_dom,
-            leptos_hot_reload,
-            leptos_macro,
-            leptos_server,
-            meta,
-            next_tuple,
-            oco,
-            or_poisoned,
-            reactive_graph,
-            router,
-            router_macro,
-            server_fn,
-            server_fn/server_fn_macro_default,
-            server_fn_macro,
-          ]
+      matrix: ${{ fromJSON(needs.get-leptos-matrix.outputs.matrix) }}
+      fail-fast: false
     uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}

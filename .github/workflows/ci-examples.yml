@@ -1,13 +1,13 @@
 name: CI Examples
-
 on:
   push:
     branches:
       - main
+      - leptos_0.6
   pull_request:
     branches:
       - main
-
+      - leptos_0.6
 jobs:
   get-leptos-changed:
     uses: ./.github/workflows/get-leptos-changed.yml
