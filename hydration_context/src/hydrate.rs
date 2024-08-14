@@ -12,42 +12,48 @@ use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
 
 #[wasm_bindgen]
 extern "C" {
+    #[wasm_bindgen(thread_local)]
     static __RESOLVED_RESOURCES: Array;
 
+    #[wasm_bindgen(thread_local)]
     static __SERIALIZED_ERRORS: Array;
 
+    #[wasm_bindgen(thread_local)]
     static __INCOMPLETE_CHUNKS: Array;
 }
 
 fn serialized_errors() -> Vec<(SerializedDataId, ErrorId, Error)> {
-    __SERIALIZED_ERRORS
-        .iter()
-        .flat_map(|value| {
-            value.dyn_ref::<Array>().map(|value| {
-                let error_boundary_id = value.get(0).as_f64().unwrap() as usize;
-                let error_id = value.get(1).as_f64().unwrap() as usize;
-                let value = value
-                    .get(2)
-                    .as_string()
-                    .expect("Expected a [number, string] tuple");
-                (
-                    SerializedDataId(error_boundary_id),
-                    ErrorId::from(error_id),
-                    Error::from(SerializedError(value)),
-                )
+    __SERIALIZED_ERRORS.with(|s| {
+        s.iter()
+            .flat_map(|value| {
+                value.dyn_ref::<Array>().map(|value| {
+                    let error_boundary_id =
+                        value.get(0).as_f64().unwrap() as usize;
+                    let error_id = value.get(1).as_f64().unwrap() as usize;
+                    let value = value
+                        .get(2)
+                        .as_string()
+                        .expect("Expected a [number, string] tuple");
+                    (
+                        SerializedDataId(error_boundary_id),
+                        ErrorId::from(error_id),
+                        Error::from(SerializedError(value)),
+                    )
+                })
             })
-        })
-        .collect()
+            .collect()
+    })
 }
 
 fn incomplete_chunks() -> Vec<SerializedDataId> {
-    __INCOMPLETE_CHUNKS
-        .iter()
-        .map(|value| {
-            let id = value.as_f64().unwrap() as usize;
-            SerializedDataId(id)
-        })
-        .collect()
+    __INCOMPLETE_CHUNKS.with(|i| {
+        i.iter()
+            .map(|value| {
+                let id = value.as_f64().unwrap() as usize;
+                SerializedDataId(id)
+            })
+            .collect()
+    })
 }
 
 /// An error that has been serialized across the network boundary.
@@ -118,7 +124,7 @@ impl SharedContext for HydrateSharedContext {
     fn write_async(&self, _id: SerializedDataId, _fut: PinnedFuture<String>) {}
 
     fn read_data(&self, id: &SerializedDataId) -> Option<String> {
-        __RESOLVED_RESOURCES.get(id.0 as u32).as_string()
+        __RESOLVED_RESOURCES.with(|r| r.get(id.0 as u32).as_string())
     }
 
     fn await_data(&self, _id: &SerializedDataId) -> Option<String> {

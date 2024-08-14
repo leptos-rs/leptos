@@ -175,3 +175,21 @@ pub fn create_signal<T: Send + Sync + 'static>(
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     signal(value)
 }
+
+/// Creates a reactive signal with the getter and setter unified in one value.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `RwSignal::new()` instead."]
+pub fn create_rw_signal<T: Send + Sync + 'static>(value: T) -> RwSignal<T> {
+    RwSignal::new(value)
+}
+
+/// A trigger is a data-less signal with the sole purpose of notifying other reactive code of a change.
+#[inline(always)]
+#[track_caller]
+#[deprecated = "This function is being removed to conform to Rust idioms. \
+                Please use `ArcTrigger::new()` instead."]
+pub fn create_trigger() -> ArcTrigger {
+    ArcTrigger::new()
+}

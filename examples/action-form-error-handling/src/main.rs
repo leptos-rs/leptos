@@ -52,23 +52,10 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-#[cfg(not(any(feature = "ssr", feature = "csr")))]
+#[cfg(not(feature = "ssr"))]
 pub fn main() {
     // no client-side main function
     // unless we want this to work with e.g., Trunk for pure client-side testing
     // see lib.rs for hydration function instead
     // see optional feature `csr` instead
-}
-
-#[cfg(all(not(feature = "ssr"), feature = "csr"))]
-pub fn main() {
-    // a client-side main function is required for using `trunk serve`
-    // prefer using `cargo leptos serve` instead
-    // to run: `trunk serve --open --features csr`
-    use action_form_error_handling::app::*;
-    use leptos::prelude::*;
-
-    console_error_panic_hook::set_once();
-
-    mount_to_body(App);
 }

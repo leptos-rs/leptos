@@ -1,6 +1,6 @@
 use crate::{
     channel::{channel, Receiver},
-    effect::inner::EffectInner,
+    effect::{inner::EffectInner, EffectFunction},
     graph::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
         WithObserver,
@@ -26,8 +26,9 @@ use std::{
 /// signals inside effects. (If you need to define a signal that depends on the value of
 /// other signals, use a derived signal or a [`Memo`](crate::computed::Memo)).
 ///
-/// The effect function is called with an argument containing whatever value it returned
-/// the last time it ran. On the initial run, this is `None`.
+/// You can provide an effect function without parameters or one with one parameter.
+/// If you provide such a parameter, the effect function is called with an argument containing
+/// whatever value it returned the last time it ran. On the initial run, this is `None`.
 ///
 /// Effects stop running when their reactive [`Owner`] is disposed.
 ///
@@ -46,7 +47,7 @@ use std::{
 /// let b = RwSignal::new(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// Effect::new(move |_| {
+/// Effect::new(move || {
 ///   // on the next “tick” prints "Value: 0" and subscribes to `a`
 ///   println!("Value: {}", a.get());
 /// });
@@ -55,7 +56,7 @@ use std::{
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
-/// Effect::new(move |_| {
+/// Effect::new(move || {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
 ///   b.set(a.get() + 1);
@@ -127,7 +128,7 @@ impl Effect<LocalStorage> {
     /// This spawns a task on the local thread using
     /// [`spawn_local`](any_spawner::Executor::spawn_local). For an effect that can be spawned on
     /// any thread, use [`new_sync`](Effect::new_sync).
-    pub fn new<T>(mut fun: impl FnMut(Option<T>) -> T + 'static) -> Self
+    pub fn new<T, M>(mut fun: impl EffectFunction<T, M> + 'static) -> Self
     where
         T: 'static,
     {
@@ -153,7 +154,7 @@ impl Effect<LocalStorage> {
                             let old_value =
                                 mem::take(&mut *value.write().or_poisoned());
                             let new_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| fun(old_value))
+                                subscriber.with_observer(|| fun.run(old_value))
                             });
                             *value.write().or_poisoned() = Some(new_value);
                         }
@@ -330,8 +331,8 @@ impl Effect<SyncStorage> {
     ///
     /// This spawns a task that can be run on any thread. For an effect that will be spawned on
     /// the current thread, use [`new`](Effect::new).
-    pub fn new_sync<T>(
-        mut fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
+    pub fn new_sync<T, M>(
+        mut fun: impl EffectFunction<T, M> + Send + Sync + 'static,
     ) -> Self
     where
         T: Send + Sync + 'static,
@@ -358,7 +359,7 @@ impl Effect<SyncStorage> {
                             let old_value =
                                 mem::take(&mut *value.write().or_poisoned());
                             let new_value = owner.with_cleanup(|| {
-                                subscriber.with_observer(|| fun(old_value))
+                                subscriber.with_observer(|| fun.run(old_value))
                             });
                             *value.write().or_poisoned() = Some(new_value);
                         }
@@ -376,8 +377,8 @@ impl Effect<SyncStorage> {
     /// that are read inside it change.
     ///
     /// This will run whether the `effects` feature is enabled or not.
-    pub fn new_isomorphic<T>(
-        mut fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
+    pub fn new_isomorphic<T, M>(
+        mut fun: impl EffectFunction<T, M> + Send + Sync + 'static,
     ) -> Self
     where
         T: Send + Sync + 'static,
@@ -402,7 +403,7 @@ impl Effect<SyncStorage> {
                         let old_value =
                             mem::take(&mut *value.write().or_poisoned());
                         let new_value = owner.with_cleanup(|| {
-                            subscriber.with_observer(|| fun(old_value))
+                            subscriber.with_observer(|| fun.run(old_value))
                         });
                         *value.write().or_poisoned() = Some(new_value);
                     }
@@ -507,7 +508,7 @@ where
 #[inline(always)]
 #[track_caller]
 #[deprecated = "This function is being removed to conform to Rust idioms. \
-                Please use `Effect::watch()` instead."]
+                Please use `Effect::new()` instead."]
 pub fn create_effect<T>(
     fun: impl FnMut(Option<T>) -> T + 'static,
 ) -> Effect<LocalStorage>

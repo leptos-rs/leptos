@@ -11,30 +11,30 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-console_error_panic_hook = "0.1"
+console_error_panic_hook = "0.1.7"
 console_log = "1.0"
-log = "0.4"
+log = "0.4.22"
 leptos = { path = "../../leptos" }
 leptos_axum = { path = "../../integrations/axum", default-features = false, optional = true }
 leptos_meta = { path = "../../meta" }
 leptos_router = { path = "../../router" }
 leptos_server = { path = "../../leptos_server", optional = true }
 serde = { version = "1.0", features = ["derive"] }
-tracing = "0.1"
-gloo-net = { version = "0.6", features = ["http"] }
-reqwest = { version = "0.12", features = ["json"] }
-axum = { version = "0.7", default-features = false, optional = true }
-tower = { version = "0.4", optional = true }
-http = { version = "1.0", optional = true }
-web-sys = { version = "0.3", features = [
+tracing = "0.1.40"
+gloo-net = { version = "0.6.0", features = ["http"] }
+reqwest = { version = "0.12.5", features = ["json"] }
+axum = { version = "0.7.5", default-features = false, optional = true }
+tower = { version = "0.4.13", optional = true }
+http = { version = "1.1", optional = true }
+web-sys = { version = "0.3.70", features = [
   "AbortController",
   "AbortSignal",
   "Request",
   "Response",
 ] }
-getrandom = { version = "0.2.7", features = ["js"] }
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = { version = "0.4.37", features = [
+getrandom = { version = "0.2.15", features = ["js"] }
+wasm-bindgen = "0.2.93"
+wasm-bindgen-futures = { version = "0.4.42", features = [
   "futures-core-03-stream",
 ], optional = true }
 axum-js-fetch = { git = "https://github.com/seanaye/axum-js-fetch", optional = true }

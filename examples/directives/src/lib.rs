@@ -24,11 +24,7 @@ pub fn copy_to_clipboard(el: Element, content: &str) {
         evt.prevent_default();
         evt.stop_propagation();
 
-        let _ = window()
-            .navigator()
-            .clipboard()
-            .expect("navigator.clipboard to be available")
-            .write_text(&content);
+        let _ = window().navigator().clipboard().write_text(&content);
 
         el.set_inner_html(&format!("Copied \"{}\"", &content));
     });
@@ -53,7 +49,6 @@ impl From<()> for Amount {
     }
 }
 
-// .into() will automatically be called on the parameter
 pub fn add_dot(el: Element, amount: Amount) {
     use leptos::wasm_bindgen::JsCast;
     let el = el.unchecked_into::<web_sys::HtmlElement>();
@@ -88,10 +83,11 @@ pub fn App() -> impl IntoView {
             "\" to clipboard"
         </a>
         // automatically applies the directive to every root element in `SomeComponent`
-        <SomeComponent use:highlight />
+        <SomeComponent use:highlight/>
         // no value will default to `().into()`
         <button use:add_dot>"Add a dot"</button>
-        // `5.into()` automatically called
-        <button use:add_dot=5>"Add 5 dots"</button>
+        // can manually call `.into()` to convert to the correct type
+        // (automatically calling `.into()` prevents using generics in directive functions)
+        <button use:add_dot=5.into()>"Add 5 dots"</button>
     }
 }

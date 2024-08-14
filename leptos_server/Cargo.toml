@@ -1,31 +1,31 @@
 [package]
 name = "leptos_server"
 version = { workspace = true }
-edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "RPC for the Leptos web framework."
 readme = "../README.md"
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
-base64 = "0.22"
-codee = { version = "0.1", features = ["json_serde"] }
+base64 = "0.22.1"
+codee = { version = "0.1.2", features = ["json_serde"] }
 hydration_context = { workspace = true }
 reactive_graph = { workspace = true, features = ["hydration"] }
 server_fn = { workspace = true }
-tracing = { version = "0.1", optional = true }
-futures = "0.3"
+tracing = { version = "0.1.40", optional = true }
+futures = "0.3.30"
 
 any_spawner = { workspace = true }
 tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
 
 # serialization formats
-serde = { version = "1"}
-js-sys = { version = "0.3", optional = true } 
-wasm-bindgen = { version = "0.2", optional = true } 
-serde_json = { version = "1"}
+serde = { version = "1.0" }
+js-sys = { version = "0.3.69", optional = true }
+wasm-bindgen = { version = "0.2.93", optional = true }
+serde_json = { version = "1.0" }
 
 [features]
 ssr = []

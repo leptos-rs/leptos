@@ -12,15 +12,16 @@ use futures::{future::join_all, FutureExt};
 use leptos::{component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    computed::ScopedFuture,
+    computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{GetUntracked, ReadUntracked, Set, Track, Trigger},
+    traits::{Get, GetUntracked, ReadUntracked, Set, Track, Trigger},
     wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
 use std::{
     cell::RefCell,
+    fmt::Debug,
     future::Future,
     iter,
     marker::PhantomData,
@@ -195,6 +196,10 @@ where
                     })
                 }
             }
+        }
+
+        if let Some(outlet) = state.outlets.first() {
+            self.outer_owner.with(|| outlet.provide_contexts());
         }
     }
 }
@@ -466,6 +471,20 @@ where
     view_fn: Arc<Mutex<OutletViewFn<R>>>,
 }
 
+impl<R: Renderer> Debug for RouteContext<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RouteContext")
+            .field("id", &self.id)
+            .field("trigger", &self.trigger)
+            .field("url", &self.url)
+            .field("params", &self.params)
+            .field("owner", &self.owner.debug_id())
+            .field("matched", &self.matched)
+            .field("base", &self.base)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<R> RouteContext<R>
 where
     R: Renderer + 'static,
@@ -550,6 +569,34 @@ where
         // the matched signal will also be updated on every match
         // it's used for relative route resolution
         let matched = ArcRwSignal::new(self.as_matched().to_string());
+        let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
+            .iter()
+            .map(|route| (route.params.clone(), route.matched.clone()))
+            .unzip();
+        let params_including_parents = {
+            let params = params.clone();
+            ArcMemo::new({
+                move |_| {
+                    parent_params
+                        .iter()
+                        .flat_map(|params| params.get().into_iter())
+                        .chain(params.get())
+                        .collect::<ParamsMap>()
+                }
+            })
+        };
+        let matched_including_parents = {
+            let matched = matched.clone();
+            ArcMemo::new({
+                move |_| {
+                    parent_matches
+                        .iter()
+                        .map(|matched| matched.get())
+                        .chain(iter::once(matched.get()))
+                        .collect::<String>()
+                }
+            })
+        };
 
         // the trigger and channel will be used to send new boxed AnyViews to the Outlet;
         // whenever we match a different route, the trigger will be triggered and a new view will
@@ -581,25 +628,28 @@ where
         loaders.push(Box::pin(owner.with(|| {
             ScopedFuture::new({
                 let owner = outlet.owner.clone();
-                let params = outlet.params.clone();
                 let url = outlet.url.clone();
-                let matched = Matched(outlet.matched.clone());
+                let matched = Matched(matched_including_parents);
                 let view_fn = Arc::clone(&outlet.view_fn);
                 async move {
-                    provide_context(params);
+                    provide_context(params_including_parents);
                     provide_context(url);
                     provide_context(matched);
                     view.preload().await;
                     *view_fn.lock().or_poisoned() = Box::new(move || {
-                        let owner = owner.clone();
                         let view = view.clone();
-                        Suspend::new(Box::pin(async move {
-                            let view = SendWrapper::new(
-                                owner.with(|| ScopedFuture::new(view.choose())),
-                            );
-                            let view = view.await;
-                            owner.with(|| OwnedView::new(view).into_any())
-                        }))
+                        owner.with(|| {
+                            Suspend::new(Box::pin(async move {
+                                let view = SendWrapper::new(ScopedFuture::new(
+                                    view.choose(),
+                                ));
+                                let view = view.await;
+                                OwnedView::new(view).into_any()
+                            })
+                                as Pin<
+                                    Box<dyn Future<Output = AnyView<R>> + Send>,
+                                >)
+                        })
                     });
                     trigger
                 }
@@ -628,6 +678,11 @@ where
         outlets: &mut Vec<RouteContext<R>>,
         parent: &Owner,
     ) {
+        let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
+            .iter()
+            .take(*items)
+            .map(|route| (route.params.clone(), route.matched.clone()))
+            .unzip();
         let current = outlets.get_mut(*items);
         match current {
             // if there's nothing currently in the routes at this point, build from here
@@ -671,6 +726,30 @@ where
                         &mut current.matched,
                         ArcRwSignal::new(new_match),
                     );
+                    let matched_including_parents = {
+                        ArcMemo::new({
+                            let matched = current.matched.clone();
+                            move |_| {
+                                parent_matches
+                                    .iter()
+                                    .map(|matched| matched.get())
+                                    .chain(iter::once(matched.get()))
+                                    .collect::<String>()
+                            }
+                        })
+                    };
+                    let params_including_parents = {
+                        let params = current.params.clone();
+                        ArcMemo::new({
+                            move |_| {
+                                parent_params
+                                    .iter()
+                                    .flat_map(|params| params.get().into_iter())
+                                    .chain(params.get())
+                                    .collect::<ParamsMap>()
+                            }
+                        })
+                    };
 
                     // assign a new owner, so that contexts and signals owned by the previous route
                     // in this outlet can be dropped
@@ -686,11 +765,10 @@ where
                             let owner = owner.clone();
                             let trigger = current.trigger.clone();
                             let url = current.url.clone();
-                            let params = current.params.clone();
-                            let matched = Matched(current.matched.clone());
+                            let matched = Matched(matched_including_parents);
                             let view_fn = Arc::clone(&current.view_fn);
                             async move {
-                                provide_context(params);
+                                provide_context(params_including_parents);
                                 provide_context(url);
                                 provide_context(matched);
                                 view.preload().await;
@@ -782,13 +860,14 @@ where
     R: Renderer + 'static,
 {
     _ = rndr;
-    let ctx = use_context::<RouteContext<R>>()
-        .expect("<Outlet/> used without RouteContext being provided.");
-    let RouteContext {
-        trigger, view_fn, ..
-    } = ctx;
     move || {
+        let ctx = use_context::<RouteContext<R>>()
+            .expect("<Outlet/> used without RouteContext being provided.");
+        let RouteContext {
+            trigger, view_fn, ..
+        } = ctx;
         trigger.track();
-        (view_fn.lock().or_poisoned())()
+        let view_fn = view_fn.lock().or_poisoned();
+        view_fn()
     }
 }

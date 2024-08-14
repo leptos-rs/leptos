@@ -5,7 +5,7 @@ fn simple_ssr_test() {
     use leptos::prelude::*;
 
     let (value, set_value) = signal(0);
-    let rendered: HtmlElement<_, _, _, Dom> = view! {
+    let rendered: View<HtmlElement<_, _, _, Dom>> = view! {
         <div>
             <button on:click={move |_| set_value.update(|value| *value -= 1)}>"-1"</button>
             <span>"Value: " {move || value.get().to_string()} "!"</span>
@@ -36,7 +36,7 @@ fn ssr_test_with_components() {
         }
     }
 
-    let rendered: HtmlElement<_, _, _, Dom> = view! {
+    let rendered: View<HtmlElement<_, _, _, Dom>> = view! {
         <div class="counters">
             <Counter initial_value=1 />
             <Counter initial_value=2 />
@@ -66,7 +66,7 @@ fn ssr_test_with_snake_case_components() {
             </div>
         }
     }
-    let rendered: HtmlElement<_, _, _, Dom> = view! {
+    let rendered: View<HtmlElement<_, _, _, Dom>> = view! {
         <div class="counters">
             <SnakeCaseCounter initial_value=1 />
             <SnakeCaseCounter initial_value=2 />
@@ -86,7 +86,7 @@ fn test_classes() {
     use leptos::prelude::*;
 
     let (value, _set_value) = signal(5);
-    let rendered: HtmlElement<_, _, _, Dom> = view! {
+    let rendered: View<HtmlElement<_, _, _, Dom>> = view! {
         <div
             class="my big"
             class:a={move || { value.get() > 10 }}
@@ -104,7 +104,7 @@ fn ssr_with_styles() {
 
     let (_, set_value) = signal(0);
     let styles = "myclass";
-    let rendered: HtmlElement<_, _, _, Dom> = view! { class=styles,
+    let rendered: View<HtmlElement<_, _, _, Dom>> = view! { class=styles,
         <div>
             <button class="btn" on:click={move |_| set_value.update(|value| *value -= 1)}>
                 "-1"
@@ -124,7 +124,7 @@ fn ssr_option() {
     use leptos::prelude::*;
 
     let (_, _) = signal(0);
-    let rendered: HtmlElement<_, _, _, Dom> = view! { <option></option> };
+    let rendered: View<HtmlElement<_, _, _, Dom>> = view! { <option></option> };
 
     assert_eq!(rendered.to_html(), "<option></option>");
 }

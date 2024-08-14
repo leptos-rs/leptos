@@ -1,25 +1,25 @@
 [package]
 name = "leptos_meta"
 version = "0.7.0-beta"
-edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Tools to set HTML metadata in the Leptos web framework."
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
 leptos = { workspace = true }
-once_cell = "1"
+once_cell = "1.19"
 or_poisoned = { workspace = true }
-indexmap = "2"
+indexmap = "2.3"
 send_wrapper = "0.6.0"
-tracing = "0.1"
-wasm-bindgen = "0.2"
+tracing = "0.1.40"
+wasm-bindgen = "0.2.93"
 futures = "0.3.30"
 
 [dependencies.web-sys]
-version = "0.3"
+version = "0.3.70"
 features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]

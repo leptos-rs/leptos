@@ -1,15 +1,15 @@
 [package]
 name = "leptos_router_macro"
-edition = "2021"
 version.workspace = true
+edition.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro-error = { version = "1", default-features = false }
-proc-macro2 = "1"
-quote = "1"
+proc-macro-error = { version = "1.0", default-features = false }
+proc-macro2 = "1.0"
+quote = "1.0"
 
 [dev-dependencies]
 leptos_router = { workspace = true }

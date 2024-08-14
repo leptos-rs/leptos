@@ -195,10 +195,10 @@ impl<T> DefinedAt for ArcAsyncDerived<T> {
 // whether `fun` returns a `Future` that is `Send`. Doing it as a function would,
 // as far as I can tell, require repeating most of the function body.
 macro_rules! spawn_derived {
-    ($spawner:expr, $initial:ident, $fun:ident, $should_spawn:literal) => {{
+    ($spawner:expr, $initial:ident, $fun:ident, $should_spawn:literal, $force_spawn:literal) => {{
         let (notifier, mut rx) = channel();
 
-        let is_ready = $initial.is_some();
+        let is_ready = $initial.is_some() && !$force_spawn;
 
         let owner = Owner::new();
         let inner = Arc::new(RwLock::new(ArcAsyncDerivedInner {
@@ -344,9 +344,8 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Self::new_with_initial(None, fun)
     }
 
-    /// Creates a new async derived computation with an initial value.
-    ///
-    /// If the initial value is `Some(_)`, the task will not be run initially.
+    /// Creates a new async derived computation with an initial value as a fallback, and begins running the
+    /// `Future` eagerly to get the actual first value.
     #[track_caller]
     pub fn new_with_initial<Fut>(
         initial_value: Option<T>,
@@ -357,7 +356,27 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Fut: Future<Output = T> + Send + 'static,
     {
         let (this, _) =
-            spawn_derived!(Executor::spawn, initial_value, fun, true);
+            spawn_derived!(Executor::spawn, initial_value, fun, true, true);
+        this
+    }
+
+    /// Creates a new async derived computation with an initial value, and does not spawn a task
+    /// initially.
+    ///
+    /// This is mostly used with manual dependency tracking, for primitives built on top of this
+    /// where you do not want to run the run the `Future` unnecessarily.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn new_with_initial_without_spawning<Fut>(
+        initial_value: Option<T>,
+        fun: impl Fn() -> Fut + Send + Sync + 'static,
+    ) -> Self
+    where
+        T: Send + Sync + 'static,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        let (this, _) =
+            spawn_derived!(Executor::spawn, initial_value, fun, true, false);
         this
     }
 
@@ -375,10 +394,8 @@ impl<T: 'static> ArcAsyncDerived<T> {
         Self::new_unsync_with_initial(None, fun)
     }
 
-    /// Creates a new async derived computation with an initial value. Async work will be
-    /// guaranteed to run only on the current thread.
-    ///
-    /// If the initial value is `Some(_)`, the task will not be run initially.
+    /// Creates a new async derived computation with an initial value as a fallback, and begins running the
+    /// `Future` eagerly to get the actual first value.
     #[track_caller]
     pub fn new_unsync_with_initial<Fut>(
         initial_value: Option<T>,
@@ -388,8 +405,13 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: 'static,
         Fut: Future<Output = T> + 'static,
     {
-        let (this, _) =
-            spawn_derived!(Executor::spawn_local, initial_value, fun, true);
+        let (this, _) = spawn_derived!(
+            Executor::spawn_local,
+            initial_value,
+            fun,
+            true,
+            true
+        );
         this
     }
 
@@ -402,7 +424,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     {
         let initial = None::<T>;
         let (this, _) =
-            spawn_derived!(Executor::spawn_local, initial, fun, false);
+            spawn_derived!(Executor::spawn_local, initial, fun, false, false);
         this
     }
 

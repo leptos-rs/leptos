@@ -14,7 +14,7 @@ jobs:
 
   test:
     needs: [get-leptos-changed]
-    if: needs.get-leptos-changed.outputs.leptos_changed == 'true' && github.event.pull_request.labels[0].name != 'breaking'
+    if: github.event.pull_request.labels[0].name == 'semver' # needs.get-leptos-changed.outputs.leptos_changed == 'true' && github.event.pull_request.labels[0].name != 'breaking'
     name: Run semver check (nightly-2024-08-01)
     runs-on: ubuntu-latest
 

@@ -69,25 +69,33 @@ where
     Chil: IntoView,
 {
     #[cfg(feature = "ssr")]
-    let current_url = {
+    let (current_url, redirect_hook) = {
         let req = use_context::<RequestUrl>().expect("no RequestUrl provided");
         let parsed = req.parse().expect("could not parse RequestUrl");
-        ArcRwSignal::new(parsed)
+        let current_url = ArcRwSignal::new(parsed);
+
+        (current_url, Box::new(move |_: &str| {}))
     };
 
     #[cfg(not(feature = "ssr"))]
-    let current_url = {
+    let (current_url, redirect_hook) = {
         let location =
             BrowserUrl::new().expect("could not access browser navigation"); // TODO options here
         location.init(base.clone());
         provide_context(location.clone());
-        location.as_url().clone()
+        let current_url = location.as_url().clone();
+
+        let redirect_hook = Box::new(|loc: &str| BrowserUrl::redirect(loc));
+
+        (current_url, redirect_hook)
     };
     // provide router context
     let state = ArcRwSignal::new(State::new(None));
     let location = Location::new(current_url.read_only(), state.read_only());
 
-    // TODO server function redirect hook
+    // set server function redirect hook
+    _ = server_fn::redirect::set_redirect_hook(redirect_hook);
+
     provide_context(RouterContext {
         base,
         current_url,
@@ -331,12 +339,17 @@ where
         (view! {
             <Transition>
                 {move || {
-                    match condition() {
+                    let condition = condition();
+                    let view = view.clone();
+                    let redirect_path = redirect_path.clone();
+                    Unsuspend::new(move || match condition {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
-                        Some(false) => Either::Right(view! { <Redirect path={redirect_path()} /> }),
+                        Some(false) => {
+                            Either::Right(view! { <Redirect path={redirect_path()}/> }.into_inner())
+                        }
                         None => Either::Right(()),
-                    }
+                    })
                 }}
 
             </Transition>
@@ -379,7 +392,9 @@ where
                     match condition() {
                         Some(true) => Either::Left(view()),
                         #[allow(clippy::unit_arg)]
-                        Some(false) => Either::Right(view! { <Redirect path={redirect_path()} /> }),
+                        Some(false) => {
+                            Either::Right(view! { <Redirect path={redirect_path()}/> }.into_inner())
+                        }
                         None => Either::Right(()),
                     }
                 }}

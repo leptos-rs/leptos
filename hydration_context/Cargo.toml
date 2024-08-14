@@ -1,6 +1,5 @@
 [package]
 name = "hydration_context"
-edition = "2021"
 version = "0.2.0-beta"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,15 +7,16 @@ readme = "../README.md"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Utilities for sharing data between web servers and client-side web applications."
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
 or_poisoned = { workspace = true }
-futures = "0.3"
-serde = { version = "1", features = ["derive"] }
-wasm-bindgen = { version = "0.2", optional = true }
-js-sys = { version = "0.3", optional = true }
-once_cell = "1.19.0"
+futures = "0.3.30"
+serde = { version = "1.0", features = ["derive"] }
+wasm-bindgen = { version = "0.2.93", optional = true }
+js-sys = { version = "0.3.69", optional = true }
+once_cell = "1.19"
 pin-project-lite = "0.2.14"
 
 [features]

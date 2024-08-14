@@ -75,6 +75,7 @@ pub fn ContactRoutes() -> impl MatchNestedRoutes<Dom> + Clone {
             <Route path={path!("/:id")} view={Contact} />
         </ParentRoute>
     }
+    .into_inner()
 }
 
 #[component]

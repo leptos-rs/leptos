@@ -1,20 +1,20 @@
 [package]
 name = "reactive_stores"
-edition = "2021"
 version = "0.1.0-beta"
 rust-version.workspace = true
+edition.workspace = true
 
 [dependencies]
-guardian = "1.1.0"
+guardian = "1.2"
 itertools = "0.13.0"
 or_poisoned = { workspace = true }
-paste = "1.0.15"
+paste = "1.0"
 reactive_graph = { workspace = true }
-rustc-hash = "2"
+rustc-hash = "2.0"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-tokio-test = { version = "0.4" }
+tokio = { version = "1.39", features = ["rt-multi-thread", "macros"] }
+tokio-test = { version = "0.4.4" }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 reactive_stores_macro = { workspace = true }
 reactive_graph = { workspace = true, features = ["effects"] }

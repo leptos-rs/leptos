@@ -165,6 +165,8 @@ pub trait LocationProvider: Clone + 'static {
     }
 
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error>;
+
+    fn redirect(loc: &str);
 }
 
 #[derive(Debug, Clone, Default)]
