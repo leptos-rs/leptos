@@ -181,8 +181,6 @@ pub fn create_signal<T: Send + Sync + 'static>(
 #[track_caller]
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `RwSignal::new()` instead."]
-pub fn create_rw_signal<T: Send + Sync + 'static>(
-    value: T,
-) -> RwSignal<T> {
+pub fn create_rw_signal<T: Send + Sync + 'static>(value: T) -> RwSignal<T> {
     RwSignal::new(value)
 }
