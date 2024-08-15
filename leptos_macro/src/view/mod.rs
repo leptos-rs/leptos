@@ -1,7 +1,7 @@
 use crate::{attribute_value, Mode};
 use convert_case::{Case::Snake, Casing};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use rstml::node::{KeyedAttribute, Node, NodeElement, NodeName};
 use syn::{
     spanned::Spanned,
@@ -567,12 +567,41 @@ pub(crate) fn event_from_attribute_node(
 
     let handler = attribute_value(attr);
 
-    let (event_type, _, name_undelegated) = parse_event_name(&event_name);
+    let (event_type, is_custom, name_undelegated) =
+        parse_event_name(&event_name);
+
+    // HACK(chrisp60): in the code above, the original span information is lost
+    // as the event name is parsed from a stringified version of the tokens.
+    //
+    // This assumes that the attribute key is structured as "on:some_event_name" and
+    // just skips the "on:" part, isolating the "some_event_name" tokens. In turn,
+    // we keep the span information from the original event identifier.
+    //
+    // .nth(2) is because syn parses follows
+    // token 0: "on"
+    // token 1: ":"
+    // token 2: "event"
+    //
+    // There are cleaners ways to do this but this is a legacy branch.
+    let original_tokens = attr
+        .key
+        .to_token_stream()
+        .into_iter()
+        .nth(2)
+        .expect("tokens following on:"); // see previous call to .expect in this same function
+
+    // is_custom wraps the event type in a struct definition, so don't use
+    // our original tokens.
+    let absolute_ev = if is_custom {
+        quote! { ::leptos::leptos_dom::ev::#event_type }
+    } else {
+        quote! { ::leptos::leptos_dom::ev::#original_tokens }
+    };
 
     let event_type = if force_undelegated || name_undelegated {
-        quote! { ::leptos::leptos_dom::ev::undelegated(::leptos::leptos_dom::ev::#event_type) }
+        quote! { ::leptos::leptos_dom::ev::undelegated(#absolute_ev) }
     } else {
-        quote! { ::leptos::leptos_dom::ev::#event_type }
+        quote! { ::leptos::leptos_dom::ev::#absolute_ev }
     };
     (event_type, handler)
 }

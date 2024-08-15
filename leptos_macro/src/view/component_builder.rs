@@ -100,7 +100,13 @@ pub(crate) fn component_to_tokens(
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
             let (event_type, handler) = event_from_attribute_node(attr, true);
-            let on = quote_spanned!(attr.key.span()=> on);
+            // HACK(chrisp60): rstml and leptos has a different definition on attribute keys.
+            // This retains precise span information for the "on" in "on:some_event_name".
+            //
+            // A similar hack is done in `event_from_attribute_node` to retain the precise
+            // event name span.
+            let on = attr.key.to_token_stream().into_iter().next();
+
             quote! {
                 .#on(#event_type, #handler)
             }
