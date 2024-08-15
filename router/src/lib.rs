@@ -19,6 +19,7 @@ mod ssr_mode;
 mod static_route;
 
 pub use generate_route_list::*;
+#[doc(inline)]
 pub use leptos_router_macro::path;
 pub use matching::*;
 pub use method::*;
