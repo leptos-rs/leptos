@@ -6,7 +6,7 @@ use super::{
 };
 use crate::view::directive_call_from_attribute_node;
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use rstml::node::{NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -70,10 +70,8 @@ pub(crate) fn component_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned!(value.span()=> { #value });
-
-            quote_spanned! {attr.span()=>
-                .#name(#[allow(unused_braces)] #value)
+            quote! {
+                .#name(#[allow(unused_braces)] { #value })
             }
         });
 
@@ -169,8 +167,7 @@ pub(crate) fn component_to_tokens(
                 items_to_bind.iter().map(|ident| quote! { #ident, });
 
             let clonables = items_to_clone.iter().map(|ident| {
-                let ident_ref = quote_spanned!(ident.span()=> &#ident);
-                quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
+                quote! { let #ident = ::core::clone::Clone::clone(&#ident); }
             });
 
             if bindables.len() > 0 {
@@ -202,7 +199,7 @@ pub(crate) fn component_to_tokens(
             .span();
         let slot = Ident::new(&slot, span);
         let value = if values.len() > 1 {
-            quote_spanned! {span=>
+            quote! {
                 ::std::vec![
                     #(#values)*
                 ]
@@ -221,28 +218,16 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
-    let name_ref = quote_spanned! {name.span()=>
-        &#name
-    };
-
-    let build = quote_spanned! {name.span()=>
-        .build()
-    };
-
-    let component_props_builder = quote_spanned! {name.span()=>
-        ::leptos::component_props_builder(#name_ref #generics)
-    };
-
     #[allow(unused_mut)] // used in debug
-    let mut component = quote_spanned! {node.span()=>
+    let mut component = quote! {
         ::leptos::component_view(
             #[allow(clippy::needless_borrows_for_generic_args)]
-            #name_ref,
-            #component_props_builder
+            &#name,
+            ::leptos::component_props_builder(&#name #generics)
                 #(#props)*
                 #(#slots)*
                 #children
-                #build
+                .build()
                 #dyn_attrs
                 #(#spread_bindings)*
         )
@@ -256,7 +241,7 @@ pub(crate) fn component_to_tokens(
     if events_and_directives.is_empty() {
         component
     } else {
-        quote_spanned! {node.span()=>
+        quote! {
             ::leptos::IntoView::into_view(#[allow(unused_braces)] {#component})
             #(#events_and_directives)*
         }

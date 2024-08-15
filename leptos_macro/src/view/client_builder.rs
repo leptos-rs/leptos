@@ -43,7 +43,6 @@ pub(crate) fn fragment_to_tokens(
     let mut nodes = nodes
         .iter()
         .filter_map(|node| {
-            let span = node.span();
             let node = node_to_tokens(
                 node,
                 parent_type,
@@ -52,10 +51,8 @@ pub(crate) fn fragment_to_tokens(
                 None,
             )?;
 
-            let node = quote_spanned!(span => { #node });
-
             Some(quote! {
-                ::leptos::IntoView::into_view(#[allow(unused_braces)] #node)
+                ::leptos::IntoView::into_view(#[allow(unused_braces)] { #node })
             })
         })
         .peekable();
@@ -406,18 +403,14 @@ pub(crate) fn attribute_to_tokens(
         let event_type = if is_custom {
             event_type
         } else if let Some(ev_name) = event_name_ident {
-            quote_spanned! {
-                ev_name.span()=> #ev_name
-            }
+            quote! { #ev_name }
         } else {
             event_type
         };
 
         let event_type = if is_force_undelegated {
             let undelegated = if let Some(undelegated) = undelegated_ident {
-                quote_spanned! {
-                    undelegated.span()=> #undelegated
-                }
+                quote! { #undelegated }
             } else {
                 quote! { undelegated }
             };
