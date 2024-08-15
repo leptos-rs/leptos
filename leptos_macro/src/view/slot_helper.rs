@@ -61,10 +61,8 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned!(value.span()=> { #value });
-
-            quote_spanned! {attr.span()=>
-                .#name(#[allow(unused_braces)] #value)
+            quote! {
+                .#name(#[allow(unused_braces)] { #value })
             }
         });
 
@@ -168,7 +166,7 @@ pub(crate) fn slot_to_tokens(
             .span();
         let slot = Ident::new(&slot, span);
         let value = if values.len() > 1 {
-            quote_spanned! {span=>
+            quote! {
                 ::std::vec![
                     #(#values)*
                 ]

@@ -332,16 +332,17 @@ pub(crate) fn element_to_tokens(
             quote! {}
         };
         let ide_helper_close_tag = ide_helper_close_tag.into_iter();
-        let result = quote_spanned! {node.span()=> {
-            #(#ide_helper_close_tag)*
-            #name
-                #(#attrs)*
-                #(#bindings)*
-                #(#class_attrs)*
-                #(#style_attrs)*
-                #global_class_expr
-                #(#children)*
-                #view_marker
+        let result = quote! {
+            {
+                #(#ide_helper_close_tag)*
+                #name
+                    #(#attrs)*
+                    #(#bindings)*
+                    #(#class_attrs)*
+                    #(#style_attrs)*
+                    #global_class_expr
+                    #(#children)*
+                    #view_marker
             }
         };
 
