@@ -1,6 +1,6 @@
 [package]
 name = "hydration_context"
-version = "0.2.0-beta"
+version = "0.2.0-beta2"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
