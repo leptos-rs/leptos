@@ -303,9 +303,7 @@ pub(crate) fn element_to_tokens(
                         global_class,
                         None,
                     )
-                    .unwrap_or(quote_spanned! {
-                        Span::call_site()=> ::leptos::leptos_dom::Unit
-                    }),
+                    .unwrap_or(quote! { ::leptos::leptos_dom::Unit }),
                 ),
                 Node::Text(node) => Some(quote! { #node }),
                 Node::RawText(node) => {
