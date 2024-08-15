@@ -21,6 +21,7 @@ jobs:
         run: |
           examples=$(ls -1d examples/*/ |
           grep -vE '(cargo-make|gtk)' |
+          sed 's/\/$//' |
           jq -R -s -c 'split("\n")[:-1]')
           echo "Example Directories: $examples"
           echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"

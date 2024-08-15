@@ -20,7 +20,7 @@ jobs:
         id: set-matrix
         run: |
           crates=$(cargo metadata --no-deps --quiet --format-version 1 |
-          jq -r '.packages[] | select(.name != "workspace") | .manifest_path| rtrimstr("Cargo.toml")' |
+          jq -r '.packages[] | select(.name != "workspace") | .manifest_path| rtrimstr("/Cargo.toml")' |
           sed "s|$(pwd)/||" |
           jq -R -s -c 'split("\n")[:-1]')
           echo "Leptos Directories: $crates"
