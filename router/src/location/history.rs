@@ -87,6 +87,11 @@ impl LocationProvider for BrowserUrl {
         })
     }
 
+    fn parse(url: &str) -> Result<Url, Self::Error> {
+        let base = window().location().origin()?;
+        Self::parse_with_base(url, &base)
+    }
+
     fn parse_with_base(url: &str, base: &str) -> Result<Url, Self::Error> {
         let location = web_sys::Url::new_with_base(url, base)?;
         Ok(Url {
@@ -115,6 +120,7 @@ impl LocationProvider for BrowserUrl {
                     curr.origin() == new_url.origin()
                         && curr.path() == new_url.path()
                 };
+
                 url.set(new_url);
                 if same_path {
                     Self::complete_navigation(&loc);
