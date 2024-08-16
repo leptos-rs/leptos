@@ -207,7 +207,10 @@ impl ExtendResponse for ActixResponse {
 /// without actually setting the status code. This means that the client will not follow the
 /// redirect, and can therefore return the value of the server function and then handle
 /// the redirect with client-side routing.
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn redirect(path: &str) {
     if let (Some(req), Some(res)) =
         (use_context::<Request>(), use_context::<ResponseOptions>())
@@ -239,10 +242,14 @@ pub fn redirect(path: &str) {
             );
         }
     } else {
-        tracing::warn!(
-            "Couldn't retrieve either Parts or ResponseOptions while trying \
-             to redirect()."
-        );
+        let msg = "Couldn't retrieve either Parts or ResponseOptions while \
+                   trying to redirect().";
+
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{}", &msg);
+
+        #[cfg(not(feature = "tracing"))]
+        eprintln!("{}", &msg);
     }
 }
 
@@ -282,7 +289,10 @@ pub fn redirect(path: &str) {
 /// This function always provides context values including the following types:
 /// - [ResponseOptions]
 /// - [HttpRequest](actix_web::HttpRequest)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|| {})
 }
@@ -306,7 +316,10 @@ pub fn handle_server_fns() -> Route {
 /// This function always provides context values including the following types:
 /// - [ResponseOptions]
 /// - [HttpRequest](actix_web::HttpRequest)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
 ) -> Route {
@@ -438,7 +451,10 @@ pub fn handle_server_fns_with_context(
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
@@ -505,7 +521,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_in_order<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
@@ -567,7 +586,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_async<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
     method: Method,
@@ -590,7 +612,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -624,7 +649,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -655,7 +683,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -685,7 +716,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_async_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -704,7 +738,10 @@ where
     })
 }
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 fn provide_contexts(
     req: Request,
     meta_context: &ServerMetaContext,
@@ -1205,7 +1242,10 @@ where
         InitError = (),
     >,
 {
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes<IV>(
         self,
         paths: Vec<ActixRouteListing>,
@@ -1217,7 +1257,10 @@ where
         self.leptos_routes_with_context(paths, || {}, app_fn)
     }
 
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes_with_context<IV>(
         self,
         paths: Vec<ActixRouteListing>,
@@ -1304,7 +1347,10 @@ where
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for &mut ServiceConfig {
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes<IV>(
         self,
         paths: Vec<ActixRouteListing>,
@@ -1316,7 +1362,10 @@ impl LeptosRoutes for &mut ServiceConfig {
         self.leptos_routes_with_context(paths, || {}, app_fn)
     }
 
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes_with_context<IV>(
         self,
         paths: Vec<ActixRouteListing>,

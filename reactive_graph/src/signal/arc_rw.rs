@@ -149,7 +149,7 @@ impl<T> ArcRwSignal<T> {
     /// Creates a new signal, taking the initial value as its argument.
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
+        tracing::instrument(level = "trace", skip_all)
     )]
     #[track_caller]
     pub fn new(value: T) -> Self {

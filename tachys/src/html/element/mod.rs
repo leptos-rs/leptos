@@ -572,7 +572,7 @@ mod tests {
             element::{em, ElementChild, Main},
         },
         renderer::mock_dom::MockDom,
-        view::{Render, RenderHtml},
+        view::Render,
     };
 
     #[test]

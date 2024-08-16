@@ -302,6 +302,9 @@ pub use serde;
 #[cfg(feature = "experimental-islands")]
 #[doc(hidden)]
 pub use serde_json;
+#[cfg(feature = "tracing")]
+#[doc(hidden)]
+pub use tracing;
 #[doc(hidden)]
 pub use wasm_bindgen;
 #[doc(hidden)]
@@ -376,7 +379,7 @@ pub use show::*;
 //pub use suspense_component::*;
 mod suspense_component;
 //mod transition;
-#[cfg(any(debug_assertions, feature = "ssr"))]
+#[cfg(feature = "tracing")]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;

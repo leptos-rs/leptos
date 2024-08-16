@@ -38,7 +38,7 @@ tachys = ["dep:tachys"]
 tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["nightly"]
+denylist = ["tracing"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

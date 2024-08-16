@@ -95,8 +95,8 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all)
     )]
     pub fn dispatch(&self, input: I) {
         self.0.with_value(|a| a.dispatch(input))
@@ -104,8 +104,8 @@ where
 
     /// The set of all submissions to this multi-action.
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all)
     )]
     pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
         self.0.with_value(|a| a.submissions())
@@ -119,8 +119,8 @@ where
 
     /// How many times an action has successfully resolved.
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all)
     )]
     pub fn version(&self) -> RwSignal<usize> {
         self.0.with_value(|a| a.version)
@@ -129,8 +129,8 @@ where
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all)
     )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         self.0.update_value(|a| {
@@ -201,8 +201,8 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "trace", skip_all,)
+        feature = "tracing",
+        tracing::instrument(level = "trace", skip_all)
     )]
     pub fn dispatch(&self, input: I) {
         if !is_suppressing_resource_load() {
@@ -293,10 +293,7 @@ where
 ///     create_multi_action(|input: &(usize, String)| async { todo!() });
 /// # runtime.dispose();
 /// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn create_multi_action<I, O, F, Fu>(action_fn: F) -> MultiAction<I, O>
 where
     I: 'static,
@@ -333,10 +330,7 @@ where
 /// let my_server_multi_action = create_server_multi_action::<MyServerFn>();
 /// # runtime.dispose();
 /// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn create_server_multi_action<S>(
 ) -> MultiAction<S, Result<S::Output, ServerFnError<S::Error>>>
 where

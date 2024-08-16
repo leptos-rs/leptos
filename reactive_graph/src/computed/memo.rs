@@ -149,7 +149,7 @@ where
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "debug", skip_all,)
+        tracing::instrument(level = "debug", skip_all)
     )]
     /// Creates a new memoized, computed reactive value.
     ///
@@ -184,7 +184,7 @@ where
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
+        tracing::instrument(level = "trace", skip_all)
     )]
     /// Creates a new memo with a custom comparison function. By default, memos simply use
     /// [`PartialEq`] to compare the previous value to the new value. Passing a custom comparator
@@ -218,7 +218,7 @@ where
     #[track_caller]
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
+        tracing::instrument(level = "trace", skip_all)
     )]
     pub fn new_owning(
         fun: impl Fn(Option<T>) -> (T, bool) + Send + Sync + 'static,
