@@ -149,3 +149,41 @@ async fn dynamic_dependencies() {
         })
         .await
 }
+
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn recursive_effect_runs_recursively() {
+    use imports::*;
+
+    _ = Executor::init_tokio();
+    task::LocalSet::new()
+        .run_until(async {
+            let s = RwSignal::new(0);
+
+            let logged_values = Arc::new(RwLock::new(Vec::new()));
+
+            mem::forget(RenderEffect::new({
+                let logged_values = Arc::clone(&logged_values);
+                move |_| {
+                    let a = s.get();
+                    println!("a = {a}");
+                    logged_values.write().unwrap().push(a);
+                    if a == 0 {
+                        return;
+                    }
+                    s.set(0);
+                }
+            }));
+
+            s.set(1);
+            Executor::tick().await;
+            s.set(2);
+            Executor::tick().await;
+            s.set(3);
+            Executor::tick().await;
+
+            assert_eq!(0, s.get_untracked());
+            assert_eq!(&*logged_values.read().unwrap(), &[0, 1, 0, 2, 0, 3, 0]);
+        })
+        .await;
+}
