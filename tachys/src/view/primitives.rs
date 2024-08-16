@@ -27,8 +27,6 @@ macro_rules! render_primitive {
 						self.0.unmount()
 					}
 
-                    fn unmount_from_parent(&mut self) {}
-
 					fn mount(
 						&mut self,
 						parent: &<R as Renderer>::Element,
