@@ -364,6 +364,15 @@ where
     state: <HtmlElement<E, At, Ch, Dom> as Render<Dom>>::State,
 }
 
+impl<E, At, Ch> Drop for RegisteredMetaTagState<E, At, Ch>
+where
+    HtmlElement<E, At, Ch, Dom>: Render<Dom>,
+{
+    fn drop(&mut self) {
+        self.state.unmount();
+    }
+}
+
 fn document_head() -> HtmlHeadElement {
     let document = document();
     document.head().unwrap_or_else(|| {
