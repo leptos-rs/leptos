@@ -443,20 +443,10 @@ impl<At, Ch, R: Renderer> Deref for ElementState<At, Ch, R> {
 
 impl<At, Ch, R> Mountable<R> for ElementState<At, Ch, R>
 where
-    Ch: Mountable<R>,
     R: Renderer,
 {
     fn unmount(&mut self) {
-        if let Some(children) = self.children.as_mut() {
-            children.unmount_from_parent();
-        }
         R::remove(self.el.as_ref());
-    }
-
-    fn unmount_from_parent(&mut self) {
-        if let Some(children) = self.children.as_mut() {
-            children.unmount_from_parent();
-        }
     }
 
     fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>) {

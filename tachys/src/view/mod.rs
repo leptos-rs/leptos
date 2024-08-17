@@ -282,15 +282,6 @@ pub trait Mountable<R: Renderer> {
     /// Detaches the view from the DOM.
     fn unmount(&mut self);
 
-    /// Detaches the view from the DOM, when it is a child of another element that is being
-    /// unmounted.
-    ///
-    /// Most elements do not require any action here, but special view types that have additional
-    /// unmount logic do.
-    fn unmount_from_parent(&mut self) {
-        self.unmount();
-    }
-
     /// Mounts a node to the interface.
     fn mount(&mut self, parent: &R::Element, marker: Option<&R::Node>);
 

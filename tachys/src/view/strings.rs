@@ -131,8 +131,6 @@ where
         self.node.unmount()
     }
 
-    fn unmount_from_parent(&mut self) {}
-
     fn mount(
         &mut self,
         parent: &<R as Renderer>::Element,
@@ -234,8 +232,6 @@ impl<R: Renderer> Mountable<R> for StringState<R> {
         self.node.unmount()
     }
 
-    fn unmount_from_parent(&mut self) {}
-
     fn mount(
         &mut self,
         parent: &<R as Renderer>::Element,
@@ -327,8 +323,6 @@ impl<R: Renderer> Mountable<R> for RcStrState<R> {
     fn unmount(&mut self) {
         self.node.unmount()
     }
-
-    fn unmount_from_parent(&mut self) {}
 
     fn mount(
         &mut self,
@@ -433,8 +427,6 @@ impl<R: Renderer> Mountable<R> for ArcStrState<R> {
         self.node.unmount()
     }
 
-    fn unmount_from_parent(&mut self) {}
-
     fn mount(
         &mut self,
         parent: &<R as Renderer>::Element,
@@ -537,8 +529,6 @@ impl<'a, R: Renderer> Mountable<R> for CowStrState<'a, R> {
     fn unmount(&mut self) {
         self.node.unmount()
     }
-
-    fn unmount_from_parent(&mut self) {}
 
     fn mount(
         &mut self,

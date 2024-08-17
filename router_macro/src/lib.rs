@@ -6,6 +6,25 @@ use quote::{quote, ToTokens};
 const RFC3986_UNRESERVED: [char; 4] = ['-', '.', '_', '~'];
 const RFC3986_PCHAR_OTHER: [char; 1] = ['@'];
 
+/// Constructs a path for use in a [`leptos_router::Route`] definition.
+///
+/// Note that this is an optional convenience. Manually defining route segments
+/// is equivalent.
+///
+/// # Examples
+///
+/// ```rust
+/// use leptos_router::{path, ParamSegment, StaticSegment, WildcardSegment};
+///
+/// let path = path!("/foo/:bar/*any");
+/// let output = (
+///     StaticSegment("foo"),
+///     ParamSegment("bar"),
+///     WildcardSegment("any"),
+/// );
+///
+/// assert_eq!(path, output);
+/// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro]
 pub fn path(tokens: TokenStream) -> TokenStream {

@@ -143,6 +143,11 @@ impl RouterContext {
             }
         };
 
+        if url.origin() != current.origin() {
+            window().location().set_href(path).unwrap();
+            return;
+        }
+
         // update state signal, if necessary
         if options.state != self.state.get_untracked() {
             self.state.set(options.state.clone());
