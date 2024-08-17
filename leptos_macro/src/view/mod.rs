@@ -1,6 +1,5 @@
 mod component_builder;
 mod slot_helper;
-
 use self::{
     component_builder::component_to_tokens,
     slot_helper::{get_slot, slot_to_tokens},
@@ -14,8 +13,11 @@ use rstml::node::{
     KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
     NodeNameFragment,
 };
-use std::collections::HashMap;
-use syn::{spanned::Spanned, Expr, ExprRange, Lit, LitStr, RangeLimits, Stmt};
+use std::collections::{HashMap, HashSet};
+use syn::{
+    spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprRange, Lit, LitStr,
+    RangeLimits, Stmt,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TagType {
@@ -240,6 +242,26 @@ pub(crate) fn element_to_tokens(
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
 ) -> Option<TokenStream> {
+    // check for duplicate attribute names and emit an error for all subsequent ones
+    let mut names = HashSet::new();
+    for attr in node.attributes() {
+        if let NodeAttribute::Attribute(attr) = attr {
+            let mut name = attr.key.to_string();
+            if let Some(tuple_name) = tuple_name(&name, attr) {
+                name.push(':');
+                name.push_str(&tuple_name);
+            }
+            if names.contains(&name) {
+                proc_macro_error::emit_error!(
+                    attr.span(),
+                    format!("This element already has a `{name}` attribute.")
+                );
+            } else {
+                names.insert(name);
+            }
+        }
+    }
+
     let name = node.name();
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
@@ -1109,4 +1131,24 @@ pub(crate) fn directive_call_from_attribute_node(
     };
 
     quote! { .directive(#handler, #[allow(clippy::useless_conversion)] #param) }
+}
+
+fn tuple_name(name: &str, node: &KeyedAttribute) -> Option<String> {
+    if name == "style" || name == "class" {
+        if let Some(Tuple(tuple)) = node.value() {
+            {
+                if tuple.elems.len() == 2 {
+                    let style_name = &tuple.elems[0];
+                    if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }) = style_name
+                    {
+                        return Some(s.value());
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
