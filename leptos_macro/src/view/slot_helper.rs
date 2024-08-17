@@ -59,10 +59,8 @@ pub(crate) fn slot_to_tokens(
                 })
                 .unwrap_or_else(|| quote! { #name });
 
-            let value = quote_spanned!(value.span()=> { #value });
-
-            quote_spanned! {attr.span()=>
-                .#name(#[allow(unused_braces)] #value)
+            quote! {
+                .#name(#[allow(unused_braces)] { #value })
             }
         });
 
@@ -136,8 +134,9 @@ pub(crate) fn slot_to_tokens(
                 items_to_bind.iter().map(|ident| quote! { #ident, });
 
             let clonables = items_to_clone.iter().map(|ident| {
-                let ident_ref = quote_spanned!(ident.span()=> &#ident);
-                quote! { let #ident = ::core::clone::Clone::clone(#ident_ref); }
+                quote_spanned! {ident.span()=>
+                    let #ident = ::core::clone::Clone::clone(&#ident);
+                }
             });
 
             if bindables.len() > 0 {
@@ -169,7 +168,7 @@ pub(crate) fn slot_to_tokens(
             .span();
         let slot = Ident::new(&slot, span);
         let value = if values.len() > 1 {
-            quote_spanned! {span=>
+            quote! {
                 ::std::vec![
                     #(#values)*
                 ]
