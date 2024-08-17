@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+    env:
+      # separate examples using "|" (vertical bar) char like "a|b|c".
+      # cargo-make should be excluded by default.
+      EXCLUDED_EXAMPLES: cargo-make
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,7 +24,7 @@ jobs:
         id: set-matrix
         run: |
           examples=$(ls -1d examples/*/ |
-          grep -vE '(cargo-make|gtk)' |
+          grep -vE "($EXCLUDED_EXAMPLES)" |
           sed 's/\/$//' |
           jq -R -s -c 'split("\n")[:-1]')
           echo "Example Directories: $examples"
