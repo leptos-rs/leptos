@@ -22,11 +22,13 @@ use reactive_graph::{
     graph::{Source, ToAnySubscriber},
     owner::Owner,
     prelude::*,
+    signal::{ArcRwSignal, RwSignal},
 };
 use std::{future::IntoFuture, ops::Deref};
 
 pub struct ArcResource<T, Ser = JsonSerdeCodec> {
     ser: PhantomData<Ser>,
+    refetch: ArcRwSignal<usize>,
     data: ArcAsyncDerived<T>,
 }
 
@@ -34,6 +36,7 @@ impl<T, Ser> Clone for ArcResource<T, Ser> {
     fn clone(&self) -> Self {
         Self {
             ser: self.ser,
+            refetch: self.refetch.clone(),
             data: self.data.clone(),
         }
     }
@@ -77,10 +80,15 @@ where
         let initial = Self::initial_value(&id);
         let is_ready = initial.is_some();
 
+        let refetch = ArcRwSignal::new(0);
         let source = ArcMemo::new(move |_| source());
         let fun = {
             let source = source.clone();
-            move || fetcher(source.get())
+            let refetch = refetch.clone();
+            move || {
+                refetch.track();
+                fetcher(source.get())
+            }
         };
 
         let data =
@@ -117,7 +125,13 @@ where
         ArcResource {
             ser: PhantomData,
             data,
+            refetch,
         }
+    }
+
+    /// Re-runs the async function with the current source data.
+    pub fn refetch(&self) {
+        *self.refetch.write() += 1;
     }
 
     #[inline(always)]
@@ -402,6 +416,7 @@ where
 {
     ser: PhantomData<Ser>,
     data: AsyncDerived<T>,
+    refetch: RwSignal<usize>,
 }
 
 impl<T: Send + Sync + 'static, Ser> Copy for Resource<T, Ser> {}
@@ -651,12 +666,18 @@ where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        let ArcResource { data, .. }: ArcResource<T, Ser> =
+        let ArcResource { data, refetch, .. }: ArcResource<T, Ser> =
             ArcResource::new_with_options(source, fetcher, blocking);
         Resource {
             ser: PhantomData,
             data: data.into(),
+            refetch: refetch.into(),
         }
+    }
+
+    /// Re-runs the async function with the current source data.
+    pub fn refetch(&self) {
+        self.refetch.try_update(|n| *n += 1);
     }
 }
 
