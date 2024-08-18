@@ -11,7 +11,7 @@ edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
-any_spawner = { workspace = true }
+any_spawner = { workspace = true, optional = true }
 const_str_slice_concat = { workspace = true }
 either_of = { workspace = true }
 next_tuple = { workspace = true }
@@ -175,6 +175,6 @@ ssr = []
 oco = ["dep:oco_ref"]
 nightly = ["reactive_graph/nightly"]
 testing = ["dep:slotmap"]
-reactive_graph = ["dep:reactive_graph"]
+reactive_graph = ["dep:reactive_graph", "dep:any_spawner"]
 sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]
