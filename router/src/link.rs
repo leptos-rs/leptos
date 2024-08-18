@@ -3,7 +3,7 @@ use crate::{
 };
 use leptos::{children::Children, oco::Oco, prelude::*, *};
 use reactive_graph::{computed::ArcMemo, owner::use_context};
-use std::borrow::Cow;
+use std::{borrow::Cow, rc::Rc};
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [`String`], a [`&str`], or a reactive `Fn() -> String`.
@@ -35,6 +35,13 @@ impl ToHref for Cow<'_, str> {
 }
 
 impl ToHref for Oco<'_, str> {
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+        let s = self.to_string();
+        Box::new(move || s.clone())
+    }
+}
+
+impl ToHref for Rc<str> {
     fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
         let s = self.to_string();
         Box::new(move || s.clone())
