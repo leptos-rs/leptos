@@ -13,6 +13,7 @@ use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, ToTokens};
+use std::str::FromStr;
 use syn::{parse_macro_input, spanned::Spanned, token::Pub, Visibility};
 
 mod params;
@@ -329,6 +330,24 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
             None
         }
     }
+}
+
+#[proc_macro_error::proc_macro_error]
+#[proc_macro]
+pub fn include_view(tokens: TokenStream) -> TokenStream {
+    let file_name = syn::parse::<syn::LitStr>(tokens).unwrap_or_else(|_| {
+        abort!(
+            Span::call_site(),
+            "the only supported argument is a string literal"
+        );
+    });
+    let file =
+        std::fs::read_to_string(file_name.value()).unwrap_or_else(|_| {
+            abort!(Span::call_site(), "could not open file");
+        });
+    let tokens = proc_macro2::TokenStream::from_str(&file)
+        .unwrap_or_else(|e| abort!(Span::call_site(), e));
+    view(tokens.into())
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
