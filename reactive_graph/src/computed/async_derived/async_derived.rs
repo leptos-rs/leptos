@@ -1,16 +1,18 @@
-use super::{ArcAsyncDerived, AsyncDerivedReadyFuture};
+use super::{ArcAsyncDerived, AsyncDerivedReadyFuture, BlockingLock};
 use crate::{
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
     owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
-    signal::guards::{AsyncPlain, ReadGuard},
-    traits::{DefinedAt, Dispose, ReadUntracked},
+    signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
+    traits::{
+        DefinedAt, Dispose, ReadUntracked, Trigger, UntrackableGuard, Writeable,
+    },
     unwrap_signal,
 };
 use core::fmt::Debug;
-use std::{future::Future, panic::Location};
+use std::{future::Future, ops::DerefMut, panic::Location};
 
 /// A reactive value that is derived by running an asynchronous computation in response to changes
 /// in its sources.
@@ -283,6 +285,37 @@ where
         self.inner
             .try_get_value()
             .map(|inner| inner.read_untracked())
+    }
+}
+
+impl<T, S> Trigger for AsyncDerived<T, S>
+where
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
+{
+    fn trigger(&self) {
+        self.inner.try_with_value(|inner| inner.trigger());
+    }
+}
+
+impl<T, S> Writeable for AsyncDerived<T, S>
+where
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
+{
+    type Value = Option<T>;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        let guard = self
+            .inner
+            .try_with_value(|n| n.value.blocking_write_arc())?;
+        Some(WriteGuard::new(*self, guard))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        self.inner.try_with_value(|n| n.value.blocking_write_arc())
     }
 }
 
