@@ -180,6 +180,24 @@ where
     }
 }
 
+impl<T, E, Ser> ArcResource<Result<T, E>, Ser>
+where
+    Ser: Encoder<Result<T, E>> + Decoder<Result<T, E>>,
+    <Ser as Encoder<Result<T, E>>>::Error: Debug,
+    <Ser as Decoder<Result<T, E>>>::Error: Debug,
+    <<Ser as Decoder<Result<T, E>>>::Encoded as FromEncodedStr>::DecodingError:
+        Debug,
+    <Ser as Encoder<Result<T, E>>>::Encoded: IntoEncodedString,
+    <Ser as Decoder<Result<T, E>>>::Encoded: FromEncodedStr,
+    T: Send + Sync + 'static,
+    E: Send + Sync + Clone + 'static,
+{
+    #[track_caller]
+    pub fn and_then<U>(&self, f: impl FnOnce(&T) -> U) -> Option<Result<U, E>> {
+        self.map(|data| data.as_ref().map(f).map_err(|e| e.clone()))
+    }
+}
+
 impl<T> ArcResource<T, JsonSerdeCodec>
 where
     JsonSerdeCodec: Encoder<T> + Decoder<T>,
@@ -704,7 +722,7 @@ where
         Debug,
     <Ser as Encoder<Result<T, E>>>::Encoded: IntoEncodedString,
     <Ser as Decoder<Result<T, E>>>::Encoded: FromEncodedStr,
-    T: Send + Sync + Clone,
+    T: Send + Sync,
     E: Send + Sync + Clone,
 {
     #[track_caller]
