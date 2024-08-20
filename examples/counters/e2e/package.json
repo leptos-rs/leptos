@@ -2,6 +2,9 @@
   "private": "true",
   "scripts": {},
   "devDependencies": {
-    "@playwright/test": "^1.35.1"
+    "@playwright/test": "^1.46.1"
+  },
+  "dependencies": {
+    "pnpm": "^9.7.1"
   }
 }

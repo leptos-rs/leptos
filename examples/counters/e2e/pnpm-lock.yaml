@@ -1,7 +1,11 @@
 lockfileVersion: 5.4
 
 specifiers:
-  '@playwright/test': ^1.35.1
+  '@playwright/test': ^1.46.1
+  pnpm: ^9.7.1
+
+dependencies:
+  pnpm: 9.7.1
 
 devDependencies:
   '@playwright/test': 1.46.1
@@ -39,3 +43,9 @@ packages:
     optionalDependencies:
       fsevents: 2.3.2
     dev: true
+
+  /pnpm/9.7.1:
+    resolution: {integrity: sha512-+vNEry1splxMXIwiJOp3qBpeiFnLxOBrFRHdzi8BUVEkMd0Z5q/zHyxqj18qztm9InPh/tfdTeGGiYQFnSxCRw==}
+    engines: {node: '>=18.12'}
+    hasBin: true
+    dev: false
