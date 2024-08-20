@@ -6,7 +6,7 @@ test.describe("View Counters", () => {
     const ui = new CountersPage(page);
     await ui.goto();
 
-    await expect(page).toHaveTitle("Counters (Stable)");
+    await expect(page).toHaveTitle("Counters");
   });
 
   test("should see the initial counts", async ({ page }) => {
