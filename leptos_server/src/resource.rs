@@ -129,6 +129,14 @@ where
         }
     }
 
+    #[track_caller]
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.data.try_with(|n| n.as_ref().map(f))?
+    }
+
     /// Re-runs the async function with the current source data.
     pub fn refetch(&self) {
         *self.refetch.write() += 1;
@@ -673,6 +681,12 @@ where
             data: data.into(),
             refetch: refetch.into(),
         }
+    }
+
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+        self.data
+            .try_with(|n| n.as_ref().map(|n| Some(f(n))))?
+            .flatten()
     }
 
     /// Re-runs the async function with the current source data.
