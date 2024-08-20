@@ -332,6 +332,13 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     }
 }
 
+/// This behaves like the [`view`] macro, but loads the view from an external file instead of
+/// parsing it inline.
+///
+/// This is designed to allow editing views in a separate file, if this improves a user's workflow.
+///
+/// The file is loaded and parsed during proc-macro execution, and its path is resolved relative to
+/// the crate root rather than relative to the file from which it is called.
 #[proc_macro_error::proc_macro_error]
 #[proc_macro]
 pub fn include_view(tokens: TokenStream) -> TokenStream {
