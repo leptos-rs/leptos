@@ -23,7 +23,7 @@ async fn inc() {
         div.inner_html(),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: \
-         <span>0</span> from <span>0</span> counters.</p><ul><!----></ul>"
+         <span data-testid=\"total\">0</span> from <span data-testid=\"counters\">0</span> counters.</p><ul><!----></ul>"
     );
 
     // add 3 counters
@@ -38,7 +38,7 @@ async fn inc() {
         div.inner_html(),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: \
-         <span>0</span> from <span>3</span> \
+         <span data-testid=\"total\">0</span> from <span data-testid=\"counters\">3</span> \
          counters.</p><ul><li><button>-1</button><input \
          type=\"text\"><span>0</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
@@ -80,7 +80,7 @@ async fn inc() {
         div.inner_html(),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: \
-         <span>6</span> from <span>3</span> \
+         <span data-testid=\"total\">6</span> from <span data-testid=\"counters\">3</span> \
          counters.</p><ul><li><button>-1</button><input \
          type=\"text\"><span>1</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
@@ -105,7 +105,7 @@ async fn inc() {
         div.inner_html(),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: \
-         <span>5</span> from <span>2</span> \
+         <span data-testid=\"total\">5</span> from <span data-testid=\"counters\">2</span> \
          counters.</p><ul><li><button>-1</button><input \
          type=\"text\"><span>2</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
