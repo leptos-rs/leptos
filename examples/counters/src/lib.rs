@@ -44,12 +44,13 @@ pub fn Counters() -> impl IntoView {
             <button on:click=clear_counters>"Clear Counters"</button>
             <p>
                 "Total: "
-                <span>
+                <span data-testid="total">
                     {move || {
                         counters.get().iter().map(|(_, count)| count.get()).sum::<i32>().to_string()
                     }}
 
-                </span> " from " <span>{move || counters.get().len().to_string()}</span>
+                </span> " from "
+                <span data-testid="counters">{move || counters.get().len().to_string()}</span>
                 " counters."
             </p>
             <ul>
