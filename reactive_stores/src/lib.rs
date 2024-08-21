@@ -16,6 +16,7 @@ use std::{
 mod arc_field;
 mod field;
 mod iter;
+mod option;
 mod patch;
 mod path;
 mod store_field;
@@ -24,6 +25,7 @@ mod subfield;
 pub use arc_field::ArcField;
 pub use field::Field;
 pub use iter::*;
+pub use option::*;
 pub use patch::*;
 use path::StorePath;
 pub use store_field::StoreField;
@@ -249,7 +251,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
+    use crate::{
+        self as reactive_stores, Patch, Store, StoreField, StoreFieldIterator,
+    };
     use reactive_graph::{
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Writeable},
@@ -462,5 +466,129 @@ mod tests {
         });
         tick().await;
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[derive(Debug, Store)]
+    pub struct StructWithOption {
+        opt_field: Option<Todo>,
+    }
+
+    #[tokio::test]
+    async fn substores_reachable_through_option() {
+        use crate::OptionStoreExt;
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(StructWithOption { opt_field: None });
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+
+                if store.opt_field().read().is_some() {
+                    println!(
+                        "inner value = {:?}",
+                        *store.opt_field().unwrap().label().read()
+                    );
+                } else {
+                    println!("no inner value");
+                }
+
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        store.opt_field().set(Some(Todo {
+            label: "First Todo".to_owned(),
+            completed: false,
+        }));
+        tick().await;
+        store.opt_field().set(None);
+        tick().await;
+        store.opt_field().set(Some(Todo {
+            label: "Second Todo".to_owned(),
+            completed: false,
+        }));
+        tick().await;
+        store.opt_field().unwrap().label().write().push_str("!!!");
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 5);
+        assert_eq!(
+            store.opt_field().read_untracked().as_ref().unwrap().label,
+            "Second Todo!!!"
+        );
+    }
+
+    #[tokio::test]
+    async fn updating_option_unwrap_subfield_doesnt_notify_option() {
+        use crate::OptionStoreExt;
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let parent_count = Arc::new(AtomicUsize::new(0));
+        let inner_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(StructWithOption { opt_field: None });
+
+        Effect::new_sync({
+            let parent_count = Arc::clone(&parent_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("parent: first run");
+                } else {
+                    println!("parent: next run");
+                }
+
+                println!("  is_some = {}", store.opt_field().read().is_some());
+                parent_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let inner_count = Arc::clone(&inner_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("inner: first run");
+                } else {
+                    println!("inner: next run");
+                }
+
+                if store.opt_field().read().is_some() {
+                    println!(
+                        "  inner label = {:?}",
+                        *store.opt_field().unwrap().label().read()
+                    );
+                } else {
+                    println!("  no inner value");
+                }
+                inner_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 1);
+
+        store.opt_field().set(Some(Todo {
+            label: "First Todo".to_owned(),
+            completed: false,
+        }));
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 2);
+
+        println!("\nUpdating label only");
+        store.opt_field().unwrap().label().write().push_str("!!!");
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 3);
     }
 }
