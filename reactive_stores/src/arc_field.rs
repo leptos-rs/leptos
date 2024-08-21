@@ -75,6 +75,7 @@ impl<T> StoreField for ArcField<T> {
     type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
+    type UntrackedWriter = StoreFieldWriter<T>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         (self.get_trigger)(path)
@@ -90,6 +91,12 @@ impl<T> StoreField for ArcField<T> {
 
     fn writer(&self) -> Option<Self::Writer> {
         (self.write)().map(StoreFieldWriter::new)
+    }
+
+    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
+        let mut writer = (self.write)().map(StoreFieldWriter::new)?;
+        writer.untrack();
+        Some(writer)
     }
 }
 
