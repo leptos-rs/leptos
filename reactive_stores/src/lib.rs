@@ -591,4 +591,65 @@ mod tests {
         assert_eq!(parent_count.load(Ordering::Relaxed), 2);
         assert_eq!(inner_count.load(Ordering::Relaxed), 3);
     }
+
+    #[tokio::test]
+    async fn mapping_over_optional_store_field() {
+        use crate::OptionStoreExt;
+
+        _ = any_spawner::Executor::init_tokio();
+
+        let parent_count = Arc::new(AtomicUsize::new(0));
+        let inner_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(StructWithOption { opt_field: None });
+
+        Effect::new_sync({
+            let parent_count = Arc::clone(&parent_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("parent: first run");
+                } else {
+                    println!("parent: next run");
+                }
+
+                println!("  is_some = {}", store.opt_field().read().is_some());
+                parent_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let inner_count = Arc::clone(&inner_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("inner: first run");
+                } else {
+                    println!("inner: next run");
+                }
+
+                println!(
+                    "store inner value length = {:?}",
+                    store.opt_field().map(|inner| inner.label().read().len())
+                );
+                inner_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 1);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 1);
+
+        store.opt_field().set(Some(Todo {
+            label: "First Todo".to_owned(),
+            completed: false,
+        }));
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 2);
+
+        println!("\nUpdating label only");
+        store.opt_field().unwrap().label().write().push_str("!!!");
+
+        tick().await;
+        assert_eq!(parent_count.load(Ordering::Relaxed), 2);
+        assert_eq!(inner_count.load(Ordering::Relaxed), 3);
+    }
 }
