@@ -1,6 +1,11 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use leptos::prelude::*;
 use reactive_stores::{Field, Store, StoreFieldIterator};
 use reactive_stores_macro::Store;
+
+// ID starts higher than 0 because we have a few starting todos by default
+static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
 #[derive(Debug, Store)]
 struct Todos {
@@ -10,15 +15,35 @@ struct Todos {
 
 #[derive(Debug, Store)]
 struct Todo {
+    id: usize,
     label: String,
-    completed: bool,
+    status: Status,
+}
+
+#[derive(Debug, Default, Clone, Store)]
+enum Status {
+    #[default]
+    Pending,
+    Scheduled,
+    Done,
+}
+
+impl Status {
+    pub fn next_step(&mut self) {
+        *self = match self {
+            Status::Pending => Status::Scheduled,
+            Status::Scheduled => Status::Done,
+            Status::Done => Status::Done,
+        };
+    }
 }
 
 impl Todo {
     pub fn new(label: impl ToString) -> Self {
         Self {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             label: label.to_string(),
-            completed: false,
+            status: Status::Pending,
         }
     }
 }
@@ -28,16 +53,19 @@ fn data() -> Todos {
         user: "Bob".to_string(),
         todos: vec![
             Todo {
+                id: 0,
                 label: "Create reactive store".to_string(),
-                completed: true,
+                status: Status::Pending,
             },
             Todo {
+                id: 1,
                 label: "???".to_string(),
-                completed: false,
+                status: Status::Pending,
             },
             Todo {
+                id: 2,
                 label: "Profit".to_string(),
-                completed: false,
+                status: Status::Pending,
             },
         ],
     }
@@ -49,15 +77,6 @@ pub fn App() -> impl IntoView {
 
     let input_ref = NodeRef::new();
 
-    let rows = move || {
-        store
-            .todos()
-            .iter()
-            .enumerate()
-            .map(|(idx, todo)| view! { <TodoRow store idx todo/> })
-            .collect_view()
-    };
-
     view! {
         <p>"Hello, " {move || store.user().get()}</p>
         <form on:submit=move |ev| {
@@ -67,7 +86,12 @@ pub fn App() -> impl IntoView {
             <label>"Add a Todo" <input type="text" node_ref=input_ref/></label>
             <input type="submit"/>
         </form>
-        <ol>{rows}</ol>
+        <ol>
+            <For each=move || store.todos().iter() key=|row| row.id().get() let:todo>
+                <TodoRow store todo/>
+            </For>
+
+        </ol>
         <div style="display: flex"></div>
     }
 }
@@ -75,22 +99,18 @@ pub fn App() -> impl IntoView {
 #[component]
 fn TodoRow(
     store: Store<Todos>,
-    idx: usize,
     #[prop(into)] todo: Field<Todo>,
 ) -> impl IntoView {
-    let completed = todo.completed();
+    let status = todo.status();
     let title = todo.label();
 
     let editing = RwSignal::new(false);
 
     view! {
-        <li
-            style:text-decoration=move || {
-                completed.get().then_some("line-through").unwrap_or_default()
-            }
+        <li style:text-decoration=move || {
+            status.done().then_some("line-through").unwrap_or_default()
+        }>
 
-            class:foo=move || completed.get()
-        >
             <p
                 class:hidden=move || editing.get()
                 on:click=move |_| {
@@ -112,17 +132,26 @@ fn TodoRow(
                 on:blur=move |_| editing.set(false)
                 autofocus
             />
-            <input
-                type="checkbox"
-                prop:checked=move || completed.get()
-                on:click=move |_| { completed.update(|n| *n = !*n) }
-            />
+            <button on:click=move |_| {
+                status.write().next_step()
+            }>
+                {move || {
+                    if todo.status().done() {
+                        "Done"
+                    } else if status.scheduled() {
+                        "Scheduled"
+                    } else {
+                        "Pending"
+                    }
+                }}
+
+            </button>
 
             <button on:click=move |_| {
                 store
                     .todos()
                     .update(|todos| {
-                        todos.remove(idx);
+                        todos.remove(todo.id().get());
                     });
             }>"X"</button>
         </li>
