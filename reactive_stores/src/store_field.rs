@@ -139,6 +139,26 @@ where
     defined_at: &'static Location<'static>,
 }
 
+impl<T, S> Then<T, S>
+where
+    S: StoreField,
+{
+    #[track_caller]
+    pub fn new(
+        inner: S,
+        map_fn: fn(&S::Value) -> &T,
+        map_fn_mut: fn(&mut S::Value) -> &mut T,
+    ) -> Self {
+        Self {
+            inner,
+            map_fn,
+            map_fn_mut,
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+        }
+    }
+}
+
 impl<T, S> StoreField for Then<T, S>
 where
     S: StoreField,

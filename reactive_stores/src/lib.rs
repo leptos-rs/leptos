@@ -28,7 +28,7 @@ pub use iter::*;
 pub use option::*;
 pub use patch::*;
 use path::StorePath;
-pub use store_field::StoreField;
+pub use store_field::{StoreField, Then};
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
