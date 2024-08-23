@@ -513,8 +513,6 @@ where
                         data.ssr_mode,
                         // TODO methods
                         [Method::Get],
-                        // TODO static data
-                        None,
                     )
                 })
                 .collect::<Vec<_>>();

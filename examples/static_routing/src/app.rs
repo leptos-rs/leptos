@@ -5,7 +5,9 @@ use leptos_router::{
     components::{FlatRoutes, ProtectedRoute, Route, Router},
     hooks::use_params,
     params::Params,
-    path, ParamSegment, SsrMode, StaticSegment,
+    path,
+    static_routes::StaticRoute,
+    ParamSegment, SsrMode, StaticSegment,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -44,8 +46,20 @@ pub fn App() -> impl IntoView {
             </nav>
             <main>
                 <FlatRoutes fallback>
-                    <Route path=path!("/") view=HomePage/>
-                    <Route path=path!("/post/:slug") view=Post ssr=SsrMode::Async/>
+                    <Route path=path!("/") view=HomePage ssr=SsrMode::Static(StaticRoute::new())/>
+                    <Route
+                        path=path!("/post/:slug/")
+                        view=Post
+                        ssr=SsrMode::Static(
+                            StaticRoute::new()
+                                .prerender_params(|| async move {
+                                    [("slug".into(), list_slugs().await.unwrap_or_default())]
+                                        .into_iter()
+                                        .collect()
+                                }),
+                        )
+                    />
+
                 </FlatRoutes>
             </main>
         </Router>
@@ -101,23 +115,27 @@ fn Post() -> impl IntoView {
         }
     });
 
-    let post_view = Suspend::new(async move {
-        match post_resource.await {
-            Ok(Ok(post)) => {
-                Ok(view! {
-                    <h1>{post.title.clone()}</h1>
-                    <p>{post.content.clone()}</p>
+    let post_view = move || {
+        Suspend::new(async move {
+            match post_resource.await {
+                Ok(Ok(post)) => {
+                    Ok(view! {
+                        <h1>{post.title.clone()}</h1>
+                        <p>{post.content.clone()}</p>
 
-                    // since we're using async rendering for this page,
-                    // this metadata should be included in the actual HTML <head>
-                    // when it's first served
-                    <Title text=post.title/>
-                    <Meta name="description" content=post.content/>
-                })
+                        // since we're using async rendering for this page,
+                        // this metadata should be included in the actual HTML <head>
+                        // when it's first served
+                        <Title text=post.title/>
+                        <Meta name="description" content=post.content/>
+                    })
+                }
+                Ok(Err(e)) | Err(e) => {
+                    Err(PostError::ServerError(e.to_string()))
+                }
             }
-            Ok(Err(e)) | Err(e) => Err(PostError::ServerError(e.to_string())),
-        }
-    });
+        })
+    };
 
     view! {
         <em>"The world's best content."</em>
@@ -158,6 +176,36 @@ pub struct Post {
     slug: String,
     title: String,
     content: String,
+}
+
+#[server]
+pub async fn list_slugs() -> Result<Vec<String>, ServerFnError> {
+    use tokio::fs;
+    use tokio_stream::wrappers::ReadDirStream;
+    use tokio_stream::StreamExt;
+
+    let files = ReadDirStream::new(fs::read_dir("./posts").await?);
+    Ok(files
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if !path.is_file() {
+                return None;
+            }
+            let extension = path.extension()?;
+            if extension != "md" {
+                return None;
+            }
+
+            let slug = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default()
+                .replace(".md", "");
+            Some(slug)
+        })
+        .collect()
+        .await)
 }
 
 #[server]

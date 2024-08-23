@@ -1,9 +1,21 @@
 use crate::{
-    matching::PathSegment, Method, SsrMode, StaticDataMap, StaticMode,
+    matching::PathSegment,
+    static_routes::{
+        ResolvedStaticPath, StaticParamsMap, StaticPath, StaticRoute,
+    },
+    Method, SsrMode,
 };
+use futures::{
+    future::join_all,
+    stream::{FuturesUnordered, Stream, StreamExt},
+    FutureExt,
+};
+use leptos::{config::LeptosOptions, IntoView};
+use reactive_graph::owner::Owner;
 use std::{
     cell::{Cell, RefCell},
     collections::HashSet,
+    future::Future,
 };
 use tachys::{renderer::Renderer, view::RenderHtml};
 
@@ -13,7 +25,6 @@ pub struct RouteListing {
     path: Vec<PathSegment>,
     mode: SsrMode,
     methods: HashSet<Method>,
-    static_mode: Option<(StaticMode, StaticDataMap)>,
 }
 
 impl RouteListing {
@@ -22,19 +33,17 @@ impl RouteListing {
         path: impl IntoIterator<Item = PathSegment>,
         mode: SsrMode,
         methods: impl IntoIterator<Item = Method>,
-        static_mode: Option<(StaticMode, StaticDataMap)>,
     ) -> Self {
         Self {
             path: path.into_iter().collect(),
             mode,
             methods: methods.into_iter().collect(),
-            static_mode,
         }
     }
 
     /// Create a route listing from a path, with the other fields set to default values.
     pub fn from_path(path: impl IntoIterator<Item = PathSegment>) -> Self {
-        Self::new(path, SsrMode::Async, [], None)
+        Self::new(path, SsrMode::Async, [])
     }
 
     /// The path this route handles.
@@ -43,8 +52,8 @@ impl RouteListing {
     }
 
     /// The rendering mode for this path.
-    pub fn mode(&self) -> SsrMode {
-        self.mode
+    pub fn mode(&self) -> &SsrMode {
+        &self.mode
     }
 
     /// The HTTP request methods this path can handle.
@@ -54,54 +63,52 @@ impl RouteListing {
 
     /// Whether this route is statically rendered.
     #[inline(always)]
-    pub fn static_mode(&self) -> Option<StaticMode> {
-        self.static_mode.as_ref().map(|n| n.0)
+    pub fn static_route(&self) -> Option<&StaticRoute> {
+        match self.mode {
+            SsrMode::Static(ref route) => Some(route),
+            _ => None,
+        }
     }
 
-    /// Whether this route is statically rendered.
-    #[inline(always)]
-    pub fn static_data_map(&self) -> Option<&StaticDataMap> {
-        self.static_mode.as_ref().map(|n| &n.1)
-    }
-
-    pub fn into_static_parts(self) -> Option<(StaticMode, StaticDataMap)> {
-        self.static_mode
+    pub async fn into_static_paths(self) -> Option<Vec<ResolvedStaticPath>> {
+        let params = self.static_route()?.to_prerendered_params().await;
+        Some(StaticPath::new(self.path).into_paths(params))
     }
 
     /*
-    /// Build a route statically, will return `Ok(true)` on success or `Ok(false)` when the route
-    /// is not marked as statically rendered. All route parameters to use when resolving all paths
-    /// to render should be passed in the `params` argument.
-    pub async fn build_static<IV>(
-        &self,
-        options: &LeptosOptions,
-        app_fn: impl Fn() -> IV + Send + 'static + Clone,
-        additional_context: impl Fn() + Send + 'static + Clone,
-        params: &StaticParamsMap,
-    ) -> Result<bool, std::io::Error>
-    where
-        IV: IntoView + 'static,
-    {
-        match self.static_mode {
-            None => Ok(false),
-            Some(_) => {
-                let mut path = StaticPath::new(&self.leptos_path);
-                path.add_params(params);
-                for path in path.into_paths() {
-                    path.write(
-                        options,
-                        app_fn.clone(),
-                        additional_context.clone(),
-                    )
-                    .await?;
+        /// Build a route statically, will return `Ok(true)` on success or `Ok(false)` when the route
+        /// is not marked as statically rendered. All route parameters to use when resolving all paths
+        /// to render should be passed in the `params` argument.
+        pub async fn build_static<IV>(
+            &self,
+            options: &LeptosOptions,
+            app_fn: impl Fn() -> IV + Send + 'static + Clone,
+            additional_context: impl Fn() + Send + 'static + Clone,
+            params: &StaticParamsMap,
+        ) -> Result<bool, std::io::Error>
+        where
+            IV: IntoView + 'static,
+        {
+            match self.mode {
+                SsrMode::Static(route) => {
+                    let mut path = StaticPath::new(self.path.clone());
+                    for path in path.into_paths(params) {
+                        /*path.write(
+                            options,
+                            app_fn.clone(),
+                            additional_context.clone(),
+                        )
+                        .await?;*/ println!()
+                    }
+                    Ok(true)
                 }
-                Ok(true)
+                _ => Ok(false),
             }
         }
-    }*/
+    */
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct RouteList(Vec<RouteListing>);
 
 impl From<Vec<RouteListing>> for RouteList {
@@ -123,6 +130,72 @@ impl RouteList {
 
     pub fn into_inner(self) -> Vec<RouteListing> {
         self.0
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &RouteListing> {
+        self.0.iter()
+    }
+
+    pub async fn into_static_paths(self) -> Vec<ResolvedStaticPath> {
+        futures::future::join_all(
+            self.into_inner()
+                .into_iter()
+                .map(|route_listing| route_listing.into_static_paths()),
+        )
+        .await
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect::<Vec<_>>()
+    }
+
+    pub fn into_html_file_stream<Fut>(
+        self,
+        render_fn: impl Fn(ResolvedStaticPath) -> Fut + Clone + 'static,
+    ) -> impl Stream<Item = (Owner, ResolvedStaticPath, String)>
+    where
+        Fut: Future<Output = (Owner, String)>,
+    {
+        let mut streams = Vec::new();
+
+        for route in self.into_inner() {
+            if let SsrMode::Static(static_data) = route.mode() {
+                let render_fn = render_fn.clone();
+                let static_data = static_data.clone();
+                streams.push(Box::pin(
+                    route.into_static_paths().into_stream().flat_map(
+                        move |paths| {
+                            paths
+                                .into_iter()
+                                .flatten()
+                                .map({
+                                    let render_fn = render_fn.clone();
+                                    move |path| {
+                                        let render_fn = render_fn.clone();
+                                        async move {
+                                            let (owner, html) =
+                                                render_fn(path.clone()).await;
+                                            (owner, path, html)
+                                        }
+                                    }
+                                })
+                                .collect::<FuturesUnordered<_>>()
+                        },
+                    ),
+                ));
+
+                /*
+                match static_data.invalidate {
+                    None => {
+                        route.into_static_paths();
+                    }
+                    Some(invalidate) => todo!(),
+                }
+                */
+            }
+        }
+
+        futures::stream::select_all(streams)
     }
 }
 

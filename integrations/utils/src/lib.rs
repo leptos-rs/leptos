@@ -5,6 +5,7 @@ use leptos::{
     reactive_graph::owner::{Owner, Sandboxed},
     IntoView,
 };
+use leptos_config::LeptosOptions;
 use leptos_meta::ServerMetaContextOutput;
 use std::{future::Future, pin::Pin, sync::Arc};
 
@@ -131,4 +132,14 @@ where
         }
     }));
     (owner, stream)
+}
+
+pub fn static_file_path(options: &LeptosOptions, path: &str) -> String {
+    let trimmed_path = path.trim_start_matches('/');
+    let path = if trimmed_path.is_empty() {
+        "index"
+    } else {
+        trimmed_path
+    };
+    format!("{}/{}.html", options.site_root, path)
 }

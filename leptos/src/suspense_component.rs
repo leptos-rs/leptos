@@ -1,5 +1,6 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
+    spawn::tick,
     IntoView,
 };
 use futures::{select, FutureExt};
@@ -264,7 +265,6 @@ where
     {
         buf.next_id();
         let suspense_context = use_context::<SuspenseContext>().unwrap();
-
         let owner = Owner::current().unwrap();
 
         // we need to wait for one of two things: either
@@ -277,6 +277,16 @@ where
             futures::channel::oneshot::channel::<()>();
 
         let mut tasks_tx = Some(tasks_tx);
+
+        // now, create listener for local resources
+        let (local_tx, mut local_rx) =
+            futures::channel::oneshot::channel::<()>();
+        provide_context(LocalResourceNotifier::from(local_tx));
+
+        // walk over the tree of children once to make sure that all resource loads are registered
+        self.children.dry_resolve();
+
+        // check the set of tasks to see if it is empty, now or later
         let eff = reactive_graph::effect::RenderEffect::new_isomorphic({
             move |_| {
                 tasks.track();
@@ -289,14 +299,6 @@ where
                 }
             }
         });
-
-        // now, create listener for local resources
-        let (local_tx, mut local_rx) =
-            futures::channel::oneshot::channel::<()>();
-        provide_context(LocalResourceNotifier::from(local_tx));
-
-        // walk over the tree of children once to make sure that all resource loads are registered
-        self.children.dry_resolve();
 
         let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
             async move {

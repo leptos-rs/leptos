@@ -28,6 +28,7 @@ send_wrapper = "0.6.0"
 thiserror = "1.0"
 percent-encoding = { version = "2.3", optional = true }
 gloo-net = "0.6.0"
+serde = { version = "1", features = ["derive"] }
 
 [dependencies.web-sys]
 version = "0.3.70"

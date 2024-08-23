@@ -12,6 +12,9 @@ async fn main() {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(App);
 
+    let (routes, static_data_map) = generate_route_list_with_ssg(App); // This line here
+    build_static_routes(&leptos_options, App, &routes, static_data_map).await; // This line here
+
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();

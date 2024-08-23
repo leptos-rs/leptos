@@ -19,7 +19,7 @@ mod tuples;
 
 static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 
-#[derive(Debug, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NestedRoute<Segments, Children, Data, View, R> {
     id: u16,
     segments: Segments,
@@ -46,7 +46,7 @@ where
             data: self.data.clone(),
             view: self.view.clone(),
             rndr: PhantomData,
-            ssr_mode: self.ssr_mode,
+            ssr_mode: self.ssr_mode.clone(),
         }
     }
 }
@@ -249,7 +249,7 @@ where
         let mut segment_routes = Vec::new();
         self.segments.generate_path(&mut segment_routes);
         let children = self.children.as_ref();
-        let ssr_mode = self.ssr_mode;
+        let ssr_mode = self.ssr_mode.clone();
 
         match children {
             None => Either::Left(iter::once(GeneratedRouteData {
@@ -267,7 +267,7 @@ where
                     } else {
                         GeneratedRouteData {
                             segments,
-                            ssr_mode,
+                            ssr_mode: ssr_mode.clone(),
                         }
                     }
                 }))
