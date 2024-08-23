@@ -10,13 +10,13 @@
 //!
 //! #[component]
 //! fn MyComponent(
-//!     #[prop(into)] render_number: Callback<i32, String>,
+//!     #[prop(into)] render_number: Callback<(i32,), String>,
 //! ) -> impl IntoView {
 //!     view! {
 //!         <div>
-//!             {render_number.run(1)}
+//!             {render_number.run((1,))}
 //!             // callbacks can be called multiple times
-//!             {render_number.run(42)}
+//!             {render_number.run((42,))}
 //!         </div>
 //!     }
 //! }
@@ -85,16 +85,38 @@ impl<In: 'static, Out: 'static> Callable<In, Out> for UnsyncCallback<In, Out> {
     }
 }
 
-impl<F, In, T, Out> From<F> for UnsyncCallback<In, Out>
-where
-    F: Fn(In) -> T + 'static,
-    T: Into<Out> + 'static,
-    In: 'static,
-{
-    fn from(f: F) -> Self {
-        Self::new(move |x| f(x).into())
-    }
+macro_rules! impl_unsync_callable_from_fn {
+    ($($arg:ident),*) => {
+        impl<F, $($arg,)* T, Out> From<F> for UnsyncCallback<($($arg,)*), Out>
+        where
+            F: Fn($($arg),*) -> T + 'static,
+            T: Into<Out> + 'static,
+            $($arg: 'static,)*
+        {
+            fn from(f: F) -> Self {
+                paste::paste!(
+                    Self::new(move |($([<$arg:lower>],)*)| f($([<$arg:lower>]),*).into())
+                )
+            }
+        }
+    };
 }
+
+impl_unsync_callable_from_fn!();
+impl_unsync_callable_from_fn!(P1);
+impl_unsync_callable_from_fn!(P1, P2);
+impl_unsync_callable_from_fn!(P1, P2, P3);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5, P6);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10);
+impl_unsync_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11);
+impl_unsync_callable_from_fn!(
+    P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12
+);
 
 /// Callbacks define a standard way to store functions and closures.
 ///
@@ -104,11 +126,11 @@ where
 /// # use leptos::callback::{Callable, Callback};
 /// #[component]
 /// fn MyComponent(
-///     #[prop(into)] render_number: Callback<i32, String>,
+///     #[prop(into)] render_number: Callback<(i32,), String>,
 /// ) -> impl IntoView {
 ///     view! {
 ///         <div>
-///             {render_number.run(42)}
+///             {render_number.run((42,))}
 ///         </div>
 ///     }
 /// }
@@ -148,16 +170,36 @@ impl<In, Out> Clone for Callback<In, Out> {
 
 impl<In, Out> Copy for Callback<In, Out> {}
 
-impl<F, In, T, Out> From<F> for Callback<In, Out>
-where
-    F: Fn(In) -> T + Send + Sync + 'static,
-    T: Into<Out> + 'static,
-    In: Send + Sync + 'static,
-{
-    fn from(f: F) -> Self {
-        Self::new(move |x| f(x).into())
-    }
+macro_rules! impl_callable_from_fn {
+    ($($arg:ident),*) => {
+        impl<F, $($arg,)* T, Out> From<F> for Callback<($($arg,)*), Out>
+        where
+            F: Fn($($arg),*) -> T + Send + Sync + 'static,
+            T: Into<Out> + 'static,
+            $($arg: Send + Sync + 'static,)*
+        {
+            fn from(f: F) -> Self {
+                paste::paste!(
+                    Self::new(move |($([<$arg:lower>],)*)| f($([<$arg:lower>]),*).into())
+                )
+            }
+        }
+    };
 }
+
+impl_callable_from_fn!();
+impl_callable_from_fn!(P1);
+impl_callable_from_fn!(P1, P2);
+impl_callable_from_fn!(P1, P2, P3);
+impl_callable_from_fn!(P1, P2, P3, P4);
+impl_callable_from_fn!(P1, P2, P3, P4, P5);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11);
+impl_callable_from_fn!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12);
 
 impl<In: 'static, Out: 'static> Callback<In, Out> {
     /// Creates a new callback from the given function.
@@ -190,11 +232,15 @@ mod tests {
 
     #[test]
     fn runback_from() {
-        let _callback: Callback<(), String> = (|()| "test").into();
+        let _callback: Callback<(), String> = (|| "test").into();
+        let _callback: Callback<(i32, String), String> =
+            (|num, s| format!("{num} {s}")).into();
     }
 
     #[test]
     fn sync_callback_from() {
-        let _callback: UnsyncCallback<(), String> = (|()| "test").into();
+        let _callback: UnsyncCallback<(), String> = (|| "test").into();
+        let _callback: UnsyncCallback<(i32, String), String> =
+            (|num, s| format!("{num} {s}")).into();
     }
 }
