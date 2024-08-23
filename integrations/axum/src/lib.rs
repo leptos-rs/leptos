@@ -236,10 +236,14 @@ pub fn redirect(path: &str) {
             );
         }
     } else {
-        tracing::warn!(
-            "Couldn't retrieve either Parts or ResponseOptions while trying \
-             to redirect()."
-        );
+        let msg = "Couldn't retrieve either Parts or ResponseOptions while \
+                   trying to redirect().";
+
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{}", &msg);
+
+        #[cfg(not(feature = "tracing"))]
+        eprintln!("{}", &msg);
     }
 }
 
@@ -289,7 +293,10 @@ pub fn generate_request_and_parts(
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub async fn handle_server_fns(req: Request<Body>) -> impl IntoResponse {
     handle_server_fns_inner(|| {}, req).await
 }
@@ -331,7 +338,10 @@ fn init_executor() {
 /// This function always provides context values including the following types:
 /// - [`Parts`]
 /// - [`ResponseOptions`]
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub async fn handle_server_fns_with_context(
     additional_context: impl Fn() + 'static + Clone + Send,
     req: Request<Body>,
@@ -460,7 +470,10 @@ pub type PinnedHtmlStream =
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -480,7 +493,10 @@ where
 /// The difference between calling this and `render_app_to_stream_with_context()` is that this
 /// one respects the `SsrMode` on each Route and thus requires `Vec<AxumRouteListing>` for route checking.
 /// This is useful if you are using `.leptos_routes_with_handler()`
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_route<IV>(
     paths: Vec<AxumRouteListing>,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -546,7 +562,10 @@ where
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_in_order<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -597,7 +616,10 @@ where
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -622,7 +644,10 @@ where
 /// The difference between calling this and `render_app_to_stream_with_context()` is that this
 /// one respects the `SsrMode` on each Route, and thus requires `Vec<AxumRouteListing>` for route checking.
 /// This is useful if you are using `.leptos_routes_with_handler()`.
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_route_with_context<IV>(
     paths: Vec<AxumRouteListing>,
     additional_context: impl Fn() + 'static + Clone + Send,
@@ -701,7 +726,10 @@ where
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -766,7 +794,10 @@ where
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -859,7 +890,10 @@ where
     })
 }
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 fn provide_contexts(
     path: &str,
     meta_context: &ServerMetaContext,
@@ -924,7 +958,10 @@ fn provide_contexts(
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_async<IV>(
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -976,7 +1013,10 @@ where
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_async_stream_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1041,7 +1081,10 @@ where
 /// - [`ResponseOptions`]
 /// - [`ServerMetaContext`](leptos_meta::ServerMetaContext)
 /// - [`RouterIntegrationContext`](leptos_router::RouterIntegrationContext)
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn render_app_async_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1072,7 +1115,10 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn generate_route_list<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> Vec<AxumRouteListing>
@@ -1085,7 +1131,10 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn generate_route_list_with_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
 ) -> (Vec<AxumRouteListing>, StaticDataMap)
@@ -1099,7 +1148,10 @@ where
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn generate_route_list_with_exclusions<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
@@ -1140,7 +1192,10 @@ pub async fn build_static_routes<IV>(
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn generate_route_list_with_exclusions_and_ssg<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
@@ -1227,7 +1282,10 @@ impl AxumRouteListing {
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
 /// Additional context will be provided to the app Element.
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "trace", fields(error), skip_all)
+)]
 pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
     app_fn: impl Fn() -> IV + 'static + Clone,
     excluded_routes: Option<Vec<String>>,
@@ -1554,7 +1612,10 @@ impl<S> LeptosRoutes<S> for axum::Router<S>
 where
     S: Clone + Send + Sync + 'static,
 {
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes<IV>(
         self,
         state: &S,
@@ -1567,7 +1628,10 @@ where
         self.leptos_routes_with_context(state, paths, || {}, app_fn)
     }
 
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes_with_context<IV>(
         self,
         state: &S,
@@ -1710,7 +1774,10 @@ where
         router
     }
 
-    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(level = "trace", fields(error), skip_all)
+    )]
     fn leptos_routes_with_handler<H, T>(
         self,
         paths: Vec<AxumRouteListing>,

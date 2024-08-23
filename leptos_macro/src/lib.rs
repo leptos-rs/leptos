@@ -261,10 +261,7 @@ mod slot;
 /// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro]
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn view(tokens: TokenStream) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();

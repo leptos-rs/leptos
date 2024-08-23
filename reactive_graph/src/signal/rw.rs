@@ -118,7 +118,7 @@ where
     /// Creates a new signal, taking the initial value as its argument.
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
+        tracing::instrument(level = "trace", skip_all)
     )]
     #[track_caller]
     pub fn new(value: T) -> Self {
@@ -134,7 +134,7 @@ where
     /// Creates a new signal with the given arena storage method.
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
+        tracing::instrument(level = "trace", skip_all)
     )]
     #[track_caller]
     pub fn new_with_storage(value: T) -> Self {
@@ -154,7 +154,7 @@ where
     /// this pins the value to the current thread. Accessing it from any other thread will panic.
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(level = "trace", skip_all,)
+        tracing::instrument(level = "trace", skip_all)
     )]
     #[track_caller]
     pub fn new_local(value: T) -> Self {

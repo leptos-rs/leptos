@@ -27,7 +27,7 @@ leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
 uuid = { version = "1.10", features = ["v4"] }
-tracing = "0.1.40"
+tracing = { version = "0.1.40", optional = true }
 
 [dev-dependencies]
 log = "0.4.22"
@@ -43,7 +43,7 @@ csr = []
 hydrate = []
 ssr = ["server_fn_macro/ssr", "leptos/ssr"]
 nightly = ["server_fn_macro/nightly"]
-tracing = []
+tracing = ["dep:tracing"]
 experimental-islands = []
 trace-component-props = []
 actix = ["server_fn_macro/actix"]

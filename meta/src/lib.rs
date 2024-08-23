@@ -342,10 +342,14 @@ where
         );
         _ = cx.elements.send(buf); // fails only if the receiver is already dropped
     } else {
-        tracing::warn!(
-            "tried to use a leptos_meta component without `ServerMetaContext` \
-             provided"
-        );
+        let msg = "tried to use a leptos_meta component without \
+                   `ServerMetaContext` provided";
+
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{}", msg);
+
+        #[cfg(not(feature = "tracing"))]
+        eprintln!("{}", msg);
     }
 
     RegisteredMetaTag { el }

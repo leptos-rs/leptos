@@ -69,10 +69,7 @@ use web_sys::{
 ///     Ok(())
 /// }
 /// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn ActionForm<ServFn>(
     /// The action from which to build the form. This should include a URL, which can be generated

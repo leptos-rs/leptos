@@ -316,7 +316,7 @@ mod tests {
         assert_eq!(store.user().read_untracked().as_str(), "Bob");
         Effect::new_sync({
             let combined_count = Arc::clone(&combined_count);
-            move |prev| {
+            move |prev: Option<()>| {
                 if prev.is_none() {
                     println!("first run");
                 } else {
@@ -360,7 +360,7 @@ mod tests {
 
         Effect::new_sync({
             let combined_count = Arc::clone(&combined_count);
-            move |prev| {
+            move |prev: Option<()>| {
                 if prev.is_none() {
                     println!("first run");
                 } else {
@@ -392,7 +392,7 @@ mod tests {
 
         Effect::new_sync({
             let combined_count = Arc::clone(&combined_count);
-            move |prev| {
+            move |prev: Option<()>| {
                 if prev.is_none() {
                     println!("first run");
                 } else {
@@ -429,7 +429,7 @@ mod tests {
 
         Effect::new_sync({
             let combined_count = Arc::clone(&combined_count);
-            move |prev| {
+            move |prev: Option<()>| {
                 if prev.is_none() {
                     println!("first run");
                 } else {

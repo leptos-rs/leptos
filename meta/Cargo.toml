@@ -14,7 +14,7 @@ once_cell = "1.19"
 or_poisoned = { workspace = true }
 indexmap = "2.3"
 send_wrapper = "0.6.0"
-tracing = "0.1.40"
+tracing = { version = "0.1.40", optional = true }
 wasm-bindgen = "0.2.93"
 futures = "0.3.30"
 
@@ -25,6 +25,10 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 [features]
 default = []
 ssr = []
+tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.cargo-all-features]
+denylist = ["tracing"]

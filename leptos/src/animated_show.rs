@@ -43,10 +43,7 @@ use leptos_reactive::{
 /// }
 /// # }
 /// ```
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all)
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn AnimatedShow(
     /// The components Show wraps

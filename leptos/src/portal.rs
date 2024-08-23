@@ -10,10 +10,7 @@ use std::sync::Arc;
 /// If no mount point is given, the portal is inserted in `document.body`;
 /// it is wrapped in a `<div>` unless  `is_svg` is `true` in which case it's wrappend in a `<g>`.
 /// Setting `use_shadow` to `true` places the element in a shadow root to isolate styles.
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all)
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 #[component]
 pub fn Portal<V>(
     /// Target element where the children will be appended

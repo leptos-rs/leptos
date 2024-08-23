@@ -16,7 +16,6 @@ leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
-tracing = "0.1.40"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

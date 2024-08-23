@@ -142,6 +142,7 @@ impl ToTokens for Model {
         let props_name = format_ident!("{name}Props");
         let props_builder_name = format_ident!("{name}PropsBuilder");
         let props_serialized_name = format_ident!("{name}PropsSerialized");
+        #[cfg(feature = "tracing")]
         let trace_name = format!("<{name} />");
 
         let is_island_with_children = *is_island
@@ -190,32 +191,38 @@ impl ToTokens for Model {
             tracing_span_expr,
             tracing_guard_expr,
             tracing_props_expr,
-        ) = if cfg!(feature = "tracing") {
-            (
-                quote! {
-                    #[allow(clippy::let_with_type_underscore)]
-                    #[cfg_attr(
-                        any(debug_assertions, feature="ssr"),
-                        ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
-                    )]
-                },
-                quote! {
-                    let span = ::leptos::tracing::Span::current();
-                },
-                quote! {
-                    #[cfg(debug_assertions)]
-                    let _guard = span.entered();
-                },
-                if no_props {
-                    quote! {}
-                } else {
+        ) = {
+            #[cfg(feature = "tracing")]
+            {
+                (
                     quote! {
-                        ::leptos::tracing_props![#prop_names];
-                    }
-                },
-            )
-        } else {
-            (quote! {}, quote! {}, quote! {}, quote! {})
+                        #[allow(clippy::let_with_type_underscore)]
+                        #[cfg_attr(
+                            feature = "tracing",
+                            ::leptos::tracing::instrument(level = "info", name = #trace_name, skip_all)
+                        )]
+                    },
+                    quote! {
+                        let span = ::leptos::tracing::Span::current();
+                    },
+                    quote! {
+                        #[cfg(debug_assertions)]
+                        let _guard = span.entered();
+                    },
+                    if no_props || !cfg!(feature = "trace-component-props") {
+                        quote!()
+                    } else {
+                        quote! {
+                            ::leptos::leptos_dom::tracing_props![#prop_names];
+                        }
+                    },
+                )
+            }
+
+            #[cfg(not(feature = "tracing"))]
+            {
+                (quote!(), quote!(), quote!(), quote!())
+            }
         };
 
         let component_id = name.to_string();

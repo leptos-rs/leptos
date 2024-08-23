@@ -30,7 +30,7 @@ reactive_graph = { workspace = true, features = ["serde"] }
 rustc-hash = "2.0"
 tachys = { workspace = true, features = ["reactive_graph", "oco"] }
 thiserror = "1.0"
-tracing = "0.1.40"
+tracing = { version = "0.1.40", optional = true }
 typed-builder = "0.19.1"
 typed-builder-macro = "0.19.1"
 serde = "1.0"
@@ -76,13 +76,20 @@ ssr = [
 nightly = ["leptos_macro/nightly", "reactive_graph/nightly", "tachys/nightly"]
 rkyv = ["server_fn/rkyv"]
 tracing = [
+  "dep:tracing",
   "reactive_graph/tracing",
   "tachys/tracing",
-] #, "leptos_macro/tracing", "leptos_dom/tracing"]
+  "leptos_macro/tracing",
+  "leptos_dom/tracing",
+  "leptos_server/tracing",
+]
 nonce = ["base64", "rand"]
 spin = ["leptos-spin-macro"]
 experimental-islands = ["leptos_macro/experimental-islands", "dep:serde_json"]
-trace-component-props = ["leptos_macro/trace-component-props"]
+trace-component-props = [
+  "leptos_macro/trace-component-props",
+  "leptos_dom/trace-component-props"
+]
 delegation = ["tachys/delegation"]
 
 [package.metadata.cargo-all-features]
@@ -93,52 +100,22 @@ denylist = [
   "rustls",
   "default-tls",
   "wasm-bindgen",
-  "rkyv",                  # was causing clippy issues on nightly
+  "rkyv", # was causing clippy issues on nightly
   "trace-component-props",
   "spin",
   "experimental-islands",
 ]
 skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "rkyv",
-  ],
-  [
-    "miniserde",
-    "rkyv",
-  ],
-  [
-    "serde-lite",
-    "rkyv",
-  ],
-  [
-    "default-tls",
-    "rustls",
-  ],
+  ["csr", "ssr"],
+  ["csr", "hydrate"],
+  ["ssr", "hydrate"],
+  ["serde", "serde-lite"],
+  ["serde-lite", "miniserde"],
+  ["serde", "miniserde"],
+  ["serde", "rkyv"],
+  ["miniserde", "rkyv"],
+  ["serde-lite", "rkyv"],
+  ["default-tls", "rustls"],
 ]
 
 [package.metadata.docs.rs]
