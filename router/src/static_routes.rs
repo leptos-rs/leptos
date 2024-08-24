@@ -176,11 +176,17 @@ impl StaticPath {
 
         for segment in &self.segments {
             match segment {
-                Unit => todo!(),
+                Unit => {}
                 Static(s) => {
                     paths = paths
                         .into_iter()
-                        .map(|p| ResolvedStaticPath(format!("{p}/{s}")))
+                        .map(|p| {
+                            if s.starts_with("/") {
+                                ResolvedStaticPath(format!("{p}{s}"))
+                            } else {
+                                ResolvedStaticPath(format!("{p}/{s}"))
+                            }
+                        })
                         .collect::<Vec<_>>();
                 }
                 Param(name) | Splat(name) => {
@@ -196,9 +202,11 @@ impl StaticPath {
                             );
                         };
                         for val in params.iter() {
-                            new_paths.push(ResolvedStaticPath(format!(
-                                "{path}/{val}"
-                            )));
+                            new_paths.push(if val.starts_with("/") {
+                                ResolvedStaticPath(format!("{path}{val}"))
+                            } else {
+                                ResolvedStaticPath(format!("{path}/{val}"))
+                            });
                         }
                     }
                     paths = new_paths;

@@ -22,7 +22,10 @@ async fn main() {
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
-            move || shell(leptos_options.clone())
+            move || {
+                println!("via leptos_routes");
+                shell(leptos_options.clone())
+            }
         })
         .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);

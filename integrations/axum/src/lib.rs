@@ -1444,9 +1444,16 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use leptos_integration_utils::static_file_path;
     use std::path::Path;
 
-    let path = leptos_integration_utils::static_file_path(options, path);
+    // If the path ends with a trailing slash, we generate the path
+    // as a directory with a index.html file inside.
+    let path = if path != "/" && path.ends_with("/") {
+        static_file_path(options, &format!("{}index", path))
+    } else {
+        static_file_path(options, path)
+    };
 
     let path = Path::new(&path);
     if let Some(path) = path.parent() {

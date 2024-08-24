@@ -83,7 +83,7 @@ fn HomePage() -> impl IntoView {
             <ul>
                 <For each=posts key=|post| post.slug.clone() let:post>
                     <li>
-                        <a href=format!("/post/{}", post.slug)>{post.title.clone()}</a>
+                        <a href=format!("/post/{}/", post.slug)>{post.title.clone()}</a>
                     </li>
                 </For>
             </ul>
