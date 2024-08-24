@@ -64,14 +64,14 @@ fn parses_no_slashes() {
 
 #[test]
 fn parses_no_leading_slash() {
-    let output = path!("home/");
+    let output = path!("home");
     assert_eq!(output, (StaticSegment("home"),));
 }
 
 #[test]
 fn parses_trailing_slash() {
     let output = path!("/home/");
-    assert_eq!(output, (StaticSegment("home"),));
+    assert_eq!(output, (StaticSegment("home"), StaticSegment("/")));
 }
 
 #[test]
@@ -101,6 +101,19 @@ fn parses_mixed_segment_types() {
             StaticSegment("foo"),
             ParamSegment("bar"),
             WildcardSegment("baz")
+        )
+    );
+}
+
+#[test]
+fn parses_trailing_slash_after_param() {
+    let output = path!("/foo/:bar/");
+    assert_eq!(
+        output,
+        (
+            StaticSegment("foo"),
+            ParamSegment("bar"),
+            StaticSegment("/")
         )
     );
 }
