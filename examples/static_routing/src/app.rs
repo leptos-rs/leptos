@@ -2,12 +2,12 @@ use leptos::prelude::*;
 use leptos_meta::MetaTags;
 use leptos_meta::*;
 use leptos_router::{
-    components::{FlatRoutes, ProtectedRoute, Route, Router},
+    components::{FlatRoutes, Route, Router},
     hooks::use_params,
     params::Params,
     path,
     static_routes::StaticRoute,
-    ParamSegment, SsrMode, StaticSegment,
+    SsrMode,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
