@@ -1,6 +1,5 @@
 use crate::{
     children::{TypedChildren, ViewFnOnce},
-    spawn::tick,
     IntoView,
 };
 use futures::{select, FutureExt};
