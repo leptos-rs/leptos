@@ -191,22 +191,21 @@ impl StaticPath {
                 }
                 Param(name) | Splat(name) => {
                     let mut new_paths = vec![];
-                    let params = params.as_ref().unwrap_or_else(|| {
-                        panic!("missing params for path: {:?}", self.segments);
-                    });
-                    for path in paths {
-                        let Some(params) = params.get(&name) else {
-                            panic!(
-                                "missing param {} for path: {:?}",
-                                name, self.segments
-                            );
-                        };
-                        for val in params.iter() {
-                            new_paths.push(if val.starts_with("/") {
-                                ResolvedStaticPath(format!("{path}{val}"))
-                            } else {
-                                ResolvedStaticPath(format!("{path}/{val}"))
-                            });
+                    if let Some(params) = params.as_ref() {
+                        for path in paths {
+                            if let Some(params) = params.get(&name) {
+                                for val in params.iter() {
+                                    new_paths.push(if val.starts_with("/") {
+                                        ResolvedStaticPath(format!(
+                                            "{path}{val}"
+                                        ))
+                                    } else {
+                                        ResolvedStaticPath(format!(
+                                            "{path}/{val}"
+                                        ))
+                                    });
+                                }
+                            }
                         }
                     }
                     paths = new_paths;

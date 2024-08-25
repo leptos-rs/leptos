@@ -3,9 +3,7 @@
 async fn main() {
     use axum::Router;
     use leptos::prelude::*;
-    use leptos_axum::{
-        generate_route_list, generate_route_list_with_ssg, LeptosRoutes,
-    };
+    use leptos_axum::{generate_route_list_with_ssg, LeptosRoutes};
     use static_routing::app::*;
 
     let conf = get_configuration(None).unwrap();

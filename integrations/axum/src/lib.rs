@@ -69,7 +69,7 @@ use leptos_router::{
 };
 use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
-use std::{fmt::Debug, io, pin::Pin, sync::Arc};
+use std::{fmt::Debug, io, path::Path, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
 use tower::ServiceExt;
 #[cfg(feature = "default")]
@@ -1347,6 +1347,52 @@ pub struct StaticRouteGenerator(
 );
 
 impl StaticRouteGenerator {
+    fn render_route<IV: IntoView + 'static>(
+        path: String,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + Clone + Send + 'static,
+    ) -> impl Future<Output = (Owner, String)> {
+        let (meta_context, meta_output) = ServerMetaContext::new();
+        let additional_context = {
+            let add_context = additional_context.clone();
+            move || {
+                let full_path = format!("http://leptos.dev{path}");
+                let (mock_parts, _) =
+                    http::Request::new(Body::from("")).into_parts();
+                let res_options = ResponseOptions::default();
+                provide_contexts(
+                    &full_path,
+                    &meta_context,
+                    mock_parts,
+                    res_options,
+                );
+                add_context();
+            }
+        };
+
+        let (owner, stream) = leptos_integration_utils::build_response(
+            app_fn.clone(),
+            additional_context,
+            async_stream_builder,
+        );
+
+        let sc = owner.shared_context().unwrap();
+
+        async move {
+            let stream = stream.await;
+            while let Some(pending) = sc.await_deferred() {
+                pending.await;
+            }
+
+            let html = meta_output
+                .inject_meta_context(stream)
+                .await
+                .collect::<String>()
+                .await;
+            (owner, html)
+        }
+    }
+
     pub fn new<IV>(
         routes: &RouteList,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1362,46 +1408,11 @@ impl StaticRouteGenerator {
                 let app_fn = app_fn.clone();
 
                 move |path| {
-                    let (meta_context, meta_output) = ServerMetaContext::new();
-                    let additional_context = {
-                        let add_context = add_context.clone();
-                        move || {
-                            let full_path = format!("http://leptos.dev{path}");
-                            let (mock_parts, _) =
-                                http::Request::new(Body::from("")).into_parts();
-                            let res_options = ResponseOptions::default();
-                            provide_contexts(
-                                &full_path,
-                                &meta_context,
-                                mock_parts,
-                                res_options,
-                            );
-                            add_context();
-                        }
-                    };
-
-                    let (owner, stream) =
-                        leptos_integration_utils::build_response(
-                            app_fn.clone(),
-                            additional_context,
-                            async_stream_builder,
-                        );
-
-                    let sc = owner.shared_context().unwrap();
-
-                    async move {
-                        let stream = stream.await;
-                        while let Some(pending) = sc.await_deferred() {
-                            pending.await;
-                        }
-
-                        let html = meta_output
-                            .inject_meta_context(stream)
-                            .await
-                            .collect::<String>()
-                            .await;
-                        (owner, html)
-                    }
+                    Self::render_route(
+                        path.to_string(),
+                        app_fn.clone(),
+                        add_context.clone(),
+                    )
                 }
             }))
         })
@@ -1438,23 +1449,25 @@ impl StaticRouteGenerator {
     }
 }
 
+fn static_path(options: &LeptosOptions, path: &str) -> String {
+    use leptos_integration_utils::static_file_path;
+
+    // If the path ends with a trailing slash, we generate the path
+    // as a directory with a index.html file inside.
+    if path != "/" && path.ends_with("/") {
+        static_file_path(options, &format!("{}index", path))
+    } else {
+        static_file_path(options, path)
+    }
+}
+
 #[cfg(feature = "default")]
 async fn write_static_route(
     options: &LeptosOptions,
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
-    use leptos_integration_utils::static_file_path;
-    use std::path::Path;
-
-    // If the path ends with a trailing slash, we generate the path
-    // as a directory with a index.html file inside.
-    let path = if path != "/" && path.ends_with("/") {
-        static_file_path(options, &format!("{}index", path))
-    } else {
-        static_file_path(options, path)
-    };
-
+    let path = static_path(options, path);
     let path = Path::new(&path);
     if let Some(path) = path.parent() {
         tokio::fs::create_dir_all(path).await?;
@@ -1464,11 +1477,73 @@ async fn write_static_route(
     Ok(())
 }
 
+#[cfg(feature = "default")]
+fn handle_static_route<S, IV>(
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+) -> impl Fn(
+    State<S>,
+    Request<Body>,
+) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static
+where
+    LeptosOptions: FromRef<S>,
+    S: Send + 'static,
+    IV: IntoView + 'static,
+{
+    use tower_http::services::ServeFile;
+
+    move |state, req| {
+        let app_fn = app_fn.clone();
+        let additional_context = additional_context.clone();
+        Box::pin(async move {
+            let options = LeptosOptions::from_ref(&state);
+            let orig_path = req.uri().path();
+            let path = dbg!(static_path(&options, orig_path));
+            let path = Path::new(&path);
+            let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
+
+            if !exists {
+                let (owner, html) = StaticRouteGenerator::render_route(
+                    orig_path.to_string(),
+                    app_fn,
+                    additional_context,
+                )
+                .await;
+
+                if let Err(err) =
+                    write_static_route(&options, &orig_path, &html).await
+                {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Something went wrong: {err}"),
+                    )
+                        .into_response();
+                };
+
+                drop(owner);
+            }
+
+            match ServeFile::new(path).oneshot(req).await {
+                Ok(res) => res.into_response(),
+                Err(err) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Something went wrong: {err}"),
+                )
+                    .into_response(),
+            }
+        })
+    }
+}
+
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes<S>
 where
     S: Clone + Send + Sync + 'static,
+    LeptosOptions: FromRef<S>,
 {
     fn leptos_routes<IV>(
         self,
@@ -1595,23 +1670,9 @@ where
             }
         }
     })
-}*/
+}
 
-#[allow(unused)] // TODO
-#[cfg(feature = "default")]
-fn static_route<IV, S>(
-    router: axum::Router<S>,
-    path: &str,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
-    additional_context: impl Fn() + Clone + Send + 'static,
-    method: leptos_router::Method,
-) -> axum::Router<S>
-where
-    IV: IntoView + 'static,
-    S: Clone + Send + Sync + 'static,
-{
-    todo!()
-    /*match mode {
+    match mode {
         StaticMode::Incremental => {
             let handler = move |req: Request<Body>| {
                 Box::pin({
@@ -1698,8 +1759,8 @@ where
                 },
             )
         }
-    }*/
-}
+    }
+}*/
 
 trait AxumPath {
     fn to_axum_path(&self) -> String;
@@ -1736,6 +1797,7 @@ impl AxumPath for &[PathSegment] {
 impl<S> LeptosRoutes<S> for axum::Router<S>
 where
     S: Clone + Send + Sync + 'static,
+    LeptosOptions: FromRef<S>,
 {
     #[cfg_attr(
         feature = "tracing",
@@ -1814,27 +1876,24 @@ where
                     cx_with_state();
                 };
                 router = if matches!(listing.mode(), SsrMode::Static(_)) {
-                    router
-                    /*
                     #[cfg(feature = "default")]
                     {
-                        static_route(
-                            router,
+                        router.route(
                             path,
-                            app_fn.clone(),
-                            cx_with_state_and_method.clone(),
-                            method,
+                            get(handle_static_route(
+                                cx_with_state_and_method.clone(),
+                                app_fn.clone(),
+                            )),
                         )
                     }
                     #[cfg(not(feature = "default"))]
                     {
                         _ = static_mode;
                         panic!(
-                            "Static site generation is not currently \
-                             supported on WASM32 server targets."
-                        )
+                            "Static routes are not currently supported on \
+                             WASM32 server targets."
+                        );
                     }
-                    */
                 } else {
                     router.route(
                     path,

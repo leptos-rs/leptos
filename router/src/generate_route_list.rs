@@ -1,16 +1,12 @@
 use crate::{
     matching::PathSegment,
-    static_routes::{
-        ResolvedStaticPath, StaticParamsMap, StaticPath, StaticRoute,
-    },
+    static_routes::{ResolvedStaticPath, StaticPath, StaticRoute},
     Method, SsrMode,
 };
 use futures::{
-    future::join_all,
     stream::{FuturesUnordered, Stream, StreamExt},
     FutureExt,
 };
-use leptos::{config::LeptosOptions, IntoView};
 use reactive_graph::owner::Owner;
 use std::{
     cell::{Cell, RefCell},
@@ -161,6 +157,8 @@ impl RouteList {
         for route in self.into_inner() {
             if let SsrMode::Static(static_data) = route.mode() {
                 let render_fn = render_fn.clone();
+
+                // TODO invalidation
                 let static_data = static_data.clone();
                 streams.push(Box::pin(
                     route.into_static_paths().into_stream().flat_map(
