@@ -47,6 +47,7 @@ serde-lite = { version = "0.5.0", features = ["derive"], optional = true }
 futures = "0.3.30"
 http = { version = "1.1" }
 ciborium = { version = "0.2.2", optional = true }
+postcard = { version = "1", features = ["alloc"], optional = true }
 hyper = { version = "1.4", optional = true }
 bytes = "1.7"
 http-body-util = { version = "0.1.2", optional = true }
@@ -108,6 +109,7 @@ url = ["dep:serde_qs"]
 cbor = ["dep:ciborium"]
 rkyv = ["dep:rkyv"]
 msgpack = ["dep:rmp-serde"]
+postcard = ["dep:postcard"]
 default-tls = ["reqwest?/default-tls"]
 rustls = ["reqwest?/rustls-tls"]
 reqwest = ["dep:reqwest"]
