@@ -135,6 +135,12 @@ fn SecondaryNav() -> impl IntoView {
     }
 }
 
+/*
+*   If your resource's inner type implements map, then you can access the value and use the inner
+*   type's map method. However, you should use the provided Resource::map method to avoid any
+*   potential pitfalls.
+*/
+
 #[component]
 fn Nested() -> impl IntoView {
     let one_second = Resource::new(|| WAIT_ONE_SECOND, first_wait_fn);
@@ -147,14 +153,14 @@ fn Nested() -> impl IntoView {
                 "Loading 1..."
             }>
                 {move || {
-                    one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
+                    one_second.map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
                 <Suspense fallback=|| {
                     "Loading 2..."
                 }>
                     {move || {
                         two_second
-                            .get()
+                            //.get()
                             .map(|_| {
                                 view! {
                                     <p id="loaded-2">"Two Second: Loaded 2!"</p>
@@ -217,7 +223,7 @@ fn Parallel() -> impl IntoView {
             }>
                 {move || {
                     one_second
-                        .get()
+                        //.get()
                         .map(move |_| {
                             view! {
                                 <p id="loaded-1">"One Second: Loaded 1!"</p>
@@ -234,7 +240,7 @@ fn Parallel() -> impl IntoView {
             }>
                 {move || {
                     two_second
-                        .get()
+                        //.get()
                         .map(move |_| {
                             view! {
                                 <p id="loaded-2">"Two Second: Loaded 2!"</p>
@@ -264,7 +270,7 @@ fn Single() -> impl IntoView {
                 "Loading 1..."
             }>
                 {move || {
-                    one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
+                    one_second/*.get()*/.map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
 
             </Suspense>
@@ -300,7 +306,7 @@ fn InsideComponentChild() -> impl IntoView {
             "Loading 1..."
         }>
             {move || {
-                one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
+                one_second/*.get()*/.map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
             }}
 
         </Suspense>
@@ -319,7 +325,7 @@ fn LocalResource() -> impl IntoView {
                 "Loading 1..."
             }>
                 {move || {
-                    one_second.get().map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
+                    one_second/*.get()*/.map(|_| view! { <p id="loaded-1">"One Second: Loaded 1!"</p> })
                 }}
                 {move || {
                     Suspend::new(async move {
