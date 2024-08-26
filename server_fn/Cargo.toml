@@ -198,4 +198,24 @@ skip_feature_sets = [
     "url",
     "serde-lite",
   ],
+  [
+    "postcard",
+    "json",
+  ],
+  [
+    "postcard",
+    "cbor",
+  ],
+  [
+    "postcard",
+    "url",
+  ],
+  [
+    "postcard",
+    "serde-lite",
+  ],
+  [
+    "postcard",
+    "rkyv",
+  ],
 ]
