@@ -48,7 +48,7 @@ use axum::{
     extract::{FromRef, State},
     http::Uri,
 };
-use futures::{stream::once, Future, Stream, StreamExt};
+use futures::{channel::oneshot, stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
@@ -1343,7 +1343,7 @@ where
 }
 
 pub struct StaticRouteGenerator(
-    PinnedStream<(Owner, ResolvedStaticPath, String)>,
+    Box<dyn FnOnce(&LeptosOptions) -> PinnedFuture<()> + Send>,
 );
 
 impl StaticRouteGenerator {
@@ -1403,49 +1403,35 @@ impl StaticRouteGenerator {
     {
         Self({
             let routes = routes.clone();
-            Box::pin(routes.into_html_file_stream({
-                let add_context = additional_context.clone();
+            Box::new(move |options| {
+                let options = options.clone();
                 let app_fn = app_fn.clone();
+                let additional_context = additional_context.clone();
 
-                move |path| {
-                    Self::render_route(
-                        path.to_string(),
-                        app_fn.clone(),
-                        add_context.clone(),
-                    )
-                }
-            }))
+                Box::pin(routes.generate_static_files(
+                    move |path: &ResolvedStaticPath| {
+                        Self::render_route(
+                            path.to_string(),
+                            app_fn.clone(),
+                            additional_context.clone(),
+                        )
+                    },
+                    move |path: &ResolvedStaticPath, html: String| {
+                        let options = options.clone();
+                        let path = path.to_owned();
+                        async move {
+                            write_static_route(&options, path.as_ref(), &html)
+                                .await
+                        }
+                    },
+                ))
+            })
         })
     }
 
     #[cfg(feature = "default")]
     pub async fn generate(self, options: &LeptosOptions) {
-        // stores all the Owners until the generation process is over, then drops them all at once
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        let mut stream = Box::pin(self.0.then({
-            let options = options.clone();
-            move |(owner, path, html)| {
-                let options = options.clone();
-                let tx = tx.clone();
-                async move {
-                    write_static_route(&options, path.as_ref(), &html).await?;
-                    _ = tx.send(owner);
-                    Ok::<_, std::io::Error>(path)
-                }
-            }
-        }));
-
-        while let Some(res) = stream.next().await {
-            match res {
-                Ok(path) => {
-                    println!("rendered {:?}", path.as_ref());
-                }
-                Err(e) => eprintln!("{e}"),
-            }
-        }
-
-        drop(rx);
+        (self.0)(options).await
     }
 }
 
@@ -1467,6 +1453,8 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
+    use futures::channel::oneshot;
+
     let path = static_path(options, path);
     let path = Path::new(&path);
     if let Some(path) = path.parent() {
@@ -1501,7 +1489,7 @@ where
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
             let orig_path = req.uri().path();
-            let path = dbg!(static_path(&options, orig_path));
+            let path = static_path(&options, orig_path);
             let path = Path::new(&path);
             let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
 

@@ -1,3 +1,6 @@
+use std::path::Path;
+
+use futures::{channel::mpsc, Stream};
 use leptos::prelude::*;
 use leptos_meta::MetaTags;
 use leptos_meta::*;
@@ -46,7 +49,14 @@ pub fn App() -> impl IntoView {
             </nav>
             <main>
                 <FlatRoutes fallback>
-                    <Route path=path!("/") view=HomePage ssr=SsrMode::Static(StaticRoute::new())/>
+                    <Route
+                        path=path!("/")
+                        view=HomePage
+                        ssr=SsrMode::Static(
+                            StaticRoute::new().regenerate(|_| watch_path(Path::new("./posts"))),
+                        )
+                    />
+
                     <Route
                         path=path!("/post/:slug/")
                         view=Post
@@ -56,6 +66,10 @@ pub fn App() -> impl IntoView {
                                     [("slug".into(), list_slugs().await.unwrap_or_default())]
                                         .into_iter()
                                         .collect()
+                                })
+                                .regenerate(|params| {
+                                    let slug = params.get("slug").unwrap();
+                                    watch_path(Path::new(&format!("./posts/{slug}.md")))
                                 }),
                         )
                     />
@@ -210,6 +224,8 @@ pub async fn list_slugs() -> Result<Vec<String>, ServerFnError> {
 
 #[server]
 pub async fn list_posts() -> Result<Vec<Post>, ServerFnError> {
+    println!("calling list_posts");
+
     use futures::TryStreamExt;
     use tokio::fs;
     use tokio_stream::wrappers::ReadDirStream;
@@ -261,4 +277,36 @@ pub async fn get_post(slug: String) -> Result<Option<Post>, ServerFnError> {
         title,
         content,
     }))
+}
+
+fn watch_path(path: &Path) -> impl Stream<Item = ()> {
+    #[allow(unused)]
+    let (mut tx, rx) = mpsc::channel(0);
+
+    #[cfg(feature = "ssr")]
+    {
+        use notify::RecursiveMode;
+        use notify::Watcher;
+
+        let mut watcher = notify::recommended_watcher(move |res| {
+            if let Ok(_) = res {
+                // if this fails, it's because the buffer is full
+                // this means we've already notified before it's regenerated,
+                // so this page will be queued for regeneration already
+                _ = tx.try_send(());
+            }
+        })
+        .expect("could not create watcher");
+
+        // Add a path to be watched. All files and directories at that path and
+        // below will be monitored for changes.
+        watcher
+            .watch(path, RecursiveMode::NonRecursive)
+            .expect("could not watch path");
+
+        // we want this to run as long as the server is alive
+        std::mem::forget(watcher);
+    }
+
+    rx
 }

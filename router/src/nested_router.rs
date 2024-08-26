@@ -272,8 +272,8 @@ where
                     RouteListing::new(
                         path,
                         data.ssr_mode,
-                        // TODO methods
-                        [Method::Get],
+                        data.methods,
+                        data.regenerate,
                     )
                 })
                 .collect::<Vec<_>>();

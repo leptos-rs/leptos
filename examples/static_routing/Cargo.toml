@@ -27,8 +27,9 @@ tokio = { version = "1.39", features = [
   "macros",
 ], optional = true }
 tokio-stream = { version = "0.1", features = ["fs"], optional = true }
-futures = { version = "0.3", optional = true }
+futures = "0.3"
 wasm-bindgen = "0.2.93"
+notify = { version = "6", optional = true }
 
 [features]
 hydrate = ["leptos/hydrate"]
@@ -38,11 +39,11 @@ ssr = [
   "dep:tower-http",
   "dep:tokio",
   "dep:tokio-stream",
-  "dep:futures",
   "leptos/ssr",
   "leptos_meta/ssr",
   "dep:leptos_axum",
   "leptos_router/ssr",
+  "dep:notify"
 ]
 
 [profile.release]

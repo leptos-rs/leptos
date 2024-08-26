@@ -1,17 +1,23 @@
 use crate::{
     matching::PathSegment,
-    static_routes::{ResolvedStaticPath, StaticPath, StaticRoute},
+    static_routes::{
+        RegenerationFn, ResolvedStaticPath, StaticPath, StaticRoute,
+    },
     Method, SsrMode,
 };
 use futures::{
-    stream::{FuturesUnordered, Stream, StreamExt},
+    channel::oneshot,
+    future::join_all,
+    stream::{self, FuturesUnordered, Stream, StreamExt},
     FutureExt,
 };
+use leptos::{config::LeptosOptions, spawn::spawn};
 use reactive_graph::owner::Owner;
 use std::{
     cell::{Cell, RefCell},
     collections::HashSet,
     future::Future,
+    mem,
 };
 use tachys::{renderer::Renderer, view::RenderHtml};
 
@@ -21,6 +27,7 @@ pub struct RouteListing {
     path: Vec<PathSegment>,
     mode: SsrMode,
     methods: HashSet<Method>,
+    regenerate: Vec<RegenerationFn>,
 }
 
 impl RouteListing {
@@ -29,17 +36,19 @@ impl RouteListing {
         path: impl IntoIterator<Item = PathSegment>,
         mode: SsrMode,
         methods: impl IntoIterator<Item = Method>,
+        regenerate: impl IntoIterator<Item = RegenerationFn>,
     ) -> Self {
         Self {
             path: path.into_iter().collect(),
             mode,
             methods: methods.into_iter().collect(),
+            regenerate: regenerate.into_iter().collect(),
         }
     }
 
     /// Create a route listing from a path, with the other fields set to default values.
     pub fn from_path(path: impl IntoIterator<Item = PathSegment>) -> Self {
-        Self::new(path, SsrMode::Async, [])
+        Self::new(path, SsrMode::Async, [], [])
     }
 
     /// The path this route handles.
@@ -69,6 +78,36 @@ impl RouteListing {
     pub async fn into_static_paths(self) -> Option<Vec<ResolvedStaticPath>> {
         let params = self.static_route()?.to_prerendered_params().await;
         Some(StaticPath::new(self.path).into_paths(params))
+    }
+
+    pub async fn generate_static_files<Fut, WriterFut>(
+        mut self,
+        render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
+        writer: impl Fn(&ResolvedStaticPath, String) -> WriterFut
+            + Send
+            + Clone
+            + 'static,
+    ) where
+        Fut: Future<Output = (Owner, String)> + Send + 'static,
+        WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
+    {
+        if let SsrMode::Static(static_data) = self.mode() {
+            let (all_initial_tx, all_initial_rx) = std::sync::mpsc::channel();
+
+            let render_fn = render_fn.clone();
+            let regenerate = mem::take(&mut self.regenerate);
+            let paths = self.into_static_paths().await.unwrap_or_default();
+
+            for path in paths {
+                all_initial_tx.send(path.build(
+                    render_fn.clone(),
+                    writer.clone(),
+                    regenerate.clone(),
+                ));
+            }
+
+            join_all(all_initial_rx.try_iter()).await;
+        }
     }
 
     /*
@@ -145,55 +184,21 @@ impl RouteList {
         .collect::<Vec<_>>()
     }
 
-    pub fn into_html_file_stream<Fut>(
+    pub async fn generate_static_files<Fut, WriterFut>(
         self,
-        render_fn: impl Fn(ResolvedStaticPath) -> Fut + Clone + 'static,
-    ) -> impl Stream<Item = (Owner, ResolvedStaticPath, String)>
-    where
-        Fut: Future<Output = (Owner, String)>,
+        render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
+        writer: impl Fn(&ResolvedStaticPath, String) -> WriterFut
+            + Send
+            + Clone
+            + 'static,
+    ) where
+        Fut: Future<Output = (Owner, String)> + Send + 'static,
+        WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
     {
-        let mut streams = Vec::new();
-
-        for route in self.into_inner() {
-            if let SsrMode::Static(static_data) = route.mode() {
-                let render_fn = render_fn.clone();
-
-                // TODO invalidation
-                let static_data = static_data.clone();
-                streams.push(Box::pin(
-                    route.into_static_paths().into_stream().flat_map(
-                        move |paths| {
-                            paths
-                                .into_iter()
-                                .flatten()
-                                .map({
-                                    let render_fn = render_fn.clone();
-                                    move |path| {
-                                        let render_fn = render_fn.clone();
-                                        async move {
-                                            let (owner, html) =
-                                                render_fn(path.clone()).await;
-                                            (owner, path, html)
-                                        }
-                                    }
-                                })
-                                .collect::<FuturesUnordered<_>>()
-                        },
-                    ),
-                ));
-
-                /*
-                match static_data.invalidate {
-                    None => {
-                        route.into_static_paths();
-                    }
-                    Some(invalidate) => todo!(),
-                }
-                */
-            }
-        }
-
-        futures::stream::select_all(streams)
+        join_all(self.into_inner().into_iter().map(|route| {
+            route.generate_static_files(render_fn.clone(), writer.clone())
+        }))
+        .await;
     }
 }
 
