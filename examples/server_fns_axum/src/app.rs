@@ -6,7 +6,8 @@ use server_fn::{
     client::{browser::BrowserClient, Client},
     codec::{
         Encoding, FromReq, FromRes, GetUrl, IntoReq, IntoRes, MultipartData,
-        MultipartFormData, Rkyv, SerdeLite, StreamingText, TextStream,
+        MultipartFormData, Postcard, Rkyv, SerdeLite, StreamingText,
+        TextStream,
     },
     request::{browser::BrowserRequest, ClientReq, Req},
     response::{browser::BrowserResponse, ClientRes, Res},
@@ -65,6 +66,7 @@ pub fn HomePage() -> impl IntoView {
         <h2>"Alternative Encodings"</h2>
         <ServerFnArgumentExample/>
         <RkyvExample/>
+        <PostcardExample/>
         <FileUpload/>
         <FileUploadWithProgress/>
         <FileWatcher/>
@@ -878,5 +880,69 @@ pub fn CustomClientExample() -> impl IntoView {
         <button on:click=|_| spawn_local(async {
             fn_with_custom_client().await.unwrap()
         })>Click me</button>
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PostcardData {
+    name: String,
+    age: u32,
+    hobbies: Vec<String>,
+}
+
+/// This server function uses Postcard for both input and output encoding.
+/// Postcard provides efficient binary serialization, almost as fast as rkyv, while also being
+/// serde compatible
+#[server(input = Postcard, output = Postcard)]
+pub async fn postcard_example(
+    data: PostcardData,
+) -> Result<PostcardData, ServerFnError> {
+    // Simulate some processing time
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+
+    // Modify the data to demonstrate server-side changes
+    let mut modified_data = data.clone();
+    modified_data.age += 1;
+    modified_data.hobbies.push("Rust programming".to_string());
+
+    Ok(modified_data)
+}
+
+/// This component demonstrates the usage of Postcard encoding with server functions.
+/// It allows incrementing the age of a person and shows how the data is
+/// serialized, sent to the server, processed, and returned.
+#[component]
+pub fn PostcardExample() -> impl IntoView {
+    // Initialize the input data
+    let (input, set_input) = signal(PostcardData {
+        name: "Alice".to_string(),
+        age: 30,
+        hobbies: vec!["reading".to_string(), "hiking".to_string()],
+    });
+
+    // Create a resource that will call the server function whenever the input changes
+    let postcard_result = Resource::new(
+        move || input.get(),
+        |data| async move { postcard_example(data).await },
+    );
+
+    view! {
+        <h3>Using <code>postcard</code> encoding</h3>
+        <p>"This example demonstrates using Postcard for efficient binary serialization."</p>
+        <button on:click=move |_| {
+            // Update the input data when the button is clicked
+            set_input.update(|data| {
+                data.age += 1;
+            });
+        }>
+            "Increment Age"
+        </button>
+        // Display the current input data
+        <p>"Input: " {move || format!("{:?}", input.get())}</p>
+        <Transition>
+            // Display the result from the server, which will update automatically
+            // when the input changes due to the resource
+            <p>"Result: " {move || postcard_result.get().map(|r| format!("{:?}", r))}</p>
+        </Transition>
     }
 }
