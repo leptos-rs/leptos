@@ -151,11 +151,12 @@ where
 
 impl<Inner, Prev, T> Track for Subfield<Inner, Prev, T>
 where
-    Inner: StoreField<Value = Prev> + 'static,
+    Inner: StoreField<Value = Prev> + Track + 'static,
     Prev: 'static,
     T: 'static,
 {
     fn track(&self) {
+        self.inner.track();
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.track();
     }
