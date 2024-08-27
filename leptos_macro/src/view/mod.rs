@@ -299,7 +299,7 @@ pub(crate) fn element_to_tokens(
                     }
                 }
                 NodeAttribute::Attribute(node) => {
-                    if let Some(content) = attribute_absolute(&node, true) {
+                    if let Some(content) = attribute_absolute(node, true) {
                         attributes.push(content);
                     }
                 }
