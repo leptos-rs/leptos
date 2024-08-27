@@ -30,7 +30,7 @@ use std::{
 /// let a = RwSignal::new(0);
 /// let is_selected = Selector::new(move || a.get());
 /// let total_notifications = StoredValue::new(0);
-/// Effect::new({
+/// Effect::new_isomorphic({
 ///     let is_selected = is_selected.clone();
 ///     move |_| {
 ///         if is_selected.selected(5) {
@@ -55,8 +55,7 @@ use std::{
 ///
 /// # any_spawner::Executor::tick().await;
 /// assert_eq!(is_selected.selected(5), false);
-/// # // TODO: this test is really failing, put `# }).await;` in the next line
-/// # });
+/// # }).await;
 /// # });
 /// ```
 #[derive(Clone)]
@@ -75,17 +74,17 @@ where
 
 impl<T> Selector<T>
 where
-    T: PartialEq + Eq + Clone + Hash + 'static,
+    T: PartialEq + Send + Sync + Eq + Clone + Hash + 'static,
 {
     /// Creates a new selector that compares values using [`PartialEq`].
-    pub fn new(source: impl Fn() -> T + Clone + 'static) -> Self {
+    pub fn new(source: impl Fn() -> T + Send + Sync + Clone + 'static) -> Self {
         Self::new_with_fn(source, PartialEq::eq)
     }
 
     /// Creates a new selector that compares values by returning `true` from a comparator function
     /// if the values are the same.
     pub fn new_with_fn(
-        source: impl Fn() -> T + Clone + 'static,
+        source: impl Fn() -> T + Clone + Send + Sync + 'static,
         f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
     ) -> Self {
         let subs: Arc<RwLock<FxHashMap<T, ArcRwSignal<bool>>>> =
@@ -93,13 +92,14 @@ where
         let v: Arc<RwLock<Option<T>>> = Default::default();
         let f = Arc::new(f) as Arc<dyn Fn(&T, &T) -> bool + Send + Sync>;
 
-        let effect = Arc::new(RenderEffect::new({
+        let effect = Arc::new(RenderEffect::new_isomorphic({
             let subs = Arc::clone(&subs);
             let f = Arc::clone(&f);
             let v = Arc::clone(&v);
             move |prev: Option<T>| {
                 let next_value = source();
                 *v.write().or_poisoned() = Some(next_value.clone());
+                println!("set initial value of V");
                 if prev.as_ref() != Some(&next_value) {
                     for (key, signal) in &*subs.read().or_poisoned() {
                         if f(key, &next_value)
