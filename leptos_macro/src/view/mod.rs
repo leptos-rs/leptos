@@ -547,10 +547,12 @@ pub(crate) fn attribute_absolute(
     node: &KeyedAttribute,
     after_spread: bool,
 ) -> Option<TokenStream> {
-    let contains_dash = node.key.to_string().contains('-');
+    let key = node.key.to_string();
+    let contains_dash = key.contains('-');
+    let attr_aira = key.starts_with("attr:aria-");
     // anything that follows the x:y pattern
     match &node.key {
-        NodeName::Punctuated(parts) if !contains_dash => {
+        NodeName::Punctuated(parts) if !contains_dash || attr_aira => {
             if parts.len() >= 2 {
                 let id = &parts[0];
                 match id {
@@ -565,6 +567,14 @@ pub(crate) fn attribute_absolute(
                             if key_name == "class" || key_name == "style" {
                                 Some(
                                     quote! { ::leptos::tachys::html::#key::#key(#value) },
+                                )
+                            } else if key_name == "aria" {
+                                let mut parts_iter = parts.iter();
+                                parts_iter.next();
+                                let fn_name = parts_iter.map(|p| p.to_string()).collect::<Vec<String>>().join("_");
+                                let key = Ident::new(&fn_name, key.span());
+                                Some(
+                                    quote! { ::leptos::tachys::html::attribute::#key(#value) },
                                 )
                             } else {
                                 Some(
