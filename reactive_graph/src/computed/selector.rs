@@ -55,6 +55,7 @@ use std::{
 ///
 /// # any_spawner::Executor::tick().await;
 /// assert_eq!(is_selected.selected(5), false);
+/// # // TODO: this test is really failing, put `# }).await;` in the next line
 /// # });
 /// # });
 /// ```
