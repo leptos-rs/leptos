@@ -916,15 +916,6 @@ fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
         None => quote! { true },
         Some(value) => match &value.value {
             KVAttributeValue::Expr(expr) => {
-                // value must be a block or literal
-                if !matches!(expr, Expr::Block(_) | Expr::Lit(_)) {
-                    emit_error!(
-                        expr.span(),
-                        "attribute values must be surrounded by braces or be literals";
-                        help = "wrap the expression in braces: {{{}}}", expr.to_token_stream(),
-                    )
-                }
-
                 if let Expr::Lit(lit) = expr {
                     if cfg!(feature = "nightly") {
                         if let Lit::Str(str) = &lit.lit {
