@@ -2,6 +2,8 @@
 name = "ssr_modes_axum"
 version = "0.1.0"
 edition = "2021"
+# std::sync::LazyLock is stabilized in Rust version 1.80.0
+rust-version = "1.80.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -9,7 +11,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 console_error_panic_hook = "0.1.7"
 console_log = "1.0"
-lazy_static = "1.5"
 leptos = { path = "../../leptos", features = [
   "hydration",
 ] } #"nightly", "hydration"] }

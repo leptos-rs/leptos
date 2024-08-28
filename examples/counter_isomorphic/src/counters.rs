@@ -10,12 +10,12 @@ use tracing::instrument;
 pub mod ssr_imports {
     pub use broadcaster::BroadcastChannel;
     pub use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::LazyLock;
 
     pub static COUNT: AtomicI32 = AtomicI32::new(0);
 
-    lazy_static::lazy_static! {
-        pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
-    }
+    pub static COUNT_CHANNEL: LazyLock<BroadcastChannel<i32>> =
+        LazyLock::new(BroadcastChannel::<i32>::new);
 }
 
 #[server]

@@ -2,7 +2,8 @@
 name = "benchmarks"
 version = "0.1.0"
 edition = "2021"
-rust-version.workspace = true
+# std::sync::LazyLock is stabilized in Rust version 1.80.0
+rust-version = "1.80.0"
 
 [dependencies]
 l0410 = { package = "leptos", version = "0.4.10", features = [
