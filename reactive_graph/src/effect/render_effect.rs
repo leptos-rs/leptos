@@ -152,7 +152,6 @@ where
             let initial_value = owner
                 .with(|| inner.to_any_subscriber().with_observer(|| fun(None)));
             *value.write().or_poisoned() = Some(initial_value);
-            println!("set initial value to Some");
 
             Executor::spawn({
                 let value = Arc::clone(&value);

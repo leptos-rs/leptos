@@ -99,7 +99,6 @@ where
             move |prev: Option<T>| {
                 let next_value = source();
                 *v.write().or_poisoned() = Some(next_value.clone());
-                println!("set initial value of V");
                 if prev.as_ref() != Some(&next_value) {
                     for (key, signal) in &*subs.read().or_poisoned() {
                         if f(key, &next_value)
