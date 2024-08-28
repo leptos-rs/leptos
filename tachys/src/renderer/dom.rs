@@ -15,7 +15,7 @@ use web_sys::{
 };
 
 /// A [`Renderer`] that uses `web-sys` to manipulate DOM elements in the browser.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Dom;
 
 thread_local! {
