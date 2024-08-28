@@ -26,7 +26,7 @@ pub use elements::*;
 pub use inner_html::*;
 
 /// The typed representation of an HTML element.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct HtmlElement<E, At, Ch, Rndr> {
     pub(crate) tag: E,
     pub(crate) rndr: PhantomData<Rndr>,
@@ -35,6 +35,23 @@ pub struct HtmlElement<E, At, Ch, Rndr> {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
+
+impl<E: Clone, At: Clone, Ch: Clone, Rndr> Clone
+    for HtmlElement<E, At, Ch, Rndr>
+{
+    fn clone(&self) -> Self {
+        HtmlElement {
+            tag: self.tag.clone(),
+            rndr: PhantomData,
+            attributes: self.attributes.clone(),
+            children: self.children.clone(),
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
+        }
+    }
+}
+
+impl<E: Copy, At: Copy, Ch: Copy, Rndr> Copy for HtmlElement<E, At, Ch, Rndr> {}
 
 /*impl<E, At, Ch, Rndr> ElementType for HtmlElement<E, At, Ch, Rndr>
 where
