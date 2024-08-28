@@ -4,13 +4,13 @@
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
 //! - single-page apps (SPAs) rendered entirely in the browser, using client-side routing and loading
-//!   or mutating data via async requests to the server
+//!   or mutating data via async requests to the server.
 //! - multi-page apps (MPAs) rendered on the server, managing navigation, data, and mutations via
-//!   web-standard `<a>` and `<form>` tags
+//!   web-standard `<a>` and `<form>` tags.
 //! - progressively-enhanced single-page apps that are rendered on the server and then hydrated on the client,
 //!   enhancing your `<a>` and `<form>` navigations and mutations seamlessly when WASM is available.
 //!
-//! And you can do all three of these **using the same Leptos code.**
+//! And you can do all three of these **using the same Leptos code**.
 //!
 //! Take a look at the [Leptos Book](https://leptos-rs.github.io/leptos/) for a walkthrough of the framework.
 //! Join us on our [Discord Channel](https://discord.gg/v38Eef6sWG) to see what the community is building.
@@ -20,76 +20,76 @@
 //!
 //! If you want to see what Leptos is capable of, check out
 //! the [examples](https://github.com/leptos-rs/leptos/tree/main/examples):
-//! - [`counter`](https://github.com/leptos-rs/leptos/tree/main/examples/counter) is the classic
-//!   counter example, showing the basics of client-side rendering and reactive DOM updates
-//! - [`counter_without_macros`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_without_macros)
-//!   adapts the counter example to use the builder pattern for the UI and avoids other macros, instead showing
-//!   the code that Leptos generates.
-//! - [`counters`](https://github.com/leptos-rs/leptos/tree/main/examples/counters) introduces parent-child
-//!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
-//! - [`error_boundary`](https://github.com/leptos-rs/leptos/tree/main/examples/error_boundary) shows how to use
-//!   `Result` types to handle errors.
-//! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
-//!   ways a parent component can communicate with a child, including passing a closure, context, and more
-//! - [`fetch`](https://github.com/leptos-rs/leptos/tree/main/examples/fetch) introduces
-//!   [Resource]s, which allow you to integrate arbitrary `async` code like an
+//!
+//! - **[`counter`]** is the classic counter example, showing the basics of client-side rendering and reactive DOM updates.
+//! - **[`counter_without_macros`]** adapts the counter example to use the builder pattern for the UI and avoids other macros,
+//!   instead showing the code that Leptos generates.
+//! - **[`counters`]** introduces parent-child communication via contexts, and the [`<For/>`](leptos::prelude::For) component
+//!   for efficient keyed list updates.
+//! - **[`error_boundary`]** shows how to use [`Result`] types to handle errors.
+//! - **[`parent_child`]** shows four different ways a parent component can communicate with a child, including passing a closure,
+//!   context, and more.
+//! - **[`fetch`]** introduces [`Resource`](leptos::prelude::Resource)s, which allow you to integrate arbitrary `async` code like an
 //!   HTTP request within your reactive code.
-//! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
-//!   to enable client-side navigation and route-specific, reactive data loading.
-//! - [`slots`](https://github.com/leptos-rs/leptos/tree/main/examples/slots) shows how to use slots on components.
-//! - [`spread`](https://github.com/leptos-rs/leptos/tree/main/examples/spread) shows how the spread syntax can be used to spread data and/or event handlers onto elements.
-//! - [`counter_isomorphic`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic) shows
-//!   different methods of interaction with a stateful server, including server functions, server actions, forms,
-//!   and server-sent events (SSE).
-//! - [`todomvc`](https://github.com/leptos-rs/leptos/tree/main/examples/todomvc) shows the basics of building an
-//!   isomorphic web app. Both the server and the client import the same app code from the `todomvc` example.
+//! - **[`router`]** shows how to use Leptos’s nested router to enable client-side navigation and route-specific, reactive data loading.
+//! - **[`slots`]** shows how to use slots on components.
+//! - **[`spread`]** shows how the spread syntax can be used to spread data and/or event handlers onto elements.
+//! - **[`counter_isomorphic`]** shows different methods of interaction with a stateful server, including server functions,
+//!   server actions, forms, and server-sent events (SSE).
+//! - **[`todomvc`]** shows the basics of building an isomorphic web app. Both the server and the client import the same app code.
 //!   The server renders the app directly to an HTML string, and the client hydrates that HTML to make it interactive.
-//!   You might also want to
-//!   see how we use [`create_effect`] to [serialize JSON to `localStorage`](https://github.com/leptos-rs/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L164)
-//!   and [reactively call DOM methods](https://github.com/leptos-rs/leptos/blob/6d7c36655c9e7dcc3a3ad33d2b846a3f00e4ae74/examples/todomvc/src/lib.rs#L291)
-//!   on [references to elements](https://github.com/leptos-rs/leptos/blob/6d7c36655c9e7dcc3a3ad33d2b846a3f00e4ae74/examples/todomvc/src/lib.rs#L254).
-//! - [`hackernews`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews)
-//!   and [`hackernews_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews_axum)
-//!   integrate calls to a real external REST API, routing, server-side rendering and hydration to create
-//!   a fully-functional application that works as intended even before WASM has loaded and begun to run.
-//! - [`todo_app_sqlite`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite) and
-//!   [`todo_app_sqlite_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_axum)
-//!   show how to build a full-stack app using server functions and database connections.
-//! - [`tailwind`](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind_csr) shows how to integrate
-//!   TailwindCSS with `trunk` for CSR.
+//!   You might also want to see how we use [`Effect::new`](leptos::prelude::Effect::new) to
+//!   [serialize JSON to `localStorage`](https://github.com/leptos-rs/leptos/blob/20af4928b2fffe017408d3f4e7330db22cf68277/examples/todomvc/src/lib.rs#L191-L209)
+//!   and [reactively call DOM methods](https://github.com/leptos-rs/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L292-L296)
+//!   on [references to elements](https://github.com/leptos-rs/leptos/blob/20af4928b2fffe017408d3f4e7330db22cf68277/examples/todomvc/src/lib.rs#L228).
+//! - **[`hackernews`]** and **[`hackernews_axum`]** integrate calls to a real external REST API, routing, server-side rendering and
+//!   hydration to create a fully-functional application that works as intended even before WASM has loaded and begun to run.
+//! - **[`todo_app_sqlite`]** and **[`todo_app_sqlite_axum`]** show how to build a full-stack app using server functions and
+//!   database connections.
+//! - **[`tailwind`]** shows how to integrate TailwindCSS with `trunk` for CSR.
+//!
+//! [`counter`]: https://github.com/leptos-rs/leptos/tree/main/examples/counter
+//! [`counter_without_macros`]: https://github.com/leptos-rs/leptos/tree/main/examples/counter_without_macros
+//! [`counters`]: https://github.com/leptos-rs/leptos/tree/main/examples/counters
+//! [`error_boundary`]: https://github.com/leptos-rs/leptos/tree/main/examples/error_boundary
+//! [`parent_child`]: https://github.com/leptos-rs/leptos/tree/main/examples/parent_child
+//! [`fetch`]: https://github.com/leptos-rs/leptos/tree/main/examples/fetch
+//! [`router`]: https://github.com/leptos-rs/leptos/tree/main/examples/router
+//! [`slots`]: https://github.com/leptos-rs/leptos/tree/main/examples/slots
+//! [`spread`]: https://github.com/leptos-rs/leptos/tree/main/examples/spread
+//! [`counter_isomorphic`]: https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic
+//! [`todomvc`]: https://github.com/leptos-rs/leptos/tree/main/examples/todomvc
+//! [`hackernews`]: https://github.com/leptos-rs/leptos/tree/main/examples/hackernews
+//! [`hackernews_axum`]: https://github.com/leptos-rs/leptos/tree/main/examples/hackernews_axum
+//! [`todo_app_sqlite`]: https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite
+//! [`todo_app_sqlite_axum`]: https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_axum
+//! [`tailwind`]: https://github.com/leptos-rs/leptos/tree/main/examples/tailwind_csr
 //!
 //! Details on how to run each example can be found in its README.
 //!
 //! # Quick Links
 //!
 //! Here are links to the most important sections of the docs:
-//! - **Reactivity**: the [`leptos_reactive`] overview, and more details in
-//!   - signals: [`create_signal`], [`ReadSignal`], and [`WriteSignal`] (and [`create_rw_signal`] and [`RwSignal`])
-//!   - computations: [`create_memo`] and [`Memo`]
-//!   - `async` interop: [`create_resource`] and [`Resource`] for loading data using `async` functions,
-//!     and [`create_action`] and [`Action`] to mutate data or imperatively call `async` functions.
-//!   - reactions: [`create_effect`]
-//! - **Templating/Views**: the [`view`] macro
+//! - **Reactivity**: the [`reactive_graph`] overview, and more details in
+//!   + signals: [`signal`](leptos::prelude::signal), [`ReadSignal`](leptos::prelude::ReadSignal),
+//!     [`WriteSignal`](leptos::prelude::WriteSignal) and [`RwSignal`](leptos::prelude::RwSignal).
+//!   + computations: [`Memo`](leptos::prelude::Memo).
+//!   + `async` interop: [`Resource`](leptos::prelude::Resource) for loading data using `async` functions
+//!     and [`Action`](leptos::prelude::Action) to mutate data or imperatively call `async` functions.
+//!   + reactions: [`Effect`](leptos::prelude::Effect) and [`RenderEffect`](leptos::prelude::RenderEffect).
+//! - **Templating/Views**: the [`view`] macro and [`IntoView`](leptos::IntoView) trait.
 //! - **Routing**: the [`leptos_router`](https://docs.rs/leptos_router/latest/leptos_router/) crate
-//! - **Server Functions**: the [`server`](crate::leptos_server) macro, [`create_action`], and [`create_server_action`]
+//! - **Server Functions**: the [`server`](macro@leptos::prelude::server) macro and [`ServerAction`](leptos::prelude::ServerAction).
 //!
 //! # Feature Flags
-//! - `nightly`: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
-//! - `csr` Client-side rendering: Generate DOM nodes in the browser
-//! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
-//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `serde` (*Default*) In SSR/hydrate mode, uses [`serde`](https://docs.rs/serde/latest/serde/) to serialize resources and send them
+//!
+//! - **`nightly`**: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
+//! - **`csr`** Client-side rendering: Generate DOM nodes in the browser.
+//! - **`ssr`** Server-side rendering: Generate an HTML string (typically on the server).
+//! - **`hydrate`** Hydration: use this to add interactivity to an SSRed Leptos app.
+//! - **`rkyv`** In SSR/hydrate mode, uses [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
 //!   from the server to the client.
-//! - `serde-lite` In SSR/hydrate mode, uses [`serde-lite`](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
-//!   from the server to the client.
-//! - `rkyv` In SSR/hydrate mode, uses [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
-//!   from the server to the client.
-//! - `miniserde` In SSR/hydrate mode, uses [`miniserde`](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
-//!   from the server to the client.
-//! - `tracing` Adds additional support for [`tracing`](https://docs.rs/tracing/latest/tracing/) to components.
-//! - `default-tls` Use default native TLS support. (Only applies when using server functions with a non-WASM client like a desktop app.)
-//! - `rustls` Use `rustls`. (Only applies when using server functions with a non-WASM client like a desktop app.)
-//! - `template_macro` Enables the [`template!`](leptos_macro::template) macro, which offers faster DOM node creation for some use cases in `csr`.
+//! - **`tracing`** Adds support for [`tracing`](https://docs.rs/tracing/latest/tracing/).
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in. You should only enable one of these per build target,
@@ -103,7 +103,7 @@
 //! #[component]
 //! pub fn SimpleCounter(initial_value: i32) -> impl IntoView {
 //!     // create a reactive signal with the initial value
-//!     let (value, set_value) = signal( initial_value);
+//!     let (value, set_value) = signal(initial_value);
 //!
 //!     // create event handlers for our buttons
 //!     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -112,7 +112,6 @@
 //!     let increment = move |_| *set_value.write() += 1;
 //!
 //!     view! {
-//!
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
@@ -124,7 +123,8 @@
 //! ```
 //!
 //! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
-//! ```
+//!
+//! ```rust
 //! use leptos::{mount::mount_to_body, prelude::*};
 //!
 //! #[component]
@@ -169,7 +169,7 @@ pub mod prelude {
         pub use oco_ref::*;
         pub use reactive_graph::{
             actions::*, computed::*, effect::*, owner::*, signal::*,
-            wrappers::read::*, *,
+            wrappers::read::*,
         };
         pub use server_fn::{self, ServerFnError};
         pub use tachys::{
