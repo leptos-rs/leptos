@@ -48,6 +48,7 @@ use axum::{
     extract::{FromRef, State},
     http::Uri,
 };
+use dashmap::DashMap;
 use futures::{channel::oneshot, stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
@@ -64,9 +65,10 @@ use leptos_meta::ServerMetaContext;
 use leptos_router::{
     components::provide_server_redirect,
     location::RequestUrl,
-    static_routes::{ResolvedStaticPath, StaticParamsMap},
+    static_routes::{RegenerationFn, ResolvedStaticPath, StaticParamsMap},
     PathSegment, RouteList, RouteListing, SsrMode,
 };
+use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
 use std::{fmt::Debug, io, path::Path, pin::Pin, sync::Arc};
@@ -238,14 +240,20 @@ pub fn redirect(path: &str) {
             );
         }
     } else {
-        let msg = "Couldn't retrieve either Parts or ResponseOptions while \
-                   trying to redirect().";
-
         #[cfg(feature = "tracing")]
-        tracing::warn!("{}", &msg);
-
+        {
+            tracing::warn!(
+                "Couldn't retrieve either Parts or ResponseOptions while \
+                 trying to redirect()."
+            );
+        }
         #[cfg(not(feature = "tracing"))]
-        eprintln!("{}", &msg);
+        {
+            eprintln!(
+                "Couldn't retrieve either Parts or ResponseOptions while \
+                 trying to redirect()."
+            );
+        }
     }
 }
 
@@ -1226,6 +1234,7 @@ pub struct AxumRouteListing {
     path: String,
     mode: SsrMode,
     methods: Vec<leptos_router::Method>,
+    regenerate: Vec<RegenerationFn>,
 }
 
 impl From<RouteListing> for AxumRouteListing {
@@ -1238,10 +1247,12 @@ impl From<RouteListing> for AxumRouteListing {
         };
         let mode = value.mode();
         let methods = value.methods().collect();
+        let regenerate = value.regenerate().into();
         Self {
             path,
             mode: mode.clone(),
             methods,
+            regenerate,
         }
     }
 }
@@ -1252,11 +1263,13 @@ impl AxumRouteListing {
         path: String,
         mode: SsrMode,
         methods: impl IntoIterator<Item = leptos_router::Method>,
+        regenerate: impl Into<Vec<RegenerationFn>>,
     ) -> Self {
         Self {
             path,
             mode,
             methods: methods.into_iter().collect(),
+            regenerate: regenerate.into(),
         }
     }
 
@@ -1329,6 +1342,7 @@ where
                 "/".to_string(),
                 Default::default(),
                 [leptos_router::Method::Get],
+                vec![],
             )]
         } else {
             // Routes to exclude from auto generation
@@ -1357,8 +1371,12 @@ impl StaticRouteGenerator {
             let add_context = additional_context.clone();
             move || {
                 let full_path = format!("http://leptos.dev{path}");
-                let (mock_parts, _) =
-                    http::Request::new(Body::from("")).into_parts();
+                let mock_req = http::Request::builder()
+                    .method(http::Method::GET)
+                    .header("Accept", "text/html")
+                    .body(Body::empty())
+                    .unwrap();
+                let (mock_parts, _) = mock_req.into_parts();
                 let res_options = ResponseOptions::default();
                 provide_contexts(
                     &full_path,
@@ -1416,14 +1434,23 @@ impl StaticRouteGenerator {
                             additional_context.clone(),
                         )
                     },
-                    move |path: &ResolvedStaticPath, html: String| {
+                    move |path: &ResolvedStaticPath,
+                          owner: &Owner,
+                          html: String| {
                         let options = options.clone();
                         let path = path.to_owned();
+                        let response_options = owner.with(use_context);
                         async move {
-                            write_static_route(&options, path.as_ref(), &html)
-                                .await
+                            write_static_route(
+                                &options,
+                                response_options,
+                                path.as_ref(),
+                                &html,
+                            )
+                            .await
                         }
                     },
+                    was_404,
                 ))
             })
         })
@@ -1433,6 +1460,20 @@ impl StaticRouteGenerator {
     pub async fn generate(self, options: &LeptosOptions) {
         (self.0)(options).await
     }
+}
+
+static STATIC_HEADERS: Lazy<DashMap<String, ResponseOptions>> =
+    Lazy::new(DashMap::new);
+
+fn was_404(path: &ResolvedStaticPath, owner: &Owner) -> bool {
+    let resp = owner.with(|| expect_context::<ResponseOptions>());
+    let status = resp.0.read().status;
+
+    if let Some(status) = status {
+        return status == StatusCode::NOT_FOUND;
+    }
+
+    false
 }
 
 fn static_path(options: &LeptosOptions, path: &str) -> String {
@@ -1450,10 +1491,19 @@ fn static_path(options: &LeptosOptions, path: &str) -> String {
 #[cfg(feature = "default")]
 async fn write_static_route(
     options: &LeptosOptions,
+    response_options: Option<ResponseOptions>,
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
     use futures::channel::oneshot;
+
+    if let Some(options) = response_options {
+        println!(
+            "inserting options for {path:?}: {:?}",
+            &options.0.read().status
+        );
+        STATIC_HEADERS.insert(path.to_string(), options);
+    }
 
     let path = static_path(options, path);
     let path = Path::new(&path);
@@ -1469,6 +1519,7 @@ async fn write_static_route(
 fn handle_static_route<S, IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    regenerate: Vec<RegenerationFn>,
 ) -> impl Fn(
     State<S>,
     Request<Body>,
@@ -1486,6 +1537,7 @@ where
     move |state, req| {
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
+        let regenerate = regenerate.clone();
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
             let orig_path = req.uri().path();
@@ -1493,35 +1545,68 @@ where
             let path = Path::new(&path);
             let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
 
-            if !exists {
-                let (owner, html) = StaticRouteGenerator::render_route(
-                    orig_path.to_string(),
-                    app_fn,
-                    additional_context,
-                )
-                .await;
+            let (response_options, html) = if !exists {
+                // TODO this will not correctly pass params for a route that needs regeneration
+                let path =
+                    ResolvedStaticPath::new(orig_path, Default::default());
 
-                if let Err(err) =
-                    write_static_route(&options, &orig_path, &html).await
-                {
-                    return (
+                let (owner, html) = path
+                    .build(
+                        move |path: &ResolvedStaticPath| {
+                            StaticRouteGenerator::render_route(
+                                path.to_string(),
+                                app_fn.clone(),
+                                additional_context.clone(),
+                            )
+                        },
+                        move |path: &ResolvedStaticPath,
+                              owner: &Owner,
+                              html: String| {
+                            let options = options.clone();
+                            let path = path.to_owned();
+                            let response_options = owner.with(use_context);
+                            async move {
+                                write_static_route(
+                                    &options,
+                                    response_options,
+                                    path.as_ref(),
+                                    &html,
+                                )
+                                .await
+                            }
+                        },
+                        was_404,
+                        regenerate,
+                    )
+                    .await;
+                (owner.with(|| use_context::<ResponseOptions>()), html)
+            } else {
+                let headers = STATIC_HEADERS.get(orig_path).map(|v| v.clone());
+                (headers, None)
+            };
+
+            // if html is Some(_), it means that `was_error_response` is true and we're not
+            // actually going to cache this route, just return it as HTML
+            //
+            // this if for thing like 404s, where we do not want to cache an endless series of
+            // typos (or malicious requests)
+            let mut res = AxumResponse(match html {
+                Some(html) => axum::response::Html(html).into_response(),
+                None => match ServeFile::new(path).oneshot(req).await {
+                    Ok(res) => res.into_response(),
+                    Err(err) => (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("Something went wrong: {err}"),
                     )
-                        .into_response();
-                };
+                        .into_response(),
+                },
+            });
 
-                drop(owner);
+            if let Some(options) = response_options {
+                res.extend_response(&options);
             }
 
-            match ServeFile::new(path).oneshot(req).await {
-                Ok(res) => res.into_response(),
-                Err(err) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Something went wrong: {err}"),
-                )
-                    .into_response(),
-            }
+            res.0
         })
     }
 }
@@ -1871,6 +1956,7 @@ where
                             get(handle_static_route(
                                 cx_with_state_and_method.clone(),
                                 app_fn.clone(),
+                                listing.regenerate.clone(),
                             )),
                         )
                     }

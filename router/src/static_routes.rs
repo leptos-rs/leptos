@@ -266,6 +266,15 @@ pub struct ResolvedStaticPath {
     pub(crate) params: ParamsMap,
 }
 
+impl ResolvedStaticPath {
+    pub fn new(path: impl Into<String>, params: ParamsMap) -> Self {
+        Self {
+            path: path.into(),
+            params,
+        }
+    }
+}
+
 impl AsRef<str> for ResolvedStaticPath {
     fn as_ref(&self) -> &str {
         self.path.as_ref()
@@ -282,12 +291,17 @@ impl ResolvedStaticPath {
     pub async fn build<Fut, WriterFut>(
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
-        writer: impl Fn(&ResolvedStaticPath, String) -> WriterFut
+        writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
+            + Send
+            + Clone
+            + 'static,
+        was_404: impl Fn(&ResolvedStaticPath, &Owner) -> bool
             + Send
             + Clone
             + 'static,
         regenerate: Vec<RegenerationFn>,
-    ) where
+    ) -> (Owner, Option<String>)
+    where
         Fut: Future<Output = (Owner, String)> + Send + 'static,
         WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
     {
@@ -299,14 +313,21 @@ impl ResolvedStaticPath {
         spawn({
             let render_fn = render_fn.clone();
             let writer = writer.clone();
+            let was_error = was_404.clone();
             async move {
                 // render and write the initial page
                 let (owner, html) = render_fn(&self).await;
-                writer(&self, html).await;
 
-                // whether there is a regeneration function or not, notify that the initial
-                // render is done
-                tx.send(());
+                // if rendering this page resulted in an error (404, 500, etc.)
+                // then we should not cache it: the `was_error` function can handle notifying
+                // the user that there was an error, and the server can give a dynamic response
+                // that will include the 404 or 500
+                if was_error(&self, &owner) {
+                    tx.send((owner.clone(), Some(html)));
+                } else {
+                    tx.send((owner.clone(), None));
+                    writer(&self, &owner, html).await;
+                }
 
                 // if there's a regeneration function, keep looping
                 let mut regenerate = stream::select_all(
@@ -316,13 +337,14 @@ impl ResolvedStaticPath {
                 );
                 while regenerate.next().await.is_some() {
                     let (owner, html) = render_fn(&self).await;
-                    writer(&self, html).await;
+                    if !was_error(&self, &owner) {
+                        writer(&self, &owner, html).await;
+                    }
                     drop(owner);
                 }
-                drop(owner);
             }
         });
 
-        rx.await;
+        rx.await.unwrap()
     }
 }

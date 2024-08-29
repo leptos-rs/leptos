@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use leptos_meta::MetaTags;
 use leptos_meta::*;
 use leptos_router::{
-    components::{FlatRoutes, Route, Router},
+    components::{FlatRoutes, Redirect, Route, Router},
     hooks::use_params,
     params::Params,
     path,
@@ -55,6 +55,12 @@ pub fn App() -> impl IntoView {
                         ssr=SsrMode::Static(
                             StaticRoute::new().regenerate(|_| watch_path(Path::new("./posts"))),
                         )
+                    />
+
+                    <Route
+                        path=path!("/about")
+                        view=move || view! { <Redirect path="/"/> }
+                        ssr=SsrMode::Static(StaticRoute::new())
                     />
 
                     <Route
@@ -155,6 +161,9 @@ fn Post() -> impl IntoView {
         <em>"The world's best content."</em>
         <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
             <ErrorBoundary fallback=|errors| {
+                #[cfg(feature = "ssr")]
+                expect_context::<leptos_axum::ResponseOptions>()
+                    .set_status(http::StatusCode::NOT_FOUND);
                 view! {
                     <div class="error">
                         <h1>"Something went wrong."</h1>

@@ -450,6 +450,12 @@ pub fn Redirect<P>(
                 "Calling <Redirect/> without a ServerRedirectFunction \
                  provided, in SSR mode."
             );
+
+            #[cfg(not(feature = "tracing"))]
+            eprintln!(
+                "Calling <Redirect/> without a ServerRedirectFunction \
+                 provided, in SSR mode."
+            );
             return;
         }
         let navigate = use_navigate();

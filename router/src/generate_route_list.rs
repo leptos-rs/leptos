@@ -66,6 +66,12 @@ impl RouteListing {
         self.methods.iter().copied()
     }
 
+    /// The set of regeneration functions that should be applied to this route, if it is statically
+    /// generated (either up front or incrementally).
+    pub fn regenerate(&self) -> &[RegenerationFn] {
+        &self.regenerate
+    }
+
     /// Whether this route is statically rendered.
     #[inline(always)]
     pub fn static_route(&self) -> Option<&StaticRoute> {
@@ -83,7 +89,11 @@ impl RouteListing {
     pub async fn generate_static_files<Fut, WriterFut>(
         mut self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
-        writer: impl Fn(&ResolvedStaticPath, String) -> WriterFut
+        writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
+            + Send
+            + Clone
+            + 'static,
+        was_404: impl Fn(&ResolvedStaticPath, &Owner) -> bool
             + Send
             + Clone
             + 'static,
@@ -102,6 +112,7 @@ impl RouteListing {
                 all_initial_tx.send(path.build(
                     render_fn.clone(),
                     writer.clone(),
+                    was_404.clone(),
                     regenerate.clone(),
                 ));
             }
@@ -187,7 +198,11 @@ impl RouteList {
     pub async fn generate_static_files<Fut, WriterFut>(
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
-        writer: impl Fn(&ResolvedStaticPath, String) -> WriterFut
+        writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
+            + Send
+            + Clone
+            + 'static,
+        was_404: impl Fn(&ResolvedStaticPath, &Owner) -> bool
             + Send
             + Clone
             + 'static,
@@ -196,7 +211,11 @@ impl RouteList {
         WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
     {
         join_all(self.into_inner().into_iter().map(|route| {
-            route.generate_static_files(render_fn.clone(), writer.clone())
+            route.generate_static_files(
+                render_fn.clone(),
+                writer.clone(),
+                was_404.clone(),
+            )
         }))
         .await;
     }
