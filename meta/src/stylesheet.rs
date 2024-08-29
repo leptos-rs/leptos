@@ -35,9 +35,7 @@ pub fn Stylesheet(
     register(link().id(id).rel("stylesheet").href(href))
 }
 
-/// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
-/// head that loads a stylesheet from the URL given by the `href` property. The URL is modified to
-/// include the computed hash from `cargo-leptos`.
+/// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document head that loads a `cargo-leptos`-hashed stylesheet.
 ///
 /// ```
 /// use leptos::prelude::*;
@@ -49,22 +47,19 @@ pub fn Stylesheet(
 ///
 ///     view! {
 ///       <main>
-///         <HashedStylesheet href="/style.css" options=options />
+///         <HashedStylesheet options=leptos_options />
 ///       </main>
 ///     }
 /// }
 /// ```
 #[component]
 pub fn HashedStylesheet(
-    /// The URL at which the stylesheet is located.
-    #[prop(into)]
-    href: String,
     options: LeptosOptions,
     /// An ID for the stylesheet.
     #[prop(optional, into)]
     id: Option<String>,
 ) -> impl IntoView {
-    let mut href = href;
+    let css_file_name = &options.output_name;
     if options.hash_files {
         let hash_path = std::env::current_exe()
             .map(|path| {
@@ -80,19 +75,15 @@ pub fn HashedStylesheet(
                 if !line.is_empty() {
                     if let Some((file, hash)) = line.split_once(':') {
                         if file == "css" {
-                            if href.ends_with(".css") {
-                                href =
-                                    href.trim_end_matches(".css").to_string();
-                                href.push_str(&format!(".{}.css", hash));
-                            } else {
-                                href.push_str(&format!(".{}.css", hash));
-                            }
+                            css_file_name.push_str(&format!(".{}", hash));
                         }
                     }
                 }
             }
         }
     }
+    css_file_name.push_str(".css");
+    let pkg_path = &options.site_pkg_dir;
     // TODO additional attributes
-    register(link().id(id).rel("stylesheet").href(href))
+    register(link().id(id).rel("stylesheet").href(format!("/{pkg_path}/{css_file_name}")))
 }

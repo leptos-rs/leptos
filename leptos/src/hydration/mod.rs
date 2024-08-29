@@ -64,14 +64,11 @@ pub fn HydrationScripts(
                 }
             }
         }
-    }
-    js_file_name.push_str(".js");
-    wasm_file_name.push_str(".wasm");
-
-    let pkg_path = &options.site_pkg_dir;
-    if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
+    } else if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_file_name.push_str("_bg");
     }
+
+    let pkg_path = &options.site_pkg_dir;
     #[cfg(feature = "nonce")]
     let nonce = crate::nonce::use_nonce();
     #[cfg(not(feature = "nonce"))]
@@ -95,7 +92,7 @@ pub fn HydrationScripts(
             crossorigin=nonce.clone().unwrap_or_default()
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({pkg_path:?}, {output_name:?}, {wasm_output_name:?})")}
+            {format!("{script}({pkg_path:?}, {js_file_name:?}, {wasm_file_name:?})")}
         </script>
     <Stylesheet
     }
