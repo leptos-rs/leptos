@@ -88,7 +88,7 @@ spin = ["leptos-spin-macro"]
 experimental-islands = ["leptos_macro/experimental-islands", "dep:serde_json"]
 trace-component-props = [
   "leptos_macro/trace-component-props",
-  "leptos_dom/trace-component-props"
+  "leptos_dom/trace-component-props",
 ]
 delegation = ["tachys/delegation"]
 
@@ -100,22 +100,52 @@ denylist = [
   "rustls",
   "default-tls",
   "wasm-bindgen",
-  "rkyv", # was causing clippy issues on nightly
+  "rkyv",                  # was causing clippy issues on nightly
   "trace-component-props",
   "spin",
   "experimental-islands",
 ]
 skip_feature_sets = [
-  ["csr", "ssr"],
-  ["csr", "hydrate"],
-  ["ssr", "hydrate"],
-  ["serde", "serde-lite"],
-  ["serde-lite", "miniserde"],
-  ["serde", "miniserde"],
-  ["serde", "rkyv"],
-  ["miniserde", "rkyv"],
-  ["serde-lite", "rkyv"],
-  ["default-tls", "rustls"],
+  [
+    "csr",
+    "ssr",
+  ],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "serde",
+    "serde-lite",
+  ],
+  [
+    "serde-lite",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "rkyv",
+  ],
+  [
+    "miniserde",
+    "rkyv",
+  ],
+  [
+    "serde-lite",
+    "rkyv",
+  ],
+  [
+    "default-tls",
+    "rustls",
+  ],
 ]
 
 [package.metadata.docs.rs]

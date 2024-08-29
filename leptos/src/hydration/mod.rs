@@ -51,7 +51,7 @@ pub fn HydrationScripts(
         if hash_path.exists() {
             let hashes = std::fs::read_to_string(&hash_path)
                 .expect("failed to read hash file");
-            for line in hashes.line() {
+            for line in hashes.lines() {
                 let line = line.trim();
                 if !line.is_empty() {
                     if let Some((file, hash)) = line.split_once(':') {
@@ -60,7 +60,6 @@ pub fn HydrationScripts(
                         } else if file == "wasm" {
                             wasm_file_name.push_str(&format!(".{}", hash));
                         }
-                        // TODO: figure out css
                     }
                 }
             }
@@ -98,5 +97,6 @@ pub fn HydrationScripts(
         <script type="module" nonce=nonce>
             {format!("{script}({pkg_path:?}, {output_name:?}, {wasm_output_name:?})")}
         </script>
+    <Stylesheet
     }
 }
