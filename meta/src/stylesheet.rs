@@ -85,5 +85,10 @@ pub fn HashedStylesheet(
     css_file_name.push_str(".css");
     let pkg_path = &options.site_pkg_dir;
     // TODO additional attributes
-    register(link().id(id).rel("stylesheet").href(format!("/{pkg_path}/{css_file_name}")))
+    register(
+        link()
+            .id(id)
+            .rel("stylesheet")
+            .href(format!("/{pkg_path}/{css_file_name}")),
+    )
 }
