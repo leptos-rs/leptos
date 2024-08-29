@@ -136,6 +136,10 @@ pub fn server_macro_impl(
                             Meta::Path(path) if path.is_ident("default") => {
                                 Ok(attr.clone())
                             }
+                            // #[server(flatten)]
+                            Meta::Path(path) if path.is_ident("flatten") => {
+                                Ok(attr.clone())
+                            }
                             // #[server(default = "value")]
                             Meta::NameValue(name_value)
                                 if name_value.path.is_ident("default") =>
