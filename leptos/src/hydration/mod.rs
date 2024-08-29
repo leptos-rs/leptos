@@ -39,8 +39,8 @@ pub fn HydrationScripts(
     options: LeptosOptions,
     #[prop(optional)] islands: bool,
 ) -> impl IntoView {
-    let js_file_name = &options.output_name;
-    let wasm_file_name = &options.output_name;
+    let mut js_file_name = options.output_name.to_string();
+    let mut wasm_file_name = options.output_name.to_string();
     if options.hash_files {
         let hash_path = std::env::current_exe()
             .map(|path| {
