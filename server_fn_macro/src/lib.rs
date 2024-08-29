@@ -74,7 +74,6 @@ pub fn server_macro_impl(
                 ident.mutability = None;
             }
 
-            // somebody please help me improve this if you have a better way of doing it!
             fn rename_path(
                 path: Path,
                 from_ident: Ident,
@@ -133,9 +132,21 @@ pub fn server_macro_impl(
 
                         let args = attr.parse_args::<Meta>()?;
                         match args {
+                            // #[server(default)]
                             Meta::Path(path) if path.is_ident("default") => {
                                 Ok(attr.clone())
                             }
+                            // #[server(default = "value")]
+                            Meta::NameValue(name_value)
+                                if name_value.path.is_ident("default") =>
+                            {
+                                Ok(attr.clone())
+                            }
+                            // #[server(skip)]
+                            Meta::Path(path) if path.is_ident("skip") => {
+                                Ok(attr.clone())
+                            }
+                            // #[server(rename = "value")]
                             Meta::NameValue(name_value)
                                 if name_value.path.is_ident("rename") =>
                             {
@@ -150,6 +161,15 @@ pub fn server_macro_impl(
                         }
                     } else if attr.path().is_ident("doc") {
                         // Allow #[doc = "documentation"]
+                        Ok(attr.clone())
+                    } else if attr.path().is_ident("allow") {
+                        // Allow #[allow(...)]
+                        Ok(attr.clone())
+                    } else if attr.path().is_ident("deny") {
+                        // Allow #[deny(...)]
+                        Ok(attr.clone())
+                    } else if attr.path().is_ident("ignore") {
+                        // Allow #[ignore]
                         Ok(attr.clone())
                     } else {
                         Err(Error::new(
