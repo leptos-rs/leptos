@@ -39,11 +39,39 @@ pub fn HydrationScripts(
     options: LeptosOptions,
     #[prop(optional)] islands: bool,
 ) -> impl IntoView {
+    let js_file_name = &options.output_name;
+    let wasm_file_name = &options.output_name;
+    if options.hash_files {
+        let hash_path = std::env::current_exe()
+            .map(|path| {
+                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
+            })
+            .unwrap_or_default()
+            .join(&options.hash_file);
+        if hash_path.exists() {
+            let hashes = std::fs::read_to_string(&hash_path)
+                .expect("failed to read hash file");
+            for line in hashes.line() {
+                let line = line.trim();
+                if !line.is_empty() {
+                    if let Some((file, hash)) = line.split_once(':') {
+                        if file == "js" {
+                            js_file_name.push_str(&format!(".{}", hash));
+                        } else if file == "wasm" {
+                            wasm_file_name.push_str(&format!(".{}", hash));
+                        }
+                        // TODO: figure out css
+                    }
+                }
+            }
+        }
+    }
+    js_file_name.push_str(".js");
+    wasm_file_name.push_str(".wasm");
+
     let pkg_path = &options.site_pkg_dir;
-    let output_name = &options.output_name;
-    let mut wasm_output_name = output_name.clone();
     if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
-        wasm_output_name.push_str("_bg");
+        wasm_file_name.push_str("_bg");
     }
     #[cfg(feature = "nonce")]
     let nonce = crate::nonce::use_nonce();
@@ -59,10 +87,10 @@ pub fn HydrationScripts(
     };
 
     view! {
-        <link rel="modulepreload" href=format!("/{pkg_path}/{output_name}.js") nonce=nonce.clone()/>
+        <link rel="modulepreload" href=format!("/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
         <link
             rel="preload"
-            href=format!("/{pkg_path}/{wasm_output_name}.wasm")
+            href=format!("/{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
             crossorigin=nonce.clone().unwrap_or_default()
