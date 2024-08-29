@@ -54,12 +54,13 @@ pub fn Stylesheet(
 /// ```
 #[component]
 pub fn HashedStylesheet(
+    /// Leptos options
     options: LeptosOptions,
     /// An ID for the stylesheet.
     #[prop(optional, into)]
     id: Option<String>,
 ) -> impl IntoView {
-    let css_file_name = &options.output_name;
+    let mut css_file_name = options.output_name.to_string();
     if options.hash_files {
         let hash_path = std::env::current_exe()
             .map(|path| {
