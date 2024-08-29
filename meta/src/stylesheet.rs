@@ -37,7 +37,7 @@ pub fn Stylesheet(
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document head that loads a `cargo-leptos`-hashed stylesheet.
 ///
-/// ```
+/// ```no_run
 /// use leptos::prelude::*;
 /// use leptos_meta::*;
 ///
