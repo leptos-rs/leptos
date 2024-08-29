@@ -94,6 +94,5 @@ pub fn HydrationScripts(
         <script type="module" nonce=nonce>
             {format!("{script}({pkg_path:?}, {js_file_name:?}, {wasm_file_name:?})")}
         </script>
-    <Stylesheet
     }
 }
