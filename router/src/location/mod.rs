@@ -224,17 +224,6 @@ pub(crate) fn unescape_minimal(s: &str) -> String {
     unescape(s)
 }
 
-#[cfg(feature = "ssr")]
-pub(crate) fn escape(s: &str) -> String {
-    percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC)
-        .to_string()
-}
-
-#[cfg(not(feature = "ssr"))]
-pub(crate) fn escape(s: &str) -> String {
-    js_sys::encode_uri_component(s).as_string().unwrap()
-}
-
 pub(crate) fn handle_anchor_click<NavFn, NavFut>(
     router_base: Option<Cow<'static, str>>,
     parse_with_base: fn(&str, &str) -> Result<Url, JsValue>,

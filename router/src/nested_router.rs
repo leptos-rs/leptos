@@ -3,8 +3,8 @@ use crate::{
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
-    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
-    PathSegment, RouteList, RouteListing, RouteMatchId,
+    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
+    RouteList, RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};

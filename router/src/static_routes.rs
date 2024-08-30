@@ -1,7 +1,7 @@
-use crate::{params::ParamsMap, PathSegment};
+use crate::{hooks::RawParamsMap, params::ParamsMap, PathSegment};
 use futures::{channel::oneshot, stream, Stream, StreamExt};
 use leptos::spawn::spawn;
-use reactive_graph::owner::Owner;
+use reactive_graph::{owner::Owner, traits::GetUntracked};
 use std::{
     fmt::{Debug, Display},
     future::Future,
@@ -198,7 +198,6 @@ impl StaticPath {
         use PathSegment::*;
         let mut paths = vec![ResolvedStaticPath {
             path: String::new(),
-            params: ParamsMap::new(),
         }];
 
         for segment in &self.segments {
@@ -211,12 +210,10 @@ impl StaticPath {
                             if s.starts_with("/") {
                                 ResolvedStaticPath {
                                     path: format!("{}{s}", p.path),
-                                    params: p.params,
                                 }
                             } else {
                                 ResolvedStaticPath {
                                     path: format!("{}/{s}", p.path),
-                                    params: p.params,
                                 }
                             }
                         })
@@ -228,16 +225,12 @@ impl StaticPath {
                         for path in paths {
                             if let Some(params) = params.get(&name) {
                                 for val in params.iter() {
-                                    let mut params = path.params.clone();
-                                    params.insert(name.to_string(), val.into());
-
                                     new_paths.push(if val.starts_with("/") {
                                         ResolvedStaticPath {
                                             path: format!(
                                                 "{}{}",
                                                 path.path, val
                                             ),
-                                            params,
                                         }
                                     } else {
                                         ResolvedStaticPath {
@@ -245,7 +238,6 @@ impl StaticPath {
                                                 "{}/{}",
                                                 path.path, val
                                             ),
-                                            params,
                                         }
                                     });
                                 }
@@ -263,15 +255,11 @@ impl StaticPath {
 #[derive(Debug, Clone)]
 pub struct ResolvedStaticPath {
     pub(crate) path: String,
-    pub(crate) params: ParamsMap,
 }
 
 impl ResolvedStaticPath {
-    pub fn new(path: impl Into<String>, params: ParamsMap) -> Self {
-        Self {
-            path: path.into(),
-            params,
-        }
+    pub fn new(path: impl Into<String>) -> Self {
+        Self { path: path.into() }
     }
 }
 
@@ -295,10 +283,7 @@ impl ResolvedStaticPath {
             + Send
             + Clone
             + 'static,
-        was_404: impl Fn(&ResolvedStaticPath, &Owner) -> bool
-            + Send
-            + Clone
-            + 'static,
+        was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
         regenerate: Vec<RegenerationFn>,
     ) -> (Owner, Option<String>)
     where
@@ -322,23 +307,50 @@ impl ResolvedStaticPath {
                 // then we should not cache it: the `was_error` function can handle notifying
                 // the user that there was an error, and the server can give a dynamic response
                 // that will include the 404 or 500
-                if was_error(&self, &owner) {
-                    tx.send((owner.clone(), Some(html)));
+                if was_error(&owner) {
+                    // can ignore errors from channel here, because it just means we're not
+                    // awaiting the Future
+                    _ = tx.send((owner.clone(), Some(html)));
                 } else {
-                    tx.send((owner.clone(), None));
-                    writer(&self, &owner, html).await;
+                    _ = tx.send((owner.clone(), None));
+                    if let Err(e) = writer(&self, &owner, html).await {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!("{e}");
+
+                        #[cfg(not(feature = "tracing"))]
+                        eprintln!("{e}");
+                    }
                 }
 
                 // if there's a regeneration function, keep looping
+                let params = if regenerate.is_empty() {
+                    None
+                } else {
+                    Some(
+                        owner
+                            .use_context_bidirectional::<RawParamsMap>()
+                            .expect(
+                                "using static routing, but couldn't find \
+                                 ParamsMap",
+                            )
+                            .get_untracked(),
+                    )
+                };
                 let mut regenerate = stream::select_all(
                     regenerate
                         .into_iter()
-                        .map(|r| owner.with(|| r(&self.params))),
+                        .map(|r| owner.with(|| r(params.as_ref().unwrap()))),
                 );
                 while regenerate.next().await.is_some() {
                     let (owner, html) = render_fn(&self).await;
-                    if !was_error(&self, &owner) {
-                        writer(&self, &owner, html).await;
+                    if !was_error(&owner) {
+                        if let Err(e) = writer(&self, &owner, html).await {
+                            #[cfg(feature = "tracing")]
+                            tracing::warn!("{e}");
+
+                            #[cfg(not(feature = "tracing"))]
+                            eprintln!("{e}");
+                        }
                     }
                     drop(owner);
                 }

@@ -2,7 +2,6 @@ mod choose_view;
 mod path_segment;
 pub(crate) mod resolve_path;
 pub use choose_view::*;
-use futures::Stream;
 pub use path_segment::*;
 mod horizontal;
 mod nested;
@@ -10,7 +9,7 @@ mod vertical;
 use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
-use std::{borrow::Cow, collections::HashSet, marker::PhantomData, pin::Pin};
+use std::{borrow::Cow, collections::HashSet, marker::PhantomData};
 use tachys::{
     renderer::Renderer,
     view::{Render, RenderHtml},

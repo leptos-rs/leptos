@@ -49,7 +49,7 @@ use axum::{
     http::Uri,
 };
 use dashmap::DashMap;
-use futures::{channel::oneshot, stream::once, Future, Stream, StreamExt};
+use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
 use leptos::{
     config::LeptosOptions,
@@ -511,6 +511,7 @@ pub fn render_route<IV>(
     paths: Vec<AxumRouteListing>,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
+    State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
        + Clone
@@ -518,6 +519,8 @@ pub fn render_route<IV>(
        + 'static
 where
     IV: IntoView + 'static,
+    LeptosOptions: FromRef<S>,
+    S: Send + 'static,
 {
     render_route_with_context(paths, || {}, app_fn)
 }
@@ -663,6 +666,7 @@ pub fn render_route_with_context<IV>(
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
+    State<S>,
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send + 'static>>
        + Clone
@@ -670,6 +674,8 @@ pub fn render_route_with_context<IV>(
        + 'static
 where
     IV: IntoView + 'static,
+    LeptosOptions: FromRef<S>,
+    S: Send + 'static,
 {
     let ooo = render_app_to_stream_with_context(
         additional_context.clone(),
@@ -689,7 +695,7 @@ where
         app_fn.clone(),
     );
 
-    move |req| {
+    move |state, req| {
         // 1. Process route to match the values in routeListing
         let path = req
             .extensions()
@@ -712,7 +718,14 @@ where
             SsrMode::PartiallyBlocked => pb(req),
             SsrMode::InOrder => io(req),
             SsrMode::Async => asyn(req),
-            SsrMode::Static(data) => todo!(),
+            SsrMode::Static(data) => {
+                let regenerate = listing.regenerate.clone();
+                handle_static_route(
+                    additional_context.clone(),
+                    app_fn.clone(),
+                    regenerate,
+                )(state, req)
+            }
         }
     }
 }
@@ -1465,7 +1478,7 @@ impl StaticRouteGenerator {
 static STATIC_HEADERS: Lazy<DashMap<String, ResponseOptions>> =
     Lazy::new(DashMap::new);
 
-fn was_404(path: &ResolvedStaticPath, owner: &Owner) -> bool {
+fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
     let status = resp.0.read().status;
 
@@ -1498,10 +1511,6 @@ async fn write_static_route(
     use futures::channel::oneshot;
 
     if let Some(options) = response_options {
-        println!(
-            "inserting options for {path:?}: {:?}",
-            &options.0.read().status
-        );
         STATIC_HEADERS.insert(path.to_string(), options);
     }
 
@@ -1546,9 +1555,7 @@ where
             let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
 
             let (response_options, html) = if !exists {
-                // TODO this will not correctly pass params for a route that needs regeneration
-                let path =
-                    ResolvedStaticPath::new(orig_path, Default::default());
+                let path = ResolvedStaticPath::new(orig_path);
 
                 let (owner, html) = path
                     .build(

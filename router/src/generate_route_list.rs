@@ -5,13 +5,7 @@ use crate::{
     },
     Method, SsrMode,
 };
-use futures::{
-    channel::oneshot,
-    future::join_all,
-    stream::{self, FuturesUnordered, Stream, StreamExt},
-    FutureExt,
-};
-use leptos::{config::LeptosOptions, spawn::spawn};
+use futures::future::join_all;
 use reactive_graph::owner::Owner;
 use std::{
     cell::{Cell, RefCell},
@@ -93,15 +87,12 @@ impl RouteListing {
             + Send
             + Clone
             + 'static,
-        was_404: impl Fn(&ResolvedStaticPath, &Owner) -> bool
-            + Send
-            + Clone
-            + 'static,
+        was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
     ) where
         Fut: Future<Output = (Owner, String)> + Send + 'static,
         WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
     {
-        if let SsrMode::Static(static_data) = self.mode() {
+        if let SsrMode::Static(_) = self.mode() {
             let (all_initial_tx, all_initial_rx) = std::sync::mpsc::channel();
 
             let render_fn = render_fn.clone();
@@ -109,7 +100,10 @@ impl RouteListing {
             let paths = self.into_static_paths().await.unwrap_or_default();
 
             for path in paths {
-                all_initial_tx.send(path.build(
+                // Err(_) here would just mean they've dropped the rx and are no longer awaiting
+                // it; we're only using it to notify them it's done so it doesn't matter in that
+                // case
+                _ = all_initial_tx.send(path.build(
                     render_fn.clone(),
                     writer.clone(),
                     was_404.clone(),
@@ -202,10 +196,7 @@ impl RouteList {
             + Send
             + Clone
             + 'static,
-        was_404: impl Fn(&ResolvedStaticPath, &Owner) -> bool
-            + Send
-            + Clone
-            + 'static,
+        was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
     ) where
         Fut: Future<Output = (Owner, String)> + Send + 'static,
         WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
