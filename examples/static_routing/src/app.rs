@@ -288,6 +288,7 @@ pub async fn get_post(slug: String) -> Result<Option<Post>, ServerFnError> {
     }))
 }
 
+#[allow(unused)] // path is not used in non-SSR
 fn watch_path(path: &Path) -> impl Stream<Item = ()> {
     #[allow(unused)]
     let (mut tx, rx) = mpsc::channel(0);

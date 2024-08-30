@@ -718,7 +718,7 @@ where
             SsrMode::PartiallyBlocked => pb(req),
             SsrMode::InOrder => io(req),
             SsrMode::Async => asyn(req),
-            SsrMode::Static(data) => {
+            SsrMode::Static(_) => {
                 let regenerate = listing.regenerate.clone();
                 handle_static_route(
                     additional_context.clone(),
@@ -1508,8 +1508,6 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
-    use futures::channel::oneshot;
-
     if let Some(options) = response_options {
         STATIC_HEADERS.insert(path.to_string(), options);
     }
