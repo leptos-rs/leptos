@@ -507,7 +507,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_route<IV>(
+pub fn render_route<S, IV>(
     paths: Vec<AxumRouteListing>,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
@@ -661,7 +661,7 @@ where
     feature = "tracing",
     tracing::instrument(level = "trace", fields(error), skip_all)
 )]
-pub fn render_route_with_context<IV>(
+pub fn render_route_with_context<S, IV>(
     paths: Vec<AxumRouteListing>,
     additional_context: impl Fn() + 'static + Clone + Send,
     app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1369,6 +1369,7 @@ where
     )
 }
 
+/// Allows generating any prerendered routes.
 pub struct StaticRouteGenerator(
     Box<dyn FnOnce(&LeptosOptions) -> PinnedFuture<()> + Send>,
 );
@@ -1424,6 +1425,7 @@ impl StaticRouteGenerator {
         }
     }
 
+    /// Creates a new static route generator from the given list of route definitions.
     pub fn new<IV>(
         routes: &RouteList,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1469,7 +1471,7 @@ impl StaticRouteGenerator {
         })
     }
 
-    #[cfg(feature = "default")]
+    /// Generates the routes.
     pub async fn generate(self, options: &LeptosOptions) {
         (self.0)(options).await
     }
@@ -1651,194 +1653,6 @@ where
         H: axum::handler::Handler<T, S>,
         T: 'static;
 }
-/*
-#[cfg(feature = "default")]
-fn handle_static_response<IV>(
-    path: String,
-    options: LeptosOptions,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
-    additional_context: impl Fn() + Clone + Send + 'static,
-    res: StaticResponse,
-) -> Pin<Box<dyn Future<Output = Response<String>> + 'static>>
-where
-    IV: IntoView + 'static,
-{
-    Box::pin(async move {
-        match res {
-            StaticResponse::ReturnResponse {
-                body,
-                status,
-                content_type,
-            } => {
-                let mut res = Response::new(body);
-                if let Some(v) = content_type {
-                    res.headers_mut().insert(
-                        HeaderName::from_static("content-type"),
-                        HeaderValue::from_static(v),
-                    );
-                }
-                *res.status_mut() = match status {
-                    StaticStatusCode::Ok => StatusCode::OK,
-                    StaticStatusCode::NotFound => StatusCode::NOT_FOUND,
-                    StaticStatusCode::InternalServerError => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                };
-                res
-            }
-            StaticResponse::RenderDynamic => {
-                let res = render_dynamic(
-                    &path,
-                    &options,
-                    app_fn.clone(),
-                    additional_context.clone(),
-                )
-                .await;
-                handle_static_response(
-                    path,
-                    options,
-                    app_fn,
-                    additional_context,
-                    res,
-                )
-                .await
-            }
-            StaticResponse::RenderNotFound => {
-                let res = not_found_page(
-                    tokio::fs::read_to_string(not_found_path(&options)).await,
-                );
-                handle_static_response(
-                    path,
-                    options,
-                    app_fn,
-                    additional_context,
-                    res,
-                )
-                .await
-            }
-            StaticResponse::WriteFile { body, path } => {
-                if let Some(path) = path.parent() {
-                    if let Err(e) = std::fs::create_dir_all(path) {
-                        tracing::error!(
-                            "encountered error {} writing directories {}",
-                            e,
-                            path.display()
-                        );
-                    }
-                }
-                if let Err(e) = std::fs::write(&path, &body) {
-                    tracing::error!(
-                        "encountered error {} writing file {}",
-                        e,
-                        path.display()
-                    );
-                }
-                handle_static_response(
-                    path.to_str().unwrap().to_string(),
-                    options,
-                    app_fn,
-                    additional_context,
-                    StaticResponse::ReturnResponse {
-                        body,
-                        status: StaticStatusCode::Ok,
-                        content_type: Some("text/html"),
-                    },
-                )
-                .await
-            }
-        }
-    })
-}
-
-    match mode {
-        StaticMode::Incremental => {
-            let handler = move |req: Request<Body>| {
-                Box::pin({
-                    let path = req.uri().path().to_string();
-                    let options = options.clone();
-                    let app_fn = app_fn.clone();
-                    let additional_context = additional_context.clone();
-
-                    async move {
-                        let (tx, rx) = futures::channel::oneshot::channel();
-                        spawn_task!(async move {
-                            let res = incremental_static_route(
-                                tokio::fs::read_to_string(static_file_path(
-                                    &options, &path,
-                                ))
-                                .await,
-                            );
-                            let res = handle_static_response(
-                                path.clone(),
-                                options,
-                                app_fn,
-                                additional_context,
-                                res,
-                            )
-                            .await;
-
-                            let _ = tx.send(res);
-                        });
-                        rx.await.expect("to complete HTML rendering")
-                    }
-                })
-            };
-            router.route(
-                path,
-                match method {
-                    leptos_router::Method::Get => get(handler),
-                    leptos_router::Method::Post => post(handler),
-                    leptos_router::Method::Put => put(handler),
-                    leptos_router::Method::Delete => delete(handler),
-                    leptos_router::Method::Patch => patch(handler),
-                },
-            )
-        }
-        StaticMode::Upfront => {
-            let handler = move |req: Request<Body>| {
-                Box::pin({
-                    let path = req.uri().path().to_string();
-                    let options = options.clone();
-                    let app_fn = app_fn.clone();
-                    let additional_context = additional_context.clone();
-
-                    async move {
-                        let (tx, rx) = futures::channel::oneshot::channel();
-                        spawn_task!(async move {
-                            let res = upfront_static_route(
-                                tokio::fs::read_to_string(static_file_path(
-                                    &options, &path,
-                                ))
-                                .await,
-                            );
-                            let res = handle_static_response(
-                                path.clone(),
-                                options,
-                                app_fn,
-                                additional_context,
-                                res,
-                            )
-                            .await;
-
-                            let _ = tx.send(res);
-                        });
-                        rx.await.expect("to complete HTML rendering")
-                    }
-                })
-            };
-            router.route(
-                path,
-                match method {
-                    leptos_router::Method::Get => get(handler),
-                    leptos_router::Method::Post => post(handler),
-                    leptos_router::Method::Put => put(handler),
-                    leptos_router::Method::Delete => delete(handler),
-                    leptos_router::Method::Patch => patch(handler),
-                },
-            )
-        }
-    }
-}*/
 
 trait AxumPath {
     fn to_axum_path(&self) -> String;

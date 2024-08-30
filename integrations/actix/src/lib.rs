@@ -6,30 +6,38 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
+use actix_files::NamedFile;
 use actix_http::header::{HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER};
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
     http::header,
-    web::{Payload, ServiceConfig},
+    test,
+    web::{Data, Payload, ServiceConfig},
     *,
 };
+use dashmap::DashMap;
 use futures::{stream::once, Stream, StreamExt};
 use http::StatusCode;
 use hydration_context::SsrSharedContext;
 use leptos::{
+    config::LeptosOptions,
     context::{provide_context, use_context},
+    prelude::expect_context,
     reactive_graph::{computed::ScopedFuture, owner::Owner},
-    IntoView, *,
+    IntoView,
 };
 use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
-    components::provide_server_redirect, location::RequestUrl, PathSegment,
-    RouteList, RouteListing, SsrMode, StaticDataMap, StaticMode, *,
+    components::provide_server_redirect,
+    location::RequestUrl,
+    static_routes::{RegenerationFn, ResolvedStaticPath},
+    Method, PathSegment, RouteList, RouteListing, SsrMode,
 };
+use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -37,7 +45,9 @@ use server_fn::{
 };
 use std::{
     fmt::{Debug, Display},
+    future::Future,
     ops::{Deref, DerefMut},
+    path::Path,
     sync::Arc,
 };
 
@@ -728,13 +738,25 @@ pub fn render_app_async_with_context<IV>(
 where
     IV: IntoView + 'static,
 {
-    handle_response(method, additional_context, app_fn, |app, chunks| {
-        Box::pin(async move {
-            let app = app.to_html_stream_in_order().collect::<String>().await;
-            let chunks = chunks();
-            Box::pin(once(async move { app }).chain(chunks))
-                as PinnedStream<String>
-        })
+    handle_response(method, additional_context, app_fn, async_stream_builder)
+}
+
+fn async_stream_builder<IV>(
+    app: IV,
+    chunks: BoxedFnOnce<PinnedStream<String>>,
+) -> PinnedFuture<PinnedStream<String>>
+where
+    IV: IntoView + 'static,
+{
+    Box::pin(async move {
+        let app = if cfg!(feature = "islands-router") {
+            app.to_html_stream_in_order_branching()
+        } else {
+            app.to_html_stream_in_order()
+        };
+        let app = app.collect::<String>().await;
+        let chunks = chunks();
+        Box::pin(once(async move { app }).chain(chunks)) as PinnedStream<String>
     })
 }
 
@@ -822,7 +844,7 @@ where
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Clone,
 ) -> Vec<ActixRouteListing>
 where
     IV: IntoView + 'static,
@@ -834,8 +856,8 @@ where
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list_with_ssg<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
-) -> (Vec<ActixRouteListing>, StaticDataMap)
+    app_fn: impl Fn() -> IV + 'static + Send + Clone,
+) -> (Vec<ActixRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
 {
@@ -847,7 +869,7 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Clone,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<ActixRouteListing>
 where
@@ -861,9 +883,9 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list_with_exclusions_and_ssg<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Clone,
     excluded_routes: Option<Vec<String>>,
-) -> (Vec<ActixRouteListing>, StaticDataMap)
+) -> (Vec<ActixRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
 {
@@ -912,7 +934,7 @@ pub struct ActixRouteListing {
     path: String,
     mode: SsrMode,
     methods: Vec<leptos_router::Method>,
-    static_mode: Option<(StaticMode, StaticDataMap)>,
+    regenerate: Vec<RegenerationFn>,
 }
 
 impl From<RouteListing> for ActixRouteListing {
@@ -925,12 +947,12 @@ impl From<RouteListing> for ActixRouteListing {
         };
         let mode = value.mode();
         let methods = value.methods().collect();
-        let static_mode = value.into_static_parts();
+        let regenerate = value.regenerate().into();
         Self {
             path,
-            mode,
+            mode: mode.clone(),
             methods,
-            static_mode,
+            regenerate,
         }
     }
 }
@@ -941,13 +963,13 @@ impl ActixRouteListing {
         path: String,
         mode: SsrMode,
         methods: impl IntoIterator<Item = leptos_router::Method>,
-        static_mode: Option<(StaticMode, StaticDataMap)>,
+        regenerate: impl Into<Vec<RegenerationFn>>,
     ) -> Self {
         Self {
             path,
             mode,
             methods: methods.into_iter().collect(),
-            static_mode,
+            regenerate: regenerate.into(),
         }
     }
 
@@ -958,18 +980,12 @@ impl ActixRouteListing {
 
     /// The rendering mode for this path.
     pub fn mode(&self) -> SsrMode {
-        self.mode
+        self.mode.clone()
     }
 
     /// The HTTP request methods this path can handle.
     pub fn methods(&self) -> impl Iterator<Item = leptos_router::Method> + '_ {
         self.methods.iter().copied()
-    }
-
-    /// Whether this route is statically rendered.
-    #[inline(always)]
-    pub fn static_mode(&self) -> Option<StaticMode> {
-        self.static_mode.as_ref().map(|n| n.0)
     }
 }
 
@@ -979,10 +995,10 @@ impl ActixRouteListing {
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format.
 /// Additional context will be provided to the app Element.
 pub fn generate_route_list_with_exclusions_and_ssg_and_context<IV>(
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Send + Clone,
     excluded_routes: Option<Vec<String>>,
-    additional_context: impl Fn() + 'static + Clone,
-) -> (Vec<ActixRouteListing>, StaticDataMap)
+    additional_context: impl Fn() + 'static + Send + Clone,
+) -> (Vec<ActixRouteListing>, StaticRouteGenerator)
 where
     IV: IntoView + 'static,
 {
@@ -1001,6 +1017,12 @@ where
         })
         .unwrap_or_default();
 
+    let generator = StaticRouteGenerator::new(
+        &routes,
+        app_fn.clone(),
+        additional_context.clone(),
+    );
+
     // Axum's Router defines Root routes as "/" not ""
     let mut routes = routes
         .into_inner()
@@ -1014,7 +1036,7 @@ where
                 "/".to_string(),
                 Default::default(),
                 [leptos_router::Method::Get],
-                None,
+                vec![],
             )]
         } else {
             // Routes to exclude from auto generation
@@ -1024,191 +1046,250 @@ where
             }
             routes
         },
-        StaticDataMap::new(), // TODO
-                              //static_data_map,
+        generator,
     )
+}
+
+/// Allows generating any prerendered routes.
+#[allow(clippy::type_complexity)]
+pub struct StaticRouteGenerator(
+    Box<dyn FnOnce(&LeptosOptions) -> PinnedFuture<()> + Send>,
+);
+
+impl StaticRouteGenerator {
+    fn render_route<IV: IntoView + 'static>(
+        path: String,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + Clone + Send + 'static,
+    ) -> impl Future<Output = (Owner, String)> {
+        let (meta_context, meta_output) = ServerMetaContext::new();
+        let additional_context = {
+            let add_context = additional_context.clone();
+            move || {
+                let mock_req = test::TestRequest::with_uri(&path)
+                    .insert_header(("Accept", "text/html"))
+                    .to_http_request();
+                let res_options = ResponseOptions::default();
+                provide_contexts(
+                    Request::new(&mock_req),
+                    &meta_context,
+                    &res_options,
+                );
+                add_context();
+            }
+        };
+
+        let (owner, stream) = leptos_integration_utils::build_response(
+            app_fn.clone(),
+            additional_context,
+            async_stream_builder,
+        );
+
+        let sc = owner.shared_context().unwrap();
+
+        async move {
+            let stream = stream.await;
+            while let Some(pending) = sc.await_deferred() {
+                pending.await;
+            }
+
+            let html = meta_output
+                .inject_meta_context(stream)
+                .await
+                .collect::<String>()
+                .await;
+            (owner, html)
+        }
+    }
+
+    /// Creates a new static route generator from the given list of route definitions.
+    pub fn new<IV>(
+        routes: &RouteList,
+        app_fn: impl Fn() -> IV + Clone + Send + 'static,
+        additional_context: impl Fn() + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        Self({
+            let routes = routes.clone();
+            Box::new(move |options| {
+                let options = options.clone();
+                let app_fn = app_fn.clone();
+                let additional_context = additional_context.clone();
+
+                Box::pin(routes.generate_static_files(
+                    move |path: &ResolvedStaticPath| {
+                        Self::render_route(
+                            path.to_string(),
+                            app_fn.clone(),
+                            additional_context.clone(),
+                        )
+                    },
+                    move |path: &ResolvedStaticPath,
+                          owner: &Owner,
+                          html: String| {
+                        let options = options.clone();
+                        let path = path.to_owned();
+                        let response_options = owner.with(use_context);
+                        async move {
+                            write_static_route(
+                                &options,
+                                response_options,
+                                path.as_ref(),
+                                &html,
+                            )
+                            .await
+                        }
+                    },
+                    was_404,
+                ))
+            })
+        })
+    }
+
+    /// Generates the routes.
+    pub async fn generate(self, options: &LeptosOptions) {
+        (self.0)(options).await
+    }
+}
+
+static STATIC_HEADERS: Lazy<DashMap<String, ResponseOptions>> =
+    Lazy::new(DashMap::new);
+
+fn was_404(owner: &Owner) -> bool {
+    let resp = owner.with(|| expect_context::<ResponseOptions>());
+    let status = resp.0.read().status;
+
+    if let Some(status) = status {
+        return status == StatusCode::NOT_FOUND;
+    }
+
+    false
+}
+
+fn static_path(options: &LeptosOptions, path: &str) -> String {
+    use leptos_integration_utils::static_file_path;
+
+    // If the path ends with a trailing slash, we generate the path
+    // as a directory with a index.html file inside.
+    if path != "/" && path.ends_with("/") {
+        static_file_path(options, &format!("{}index", path))
+    } else {
+        static_file_path(options, path)
+    }
+}
+
+async fn write_static_route(
+    options: &LeptosOptions,
+    response_options: Option<ResponseOptions>,
+    path: &str,
+    html: &str,
+) -> Result<(), std::io::Error> {
+    if let Some(options) = response_options {
+        STATIC_HEADERS.insert(path.to_string(), options);
+    }
+
+    let path = static_path(options, path);
+    let path = Path::new(&path);
+    if let Some(path) = path.parent() {
+        tokio::fs::create_dir_all(path).await?;
+    }
+    tokio::fs::write(path, &html).await?;
+
+    Ok(())
+}
+
+fn handle_static_route<IV>(
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
+    regenerate: Vec<RegenerationFn>,
+) -> Route
+where
+    IV: IntoView + 'static,
+{
+    let handler = move |req: HttpRequest, data: Data<LeptosOptions>| {
+        Box::pin({
+            let app_fn = app_fn.clone();
+            let additional_context = additional_context.clone();
+            let regenerate = regenerate.clone();
+            async move {
+                let options = data.into_inner();
+                let orig_path = req.uri().path();
+                let path = static_path(&options, orig_path);
+                let path = Path::new(&path);
+                let exists = tokio::fs::try_exists(path).await.unwrap_or(false);
+
+                let (response_options, html) = if !exists {
+                    let path = ResolvedStaticPath::new(orig_path);
+
+                    let (owner, html) = path
+                        .build(
+                            move |path: &ResolvedStaticPath| {
+                                StaticRouteGenerator::render_route(
+                                    path.to_string(),
+                                    app_fn.clone(),
+                                    additional_context.clone(),
+                                )
+                            },
+                            move |path: &ResolvedStaticPath,
+                                  owner: &Owner,
+                                  html: String| {
+                                let options = options.clone();
+                                let path = path.to_owned();
+                                let response_options = owner.with(use_context);
+                                async move {
+                                    write_static_route(
+                                        &options,
+                                        response_options,
+                                        path.as_ref(),
+                                        &html,
+                                    )
+                                    .await
+                                }
+                            },
+                            was_404,
+                            regenerate,
+                        )
+                        .await;
+                    (owner.with(|| use_context::<ResponseOptions>()), html)
+                } else {
+                    let headers =
+                        STATIC_HEADERS.get(orig_path).map(|v| v.clone());
+                    (headers, None)
+                };
+
+                // if html is Some(_), it means that `was_error_response` is true and we're not
+                // actually going to cache this route, just return it as HTML
+                //
+                // this if for thing like 404s, where we do not want to cache an endless series of
+                // typos (or malicious requests)
+                let mut res = ActixResponse(match html {
+                    Some(html) => {
+                        HttpResponse::Ok().content_type("text/html").body(html)
+                    }
+                    None => match NamedFile::open(path) {
+                        Ok(res) => res.into_response(&req),
+                        Err(err) => HttpResponse::InternalServerError()
+                            .body(err.to_string()),
+                    },
+                });
+
+                if let Some(options) = response_options {
+                    res.extend_response(&options);
+                }
+
+                res.0
+            }
+        })
+    };
+    web::get().to(handler)
 }
 
 pub enum DataResponse<T> {
     Data(T),
     Response(actix_web::dev::Response<BoxBody>),
 }
-
-// TODO static response
-/*
-fn handle_static_response<'a, IV>(
-    path: &'a str,
-    options: &'a LeptosOptions,
-    app_fn: &'a (impl Fn() -> IV + Clone + Send + 'static),
-    additional_context: &'a (impl Fn() + 'static + Clone + Send),
-    res: StaticResponse,
-) -> Pin<Box<dyn Future<Output = HttpResponse<String>> + 'a>>
-where
-    IV: IntoView + 'static,
-{
-    Box::pin(async move {
-        match res {
-            StaticResponse::ReturnResponse {
-                body,
-                status,
-                content_type,
-            } => {
-                let mut res = HttpResponse::new(match status {
-                    StaticStatusCode::Ok => StatusCode::OK,
-                    StaticStatusCode::NotFound => StatusCode::NOT_FOUND,
-                    StaticStatusCode::InternalServerError => {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    }
-                });
-                if let Some(v) = content_type {
-                    res.headers_mut().insert(
-                        HeaderName::from_static("content-type"),
-                        HeaderValue::from_static(v),
-                    );
-                }
-                res.set_body(body)
-            }
-            StaticResponse::RenderDynamic => {
-                handle_static_response(
-                    path,
-                    options,
-                    app_fn,
-                    additional_context,
-                    render_dynamic(
-                        path,
-                        options,
-                        app_fn.clone(),
-                        additional_context.clone(),
-                    )
-                    .await,
-                )
-                .await
-            }
-            StaticResponse::RenderNotFound => {
-                handle_static_response(
-                    path,
-                    options,
-                    app_fn,
-                    additional_context,
-                    not_found_page(
-                        tokio::fs::read_to_string(not_found_path(options))
-                            .await,
-                    ),
-                )
-                .await
-            }
-            StaticResponse::WriteFile { body, path } => {
-                if let Some(path) = path.parent() {
-                    if let Err(e) = std::fs::create_dir_all(path) {
-                        tracing::error!(
-                            "encountered error {} writing directories {}",
-                            e,
-                            path.display()
-                        );
-                    }
-                }
-                if let Err(e) = std::fs::write(&path, &body) {
-                    tracing::error!(
-                        "encountered error {} writing file {}",
-                        e,
-                        path.display()
-                    );
-                }
-                handle_static_response(
-                    path.to_str().unwrap(),
-                    options,
-                    app_fn,
-                    additional_context,
-                    StaticResponse::ReturnResponse {
-                        body,
-                        status: StaticStatusCode::Ok,
-                        content_type: Some("text/html"),
-                    },
-                )
-                .await
-            }
-        }
-    })
-}
-
-fn static_route<IV>(
-    options: LeptosOptions,
-    app_fn: impl Fn() -> IV + Clone + Send + 'static,
-    additional_context: impl Fn() + 'static + Clone + Send,
-    method: Method,
-    mode: StaticMode,
-) -> Route
-where
-    IV: IntoView + 'static,
-{
-    match mode {
-        StaticMode::Incremental => {
-            let handler = move |req: HttpRequest| {
-                Box::pin({
-                    let options = options.clone();
-                    let app_fn = app_fn.clone();
-                    let additional_context = additional_context.clone();
-                    async move {
-                        handle_static_response(
-                            req.path(),
-                            &options,
-                            &app_fn,
-                            &additional_context,
-                            incremental_static_route(
-                                tokio::fs::read_to_string(static_file_path(
-                                    &options,
-                                    req.path(),
-                                ))
-                                .await,
-                            ),
-                        )
-                        .await
-                    }
-                })
-            };
-            match method {
-                Method::Get => web::get().to(handler),
-                Method::Post => web::post().to(handler),
-                Method::Put => web::put().to(handler),
-                Method::Delete => web::delete().to(handler),
-                Method::Patch => web::patch().to(handler),
-            }
-        }
-        StaticMode::Upfront => {
-            let handler = move |req: HttpRequest| {
-                Box::pin({
-                    let options = options.clone();
-                    let app_fn = app_fn.clone();
-                    let additional_context = additional_context.clone();
-                    async move {
-                        handle_static_response(
-                            req.path(),
-                            &options,
-                            &app_fn,
-                            &additional_context,
-                            upfront_static_route(
-                                tokio::fs::read_to_string(static_file_path(
-                                    &options,
-                                    req.path(),
-                                ))
-                                .await,
-                            ),
-                        )
-                        .await
-                    }
-                })
-            };
-            match method {
-                Method::Get => web::get().to(handler),
-                Method::Post => web::post().to(handler),
-                Method::Put => web::put().to(handler),
-                Method::Delete => web::delete().to(handler),
-                Method::Patch => web::patch().to(handler),
-            }
-        }
-    }
-}
-*/
 
 /// This trait allows one to pass a list of routes and a render function to Actix's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
@@ -1290,19 +1371,15 @@ where
                     provide_context(method);
                     additional_context();
                 };
-                router = if let Some(static_mode) = listing.static_mode() {
-                    _ = static_mode;
-                    todo!() /*
-                            router.route(
-                                path,
-                                static_route(
-                                    app_fn.clone(),
-                                    additional_context_and_method.clone(),
-                                    method,
-                                    static_mode,
-                                ),
-                            )
-                            */
+                router = if matches!(listing.mode(), SsrMode::Static(_)) {
+                    router.route(
+                        path,
+                        handle_static_route(
+                            additional_context_and_method.clone(),
+                            app_fn.clone(),
+                            listing.regenerate.clone(),
+                        ),
+                    )
                 } else {
                     router.route(
                     path,
@@ -1334,6 +1411,7 @@ where
                             app_fn.clone(),
                             method,
                         ),
+                        _ => unreachable!()
                     },
                 )
                 };
@@ -1390,7 +1468,17 @@ impl LeptosRoutes for &mut ServiceConfig {
             let mode = listing.mode();
 
             for method in listing.methods() {
-                router = router.route(
+                if matches!(listing.mode(), SsrMode::Static(_)) {
+                    router = router.route(
+                        path,
+                        handle_static_route(
+                            additional_context.clone(),
+                            app_fn.clone(),
+                            listing.regenerate.clone(),
+                        ),
+                    )
+                } else {
+                    router = router.route(
                             path,
                             match mode {
                                 SsrMode::OutOfOrder => {
@@ -1420,8 +1508,10 @@ impl LeptosRoutes for &mut ServiceConfig {
                                     app_fn.clone(),
                                     method,
                                 ),
+                                _ => unreachable!()
                             },
                         );
+                }
             }
         }
 
