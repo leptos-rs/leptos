@@ -36,22 +36,6 @@ pub fn Stylesheet(
 }
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document head that loads a `cargo-leptos`-hashed stylesheet.
-///
-/// ```no_run
-/// use leptos::prelude::*;
-/// use leptos_meta::*;
-///
-/// #[component]
-/// fn MyApp() -> impl IntoView {
-///     provide_meta_context();
-///
-///     view! {
-///       <main>
-///         <HashedStylesheet options=leptos_options />
-///       </main>
-///     }
-/// }
-/// ```
 #[component]
 pub fn HashedStylesheet(
     /// Leptos options
