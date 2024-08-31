@@ -620,7 +620,7 @@ where
 ///             provide_context(id.clone());
 ///         },
 ///         || { /* your app here */ },
-///     )
+///     );
 ///     handler(req).await.into_response()
 /// }
 /// ```
