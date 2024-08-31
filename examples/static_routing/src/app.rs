@@ -298,15 +298,16 @@ fn watch_path(path: &Path) -> impl Stream<Item = ()> {
         use notify::RecursiveMode;
         use notify::Watcher;
 
-        let mut watcher = notify::recommended_watcher(move |res| {
-            if let Ok(_) = res {
-                // if this fails, it's because the buffer is full
-                // this means we've already notified before it's regenerated,
-                // so this page will be queued for regeneration already
-                _ = tx.try_send(());
-            }
-        })
-        .expect("could not create watcher");
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<_, _>| {
+                if res.is_ok() {
+                    // if this fails, it's because the buffer is full
+                    // this means we've already notified before it's regenerated,
+                    // so this page will be queued for regeneration already
+                    _ = tx.try_send(());
+                }
+            })
+            .expect("could not create watcher");
 
         // Add a path to be watched. All files and directories at that path and
         // below will be monitored for changes.
