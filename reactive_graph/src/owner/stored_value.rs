@@ -580,7 +580,7 @@ impl<T, S> Dispose for StoredValue<T, S> {
 #[inline(always)]
 #[track_caller]
 #[deprecated(
-    since = "0.7.0-beta2",
+    since = "0.7.0-beta4",
     note = "This function is being removed to conform to Rust idioms. Please \
             use `StoredValue::new()` or `StoredValue::new_local()` instead."
 )]

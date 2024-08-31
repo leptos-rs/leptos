@@ -1,6 +1,6 @@
 [package]
 name = "reactive_stores"
-version = "0.1.0-beta2"
+version = "0.1.0-beta4"
 rust-version.workspace = true
 edition.workspace = true
 
