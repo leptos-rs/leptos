@@ -18,6 +18,7 @@ pub type StaticParamsFn =
     dyn Fn() -> PinnedFuture<StaticParamsMap> + Send + Sync + 'static;
 
 #[derive(Clone)]
+#[allow(clippy::type_complexity)]
 pub struct RegenerationFn(
     Arc<dyn Fn(&ParamsMap) -> PinnedStream<()> + Send + Sync>,
 );
@@ -92,8 +93,8 @@ impl Debug for StaticRoute {
 }
 
 impl PartialOrd for StaticRoute {
-    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
-        Some(std::cmp::Ordering::Equal)
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -109,7 +110,7 @@ impl PartialEq for StaticRoute {
         {
             (None, None) => true,
             (None, Some(_)) | (Some(_), None) => false,
-            (Some(this), Some(that)) => Arc::ptr_eq(&this, &that),
+            (Some(this), Some(that)) => Arc::ptr_eq(this, that),
         };
         prerender && (self.regenerate == other.regenerate)
     }
@@ -223,7 +224,7 @@ impl StaticPath {
                     let mut new_paths = vec![];
                     if let Some(params) = params.as_ref() {
                         for path in paths {
-                            if let Some(params) = params.get(&name) {
+                            if let Some(params) = params.get(name) {
                                 for val in params.iter() {
                                     new_paths.push(if val.starts_with("/") {
                                         ResolvedStaticPath {
