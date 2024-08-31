@@ -1,3 +1,5 @@
+use crate::static_routes::StaticRoute;
+
 /// Indicates which rendering mode should be used for this route during server-side rendering.
 ///
 /// Leptos supports the following ways of rendering HTML that contains `async` data loaded
@@ -18,15 +20,17 @@
 /// 5. **`Async`**: Load all resources on the server. Wait until all data are loaded, and render HTML in one sweep.
 ///     - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
 ///     - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
+/// 6. **`Static`**:
 ///
 /// The mode defaults to out-of-order streaming. For a path that includes multiple nested routes, the most
 /// restrictive mode will be used: i.e., if even a single nested route asks for `Async` rendering, the whole initial
 /// request will be rendered `Async`. (`Async` is the most restricted requirement, followed by `InOrder`, `PartiallyBlocked`, and `OutOfOrder`.)
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SsrMode {
     #[default]
     OutOfOrder,
     PartiallyBlocked,
     InOrder,
     Async,
+    Static(StaticRoute),
 }

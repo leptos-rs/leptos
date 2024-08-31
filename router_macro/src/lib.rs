@@ -75,6 +75,9 @@ impl SegmentParser {
                         lit.trim_start_matches(['"', '/'])
                             .trim_end_matches(['"', '/']),
                     );
+                    if lit.ends_with(r#"/""#) && lit != r#""/""# {
+                        self.segments.push(Segment::Static("/".to_string()));
+                    }
                 }
                 TokenTree::Group(_) => unimplemented!(),
                 TokenTree::Ident(_) => unimplemented!(),
@@ -102,13 +105,14 @@ impl SegmentParser {
 
 impl Segment {
     fn is_valid(segment: &str) -> bool {
-        segment.chars().all(|c| {
-            c.is_ascii_digit()
-                || c.is_ascii_lowercase()
-                || c.is_ascii_uppercase()
-                || RFC3986_UNRESERVED.contains(&c)
-                || RFC3986_PCHAR_OTHER.contains(&c)
-        })
+        segment == "/"
+            || segment.chars().all(|c| {
+                c.is_ascii_digit()
+                    || c.is_ascii_lowercase()
+                    || c.is_ascii_uppercase()
+                    || RFC3986_UNRESERVED.contains(&c)
+                    || RFC3986_PCHAR_OTHER.contains(&c)
+            })
     }
 
     fn ensure_valid(&self) {

@@ -16,7 +16,7 @@ pub mod nested_router;
 pub mod params;
 //mod router;
 mod ssr_mode;
-mod static_route;
+pub mod static_routes;
 
 pub use generate_route_list::*;
 #[doc(inline)]
@@ -26,4 +26,3 @@ pub use method::*;
 pub use navigate::*;
 //pub use router::*;
 pub use ssr_mode::*;
-pub use static_route::*;

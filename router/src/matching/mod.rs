@@ -6,10 +6,10 @@ pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
-use crate::SsrMode;
+use crate::{static_routes::RegenerationFn, Method, SsrMode};
 pub use horizontal::*;
 pub use nested::*;
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, collections::HashSet, marker::PhantomData};
 use tachys::{
     renderer::Renderer,
     view::{Render, RenderHtml},
@@ -145,6 +145,8 @@ where
 pub struct GeneratedRouteData {
     pub segments: Vec<PathSegment>,
     pub ssr_mode: SsrMode,
+    pub methods: HashSet<Method>,
+    pub regenerate: Vec<RegenerationFn>,
 }
 
 #[cfg(test)]
