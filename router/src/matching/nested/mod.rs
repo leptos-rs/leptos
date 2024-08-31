@@ -7,8 +7,9 @@ use core::{fmt, iter};
 use either_of::Either;
 use std::{
     borrow::Cow,
+    collections::HashSet,
     marker::PhantomData,
-    sync::atomic::{AtomicU16, Ordering}, collections::HashSet,
+    sync::atomic::{AtomicU16, Ordering},
 };
 use tachys::{
     renderer::Renderer,
@@ -281,7 +282,7 @@ where
 
                     let mut regenerate = regenerate.clone();
                     regenerate.extend(child.regenerate);
-                    
+
                     if child.ssr_mode > ssr_mode {
                         GeneratedRouteData {
                             segments,
