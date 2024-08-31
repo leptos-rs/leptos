@@ -8,7 +8,7 @@
 
 use convert_case::{Case, Converter};
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -74,32 +74,117 @@ pub fn server_macro_impl(
                 ident.mutability = None;
             }
 
-            // allow #[server(default)] on fields
-            let mut default = false;
-            let mut other_attrs = Vec::new();
-            for attr in typed_arg.attrs.iter() {
-                if !attr.path().is_ident("server") {
-                    other_attrs.push(attr.clone());
-                    continue;
+            fn rename_path(
+                path: Path,
+                from_ident: Ident,
+                to_ident: Ident,
+            ) -> Path {
+                if path.is_ident(&from_ident) {
+                    Path {
+                        leading_colon: None,
+                        segments: Punctuated::from_iter([PathSegment {
+                            ident: to_ident,
+                            arguments: PathArguments::None,
+                        }]),
+                    }
+                } else {
+                    path
                 }
-                attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("default") && meta.input.is_empty() {
-                        default = true;
-                        Ok(())
+            }
+
+            let attrs = typed_arg
+                .attrs
+                .iter()
+                .cloned()
+                .map(|attr| {
+                    if attr.path().is_ident("server") {
+                        // Allow the following attributes:
+                        // - #[server(default)]
+                        // - #[server(rename = "fieldName")]
+
+                        // Rename `server` to `serde`
+                        let attr = Attribute {
+                            meta: match attr.meta {
+                                Meta::Path(path) => Meta::Path(rename_path(
+                                    path,
+                                    format_ident!("server"),
+                                    format_ident!("serde"),
+                                )),
+                                Meta::List(mut list) => {
+                                    list.path = rename_path(
+                                        list.path,
+                                        format_ident!("server"),
+                                        format_ident!("serde"),
+                                    );
+                                    Meta::List(list)
+                                }
+                                Meta::NameValue(mut name_value) => {
+                                    name_value.path = rename_path(
+                                        name_value.path,
+                                        format_ident!("server"),
+                                        format_ident!("serde"),
+                                    );
+                                    Meta::NameValue(name_value)
+                                }
+                            },
+                            ..attr
+                        };
+
+                        let args = attr.parse_args::<Meta>()?;
+                        match args {
+                            // #[server(default)]
+                            Meta::Path(path) if path.is_ident("default") => {
+                                Ok(attr.clone())
+                            }
+                            // #[server(flatten)]
+                            Meta::Path(path) if path.is_ident("flatten") => {
+                                Ok(attr.clone())
+                            }
+                            // #[server(default = "value")]
+                            Meta::NameValue(name_value)
+                                if name_value.path.is_ident("default") =>
+                            {
+                                Ok(attr.clone())
+                            }
+                            // #[server(skip)]
+                            Meta::Path(path) if path.is_ident("skip") => {
+                                Ok(attr.clone())
+                            }
+                            // #[server(rename = "value")]
+                            Meta::NameValue(name_value)
+                                if name_value.path.is_ident("rename") =>
+                            {
+                                Ok(attr.clone())
+                            }
+                            _ => Err(Error::new(
+                                attr.span(),
+                                "Unrecognized #[server] attribute, expected \
+                                 #[server(default)] or #[server(rename = \
+                                 \"fieldName\")]",
+                            )),
+                        }
+                    } else if attr.path().is_ident("doc") {
+                        // Allow #[doc = "documentation"]
+                        Ok(attr.clone())
+                    } else if attr.path().is_ident("allow") {
+                        // Allow #[allow(...)]
+                        Ok(attr.clone())
+                    } else if attr.path().is_ident("deny") {
+                        // Allow #[deny(...)]
+                        Ok(attr.clone())
+                    } else if attr.path().is_ident("ignore") {
+                        // Allow #[ignore]
+                        Ok(attr.clone())
                     } else {
-                        Err(meta.error(
-                            "Unrecognized #[server] attribute, expected \
-                             #[server(default)]",
+                        Err(Error::new(
+                            attr.span(),
+                            "Unrecognized attribute, expected #[server(...)]",
                         ))
                     }
-                })?;
-            }
-            typed_arg.attrs = other_attrs;
-            if default {
-                Ok(quote! { #[serde(default)] pub #typed_arg })
-            } else {
-                Ok(quote! { pub #typed_arg })
-            }
+                })
+                .collect::<Result<Vec<_>>>()?;
+            typed_arg.attrs = vec![];
+            Ok(quote! { #(#attrs ) * pub #typed_arg })
         })
         .collect::<Result<Vec<_>>>()?;
 
