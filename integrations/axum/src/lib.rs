@@ -32,9 +32,11 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
+#[cfg(feature = "default")]
+use axum::http::Uri;
 use axum::{
     body::{Body, Bytes},
-    extract::{FromRequestParts, MatchedPath},
+    extract::{FromRef, FromRequestParts, MatchedPath, State},
     http::{
         header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
         request::Parts,
@@ -44,10 +46,6 @@ use axum::{
     routing::{delete, get, patch, post, put},
 };
 #[cfg(feature = "default")]
-use axum::{
-    extract::{FromRef, State},
-    http::Uri,
-};
 use dashmap::DashMap;
 use futures::{stream::once, Future, Stream, StreamExt};
 use hydration_context::SsrSharedContext;
@@ -62,16 +60,21 @@ use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
 };
 use leptos_meta::ServerMetaContext;
+#[cfg(feature = "default")]
+use leptos_router::static_routes::ResolvedStaticPath;
 use leptos_router::{
     components::provide_server_redirect,
     location::RequestUrl,
-    static_routes::{RegenerationFn, ResolvedStaticPath, StaticParamsMap},
+    static_routes::{RegenerationFn, StaticParamsMap},
     PathSegment, RouteList, RouteListing, SsrMode,
 };
+#[cfg(feature = "default")]
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use server_fn::{redirect::REDIRECT_HEADER, ServerFnError};
-use std::{fmt::Debug, io, path::Path, pin::Pin, sync::Arc};
+#[cfg(feature = "default")]
+use std::path::Path;
+use std::{fmt::Debug, io, pin::Pin, sync::Arc};
 #[cfg(feature = "default")]
 use tower::ServiceExt;
 #[cfg(feature = "default")]
@@ -719,12 +722,23 @@ where
             SsrMode::InOrder => io(req),
             SsrMode::Async => asyn(req),
             SsrMode::Static(_) => {
-                let regenerate = listing.regenerate.clone();
-                handle_static_route(
-                    additional_context.clone(),
-                    app_fn.clone(),
-                    regenerate,
-                )(state, req)
+                #[cfg(feature = "default")]
+                {
+                    let regenerate = listing.regenerate.clone();
+                    handle_static_route(
+                        additional_context.clone(),
+                        app_fn.clone(),
+                        regenerate,
+                    )(state, req)
+                }
+                #[cfg(not(feature = "default"))]
+                {
+                    _ = state;
+                    panic!(
+                        "Static routes are not currently supported on WASM32 \
+                         server targets."
+                    );
+                }
             }
         }
     }
@@ -1247,6 +1261,7 @@ pub struct AxumRouteListing {
     path: String,
     mode: SsrMode,
     methods: Vec<leptos_router::Method>,
+    #[allow(unused)]
     regenerate: Vec<RegenerationFn>,
 }
 
@@ -1370,11 +1385,13 @@ where
 }
 
 /// Allows generating any prerendered routes.
+#[allow(clippy::type_complexity)]
 pub struct StaticRouteGenerator(
     Box<dyn FnOnce(&LeptosOptions) -> PinnedFuture<()> + Send>,
 );
 
 impl StaticRouteGenerator {
+    #[cfg(feature = "default")]
     fn render_route<IV: IntoView + 'static>(
         path: String,
         app_fn: impl Fn() -> IV + Clone + Send + 'static,
@@ -1434,41 +1451,55 @@ impl StaticRouteGenerator {
     where
         IV: IntoView + 'static,
     {
-        Self({
-            let routes = routes.clone();
-            Box::new(move |options| {
-                let options = options.clone();
-                let app_fn = app_fn.clone();
-                let additional_context = additional_context.clone();
+        #[cfg(feature = "default")]
+        {
+            Self({
+                let routes = routes.clone();
+                Box::new(move |options| {
+                    let options = options.clone();
+                    let app_fn = app_fn.clone();
+                    let additional_context = additional_context.clone();
 
-                Box::pin(routes.generate_static_files(
-                    move |path: &ResolvedStaticPath| {
-                        Self::render_route(
-                            path.to_string(),
-                            app_fn.clone(),
-                            additional_context.clone(),
-                        )
-                    },
-                    move |path: &ResolvedStaticPath,
-                          owner: &Owner,
-                          html: String| {
-                        let options = options.clone();
-                        let path = path.to_owned();
-                        let response_options = owner.with(use_context);
-                        async move {
-                            write_static_route(
-                                &options,
-                                response_options,
-                                path.as_ref(),
-                                &html,
+                    Box::pin(routes.generate_static_files(
+                        move |path: &ResolvedStaticPath| {
+                            Self::render_route(
+                                path.to_string(),
+                                app_fn.clone(),
+                                additional_context.clone(),
                             )
-                            .await
-                        }
-                    },
-                    was_404,
-                ))
+                        },
+                        move |path: &ResolvedStaticPath,
+                              owner: &Owner,
+                              html: String| {
+                            let options = options.clone();
+                            let path = path.to_owned();
+                            let response_options = owner.with(use_context);
+                            async move {
+                                write_static_route(
+                                    &options,
+                                    response_options,
+                                    path.as_ref(),
+                                    &html,
+                                )
+                                .await
+                            }
+                        },
+                        was_404,
+                    ))
+                })
             })
-        })
+        }
+
+        #[cfg(not(feature = "default"))]
+        {
+            _ = routes;
+            _ = app_fn;
+            _ = additional_context;
+            panic!(
+                "Static routes are not currently supported on WASM32 server \
+                 targets."
+            );
+        }
     }
 
     /// Generates the routes.
@@ -1477,9 +1508,11 @@ impl StaticRouteGenerator {
     }
 }
 
+#[cfg(feature = "default")]
 static STATIC_HEADERS: Lazy<DashMap<String, ResponseOptions>> =
     Lazy::new(DashMap::new);
 
+#[cfg(feature = "default")]
 fn was_404(owner: &Owner) -> bool {
     let resp = owner.with(|| expect_context::<ResponseOptions>());
     let status = resp.0.read().status;
@@ -1491,6 +1524,7 @@ fn was_404(owner: &Owner) -> bool {
     false
 }
 
+#[cfg(feature = "default")]
 fn static_path(options: &LeptosOptions, path: &str) -> String {
     use leptos_integration_utils::static_file_path;
 
@@ -1781,7 +1815,6 @@ where
                     }
                     #[cfg(not(feature = "default"))]
                     {
-                        _ = static_mode;
                         panic!(
                             "Static routes are not currently supported on \
                              WASM32 server targets."
