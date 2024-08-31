@@ -18,4 +18,4 @@ proc-macro2 = "1.0"
 quote = "1.0"
 
 [dev-dependencies]
-leptos_router = { workspace = true }
+leptos_router = { version = "0.7.0-beta" }
