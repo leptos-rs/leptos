@@ -107,19 +107,21 @@ where
                 shared_context.defer_stream(Box::pin(data.ready()));
             }
 
-            shared_context.write_async(
-                id,
-                Box::pin(async move {
-                    ready_fut.await;
-                    value.with_untracked(|data| match &data {
-                        // TODO handle serialization errors
-                        Some(val) => {
-                            Ser::encode(val).unwrap().into_encoded_string()
-                        }
-                        _ => unreachable!(),
-                    })
-                }),
-            );
+            if shared_context.get_is_hydrating() {
+                shared_context.write_async(
+                    id,
+                    Box::pin(async move {
+                        ready_fut.await;
+                        value.with_untracked(|data| match &data {
+                            // TODO handle serialization errors
+                            Some(val) => {
+                                Ser::encode(val).unwrap().into_encoded_string()
+                            }
+                            _ => unreachable!(),
+                        })
+                    }),
+                );
+            }
         }
 
         ArcResource {
