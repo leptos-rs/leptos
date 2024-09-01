@@ -38,6 +38,9 @@ pub fn AutoReload(
 pub fn HydrationScripts(
     options: LeptosOptions,
     #[prop(optional)] islands: bool,
+    /// A base url, not including a trailing slash
+    #[prop(optional, into)]
+    root: Option<String>,
 ) -> impl IntoView {
     let mut js_file_name = options.output_name.to_string();
     let mut wasm_file_name = options.output_name.to_string();
@@ -82,17 +85,18 @@ pub fn HydrationScripts(
         include_str!("./hydration_script.js")
     };
 
+    let root = root.unwrap_or_default();
     view! {
-        <link rel="modulepreload" href=format!("/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
+        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") nonce=nonce.clone()/>
         <link
             rel="preload"
-            href=format!("/{pkg_path}/{wasm_file_name}.wasm")
+            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
             crossorigin=nonce.clone().unwrap_or_default()
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({pkg_path:?}, {js_file_name:?}, {wasm_file_name:?})")}
+            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?})")}
         </script>
     }
 }
