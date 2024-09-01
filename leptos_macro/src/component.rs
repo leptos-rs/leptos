@@ -18,6 +18,7 @@ use syn::{
 };
 
 pub struct Model {
+    is_transparent: bool,
     island: Option<String>,
     docs: Docs,
     unknown_attrs: UnknownAttrs,
@@ -62,6 +63,7 @@ impl Parse for Model {
         });
 
         Ok(Self {
+            is_transparent: false,
             island: None,
             docs,
             unknown_attrs,
@@ -102,6 +104,7 @@ pub fn convert_from_snake_case(name: &Ident) -> Ident {
 impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
+            is_transparent,
             island,
             docs,
             unknown_attrs,
@@ -116,20 +119,22 @@ impl ToTokens for Model {
         let no_props = props.is_empty();
 
         // check for components that end ;
-        let ends_semi =
-            body.block.stmts.iter().last().and_then(|stmt| match stmt {
-                Stmt::Item(Item::Macro(mac)) => mac.semi_token.as_ref(),
-                _ => None,
-            });
-        if let Some(semi) = ends_semi {
-            proc_macro_error2::emit_error!(
-                semi.span(),
-                "A component that ends with a `view!` macro followed by a \
-                 semicolon will return (), an empty view. This is usually an \
-                 accident, not intentional, so we prevent it. If you’d like \
-                 to return (), you can do it it explicitly by returning () as \
-                 the last item from the component."
-            );
+        if !is_transparent {
+            let ends_semi =
+                body.block.stmts.iter().last().and_then(|stmt| match stmt {
+                    Stmt::Item(Item::Macro(mac)) => mac.semi_token.as_ref(),
+                    _ => None,
+                });
+            if let Some(semi) = ends_semi {
+                proc_macro_error2::emit_error!(
+                    semi.span(),
+                    "A component that ends with a `view!` macro followed by a \
+                     semicolon will return (), an empty view. This is usually \
+                     an accident, not intentional, so we prevent it. If you’d \
+                     like to return (), you can do it it explicitly by \
+                     returning () as the last item from the component."
+                );
+            }
         }
 
         //body.sig.ident = format_ident!("__{}", body.sig.ident);
@@ -265,14 +270,20 @@ impl ToTokens for Model {
             }
         };
 
-        let component = quote! {
-            ::leptos::prelude::untrack(
-                move || {
-                    #tracing_guard_expr
-                    #tracing_props_expr
-                    #body_expr
-                }
-            )
+        let component = if *is_transparent {
+            body_expr
+        } else {
+            quote! {
+                ::leptos::prelude::IntoAny::into_any(
+                    ::leptos::prelude::untrack(
+                        move || {
+                            #tracing_guard_expr
+                            #tracing_props_expr
+                            #body_expr
+                        }
+                    )
+                )
+            }
         };
 
         // add island wrapper if island
@@ -520,6 +531,13 @@ impl ToTokens for Model {
 }
 
 impl Model {
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_transparent(mut self, is_transparent: bool) -> Self {
+        self.is_transparent = is_transparent;
+
+        self
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn with_island(mut self, island: Option<String>) -> Self {
         self.island = island;

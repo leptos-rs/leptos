@@ -535,11 +535,24 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
-pub fn component(
-    _args: proc_macro::TokenStream,
-    s: TokenStream,
-) -> TokenStream {
-    component_macro(s, None)
+pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let is_transparent = if !args.is_empty() {
+        let transparent = parse_macro_input!(args as syn::Ident);
+
+        if transparent != "transparent" {
+            abort!(
+                transparent,
+                "only `transparent` is supported";
+                help = "try `#[component(transparent)]` or `#[component]`"
+            );
+        }
+
+        true
+    } else {
+        false
+    };
+
+    component_macro(s, is_transparent, None)
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -615,17 +628,37 @@ pub fn component(
 /// ```
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
-pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let is_transparent = if !args.is_empty() {
+        let transparent = parse_macro_input!(args as syn::Ident);
+
+        if transparent != "transparent" {
+            abort!(
+                transparent,
+                "only `transparent` is supported";
+                help = "try `#[component(transparent)]` or `#[component]`"
+            );
+        }
+
+        true
+    } else {
+        false
+    };
+
     let island_src = s.to_string();
-    component_macro(s, Some(island_src))
+    component_macro(s, is_transparent, Some(island_src))
 }
 
-fn component_macro(s: TokenStream, island: Option<String>) -> TokenStream {
+fn component_macro(
+    s: TokenStream,
+    is_transparent: bool,
+    island: Option<String>,
+) -> TokenStream {
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.with_island(island).into_token_stream();
+        let expanded = model.is_transparent(is_transparent).with_island(island).into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),

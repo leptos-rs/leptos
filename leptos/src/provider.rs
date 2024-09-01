@@ -35,7 +35,7 @@ pub fn Provider<T, Chil>(
 ) -> impl IntoView
 where
     T: Send + Sync + 'static,
-    Chil: IntoView,
+    Chil: IntoView + 'static,
 {
     let owner = Owner::current()
         .expect("no current reactive Owner found")

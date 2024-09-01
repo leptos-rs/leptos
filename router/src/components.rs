@@ -47,7 +47,7 @@ where
     }
 }
 
-#[component]
+#[component(transparent)]
 pub fn Router<Chil>(
     /// The base URL for the router. Defaults to `""`.
     #[prop(optional, into)]
@@ -204,7 +204,7 @@ where
     }
 }*/
 
-#[component]
+#[component(transparent)]
 pub fn Routes<Defs, FallbackFn, Fallback>(
     fallback: FallbackFn,
     children: RouteChildren<Defs>,
@@ -247,7 +247,7 @@ where
     }
 }
 
-#[component]
+#[component(transparent)]
 pub fn FlatRoutes<Defs, FallbackFn, Fallback>(
     fallback: FallbackFn,
     children: RouteChildren<Defs>,
@@ -294,7 +294,7 @@ where
     }
 }
 
-#[component]
+#[component(transparent)]
 pub fn Route<Segments, View>(
     path: Segments,
     view: View,
@@ -306,7 +306,7 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr)
 }
 
-#[component]
+#[component(transparent)]
 pub fn ParentRoute<Segments, View, Children>(
     path: Segments,
     view: View,
@@ -320,7 +320,7 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
 
-#[component]
+#[component(transparent)]
 pub fn ProtectedRoute<Segments, ViewFn, View, C, PathFn, P>(
     path: Segments,
     view: ViewFn,
@@ -362,7 +362,7 @@ where
     NestedRoute::new(path, view).ssr_mode(ssr)
 }
 
-#[component]
+#[component(transparent)]
 pub fn ProtectedParentRoute<Segments, ViewFn, View, C, PathFn, P, Children>(
     path: Segments,
     view: ViewFn,
@@ -424,7 +424,7 @@ where
 ///
 /// [`leptos_actix`]: <https://docs.rs/leptos_actix/>
 /// [`leptos_axum`]: <https://docs.rs/leptos_axum/>
-#[component]
+#[component(transparent)]
 pub fn Redirect<P>(
     /// The relative path to which the user should be redirected.
     path: P,
