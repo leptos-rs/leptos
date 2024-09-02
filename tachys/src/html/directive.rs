@@ -166,7 +166,9 @@ where
         self.0.take();
     }
 
-    async fn resolve(self) -> Self::AsyncOutput {
+    async fn resolve(mut self) -> Self::AsyncOutput {
+        // see note on dry_resolve() re: SendWrapper
+        self.0 = None;
         self
     }
 }
