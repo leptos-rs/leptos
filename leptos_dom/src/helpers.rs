@@ -475,9 +475,7 @@ pub fn window_event_listener_untyped(
         cb(e);
     };
 
-    // TODO use shared context for is_server
-    if true {
-        // !is_server() {
+    if !is_server() {
         #[inline(never)]
         fn wel(
             cb: Box<dyn FnMut(web_sys::Event)>,
@@ -549,4 +547,10 @@ impl WindowListenerHandle {
     pub fn remove(self) {
         (self.0)()
     }
+}
+
+fn is_server() -> bool {
+    Owner::current_shared_context()
+        .map(|sc| !sc.is_browser())
+        .unwrap_or(false)
 }
