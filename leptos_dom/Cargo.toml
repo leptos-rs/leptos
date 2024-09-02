@@ -30,7 +30,7 @@ features = ["Location"]
 default = []
 tracing = ["dep:tracing"]
 trace-component-props = ["dep:serde", "dep:serde_json"]
-hydration = []
+hydration = ["reactive_graph/hydration"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
