@@ -56,9 +56,10 @@ pub fn HydrationScripts(
                 if !line.is_empty() {
                     if let Some((file, hash)) = line.split_once(':') {
                         if file == "js" {
-                            js_file_name.push_str(&format!(".{}", hash));
+                            js_file_name.push_str(&format!(".{}", hash.trim()));
                         } else if file == "wasm" {
-                            wasm_file_name.push_str(&format!(".{}", hash));
+                            wasm_file_name
+                                .push_str(&format!(".{}", hash.trim()));
                         }
                     }
                 }
