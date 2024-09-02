@@ -134,6 +134,19 @@ fn fragment_to_tokens(
         None
     } else if children.len() == 1 {
         children.into_iter().next()
+    } else if children.len() > 16 {
+        // implementations of various traits used in routing and rendering are implemented for
+        // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
+        // for tuples of tuples, so if we have more than 16 items, we can split them out into
+        // multiple tuples.
+        let chunks = children.chunks(16).map(|children| {
+            quote! {
+                (#(#children),*)
+            }
+        });
+        Some(quote! {
+             (#(#chunks),*)
+        })
     } else {
         Some(quote! {
             (#(#children),*)
