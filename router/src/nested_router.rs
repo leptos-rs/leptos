@@ -803,15 +803,9 @@ where
 
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
-                        let mut new_outlets = Vec::new();
                         child.build_nested_route(
-                            url,
-                            base,
-                            loaders,
-                            &mut new_outlets,
-                            &owner,
+                            url, base, loaders, outlets, &owner,
                         );
-                        outlets.extend(new_outlets);
                     }
 
                     return;
