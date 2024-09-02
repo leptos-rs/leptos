@@ -67,6 +67,17 @@ where
 /// 2) Sets the `aria-current` attribute if this link is the active link (i.e., it’s a link to the page you’re on).
 ///    This is helpful for accessibility and for styling. For example, maybe you want to set the link a
 ///    different color if it’s a link to the page you’re currently on.
+///
+/// ### DOM Properties
+///
+/// `<a>` elements can take several additional DOM properties with special meanings.
+/// - **`prop:state`**: An object of any type that will be pushed to router state.
+/// - **`prop:replace`**: If `true`, the link will not add to the browser's history (so, pressing `Back`
+/// will skip this page.)
+///
+/// Previously, this component took these as component props. Now, they can be added using the
+/// `prop:` syntax, and will be added directly to the DOM. They can work with either `<a>` elements
+/// or the `<A/>` component.
 #[component]
 pub fn A<H>(
     /// Used to calculate the link's `href` attribute. Will be resolved relative
@@ -79,13 +90,6 @@ pub fn A<H>(
     /// if false, link is marked active if the current route starts with it.
     #[prop(optional)]
     exact: bool,
-    /// An object of any type that will be pushed to router state
-    #[prop(optional)]
-    state: Option<State>,
-    /// If `true`, the link will not add to the browser's history (so, pressing `Back`
-    /// will skip this page.)
-    #[prop(optional)]
-    replace: bool,
     /// If `true`, and when `href` has a trailing slash, `aria-current` be only be set if `current_url` also has
     /// a trailing slash.
     #[prop(optional)]
@@ -100,8 +104,6 @@ where
         href: ArcMemo<Option<String>>,
         target: Option<Oco<'static, str>>,
         exact: bool,
-        #[allow(unused)] state: Option<State>,
-        #[allow(unused)] replace: bool,
         children: Children,
         strict_trailing_slash: bool,
     ) -> impl IntoView {
@@ -128,8 +130,6 @@ where
             <a
                 href=move || href.get().unwrap_or_default()
                 target=target
-                prop:state=state.map(|s| s.to_js_value())
-                prop:replace=replace
                 aria-current={
                     let is_active = is_active.clone();
                     move || if is_active.get() { Some("page") } else { None }
@@ -142,15 +142,7 @@ where
     }
 
     let href = use_resolved_path(move || href.to_href()());
-    inner(
-        href,
-        target,
-        exact,
-        state,
-        replace,
-        children,
-        strict_trailing_slash,
-    )
+    inner(href, target, exact, children, strict_trailing_slash)
 }
 
 // Test if `href` is active for `location`.  Assumes _both_ `href` and `location` begin with a `'/'`.
