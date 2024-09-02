@@ -242,21 +242,14 @@ impl Owner {
     }
 
     /// Returns the current [`SharedContext`], if any.
-    #[inline(always)]
+    #[cfg(feature = "hydration")]
     pub fn current_shared_context(
     ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
-        #[cfg(feature = "hydration")]
-        {
-            OWNER.with(|o| {
-                o.borrow()
-                    .as_ref()
-                    .and_then(|current| current.shared_context.clone())
-            })
-        }
-        #[cfg(not(feature = "hydration"))]
-        {
-            None
-        }
+        OWNER.with(|o| {
+            o.borrow()
+                .as_ref()
+                .and_then(|current| current.shared_context.clone())
+        })
     }
 
     /// Runs the given function, after indicating that the current [`SharedContext`] should be

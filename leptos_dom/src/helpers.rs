@@ -64,18 +64,17 @@ pub fn location() -> web_sys::Location {
 /// Current [`window.location.hash`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location)
 /// without the beginning #.
 pub fn location_hash() -> Option<String> {
-    // TODO use shared context for is_server
-    /*if is_server() {
+    if is_server() {
         None
-    } else {*/
-    location()
-        .hash()
-        .ok()
-        .map(|hash| match hash.chars().next() {
-            Some('#') => hash[1..].to_string(),
-            _ => hash,
-        })
-    //}
+    } else {
+        location()
+            .hash()
+            .ok()
+            .map(|hash| match hash.chars().next() {
+                Some('#') => hash[1..].to_string(),
+                _ => hash,
+            })
+    }
 }
 
 /// Current [`window.location.pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
@@ -550,7 +549,14 @@ impl WindowListenerHandle {
 }
 
 fn is_server() -> bool {
-    Owner::current_shared_context()
-        .map(|sc| !sc.is_browser())
-        .unwrap_or(false)
+    #[cfg(feature = "hydration")]
+    {
+        Owner::current_shared_context()
+            .map(|sc| !sc.is_browser())
+            .unwrap_or(false)
+    }
+    #[cfg(not(feature = "hydration"))]
+    {
+        false
+    }
 }
