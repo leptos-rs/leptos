@@ -27,6 +27,7 @@ type SealedErrors = Arc<RwLock<HashSet<SerializedDataId>>>;
 /// The shared context that should be used on the server side.
 pub struct SsrSharedContext {
     id: AtomicUsize,
+    non_hydration_id: AtomicUsize,
     is_hydrating: AtomicBool,
     sync_buf: RwLock<Vec<ResolvedData>>,
     async_buf: AsyncDataBuf,
@@ -41,6 +42,7 @@ impl SsrSharedContext {
     pub fn new() -> Self {
         Self {
             is_hydrating: AtomicBool::new(true),
+            non_hydration_id: AtomicUsize::new(usize::MAX),
             ..Default::default()
         }
     }
@@ -52,6 +54,7 @@ impl SsrSharedContext {
     pub fn new_islands() -> Self {
         Self {
             is_hydrating: AtomicBool::new(false),
+            non_hydration_id: AtomicUsize::new(usize::MAX),
             ..Default::default()
         }
     }
@@ -73,8 +76,13 @@ impl SharedContext for SsrSharedContext {
         false
     }
 
+    #[track_caller]
     fn next_id(&self) -> SerializedDataId {
-        let id = self.id.fetch_add(1, Ordering::Relaxed);
+        let id = if self.get_is_hydrating() {
+            self.id.fetch_add(1, Ordering::Relaxed)
+        } else {
+            self.non_hydration_id.fetch_sub(1, Ordering::Relaxed)
+        };
         SerializedDataId(id)
     }
 
