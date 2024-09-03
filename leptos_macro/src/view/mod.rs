@@ -101,19 +101,39 @@ fn element_children_to_tokens(
         parent_slots,
         global_class,
         view_marker,
-    )
-    .into_iter()
-    .map(|child| {
-        quote! {
+    );
+    if children.is_empty() {
+        None
+    } else if children.len() == 1 {
+        let child = &children[0];
+        Some(quote! {
             .child(
                 #[allow(unused_braces)]
                 { #child }
             )
-        }
-    });
-    Some(quote! {
-        #(#children)*
-    })
+        })
+    } else if children.len() > 16 {
+        // implementations of various traits used in routing and rendering are implemented for
+        // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
+        // for tuples of tuples, so if we have more than 16 items, we can split them out into
+        // multiple tuples.
+        let chunks = children.chunks(16).map(|children| {
+            quote! {
+                (#(#children),*)
+            }
+        });
+        Some(quote! {
+            .child(
+                (#(#chunks),*)
+            )
+        })
+    } else {
+        Some(quote! {
+            .child(
+                (#(#children),*)
+            )
+        })
+    }
 }
 
 fn fragment_to_tokens(
