@@ -1,6 +1,4 @@
-use crate::{
-    components::RouterContext, hooks::use_resolved_path
-};
+use crate::{components::RouterContext, hooks::use_resolved_path};
 use leptos::{children::Children, oco::Oco, prelude::*, *};
 use reactive_graph::{computed::ArcMemo, owner::use_context};
 use std::{borrow::Cow, rc::Rc};
