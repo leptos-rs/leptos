@@ -49,6 +49,11 @@ mod msgpack;
 #[cfg(feature = "msgpack")]
 pub use msgpack::*;
 
+#[cfg(feature = "postcard")]
+mod postcard;
+#[cfg(feature = "postcard")]
+pub use postcard::*;
+
 mod stream;
 use crate::error::ServerFnError;
 use futures::Future;

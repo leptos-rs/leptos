@@ -3,8 +3,8 @@ use crate::{
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
-    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, Method,
-    PathSegment, RouteList, RouteListing, RouteMatchId,
+    ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
+    RouteList, RouteListing, RouteMatchId,
 };
 use any_spawner::Executor;
 use either_of::{Either, EitherOf3};
@@ -272,10 +272,8 @@ where
                     RouteListing::new(
                         path,
                         data.ssr_mode,
-                        // TODO methods
-                        [Method::Get],
-                        // TODO static data
-                        None,
+                        data.methods,
+                        data.regenerate,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -805,15 +803,9 @@ where
 
                     // if this children has matches, then rebuild the lower section of the tree
                     if let Some(child) = child {
-                        let mut new_outlets = Vec::new();
                         child.build_nested_route(
-                            url,
-                            base,
-                            loaders,
-                            &mut new_outlets,
-                            &owner,
+                            url, base, loaders, outlets, &owner,
                         );
-                        outlets.extend(new_outlets);
                     }
 
                     return;

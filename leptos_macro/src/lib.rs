@@ -74,6 +74,9 @@ mod slot;
 ///    Attributes can take a wide variety of primitive types that can be converted to strings. They can also
 ///    take an `Option`, in which case `Some` sets the attribute and `None` removes the attribute.
 ///
+///    Note that in some cases, rust-analyzer support may be better if attribute values are surrounded with braces (`{}`).
+///    Unlike in JSX, attribute values are not required to be in braces, but braces can be used and may improve this LSP support.
+///
 /// ```rust,ignore
 /// # use leptos::prelude::*;
 ///
@@ -306,10 +309,17 @@ pub fn view(tokens: TokenStream) -> TokenStream {
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
     );
+
+    // The allow lint needs to be put here instead of at the expansion of
+    // view::attribute_value(). Adding this next to the expanded expression
+    // seems to break rust-analyzer, but it works when the allow is put here.
     quote! {
         {
-            #(#errors;)*
-            #nodes_output
+            #[allow(unused_braces)]
+            {
+                #(#errors;)*
+                #nodes_output
+            }
         }
     }
     .into()

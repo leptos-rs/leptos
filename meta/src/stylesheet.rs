@@ -1,7 +1,7 @@
 use crate::register;
 use leptos::{
-    attr::global::GlobalAttributes, component, tachys::html::element::link,
-    IntoView,
+    attr::global::GlobalAttributes, component, prelude::LeptosOptions,
+    tachys::html::element::link, IntoView,
 };
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -33,4 +33,48 @@ pub fn Stylesheet(
 ) -> impl IntoView {
     // TODO additional attributes
     register(link().id(id).rel("stylesheet").href(href))
+}
+
+/// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document head that loads a `cargo-leptos`-hashed stylesheet.
+#[component]
+pub fn HashedStylesheet(
+    /// Leptos options
+    options: LeptosOptions,
+    /// An ID for the stylesheet.
+    #[prop(optional, into)]
+    id: Option<String>,
+) -> impl IntoView {
+    let mut css_file_name = options.output_name.to_string();
+    if options.hash_files {
+        let hash_path = std::env::current_exe()
+            .map(|path| {
+                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
+            })
+            .unwrap_or_default()
+            .join(&options.hash_file);
+        if hash_path.exists() {
+            let hashes = std::fs::read_to_string(&hash_path)
+                .expect("failed to read hash file");
+            for line in hashes.lines() {
+                let line = line.trim();
+                if !line.is_empty() {
+                    if let Some((file, hash)) = line.split_once(':') {
+                        if file == "css" {
+                            css_file_name
+                                .push_str(&format!(".{}", hash.trim()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    css_file_name.push_str(".css");
+    let pkg_path = &options.site_pkg_dir;
+    // TODO additional attributes
+    register(
+        link()
+            .id(id)
+            .rel("stylesheet")
+            .href(format!("/{pkg_path}/{css_file_name}")),
+    )
 }

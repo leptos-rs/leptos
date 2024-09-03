@@ -155,8 +155,10 @@ pub fn use_location() -> Location {
     location
 }
 
+pub(crate) type RawParamsMap = ArcMemo<ParamsMap>;
+
 #[track_caller]
-fn use_params_raw() -> ArcMemo<ParamsMap> {
+fn use_params_raw() -> RawParamsMap {
     use_context().expect(
         "Tried to access params outside the context of a matched <Route>.",
     )

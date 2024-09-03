@@ -191,16 +191,19 @@ where
                 let init = initial();
                 #[cfg(feature = "ssr")]
                 if let Some(sc) = sc {
-                    match Ser::encode(&init)
-                        .map(IntoEncodedString::into_encoded_string)
-                    {
-                        Ok(value) => {
-                            sc.write_async(id, Box::pin(async move { value }))
-                        }
-                        #[allow(unused_variables)] // used in tracing
-                        Err(e) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("couldn't serialize: {e:?}");
+                    if sc.get_is_hydrating() {
+                        match Ser::encode(&init)
+                            .map(IntoEncodedString::into_encoded_string)
+                        {
+                            Ok(value) => sc.write_async(
+                                id,
+                                Box::pin(async move { value }),
+                            ),
+                            #[allow(unused_variables)] // used in tracing
+                            Err(e) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("couldn't serialize: {e:?}");
+                            }
                         }
                     }
                 }

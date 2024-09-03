@@ -258,7 +258,7 @@ html_self_closing_elements! {
     ///	The `<meta>` HTML element represents Metadata that cannot be represented by other HTML meta-related elements, like base, link, script, style or title.
     meta HtmlMetaElement [charset, content, http_equiv, name] true,
     /// The `<source>` HTML element specifies multiple media resources for the picture, the audio element, or the video element. It is an empty element, meaning that it has no content and does not have a closing tag. It is commonly used to offer the same media content in multiple file formats in order to provide compatibility with a broad range of browsers given their differing support for image file formats and media file formats.
-    source HtmlSourceElement [src, r#type] true,
+    source HtmlSourceElement [src, r#type, srcset, sizes, media, height, width] true,
     /// The `<track>` HTML element is used as a child of the media elements, audio and video. It lets you specify timed text tracks (or time-based data), for example to automatically handle subtitles. The tracks are formatted in WebVTT format (.vtt files) — Web Video Text Tracks.
     track HtmlTrackElement [default, kind, label, src, srclang] true,
     /// The `<wbr>` HTML element represents a word break opportunity—a position within text where the browser may optionally break a line, though its line-breaking rules would not otherwise create a break at that location.
