@@ -60,7 +60,8 @@ pub fn HashedStylesheet(
                 if !line.is_empty() {
                     if let Some((file, hash)) = line.split_once(':') {
                         if file == "css" {
-                            css_file_name.push_str(&format!(".{}", hash));
+                            css_file_name
+                                .push_str(&format!(".{}", hash.trim()));
                         }
                     }
                 }
