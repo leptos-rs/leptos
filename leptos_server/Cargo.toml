@@ -20,6 +20,7 @@ futures = "0.3.30"
 
 any_spawner = { workspace = true }
 tachys = { workspace = true, optional = true, features = ["reactive_graph"] }
+send_wrapper = "0.6"
 
 # serialization formats
 serde = { version = "1.0" }

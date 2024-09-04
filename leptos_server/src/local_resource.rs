@@ -7,10 +7,11 @@ use reactive_graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{use_context, LocalStorage},
+    owner::use_context,
     signal::guards::{AsyncPlain, ReadGuard},
     traits::{DefinedAt, ReadUntracked},
 };
+use send_wrapper::SendWrapper;
 use std::{
     future::{pending, Future, IntoFuture},
     panic::Location,
@@ -175,7 +176,7 @@ impl<T> Subscriber for ArcLocalResource<T> {
 }
 
 pub struct LocalResource<T> {
-    data: AsyncDerived<T, LocalStorage>,
+    data: AsyncDerived<SendWrapper<T>>,
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
 }
@@ -217,9 +218,13 @@ impl<T> LocalResource<T> {
 
         Self {
             data: if cfg!(feature = "ssr") {
-                AsyncDerived::new_mock_unsync(fetcher)
+                AsyncDerived::new_mock(fetcher)
             } else {
-                AsyncDerived::new_unsync(fetcher)
+                let fetcher = SendWrapper::new(fetcher);
+                AsyncDerived::new(move || {
+                    let fut = fetcher();
+                    async move { SendWrapper::new(fut.await) }
+                })
             },
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
@@ -232,9 +237,14 @@ where
     T: Clone + 'static,
 {
     type Output = T;
-    type IntoFuture = AsyncDerivedFuture<T>;
+    type IntoFuture = futures::future::Map<
+        AsyncDerivedFuture<SendWrapper<T>>,
+        fn(SendWrapper<T>) -> T,
+    >;
 
     fn into_future(self) -> Self::IntoFuture {
+        use futures::FutureExt;
+
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
             notifier.notify();
         } else if cfg!(feature = "ssr") {
@@ -244,7 +254,7 @@ where
                  always pending on the server."
             );
         }
-        self.data.into_future()
+        self.data.into_future().map(|value| (*value).clone())
     }
 }
 
@@ -265,7 +275,8 @@ impl<T> ReadUntracked for LocalResource<T>
 where
     T: Send + Sync + 'static,
 {
-    type Value = ReadGuard<Option<T>, AsyncPlain<Option<T>>>;
+    type Value =
+        ReadGuard<Option<SendWrapper<T>>, AsyncPlain<Option<SendWrapper<T>>>>;
 
     fn try_read_untracked(&self) -> Option<Self::Value> {
         if let Some(mut notifier) = use_context::<LocalResourceNotifier>() {
