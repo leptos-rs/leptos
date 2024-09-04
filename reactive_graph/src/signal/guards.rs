@@ -31,6 +31,11 @@ impl<T, Inner> ReadGuard<T, Inner> {
             ty: PhantomData,
         }
     }
+
+    /// Returns the inner guard type.
+    pub fn into_inner(self) -> Inner {
+        self.inner
+    }
 }
 
 impl<T, Inner> Clone for ReadGuard<T, Inner>

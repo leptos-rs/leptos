@@ -12,6 +12,7 @@ use crate::{
     unwrap_signal,
 };
 use core::fmt::Debug;
+use send_wrapper::SendWrapper;
 use std::{future::Future, ops::DerefMut, panic::Location};
 
 /// A reactive value that is derived by running an asynchronous computation in response to changes
@@ -164,6 +165,23 @@ where
     }
 }
 
+impl<T> AsyncDerived<SendWrapper<T>> {
+    #[doc(hidden)]
+    pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+    {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(ArcAsyncDerived::new_mock(
+                fun,
+            )),
+        }
+    }
+}
+
 impl<T> AsyncDerived<T, LocalStorage>
 where
     T: 'static,
@@ -204,21 +222,6 @@ where
             defined_at: Location::caller(),
             inner: StoredValue::new_with_storage(
                 ArcAsyncDerived::new_unsync_with_initial(initial_value, fun),
-            ),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn new_mock_unsync<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
-    where
-        T: 'static,
-        Fut: Future<Output = T> + 'static,
-    {
-        Self {
-            #[cfg(debug_assertions)]
-            defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
-                ArcAsyncDerived::new_mock_unsync(fun),
             ),
         }
     }

@@ -21,6 +21,7 @@ use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
 use futures::{channel::oneshot, FutureExt, StreamExt};
 use or_poisoned::OrPoisoned;
+use send_wrapper::SendWrapper;
 use std::{
     future::Future,
     mem,
@@ -458,19 +459,6 @@ impl<T: 'static> ArcAsyncDerived<T> {
         this
     }
 
-    #[doc(hidden)]
-    #[track_caller]
-    pub fn new_mock_unsync<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
-    where
-        T: 'static,
-        Fut: Future<Output = T> + 'static,
-    {
-        let initial = None::<T>;
-        let (this, _) =
-            spawn_derived!(Executor::spawn_local, initial, fun, false, false);
-        this
-    }
-
     /// Returns a `Future` that is ready when this resource has next finished loading.
     pub fn ready(&self) -> AsyncDerivedReadyFuture {
         AsyncDerivedReadyFuture {
@@ -478,6 +466,28 @@ impl<T: 'static> ArcAsyncDerived<T> {
             loading: Arc::clone(&self.loading),
             wakers: Arc::clone(&self.wakers),
         }
+    }
+}
+
+impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+    {
+        let initial = None::<SendWrapper<T>>;
+        let fun = move || {
+            let fut = fun();
+            async move {
+                let value = fut.await;
+                SendWrapper::new(value)
+            }
+        };
+        let (this, _) =
+            spawn_derived!(Executor::spawn_local, initial, fun, false, false);
+        this
     }
 }
 
