@@ -45,7 +45,7 @@ pub fn HashedStylesheet(
     id: Option<String>,
     /// A base url, not including a trailing slash
     #[prop(optional, into)]
-    root: Option<String>
+    root: Option<String>,
 ) -> impl IntoView {
     let mut css_file_name = options.output_name.to_string();
     if options.hash_files {
