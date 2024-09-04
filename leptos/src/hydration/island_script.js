@@ -1,4 +1,4 @@
-((pkg_path, output_name, wasm_output_name) => {
+((root, pkg_path, output_name, wasm_output_name) => {
 	function idle(c) {
 		if ("requestIdleCallback" in window) {
 			window.requestIdleCallback(c);
@@ -50,9 +50,9 @@
 		}
 	}
 	idle(() => {
-		import(`/${pkg_path}/${output_name}.js`)
+		import(`${root}/${pkg_path}/${output_name}.js`)
 			.then(mod => {
-				mod.default(`/${pkg_path}/${wasm_output_name}.wasm`).then(() => {
+				mod.default(`${root}/${pkg_path}/${wasm_output_name}.wasm`).then(() => {
 					mod.hydrate();
 					hydrateIslands(islandTree(document.body, null), mod);
 				});

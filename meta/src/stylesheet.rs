@@ -43,6 +43,9 @@ pub fn HashedStylesheet(
     /// An ID for the stylesheet.
     #[prop(optional, into)]
     id: Option<String>,
+    /// A base url, not including a trailing slash
+    #[prop(optional, into)]
+    root: Option<String>,
 ) -> impl IntoView {
     let mut css_file_name = options.output_name.to_string();
     if options.hash_files {
@@ -70,11 +73,12 @@ pub fn HashedStylesheet(
     }
     css_file_name.push_str(".css");
     let pkg_path = &options.site_pkg_dir;
+    let root = root.unwrap_or_default();
     // TODO additional attributes
     register(
         link()
             .id(id)
             .rel("stylesheet")
-            .href(format!("/{pkg_path}/{css_file_name}")),
+            .href(format!("{root}/{pkg_path}/{css_file_name}")),
     )
 }
