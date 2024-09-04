@@ -34,7 +34,7 @@
 		return { el: null, id: null, children: tree };
 	}
 	function hydrateIsland(el, id, mod) {
-		const islandFn = mod[`_island_${id}`];
+		const islandFn = mod[id];
 		if (islandFn) {
 			islandFn(el);
 		} else {

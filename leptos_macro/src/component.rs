@@ -8,6 +8,7 @@ use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
 use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
+use std::hash::DefaultHasher;
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned, token::Colon,
     visit_mut::VisitMut, AngleBracketedGenericArguments, Attribute, FnArg,
@@ -226,8 +227,15 @@ impl ToTokens for Model {
         };
 
         let component_id = name.to_string();
-        let hydrate_fn_name =
-            Ident::new(&format!("_island_{component_id}"), name.span());
+        let hydrate_fn_name = is_island.then(|| {
+            use std::hash::{Hash, Hasher};
+
+            let span = format!("{:?}", name.span());
+            let mut hasher = DefaultHasher::new();
+            span.hash(&mut hasher);
+            let caller = hasher.finish() as usize;
+            Ident::new(&format!("{component_id}_{caller:?}"), name.span())
+        });
 
         let island_serialize_props = if is_island_with_other_props {
             quote! {
@@ -269,6 +277,7 @@ impl ToTokens for Model {
 
         // add island wrapper if island
         let component = if *is_island {
+            let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
                 {
                     if ::leptos::reactive_graph::owner::Owner::current_shared_context()
@@ -280,7 +289,7 @@ impl ToTokens for Model {
                     } else {
                         ::leptos::either::Either::Right(
                             ::leptos::tachys::html::islands::Island::new(
-                                #component_id,
+                                stringify!(#hydrate_fn_name),
                                 #component
                             )
                              #island_serialized_props
@@ -414,6 +423,7 @@ impl ToTokens for Model {
                 quote! {}
             };
 
+            let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
                 #[::leptos::wasm_bindgen::prelude::wasm_bindgen(wasm_bindgen = ::leptos::wasm_bindgen)]
                 #[allow(non_snake_case)]
