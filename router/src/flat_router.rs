@@ -1,4 +1,5 @@
 use crate::{
+    hooks::Matched,
     location::{LocationProvider, Url},
     matching::Routes,
     params::ParamsMap,
@@ -37,98 +38,6 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn, R> {
     pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
-/*
-impl<Loc, Defs, Fal, R> FlatRoutesView<Loc, Defs, Fal, R>
-where
-    Loc: LocationProvider,
-    Defs: MatchNestedRoutes<R>,
-    Fal: Render<R>,
-    R: Renderer + 'static,
-{
-    pub fn choose(
-        self,
-        prev_owner: Option<&Owner>,
-        prev_id: Option<RouteMatchId>,
-        prev_params: Option<ArcRwSignal<ParamsMap>>
-    ) -> (
-        Owner,
-        Option<RouteMatchId>,
-        ArcRwSignal<ParamsMap>,
-        impl Future<Output = Either<Fal, <Defs::Match as MatchInterface<R>>::View>>,
-    ) {
-        let FlatRoutesView {
-            routes,
-            path,
-            fallback,
-            outer_owner,
-            ..
-        } = self;
-        let new_match = routes.match_route(&path.read());
-        let new_id = new_match.as_ref().map(|n| n.as_id());
-
-        // update params or replace with new params signal
-        // switching out the signal for a newly-created signal here means that navigating from,
-        // for example, /foo/42 to /bar does not cause /foo/:id to respond to a change in `id`,
-        // because the new set of params is set on a new signal
-        let new_params = new_match
-            .as_ref()
-            .map(|matched| matched
-                 .to_params()
-                 .into_iter()
-                 .collect::<ParamsMap>()).unwrap_or_default();
-        let new_params_signal = match prev_params {
-            Some(prev_params) if prev_id == new_id => {
-                prev_params.set(new_params);
-                prev_params.clone()
-            }
-            _ => {
-                let new_params_signal = ArcRwSignal::new(new_params);
-                provide_context(ArcRwSignal::new(new_params_signal.clone()));
-                                new_params_signal
-            }
-        };
-
-        let owner = match prev_owner {
-            Some(prev_owner) if prev_id == new_id => {
-                prev_owner.clone()
-            },
-            _ => outer_owner.child()
-        };
-
-        let (id, fut) = owner.with(|| {
-            let id = new_match.as_ref().map(|n| n.as_id());
-            (
-                id,
-                ScopedFuture::new(match new_match {
-                    None => EitherFuture::Left {
-                        inner: async move { fallback },
-                    },
-                    Some(matched) => {
-                        let (view, child) = matched.into_view_and_child();
-
-                        #[cfg(debug_assertions)]
-                        if child.is_some() {
-                            panic!(
-                                "<FlatRoutes> should not be used with nested \
-                                 routes."
-                            );
-                        }
-
-                        EitherFuture::Right {
-                            inner: ScopedFuture::new({ let new_params_signal = new_params_signal.clone(); async move {
-                                provide_context(new_params_signal.clone());
-                                view.choose().await
-                            }}),
-                        }
-                    }
-                }),
-            )
-        });
-        (owner, id, new_params_signal, fut)
-    }
-}
-*/
-
 pub struct FlatRoutesViewState<Defs, Fal, R>
 where
     Defs: MatchNestedRoutes<R> + 'static,
@@ -141,7 +50,8 @@ where
     owner: Owner,
     params: ArcRwSignal<ParamsMap>,
     path: String,
-    url: ArcRwSignal<Url>
+    url: ArcRwSignal<Url>,
+        matched: ArcRwSignal<String>
 }
 
 impl<Defs, Fal, R> Mountable<R> for FlatRoutesViewState<Defs, Fal, R>
@@ -190,6 +100,12 @@ where
         // we always need to match the new route
         let new_match = routes.match_route(current_url.path());
         let id = new_match.as_ref().map(|n| n.as_id());
+        let matched = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.as_matched().to_owned())
+                .unwrap_or_default(),
+        );
 
         // create default starting points for owner, url, path, and params
         // these will be held in state so that future navigations can update or replace them
@@ -212,9 +128,10 @@ where
                 params,
                 path,
                 url,
+                matched,
             })),
-            Some(matched) => {
-                let (view, child) = matched.into_view_and_child();
+            Some(new_match) => {
+                let (view, child) = new_match.into_view_and_child();
 
                 #[cfg(debug_assertions)]
                 if child.is_some() {
@@ -226,9 +143,11 @@ where
                 let mut view = Box::pin(owner.with(|| {
                     ScopedFuture::new({
                         let url = url.clone();
+                        let matched = matched.clone();
                         async move {
                             provide_context(params_memo);
                             provide_context(url);
+                            provide_context(Matched(ArcMemo::from(matched)));
                             view.choose().await
                         }
                     })
@@ -242,6 +161,7 @@ where
                         params,
                         path,
                         url,
+                        matched,
                     })),
                     None => {
                         let state =
@@ -252,6 +172,7 @@ where
                                 params,
                                 path,
                                 url,
+                                matched,
                             }));
 
                         Executor::spawn_local({
@@ -299,6 +220,10 @@ where
         // otherwise, match the new route
         let new_match = routes.match_route(url_snapshot.path());
         let new_id = new_match.as_ref().map(|n| n.as_id());
+        let matched_string = new_match
+            .as_ref()
+            .map(|n| n.as_matched().to_owned())
+            .unwrap_or_default();
         let matched_params = new_match
             .as_ref()
             .map(|n| n.to_params().into_iter().collect())
@@ -307,6 +232,7 @@ where
         // if it's the same route, we just update the params
         if new_id == initial_state.id {
             initial_state.params.set(matched_params);
+            initial_state.matched.set(matched_string);
             if let Some(location) = location {
                 location.ready_to_complete();
             }
@@ -327,6 +253,9 @@ where
         let old_url = mem::replace(&mut initial_state.url, url.clone());
         let old_params =
             mem::replace(&mut initial_state.params, params.clone());
+        let new_matched = ArcRwSignal::new(matched_string);
+        let old_matched =
+            mem::replace(&mut initial_state.matched, new_matched.clone());
 
         // we drop the route state here, in case there is a <Redirect/> or similar that occurs
         // while rendering either the fallback or the new route
@@ -338,12 +267,13 @@ where
                 owner.with(|| {
                     provide_context(url);
                     provide_context(params_memo);
+                    provide_context(Matched(ArcMemo::from(new_matched)));
                     EitherOf3::B(fallback())
                         .rebuild(&mut state.borrow_mut().view)
                 });
             }
-            Some(matched) => {
-                let (view, child) = matched.into_view_and_child();
+            Some(new_match) => {
+                let (view, child) = new_match.into_view_and_child();
 
                 #[cfg(debug_assertions)]
                 if child.is_some() {
@@ -360,6 +290,9 @@ where
                         async move {
                             provide_context(url);
                             provide_context(params_memo);
+                            provide_context(Matched(ArcMemo::from(
+                                new_matched,
+                            )));
                             let view =
                                 if let Some(set_is_routing) = set_is_routing {
                                     set_is_routing.set(true);
@@ -387,6 +320,7 @@ where
                             drop(old_owner);
                             drop(old_params);
                             drop(old_url);
+                            drop(old_matched);
                         }
                     })
                 }));
@@ -440,16 +374,23 @@ where
                 .map(|n| n.to_params().into_iter().collect::<ParamsMap>())
                 .unwrap_or_default(),
         );
+        let matched = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.as_matched().to_owned())
+                .unwrap_or_default(),
+        );
         let params_memo = ArcMemo::from(params.clone());
         let view = match new_match {
             None => Either::Left((self.fallback)()),
-            Some(matched) => {
-                let (view, _) = matched.into_view_and_child();
+            Some(new_match) => {
+                let (view, _) = new_match.into_view_and_child();
                 let view = owner
                     .with(|| {
                         ScopedFuture::new(async move {
                             provide_context(url);
                             provide_context(params_memo);
+                            provide_context(Matched(ArcMemo::from(matched)));
                             view.choose().await
                         })
                     })
@@ -582,6 +523,12 @@ where
         // we always need to match the new route
         let new_match = routes.match_route(current_url.path());
         let id = new_match.as_ref().map(|n| n.as_id());
+        let matched = ArcRwSignal::new(
+            new_match
+                .as_ref()
+                .map(|n| n.as_matched().to_owned())
+                .unwrap_or_default(),
+        );
 
         // create default starting points for owner, url, path, and params
         // these will be held in state so that future navigations can update or replace them
@@ -605,9 +552,10 @@ where
                 params,
                 path,
                 url,
+                matched,
             })),
-            Some(matched) => {
-                let (view, child) = matched.into_view_and_child();
+            Some(new_match) => {
+                let (view, child) = new_match.into_view_and_child();
 
                 #[cfg(debug_assertions)]
                 if child.is_some() {
@@ -619,9 +567,11 @@ where
                 let mut view = Box::pin(owner.with(|| {
                     ScopedFuture::new({
                         let url = url.clone();
+                        let matched = matched.clone();
                         async move {
                             provide_context(params_memo);
                             provide_context(url);
+                            provide_context(Matched(ArcMemo::from(matched)));
                             view.choose().await
                         }
                     })
@@ -636,6 +586,7 @@ where
                         params,
                         path,
                         url,
+                        matched,
                     })),
                     None => {
                         // see comment at the top of this function
