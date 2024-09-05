@@ -402,6 +402,9 @@ where
                     // reset the owner so that things like providing context work
                     // otherwise, this will be a child owner nested within the Transition, not
                     // the parent owner of the Outlet
+                    //
+                    // clippy: not redundant, a FnOnce vs FnMut issue
+                    #[allow(clippy::redundant_closure)]
                     Some(true) => Either::Left(owner.with(|| view())),
                     #[allow(clippy::unit_arg)]
                     Some(false) => Either::Right(
