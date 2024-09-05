@@ -37,98 +37,6 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn, R> {
     pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
-/*
-impl<Loc, Defs, Fal, R> FlatRoutesView<Loc, Defs, Fal, R>
-where
-    Loc: LocationProvider,
-    Defs: MatchNestedRoutes<R>,
-    Fal: Render<R>,
-    R: Renderer + 'static,
-{
-    pub fn choose(
-        self,
-        prev_owner: Option<&Owner>,
-        prev_id: Option<RouteMatchId>,
-        prev_params: Option<ArcRwSignal<ParamsMap>>
-    ) -> (
-        Owner,
-        Option<RouteMatchId>,
-        ArcRwSignal<ParamsMap>,
-        impl Future<Output = Either<Fal, <Defs::Match as MatchInterface<R>>::View>>,
-    ) {
-        let FlatRoutesView {
-            routes,
-            path,
-            fallback,
-            outer_owner,
-            ..
-        } = self;
-        let new_match = routes.match_route(&path.read());
-        let new_id = new_match.as_ref().map(|n| n.as_id());
-
-        // update params or replace with new params signal
-        // switching out the signal for a newly-created signal here means that navigating from,
-        // for example, /foo/42 to /bar does not cause /foo/:id to respond to a change in `id`,
-        // because the new set of params is set on a new signal
-        let new_params = new_match
-            .as_ref()
-            .map(|matched| matched
-                 .to_params()
-                 .into_iter()
-                 .collect::<ParamsMap>()).unwrap_or_default();
-        let new_params_signal = match prev_params {
-            Some(prev_params) if prev_id == new_id => {
-                prev_params.set(new_params);
-                prev_params.clone()
-            }
-            _ => {
-                let new_params_signal = ArcRwSignal::new(new_params);
-                provide_context(ArcRwSignal::new(new_params_signal.clone()));
-                                new_params_signal
-            }
-        };
-
-        let owner = match prev_owner {
-            Some(prev_owner) if prev_id == new_id => {
-                prev_owner.clone()
-            },
-            _ => outer_owner.child()
-        };
-
-        let (id, fut) = owner.with(|| {
-            let id = new_match.as_ref().map(|n| n.as_id());
-            (
-                id,
-                ScopedFuture::new(match new_match {
-                    None => EitherFuture::Left {
-                        inner: async move { fallback },
-                    },
-                    Some(matched) => {
-                        let (view, child) = matched.into_view_and_child();
-
-                        #[cfg(debug_assertions)]
-                        if child.is_some() {
-                            panic!(
-                                "<FlatRoutes> should not be used with nested \
-                                 routes."
-                            );
-                        }
-
-                        EitherFuture::Right {
-                            inner: ScopedFuture::new({ let new_params_signal = new_params_signal.clone(); async move {
-                                provide_context(new_params_signal.clone());
-                                view.choose().await
-                            }}),
-                        }
-                    }
-                }),
-            )
-        });
-        (owner, id, new_params_signal, fut)
-    }
-}
-*/
-
 pub struct FlatRoutesViewState<Defs, Fal, R>
 where
     Defs: MatchNestedRoutes<R> + 'static,
@@ -214,6 +122,7 @@ where
                 url,
             })),
             Some(matched) => {
+                let matched_str = matched.as_matched();
                 let (view, child) = matched.into_view_and_child();
 
                 #[cfg(debug_assertions)]
