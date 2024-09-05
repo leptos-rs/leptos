@@ -592,8 +592,8 @@ pub(crate) fn attribute_absolute(
                 match id {
                     NodeNameFragment::Ident(id) => {
                         let value = attribute_value(node);
-                        // ignore `let:`
-                        if id == "let" {
+                        // ignore `let:` and `clone:`
+                        if id == "let" || id == "clone" {
                             None
                         } else if id == "attr" {
                             let key = &parts[1];
