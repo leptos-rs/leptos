@@ -2,7 +2,7 @@ use either_of::*;
 use std::{future::Future, marker::PhantomData};
 use tachys::{
     renderer::Renderer,
-    view::{any_view::AnyView, Render},
+    view::any_view::{AnyView, IntoAny},
 };
 
 pub trait ChooseView<R>
@@ -20,13 +20,13 @@ where
 impl<F, View, R> ChooseView<R> for F
 where
     F: Fn() -> View + Send + Clone + 'static,
-    View: Render<R> + Send,
+    View: IntoAny<R>,
     R: Renderer + 'static,
 {
-    type Output = View;
+    type Output = AnyView<R>;
 
     async fn choose(self) -> Self::Output {
-        self()
+        self().into_any()
     }
 
     async fn preload(&self) {}
