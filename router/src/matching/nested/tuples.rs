@@ -24,16 +24,13 @@ impl MatchInterface for () {
         ""
     }
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
+    fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>) {
         ((), None)
     }
 }
 
 impl MatchNestedRoutes for () {
     type Data = ();
-    type View = ();
     type Match = ();
 
     fn match_nested<'a>(
@@ -79,9 +76,7 @@ where
         self.0.as_matched()
     }
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
+    fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>) {
         self.0.into_view_and_child()
     }
 }
@@ -91,7 +86,6 @@ where
     A: MatchNestedRoutes + 'static,
 {
     type Data = A::Data;
-    type View = A::View;
     type Match = A::Match;
 
     fn match_nested<'a>(
@@ -148,9 +142,7 @@ where
         }
     }
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<Output = Self::View>, Option<Self::Child>) {
+    fn into_view_and_child(self) -> (impl ChooseView, Option<Self::Child>) {
         match self {
             Either::Left(i) => {
                 let (view, child) = i.into_view_and_child();
@@ -170,7 +162,6 @@ where
     B: MatchNestedRoutes,
 {
     type Data = (A::Data, B::Data);
-    type View = Either<A::View, B::View>;
     type Match = Either<A::Match, B::Match>;
 
     fn match_nested<'a>(
@@ -253,7 +244,7 @@ macro_rules! tuples {
             fn into_view_and_child(
                 self,
             ) -> (
-                impl ChooseView<Output = Self::View>,
+                impl ChooseView,
                 Option<Self::Child>,
             ) {
                 match self {
@@ -270,7 +261,6 @@ macro_rules! tuples {
 			$($ty: MatchNestedRoutes + 'static),*,
         {
             type Data = ($($ty::Data,)*);
-            type View = $either<$($ty::View,)*>;
             type Match = $either<$($ty::Match,)*>;
 
             fn match_nested<'a>(&'a self, path: &'a str) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
