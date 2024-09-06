@@ -6,9 +6,7 @@ pub trait ChooseView
 where
     Self: Send + Clone + 'static,
 {
-    type Output;
-
-    fn choose(self) -> impl Future<Output = Self::Output>;
+    fn choose(self) -> impl Future<Output = AnyView<R>>;
 
     fn preload(&self) -> impl Future<Output = ()>;
 }
@@ -18,9 +16,7 @@ where
     F: Fn() -> View + Send + Clone + 'static,
     View: IntoAny,
 {
-    type Output = AnyView<R>;
-
-    async fn choose(self) -> Self::Output {
+    async fn choose(self) -> AnyView<R> {
         self().into_any()
     }
 
@@ -31,10 +27,8 @@ impl<T> ChooseView for Lazy<T>
 where
     T: LazyRoute,
 {
-    type Output = AnyView;
-
-    async fn choose(self) -> Self::Output {
-        T::data().view().await
+    async fn choose(self) -> AnyView {
+        T::data().view().await.into_any()
     }
 
     async fn preload(&self) {
@@ -74,9 +68,9 @@ impl<T> Default for Lazy<T> {
 }
 
 impl ChooseView for () {
-    type Output = ();
-
-    async fn choose(self) -> Self::Output {}
+    async fn choose(self) -> AnyView {
+        ().into_any()
+    }
 
     async fn preload(&self) {}
 }
@@ -86,12 +80,10 @@ where
     A: ChooseView,
     B: ChooseView,
 {
-    type Output = Either<A::Output, B::Output>;
-
-    async fn choose(self) -> Self::Output {
+    async fn choose(self) -> AnyView<Rndr> {
         match self {
-            Either::Left(f) => Either::Left(f.choose().await),
-            Either::Right(f) => Either::Right(f.choose().await),
+            Either::Left(f) => f.choose().await.into_any(),
+            Either::Right(f) => f.choose().await.into_any(),
         }
     }
 
@@ -109,11 +101,9 @@ macro_rules! tuples {
         where
             $($ty: ChooseView,)*
         {
-            type Output = $either<$($ty::Output,)*>;
-
-            async fn choose(self ) -> Self::Output {
+            async fn choose(self ) -> AnyView<Rndr> {
                 match self {
-                    $($either::$ty(f) => $either::$ty(f.choose().await),)*
+                    $($either::$ty(f) => f.choose().await.into_any(),)*
                 }
             }
 
