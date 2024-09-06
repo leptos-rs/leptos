@@ -91,8 +91,7 @@ where
             }
         };
 
-        let data =
-            ArcAsyncDerived::new_with_initial_without_spawning(initial, fun);
+        let data = ArcAsyncDerived::new_with_manual_dependencies(initial, fun);
         if is_ready {
             source.with(|_| ());
             source.add_subscriber(data.to_any_subscriber());
