@@ -23,7 +23,7 @@ pub(crate) fn slot_to_tokens(
     let component_name = ident_from_tag_name(node.name());
 
     let Some(parent_slots) = parent_slots else {
-        proc_macro_error::emit_error!(
+        proc_macro_error2::emit_error!(
             node.name().span(),
             "slots cannot be used inside HTML elements"
         );

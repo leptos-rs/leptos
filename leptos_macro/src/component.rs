@@ -6,7 +6,7 @@ use convert_case::{
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
 use std::hash::DefaultHasher;
 use syn::{
@@ -121,7 +121,7 @@ impl ToTokens for Model {
                 _ => None,
             });
         if let Some(semi) = ends_semi {
-            proc_macro_error::emit_error!(
+            proc_macro_error2::emit_error!(
                 semi.span(),
                 "A component that ends with a `view!` macro followed by a \
                  semicolon will return (), an empty view. This is usually an \
