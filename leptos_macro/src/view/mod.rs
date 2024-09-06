@@ -439,7 +439,7 @@ fn fancy_class_name<'a>(
                                 }
 
                                 _ => {
-                                    proc_macro_error::emit_error!(
+                                    proc_macro_error2::emit_error!(
                                         elem.span(),
                                         "class name elements must be string \
                                          literals"
@@ -459,7 +459,7 @@ fn fancy_class_name<'a>(
                     }
 
                     _ => {
-                        proc_macro_error::emit_error!(
+                        proc_macro_error2::emit_error!(
                             class_name.span(),
                             "class name must be a string literal or array of \
                              string literals"
@@ -475,7 +475,7 @@ fn fancy_class_name<'a>(
                     }
                 }
             } else {
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     tuple.span(),
                     "class tuples must have two elements."
                 )
@@ -496,7 +496,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
             let span = tag_name.span();
-            proc_macro_error::emit_error!(
+            proc_macro_error2::emit_error!(
                 span,
                 "blocks not allowed in tag-name position"
             );
@@ -529,7 +529,7 @@ fn fancy_style_name<'a>(
                 {
                     s.value()
                 } else {
-                    proc_macro_error::emit_error!(
+                    proc_macro_error2::emit_error!(
                         style_name.span(),
                         "style name must be a string literal"
                     );
@@ -544,7 +544,7 @@ fn fancy_style_name<'a>(
                     value,
                 ));
             } else {
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     tuple.span(),
                     "style tuples must have two elements."
                 )

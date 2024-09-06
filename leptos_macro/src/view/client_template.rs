@@ -384,7 +384,7 @@ fn child_to_tokens(
     match node {
         Node::Element(node) => {
             if is_component_node(node) {
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     node.name().span(),
                     "component children not allowed in template!, use view! \
                      instead"

@@ -132,7 +132,7 @@ pub(crate) fn node_to_tokens(
         Node::RawText(r) => {
             let text = r.to_string_best();
             if text == "cx," {
-                proc_macro_error::abort!(
+                proc_macro_error2::abort!(
                     r.span(),
                     "`cx,` is not used with the `view!` macro in 0.5."
                 )
@@ -185,7 +185,7 @@ pub(crate) fn element_to_tokens(
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
-                    /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
+                    /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
                         ::leptos::leptos_dom::html::#name()
@@ -282,7 +282,7 @@ pub(crate) fn element_to_tokens(
         };
 
         if is_self_closing(node) && !node.children.is_empty() {
-            proc_macro_error::abort!(
+            proc_macro_error2::abort!(
                 node.name().span(),
                 format!(
                     "<{tag}> is a self-closing tag and cannot have children."
@@ -470,7 +470,7 @@ pub(crate) fn attribute_to_tokens(
             && node.value().and_then(value_to_string).is_none()
         {
             let span = node.key.span();
-            proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
+            proc_macro_error2::emit_error!(span, "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
