@@ -13,7 +13,7 @@ use std::{
 };
 use tachys::{
     renderer::Renderer,
-    view::{Render, RenderHtml},
+    view::any_view::AnyView,
 };
 
 mod tuples;
@@ -152,10 +152,9 @@ where
     Rndr: Renderer + 'static,
     Child: MatchInterface<Rndr> + MatchParams + 'static,
     View: ChooseView<Rndr>,
-    View::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Child = Child;
-    type View = View::Output;
+    type View = AnyView<Rndr>;
 
     fn as_id(&self) -> RouteMatchId {
         self.id
@@ -168,7 +167,7 @@ where
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
+        impl ChooseView<Rndr>,
         Option<Self::Child>,
     ) {
         (self.view_fn, self.child)
@@ -188,10 +187,8 @@ where
    Children: 'static,
    <Children::Match as MatchParams>::Params: Clone,
     View: ChooseView<Rndr> + Clone,
-    View::Output: Render<Rndr> + RenderHtml<Rndr> + Send + 'static,
 {
     type Data = Data;
-    type View = View::Output;
     type Match = NestedMatch<iter::Chain<
         <Segments::ParamsIter as IntoIterator>::IntoIter,
         Either<iter::Empty::<

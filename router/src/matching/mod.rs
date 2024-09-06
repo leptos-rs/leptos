@@ -112,9 +112,7 @@ where
 
     fn as_matched(&self) -> &str;
 
-    fn into_view_and_child(
-        self,
-    ) -> (impl ChooseView<R, Output = Self::View>, Option<Self::Child>);
+    fn into_view_and_child(self) -> (impl ChooseView<R>, Option<Self::Child>);
 }
 
 pub trait MatchParams {
@@ -128,7 +126,6 @@ where
     R: Renderer + 'static,
 {
     type Data;
-    type View;
     type Match: MatchInterface<R> + MatchParams;
 
     fn match_nested<'a>(
