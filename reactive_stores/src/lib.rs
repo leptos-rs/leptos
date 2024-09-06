@@ -4,7 +4,7 @@ use reactive_graph::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Notify},
+    traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -129,8 +129,7 @@ impl<T: 'static> Track for ArcStore<T> {
 
 impl<T: 'static> Notify for ArcStore<T> {
     fn notify(&self) {
-        self.get_trigger(self.path().into_iter().collect())
-            .notify();
+        self.get_trigger(self.path().into_iter().collect()).notify();
     }
 }
 

@@ -13,7 +13,7 @@ use crate::{
     },
     owner::{use_context, Owner},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
-    traits::{DefinedAt, ReadUntracked, Notify, UntrackableGuard, Writeable},
+    traits::{DefinedAt, Notify, ReadUntracked, UntrackableGuard, Writeable},
     transition::AsyncTransition,
 };
 use any_spawner::Executor;

@@ -5,7 +5,7 @@ use crate::{
 use reactive_graph::{
     signal::ArcTrigger,
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Notify, UntrackableGuard,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
     },
 };
 use std::{
