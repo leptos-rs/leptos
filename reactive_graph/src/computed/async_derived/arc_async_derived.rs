@@ -13,7 +13,7 @@ use crate::{
     },
     owner::{use_context, Owner},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
-    traits::{DefinedAt, ReadUntracked, Trigger, UntrackableGuard, Writeable},
+    traits::{DefinedAt, ReadUntracked, Notify, UntrackableGuard, Writeable},
     transition::AsyncTransition,
 };
 use any_spawner::Executor;
@@ -509,8 +509,8 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> Trigger for ArcAsyncDerived<T> {
-    fn trigger(&self) {
+impl<T: 'static> Notify for ArcAsyncDerived<T> {
+    fn notify(&self) {
         Self::notify_subs(&self.wakers, &self.inner, &self.loading, None);
     }
 }

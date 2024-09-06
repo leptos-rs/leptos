@@ -15,7 +15,7 @@ use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, ReadUntracked, Set, Track, Trigger},
+    traits::{Get, GetUntracked, ReadUntracked, Set, Track, Notify},
     wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;

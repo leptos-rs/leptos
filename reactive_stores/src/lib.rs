@@ -4,7 +4,7 @@ use reactive_graph::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
+    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Notify},
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -123,14 +123,14 @@ where
 
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
-        self.get_trigger(Default::default()).trigger();
+        self.get_trigger(Default::default()).notify();
     }
 }
 
-impl<T: 'static> Trigger for ArcStore<T> {
-    fn trigger(&self) {
+impl<T: 'static> Notify for ArcStore<T> {
+    fn notify(&self) {
         self.get_trigger(self.path().into_iter().collect())
-            .trigger();
+            .notify();
     }
 }
 
@@ -235,14 +235,14 @@ where
     }
 }
 
-impl<T, S> Trigger for Store<T, S>
+impl<T, S> Notify for Store<T, S>
 where
     T: 'static,
     S: Storage<ArcStore<T>>,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         if let Some(inner) = self.inner.try_get_value() {
-            inner.trigger();
+            inner.notify();
         }
     }
 }
