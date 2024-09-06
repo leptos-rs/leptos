@@ -44,11 +44,7 @@ impl Default for Trigger {
 impl Clone for Trigger {
     #[track_caller]
     fn clone(&self) -> Self {
-        Self {
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-            inner: self.inner.clone(),
-        }
+        *self
     }
 }
 
