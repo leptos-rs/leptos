@@ -7,7 +7,7 @@ use self::{
 use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use quote::{quote, quote_spanned, ToTokens};
 use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
@@ -286,7 +286,7 @@ pub(crate) fn element_to_tokens(
                 name.push_str(&tuple_name);
             }
             if names.contains(&name) {
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     attr.span(),
                     format!("This element already has a `{name}` attribute.")
                 );
@@ -364,7 +364,7 @@ pub(crate) fn element_to_tokens(
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
-                    /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
+                    /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
                         ::leptos::tachys::html::element::#name()
@@ -423,7 +423,7 @@ pub(crate) fn element_to_tokens(
         } else {
             if !node.children.is_empty() {
                 let name = node.name();
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     name.span(),
                     format!(
                         "Self-closing elements like <{name}> cannot have \
@@ -562,7 +562,7 @@ fn attribute_to_tokens(
                     && node.value().and_then(value_to_string).is_none()
                 {
                     let span = node.key.span();
-                    proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
+                    proc_macro_error2::emit_error!(span, "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
@@ -653,7 +653,7 @@ pub(crate) fn attribute_absolute(
                                 quote! { ::leptos::tachys::html::event::#on(#ty, #handler) },
                             )
                         } else {
-                            proc_macro_error::abort!(
+                            proc_macro_error2::abort!(
                                 id.span(),
                                 &format!(
                                     "`{id}:` syntax is not supported on \
@@ -1154,7 +1154,7 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
             let span = tag_name.span();
-            proc_macro_error::emit_error!(
+            proc_macro_error2::emit_error!(
                 span,
                 "blocks not allowed in tag-name position"
             );
