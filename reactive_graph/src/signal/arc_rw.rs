@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    prelude::{IsDisposed, Trigger},
+    prelude::{IsDisposed, Notify},
     traits::{DefinedAt, ReadUntracked, UntrackableGuard, Writeable},
 };
 use core::fmt::{Debug, Formatter, Result};
@@ -247,8 +247,8 @@ impl<T: 'static> ReadUntracked for ArcRwSignal<T> {
     }
 }
 
-impl<T> Trigger for ArcRwSignal<T> {
-    fn trigger(&self) {
+impl<T> Notify for ArcRwSignal<T> {
+    fn notify(&self) {
         self.mark_dirty();
     }
 }

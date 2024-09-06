@@ -18,7 +18,7 @@ use crate::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, ReadUntracked, Track, Trigger, UntrackableGuard, Writeable,
+        DefinedAt, Notify, ReadUntracked, Track, UntrackableGuard, Writeable,
     },
     transition::AsyncTransition,
 };
@@ -580,8 +580,8 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
     }
 }
 
-impl<T: 'static> Trigger for ArcAsyncDerived<T> {
-    fn trigger(&self) {
+impl<T: 'static> Notify for ArcAsyncDerived<T> {
+    fn notify(&self) {
         Self::notify_subs(&self.wakers, &self.inner, &self.loading, None);
     }
 }

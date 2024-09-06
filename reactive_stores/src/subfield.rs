@@ -8,7 +8,7 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
+        DefinedAt, IsDisposed, ReadUntracked, Track, Notify, UntrackableGuard,
         Writeable,
     },
 };
@@ -130,14 +130,14 @@ where
     }
 }
 
-impl<Inner, Prev, T> Trigger for Subfield<Inner, Prev, T>
+impl<Inner, Prev, T> Notify for Subfield<Inner, Prev, T>
 where
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.trigger();
+        trigger.notify();
     }
 }
 

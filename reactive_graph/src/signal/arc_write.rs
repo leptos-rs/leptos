@@ -1,7 +1,7 @@
 use super::guards::{UntrackedWriteGuard, WriteGuard};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    prelude::{IsDisposed, Trigger},
+    prelude::{IsDisposed, Notify},
     traits::{DefinedAt, UntrackableGuard, Writeable},
 };
 use core::fmt::{Debug, Formatter, Result};
@@ -116,8 +116,8 @@ impl<T> IsDisposed for ArcWriteSignal<T> {
     }
 }
 
-impl<T> Trigger for ArcWriteSignal<T> {
-    fn trigger(&self) {
+impl<T> Notify for ArcWriteSignal<T> {
+    fn notify(&self) {
         self.inner.mark_dirty();
     }
 }
