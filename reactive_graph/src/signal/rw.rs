@@ -8,7 +8,7 @@ use crate::{
     owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, IsDisposed, ReadUntracked, Notify,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
         UntrackableGuard, Writeable,
     },
     unwrap_signal,

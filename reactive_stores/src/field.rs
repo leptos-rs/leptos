@@ -6,7 +6,7 @@ use crate::{
 use reactive_graph::{
     owner::{Storage, StoredValue, SyncStorage},
     signal::ArcTrigger,
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Notify},
+    traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
     unwrap_signal,
 };
 use std::{ops::IndexMut, panic::Location};

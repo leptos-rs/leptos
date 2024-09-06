@@ -8,7 +8,7 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Notify, UntrackableGuard,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
         Writeable,
     },
 };
