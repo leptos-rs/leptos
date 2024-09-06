@@ -6,8 +6,9 @@ use crate::{
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
     RouteList, RouteListing, RouteMatchId,
 };
+use tachys::view::any_view::{AnyView,IntoAny, AnyViewState};
 use any_spawner::Executor;
-use either_of::{Either, EitherOf3};
+use either_of::Either;
 use futures::FutureExt;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
@@ -38,14 +39,12 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn, R> {
     pub set_is_routing: Option<SignalSetter<bool>>,
 }
 
-pub struct FlatRoutesViewState<Defs, Fal, R>
+pub struct FlatRoutesViewState<R>
 where
-    Defs: MatchNestedRoutes<R> + 'static,
-    Fal: Render<R> + 'static,
     R: Renderer + 'static
 {
     #[allow(clippy::type_complexity)]
-    view: <EitherOf3<(), Fal, <Defs::Match as MatchInterface<R>>::View> as Render<R>>::State,
+    view: AnyViewState<R>,
     id: Option<RouteMatchId>,
     owner: Owner,
     params: ArcRwSignal<ParamsMap>,
@@ -54,10 +53,8 @@ where
         matched: ArcRwSignal<String>
 }
 
-impl<Defs, Fal, R> Mountable<R> for FlatRoutesViewState<Defs, Fal, R>
+impl<R> Mountable<R> for FlatRoutesViewState<R>
 where
-    Defs: MatchNestedRoutes<R> + 'static,
-    Fal: Render<R> + 'static,
     R: Renderer + 'static,
 {
     fn unmount(&mut self) {
@@ -82,10 +79,10 @@ where
     Loc: LocationProvider,
     Defs: MatchNestedRoutes<R> + 'static,
     FalFn: FnOnce() -> Fal + Send,
-    Fal: Render<R> + 'static,
+    Fal: IntoAny<R>,
     R: Renderer + 'static,
 {
-    type State = Rc<RefCell<FlatRoutesViewState<Defs, Fal, R>>>;
+    type State = Rc<RefCell<FlatRoutesViewState<R>>>;
 
     fn build(self) -> Self::State {
         let FlatRoutesView {
@@ -125,7 +122,7 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: EitherOf3::B(fallback()).build(),
+                view: fallback().into_any().build(),
                 id,
                 owner,
                 params,
@@ -158,7 +155,7 @@ where
 
                 match view.as_mut().now_or_never() {
                     Some(view) => Rc::new(RefCell::new(FlatRoutesViewState {
-                        view: EitherOf3::C(view).build(),
+                        view: view.into_any().build(),
                         id,
                         owner,
                         params,
@@ -169,7 +166,7 @@ where
                     None => {
                         let state =
                             Rc::new(RefCell::new(FlatRoutesViewState {
-                                view: EitherOf3::A(()).build(),
+                                view: ().into_any().build(),
                                 id,
                                 owner,
                                 params,
@@ -182,7 +179,7 @@ where
                             let state = Rc::clone(&state);
                             async move {
                                 let view = view.await;
-                                EitherOf3::C(view)
+                                view.into_any()
                                     .rebuild(&mut state.borrow_mut().view);
                             }
                         });
@@ -271,7 +268,7 @@ where
                     provide_context(url);
                     provide_context(params_memo);
                     provide_context(Matched(ArcMemo::from(new_matched)));
-                    EitherOf3::B(fallback())
+                    fallback().into_any()
                         .rebuild(&mut state.borrow_mut().view)
                 });
             }
@@ -313,7 +310,7 @@ where
                             if current_url.read_untracked().path()
                                 == spawned_path
                             {
-                                EitherOf3::C(view)
+                                view.into_any()
                                     .rebuild(&mut state.borrow_mut().view);
                             }
 
@@ -365,7 +362,7 @@ where
 {
     fn choose_ssr(
         self,
-    ) -> OwnedView<Either<Fal, <Defs::Match as MatchInterface<R>>::View>, R>
+    ) -> OwnedView<AnyView<R>, R>
     {
         let current_url = self.current_url.read_untracked();
         let new_match = self.routes.match_route(current_url.path());
@@ -389,7 +386,7 @@ where
         drop(current_url);
 
         let view = match new_match {
-            None => Either::Left((self.fallback)()),
+            None => (self.fallback)().into_any(),
             Some(new_match) => {
                 let (view, _) = new_match.into_view_and_child();
                 let view = owner
@@ -403,7 +400,7 @@ where
                     })
                     .now_or_never()
                     .expect("async route used in SSR");
-                Either::Right(view)
+                view.into_any()
             }
         };
 
@@ -555,7 +552,7 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: EitherOf3::B(fallback())
+                view: fallback().into_any()
                     .hydrate::<FROM_SERVER>(cursor, position),
                 id,
                 owner,
@@ -589,7 +586,7 @@ where
 
                 match view.as_mut().now_or_never() {
                     Some(view) => Rc::new(RefCell::new(FlatRoutesViewState {
-                        view: EitherOf3::C(view)
+                        view: view.into_any()
                             .hydrate::<FROM_SERVER>(cursor, position),
                         id,
                         owner,

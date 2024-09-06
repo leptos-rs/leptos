@@ -31,7 +31,7 @@ where
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
+        impl ChooseView<Rndr>,
         Option<Self::Child>,
     ) {
         ((), None)
@@ -43,7 +43,6 @@ where
     Rndr: Renderer + 'static,
 {
     type Data = ();
-    type View = ();
     type Match = ();
 
     fn match_nested<'a>(
@@ -93,7 +92,7 @@ where
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
+        impl ChooseView<Rndr>,
         Option<Self::Child>,
     ) {
         self.0.into_view_and_child()
@@ -106,7 +105,6 @@ where
     Rndr: Renderer + 'static,
 {
     type Data = A::Data;
-    type View = A::View;
     type Match = A::Match;
 
     fn match_nested<'a>(
@@ -167,7 +165,7 @@ where
     fn into_view_and_child(
         self,
     ) -> (
-        impl ChooseView<Rndr, Output = Self::View>,
+        impl ChooseView<Rndr>,
         Option<Self::Child>,
     ) {
         match self {
@@ -190,7 +188,6 @@ where
     Rndr: Renderer + 'static,
 {
     type Data = (A::Data, B::Data);
-    type View = Either<A::View, B::View>;
     type Match = Either<A::Match, B::Match>;
 
     fn match_nested<'a>(
@@ -274,7 +271,7 @@ macro_rules! tuples {
             fn into_view_and_child(
                 self,
             ) -> (
-                impl ChooseView<Rndr, Output = Self::View>,
+                impl ChooseView<Rndr>,
                 Option<Self::Child>,
             ) {
                 match self {
@@ -292,7 +289,6 @@ macro_rules! tuples {
 			$($ty: MatchNestedRoutes<Rndr> + 'static),*,
         {
             type Data = ($($ty::Data,)*);
-            type View = $either<$($ty::View,)*>;
             type Match = $either<$($ty::Match,)*>;
 
             fn match_nested<'a>(&'a self, path: &'a str) -> (Option<(RouteMatchId, Self::Match)>, &'a str) {
