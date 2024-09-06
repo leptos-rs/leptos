@@ -9,6 +9,7 @@ pub mod guards;
 mod read;
 mod rw;
 mod subscriber_traits;
+mod trigger;
 mod write;
 
 use crate::owner::LocalStorage;
@@ -18,6 +19,7 @@ pub use arc_trigger::*;
 pub use arc_write::*;
 pub use read::*;
 pub use rw::*;
+pub use trigger::*;
 pub use write::*;
 
 /// Creates a reference-counted signal.
