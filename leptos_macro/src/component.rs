@@ -128,7 +128,7 @@ impl ToTokens for Model {
                     _ => None,
                 });
             if let Some(semi) = ends_semi {
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     semi.span(),
                     "A component that ends with a `view!` macro followed by a \
                      semicolon will return (), an empty view. This is usually \

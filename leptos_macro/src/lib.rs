@@ -7,7 +7,7 @@
 #![allow(private_macro_use)]
 
 #[macro_use]
-extern crate proc_macro_error;
+extern crate proc_macro_error2;
 
 use component::DummyModel;
 use proc_macro::TokenStream;
@@ -313,7 +313,7 @@ mod slot;
 /// # ;
 /// # }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
@@ -391,7 +391,7 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
 /// syntax as the [view!] macro. In hydration or server-side rendering mode,
 /// behaves exactly as the `view` macro. In client-side rendering mode, uses a `<template>`
 /// node to efficiently render the element. Should only be used with a single root element.
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 pub fn template(tokens: TokenStream) -> TokenStream {
     if cfg!(feature = "csr") {
@@ -583,7 +583,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let is_transparent = if !args.is_empty() {
@@ -699,7 +699,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let Ok(mut dummy) = syn::parse::<DummyModel>(s.clone()) else {
@@ -839,7 +839,7 @@ pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     if !args.is_empty() {
