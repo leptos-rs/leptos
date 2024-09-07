@@ -59,7 +59,7 @@ pub trait ExtendResponse: Sized {
                     // drop the owner, cleaning up the reactive runtime,
                     // once the stream is over
                     .chain(once(async move {
-                        drop(owner);
+                        owner.unset();
                         Default::default()
                     })),
             ));
