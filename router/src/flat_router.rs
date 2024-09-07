@@ -40,7 +40,7 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn> {
     pub transition: bool,
 }
 
-pub struct FlatRoutesViewState<Defs, Fal> {
+pub struct FlatRoutesViewState {
     #[allow(clippy::type_complexity)]
     view: AnyViewState,
     id: Option<RouteMatchId>,
@@ -364,7 +364,7 @@ where
     FalFn: FnOnce() -> Fal + Send,
     Fal: RenderHtml + 'static,
 {
-    fn choose_ssr(self) -> OwnedView<AnyView, R> {
+    fn choose_ssr(self) -> OwnedView<AnyView> {
         let current_url = self.current_url.read_untracked();
         let new_match = self.routes.match_route(current_url.path());
         let owner = self.outer_owner.child();
