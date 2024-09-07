@@ -14,7 +14,6 @@ mod method;
 mod navigate;
 pub mod nested_router;
 pub mod params;
-//mod router;
 mod ssr_mode;
 pub mod static_routes;
 
@@ -24,5 +23,4 @@ pub use leptos_router_macro::path;
 pub use matching::*;
 pub use method::*;
 pub use navigate::*;
-//pub use router::*;
 pub use ssr_mode::*;
