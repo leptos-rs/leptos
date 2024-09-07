@@ -6,7 +6,6 @@ use crate::{
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
     RouteList, RouteListing, RouteMatchId,
 };
-use tachys::view::any_view::{AnyView,IntoAny, AnyViewState};
 use any_spawner::Executor;
 use either_of::Either;
 use futures::FutureExt;
@@ -25,8 +24,9 @@ use tachys::{
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml,
+        add_attr::AddAnyAttr,
+        any_view::{AnyView, AnyViewState, IntoAny},
+        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 
@@ -41,7 +41,7 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn, R> {
 
 pub struct FlatRoutesViewState<R>
 where
-    R: Renderer + 'static
+    R: Renderer + 'static,
 {
     #[allow(clippy::type_complexity)]
     view: AnyViewState<R>,
@@ -50,7 +50,7 @@ where
     params: ArcRwSignal<ParamsMap>,
     path: String,
     url: ArcRwSignal<Url>,
-        matched: ArcRwSignal<String>
+    matched: ArcRwSignal<String>,
 }
 
 impl<R> Mountable<R> for FlatRoutesViewState<R>
@@ -268,8 +268,7 @@ where
                     provide_context(url);
                     provide_context(params_memo);
                     provide_context(Matched(ArcMemo::from(new_matched)));
-                    fallback().into_any()
-                        .rebuild(&mut state.borrow_mut().view)
+                    fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
             }
             Some(new_match) => {
@@ -360,10 +359,7 @@ where
     Fal: RenderHtml<R> + 'static,
     R: Renderer + 'static,
 {
-    fn choose_ssr(
-        self,
-    ) -> OwnedView<AnyView<R>, R>
-    {
+    fn choose_ssr(self) -> OwnedView<AnyView<R>, R> {
         let current_url = self.current_url.read_untracked();
         let new_match = self.routes.match_route(current_url.path());
         let owner = self.outer_owner.child();
@@ -552,7 +548,8 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: fallback().into_any()
+                view: fallback()
+                    .into_any()
                     .hydrate::<FROM_SERVER>(cursor, position),
                 id,
                 owner,
@@ -586,7 +583,8 @@ where
 
                 match view.as_mut().now_or_never() {
                     Some(view) => Rc::new(RefCell::new(FlatRoutesViewState {
-                        view: view.into_any()
+                        view: view
+                            .into_any()
                             .hydrate::<FROM_SERVER>(cursor, position),
                         id,
                         owner,
