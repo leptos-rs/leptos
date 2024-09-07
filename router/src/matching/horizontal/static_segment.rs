@@ -25,6 +25,37 @@ impl AsPath for &'static str {
     }
 }
 
+/// A segment that is expected to be static. Not requiring mapping into params.
+///
+/// Should work exactly as you would expect.
+///
+/// # Examples
+/// ```rust
+/// # (|| -> Option<()> { // Option does not impl Terminate, so no main
+/// use leptos::prelude::*;
+/// use leptos_router::{path, PossibleRouteMatch, StaticSegment};
+///
+/// let path = &"/users";
+///
+/// // Manual definition
+/// let manual = (StaticSegment("users"),);
+/// let matched = manual.test(path)?;
+/// assert_eq!(matched.matched(), "/users");
+///
+/// // Params are empty as we had no `ParamSegement`s or `WildcardSegment`s
+/// // If you did have additional dynamic segments, this would not be empty.
+/// assert_eq!(matched.params().count(), 0);
+///
+/// // Macro definition
+/// let using_macro = path!("/users");
+/// let matched = manual.test(path)?;
+/// assert_eq!(matched.matched(), "/users");
+///
+/// assert_eq!(matched.params().count(), 0);
+///
+/// # Some(())
+/// # })();
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StaticSegment<T: AsPath>(pub T);
 
