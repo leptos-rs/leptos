@@ -11,10 +11,7 @@ use std::{
     marker::PhantomData,
     sync::atomic::{AtomicU16, Ordering},
 };
-use tachys::{
-    renderer::Renderer,
-    view::any_view::AnyView,
-};
+use tachys::{renderer::Renderer, view::any_view::AnyView};
 
 mod tuples;
 
@@ -166,10 +163,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Rndr>, Option<Self::Child>) {
         (self.view_fn, self.child)
     }
 }

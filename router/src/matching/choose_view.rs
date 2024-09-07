@@ -80,7 +80,9 @@ impl<R> ChooseView<R> for ()
 where
     R: Renderer + 'static,
 {
-    async fn choose(self) -> AnyView<R> { ().into_any() }
+    async fn choose(self) -> AnyView<R> {
+        ().into_any()
+    }
 
     async fn preload(&self) {}
 }
@@ -94,7 +96,7 @@ where
     async fn choose(self) -> AnyView<Rndr> {
         match self {
             Either::Left(f) => f.choose().await.into_any(),
-            Either::Right(f) => f.choose().await.into_any()
+            Either::Right(f) => f.choose().await.into_any(),
         }
     }
 

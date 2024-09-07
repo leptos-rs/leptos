@@ -30,10 +30,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Rndr>, Option<Self::Child>) {
         ((), None)
     }
 }
@@ -91,10 +88,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Rndr>, Option<Self::Child>) {
         self.0.into_view_and_child()
     }
 }
@@ -164,10 +158,7 @@ where
 
     fn into_view_and_child(
         self,
-    ) -> (
-        impl ChooseView<Rndr>,
-        Option<Self::Child>,
-    ) {
+    ) -> (impl ChooseView<Rndr>, Option<Self::Child>) {
         match self {
             Either::Left(i) => {
                 let (view, child) = i.into_view_and_child();

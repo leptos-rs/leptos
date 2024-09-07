@@ -353,7 +353,7 @@ impl ResolvedStaticPath {
                             eprintln!("{e}");
                         }
                     }
-                    drop(owner);
+                    owner.unset();
                 }
             }
         });
