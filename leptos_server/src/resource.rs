@@ -91,9 +91,11 @@ where
             }
         };
 
-        let data = ArcAsyncDerived::new_with_manual_dependencies(initial, fun);
+        let data = ArcAsyncDerived::new_with_manual_dependencies(
+            initial, fun, &source,
+        );
         if is_ready {
-            source.with(|_| ());
+            source.with_untracked(|_| ());
             source.add_subscriber(data.to_any_subscriber());
         }
 
