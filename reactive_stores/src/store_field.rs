@@ -4,16 +4,17 @@ use crate::{
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    owner::Storage,
+    owner::{LocalStorage, Storage, SyncStorage},
     signal::{
         guards::{Mapped, MappedMut, Plain, UntrackedWriteGuard, WriteGuard},
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
-        Writeable,
+        DefinedAt, Get, IsDisposed, ReadUntracked, Track, Trigger,
+        UntrackableGuard, Writeable,
     },
     unwrap_signal,
+    wrappers::read::{MaybeSignal, Signal},
 };
 use std::{
     iter,
@@ -266,5 +267,45 @@ where
             writer.untrack();
             writer
         })
+    }
+}
+
+impl<T, S> From<Then<T, S>> for Signal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    S: StoreField + Send + Sync + 'static,
+{
+    fn from(value: Then<T, S>) -> Self {
+        Self::derive(move || value.get())
+    }
+}
+
+impl<T, S> From<Then<T, S>> for Signal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    S: StoreField + 'static,
+{
+    fn from(value: Then<T, S>) -> Self {
+        Self::derive_local(move || value.get())
+    }
+}
+
+impl<T, S> From<Then<T, S>> for MaybeSignal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    S: StoreField + Send + Sync + 'static,
+{
+    fn from(value: Then<T, S>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
+impl<T, S> From<Then<T, S>> for MaybeSignal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    S: StoreField + 'static,
+{
+    fn from(value: Then<T, S>) -> Self {
+        Self::Dynamic(value.into())
     }
 }

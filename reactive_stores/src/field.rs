@@ -4,10 +4,11 @@ use crate::{
     ArcField, AtIndex, StoreField, Subfield,
 };
 use reactive_graph::{
-    owner::{Storage, StoredValue, SyncStorage},
+    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
     signal::ArcTrigger,
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
+    traits::{DefinedAt, Get, IsDisposed, ReadUntracked, Track, Trigger},
     unwrap_signal,
+    wrappers::read::{MaybeSignal, Signal},
 };
 use std::{ops::IndexMut, panic::Location};
 
@@ -153,5 +154,45 @@ where
 impl<T, S> IsDisposed for Field<T, S> {
     fn is_disposed(&self) -> bool {
         self.inner.is_disposed()
+    }
+}
+
+impl<T, S> From<Field<T, S>> for Signal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    S: Storage<ArcField<T>>,
+{
+    fn from(value: Field<T, S>) -> Self {
+        Self::derive(move || value.get())
+    }
+}
+
+impl<T, S> From<Field<T, S>> for Signal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    S: Storage<ArcField<T>>,
+{
+    fn from(value: Field<T, S>) -> Self {
+        Self::derive_local(move || value.get())
+    }
+}
+
+impl<T, S> From<Field<T, S>> for MaybeSignal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    S: Storage<ArcField<T>>,
+{
+    fn from(value: Field<T, S>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
+impl<T, S> From<Field<T, S>> for MaybeSignal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    S: Storage<ArcField<T>>,
+{
+    fn from(value: Field<T, S>) -> Self {
+        Self::Dynamic(value.into())
     }
 }

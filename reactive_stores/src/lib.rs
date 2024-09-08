@@ -4,7 +4,8 @@ use reactive_graph::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
+    traits::{DefinedAt, Get, IsDisposed, ReadUntracked, Track, Trigger},
+    wrappers::read::{MaybeSignal, Signal},
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -136,6 +137,42 @@ impl<T: 'static> Trigger for ArcStore<T> {
     }
 }
 
+impl<T> From<ArcStore<T>> for Signal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self::derive(move || value.get())
+    }
+}
+
+impl<T> From<ArcStore<T>> for Signal<T, LocalStorage>
+where
+    T: Clone + 'static,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self::derive_local(move || value.get())
+    }
+}
+
+impl<T> From<ArcStore<T>> for MaybeSignal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
+impl<T> From<ArcStore<T>> for MaybeSignal<T, LocalStorage>
+where
+    T: Clone + 'static,
+{
+    fn from(value: ArcStore<T>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
 pub struct Store<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
@@ -246,6 +283,46 @@ where
         if let Some(inner) = self.inner.try_get_value() {
             inner.trigger();
         }
+    }
+}
+
+impl<T, S> From<Store<T, S>> for Signal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    S: Storage<ArcStore<T>>,
+{
+    fn from(value: Store<T, S>) -> Self {
+        Self::derive(move || value.get())
+    }
+}
+
+impl<T, S> From<Store<T, S>> for Signal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    S: Storage<ArcStore<T>>,
+{
+    fn from(value: Store<T, S>) -> Self {
+        Self::derive_local(move || value.get())
+    }
+}
+
+impl<T, S> From<Store<T, S>> for MaybeSignal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    S: Storage<ArcStore<T>>,
+{
+    fn from(value: Store<T, S>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
+impl<T, S> From<Store<T, S>> for MaybeSignal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    S: Storage<ArcStore<T>>,
+{
+    fn from(value: Store<T, S>) -> Self {
+        Self::Dynamic(value.into())
     }
 }
 

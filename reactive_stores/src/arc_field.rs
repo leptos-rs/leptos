@@ -3,10 +3,13 @@ use crate::{
     AtIndex, StoreField, Subfield,
 };
 use reactive_graph::{
+    owner::{LocalStorage, SyncStorage},
     signal::ArcTrigger,
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
+        DefinedAt, Get, IsDisposed, ReadUntracked, Track, Trigger,
+        UntrackableGuard,
     },
+    wrappers::read::{MaybeSignal, Signal},
 };
 use std::{
     ops::{Deref, DerefMut, IndexMut},
@@ -210,5 +213,41 @@ impl<T> ReadUntracked for ArcField<T> {
 impl<T> IsDisposed for ArcField<T> {
     fn is_disposed(&self) -> bool {
         false
+    }
+}
+
+impl<T> From<ArcField<T>> for Signal<T, LocalStorage>
+where
+    T: Clone + 'static,
+{
+    fn from(value: ArcField<T>) -> Self {
+        Self::derive_local(move || value.get())
+    }
+}
+
+impl<T> From<ArcField<T>> for Signal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn from(value: ArcField<T>) -> Self {
+        Self::derive(move || value.get())
+    }
+}
+
+impl<T> From<ArcField<T>> for MaybeSignal<T, LocalStorage>
+where
+    T: Clone + 'static,
+{
+    fn from(value: ArcField<T>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
+impl<T> From<ArcField<T>> for MaybeSignal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    fn from(value: ArcField<T>) -> Self {
+        Self::Dynamic(value.into())
     }
 }

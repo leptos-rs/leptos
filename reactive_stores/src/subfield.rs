@@ -3,14 +3,16 @@ use crate::{
     store_field::StoreField,
 };
 use reactive_graph::{
+    owner::{LocalStorage, SyncStorage},
     signal::{
         guards::{Mapped, MappedMut, WriteGuard},
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
-        Writeable,
+        DefinedAt, Get, IsDisposed, ReadUntracked, Track, Trigger,
+        UntrackableGuard, Writeable,
     },
+    wrappers::read::{MaybeSignal, Signal},
 };
 use std::{iter, marker::PhantomData, ops::DerefMut, panic::Location};
 
@@ -193,5 +195,55 @@ where
             writer.untrack();
             writer
         })
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for Signal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Prev: 'static,
+    Subfield<Inner, Prev, T>: Track,
+{
+    fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        Self::derive(move || value.get())
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>> for Signal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    Inner: StoreField<Value = Prev> + 'static,
+    Prev: 'static,
+    Subfield<Inner, Prev, T>: Track,
+{
+    fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        Self::derive_local(move || value.get())
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>>
+    for MaybeSignal<T, SyncStorage>
+where
+    T: Clone + Send + Sync + 'static,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Prev: 'static,
+    Subfield<Inner, Prev, T>: Track,
+{
+    fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        Self::Dynamic(value.into())
+    }
+}
+
+impl<Inner, Prev, T> From<Subfield<Inner, Prev, T>>
+    for MaybeSignal<T, LocalStorage>
+where
+    T: Clone + 'static,
+    Inner: StoreField<Value = Prev> + 'static,
+    Prev: 'static,
+    Subfield<Inner, Prev, T>: Track,
+{
+    fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        Self::Dynamic(value.into())
     }
 }
