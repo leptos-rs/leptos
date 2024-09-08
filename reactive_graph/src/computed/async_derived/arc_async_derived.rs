@@ -1,5 +1,6 @@
 use super::{
-    inner::ArcAsyncDerivedInner, AsyncDerivedReadyFuture, ScopedFuture,
+    inner::{ArcAsyncDerivedInner, AsyncDerivedState},
+    AsyncDerivedReadyFuture, ScopedFuture,
 };
 #[cfg(feature = "sandboxed-arenas")]
 use crate::owner::Sandboxed;
@@ -12,8 +13,13 @@ use crate::{
         SubscriberSet, ToAnySource, ToAnySubscriber, WithObserver,
     },
     owner::{use_context, Owner},
-    signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
-    traits::{DefinedAt, Notify, ReadUntracked, UntrackableGuard, Writeable},
+    signal::{
+        guards::{AsyncPlain, ReadGuard, WriteGuard},
+        ArcTrigger,
+    },
+    traits::{
+        DefinedAt, Notify, ReadUntracked, Track, UntrackableGuard, Writeable,
+    },
     transition::AsyncTransition,
 };
 use any_spawner::Executor;
@@ -214,7 +220,7 @@ impl<T> DefinedAt for ArcAsyncDerived<T> {
 // whether `fun` returns a `Future` that is `Send`. Doing it as a function would,
 // as far as I can tell, require repeating most of the function body.
 macro_rules! spawn_derived {
-    ($spawner:expr, $initial:ident, $fun:ident, $should_spawn:literal, $force_spawn:literal) => {{
+    ($spawner:expr, $initial:ident, $fun:ident, $should_spawn:literal, $force_spawn:literal, $should_track:literal, $source:expr) => {{
         let (notifier, mut rx) = channel();
 
         let is_ready = $initial.is_some() && !$force_spawn;
@@ -225,7 +231,8 @@ macro_rules! spawn_derived {
             notifier,
             sources: SourceSet::new(),
             subscribers: SubscriberSet::new(),
-            dirty: false
+            state: AsyncDerivedState::Clean,
+            version: 0
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -239,10 +246,17 @@ macro_rules! spawn_derived {
             loading: Arc::new(AtomicBool::new(!is_ready)),
         };
         let any_subscriber = this.to_any_subscriber();
-        let initial_fut = owner.with_cleanup(|| {
-            any_subscriber
-                .with_observer(|| ScopedFuture::new($fun()))
-        });
+        let initial_fut = if $should_track {
+            owner.with_cleanup(|| {
+                any_subscriber
+                    .with_observer(|| ScopedFuture::new($fun()))
+            })
+        } else {
+            owner.with_cleanup(|| {
+                any_subscriber
+                    .with_observer_untracked(|| ScopedFuture::new($fun()))
+            })
+        };
         #[cfg(feature = "sandboxed-arenas")]
         let initial_fut = Sandboxed::new(initial_fut);
         let mut initial_fut = Box::pin(initial_fut);
@@ -259,7 +273,7 @@ macro_rules! spawn_derived {
                     Some(orig_value) => {
                         let mut guard = this.inner.write().or_poisoned();
 
-                        guard.dirty = false;
+                        guard.state = AsyncDerivedState::Clean;
                         *value.blocking_write() = Some(orig_value);
                         this.loading.store(false, Ordering::Relaxed);
                         (true, None)
@@ -279,6 +293,10 @@ macro_rules! spawn_derived {
             any_subscriber.mark_dirty();
         }
 
+        if let Some(source) = $source {
+            any_subscriber.with_observer(|| source.track());
+        }
+
         if $should_spawn {
             $spawner({
                 let value = Arc::downgrade(&this.value);
@@ -287,16 +305,30 @@ macro_rules! spawn_derived {
                 let loading = Arc::downgrade(&this.loading);
                 let fut = async move {
                     while rx.next().await.is_some() {
-                        if any_subscriber.with_observer(|| any_subscriber.update_if_necessary()) || first_run.is_some() {
+                        let update_if_necessary = if $should_track {
+                            any_subscriber
+                                .with_observer(|| any_subscriber.update_if_necessary())
+                        } else {
+                            any_subscriber
+                                .with_observer_untracked(|| any_subscriber.update_if_necessary())
+                        };
+                        if update_if_necessary || first_run.is_some() {
                             match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
                                 (Some(value), Some(inner), Some(wakers), Some(loading)) => {
                                     // generate new Future
                                     let owner = inner.read().or_poisoned().owner.clone();
                                     let fut = initial_fut.take().unwrap_or_else(|| {
-                                        let fut = owner.with_cleanup(|| {
-                                            any_subscriber
-                                                .with_observer(|| ScopedFuture::new($fun()))
-                                        });
+                                        let fut = if $should_track {
+                                            owner.with_cleanup(|| {
+                                                any_subscriber
+                                                    .with_observer(|| ScopedFuture::new($fun()))
+                                            })
+                                        } else {
+                                            owner.with_cleanup(|| {
+                                                any_subscriber
+                                                    .with_observer_untracked(|| ScopedFuture::new($fun()))
+                                            })
+                                        };
                                         #[cfg(feature = "sandboxed-arenas")]
                                         let fut = Sandboxed::new(fut);
                                         Box::pin(fut)
@@ -311,8 +343,20 @@ macro_rules! spawn_derived {
 
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
+
+                                    let this_version = {
+                                        let mut guard = inner.write().or_poisoned();
+                                        guard.version += 1;
+                                        guard.version
+                                    };
+
                                     let new_value = fut.await;
-                                    Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
+
+                                    let latest_version = inner.read().or_poisoned().version;
+
+                                    if latest_version == this_version {
+                                        Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
+                                    }
                                 }
                                 _ => break,
                             }
@@ -352,7 +396,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
     ) {
         loading.store(false, Ordering::Relaxed);
 
-        inner.write().or_poisoned().dirty = true;
+        inner.write().or_poisoned().state = AsyncDerivedState::Notifying;
 
         if let Some(ready_tx) = ready_tx {
             // if it's an Err, that just means the Receiver was dropped
@@ -371,6 +415,8 @@ impl<T: 'static> ArcAsyncDerived<T> {
         for waker in mem::take(&mut *wakers.write().or_poisoned()) {
             waker.wake();
         }
+
+        inner.write().or_poisoned().state = AsyncDerivedState::Clean;
     }
 }
 
@@ -399,8 +445,15 @@ impl<T: 'static> ArcAsyncDerived<T> {
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
     {
-        let (this, _) =
-            spawn_derived!(Executor::spawn, initial_value, fun, true, true);
+        let (this, _) = spawn_derived!(
+            Executor::spawn,
+            initial_value,
+            fun,
+            true,
+            true,
+            true,
+            None::<ArcTrigger>
+        );
         this
     }
 
@@ -411,16 +464,25 @@ impl<T: 'static> ArcAsyncDerived<T> {
     /// where you do not want to run the run the `Future` unnecessarily.
     #[doc(hidden)]
     #[track_caller]
-    pub fn new_with_initial_without_spawning<Fut>(
+    pub fn new_with_manual_dependencies<Fut, S>(
         initial_value: Option<T>,
         fun: impl Fn() -> Fut + Send + Sync + 'static,
+        source: &S,
     ) -> Self
     where
         T: Send + Sync + 'static,
         Fut: Future<Output = T> + Send + 'static,
+        S: Track,
     {
-        let (this, _) =
-            spawn_derived!(Executor::spawn, initial_value, fun, true, false);
+        let (this, _) = spawn_derived!(
+            Executor::spawn,
+            initial_value,
+            fun,
+            true,
+            false,
+            false,
+            Some(source)
+        );
         this
     }
 
@@ -454,7 +516,9 @@ impl<T: 'static> ArcAsyncDerived<T> {
             initial_value,
             fun,
             true,
-            true
+            true,
+            true,
+            None::<ArcTrigger>
         );
         this
     }
@@ -485,8 +549,15 @@ impl<T: 'static> ArcAsyncDerived<SendWrapper<T>> {
                 SendWrapper::new(value)
             }
         };
-        let (this, _) =
-            spawn_derived!(Executor::spawn_local, initial, fun, false, false);
+        let (this, _) = spawn_derived!(
+            Executor::spawn_local,
+            initial,
+            fun,
+            false,
+            false,
+            true,
+            None::<ArcTrigger>
+        );
         this
     }
 }

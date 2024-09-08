@@ -55,6 +55,12 @@ pub struct Owner {
     pub(crate) shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
 }
 
+impl PartialEq for Owner {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
 thread_local! {
     static OWNER: RefCell<Option<Owner>> = Default::default();
 }
@@ -239,6 +245,15 @@ impl Owner {
         &self,
     ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
         self.shared_context.clone()
+    }
+
+    /// Removes this from its state as the thread-local owner and drops it.
+    pub fn unset(self) {
+        OWNER.with_borrow_mut(|owner| {
+            if owner.as_ref() == Some(&self) {
+                mem::take(owner);
+            }
+        })
     }
 
     /// Returns the current [`SharedContext`], if any.

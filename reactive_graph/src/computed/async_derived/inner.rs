@@ -18,18 +18,31 @@ pub(crate) struct ArcAsyncDerivedInner {
     pub subscribers: SubscriberSet,
     // when a source changes, notifying this will cause the async work to rerun
     pub notifier: Sender,
-    pub dirty: bool,
+    pub state: AsyncDerivedState,
+    pub version: usize,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum AsyncDerivedState {
+    Clean,
+    Dirty,
+    Notifying,
 }
 
 impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     fn mark_dirty(&self) {
         let mut lock = self.write().or_poisoned();
-        lock.dirty = true;
-        lock.notifier.notify();
+        if lock.state != AsyncDerivedState::Notifying {
+            lock.state = AsyncDerivedState::Dirty;
+            lock.notifier.notify();
+        }
     }
 
     fn mark_check(&self) {
-        self.write().or_poisoned().notifier.notify();
+        let mut lock = self.write().or_poisoned();
+        if lock.state != AsyncDerivedState::Notifying {
+            lock.notifier.notify();
+        }
     }
 
     fn mark_subscribers_check(&self) {
@@ -41,11 +54,14 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
 
     fn update_if_necessary(&self) -> bool {
         let mut guard = self.write().or_poisoned();
-        let (is_dirty, sources) =
-            (guard.dirty, (!guard.dirty).then(|| guard.sources.clone()));
+        let (is_dirty, sources) = (
+            guard.state == AsyncDerivedState::Dirty,
+            (guard.state != AsyncDerivedState::Notifying)
+                .then(|| guard.sources.clone()),
+        );
 
         if is_dirty {
-            guard.dirty = false;
+            guard.state = AsyncDerivedState::Clean;
             return true;
         }
         drop(guard);

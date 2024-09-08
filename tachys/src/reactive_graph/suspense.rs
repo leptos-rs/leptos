@@ -10,7 +10,6 @@ use crate::{
 };
 use any_spawner::Executor;
 use futures::{select, FutureExt};
-use pin_project_lite::pin_project;
 use reactive_graph::{
     computed::{
         suspense::{LocalResourceNotifier, SuspenseContext},
@@ -27,20 +26,17 @@ use std::{
     task::{Context, Poll},
 };
 
-pin_project! {
-    /// A suspended `Future`, which can be used in the view.
-    #[derive(Clone)]
-    pub struct Suspend<Fut> {
-        #[pin]
-        inner: ScopedFuture<Fut>
-    }
+/// A suspended `Future`, which can be used in the view.
+#[derive(Clone)]
+pub struct Suspend<Fut> {
+    inner: Pin<Box<ScopedFuture<Fut>>>,
 }
 
 impl<Fut> Suspend<Fut> {
     /// Creates a new suspended view.
     pub fn new(fut: Fut) -> Self {
         Self {
-            inner: ScopedFuture::new(fut),
+            inner: Box::pin(ScopedFuture::new(fut)),
         }
     }
 }
@@ -51,21 +47,19 @@ where
 {
     type Output = Fut::Output;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        this.inner.poll(cx)
+    fn poll(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Self::Output> {
+        self.inner.as_mut().poll(cx)
     }
 }
 
 impl<Fut> From<ScopedFuture<Fut>> for Suspend<Fut> {
     fn from(inner: ScopedFuture<Fut>) -> Self {
-        Self { inner }
-    }
-}
-
-impl<Fut> From<Suspend<Fut>> for ScopedFuture<Fut> {
-    fn from(value: Suspend<Fut>) -> Self {
-        value.inner
+        Self {
+            inner: Box::pin(inner),
+        }
     }
 }
 
@@ -187,21 +181,10 @@ where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
         let attr = attr.into_cloneable_owned();
-        let ScopedFuture {
-            owner,
-            observer,
-            fut,
-        } = self.into();
-        Suspend::from(ScopedFuture {
-            owner,
-            observer,
-            fut: Box::pin(async move {
-                let this = fut.await;
-                this.add_any_attr(attr)
-            }) as Pin<Box<dyn Future<
-Output = <<Fut as Future>::Output as AddAnyAttr<Rndr>>::Output<<NewAttr as Attribute<Rndr>>::CloneableOwned>> + Send + 'static
-            >>
-        })
+        Suspend::new(Box::pin(async move {
+            let this = self.inner.await;
+            this.add_any_attr(attr)
+        }))
     }
 }
 
@@ -338,5 +321,7 @@ where
         Some(self.await)
     }
 
-    fn dry_resolve(&mut self) {}
+    fn dry_resolve(&mut self) {
+        self.inner.as_mut().now_or_never();
+    }
 }
