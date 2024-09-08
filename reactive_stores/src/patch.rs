@@ -1,6 +1,6 @@
 use crate::{path::StorePath, StoreField};
 use itertools::{EitherOrBoth, Itertools};
-use reactive_graph::traits::{Trigger, UntrackableGuard};
+use reactive_graph::traits::{Notify, UntrackableGuard};
 use std::{
     borrow::Cow,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -33,7 +33,7 @@ where
             writer.untrack();
             let mut notify = |path: &StorePath| {
                 println!("notifying on {path:?}");
-                self.get_trigger(path.to_owned()).trigger();
+                self.get_trigger(path.to_owned()).notify();
             };
             writer.patch_field(new, &path, &mut notify);
         }

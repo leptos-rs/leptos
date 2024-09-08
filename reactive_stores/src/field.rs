@@ -6,7 +6,7 @@ use crate::{
 use reactive_graph::{
     owner::{Storage, StoredValue, SyncStorage},
     signal::ArcTrigger,
-    traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
+    traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
     unwrap_signal,
 };
 use std::{ops::IndexMut, panic::Location};
@@ -108,13 +108,13 @@ impl<T, S> DefinedAt for Field<T, S> {
     }
 }
 
-impl<T, S> Trigger for Field<T, S>
+impl<T, S> Notify for Field<T, S>
 where
     S: Storage<ArcField<T>>,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         if let Some(inner) = self.inner.try_get_value() {
-            inner.trigger();
+            inner.notify();
         }
     }
 }

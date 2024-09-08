@@ -2,7 +2,7 @@ use super::{guards::WriteGuard, ArcWriteSignal};
 use crate::{
     owner::{Storage, StoredValue, SyncStorage},
     traits::{
-        DefinedAt, Dispose, IsDisposed, Trigger, UntrackableGuard, Writeable,
+        DefinedAt, Dispose, IsDisposed, Notify, UntrackableGuard, Writeable,
     },
 };
 use core::fmt::Debug;
@@ -116,14 +116,14 @@ impl<T, S> IsDisposed for WriteSignal<T, S> {
     }
 }
 
-impl<T, S> Trigger for WriteSignal<T, S>
+impl<T, S> Notify for WriteSignal<T, S>
 where
     T: 'static,
     S: Storage<ArcWriteSignal<T>>,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         if let Some(inner) = self.inner.try_get_value() {
-            inner.trigger();
+            inner.notify();
         }
     }
 }
