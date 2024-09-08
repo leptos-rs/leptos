@@ -19,6 +19,7 @@ pub(crate) struct ArcAsyncDerivedInner {
     // when a source changes, notifying this will cause the async work to rerun
     pub notifier: Sender,
     pub state: AsyncDerivedState,
+    pub version: usize
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,7 +27,6 @@ pub(crate) enum AsyncDerivedState {
     Clean,
     Dirty,
     Notifying,
-    pub version: usize
 }
 
 impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
