@@ -19,7 +19,7 @@ pub(crate) struct ArcAsyncDerivedInner {
     // when a source changes, notifying this will cause the async work to rerun
     pub notifier: Sender,
     pub state: AsyncDerivedState,
-    pub version: usize
+    pub version: usize,
 }
 
 #[derive(Debug, PartialEq, Eq)]
