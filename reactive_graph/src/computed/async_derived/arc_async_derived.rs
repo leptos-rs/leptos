@@ -231,7 +231,8 @@ macro_rules! spawn_derived {
             notifier,
             sources: SourceSet::new(),
             subscribers: SubscriberSet::new(),
-            state: AsyncDerivedState::Clean
+            state: AsyncDerivedState::Clean,
+            version: 0
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -342,8 +343,20 @@ macro_rules! spawn_derived {
 
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
+
+                                    let this_version = {
+                                        let mut guard = inner.write().or_poisoned();
+                                        guard.version += 1;
+                                        guard.version
+                                    };
+
                                     let new_value = fut.await;
-                                    Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
+
+                                    let latest_version = inner.read().or_poisoned().version;
+
+                                    if latest_version == this_version {
+                                        Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
+                                    }
                                 }
                                 _ => break,
                             }

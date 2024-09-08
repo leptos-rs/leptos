@@ -26,6 +26,7 @@ pub(crate) enum AsyncDerivedState {
     Clean,
     Dirty,
     Notifying,
+    pub version: usize
 }
 
 impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
