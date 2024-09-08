@@ -54,7 +54,7 @@ impl AsPath for &'static str {
 /// assert_eq!(matched.params().count(), 0);
 ///
 /// # Some(())
-/// # })();
+/// # })().unwrap();
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StaticSegment<T: AsPath>(pub T);

@@ -27,7 +27,7 @@ use std::borrow::Cow;
 /// assert_eq!(value, "hello");
 ///
 /// # Some(())
-/// # })();
+/// # })().unwrap();
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParamSegment(pub &'static str);
@@ -116,7 +116,7 @@ impl PossibleRouteMatch for ParamSegment {
 /// );
 ///
 /// # Some(())
-/// # })();
+/// # })().unwrap();
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WildcardSegment(pub &'static str);
