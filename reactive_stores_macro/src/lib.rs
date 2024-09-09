@@ -80,6 +80,7 @@ impl Parse for Model {
 #[derive(Clone)]
 enum SubfieldMode {
     Keyed(Ident, Type),
+    Skip,
 }
 
 impl Parse for SubfieldMode {
@@ -91,8 +92,10 @@ impl Parse for SubfieldMode {
             let _col: Token!(:) = input.parse()?;
             let ty: Type = input.parse()?;
             Ok(SubfieldMode::Keyed(ident, ty))
+        } else if mode == "skip" {
+            Ok(SubfieldMode::Skip)
         } else {
-            Err(input.error("expected `key = <ident>: <Type>`"))
+            Err(input.error("expected `key = <ident>: <Type>` or `skip`"))
         }
     }
 }
@@ -283,21 +286,25 @@ fn field_to_tokens(
     if let Some(modes) = modes {
         if modes.len() == 1 {
             let mode = &modes[0];
-            // Can replace with a match if additional modes added
-            // TODO keyed_by
-            let SubfieldMode::Keyed(_keyed_by, key_ty) = mode;
-            let signature = quote! {
-                fn #ident(self) ->  #library_path::KeyedField<#any_store_field, #name #generics, #ty, #key_ty>
-            };
-            return if include_body {
-                quote! {
-                    #signature {
-                        todo!()
-                    }
+
+            match mode {
+                // TODO keyed_by
+                SubfieldMode::Keyed(_keyed_by, key_ty) => {
+                    let signature = quote! {
+                        fn #ident(self) ->  #library_path::KeyedField<#any_store_field, #name #generics, #ty, #key_ty>
+                    };
+                    return if include_body {
+                        quote! {
+                            #signature {
+                                todo!()
+                            }
+                        }
+                    } else {
+                        quote! { #signature; }
+                    };
                 }
-            } else {
-                quote! { #signature; }
-            };
+                SubfieldMode::Skip => return quote! {},
+            }
         } else {
             abort!(
                 orig_ident
