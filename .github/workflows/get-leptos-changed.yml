@@ -43,11 +43,14 @@ jobs:
             oco/**
             or_poisoned/**
             reactive_graph/**
+            reactive_stores/**
+            reactive_stores_macro/**
             router/**
             router_macro/**
             server_fn/**
             server_fn/server_fn_macro_default/**
             server_fn_macro/**
+            tachys/**
 
       - name: List source files that changed
         run: echo '${{ steps.changed-source.outputs.all_changed_files }}'
