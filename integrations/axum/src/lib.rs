@@ -33,14 +33,13 @@
 //! directory in the Leptos repository.
 
 #[cfg(feature = "default")]
-use axum::http::Uri;
 use axum::{
     body::{Body, Bytes},
     extract::{FromRef, FromRequestParts, MatchedPath, State},
     http::{
         header::{self, HeaderName, HeaderValue, ACCEPT, LOCATION, REFERER},
         request::Parts,
-        HeaderMap, Method, Request, Response, StatusCode,
+        HeaderMap, Method, Request, Response, StatusCode, Uri,
     },
     response::IntoResponse,
     routing::{delete, get, patch, post, put},
@@ -1343,7 +1342,7 @@ where
             // stub out a path for now
             provide_context(RequestUrl::new(""));
             let (mock_parts, _) =
-                http::Request::new(Body::from("")).into_parts();
+                Request::new(Body::from("")).into_parts();
             let (mock_meta, _) = ServerMetaContext::new();
             provide_contexts("", &mock_meta, mock_parts, Default::default());
             additional_context();
@@ -1402,8 +1401,8 @@ impl StaticRouteGenerator {
             let add_context = additional_context.clone();
             move || {
                 let full_path = format!("http://leptos.dev{path}");
-                let mock_req = http::Request::builder()
-                    .method(http::Method::GET)
+                let mock_req = Request::builder()
+                    .method(Method::GET)
                     .header("Accept", "text/html")
                     .body(Body::empty())
                     .unwrap();
