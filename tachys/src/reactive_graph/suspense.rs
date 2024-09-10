@@ -9,7 +9,7 @@ use crate::{
     },
 };
 use any_spawner::Executor;
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{select, FutureExt};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
@@ -48,17 +48,15 @@ pub(crate) struct SuspendSubscriber {
 struct SuspendSubscriberInner {
     outer_subscriber: Option<AnySubscriber>,
     sources: Mutex<Vec<AnySource>>,
-    cancel: Mutex<Option<oneshot::Sender<()>>>,
 }
 
 impl SuspendSubscriber {
-    pub fn new(cancel: oneshot::Sender<()>) -> Self {
+    pub fn new() -> Self {
         let outer_subscriber = Observer::get();
         Self {
             inner: Arc::new(SuspendSubscriberInner {
                 outer_subscriber,
                 sources: Default::default(),
-                cancel: Mutex::new(Some(cancel)),
             }),
         }
     }
@@ -81,11 +79,7 @@ impl SuspendSubscriber {
 }
 
 impl ReactiveNode for SuspendSubscriberInner {
-    fn mark_dirty(&self) {
-        if let Some(tx) = self.cancel.lock().or_poisoned().take() {
-            _ = tx.send(());
-        }
-    }
+    fn mark_dirty(&self) {}
 
     fn mark_check(&self) {}
 
@@ -120,8 +114,7 @@ impl ToAnySubscriber for SuspendSubscriber {
 impl<Fut> Suspend<Fut> {
     /// Creates a new suspended view.
     pub fn new(fut: Fut) -> Self {
-        let (tx, rx) = oneshot::channel();
-        let subscriber = SuspendSubscriber::new(tx);
+        let subscriber = SuspendSubscriber::new();
         let any_subscriber = subscriber.to_any_subscriber();
         let inner =
             any_subscriber.with_observer(|| Box::pin(ScopedFuture::new(fut)));
