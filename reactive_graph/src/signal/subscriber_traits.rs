@@ -97,6 +97,7 @@ impl<T: AsSubscriberSet + DefinedAt> ToAnySource for T
 where
     T::Output: Borrow<Arc<RwLock<SubscriberSet>>>,
 {
+    #[track_caller]
     fn to_any_source(&self) -> AnySource {
         self.as_subscriber_set()
             .map(|subs| {
