@@ -1,10 +1,10 @@
 use super::{node::ReactiveNode, AnySubscriber};
-use crate::traits::DefinedAt;
+use crate::traits::{DefinedAt, IsDisposed};
 use core::{fmt::Debug, hash::Hash};
 use std::{panic::Location, sync::Weak};
 
 /// Abstracts over the type of any reactive source.
-pub trait ToAnySource {
+pub trait ToAnySource: IsDisposed {
     /// Converts this type to its type-erased equivalent.
     fn to_any_source(&self) -> AnySource;
 }
@@ -61,6 +61,13 @@ impl PartialEq for AnySource {
 }
 
 impl Eq for AnySource {}
+
+impl IsDisposed for AnySource {
+    #[inline(always)]
+    fn is_disposed(&self) -> bool {
+        false
+    }
+}
 
 impl ToAnySource for AnySource {
     fn to_any_source(&self) -> AnySource {

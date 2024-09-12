@@ -7,7 +7,8 @@ use crate::{
     owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, Notify, ReadUntracked, UntrackableGuard, Writeable,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
+        UntrackableGuard, Writeable,
     },
     unwrap_signal,
 };
@@ -319,6 +320,16 @@ where
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
         self.inner.try_with_value(|n| n.value.blocking_write_arc())
+    }
+}
+
+impl<T, S> IsDisposed for AsyncDerived<T, S>
+where
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
+{
+    fn is_disposed(&self) -> bool {
+        self.inner.is_disposed()
     }
 }
 
