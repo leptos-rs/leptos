@@ -48,7 +48,7 @@ experimental-islands = []
 trace-component-props = []
 actix = ["server_fn_macro/actix"]
 axum = ["server_fn_macro/axum"]
-no_erase = []
+erase_types = []
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "trace-component-props"]
