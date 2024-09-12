@@ -272,6 +272,16 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             body_expr
+        } else if cfg!(feature = "no_erase") {
+            quote! {
+                ::leptos::reactive_graph::untrack(
+                    move || {
+                        #tracing_guard_expr
+                        #tracing_props_expr
+                        #body_expr
+                    }
+                    )
+            }
         } else {
             quote! {
                 ::leptos::prelude::IntoAny::into_any(
@@ -281,8 +291,8 @@ impl ToTokens for Model {
                             #tracing_props_expr
                             #body_expr
                         }
+                        )
                     )
-                )
             }
         };
 
