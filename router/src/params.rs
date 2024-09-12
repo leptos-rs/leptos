@@ -42,6 +42,8 @@ impl ParamsMap {
     pub fn get_str(&self, key: &str) -> Option<&str> {
         self.0.iter().find_map(|(k, v)| {
             if k == key {
+                // NOTE: gets the last value which should behave like it did when it was map
+                // that replaced values
                 v.last().map(|i| i.as_str())
             } else {
                 None

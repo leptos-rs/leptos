@@ -101,13 +101,7 @@ where
     let get = Memo::new({
         let key = key.clone_inplace();
         move |_| {
-            query_map.with(|map| {
-                map.get(&key).and_then(|values| {
-                    // QUESTION: in a world where we have multiple values,
-                    // which do we want here?
-                    values.last().and_then(|v| v.parse().ok())
-                })
-            })
+            query_map.with(|map| map.get_str(&key).and_then(|s| s.parse().ok()))
         }
     });
 
