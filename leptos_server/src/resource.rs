@@ -81,13 +81,15 @@ where
         let is_ready = initial.is_some();
 
         let refetch = ArcRwSignal::new(0);
-        let source = ArcMemo::new(move |_| source());
+        let source = ArcMemo::new({
+            let refetch = refetch.clone();
+            move |_| (refetch.get(), source())
+        });
         let fun = {
             let source = source.clone();
-            let refetch = refetch.clone();
             move || {
-                refetch.track();
-                fetcher(source.get())
+                let (_, source) = source.get();
+                fetcher(source)
             }
         };
 

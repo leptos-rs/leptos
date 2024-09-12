@@ -18,7 +18,8 @@ use crate::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, Notify, ReadUntracked, Track, UntrackableGuard, Writeable,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Writeable,
     },
     transition::AsyncTransition,
 };
@@ -597,6 +598,13 @@ impl<T: 'static> Writeable for ArcAsyncDerived<T> {
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
         Some(self.value.blocking_write())
+    }
+}
+
+impl<T: 'static> IsDisposed for ArcAsyncDerived<T> {
+    #[inline(always)]
+    fn is_disposed(&self) -> bool {
+        false
     }
 }
 

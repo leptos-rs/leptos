@@ -135,44 +135,50 @@ where
 {
     /// Creates a render effect that will run whether the `effects` feature is enabled or not.
     pub fn new_isomorphic(
-        mut fun: impl FnMut(Option<T>) -> T + Send + 'static,
+        fun: impl FnMut(Option<T>) -> T + Send + Sync + 'static,
     ) -> Self {
-        let (mut observer, mut rx) = channel();
-        observer.notify();
+        fn erased<T: Send + Sync + 'static>(
+            mut fun: Box<dyn FnMut(Option<T>) -> T + Send + Sync + 'static>,
+        ) -> RenderEffect<T> {
+            let (observer, mut rx) = channel();
+            let value = Arc::new(RwLock::new(None::<T>));
+            let owner = Owner::new();
+            let inner = Arc::new(RwLock::new(EffectInner {
+                dirty: false,
+                observer,
+                sources: SourceSet::new(),
+            }));
 
-        let value = Arc::new(RwLock::new(None::<T>));
-        let owner = Owner::new();
-        let inner = Arc::new(RwLock::new(EffectInner {
-            dirty: false,
-            observer,
-            sources: SourceSet::new(),
-        }));
-        let mut first_run = true;
+            let initial_value = owner
+                .with(|| inner.to_any_subscriber().with_observer(|| fun(None)));
+            *value.write().or_poisoned() = Some(initial_value);
 
-        crate::spawn({
-            let value = Arc::clone(&value);
-            let subscriber = inner.to_any_subscriber();
+            crate::spawn({
+                let value = Arc::clone(&value);
+                let subscriber = inner.to_any_subscriber();
 
-            async move {
-                while rx.next().await.is_some() {
-                    if first_run
-                        || subscriber
+                async move {
+                    while rx.next().await.is_some() {
+                        if subscriber
                             .with_observer(|| subscriber.update_if_necessary())
-                    {
-                        first_run = false;
-                        subscriber.clear_sources(&subscriber);
+                        {
+                            subscriber.clear_sources(&subscriber);
 
-                        let old_value =
-                            mem::take(&mut *value.write().or_poisoned());
-                        let new_value = owner.with_cleanup(|| {
-                            subscriber.with_observer(|| fun(old_value))
-                        });
-                        *value.write().or_poisoned() = Some(new_value);
+                            let old_value =
+                                mem::take(&mut *value.write().or_poisoned());
+                            let new_value = owner.with_cleanup(|| {
+                                subscriber.with_observer(|| fun(old_value))
+                            });
+                            *value.write().or_poisoned() = Some(new_value);
+                        }
                     }
                 }
-            }
-        });
-        RenderEffect { value, inner }
+            });
+
+            RenderEffect { value, inner }
+        }
+
+        erased(Box::new(fun))
     }
 }
 

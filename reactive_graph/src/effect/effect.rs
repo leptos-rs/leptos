@@ -43,6 +43,7 @@ use std::{
 /// # use reactive_graph::owner::StoredValue;
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
+/// # any_spawner::Executor::init_tokio();
 /// let a = RwSignal::new(0);
 /// let b = RwSignal::new(0);
 ///
@@ -52,7 +53,9 @@ use std::{
 ///   println!("Value: {}", a.get());
 /// });
 ///
+/// # assert_eq!(a.get(), 0);
 /// a.set(1);
+/// # assert_eq!(a.get(), 1);
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
@@ -61,7 +64,7 @@ use std::{
 ///   // and easily lead to problems like infinite loops
 ///   b.set(a.get() + 1);
 /// });
-/// # });
+/// # }).await;
 /// # });
 /// ```
 /// ## Web-Specific Notes
@@ -182,6 +185,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
+    /// # any_spawner::Executor::init_tokio();
     /// #
     /// let (num, set_num) = signal(0);
     ///
@@ -192,13 +196,16 @@ impl Effect<LocalStorage> {
     ///     },
     ///     false,
     /// );
+    /// # assert_eq!(num.get(), 0);
     ///
     /// set_num.set(1); // > "Number: 1; Prev: Some(0)"
+    /// # assert_eq!(num.get(), 1);
     ///
     /// effect.stop(); // stop watching
     ///
     /// set_num.set(2); // (nothing happens)
-    /// # });
+    /// # assert_eq!(num.get(), 2);
+    /// # }).await;
     /// # });
     /// ```
     ///
@@ -210,6 +217,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
+    /// # any_spawner::Executor::init_tokio();
     /// #
     /// let (num, set_num) = signal(0);
     /// let (cb_num, set_cb_num) = signal(0);
@@ -222,12 +230,17 @@ impl Effect<LocalStorage> {
     ///     false,
     /// );
     ///
+    /// # assert_eq!(num.get(), 0);
     /// set_num.set(1); // > "Number: 1; Cb: 0"
+    /// # assert_eq!(num.get(), 1);
     ///
+    /// # assert_eq!(cb_num.get(), 0);
     /// set_cb_num.set(1); // (nothing happens)
+    /// # assert_eq!(cb_num.get(), 1);
     ///
     /// set_num.set(2); // > "Number: 2; Cb: 1"
-    /// # });
+    /// # assert_eq!(num.get(), 2);
+    /// # }).await;
     /// # });
     /// ```
     ///
@@ -243,6 +256,7 @@ impl Effect<LocalStorage> {
     /// # use reactive_graph::signal::signal;
     /// # tokio_test::block_on(async move {
     /// # tokio::task::LocalSet::new().run_until(async move {
+    /// # any_spawner::Executor::init_tokio();
     /// #
     /// let (num, set_num) = signal(0);
     ///
@@ -254,8 +268,10 @@ impl Effect<LocalStorage> {
     ///     true,
     /// ); // > "Number: 0; Prev: None"
     ///
+    /// # assert_eq!(num.get(), 0);
     /// set_num.set(1); // > "Number: 1; Prev: Some(0)"
-    /// # });
+    /// # assert_eq!(num.get(), 1);
+    /// # }).await;
     /// # });
     /// ```
     pub fn watch<D, T>(

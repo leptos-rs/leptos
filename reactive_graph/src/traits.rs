@@ -107,6 +107,10 @@ pub trait Track {
 impl<T: Source + ToAnySource + DefinedAt> Track for T {
     #[track_caller]
     fn track(&self) {
+        if self.is_disposed() {
+            return;
+        }
+
         if let Some(subscriber) = Observer::get() {
             subscriber.add_source(self.to_any_source());
             self.add_subscriber(subscriber);
