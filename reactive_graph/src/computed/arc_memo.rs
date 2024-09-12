@@ -9,7 +9,7 @@ use crate::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal, ArcRwSignal,
     },
-    traits::{DefinedAt, Get, ReadUntracked},
+    traits::{DefinedAt, Get, IsDisposed, ReadUntracked},
 };
 use core::fmt::Debug;
 use or_poisoned::OrPoisoned;
@@ -257,6 +257,16 @@ where
 
     fn update_if_necessary(&self) -> bool {
         self.inner.update_if_necessary()
+    }
+}
+
+impl<T: 'static, S> IsDisposed for ArcMemo<T, S>
+where
+    S: Storage<T>,
+{
+    #[inline(always)]
+    fn is_disposed(&self) -> bool {
+        false
     }
 }
 

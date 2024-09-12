@@ -9,7 +9,7 @@ use reactive_graph::{
     },
     owner::use_context,
     signal::guards::{AsyncPlain, ReadGuard},
-    traits::{DefinedAt, ReadUntracked},
+    traits::{DefinedAt, IsDisposed, ReadUntracked},
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -118,6 +118,13 @@ where
             );
         }
         self.data.try_read_untracked()
+    }
+}
+
+impl<T: 'static> IsDisposed for ArcLocalResource<T> {
+    #[inline(always)]
+    fn is_disposed(&self) -> bool {
+        false
     }
 }
 
@@ -289,6 +296,12 @@ where
             );
         }
         self.data.try_read_untracked()
+    }
+}
+
+impl<T: 'static> IsDisposed for LocalResource<T> {
+    fn is_disposed(&self) -> bool {
+        self.data.is_disposed()
     }
 }
 

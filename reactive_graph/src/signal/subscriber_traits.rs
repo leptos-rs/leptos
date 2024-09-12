@@ -13,7 +13,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, SubscriberSet,
         ToAnySource,
     },
-    traits::DefinedAt,
+    traits::{DefinedAt, IsDisposed},
     unwrap_signal,
 };
 use or_poisoned::OrPoisoned;
@@ -93,7 +93,7 @@ impl<T: AsSubscriberSet + DefinedAt> Source for T {
     }
 }
 
-impl<T: AsSubscriberSet + DefinedAt> ToAnySource for T
+impl<T: AsSubscriberSet + DefinedAt + IsDisposed> ToAnySource for T
 where
     T::Output: Borrow<Arc<RwLock<SubscriberSet>>>,
 {
