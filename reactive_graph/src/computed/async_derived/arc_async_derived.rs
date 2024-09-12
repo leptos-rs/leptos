@@ -570,7 +570,7 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
             if self.value.blocking_read().is_none() {
                 let handle = suspense_context.task_id();
                 let ready = SpecialNonReactiveFuture::new(self.ready());
-                Executor::spawn(async move {
+                crate::spawn(async move {
                     ready.await;
                     drop(handle);
                 });

@@ -149,7 +149,7 @@ where
         }));
         let mut first_run = true;
 
-        Executor::spawn({
+        crate::spawn({
             let value = Arc::clone(&value);
             let subscriber = inner.to_any_subscriber();
 
