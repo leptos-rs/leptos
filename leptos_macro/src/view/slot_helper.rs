@@ -2,12 +2,12 @@ use super::{convert_to_snake_case, ident_from_tag_name};
 use crate::view::{fragment_to_tokens, TagType};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use rstml::node::{KeyedAttribute, NodeAttribute, NodeElement};
+use rstml::node::{CustomNode, KeyedAttribute, NodeAttribute, NodeElement};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 pub(crate) fn slot_to_tokens(
-    node: &NodeElement,
+    node: &NodeElement<impl CustomNode>,
     slot: &KeyedAttribute,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -23,7 +23,7 @@ pub(crate) fn slot_to_tokens(
     let component_name = ident_from_tag_name(node.name());
 
     let Some(parent_slots) = parent_slots else {
-        proc_macro_error::emit_error!(
+        proc_macro_error2::emit_error!(
             node.name().span(),
             "slots cannot be used inside HTML elements"
         );
@@ -213,7 +213,9 @@ pub(crate) fn is_slot(node: &KeyedAttribute) -> bool {
     key == "slot" || key.starts_with("slot:")
 }
 
-pub(crate) fn get_slot(node: &NodeElement) -> Option<&KeyedAttribute> {
+pub(crate) fn get_slot(
+    node: &NodeElement<impl CustomNode>,
+) -> Option<&KeyedAttribute> {
     node.attributes().iter().find_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
             if is_slot(node) {

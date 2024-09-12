@@ -1,5 +1,6 @@
 use super::{ArcAsyncDerived, AsyncDerived};
 use crate::{
+    diagnostics::SpecialNonReactiveZone,
     graph::{AnySource, ToAnySource},
     owner::Storage,
     signal::guards::{AsyncPlain, Mapped, ReadGuard},
@@ -36,6 +37,8 @@ impl Future for AsyncDerivedReadyFuture {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        #[cfg(debug_assertions)]
+        let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
         if self.loading.load(Ordering::Relaxed) {
@@ -99,6 +102,8 @@ where
 
     #[track_caller]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        #[cfg(debug_assertions)]
+        let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
         let value = self.value.read_arc();
@@ -163,6 +168,8 @@ where
     type Output = AsyncDerivedGuard<T>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        #[cfg(debug_assertions)]
+        let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
         self.source.track();
         let value = self.value.read_arc();

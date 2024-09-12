@@ -1,6 +1,9 @@
 use crate::owner::Owner;
 use or_poisoned::OrPoisoned;
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    collections::VecDeque,
+};
 
 impl Owner {
     fn provide_context<T: Send + Sync + 'static>(&self, value: T) {
@@ -59,6 +62,35 @@ impl Owner {
             }
             None
         }
+    }
+
+    /// Searches for items stored in context in either direction, either among parents or among
+    /// descendants.
+    pub fn use_context_bidirectional<T: Clone + 'static>(&self) -> Option<T> {
+        self.use_context()
+            .unwrap_or_else(|| self.find_context_in_children())
+    }
+
+    fn find_context_in_children<T: Clone + 'static>(&self) -> Option<T> {
+        let ty = TypeId::of::<T>();
+        let inner = self.inner.read().or_poisoned();
+        let mut to_search = VecDeque::new();
+        to_search.extend(inner.children.clone());
+        drop(inner);
+
+        while let Some(next) = to_search.pop_front() {
+            if let Some(child) = next.upgrade() {
+                let child = child.read().or_poisoned();
+                let contexts = &child.contexts;
+                if let Some(context) = contexts.get(&ty) {
+                    return context.downcast_ref::<T>().cloned();
+                }
+
+                to_search.extend(child.children.clone());
+            }
+        }
+
+        None
     }
 }
 

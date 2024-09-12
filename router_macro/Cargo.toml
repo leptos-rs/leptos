@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router_macro"
-version = "0.7.0-beta2"
+version = "0.7.0-beta5"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -18,4 +18,4 @@ proc-macro2 = "1.0"
 quote = "1.0"
 
 [dev-dependencies]
-leptos_router = { workspace = true }
+leptos_router = { version = "0.7.0-beta" }

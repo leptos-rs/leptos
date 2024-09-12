@@ -7,7 +7,7 @@
 #![allow(private_macro_use)]
 
 #[macro_use]
-extern crate proc_macro_error;
+extern crate proc_macro_error2;
 
 use component::DummyModel;
 use proc_macro::TokenStream;
@@ -73,6 +73,9 @@ mod slot;
 ///
 ///    Attributes can take a wide variety of primitive types that can be converted to strings. They can also
 ///    take an `Option`, in which case `Some` sets the attribute and `None` removes the attribute.
+///
+///    Note that in some cases, rust-analyzer support may be better if attribute values are surrounded with braces (`{}`).
+///    Unlike in JSX, attribute values are not required to be in braces, but braces can be used and may improve this LSP support.
 ///
 /// ```rust,ignore
 /// # use leptos::prelude::*;
@@ -259,7 +262,7 @@ mod slot;
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn view(tokens: TokenStream) -> TokenStream {
@@ -306,10 +309,17 @@ pub fn view(tokens: TokenStream) -> TokenStream {
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
     );
+
+    // The allow lint needs to be put here instead of at the expansion of
+    // view::attribute_value(). Adding this next to the expanded expression
+    // seems to break rust-analyzer, but it works when the allow is put here.
     quote! {
         {
-            #(#errors;)*
-            #nodes_output
+            #[allow(unused_braces)]
+            {
+                #(#errors;)*
+                #nodes_output
+            }
         }
     }
     .into()
@@ -336,7 +346,7 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
 ///
 /// The file is loaded and parsed during proc-macro execution, and its path is resolved relative to
 /// the crate root rather than relative to the file from which it is called.
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 pub fn include_view(tokens: TokenStream) -> TokenStream {
     let file_name = syn::parse::<syn::LitStr>(tokens).unwrap_or_else(|_| {
@@ -499,7 +509,7 @@ pub fn include_view(tokens: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(
     _args: proc_macro::TokenStream,
@@ -579,7 +589,7 @@ pub fn component(
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     component_macro(s, true)
@@ -718,7 +728,7 @@ fn component_macro(s: TokenStream, island: bool) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     if !args.is_empty() {

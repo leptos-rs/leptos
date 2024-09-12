@@ -81,20 +81,23 @@ where
         let is_ready = initial.is_some();
 
         let refetch = ArcRwSignal::new(0);
-        let source = ArcMemo::new(move |_| source());
+        let source = ArcMemo::new({
+            let refetch = refetch.clone();
+            move |_| (refetch.get(), source())
+        });
         let fun = {
             let source = source.clone();
-            let refetch = refetch.clone();
             move || {
-                refetch.track();
-                fetcher(source.get())
+                let (_, source) = source.get();
+                fetcher(source)
             }
         };
 
-        let data =
-            ArcAsyncDerived::new_with_initial_without_spawning(initial, fun);
+        let data = ArcAsyncDerived::new_with_manual_dependencies(
+            initial, fun, &source,
+        );
         if is_ready {
-            source.with(|_| ());
+            source.with_untracked(|_| ());
             source.add_subscriber(data.to_any_subscriber());
         }
 
@@ -107,19 +110,21 @@ where
                 shared_context.defer_stream(Box::pin(data.ready()));
             }
 
-            shared_context.write_async(
-                id,
-                Box::pin(async move {
-                    ready_fut.await;
-                    value.with_untracked(|data| match &data {
-                        // TODO handle serialization errors
-                        Some(val) => {
-                            Ser::encode(val).unwrap().into_encoded_string()
-                        }
-                        _ => unreachable!(),
-                    })
-                }),
-            );
+            if shared_context.get_is_hydrating() {
+                shared_context.write_async(
+                    id,
+                    Box::pin(async move {
+                        ready_fut.await;
+                        value.with_untracked(|data| match &data {
+                            // TODO handle serialization errors
+                            Some(val) => {
+                                Ser::encode(val).unwrap().into_encoded_string()
+                            }
+                            _ => unreachable!(),
+                        })
+                    }),
+                );
+            }
         }
 
         ArcResource {

@@ -14,6 +14,7 @@ hydration_context = { workspace = true }
 axum = { version = "0.7.5", default-features = false, features = [
   "matched-path",
 ] }
+dashmap = "6"
 futures = "0.3.30"
 http = "1.1"
 http-body-util = "0.1.2"
@@ -23,6 +24,7 @@ leptos_macro = { workspace = true, features = ["axum"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
+once_cell = "1"
 parking_lot = "0.12.3"
 serde_json = "1.0"
 tokio = { version = "1.39", default-features = false }

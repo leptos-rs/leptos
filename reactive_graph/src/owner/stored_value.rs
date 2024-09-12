@@ -313,6 +313,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// assert_eq!(last, None);
     /// assert_eq!(length_fn(), None);
     /// ```
+    #[track_caller]
     pub fn try_with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> Option<U> {
         S::try_with(self.node, fun)
     }
@@ -347,6 +348,7 @@ impl<T, S: Storage<T>> StoredValue<T, S> {
     /// assert_eq!(sum, 6);
     /// assert_eq!(length_fn(), 3);
     /// ```
+    #[track_caller]
     pub fn with_value<U>(&self, fun: impl FnOnce(&T) -> U) -> U {
         self.try_with_value(fun)
             .unwrap_or_else(unwrap_signal!(self))
@@ -580,7 +582,7 @@ impl<T, S> Dispose for StoredValue<T, S> {
 #[inline(always)]
 #[track_caller]
 #[deprecated(
-    since = "0.7.0-beta2",
+    since = "0.7.0-beta5",
     note = "This function is being removed to conform to Rust idioms. Please \
             use `StoredValue::new()` or `StoredValue::new_local()` instead."
 )]

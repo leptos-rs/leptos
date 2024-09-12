@@ -2,11 +2,12 @@ use super::{
     MatchInterface, MatchNestedRoutes, PartialPathMatch, PathSegment,
     PossibleRouteMatch, RouteMatchId,
 };
-use crate::{ChooseView, GeneratedRouteData, MatchParams, SsrMode};
+use crate::{ChooseView, GeneratedRouteData, MatchParams, Method, SsrMode};
 use core::{fmt, iter};
 use either_of::Either;
 use std::{
     borrow::Cow,
+    collections::HashSet,
     marker::PhantomData,
     sync::atomic::{AtomicU16, Ordering},
 };
@@ -19,7 +20,7 @@ mod tuples;
 
 static ROUTE_ID: AtomicU16 = AtomicU16::new(1);
 
-#[derive(Debug, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NestedRoute<Segments, Children, Data, View, R> {
     id: u16,
     segments: Segments,
@@ -27,6 +28,7 @@ pub struct NestedRoute<Segments, Children, Data, View, R> {
     data: Data,
     view: View,
     rndr: PhantomData<R>,
+    methods: HashSet<Method>,
     ssr_mode: SsrMode,
 }
 
@@ -46,7 +48,8 @@ where
             data: self.data.clone(),
             view: self.view.clone(),
             rndr: PhantomData,
-            ssr_mode: self.ssr_mode,
+            methods: self.methods.clone(),
+            ssr_mode: self.ssr_mode.clone(),
         }
     }
 }
@@ -64,6 +67,7 @@ impl<Segments, View, R> NestedRoute<Segments, (), (), View, R> {
             data: (),
             view,
             rndr: PhantomData,
+            methods: [Method::Get].into(),
             ssr_mode: Default::default(),
         }
     }
@@ -81,6 +85,7 @@ impl<Segments, Data, View, R> NestedRoute<Segments, (), Data, View, R> {
             view,
             rndr,
             ssr_mode,
+            methods,
             ..
         } = self;
         NestedRoute {
@@ -90,6 +95,7 @@ impl<Segments, Data, View, R> NestedRoute<Segments, (), Data, View, R> {
             data,
             view,
             ssr_mode,
+            methods,
             rndr,
         }
     }
@@ -249,25 +255,44 @@ where
         let mut segment_routes = Vec::new();
         self.segments.generate_path(&mut segment_routes);
         let children = self.children.as_ref();
-        let ssr_mode = self.ssr_mode;
+        let ssr_mode = self.ssr_mode.clone();
+        let methods = self.methods.clone();
+        let regenerate = match &ssr_mode {
+            SsrMode::Static(data) => match data.regenerate.as_ref() {
+                None => vec![],
+                Some(regenerate) => vec![regenerate.clone()]
+            }
+            _ => vec![]
+        };
 
         match children {
             None => Either::Left(iter::once(GeneratedRouteData {
                 segments: segment_routes,
-                ssr_mode
+                ssr_mode,
+                methods,
+                regenerate
             })),
             Some(children) => {
                 Either::Right(children.generate_routes().into_iter().map(move |child| {
+                    // extend this route's segments with child segments
                     let segments = segment_routes.clone().into_iter().chain(child.segments).collect();
+
+                    let mut methods = methods.clone();
+                    methods.extend(child.methods);
+
+                    let mut regenerate = regenerate.clone();
+                    regenerate.extend(child.regenerate);
+
                     if child.ssr_mode > ssr_mode {
                         GeneratedRouteData {
                             segments,
                             ssr_mode: child.ssr_mode,
+                            methods, regenerate
                         }
                     } else {
                         GeneratedRouteData {
                             segments,
-                            ssr_mode,
+                            ssr_mode: ssr_mode.clone(), methods, regenerate
                         }
                     }
                 }))

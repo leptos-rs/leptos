@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.7.0-beta2"
+version = "0.7.0-beta5"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -18,11 +18,11 @@ cfg-if = "1.0"
 html-escape = "0.2.13"
 itertools = "0.13.0"
 prettyplease = "0.2.20"
-proc-macro-error = { version = "1.0", default-features = false }
+proc-macro-error2 = { version = "2.0", default-features = false }
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
-rstml = "0.11.2"
+rstml = "0.12.0"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"

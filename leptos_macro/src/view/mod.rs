@@ -7,11 +7,11 @@ use self::{
 use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use quote::{quote, quote_spanned, ToTokens};
 use rstml::node::{
-    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
-    NodeNameFragment,
+    CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
+    NodeBlock, NodeElement, NodeName, NodeNameFragment,
 };
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -89,7 +89,7 @@ pub fn render_view(
 }
 
 fn element_children_to_tokens(
-    nodes: &[Node],
+    nodes: &[Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -101,23 +101,43 @@ fn element_children_to_tokens(
         parent_slots,
         global_class,
         view_marker,
-    )
-    .into_iter()
-    .map(|child| {
-        quote! {
+    );
+    if children.is_empty() {
+        None
+    } else if children.len() == 1 {
+        let child = &children[0];
+        Some(quote! {
             .child(
                 #[allow(unused_braces)]
                 { #child }
             )
-        }
-    });
-    Some(quote! {
-        #(#children)*
-    })
+        })
+    } else if children.len() > 16 {
+        // implementations of various traits used in routing and rendering are implemented for
+        // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
+        // for tuples of tuples, so if we have more than 16 items, we can split them out into
+        // multiple tuples.
+        let chunks = children.chunks(16).map(|children| {
+            quote! {
+                (#(#children),*)
+            }
+        });
+        Some(quote! {
+            .child(
+                (#(#chunks),*)
+            )
+        })
+    } else {
+        Some(quote! {
+            .child(
+                (#(#children),*)
+            )
+        })
+    }
 }
 
 fn fragment_to_tokens(
-    nodes: &[Node],
+    nodes: &[Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -134,6 +154,19 @@ fn fragment_to_tokens(
         None
     } else if children.len() == 1 {
         children.into_iter().next()
+    } else if children.len() > 16 {
+        // implementations of various traits used in routing and rendering are implemented for
+        // tuples of sizes 0, 1, 2, 3, ... N. N varies but is > 16. The traits are also implemented
+        // for tuples of tuples, so if we have more than 16 items, we can split them out into
+        // multiple tuples.
+        let chunks = children.chunks(16).map(|children| {
+            quote! {
+                (#(#children),*)
+            }
+        });
+        Some(quote! {
+             (#(#chunks),*)
+        })
     } else {
         Some(quote! {
             (#(#children),*)
@@ -142,7 +175,7 @@ fn fragment_to_tokens(
 }
 
 fn children_to_tokens(
-    nodes: &[Node],
+    nodes: &[Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -186,7 +219,7 @@ fn children_to_tokens(
 }
 
 fn node_to_tokens(
-    node: &Node,
+    node: &Node<impl CustomNode>,
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -219,6 +252,7 @@ fn node_to_tokens(
             global_class,
             view_marker,
         ),
+        Node::Custom(node) => Some(node.to_token_stream()),
     }
 }
 
@@ -236,7 +270,7 @@ fn text_to_tokens(text: &LitStr) -> TokenStream {
 }
 
 pub(crate) fn element_to_tokens(
-    node: &NodeElement,
+    node: &NodeElement<impl CustomNode>,
     mut parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -252,7 +286,7 @@ pub(crate) fn element_to_tokens(
                 name.push_str(&tuple_name);
             }
             if names.contains(&name) {
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     attr.span(),
                     format!("This element already has a `{name}` attribute.")
                 );
@@ -330,7 +364,7 @@ pub(crate) fn element_to_tokens(
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
-                    /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
+                    /* proc_macro_error2::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
                         ::leptos::tachys::html::element::#name()
@@ -389,7 +423,7 @@ pub(crate) fn element_to_tokens(
         } else {
             if !node.children.is_empty() {
                 let name = node.name();
-                proc_macro_error::emit_error!(
+                proc_macro_error2::emit_error!(
                     name.span(),
                     format!(
                         "Self-closing elements like <{name}> cannot have \
@@ -411,7 +445,7 @@ pub(crate) fn element_to_tokens(
     }
 }
 
-fn is_spread_marker(node: &NodeElement) -> bool {
+fn is_spread_marker(node: &NodeElement<impl CustomNode>) -> bool {
     match node.name() {
         NodeName::Block(block) => matches!(
             block.stmts.first(),
@@ -528,7 +562,7 @@ fn attribute_to_tokens(
                     && node.value().and_then(value_to_string).is_none()
                 {
                     let span = node.key.span();
-                    proc_macro_error::emit_error!(span, "Combining a global class (view! { class = ... }) \
+                    proc_macro_error2::emit_error!(span, "Combining a global class (view! { class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
@@ -547,17 +581,19 @@ pub(crate) fn attribute_absolute(
     node: &KeyedAttribute,
     after_spread: bool,
 ) -> Option<TokenStream> {
-    let contains_dash = node.key.to_string().contains('-');
+    let key = node.key.to_string();
+    let contains_dash = key.contains('-');
+    let attr_aira = key.starts_with("attr:aria-");
     // anything that follows the x:y pattern
     match &node.key {
-        NodeName::Punctuated(parts) if !contains_dash => {
+        NodeName::Punctuated(parts) if !contains_dash || attr_aira => {
             if parts.len() >= 2 {
                 let id = &parts[0];
                 match id {
                     NodeNameFragment::Ident(id) => {
                         let value = attribute_value(node);
-                        // ignore `let:`
-                        if id == "let" {
+                        // ignore `let:` and `clone:`
+                        if id == "let" || id == "clone" {
                             None
                         } else if id == "attr" {
                             let key = &parts[1];
@@ -565,6 +601,14 @@ pub(crate) fn attribute_absolute(
                             if key_name == "class" || key_name == "style" {
                                 Some(
                                     quote! { ::leptos::tachys::html::#key::#key(#value) },
+                                )
+                            } else if key_name == "aria" {
+                                let mut parts_iter = parts.iter();
+                                parts_iter.next();
+                                let fn_name = parts_iter.map(|p| p.to_string()).collect::<Vec<String>>().join("_");
+                                let key = Ident::new(&fn_name, key.span());
+                                Some(
+                                    quote! { ::leptos::tachys::html::attribute::#key(#value) },
                                 )
                             } else {
                                 Some(
@@ -609,7 +653,7 @@ pub(crate) fn attribute_absolute(
                                 quote! { ::leptos::tachys::html::event::#on(#ty, #handler) },
                             )
                         } else {
-                            proc_macro_error::abort!(
+                            proc_macro_error2::abort!(
                                 id.span(),
                                 &format!(
                                     "`{id}:` syntax is not supported on \
@@ -763,7 +807,7 @@ fn is_custom_element(tag: &str) -> bool {
     tag.contains('-')
 }
 
-fn is_self_closing(node: &NodeElement) -> bool {
+fn is_self_closing(node: &NodeElement<impl CustomNode>) -> bool {
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
     [
@@ -911,20 +955,31 @@ fn attribute_name(name: &NodeName) -> TokenStream {
 }
 
 fn attribute_value(attr: &KeyedAttribute) -> TokenStream {
-    match attr.value() {
-        Some(value) => {
-            if let Expr::Lit(lit) = value {
-                if cfg!(feature = "nightly") {
-                    if let Lit::Str(str) = &lit.lit {
-                        return quote! {
-                            ::leptos::tachys::view::static_types::Static::<#str>
-                        };
+    match attr.possible_value.to_value() {
+        None => quote! { true },
+        Some(value) => match &value.value {
+            KVAttributeValue::Expr(expr) => {
+                if let Expr::Lit(lit) = expr {
+                    if cfg!(feature = "nightly") {
+                        if let Lit::Str(str) = &lit.lit {
+                            return quote! {
+                                ::leptos::tachys::view::static_types::Static::<#str>
+                            };
+                        }
                     }
                 }
+
+                quote! {
+                    {#expr}
+                }
             }
-            quote! { #value }
-        }
-        None => quote! { true },
+            // any value in braces: expand as-is to give proper r-a support
+            KVAttributeValue::InvalidBraced(block) => {
+                quote! {
+                    #block
+                }
+            }
+        },
     }
 }
 
@@ -1099,7 +1154,7 @@ pub(crate) fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
             let span = tag_name.span();
-            proc_macro_error::emit_error!(
+            proc_macro_error2::emit_error!(
                 span,
                 "blocks not allowed in tag-name position"
             );

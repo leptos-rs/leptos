@@ -7,11 +7,13 @@ use crate::{
     owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, ReadUntracked, Trigger, UntrackableGuard, Writeable,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
+        UntrackableGuard, Writeable,
     },
     unwrap_signal,
 };
 use core::fmt::Debug;
+use send_wrapper::SendWrapper;
 use std::{future::Future, ops::DerefMut, panic::Location};
 
 /// A reactive value that is derived by running an asynchronous computation in response to changes
@@ -164,6 +166,23 @@ where
     }
 }
 
+impl<T> AsyncDerived<SendWrapper<T>> {
+    #[doc(hidden)]
+    pub fn new_mock<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
+    where
+        T: 'static,
+        Fut: Future<Output = T> + 'static,
+    {
+        Self {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(ArcAsyncDerived::new_mock(
+                fun,
+            )),
+        }
+    }
+}
+
 impl<T> AsyncDerived<T, LocalStorage>
 where
     T: 'static,
@@ -204,21 +223,6 @@ where
             defined_at: Location::caller(),
             inner: StoredValue::new_with_storage(
                 ArcAsyncDerived::new_unsync_with_initial(initial_value, fun),
-            ),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn new_mock_unsync<Fut>(fun: impl Fn() -> Fut + 'static) -> Self
-    where
-        T: 'static,
-        Fut: Future<Output = T> + 'static,
-    {
-        Self {
-            #[cfg(debug_assertions)]
-            defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(
-                ArcAsyncDerived::new_mock_unsync(fun),
             ),
         }
     }
@@ -288,13 +292,13 @@ where
     }
 }
 
-impl<T, S> Trigger for AsyncDerived<T, S>
+impl<T, S> Notify for AsyncDerived<T, S>
 where
     T: 'static,
     S: Storage<ArcAsyncDerived<T>>,
 {
-    fn trigger(&self) {
-        self.inner.try_with_value(|inner| inner.trigger());
+    fn notify(&self) {
+        self.inner.try_with_value(|inner| inner.notify());
     }
 }
 
@@ -316,6 +320,16 @@ where
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
         self.inner.try_with_value(|n| n.value.blocking_write_arc())
+    }
+}
+
+impl<T, S> IsDisposed for AsyncDerived<T, S>
+where
+    T: 'static,
+    S: Storage<ArcAsyncDerived<T>>,
+{
+    fn is_disposed(&self) -> bool {
+        self.inner.is_disposed()
     }
 }
 

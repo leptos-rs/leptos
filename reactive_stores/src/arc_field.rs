@@ -5,7 +5,7 @@ use crate::{
 use reactive_graph::{
     signal::ArcTrigger,
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
     },
 };
 use std::{
@@ -180,9 +180,9 @@ impl<T> DefinedAt for ArcField<T> {
     }
 }
 
-impl<T> Trigger for ArcField<T> {
-    fn trigger(&self) {
-        self.trigger.trigger();
+impl<T> Notify for ArcField<T> {
+    fn notify(&self) {
+        self.trigger.notify();
     }
 }
 

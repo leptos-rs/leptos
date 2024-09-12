@@ -64,18 +64,17 @@ pub fn location() -> web_sys::Location {
 /// Current [`window.location.hash`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location)
 /// without the beginning #.
 pub fn location_hash() -> Option<String> {
-    // TODO use shared context for is_server
-    /*if is_server() {
+    if is_server() {
         None
-    } else {*/
-    location()
-        .hash()
-        .ok()
-        .map(|hash| match hash.chars().next() {
-            Some('#') => hash[1..].to_string(),
-            _ => hash,
-        })
-    //}
+    } else {
+        location()
+            .hash()
+            .ok()
+            .map(|hash| match hash.chars().next() {
+                Some('#') => hash[1..].to_string(),
+                _ => hash,
+            })
+    }
 }
 
 /// Current [`window.location.pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
@@ -475,9 +474,7 @@ pub fn window_event_listener_untyped(
         cb(e);
     };
 
-    // TODO use shared context for is_server
-    if true {
-        // !is_server() {
+    if !is_server() {
         #[inline(never)]
         fn wel(
             cb: Box<dyn FnMut(web_sys::Event)>,
@@ -548,5 +545,18 @@ impl WindowListenerHandle {
     /// Removes the event listener.
     pub fn remove(self) {
         (self.0)()
+    }
+}
+
+fn is_server() -> bool {
+    #[cfg(feature = "hydration")]
+    {
+        Owner::current_shared_context()
+            .map(|sc| !sc.is_browser())
+            .unwrap_or(false)
+    }
+    #[cfg(not(feature = "hydration"))]
+    {
+        false
     }
 }

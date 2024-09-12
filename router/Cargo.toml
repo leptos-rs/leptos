@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.7.0-beta2"
+version = "0.7.0-beta5"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -28,6 +28,7 @@ send_wrapper = "0.6.0"
 thiserror = "1.0"
 percent-encoding = { version = "2.3", optional = true }
 gloo-net = "0.6.0"
+serde = { version = "1", features = ["derive"] }
 
 [dependencies.web-sys]
 version = "0.3.70"

@@ -8,7 +8,7 @@ use crate::{
     owner::{FromLocal, LocalStorage, Storage, StoredValue, SyncStorage},
     signal::guards::{UntrackedWriteGuard, WriteGuard},
     traits::{
-        DefinedAt, Dispose, IsDisposed, ReadUntracked, Trigger,
+        DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
         UntrackableGuard, Writeable,
     },
     unwrap_signal,
@@ -340,11 +340,11 @@ where
     }
 }
 
-impl<T, S> Trigger for RwSignal<T, S>
+impl<T, S> Notify for RwSignal<T, S>
 where
     S: Storage<ArcRwSignal<T>>,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         self.mark_dirty();
     }
 }
