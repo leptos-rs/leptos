@@ -223,13 +223,11 @@ impl ModelTy {
                 .unzip(),
             ModelTy::Enum { variants } => variants
                 .iter()
-                .enumerate()
-                .map(|(idx, variant)| {
+                .map(|variant| {
                     let Variant { ident, fields, .. } = variant;
 
                     (
                         variant_to_tokens(
-                            idx,
                             false,
                             library_path,
                             ident,
@@ -239,7 +237,6 @@ impl ModelTy {
                             fields,
                         ),
                         variant_to_tokens(
-                            idx,
                             true,
                             library_path,
                             ident,
@@ -329,7 +326,6 @@ fn field_to_tokens(
 
 #[allow(clippy::too_many_arguments)]
 fn variant_to_tokens(
-    idx: usize,
     include_body: bool,
     library_path: &proc_macro2::TokenStream,
     ident: &Ident,
@@ -350,12 +346,10 @@ fn variant_to_tokens(
             // default subfield
             if include_body {
                 quote! {
-                    fn #ident(&self) -> bool {
-                        match #library_path::StoreField::reader(self) {
+                    fn #ident(self) -> bool {
+                        match #library_path::StoreField::reader(&self) {
                             Some(reader) => {
-                                let path = #library_path::StoreField::path(self).into_iter().collect();
-                                let trigger = #library_path::StoreField::get_trigger(self, path);
-                                trigger.track();
+                                #library_path::StoreField::track_field(&self);
                                 matches!(&*reader, #name::#orig_ident)
                             },
                             None => false
@@ -364,12 +358,162 @@ fn variant_to_tokens(
                 }
             } else {
                 quote! {
-                    fn #ident(&self) -> bool;
+                    fn #ident(self) -> bool;
                 }
             }
         }
-        Fields::Named(_) => todo!(),
-        Fields::Unnamed(_) => todo!(),
+        // If an enum branch has named fields, we create N + 1 methods:
+        // 1 `bool` subfield, which is true when this field matches
+        // N `Option<T>` subfields for each of the named fields
+        Fields::Named(fields) => {
+            let mut tokens = if include_body {
+                quote! {
+                    fn #ident(self) -> bool {
+                        match #library_path::StoreField::reader(&self) {
+                            Some(reader) => {
+                                #library_path::StoreField::track_field(&self);
+                                matches!(&*reader, #name::#orig_ident { .. })
+                            },
+                            None => false
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    fn #ident(self) -> bool;
+                }
+            };
+
+            tokens.extend(fields
+                .named
+                .iter()
+                .map(|field| {
+                    let field_ident = field.ident.as_ref().unwrap();
+                    let field_ty = &field.ty;
+                    let combined_ident = Ident::new(
+                        &format!("{}_{}", ident, field_ident),
+                        field_ident.span(),
+                    );
+
+                    // default subfield
+                    if include_body {
+                        quote! {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>> {
+                                #library_path::StoreField::track_field(&self);
+                                let reader = #library_path::StoreField::reader(&self);
+                                let matches = reader
+                                    .map(|reader| matches!(&*reader, #name::#orig_ident { .. }))
+                                    .unwrap_or(false);
+                                if matches {
+                                    Some(#library_path::Subfield::new(
+                                        self,
+                                        0.into(),
+                                        |prev| {
+                                            match prev {
+                                                #name::#orig_ident { #field_ident, .. } => Some(#field_ident),
+                                                _ => None,
+                                            }
+                                            .expect("accessed an enum field that is no longer matched")
+                                        },
+                                        |prev| {
+                                            match prev {
+                                                #name::#orig_ident { #field_ident, .. } => Some(#field_ident),
+                                                _ => None,
+                                            }
+                                            .expect("accessed an enum field that is no longer matched")
+                                        },
+                                    ))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                    } else {
+                        quote! {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>; 
+                        }
+                    }
+                }));
+
+            tokens
+        }
+        // If an enum branch has unnamed fields, we create N + 1 methods:
+        // 1 `bool` subfield, which is true when this field matches
+        // N `Option<T>` subfields for each of the unnamed fields
+        Fields::Unnamed(fields) => {
+            let mut tokens = if include_body {
+                quote! {
+                    fn #ident(self) -> bool {
+                        match #library_path::StoreField::reader(&self) {
+                            Some(reader) => {
+                                #library_path::StoreField::track_field(&self);
+                                matches!(&*reader, #name::#orig_ident { .. })
+                            },
+                            None => false
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    fn #ident(self) -> bool;
+                }
+            };
+
+            let number_of_fields = fields.unnamed.len();
+
+            tokens.extend(fields
+                .unnamed
+                .iter()
+                .enumerate()
+                .map(|(idx, field)| {
+                    let field_ident = idx;
+                    let field_ty = &field.ty;
+                    let combined_ident = Ident::new(
+                        &format!("{}_{}", ident, field_ident),
+                        ident.span(),
+                    );
+
+                    let ignore_before = (0..idx).map(|_| quote! { _, });
+                    let ignore_after = (idx..number_of_fields.saturating_sub(1)).map(|_| quote !{_, });
+
+                    // default subfield
+                    if include_body {
+                        quote! {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>> {
+                                #library_path::StoreField::track_field(&self);
+                                let reader = #library_path::StoreField::reader(&self);
+                                let matches = reader
+                                    .map(|reader| matches!(&*reader, #name::#orig_ident(..)))
+                                    .unwrap_or(false);
+                                if matches {
+                                    Some(#library_path::Subfield::new(
+                                        self,
+                                        0.into(),
+                                        |prev| {
+                                            match prev {
+                                                #name::#orig_ident(#(#ignore_before)* this, #(#ignore_after)*) => Some(this),
+                                                _ => None,
+                                            }
+                                            .expect("accessed an enum field that is no longer matched")
+                                        },
+                                        |prev| {
+                                            todo!()
+                                        },
+                                    ))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                    } else {
+                        quote! {
+                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #generics, #field_ty>>; 
+                        }
+                    }
+                }));
+
+            tokens
+        }
     }
 }
 
