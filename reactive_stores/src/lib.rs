@@ -65,7 +65,6 @@ impl<T> ArcStore<T> {
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
             signals: Default::default(),
-            /* inner: Arc::new(RwLock::new(SubscriberSet::new())), */
         }
     }
 }
