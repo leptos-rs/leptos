@@ -8,10 +8,10 @@ use leptos_axum::ResponseOptions;
 #[component]
 pub fn ErrorTemplate(
     #[prop(optional)] outside_errors: Option<Errors>,
-    #[prop(optional)] errors: Option<RwSignal<Errors>>,
+    #[prop(optional)] errors: Option<ArcRwSignal<Errors>>,
 ) -> impl IntoView {
     let errors = match outside_errors {
-        Some(e) => RwSignal::new(e),
+        Some(e) => ArcRwSignal::new(e),
         None => match errors {
             Some(e) => e,
             None => panic!("No Errors found and we expected errors!"),
