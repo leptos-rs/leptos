@@ -204,11 +204,11 @@ impl ToTokens for Model {
                         )]
                     },
                     quote! {
-                        let span = ::leptos::tracing::Span::current();
+                        let __span = ::leptos::tracing::Span::current();
                     },
                     quote! {
                         #[cfg(debug_assertions)]
-                        let _guard = span.entered();
+                        let _guard = __span.entered();
                     },
                     if no_props || !cfg!(feature = "trace-component-props") {
                         quote!()
