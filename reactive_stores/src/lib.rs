@@ -124,7 +124,7 @@ where
 
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
-        self.get_trigger(Default::default()).trigger();
+        self.get_trigger(Default::default()).track();
     }
 }
 
