@@ -1,38 +1,45 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use chrono::{Local, NaiveDate};
 use leptos::prelude::*;
 use reactive_stores::{Field, Store, StoreFieldIterator};
 use reactive_stores_macro::Store;
+use serde::{Deserialize, Serialize};
 
 // ID starts higher than 0 because we have a few starting todos by default
 static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 
-#[derive(Debug, Store)]
+#[derive(Debug, Store, Serialize, Deserialize)]
 struct Todos {
     user: String,
     todos: Vec<Todo>,
 }
 
-#[derive(Debug, Store)]
+#[derive(Debug, Store, Serialize, Deserialize)]
 struct Todo {
     id: usize,
     label: String,
     status: Status,
 }
 
-#[derive(Debug, Default, Clone, Store)]
+#[derive(Debug, Default, Clone, Store, Serialize, Deserialize)]
 enum Status {
     #[default]
     Pending,
     Scheduled,
+    ScheduledFor {
+        date: NaiveDate,
+    },
     Done,
 }
 
 impl Status {
     pub fn next_step(&mut self) {
         *self = match self {
-            Status::Pending => Status::Scheduled,
-            Status::Scheduled => Status::Done,
+            Status::Pending => Status::ScheduledFor {
+                date: Local::now().naive_local().into(),
+            },
+            Status::Scheduled | Status::ScheduledFor { .. } => Status::Done,
             Status::Done => Status::Done,
         };
     }
@@ -92,7 +99,7 @@ pub fn App() -> impl IntoView {
             </For>
 
         </ol>
-        <div style="display: flex"></div>
+        <pre>{move || serde_json::to_string_pretty(&*store.read())}</pre>
     }
 }
 
@@ -138,7 +145,7 @@ fn TodoRow(
                 {move || {
                     if todo.status().done() {
                         "Done"
-                    } else if status.scheduled() {
+                    } else if status.scheduled() || status.scheduled_for() {
                         "Scheduled"
                     } else {
                         "Pending"
@@ -154,6 +161,25 @@ fn TodoRow(
                         todos.remove(todo.id().get());
                     });
             }>"X"</button>
+            <input
+                type="date"
+                prop:value=move || {
+                    todo.status().scheduled_for_date().map(|n| n.get().to_string())
+                }
+
+                on:change:target=move |ev| {
+                    if let Some(date) = todo.status().scheduled_for_date() {
+                        let value = ev.target().value();
+                        match NaiveDate::parse_from_str(&value, "%Y-%m-%d") {
+                            Ok(new_date) => {
+                                date.set(new_date);
+                            }
+                            Err(e) => warn!("{e}"),
+                        }
+                    }
+                }
+            />
+
         </li>
     }
 }
