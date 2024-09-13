@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::{Local, NaiveDate};
 use leptos::prelude::*;
-use reactive_stores::{Field, Store, StoreFieldIterator};
+use reactive_stores::{Field, Store};
 use reactive_stores_macro::Store;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,7 @@ static NEXT_ID: AtomicUsize = AtomicUsize::new(3);
 #[derive(Debug, Store, Serialize, Deserialize)]
 struct Todos {
     user: String,
+    #[store(key: usize = |todo| todo.id)]
     todos: Vec<Todo>,
 }
 
@@ -94,7 +95,7 @@ pub fn App() -> impl IntoView {
             <input type="submit"/>
         </form>
         <ol>
-            <For each=move || store.todos().iter() key=|row| row.id().get() let:todo>
+            <For each=move || store.todos().iter_keyed() key=|row| row.id().get() let:todo>
                 <TodoRow store todo/>
             </For>
 
@@ -111,7 +112,7 @@ fn TodoRow(
     let status = todo.status();
     let title = todo.label();
 
-    let editing = RwSignal::new(false);
+    let editing = RwSignal::new(true);
 
     view! {
         <li style:text-decoration=move || {
@@ -133,12 +134,9 @@ fn TodoRow(
                 prop:value=move || title.get()
                 on:change=move |ev| {
                     title.set(event_target_value(&ev));
-                    editing.set(false);
                 }
-
-                on:blur=move |_| editing.set(false)
-                autofocus
             />
+
             <button on:click=move |_| {
                 status.write().next_step()
             }>
@@ -155,10 +153,11 @@ fn TodoRow(
             </button>
 
             <button on:click=move |_| {
+                let id = todo.id().get();
                 store
                     .todos()
                     .update(|todos| {
-                        todos.remove(todo.id().get());
+                        todos.remove(id);
                     });
             }>"X"</button>
             <input

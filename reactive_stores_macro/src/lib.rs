@@ -7,7 +7,7 @@ use syn::{
     punctuated::Punctuated,
     token::Comma,
     Field, Fields, Generics, Ident, Index, Meta, Result, Token, Type, Variant,
-    Visibility, WhereClause,
+    Visibility, WhereClause, ExprClosure,
 };
 
 #[proc_macro_error]
@@ -79,17 +79,17 @@ impl Parse for Model {
 
 #[derive(Clone)]
 enum SubfieldMode {
-    Keyed(Ident, Type),
+    Keyed(ExprClosure, Type),
 }
 
 impl Parse for SubfieldMode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mode: Ident = input.parse()?;
         if mode == "key" {
-            let _eq: Token!(=) = input.parse()?;
-            let ident: Ident = input.parse()?;
             let _col: Token!(:) = input.parse()?;
             let ty: Type = input.parse()?;
+            let _eq: Token!(=) = input.parse()?;
+            let ident: ExprClosure = input.parse()?;
             Ok(SubfieldMode::Keyed(ident, ty))
         } else {
             Err(input.error("expected `key = <ident>: <Type>`"))
@@ -281,15 +281,20 @@ fn field_to_tokens(
         if modes.len() == 1 {
             let mode = &modes[0];
             // Can replace with a match if additional modes added
-            // TODO keyed_by
-            let SubfieldMode::Keyed(_keyed_by, key_ty) = mode;
+            let SubfieldMode::Keyed(keyed_by, key_ty) = mode;
             let signature = quote! {
-                fn #ident(self) ->  #library_path::KeyedField<#any_store_field, #name #generics, #ty, #key_ty>
+                fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #generics, #key_ty, #ty>
             };
             return if include_body {
                 quote! {
                     #signature {
-                        todo!()
+                        #library_path::KeyedSubfield::new(
+                            self,
+                            #idx.into(),
+                            #keyed_by,
+                            |prev| &prev.#locator,
+                            |prev| &mut prev.#locator,
+                        )
                     }
                 }
             } else {
@@ -474,7 +479,9 @@ fn variant_to_tokens(
                     );
 
                     let ignore_before = (0..idx).map(|_| quote! { _, });
+                    let ignore_before2 = ignore_before.clone();
                     let ignore_after = (idx..number_of_fields.saturating_sub(1)).map(|_| quote !{_, });
+                    let ignore_after2 = ignore_after.clone();
 
                     // default subfield
                     if include_body {
@@ -497,7 +504,11 @@ fn variant_to_tokens(
                                             .expect("accessed an enum field that is no longer matched")
                                         },
                                         |prev| {
-                                            todo!()
+                                            match prev {
+                                                #name::#orig_ident(#(#ignore_before2)* this, #(#ignore_after2)*) => Some(this),
+                                                _ => None,
+                                            }
+                                            .expect("accessed an enum field that is no longer matched")
                                         },
                                     ))
                                 } else {

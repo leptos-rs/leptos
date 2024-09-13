@@ -1,7 +1,7 @@
 use crate::{
     arc_field::{StoreFieldReader, StoreFieldWriter},
     path::{StorePath, StorePathSegment},
-    ArcField, AtIndex, StoreField, Subfield,
+    ArcField, AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, Subfield,
 };
 use reactive_graph::{
     owner::{Storage, StoredValue, SyncStorage},
@@ -9,7 +9,7 @@ use reactive_graph::{
     traits::{DefinedAt, IsDisposed, ReadUntracked, Track, Trigger},
     unwrap_signal,
 };
-use std::{ops::IndexMut, panic::Location};
+use std::{fmt::Debug, hash::Hash, ops::IndexMut, panic::Location};
 
 pub struct Field<T, S = SyncStorage>
 where
@@ -56,6 +56,10 @@ where
             .try_get_value()
             .and_then(|inner| inner.untracked_writer())
     }
+
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.try_get_value().and_then(|n| n.keys())
+    }
 }
 
 impl<Inner, Prev, T, S> From<Subfield<Inner, Prev, T>> for Field<T, S>
@@ -86,6 +90,29 @@ where
 {
     #[track_caller]
     fn from(value: AtIndex<Inner, Prev>) -> Self {
+        Field {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            inner: StoredValue::new_with_storage(value.into()),
+        }
+    }
+}
+
+impl<Inner, Prev, K, T, S> From<AtKeyed<Inner, Prev, K, T>>
+    for Field<T::Output, S>
+where
+    S: Storage<ArcField<T::Output>>,
+    AtKeyed<Inner, Prev, K, T>: Clone,
+    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    KeyedSubfield<Inner, Prev, K, T>: Clone,
+    for<'a> &'a T: IntoIterator,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Prev: 'static,
+    T: IndexMut<usize> + 'static,
+    T::Output: Sized,
+{
+    #[track_caller]
+    fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
         Field {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),

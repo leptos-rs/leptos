@@ -1,6 +1,6 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, Store,
+    ArcStore, KeyMap, Store,
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -32,11 +32,19 @@ pub trait StoreField: Sized {
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
 
+    fn track_field(&self) {
+        let path = self.path().into_iter().collect();
+        let trigger = self.get_trigger(path);
+        trigger.track();
+    }
+
     fn reader(&self) -> Option<Self::Reader>;
 
     fn writer(&self) -> Option<Self::Writer>;
 
     fn untracked_writer(&self) -> Option<Self::UntrackedWriter>;
+
+    fn keys(&self) -> Option<KeyMap>;
 
     #[track_caller]
     fn then<T>(
@@ -86,6 +94,10 @@ where
     fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
         UntrackedWriteGuard::try_new(Arc::clone(&self.value))
     }
+
+    fn keys(&self) -> Option<KeyMap> {
+        Some(self.keys.clone())
+    }
 }
 
 impl<T, S> StoreField for Store<T, S>
@@ -124,6 +136,10 @@ where
         self.inner
             .try_get_value()
             .and_then(|n| n.untracked_writer())
+    }
+
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.try_get_value().and_then(|inner| inner.keys())
     }
 }
 
@@ -189,6 +205,11 @@ where
     fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
         let inner = self.inner.untracked_writer()?;
         Some(MappedMut::new(inner, self.map_fn, self.map_fn_mut))
+    }
+
+    #[inline(always)]
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.keys()
     }
 }
 
