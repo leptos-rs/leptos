@@ -13,7 +13,7 @@ use reactive_graph::{
     effect::RenderEffect,
     owner::{provide_context, use_context, Owner},
     signal::ArcRwSignal,
-    traits::{Get, Read, Track, With},
+    traits::{Dispose, Get, Read, Track, With},
 };
 use slotmap::{DefaultKey, SlotMap};
 use tachys::{
@@ -286,7 +286,7 @@ where
         self.children.dry_resolve();
 
         // check the set of tasks to see if it is empty, now or later
-        let eff = reactive_graph::effect::RenderEffect::new_isomorphic({
+        let eff = reactive_graph::effect::Effect::new_isomorphic({
             move |_| {
                 tasks.track();
                 if tasks.read().is_empty() {
@@ -338,7 +338,7 @@ where
                             }
                             children = children => {
                                 // clean up the (now useless) effect
-                                drop(eff);
+                                eff.dispose();
 
                                 Some(OwnedView::new_with_owner(children, owner))
                             }

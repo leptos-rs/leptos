@@ -32,7 +32,6 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
     let fallback = || view! { "Page not found." }.into_view();
-    let ssr = SsrMode::Async;
 
     view! {
         <Stylesheet id="leptos" href="/pkg/axum_js_ssr.css"/>
@@ -79,19 +78,19 @@ pub fn App() -> impl IntoView {
                     <h1>"Leptos JavaScript Integration Demo with SSR in Axum"</h1>
                     <FlatRoutes fallback>
                         <Route path=path!("") view=HomePage/>
-                        <Route path=path!("naive") view=Naive ssr/>
-                        <Route path=path!("naive-alt") view=|| view! { <NaiveEvent/> } ssr/>
-                        <Route path=path!("naive-hook") view=|| view! { <NaiveEvent hook=true/> } ssr/>
+                        <Route path=path!("naive") view=Naive ssr=SsrMode::Async/>
+                        <Route path=path!("naive-alt") view=|| view! { <NaiveEvent/> } ssr=SsrMode::Async/>
+                        <Route path=path!("naive-hook") view=|| view! { <NaiveEvent hook=true/> } ssr=SsrMode::Async/>
                         <Route path=path!("naive-fallback") view=|| view! {
                             <NaiveEvent hook=true fallback=true/>
-                        } ssr/>
-                        <Route path=path!("signal-effect-script") view=CodeDemoSignalEffect ssr/>
-                        <Route path=path!("custom-event") view=CustomEvent ssr/>
-                        <Route path=path!("wasm-bindgen-naive") view=WasmBindgenNaive ssr/>
-                        <Route path=path!("wasm-bindgen-event") view=WasmBindgenJSHookReadyEvent ssr/>
-                        <Route path=path!("wasm-bindgen-effect") view=WasmBindgenEffect ssr/>
-                        <Route path=path!("wasm-bindgen-direct") view=WasmBindgenDirect ssr/>
-                        <Route path=path!("wasm-bindgen-direct-fixed") view=WasmBindgenDirectFixed ssr/>
+                        } ssr=SsrMode::Async/>
+                        <Route path=path!("signal-effect-script") view=CodeDemoSignalEffect ssr=SsrMode::Async/>
+                        <Route path=path!("custom-event") view=CustomEvent ssr=SsrMode::Async/>
+                        <Route path=path!("wasm-bindgen-naive") view=WasmBindgenNaive ssr=SsrMode::Async/>
+                        <Route path=path!("wasm-bindgen-event") view=WasmBindgenJSHookReadyEvent ssr=SsrMode::Async/>
+                        <Route path=path!("wasm-bindgen-effect") view=WasmBindgenEffect ssr=SsrMode::Async/>
+                        <Route path=path!("wasm-bindgen-direct") view=WasmBindgenDirect ssr=SsrMode::Async/>
+                        <Route path=path!("wasm-bindgen-direct-fixed") view=WasmBindgenDirectFixed ssr=SsrMode::Async/>
                     </FlatRoutes>
                 </article>
             </main>

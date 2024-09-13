@@ -15,7 +15,7 @@ use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{provide_context, use_context, Owner},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, ReadUntracked, Set, Track, Trigger},
+    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track},
     wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
@@ -124,7 +124,7 @@ where
             ScopedFuture::new(async move {
                 let triggers = join_all(loaders).await;
                 for trigger in triggers {
-                    trigger.trigger();
+                    trigger.notify();
                 }
                 matched_view.rebuild(&mut *view.borrow_mut());
             })
@@ -179,7 +179,7 @@ where
                     let triggers = join_all(loaders).await;
                     // tell each one of the outlet triggers that it's ready
                     for trigger in triggers {
-                        trigger.trigger();
+                        trigger.notify();
                     }
                     if let Some(loc) = location {
                         loc.ready_to_complete();

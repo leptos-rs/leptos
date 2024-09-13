@@ -107,6 +107,10 @@ pub trait Track {
 impl<T: Source + ToAnySource + DefinedAt> Track for T {
     #[track_caller]
     fn track(&self) {
+        if self.is_disposed() {
+            return;
+        }
+
         if let Some(subscriber) = Observer::get() {
             subscriber.add_source(self.to_any_source());
             self.add_subscriber(subscriber);
@@ -209,7 +213,7 @@ pub trait UntrackableGuard: DerefMut {
 
 /// Gives mutable access to a signal's value through a guard type. When the guard is dropped, the
 /// signal's subscribers will be notified.
-pub trait Writeable: Sized + DefinedAt + Trigger {
+pub trait Writeable: Sized + DefinedAt + Notify {
     /// The type of the signal's value.
     type Value: Sized + 'static;
 
@@ -381,9 +385,9 @@ where
 }
 
 /// Notifies subscribers of a change in this signal.
-pub trait Trigger {
+pub trait Notify {
     /// Notifies subscribers of a change in this signal.
-    fn trigger(&self);
+    fn notify(&self);
 }
 
 /// Updates the value of a signal by applying a function that updates it in place,

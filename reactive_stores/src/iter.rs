@@ -9,7 +9,7 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
         Writeable,
     },
 };
@@ -141,15 +141,15 @@ where
     }
 }
 
-impl<Inner, Prev> Trigger for AtIndex<Inner, Prev>
+impl<Inner, Prev> Notify for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev>,
     Prev: IndexMut<usize> + 'static,
     Prev::Output: Sized,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.trigger();
+        trigger.notify();
     }
 }
 

@@ -1,7 +1,8 @@
-use super::subscriber_traits::AsSubscriberSet;
+use super::{subscriber_traits::AsSubscriberSet, ArcTrigger};
 use crate::{
     graph::{ReactiveNode, SubscriberSet},
-    traits::{DefinedAt, IsDisposed, Notify},
+    owner::StoredValue,
+    traits::{DefinedAt, Dispose, IsDisposed, Notify},
 };
 use std::{
     fmt::{Debug, Formatter, Result},
@@ -12,64 +13,74 @@ use std::{
 /// A trigger is a data-less signal with the sole purpose of notifying other reactive code of a change.
 ///
 /// This can be useful for when using external data not stored in signals, for example.
-pub struct ArcTrigger {
+///
+/// This is an arena-allocated Trigger, which is `Copy` and is disposed when its reactive
+/// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted trigger that lives
+/// as long as a reference to it is alive, see [`ArcTrigger`].
+pub struct Trigger {
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static Location<'static>,
-    pub(crate) inner: Arc<RwLock<SubscriberSet>>,
+    pub(crate) inner: StoredValue<ArcTrigger>,
 }
 
-impl ArcTrigger {
+impl Trigger {
     /// Creates a new trigger.
     #[track_caller]
     pub fn new() -> Self {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: Default::default(),
+            inner: StoredValue::new(ArcTrigger::new()),
         }
     }
 }
 
-impl Default for ArcTrigger {
+impl Default for Trigger {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Clone for ArcTrigger {
+impl Clone for Trigger {
     #[track_caller]
     fn clone(&self) -> Self {
-        Self {
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-            inner: Arc::clone(&self.inner),
-        }
+        *self
     }
 }
 
-impl Debug for ArcTrigger {
+impl Copy for Trigger {}
+
+impl Debug for Trigger {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("ArcTrigger").finish()
+        f.debug_struct("Trigger").finish()
     }
 }
 
-impl IsDisposed for ArcTrigger {
+impl Dispose for Trigger {
+    fn dispose(self) {
+        self.inner.dispose()
+    }
+}
+
+impl IsDisposed for Trigger {
     #[inline(always)]
     fn is_disposed(&self) -> bool {
-        false
+        self.inner.is_disposed()
     }
 }
 
-impl AsSubscriberSet for ArcTrigger {
+impl AsSubscriberSet for Trigger {
     type Output = Arc<RwLock<SubscriberSet>>;
 
     #[inline(always)]
     fn as_subscriber_set(&self) -> Option<Self::Output> {
-        Some(Arc::clone(&self.inner))
+        self.inner
+            .try_get_value()
+            .and_then(|arc_trigger| arc_trigger.as_subscriber_set())
     }
 }
 
-impl DefinedAt for ArcTrigger {
+impl DefinedAt for Trigger {
     #[inline(always)]
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(debug_assertions)]
@@ -83,8 +94,10 @@ impl DefinedAt for ArcTrigger {
     }
 }
 
-impl Notify for ArcTrigger {
+impl Notify for Trigger {
     fn notify(&self) {
-        self.inner.mark_dirty();
+        if let Some(inner) = self.inner.try_get_value() {
+            inner.mark_dirty();
+        }
     }
 }

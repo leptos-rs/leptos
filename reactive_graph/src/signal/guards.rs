@@ -2,7 +2,7 @@
 
 use crate::{
     computed::BlockingLock,
-    traits::{Trigger, UntrackableGuard},
+    traits::{Notify, UntrackableGuard},
 };
 use core::fmt::Debug;
 use guardian::{ArcRwLockReadGuardian, ArcRwLockWriteGuardian};
@@ -259,7 +259,7 @@ where
 #[derive(Debug)]
 pub struct WriteGuard<S, G>
 where
-    S: Trigger,
+    S: Notify,
 {
     pub(crate) triggerable: Option<S>,
     pub(crate) guard: Option<G>,
@@ -267,7 +267,7 @@ where
 
 impl<S, G> WriteGuard<S, G>
 where
-    S: Trigger,
+    S: Notify,
 {
     /// Creates a new guard from the inner mutable guard type, and the signal that should be
     /// triggered on drop.
@@ -281,7 +281,7 @@ where
 
 impl<S, G> UntrackableGuard for WriteGuard<S, G>
 where
-    S: Trigger,
+    S: Notify,
     G: DerefMut,
 {
     /// Removes the triggerable type, so that it is no longer notifies when dropped.
@@ -292,7 +292,7 @@ where
 
 impl<S, G> Deref for WriteGuard<S, G>
 where
-    S: Trigger,
+    S: Notify,
     G: Deref,
 {
     type Target = G::Target;
@@ -310,7 +310,7 @@ where
 
 impl<S, G> DerefMut for WriteGuard<S, G>
 where
-    S: Trigger,
+    S: Notify,
     G: DerefMut,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -354,7 +354,7 @@ impl<T> DerefMut for UntrackedWriteGuard<T> {
 // Dropping the write guard will notify dependencies.
 impl<S, T> Drop for WriteGuard<S, T>
 where
-    S: Trigger,
+    S: Notify,
 {
     fn drop(&mut self) {
         // first, drop the inner guard
@@ -362,7 +362,7 @@ where
 
         // then, notify about a change
         if let Some(triggerable) = self.triggerable.as_ref() {
-            triggerable.trigger();
+            triggerable.notify();
         }
     }
 }

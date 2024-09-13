@@ -163,10 +163,10 @@ where
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `Selector::new()` instead."]
 pub fn create_selector<T>(
-    source: impl Fn() -> T + Clone + 'static,
+    source: impl Fn() -> T + Clone + Send + Sync + 'static,
 ) -> Selector<T>
 where
-    T: PartialEq + Eq + Clone + std::hash::Hash + 'static,
+    T: PartialEq + Eq + Send + Sync + Clone + std::hash::Hash + 'static,
 {
     Selector::new(source)
 }
@@ -178,11 +178,11 @@ where
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `Selector::new_with_fn()` instead."]
 pub fn create_selector_with_fn<T>(
-    source: impl Fn() -> T + Clone + 'static,
+    source: impl Fn() -> T + Clone + Send + Sync + 'static,
     f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
 ) -> Selector<T>
 where
-    T: PartialEq + Eq + Clone + std::hash::Hash + 'static,
+    T: PartialEq + Eq + Send + Sync + Clone + std::hash::Hash + 'static,
 {
     Selector::new_with_fn(source, f)
 }
