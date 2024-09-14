@@ -95,13 +95,7 @@ where
 {
     type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
-    type Writer = KeyedSubfieldWriteGuard<
-        Inner,
-        Prev,
-        K,
-        T,
-        MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>,
-    >;
+    type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
     type UntrackedWriter =
         MappedMut<WriteGuard<ArcTrigger, Inner::UntrackedWriter>, T>;
 
@@ -125,11 +119,7 @@ where
         let path = self.path().into_iter().collect::<StorePath>();
         let trigger = self.get_trigger(path.clone());
         let guard = WriteGuard::new(trigger, self.inner.writer()?);
-        let guard = MappedMut::new(guard, self.read, self.write);
-        Some(KeyedSubfieldWriteGuard {
-            inner: self.clone(),
-            guard: Some(guard),
-        })
+        Some(MappedMut::new(guard, self.read, self.write))
     }
 
     fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
@@ -336,15 +326,21 @@ where
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
-        self.writer()
+        let guard = self.writer()?;
+        Some(KeyedSubfieldWriteGuard {
+            inner: self.clone(),
+            guard: Some(guard),
+        })
     }
 
     fn try_write_untracked(
         &self,
     ) -> Option<impl DerefMut<Target = Self::Value>> {
-        self.writer().map(|mut writer| {
-            writer.untrack();
-            writer
+        let mut guard = self.writer()?;
+        guard.untrack();
+        Some(KeyedSubfieldWriteGuard {
+            inner: self.clone(),
+            guard: Some(guard),
         })
     }
 }
