@@ -99,7 +99,8 @@ pub mod prelude {
 
 // TODO remove this, it's just useful while developing
 #[allow(unused)]
-fn log_warning(text: Arguments) {
+#[doc(hidden)]
+pub fn log_warning(text: Arguments) {
     #[cfg(feature = "tracing")]
     {
         tracing::warn!(text);

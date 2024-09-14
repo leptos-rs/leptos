@@ -1,6 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
+    KeyMap,
 };
 use reactive_graph::{
     signal::{
@@ -20,10 +21,7 @@ use std::{
 };
 
 #[derive(Debug)]
-pub struct AtIndex<Inner, Prev>
-where
-    Inner: StoreField<Value = Prev>,
-{
+pub struct AtIndex<Inner, Prev> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     inner: Inner,
@@ -33,7 +31,7 @@ where
 
 impl<Inner, Prev> Clone for AtIndex<Inner, Prev>
 where
-    Inner: StoreField<Value = Prev> + Clone,
+    Inner: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -46,15 +44,9 @@ where
     }
 }
 
-impl<Inner, Prev> Copy for AtIndex<Inner, Prev> where
-    Inner: StoreField<Value = Prev> + Copy
-{
-}
+impl<Inner, Prev> Copy for AtIndex<Inner, Prev> where Inner: Copy {}
 
-impl<Inner, Prev> AtIndex<Inner, Prev>
-where
-    Inner: StoreField<Value = Prev>,
-{
+impl<Inner, Prev> AtIndex<Inner, Prev> {
     #[track_caller]
     pub fn new(inner: Inner, index: usize) -> Self {
         Self {
@@ -76,6 +68,8 @@ where
     type Value = Prev::Output;
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
+        MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
+    type UntrackedWriter =
         MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
@@ -108,6 +102,17 @@ where
             move |n| &n[index],
             move |n| &mut n[index],
         ))
+    }
+
+    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
+        let mut guard = self.writer()?;
+        guard.untrack();
+        Some(guard)
+    }
+
+    #[inline(always)]
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.keys()
     }
 }
 
@@ -195,16 +200,27 @@ where
     }
 }
 
-pub trait StoreFieldIterator<Prev>: Sized {
+pub trait StoreFieldIterator<Prev>
+where
+    Self: StoreField<Value = Prev>,
+{
+    fn at(self, index: usize) -> AtIndex<Self, Prev>;
+
     fn iter(self) -> StoreFieldIter<Self, Prev>;
 }
 
 impl<Inner, Prev> StoreFieldIterator<Prev> for Inner
 where
-    Inner: StoreField<Value = Prev>,
+    Inner: StoreField<Value = Prev> + Clone,
     Prev::Output: Sized,
     Prev: IndexMut<usize> + AsRef<[Prev::Output]>,
 {
+    #[track_caller]
+    fn at(self, index: usize) -> AtIndex<Inner, Prev> {
+        AtIndex::new(self.clone(), index)
+    }
+
+    #[track_caller]
     fn iter(self) -> StoreFieldIter<Inner, Prev> {
         // reactively track changes to this field
         let trigger = self.get_trigger(self.path().into_iter().collect());
@@ -240,13 +256,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx < self.len {
-            let field = AtIndex {
-                #[cfg(debug_assertions)]
-                defined_at: Location::caller(),
-                index: self.idx,
-                inner: self.inner.clone(),
-                ty: PhantomData,
-            };
+            let field = AtIndex::new(self.inner.clone(), self.idx);
             self.idx += 1;
             Some(field)
         } else {
