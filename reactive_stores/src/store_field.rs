@@ -10,7 +10,7 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
         Writeable,
     },
     unwrap_signal,
@@ -238,13 +238,13 @@ where
     }
 }
 
-impl<T, S> Trigger for Then<T, S>
+impl<T, S> Notify for Then<T, S>
 where
     S: StoreField,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.trigger();
+        trigger.notify();
     }
 }
 

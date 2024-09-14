@@ -9,7 +9,7 @@ use reactive_graph::{
         ArcTrigger,
     },
     traits::{
-        DefinedAt, IsDisposed, ReadUntracked, Track, Trigger, UntrackableGuard,
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
         Writeable,
     },
 };
@@ -279,7 +279,7 @@ where
     }
 }
 
-impl<Inner, Prev, K, T> Trigger for KeyedSubfield<Inner, Prev, K, T>
+impl<Inner, Prev, K, T> Notify for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
     for<'a> &'a T: IntoIterator,
@@ -287,9 +287,9 @@ where
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.trigger();
+        trigger.notify();
     }
 }
 
@@ -542,7 +542,7 @@ where
     }
 }
 
-impl<Inner, Prev, K, T> Trigger for AtKeyed<Inner, Prev, K, T>
+impl<Inner, Prev, K, T> Notify for AtKeyed<Inner, Prev, K, T>
 where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
@@ -552,9 +552,9 @@ where
     T: IndexMut<usize>,
     T::Output: Sized,
 {
-    fn trigger(&self) {
+    fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.trigger();
+        trigger.notify();
     }
 }
 
@@ -631,6 +631,7 @@ where
             .inner
             .keys()
             .expect("updating keys on a store with no keys");
+
         keys.with_field_keys(
             inner_path,
             |keys| {
