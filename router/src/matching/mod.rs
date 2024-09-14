@@ -210,8 +210,6 @@ mod tests {
 
     #[test]
     pub fn does_not_match_route_unless_full_param_matches() {
-        use crate::matching::choose_view::ChooseView;
-
         let routes = Routes::<_, Dom>::new((
             NestedRoute::new(StaticSegment("/property-api"), || ()),
             NestedRoute::new(StaticSegment("/property"), || ()),
