@@ -156,6 +156,7 @@ mod tests {
         matching::MatchParams, MatchInterface, PathSegment, StaticSegment,
         WildcardSegment,
     };
+    use either_of::Either;
     use tachys::renderer::dom::Dom;
 
     #[test]
@@ -164,8 +165,11 @@ mod tests {
             Routes::<_, Dom>::new(NestedRoute::new(StaticSegment("/"), || ()));
         let matched = routes.match_route("/");
         assert!(matched.is_some());
+        // this case seems like it should match, but implementing it interferes with
+        // handling trailing slash requirements accurately -- paths for the root are "/",
+        // not "", in any case
         let matched = routes.match_route("");
-        assert!(matched.is_some());
+        assert!(matched.is_none());
         let (base, paths) = routes.generate_routes();
         assert_eq!(base, None);
         let paths = paths.into_iter().map(|g| g.segments).collect::<Vec<_>>();
@@ -202,6 +206,16 @@ mod tests {
             MatchInterface::<Dom>::as_matched(&child.unwrap()),
             "/author/contact"
         );
+    }
+
+    #[test]
+    pub fn does_not_match_route_unless_full_param_matches() {
+        let routes = Routes::<_, Dom>::new((
+            NestedRoute::new(StaticSegment("/property-api"), || ()),
+            NestedRoute::new(StaticSegment("/property"), || ()),
+        ));
+        let matched = routes.match_route("/property").unwrap();
+        assert!(matches!(matched, Either::Right(_)));
     }
 
     #[test]
