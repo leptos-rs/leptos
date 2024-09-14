@@ -5,7 +5,6 @@ use crate::{
     traits::{DefinedAt, Dispose, GetUntracked, Set, Update},
     unwrap_signal,
 };
-use any_spawner::Executor;
 use std::{fmt::Debug, future::Future, panic::Location, pin::Pin, sync::Arc};
 
 /// An action that synchronizes multiple imperative `async` calls to the reactive system,
@@ -507,7 +506,7 @@ where
 
             let version = self.version.clone();
 
-            Executor::spawn(async move {
+            crate::spawn(async move {
                 let new_value = fut.await;
                 let canceled = submission.canceled.get_untracked();
                 if !canceled {

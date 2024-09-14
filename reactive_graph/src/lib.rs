@@ -71,7 +71,7 @@
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![deny(missing_docs)]
 
-use std::fmt::Arguments;
+use std::{fmt::Arguments, future::Future};
 
 pub mod actions;
 pub(crate) mod channel;
@@ -119,4 +119,13 @@ fn log_warning(text: Arguments) {
     {
         eprintln!("{}", text);
     }
+}
+
+/// Calls [`Executor::spawn`], but ensures that the task also runs in the current arena, if
+/// multithreaded arena sandboxing is enabled.
+pub(crate) fn spawn(task: impl Future<Output = ()> + Send + 'static) {
+    #[cfg(feature = "sandboxed-arenas")]
+    let task = owner::Sandboxed::new(task);
+
+    any_spawner::Executor::spawn(task);
 }

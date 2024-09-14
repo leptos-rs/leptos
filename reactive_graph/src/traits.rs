@@ -587,7 +587,7 @@ where
     fn from_stream(stream: impl Stream<Item = T> + Send + 'static) -> Self {
         let (read, write) = arc_signal(None);
         let mut stream = Box::pin(stream);
-        Executor::spawn(async move {
+        crate::spawn(async move {
             while let Some(value) = stream.next().await {
                 write.set(Some(value));
             }
