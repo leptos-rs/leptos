@@ -1,5 +1,6 @@
 use leptos::html::HtmlElement;
 
+#[cfg(feature = "ssr")]
 #[test]
 fn simple_ssr_test() {
     use leptos::prelude::*;
@@ -20,6 +21,7 @@ fn simple_ssr_test() {
     );
 }
 
+#[cfg(feature = "ssr")]
 #[test]
 fn ssr_test_with_components() {
     use leptos::prelude::*;
@@ -51,6 +53,7 @@ fn ssr_test_with_components() {
     );
 }
 
+#[cfg(feature = "ssr")]
 #[test]
 fn ssr_test_with_snake_case_components() {
     use leptos::prelude::*;
@@ -81,6 +84,7 @@ fn ssr_test_with_snake_case_components() {
     );
 }
 
+#[cfg(feature = "ssr")]
 #[test]
 fn test_classes() {
     use leptos::prelude::*;
@@ -98,6 +102,7 @@ fn test_classes() {
     assert_eq!(rendered.to_html(), "<div class=\"my big  red car\"></div>");
 }
 
+#[cfg(feature = "ssr")]
 #[test]
 fn ssr_with_styles() {
     use leptos::prelude::*;
@@ -119,6 +124,7 @@ fn ssr_with_styles() {
     );
 }
 
+#[cfg(feature = "ssr")]
 #[test]
 fn ssr_option() {
     use leptos::prelude::*;
