@@ -154,17 +154,14 @@ fn TodoRow(
 
             <button on:click=move |_| {
                 let id = todo.id().get();
-                store
-                    .todos()
-                    .update(|todos| {
-                        todos.remove(id);
-                    });
+                store.todos().write().retain(|todo| todo.id != id);
             }>"X"</button>
             <input
                 type="date"
                 prop:value=move || {
                     todo.status().scheduled_for_date().map(|n| n.get().to_string())
                 }
+
                 class:hidden=move || !todo.status().scheduled_for()
                 on:change:target=move |ev| {
                     if let Some(date) = todo.status().scheduled_for_date() {
