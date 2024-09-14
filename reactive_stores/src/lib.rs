@@ -58,6 +58,7 @@ impl TriggerMap {
 }
 
 pub struct FieldKeys<K> {
+    spare_keys: Vec<StorePathSegment>,
     current_key: usize,
     keys: HashMap<K, (StorePathSegment, usize)>,
 }
@@ -76,6 +77,7 @@ where
         }
 
         Self {
+            spare_keys: Vec::new(),
             current_key: 0,
             keys,
         }
@@ -90,26 +92,49 @@ where
         self.keys.get(key).copied()
     }
 
+    fn next_key(&mut self) -> StorePathSegment {
+        self.spare_keys.pop().unwrap_or_else(|| {
+            self.current_key += 1;
+            self.current_key.into()
+        })
+    }
+
     pub fn update(&mut self, iter: impl IntoIterator<Item = K>) {
-        for (idx, key) in iter.into_iter().enumerate() {
-            if let Some((_, old_idx)) = self.keys.get_mut(&key) {
-                *old_idx = idx;
-            } else {
-                self.current_key += 1;
-                self.keys.insert(
-                    key,
-                    (StorePathSegment::from(self.current_key), idx),
-                );
+        let new_keys = iter
+            .into_iter()
+            .enumerate()
+            .map(|(idx, key)| (key, idx))
+            .collect::<HashMap<K, usize>>();
+
+        // remove old keys and recycle the slots
+        self.keys.retain(|key, old_entry| match new_keys.get(key) {
+            Some(idx) => {
+                old_entry.1 = *idx;
+                true
+            }
+            None => {
+                self.spare_keys.push(old_entry.0);
+                false
+            }
+        });
+
+        // add new keys
+        for (key, idx) in new_keys {
+            // the suggestion doesn't compile because we need &mut for self.next_key(),
+            // and we don't want to call that until after the check
+            #[allow(clippy::map_entry)]
+            if !self.keys.contains_key(&key) {
+                let path = self.next_key();
+                self.keys.insert(key, (path, idx));
             }
         }
-
-        // TODO: remove old keys and triggers, so it doesn't grow constantly
     }
 }
 
 impl<K> Default for FieldKeys<K> {
     fn default() -> Self {
         Self {
+            spare_keys: Default::default(),
             current_key: Default::default(),
             keys: Default::default(),
         }
