@@ -1,3 +1,4 @@
+#[cfg(feature = "ssr")]
 use leptos::html::HtmlElement;
 
 #[cfg(feature = "ssr")]
