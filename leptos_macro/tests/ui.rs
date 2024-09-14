@@ -1,3 +1,4 @@
+#[cfg(not(feature = "erase_types"))]
 #[test]
 fn ui() {
     let t = trybuild::TestCases::new();
