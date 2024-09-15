@@ -95,7 +95,10 @@ pub fn App() -> impl IntoView {
             <input type="submit"/>
         </form>
         <ol>
-            <For each=move || store.todos().iter_keyed() key=|row| row.id().get() let:todo>
+            // because `todos` is a keyed field, `store.todos()` returns a struct that
+            // directly implements IntoIterator, so we can use it in <For/> and
+            // it will manage reactivity for the store fields correctly
+            <For each=move || store.todos() key=|row| row.id().get() let:todo>
                 <TodoRow store todo/>
             </For>
 
@@ -154,17 +157,14 @@ fn TodoRow(
 
             <button on:click=move |_| {
                 let id = todo.id().get();
-                store
-                    .todos()
-                    .update(|todos| {
-                        todos.remove(id);
-                    });
+                store.todos().write().retain(|todo| todo.id != id);
             }>"X"</button>
             <input
                 type="date"
                 prop:value=move || {
                     todo.status().scheduled_for_date().map(|n| n.get().to_string())
                 }
+
                 class:hidden=move || !todo.status().scheduled_for()
                 on:change:target=move |ev| {
                     if let Some(date) = todo.status().scheduled_for_date() {

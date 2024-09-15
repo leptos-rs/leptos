@@ -60,20 +60,21 @@ impl TriggerMap {
 pub struct FieldKeys<K> {
     spare_keys: Vec<StorePathSegment>,
     current_key: usize,
-    keys: HashMap<K, (StorePathSegment, usize)>,
+    keys: FxHashMap<K, (StorePathSegment, usize)>,
 }
 
 impl<K> FieldKeys<K>
 where
     K: Debug + Hash + PartialEq + Eq,
 {
-    pub fn new(from_iter: impl IntoIterator<Item = K>) -> Self {
-        let mut current_key = 0;
-        let mut keys = HashMap::new();
-        for (idx, key) in from_iter.into_iter().enumerate() {
-            let segment = current_key.into();
+    pub fn new(from_keys: Vec<K>) -> Self {
+        let mut keys = FxHashMap::with_capacity_and_hasher(
+            from_keys.len(),
+            Default::default(),
+        );
+        for (idx, key) in from_keys.into_iter().enumerate() {
+            let segment = idx.into();
             keys.insert(key, (segment, idx));
-            current_key += 1;
         }
 
         Self {
@@ -104,7 +105,7 @@ where
             .into_iter()
             .enumerate()
             .map(|(idx, key)| (key, idx))
-            .collect::<HashMap<K, usize>>();
+            .collect::<FxHashMap<K, usize>>();
 
         // remove old keys and recycle the slots
         self.keys.retain(|key, old_entry| match new_keys.get(key) {
