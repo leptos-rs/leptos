@@ -638,18 +638,21 @@ where
     }
 }
 
-impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
+impl<Inner, Prev, K, T> IntoIterator for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
     for<'a> &'a T: IntoIterator,
-    Inner: StoreField<Value = Prev>,
+    Inner: Clone + StoreField<Value = Prev> + 'static,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
-    T: IndexMut<usize>,
+    T: IndexMut<usize> + 'static,
     T::Output: Sized,
 {
+    type Item = AtKeyed<Inner, Prev, K, T>;
+    type IntoIter = StoreFieldKeyedIter<Inner, Prev, K, T>;
+
     #[track_caller]
-    pub fn iter_keyed(self) -> StoreFieldKeyedIter<Inner, Prev, K, T> {
+    fn into_iter(self) -> StoreFieldKeyedIter<Inner, Prev, K, T> {
         // reactively track changes to this field
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.track();

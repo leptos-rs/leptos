@@ -95,7 +95,10 @@ pub fn App() -> impl IntoView {
             <input type="submit"/>
         </form>
         <ol>
-            <For each=move || store.todos().iter_keyed() key=|row| row.id().get() let:todo>
+            // because `todos` is a keyed field, `store.todos()` returns a struct that
+            // directly implements IntoIterator, so we can use it in <For/> and
+            // it will manage reactivity for the store fields correctly
+            <For each=move || store.todos() key=|row| row.id().get() let:todo>
                 <TodoRow store todo/>
             </For>
 
