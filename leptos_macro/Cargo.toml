@@ -56,3 +56,11 @@ skip_feature_sets = [["csr", "hydrate"], ["hydrate", "csr"], ["hydrate", "ssr"]]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.cargo-all-features]
+skip_feature_sets = [
+  ["csr", "ssr"],
+  ["csr", "hydrate"],
+  ["ssr", "hydrate"],
+  ["actix", "axum"]
+]
