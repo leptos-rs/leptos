@@ -7,6 +7,8 @@ use std::marker::PhantomData;
 
 /// Types for HTML attributes.
 pub mod attribute;
+/// Types for two way data binding.
+pub mod bind;
 /// Types for manipulating the `class` attribute and `classList`.
 pub mod class;
 /// Types for creating user-defined attributes with custom behavior (directives).

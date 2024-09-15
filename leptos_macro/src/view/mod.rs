@@ -1,5 +1,7 @@
 mod component_builder;
 mod slot_helper;
+mod utils;
+
 use self::{
     component_builder::component_to_tokens,
     slot_helper::{get_slot, slot_to_tokens},
@@ -508,6 +510,8 @@ fn attribute_to_tokens(
                 directive_call_from_attribute_node(node, name)
             } else if let Some(name) = name.strip_prefix("on:") {
                 event_to_tokens(name, node)
+            } else if let Some(name) = name.strip_prefix("bind:") {
+                two_way_binding_to_tokens(name, node)
             } else if let Some(name) = name.strip_prefix("class:") {
                 let class = match &node.key {
                     NodeName::Punctuated(parts) => &parts[0],
@@ -688,6 +692,17 @@ pub(crate) fn attribute_absolute(
                 }
             }
         }),
+    }
+}
+
+pub(crate) fn two_way_binding_to_tokens(
+    name: &str,
+    node: &KeyedAttribute,
+) -> TokenStream {
+    let value = attribute_value(node);
+
+    quote! {
+        .bind(#name, #value)
     }
 }
 
