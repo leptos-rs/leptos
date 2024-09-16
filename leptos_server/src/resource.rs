@@ -24,12 +24,37 @@ use reactive_graph::{
     prelude::*,
     signal::{ArcRwSignal, RwSignal},
 };
-use std::{future::IntoFuture, ops::Deref};
+use std::{future::IntoFuture, ops::Deref, panic::Location};
 
 pub struct ArcResource<T, Ser = JsonSerdeCodec> {
     ser: PhantomData<Ser>,
     refetch: ArcRwSignal<usize>,
     data: ArcAsyncDerived<T>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+}
+
+impl<T, Ser> Debug for ArcResource<T, Ser> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("ArcResource");
+        d.field("ser", &self.ser).field("data", &self.data);
+        #[cfg(debug_assertions)]
+        d.field("defined_at", self.defined_at);
+        d.finish_non_exhaustive()
+    }
+}
+
+impl<T, Ser> DefinedAt for ArcResource<T, Ser> {
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
 }
 
 impl<T, Ser> Clone for ArcResource<T, Ser> {
@@ -38,6 +63,8 @@ impl<T, Ser> Clone for ArcResource<T, Ser> {
             ser: self.ser,
             refetch: self.refetch.clone(),
             data: self.data.clone(),
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
@@ -131,6 +158,8 @@ where
             ser: PhantomData,
             data,
             refetch,
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
         }
     }
 
@@ -448,6 +477,37 @@ where
     ser: PhantomData<Ser>,
     data: AsyncDerived<T>,
     refetch: RwSignal<usize>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static Location<'static>,
+}
+
+impl<T, Ser> Debug for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("ArcResource");
+        d.field("ser", &self.ser).field("data", &self.data);
+        #[cfg(debug_assertions)]
+        d.field("defined_at", self.defined_at);
+        d.finish_non_exhaustive()
+    }
+}
+
+impl<T, Ser> DefinedAt for Resource<T, Ser>
+where
+    T: Send + Sync + 'static,
+{
+    fn defined_at(&self) -> Option<&'static Location<'static>> {
+        #[cfg(debug_assertions)]
+        {
+            Some(self.defined_at)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            None
+        }
+    }
 }
 
 impl<T: Send + Sync + 'static, Ser> Copy for Resource<T, Ser> {}
@@ -703,6 +763,8 @@ where
             ser: PhantomData,
             data: data.into(),
             refetch: refetch.into(),
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
         }
     }
 
