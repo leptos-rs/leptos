@@ -6,11 +6,14 @@ use self::{
     component_builder::component_to_tokens,
     slot_helper::{get_slot, slot_to_tokens},
 };
-use convert_case::{Case::Snake, Casing};
+use convert_case::{
+    Case::{Snake, UpperCamel},
+    Casing,
+};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error2::abort;
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
     NodeBlock, NodeElement, NodeName, NodeNameFragment,
@@ -701,8 +704,11 @@ pub(crate) fn two_way_binding_to_tokens(
 ) -> TokenStream {
     let value = attribute_value(node);
 
+    let ident =
+        format_ident!("{}", name.to_case(UpperCamel), span = node.key.span());
+
     quote! {
-        .bind(#name, #value)
+        .bind(leptos::attr::#ident, #value)
     }
 }
 

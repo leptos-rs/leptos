@@ -20,6 +20,7 @@ pub mod prelude {
                     StyleAttribute,
                 },
             },
+            bind::BindAttribute,
             directive::DirectiveAttribute,
             element::{ElementChild, ElementExt, InnerHtmlAttribute},
             node_ref::NodeRefAttribute,
