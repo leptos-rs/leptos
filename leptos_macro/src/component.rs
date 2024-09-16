@@ -18,7 +18,7 @@ use syn::{
 };
 
 pub struct Model {
-    is_island: bool,
+    island: Option<String>,
     docs: Docs,
     unknown_attrs: UnknownAttrs,
     vis: Visibility,
@@ -62,7 +62,7 @@ impl Parse for Model {
         });
 
         Ok(Self {
-            is_island: false,
+            island: None,
             docs,
             unknown_attrs,
             vis: item.vis.clone(),
@@ -102,7 +102,7 @@ pub fn convert_from_snake_case(name: &Ident) -> Ident {
 impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
-            is_island,
+            island,
             docs,
             unknown_attrs,
             vis,
@@ -111,6 +111,7 @@ impl ToTokens for Model {
             body,
             ret,
         } = self;
+        let is_island = island.is_some();
 
         let no_props = props.is_empty();
 
@@ -146,9 +147,9 @@ impl ToTokens for Model {
         #[cfg(feature = "tracing")]
         let trace_name = format!("<{name} />");
 
-        let is_island_with_children = *is_island
-            && props.iter().any(|prop| prop.name.ident == "children");
-        let is_island_with_other_props = *is_island
+        let is_island_with_children =
+            is_island && props.iter().any(|prop| prop.name.ident == "children");
+        let is_island_with_other_props = is_island
             && ((is_island_with_children && props.len() > 1)
                 || (!is_island_with_children && !props.is_empty()));
 
@@ -230,9 +231,8 @@ impl ToTokens for Model {
         let hydrate_fn_name = is_island.then(|| {
             use std::hash::{Hash, Hasher};
 
-            let span = format!("{:?}", name.span());
             let mut hasher = DefaultHasher::new();
-            span.hash(&mut hasher);
+            island.hash(&mut hasher);
             let caller = hasher.finish() as usize;
             Ident::new(&format!("{component_id}_{caller:?}"), name.span())
         });
@@ -253,7 +253,7 @@ impl ToTokens for Model {
         };
 
         let body_name = unmodified_fn_name_from_fn_name(&body_name);
-        let body_expr = if *is_island {
+        let body_expr = if is_island {
             quote! {
                 ::leptos::reactive_graph::owner::Owner::with_hydration(move || {
                     #body_name(#prop_names)
@@ -276,7 +276,7 @@ impl ToTokens for Model {
         };
 
         // add island wrapper if island
-        let component = if *is_island {
+        let component = if is_island {
             let hydrate_fn_name = hydrate_fn_name.as_ref().unwrap();
             quote! {
                 {
@@ -343,7 +343,7 @@ impl ToTokens for Model {
             #component
         };
 
-        let binding = if *is_island {
+        let binding = if is_island {
             let island_props = if is_island_with_children
                 || is_island_with_other_props
             {
@@ -498,8 +498,8 @@ impl ToTokens for Model {
 
 impl Model {
     #[allow(clippy::wrong_self_convention)]
-    pub fn is_island(mut self, is_island: bool) -> Self {
-        self.is_island = is_island;
+    pub fn with_island(mut self, island: Option<String>) -> Self {
+        self.island = island;
 
         self
     }
