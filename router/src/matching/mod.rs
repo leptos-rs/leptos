@@ -358,7 +358,7 @@ impl<'a, ParamsIter> PartialPathMatch<'a, ParamsIter> {
         self.remaining.is_empty() || self.remaining == "/"
     }
 
-    pub fn remaining(&self) -> &str {
+    pub fn remaining(&self) -> &'a str {
         self.remaining
     }
 
@@ -366,7 +366,7 @@ impl<'a, ParamsIter> PartialPathMatch<'a, ParamsIter> {
         self.params
     }
 
-    pub fn matched(&self) -> &str {
+    pub fn matched(&self) -> &'a str {
         self.matched
     }
 }
