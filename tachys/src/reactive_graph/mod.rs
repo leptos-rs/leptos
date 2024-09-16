@@ -17,6 +17,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// Types for two way data binding.
+pub mod bind;
 mod class;
 mod guards;
 mod inner_html;
@@ -26,6 +28,7 @@ mod owned;
 mod property;
 mod style;
 mod suspense;
+
 pub use owned::*;
 pub use suspense::*;
 
