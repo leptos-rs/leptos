@@ -4,7 +4,7 @@ use leptos_macro::component;
 use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
-    owner::Owner,
+    owner::{provide_context, Owner},
     signal::ArcRwSignal,
     traits::{Get, Update, With, WithUntracked},
 };
@@ -13,6 +13,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use tachys::{
     html::attribute::Attribute,
     hydration::Cursor,
+    reactive_graph::OwnedView,
     renderer::Renderer,
     ssr::StreamBuilder,
     view::{
@@ -96,17 +97,25 @@ where
     let hook = hook as Arc<dyn ErrorHook>;
 
     let _guard = throw_error::set_error_hook(Arc::clone(&hook));
-    let children = children.into_inner()();
 
-    ErrorBoundaryView {
-        hook,
-        boundary_id,
-        errors_empty,
-        children,
-        errors,
-        fallback,
-        rndr: PhantomData,
-    }
+    let owner = Owner::new();
+    let children = owner.with(|| {
+        provide_context(Arc::clone(&hook));
+        children.into_inner()()
+    });
+
+    OwnedView::new_with_owner(
+        ErrorBoundaryView {
+            hook,
+            boundary_id,
+            errors_empty,
+            children,
+            errors,
+            fallback,
+            rndr: PhantomData,
+        },
+        owner,
+    )
 }
 
 struct ErrorBoundaryView<Chil, FalFn, Rndr> {

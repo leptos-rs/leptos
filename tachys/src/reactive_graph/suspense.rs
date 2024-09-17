@@ -31,6 +31,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex, Weak},
 };
+use throw_error::ErrorHook;
 
 /// A suspended `Future`, which can be used in the view.
 #[derive(Clone)]
@@ -177,6 +178,7 @@ where
 
         // get a unique ID if there's a SuspenseContext
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
+        let error_hook = use_context::<Arc<dyn ErrorHook>>();
 
         // if the initial state was pending, spawn a future to wait for it
         // spawning immediately means that our now_or_never poll result isn't lost
@@ -185,6 +187,10 @@ where
             Executor::spawn_local({
                 let state = Rc::clone(&inner);
                 async move {
+                    let _guard = error_hook.as_ref().map(|hook| {
+                        throw_error::set_error_hook(Arc::clone(hook))
+                    });
+
                     let value = fut.as_mut().await;
                     drop(id);
                     Some(value).rebuild(&mut *state.borrow_mut());
@@ -203,11 +209,16 @@ where
         // get a unique ID if there's a SuspenseContext
         let fut = inner;
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
+        let error_hook = use_context::<Arc<dyn ErrorHook>>();
 
         // spawn the future, and rebuild the state when it resolves
         Executor::spawn_local({
             let state = Rc::clone(&state.inner);
             async move {
+                let _guard = error_hook
+                    .as_ref()
+                    .map(|hook| throw_error::set_error_hook(Arc::clone(hook)));
+
                 let value = fut.await;
                 drop(id);
                 // waiting a tick here allows Suspense to remount if necessary, which prevents some
@@ -368,6 +379,7 @@ where
 
         // get a unique ID if there's a SuspenseContext
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
+        let error_hook = use_context::<Arc<dyn ErrorHook>>();
 
         // if the initial state was pending, spawn a future to wait for it
         // spawning immediately means that our now_or_never poll result isn't lost
@@ -376,6 +388,10 @@ where
             Executor::spawn_local({
                 let state = Rc::clone(&inner);
                 async move {
+                    let _guard = error_hook.as_ref().map(|hook| {
+                        throw_error::set_error_hook(Arc::clone(hook))
+                    });
+
                     let value = fut.as_mut().await;
                     drop(id);
                     Some(value).rebuild(&mut *state.borrow_mut());
