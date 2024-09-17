@@ -198,6 +198,8 @@ where
                     subscriber.forward();
                 }
             });
+        } else {
+            subscriber.forward();
         }
 
         SuspendState { inner }
