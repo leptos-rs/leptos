@@ -279,10 +279,25 @@ pub(crate) fn element_to_tokens(
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
 ) -> Option<TokenStream> {
+    // attribute sorting:
+    //
     // the `class` and `style` attributes overwrite individual `class:` and `style:` attributes
     // when they are set. as a result, we're going to sort the attributes so that `class` and
     // `style` always come before all other attributes.
-    node.attributes_mut().sort_by(|a, b| {
+
+    // if there's a spread marker, we don't want to move `class` or `style` before it
+    // so let's only sort attributes that come *before* a spread marker
+    let spread_position = node
+        .attributes()
+        .iter()
+        .position(|n| match n {
+            NodeAttribute::Block(node) => as_spread_attr(node).is_some(),
+            _ => false,
+        })
+        .unwrap_or_else(|| node.attributes().len());
+
+    // now, sort the attributes
+    node.attributes_mut()[0..spread_position].sort_by(|a, b| {
         let key_a = match a {
             NodeAttribute::Attribute(attr) => match &attr.key {
                 NodeName::Path(attr) => {
@@ -496,6 +511,25 @@ fn is_spread_marker(node: &NodeElement<impl CustomNode>) -> bool {
     }
 }
 
+fn as_spread_attr(node: &NodeBlock) -> Option<Option<&Expr>> {
+    if let NodeBlock::ValidBlock(block) = node {
+        match block.stmts.first() {
+            Some(Stmt::Expr(
+                Expr::Range(ExprRange {
+                    start: None,
+                    limits: RangeLimits::HalfOpen(_),
+                    end,
+                    ..
+                }),
+                _,
+            )) => Some(end.as_deref()),
+            _ => None,
+        }
+    } else {
+        None
+    }
+}
+
 fn attribute_to_tokens(
     tag_type: TagType,
     node: &NodeAttribute,
@@ -503,29 +537,18 @@ fn attribute_to_tokens(
     is_custom: bool,
 ) -> TokenStream {
     match node {
-        NodeAttribute::Block(node) => {
-            let dotted = if let NodeBlock::ValidBlock(block) = node {
-                match block.stmts.first() {
-                    Some(Stmt::Expr(
-                        Expr::Range(ExprRange {
-                            start: None,
-                            limits: RangeLimits::HalfOpen(_),
-                            end: Some(end),
-                            ..
-                        }),
-                        _,
-                    )) => Some(quote! { .add_any_attr(#end) }),
-                    _ => None,
+        NodeAttribute::Block(node) => as_spread_attr(node)
+            .flatten()
+            .map(|end| {
+                quote! {
+                    .add_any_attr(#end)
                 }
-            } else {
-                None
-            };
-            dotted.unwrap_or_else(|| {
+            })
+            .unwrap_or_else(|| {
                 quote! {
                     .add_any_attr(#[allow(unused_braces)] { #node })
                 }
-            })
-        }
+            }),
         NodeAttribute::Attribute(node) => {
             let name = node.key.to_string();
             if name == "node_ref" {
