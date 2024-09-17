@@ -425,3 +425,85 @@ pub enum Position {
     /// This is the last child of its parent.
     LastChild,
 }
+
+/// A view stored on the heap.
+///
+/// This is a newtype around `Box<_>` that allows us to implement rendering traits on it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BoxedView<T>(Box<T>);
+
+impl<T> BoxedView<T> {
+    /// Stores view on the heap.
+    pub fn new(value: T) -> Self {
+        Self(Box::new(value))
+    }
+
+    /// Deferences the view to its inner value.
+    pub fn into_inner(self) -> T {
+        *self.0
+    }
+
+    /// Gives a shared reference to the view.
+    pub fn as_ref(&self) -> &T {
+        &self.0
+    }
+
+    /// Gives an exclusive reference to the view.
+    pub fn as_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
+impl<T, Rndr> Render<Rndr> for BoxedView<T>
+where
+    T: Render<Rndr>,
+    Rndr: Renderer,
+{
+    type State = T::State;
+
+    fn build(self) -> Self::State {
+        self.into_inner().build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        self.into_inner().rebuild(state);
+    }
+}
+
+impl<T, Rndr> RenderHtml<Rndr> for BoxedView<T>
+where
+    T: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type AsyncOutput = BoxedView<T::AsyncOutput>;
+
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn dry_resolve(&mut self) {
+        self.as_mut().dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        let inner = self.into_inner().resolve().await;
+        BoxedView::new(inner)
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        self.into_inner()
+            .to_html_with_buf(buf, position, escape, mark_branches)
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        self.into_inner().hydrate::<FROM_SERVER>(cursor, position)
+    }
+}
