@@ -80,6 +80,7 @@ impl Parse for Model {
 #[derive(Clone)]
 enum SubfieldMode {
     Keyed(ExprClosure, Type),
+    Skip,
 }
 
 impl Parse for SubfieldMode {
@@ -91,6 +92,8 @@ impl Parse for SubfieldMode {
             let _eq: Token!(=) = input.parse()?;
             let ident: ExprClosure = input.parse()?;
             Ok(SubfieldMode::Keyed(ident, ty))
+        } else if mode == "skip" {
+            Ok(SubfieldMode::Skip)
         } else {
             Err(input.error("expected `key = <ident>: <Type>`"))
         }
@@ -280,26 +283,29 @@ fn field_to_tokens(
     if let Some(modes) = modes {
         if modes.len() == 1 {
             let mode = &modes[0];
-            // Can replace with a match if additional modes added
-            let SubfieldMode::Keyed(keyed_by, key_ty) = mode;
-            let signature = quote! {
-                fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #generics, #key_ty, #ty>
-            };
-            return if include_body {
-                quote! {
-                    #signature {
-                        #library_path::KeyedSubfield::new(
-                            self,
-                            #idx.into(),
-                            #keyed_by,
-                            |prev| &prev.#locator,
-                            |prev| &mut prev.#locator,
-                        )
-                    }
+            match mode {
+                SubfieldMode::Keyed(keyed_by, key_ty) => {
+                    let signature = quote! {
+                        fn #ident(self) ->  #library_path::KeyedSubfield<#any_store_field, #name #generics, #key_ty, #ty>
+                    };
+                    return if include_body {
+                        quote! {
+                            #signature {
+                                #library_path::KeyedSubfield::new(
+                                    self,
+                                    #idx.into(),
+                                    #keyed_by,
+                                    |prev| &prev.#locator,
+                                    |prev| &mut prev.#locator,
+                                )
+                            }
+                        }
+                    } else {
+                        quote! { #signature; }
+                    };
                 }
-            } else {
-                quote! { #signature; }
-            };
+                SubfieldMode::Skip => return quote! {},
+            }
         } else {
             abort!(
                 orig_ident
