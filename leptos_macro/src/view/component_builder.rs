@@ -10,11 +10,9 @@ use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 
 pub(crate) fn component_to_tokens(
-    node: &NodeElement<impl CustomNode>,
+    node: &mut NodeElement<impl CustomNode>,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
-    let name = node.name();
-
     #[allow(unused)] // TODO this is used by hot-reloading
     #[cfg(debug_assertions)]
     let component_name = super::ident_from_tag_name(node.name());
@@ -45,16 +43,21 @@ pub(crate) fn component_to_tokens(
         })
         .unwrap_or_else(|| node.attributes().len());
 
-    let attrs = node.attributes().iter().filter_map(|node| {
-        if let NodeAttribute::Attribute(node) = node {
-            Some(node)
-        } else {
-            None
-        }
-    });
+    let attrs = node
+        .attributes()
+        .iter()
+        .filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                Some(node)
+            } else {
+                None
+            }
+        })
+        .cloned()
+        .collect::<Vec<_>>();
 
     let props = attrs
-        .clone()
+        .iter()
         .enumerate()
         .filter(|(idx, attr)| {
             idx < &spread_marker && {
@@ -85,7 +88,7 @@ pub(crate) fn component_to_tokens(
         });
 
     let items_to_bind = attrs
-        .clone()
+        .iter()
         .filter_map(|attr| {
             if !is_attr_let(&attr.key) {
                 return None;
@@ -107,7 +110,7 @@ pub(crate) fn component_to_tokens(
         .collect::<Vec<_>>();
 
     let items_to_clone = attrs
-        .clone()
+        .iter()
         .filter_map(|attr| {
             attr.key
                 .to_string()
@@ -183,7 +186,7 @@ pub(crate) fn component_to_tokens(
         quote! {}
     } else {
         let children = fragment_to_tokens(
-            &node.children,
+            &mut node.children,
             TagType::Unknown,
             Some(&mut slots),
             global_class,
@@ -261,6 +264,7 @@ pub(crate) fn component_to_tokens(
         quote! {}
     };
 
+    let name = node.name();
     #[allow(unused_mut)] // used in debug
     let mut component = quote! {
         {

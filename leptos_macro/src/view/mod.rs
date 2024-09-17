@@ -13,7 +13,10 @@ use rstml::node::{
     CustomNode, KVAttributeValue, KeyedAttribute, Node, NodeAttribute,
     NodeBlock, NodeElement, NodeName, NodeNameFragment,
 };
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 use syn::{
     spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprRange, Lit, LitStr,
     RangeLimits, Stmt,
@@ -28,7 +31,7 @@ pub(crate) enum TagType {
 }
 
 pub fn render_view(
-    nodes: &[Node],
+    nodes: &mut [Node],
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
@@ -44,7 +47,7 @@ pub fn render_view(
         }
         1 => (
             node_to_tokens(
-                &nodes[0],
+                &mut nodes[0],
                 TagType::Unknown,
                 None,
                 global_class,
@@ -89,7 +92,7 @@ pub fn render_view(
 }
 
 fn element_children_to_tokens(
-    nodes: &[Node<impl CustomNode>],
+    nodes: &mut [Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -137,7 +140,7 @@ fn element_children_to_tokens(
 }
 
 fn fragment_to_tokens(
-    nodes: &[Node<impl CustomNode>],
+    nodes: &mut [Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -175,7 +178,7 @@ fn fragment_to_tokens(
 }
 
 fn children_to_tokens(
-    nodes: &[Node<impl CustomNode>],
+    nodes: &mut [Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -183,7 +186,7 @@ fn children_to_tokens(
 ) -> Vec<TokenStream> {
     if nodes.len() == 1 {
         match node_to_tokens(
-            &nodes[0],
+            &mut nodes[0],
             parent_type,
             parent_slots,
             global_class,
@@ -195,7 +198,7 @@ fn children_to_tokens(
     } else {
         let mut slots = HashMap::new();
         let nodes = nodes
-            .iter()
+            .iter_mut()
             .filter_map(|node| {
                 node_to_tokens(
                     node,
@@ -219,7 +222,7 @@ fn children_to_tokens(
 }
 
 fn node_to_tokens(
-    node: &Node<impl CustomNode>,
+    node: &mut Node<impl CustomNode>,
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -232,7 +235,7 @@ fn node_to_tokens(
             Some(quote! { ::leptos::tachys::html::doctype(#value) })
         }
         Node::Fragment(fragment) => fragment_to_tokens(
-            &fragment.children,
+            &mut fragment.children,
             parent_type,
             parent_slots,
             global_class,
@@ -270,12 +273,41 @@ fn text_to_tokens(text: &LitStr) -> TokenStream {
 }
 
 pub(crate) fn element_to_tokens(
-    node: &NodeElement<impl CustomNode>,
+    node: &mut NodeElement<impl CustomNode>,
     mut parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
 ) -> Option<TokenStream> {
+    // the `class` and `style` attributes overwrite individual `class:` and `style:` attributes
+    // when they are set. as a result, we're going to sort the attributes so that `class` and
+    // `style` always come before all other attributes.
+    node.attributes_mut().sort_by(|a, b| {
+        let key_a = match a {
+            NodeAttribute::Attribute(attr) => match &attr.key {
+                NodeName::Path(attr) => {
+                    attr.path.segments.first().map(|n| n.ident.to_string())
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        let key_b = match b {
+            NodeAttribute::Attribute(attr) => match &attr.key {
+                NodeName::Path(attr) => {
+                    attr.path.segments.first().map(|n| n.ident.to_string())
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        match (key_a.as_deref(), key_b.as_deref()) {
+            (Some("class"), _) | (Some("style"), _) => Ordering::Less,
+            (_, Some("class")) | (_, Some("style")) => Ordering::Greater,
+            _ => Ordering::Equal,
+        }
+    });
+
     // check for duplicate attribute names and emit an error for all subsequent ones
     let mut names = HashSet::new();
     for attr in node.attributes() {
@@ -299,7 +331,8 @@ pub(crate) fn element_to_tokens(
     let name = node.name();
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
-            slot_to_tokens(node, slot, parent_slots, global_class);
+            let slot = slot.clone();
+            slot_to_tokens(node, &slot, parent_slots, global_class);
             None
         } else {
             Some(component_to_tokens(node, global_class))
@@ -414,7 +447,7 @@ pub(crate) fn element_to_tokens(
         let self_closing = is_self_closing(node);
         let children = if !self_closing {
             element_children_to_tokens(
-                &node.children,
+                &mut node.children,
                 parent_type,
                 parent_slots,
                 global_class,

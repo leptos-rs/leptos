@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 pub(crate) fn slot_to_tokens(
-    node: &NodeElement<impl CustomNode>,
+    node: &mut NodeElement<impl CustomNode>,
     slot: &KeyedAttribute,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
@@ -30,20 +30,25 @@ pub(crate) fn slot_to_tokens(
         return;
     };
 
-    let attrs = node.attributes().iter().filter_map(|node| {
-        if let NodeAttribute::Attribute(node) = node {
-            if is_slot(node) {
-                None
+    let attrs = node
+        .attributes()
+        .iter()
+        .filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                if is_slot(node) {
+                    None
+                } else {
+                    Some(node)
+                }
             } else {
-                Some(node)
+                None
             }
-        } else {
-            None
-        }
-    });
+        })
+        .cloned()
+        .collect::<Vec<_>>();
 
     let props = attrs
-        .clone()
+        .iter()
         .filter(|attr| {
             !attr.key.to_string().starts_with("let:")
                 && !attr.key.to_string().starts_with("clone:")
@@ -65,7 +70,7 @@ pub(crate) fn slot_to_tokens(
         });
 
     let items_to_bind = attrs
-        .clone()
+        .iter()
         .filter_map(|attr| {
             attr.key
                 .to_string()
@@ -75,7 +80,7 @@ pub(crate) fn slot_to_tokens(
         .collect::<Vec<_>>();
 
     let items_to_clone = attrs
-        .clone()
+        .iter()
         .filter_map(|attr| {
             attr.key
                 .to_string()
@@ -85,6 +90,7 @@ pub(crate) fn slot_to_tokens(
         .collect::<Vec<_>>();
 
     let dyn_attrs = attrs
+        .iter()
         .filter(|attr| attr.key.to_string().starts_with("attr:"))
         .filter_map(|attr| {
             let name = &attr.key.to_string();
@@ -107,7 +113,7 @@ pub(crate) fn slot_to_tokens(
         quote! {}
     } else {
         let children = fragment_to_tokens(
-            &node.children,
+            &mut node.children,
             TagType::Unknown,
             Some(&mut slots),
             global_class,
