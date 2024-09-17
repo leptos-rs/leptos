@@ -302,10 +302,10 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     };
     let config = rstml::ParserConfig::default().recover_block(true);
     let parser = rstml::Parser::new(config);
-    let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
+    let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
     let nodes_output = view::render_view(
-        &nodes,
+        &mut nodes,
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
     );
