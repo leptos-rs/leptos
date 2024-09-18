@@ -391,30 +391,18 @@ where
         let condition = condition.clone();
         let redirect_path = redirect_path.clone();
         let view = view.clone();
-        let owner = Owner::current().unwrap();
-        let view = {
-            move || {
-                let condition = condition();
-                let view = view.clone();
-                let redirect_path = redirect_path.clone();
-                let owner = owner.clone();
-                Unsuspend::new(move || match condition {
-                    // reset the owner so that things like providing context work
-                    // otherwise, this will be a child owner nested within the Transition, not
-                    // the parent owner of the Outlet
-                    //
-                    // clippy: not redundant, a FnOnce vs FnMut issue
-                    #[allow(clippy::redundant_closure)]
-                    Some(true) => Either::Left(owner.with(|| view())),
-                    #[allow(clippy::unit_arg)]
-                    Some(false) => Either::Right(
-                        view! { <Redirect path=redirect_path()/> }.into_inner(),
-                    ),
-                    None => Either::Right(()),
-                })
+
+        (move || {
+            let condition = condition();
+            match condition {
+                Some(true) => view().into_any(),
+                Some(false) => {
+                    view! { <Redirect path=redirect_path()/> }.into_any()
+                }
+                None => view! { <div>"Loading..."</div> }.into_any(),
             }
-        };
-        (view! { <Transition>{view}</Transition> }).into_any()
+        })
+        .into_any()
     };
     NestedRoute::new(path, view).ssr_mode(ssr).child(children)
 }
