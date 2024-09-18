@@ -492,6 +492,8 @@ fn node_to_tokens(
     view_marker: Option<&str>,
     top_level: bool,
 ) -> Option<TokenStream> {
+    let is_inert = is_inert_element(node);
+
     match node {
         Node::Comment(_) => None,
         Node::Doctype(node) => {
@@ -512,15 +514,23 @@ fn node_to_tokens(
             let text = syn::LitStr::new(&text, raw.span());
             Some(text_to_tokens(&text))
         }
-        Node::Element(el_node) => element_to_tokens(
-            node,
-            el_node,
-            parent_type,
-            parent_slots,
-            global_class,
-            view_marker,
-            top_level,
-        ),
+        Node::Element(el_node) => {
+            if !top_level && is_inert {
+                inert_element_to_tokens(
+                    el_node.name().to_string(),
+                    node,
+                    global_class,
+                )
+            } else {
+                element_to_tokens(
+                    el_node,
+                    parent_type,
+                    parent_slots,
+                    global_class,
+                    view_marker,
+                )
+            }
+        }
         Node::Custom(node) => Some(node.to_token_stream()),
     }
 }
@@ -539,22 +549,12 @@ fn text_to_tokens(text: &LitStr) -> TokenStream {
 }
 
 pub(crate) fn element_to_tokens(
-    orig_node: &Node<impl CustomNode>,
     node: &mut NodeElement<impl CustomNode>,
     mut parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
-    top_level: bool,
 ) -> Option<TokenStream> {
-    if !top_level && is_inert_element(orig_node) {
-        return inert_element_to_tokens(
-            node.name().to_string(),
-            orig_node,
-            global_class,
-        );
-    }
-
     // attribute sorting:
     //
     // the `class` and `style` attributes overwrite individual `class:` and `style:` attributes
