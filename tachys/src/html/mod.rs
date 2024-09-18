@@ -108,9 +108,7 @@ where
     type State = Rndr::Element;
 
     fn build(self) -> Self::State {
-        let el = Rndr::create_element_with_tag_name(self.tag);
-        Rndr::set_inner_html(&el, &self.html);
-        el
+        Rndr::create_element_from_html(&self.html)
     }
 
     fn rebuild(self, _state: &mut Self::State) {}

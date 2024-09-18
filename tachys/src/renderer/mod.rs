@@ -206,9 +206,6 @@ pub trait DomRenderer: Renderer {
         value: &str,
     );
 
-    /// Creates an element from the given tag name.
-    fn create_element_with_tag_name(name: &str) -> Self::Element;
-
     /// Sets the `innerHTML` of a DOM element, without escaping any values.
     fn set_inner_html(el: &Self::Element, html: &str);
 
@@ -219,6 +216,9 @@ pub trait DomRenderer: Renderer {
 
     /// Deeply clones a template.
     fn clone_template(tpl: &Self::TemplateElement) -> Self::Element;
+
+    /// Creates a single element from a string of HTML.
+    fn create_element_from_html(html: &str) -> Self::Element;
 }
 
 /// Attempts to cast from one type to another.

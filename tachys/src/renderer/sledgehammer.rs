@@ -561,7 +561,7 @@ impl DomRenderer for Sledgehammer {
         node
     }
 
-    fn create_element_with_tag_name(name: &str) -> Self::Element {
+    fn create_element_from_html(html: &str) -> Self::Element {
         todo!()
     }
 }

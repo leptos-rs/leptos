@@ -301,8 +301,8 @@ impl DomRenderer for MockDom {
         todo!()
     }
 
-    fn create_element_with_tag_name(name: &str) -> Self::Element {
-        document().create_element(name)
+    fn create_element_from_html(html: &str) -> Self::Element {
+        todo!()
     }
 }
 
