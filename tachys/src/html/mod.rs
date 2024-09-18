@@ -87,17 +87,13 @@ where
 
 /// An element that contains no interactivity, and whose contents can be known at compile time.
 pub struct InertElement {
-    tag: &'static str,
     html: Cow<'static, str>,
 }
 
 impl InertElement {
     /// Creates a new inert element.
-    pub fn new(
-        tag: &'static str,
-        html: impl FnOnce() -> Cow<'static, str>,
-    ) -> Self {
-        Self { tag, html: html() }
+    pub fn new(html: Cow<'static, str>) -> Self {
+        Self { html }
     }
 }
 

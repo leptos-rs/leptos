@@ -173,12 +173,12 @@ impl<'a> ToTokens for InertElementBuilder<'a> {
         match self {
             InertElementBuilder::GlobalClass { strs, .. } => {
                 tokens.extend(quote! {
-                    || std::borrow::Cow::Owned([#(#strs),*].join(""))
+                    std::borrow::Cow::Owned([#(#strs),*].join(""))
                 });
             }
             InertElementBuilder::NoGlobalClass { buffer } => {
                 tokens.extend(quote! {
-                    || std::borrow::Cow::Borrowed(#buffer)
+                    std::borrow::Cow::Borrowed(#buffer)
                 })
             }
         }
@@ -263,7 +263,6 @@ impl<'a> InertElementBuilder<'a> {
 }
 
 fn inert_element_to_tokens(
-    el_name: String,
     node: &Node<impl CustomNode>,
     global_class: Option<&TokenTree>,
 ) -> Option<TokenStream> {
@@ -345,7 +344,7 @@ fn inert_element_to_tokens(
     html.finish();
 
     Some(quote! {
-        ::leptos::tachys::html::InertElement::new(#el_name, #html)
+        ::leptos::tachys::html::InertElement::new(#html)
     })
 }
 
@@ -516,11 +515,7 @@ fn node_to_tokens(
         }
         Node::Element(el_node) => {
             if !top_level && is_inert {
-                inert_element_to_tokens(
-                    el_node.name().to_string(),
-                    node,
-                    global_class,
-                )
+                inert_element_to_tokens(node, global_class)
             } else {
                 element_to_tokens(
                     el_node,
