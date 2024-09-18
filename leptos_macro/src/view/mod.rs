@@ -307,20 +307,17 @@ fn inert_element_to_tokens(
                                 if let Some(value) =
                                     attr.possible_value.to_value()
                                 {
-                                    if let KVAttributeValue::Expr(expr) =
-                                        &value.value
+                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                        lit,
+                                    )) = &value.value
                                     {
-                                        if let Expr::Lit(lit) = expr {
-                                            if let Lit::Str(txt) = &lit.lit {
-                                                if attr_name == "class" {
-                                                    html.push_class(
-                                                        &txt.value(),
-                                                    );
-                                                } else {
-                                                    html.push_str("=\"");
-                                                    html.push_str(&txt.value());
-                                                    html.push('"');
-                                                }
+                                        if let Lit::Str(txt) = &lit.lit {
+                                            if attr_name == "class" {
+                                                html.push_class(&txt.value());
+                                            } else {
+                                                html.push_str("=\"");
+                                                html.push_str(&txt.value());
+                                                html.push('"');
                                             }
                                         }
                                     }
