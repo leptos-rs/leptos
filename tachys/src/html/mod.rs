@@ -1,7 +1,10 @@
+use self::attribute::Attribute;
 use crate::{
+    hydration::Cursor,
     no_attrs,
-    renderer::Renderer,
-    view::{Position, Render, RenderHtml},
+    prelude::AddAnyAttr,
+    renderer::{CastFrom, Renderer},
+    view::{Position, PositionState, Render, RenderHtml},
 };
 use std::marker::PhantomData;
 
@@ -76,8 +79,100 @@ where
 
     fn hydrate<const FROM_SERVER: bool>(
         self,
-        _cursor: &crate::hydration::Cursor<R>,
-        _position: &crate::view::PositionState,
+        _cursor: &Cursor<R>,
+        _position: &PositionState,
     ) -> Self::State {
+    }
+}
+
+/// An element that contains no interactivity, and whose contents can be known at compile time.
+pub struct InertElement {
+    tag: &'static str,
+    html: &'static str,
+}
+
+impl InertElement {
+    /// Creates a new inert element.
+    pub fn new(tag: &'static str, html: &'static str) -> Self {
+        Self { tag, html }
+    }
+}
+
+impl<Rndr> Render<Rndr> for InertElement
+where
+    Rndr: Renderer,
+{
+    type State = Rndr::Element;
+
+    fn build(self) -> Self::State {
+        todo!()
+    }
+
+    fn rebuild(self, _state: &mut Self::State) {}
+}
+
+impl<Rndr> AddAnyAttr<Rndr> for InertElement
+where
+    Rndr: Renderer,
+{
+    type Output<SomeNewAttr: Attribute<Rndr>> = Self;
+
+    fn add_any_attr<NewAttr: Attribute<Rndr>>(
+        self,
+        _attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml<Rndr>,
+    {
+        panic!(
+            "InertElement does not support adding attributes. It should only \
+             be used as a child, and not returned at the top level."
+        )
+    }
+}
+
+impl<Rndr> RenderHtml<Rndr> for InertElement
+where
+    Rndr: Renderer,
+{
+    type AsyncOutput = Self;
+
+    const MIN_LENGTH: usize = 0;
+
+    fn html_len(&self) -> usize {
+        self.html.len()
+    }
+
+    fn dry_resolve(&mut self) {}
+
+    async fn resolve(self) -> Self {
+        self
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        _escape: bool,
+        _mark_branches: bool,
+    ) {
+        buf.push_str(self.html);
+        *position = Position::NextChild;
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        let curr_position = position.get();
+        if curr_position == Position::FirstChild {
+            cursor.child();
+        } else if curr_position != Position::Current {
+            cursor.sibling();
+        }
+        let el = Rndr::Element::cast_from(cursor.current()).unwrap();
+        position.set(Position::NextChild);
+        el
     }
 }

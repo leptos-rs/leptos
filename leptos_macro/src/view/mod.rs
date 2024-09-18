@@ -15,7 +15,7 @@ use rstml::node::{
 };
 use std::{
     cmp::Ordering,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
     spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprRange, Lit, LitStr,
@@ -52,6 +52,7 @@ pub fn render_view(
                 None,
                 global_class,
                 view_marker.as_deref(),
+                true,
             ),
             // only add View wrapper and view marker to a regular HTML
             // element or component, not to a <{..} /> attribute list
@@ -91,6 +92,148 @@ pub fn render_view(
     })
 }
 
+fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
+    let mut nodes = VecDeque::from([orig_node]);
+
+    while let Some(current_element) = nodes.pop_front() {
+        match current_element {
+            Node::Text(_) | Node::RawText(_) => {}
+            Node::Element(node) => {
+                if is_component_node(node) {
+                    return false;
+                }
+                if is_spread_marker(node) {
+                    return false;
+                }
+
+                match node.name() {
+                    NodeName::Block(_) => return false,
+                    _ => {
+                        // check all attributes
+                        for attr in node.attributes() {
+                            match attr {
+                                NodeAttribute::Block(_) => return false,
+                                NodeAttribute::Attribute(attr) => {
+                                    let static_key =
+                                        !matches!(attr.key, NodeName::Block(_));
+
+                                    let static_value = match attr
+                                        .possible_value
+                                        .to_value()
+                                    {
+                                        None => true,
+                                        Some(value) => {
+                                            matches!(&value.value, KVAttributeValue::Expr(expr) if {
+                                                if let Expr::Lit(lit) = expr {
+                                                    matches!(&lit.lit, Lit::Str(_))
+                                                } else {
+                                                    false
+                                                }
+                                            })
+                                        }
+                                    };
+
+                                    if !static_key || !static_value {
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+
+                        // check all children
+                        nodes.extend(&node.children);
+                    }
+                }
+            }
+            _ => return false,
+        }
+    }
+
+    true
+}
+
+enum Item<'a, T> {
+    Node(&'a Node<T>),
+    ClosingTag(String),
+}
+
+fn inert_element_to_tokens(
+    el_name: String,
+    node: &Node<impl CustomNode>,
+) -> Option<TokenStream> {
+    let mut html = String::new();
+    let mut nodes = VecDeque::from([Item::Node(node)]);
+
+    while let Some(current) = nodes.pop_front() {
+        match current {
+            Item::ClosingTag(tag) => {
+                // closing tag
+                html.push_str("</");
+                html.push_str(&tag);
+                html.push('>');
+            }
+            Item::Node(current) => {
+                match current {
+                    Node::RawText(raw) => {
+                        let text = raw.to_string_best();
+                        html.push_str(&text);
+                    }
+                    Node::Text(text) => {
+                        let text = text.value_string();
+                        html.push_str(&text);
+                    }
+                    Node::Element(node) => {
+                        let el_name = node.name().to_string();
+
+                        // opening tag
+                        html.push('<');
+                        html.push_str(&el_name);
+
+                        for attr in node.attributes() {
+                            if let NodeAttribute::Attribute(attr) = attr {
+                                let attr_name = attr.key.to_string();
+                                html.push(' ');
+                                html.push_str(&attr_name);
+
+                                if let Some(value) =
+                                    attr.possible_value.to_value()
+                                {
+                                    if let KVAttributeValue::Expr(expr) =
+                                        &value.value
+                                    {
+                                        if let Expr::Lit(lit) = expr {
+                                            if let Lit::Str(txt) = &lit.lit {
+                                                html.push_str("=\"");
+                                                html.push_str(&txt.value());
+                                                html.push('"');
+                                            }
+                                        }
+                                    }
+                                };
+                            }
+                        }
+
+                        html.push('>');
+
+                        // render all children
+                        // TODO self-closing children
+                        nodes.push_front(Item::ClosingTag(el_name));
+                        let children = node.children.iter().rev();
+                        for child in children {
+                            nodes.push_front(Item::Node(child));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    Some(quote! {
+        ::leptos::tachys::html::InertElement::new(#el_name, #html)
+    })
+}
+
 fn element_children_to_tokens(
     nodes: &mut [Node<impl CustomNode>],
     parent_type: TagType,
@@ -104,6 +247,7 @@ fn element_children_to_tokens(
         parent_slots,
         global_class,
         view_marker,
+        false,
     );
     if children.is_empty() {
         None
@@ -152,6 +296,7 @@ fn fragment_to_tokens(
         parent_slots,
         global_class,
         view_marker,
+        true,
     );
     if children.is_empty() {
         None
@@ -183,6 +328,7 @@ fn children_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    top_level: bool,
 ) -> Vec<TokenStream> {
     if nodes.len() == 1 {
         match node_to_tokens(
@@ -191,6 +337,7 @@ fn children_to_tokens(
             parent_slots,
             global_class,
             view_marker,
+            top_level,
         ) {
             Some(tokens) => vec![tokens],
             None => vec![],
@@ -206,6 +353,7 @@ fn children_to_tokens(
                     Some(&mut slots),
                     global_class,
                     view_marker,
+                    top_level,
                 )
             })
             .collect();
@@ -227,6 +375,7 @@ fn node_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    top_level: bool,
 ) -> Option<TokenStream> {
     match node {
         Node::Comment(_) => None,
@@ -248,12 +397,14 @@ fn node_to_tokens(
             let text = syn::LitStr::new(&text, raw.span());
             Some(text_to_tokens(&text))
         }
-        Node::Element(node) => element_to_tokens(
+        Node::Element(el_node) => element_to_tokens(
             node,
+            el_node,
             parent_type,
             parent_slots,
             global_class,
             view_marker,
+            top_level,
         ),
         Node::Custom(node) => Some(node.to_token_stream()),
     }
@@ -273,12 +424,18 @@ fn text_to_tokens(text: &LitStr) -> TokenStream {
 }
 
 pub(crate) fn element_to_tokens(
+    orig_node: &Node<impl CustomNode>,
     node: &mut NodeElement<impl CustomNode>,
     mut parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    top_level: bool,
 ) -> Option<TokenStream> {
+    if !top_level && is_inert_element(orig_node) {
+        return inert_element_to_tokens(node.name().to_string(), orig_node); // TODO global_class here
+    }
+
     // attribute sorting:
     //
     // the `class` and `style` attributes overwrite individual `class:` and `style:` attributes
