@@ -93,6 +93,18 @@ pub fn render_view(
 }
 
 fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
+    // do not use this if the top-level node is not an Element,
+    // or if it's an element with no children and no attrs
+    match orig_node {
+        Node::Element(el) => {
+            if el.attributes().is_empty() && el.children.is_empty() {
+                return false;
+            }
+        }
+        _ => return false,
+    }
+
+    // otherwise, walk over all the nodes to make sure everything is inert
     let mut nodes = VecDeque::from([orig_node]);
 
     while let Some(current_element) = nodes.pop_front() {
