@@ -93,6 +93,7 @@ where
         let mut loaders = Vec::new();
         let mut outlets = Vec::new();
         let url = current_url.read_untracked();
+        let path = url.path().to_string();
 
         // match the route
         let new_match = routes.match_route(url.path());
@@ -110,6 +111,7 @@ where
                     &mut outlets,
                     &outer_owner,
                 );
+                drop(url);
                 outer_owner.with(|| {
                     EitherOf3::C(
                         Outlet(OutletProps::builder().build()).into_any(),
@@ -131,7 +133,7 @@ where
         });
 
         NestedRouteViewState {
-            path: url.path().to_string(),
+            path,
             current_url,
             outlets,
             view,
@@ -411,6 +413,7 @@ where
         let mut loaders = Vec::new();
         let mut outlets = Vec::new();
         let url = current_url.read_untracked();
+        let path = url.path().to_string();
 
         // match the route
         let new_match = routes.match_route(url.path());
@@ -427,6 +430,8 @@ where
                         &mut outlets,
                         &outer_owner,
                     );
+                    drop(url);
+
                     // TODO support for lazy hydration
                     join_all(mem::take(&mut loaders))
                         .now_or_never()
@@ -442,7 +447,7 @@ where
         ));
 
         NestedRouteViewState {
-            path: url.path().to_string(),
+            path,
             current_url,
             outlets,
             view,
