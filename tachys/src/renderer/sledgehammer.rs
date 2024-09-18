@@ -560,6 +560,10 @@ impl DomRenderer for Sledgehammer {
         });
         node
     }
+
+    fn create_element_with_tag_name(name: &str) -> Self::Element {
+        todo!()
+    }
 }
 
 impl Mountable<Sledgehammer> for SNode {

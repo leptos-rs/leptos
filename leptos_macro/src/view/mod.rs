@@ -157,11 +157,117 @@ enum Item<'a, T> {
     ClosingTag(String),
 }
 
+enum InertElementBuilder<'a> {
+    GlobalClass {
+        global_class: &'a TokenTree,
+        strs: Vec<GlobalClassItem<'a>>,
+        buffer: String,
+    },
+    NoGlobalClass {
+        buffer: String,
+    },
+}
+
+impl<'a> ToTokens for InertElementBuilder<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            InertElementBuilder::GlobalClass { strs, .. } => {
+                tokens.extend(quote! {
+                    || std::borrow::Cow::Owned([#(#strs),*].join(""))
+                });
+            }
+            InertElementBuilder::NoGlobalClass { buffer } => {
+                tokens.extend(quote! {
+                    || std::borrow::Cow::Borrowed(#buffer)
+                })
+            }
+        }
+    }
+}
+
+enum GlobalClassItem<'a> {
+    Global(&'a TokenTree),
+    String(String),
+}
+
+impl<'a> ToTokens for GlobalClassItem<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let addl_tokens = match self {
+            GlobalClassItem::Global(v) => v.to_token_stream(),
+            GlobalClassItem::String(v) => v.to_token_stream(),
+        };
+        tokens.extend(addl_tokens);
+    }
+}
+
+impl<'a> InertElementBuilder<'a> {
+    fn new(global_class: Option<&'a TokenTree>) -> Self {
+        match global_class {
+            None => Self::NoGlobalClass {
+                buffer: String::new(),
+            },
+            Some(global_class) => Self::GlobalClass {
+                global_class,
+                strs: Vec::new(),
+                buffer: String::new(),
+            },
+        }
+    }
+
+    fn push(&mut self, c: char) {
+        match self {
+            InertElementBuilder::GlobalClass { buffer, .. } => buffer.push(c),
+            InertElementBuilder::NoGlobalClass { buffer } => buffer.push(c),
+        }
+    }
+
+    fn push_str(&mut self, s: &str) {
+        match self {
+            InertElementBuilder::GlobalClass { buffer, .. } => {
+                buffer.push_str(s)
+            }
+            InertElementBuilder::NoGlobalClass { buffer } => buffer.push_str(s),
+        }
+    }
+
+    fn push_class(&mut self, class: &str) {
+        match self {
+            InertElementBuilder::GlobalClass {
+                global_class,
+                strs,
+                buffer,
+            } => {
+                buffer.push_str(" class=\"");
+                strs.push(GlobalClassItem::String(std::mem::take(buffer)));
+                strs.push(GlobalClassItem::Global(global_class));
+                buffer.push(' ');
+                buffer.push_str(class);
+                buffer.push('"');
+            }
+            InertElementBuilder::NoGlobalClass { buffer } => {
+                buffer.push_str(" class=\"");
+                buffer.push_str(class);
+                buffer.push('"');
+            }
+        }
+    }
+
+    fn finish(&mut self) {
+        match self {
+            InertElementBuilder::GlobalClass { strs, buffer, .. } => {
+                strs.push(GlobalClassItem::String(std::mem::take(buffer)));
+            }
+            InertElementBuilder::NoGlobalClass { .. } => {}
+        }
+    }
+}
+
 fn inert_element_to_tokens(
     el_name: String,
     node: &Node<impl CustomNode>,
+    global_class: Option<&TokenTree>,
 ) -> Option<TokenStream> {
-    let mut html = String::new();
+    let mut html = InertElementBuilder::new(global_class);
     let mut nodes = VecDeque::from([Item::Node(node)]);
 
     while let Some(current) = nodes.pop_front() {
@@ -183,6 +289,7 @@ fn inert_element_to_tokens(
                         html.push_str(&text);
                     }
                     Node::Element(node) => {
+                        let self_closing = is_self_closing(node);
                         let el_name = node.name().to_string();
 
                         // opening tag
@@ -192,8 +299,10 @@ fn inert_element_to_tokens(
                         for attr in node.attributes() {
                             if let NodeAttribute::Attribute(attr) = attr {
                                 let attr_name = attr.key.to_string();
-                                html.push(' ');
-                                html.push_str(&attr_name);
+                                if attr_name != "class" {
+                                    html.push(' ');
+                                    html.push_str(&attr_name);
+                                }
 
                                 if let Some(value) =
                                     attr.possible_value.to_value()
@@ -203,9 +312,15 @@ fn inert_element_to_tokens(
                                     {
                                         if let Expr::Lit(lit) = expr {
                                             if let Lit::Str(txt) = &lit.lit {
-                                                html.push_str("=\"");
-                                                html.push_str(&txt.value());
-                                                html.push('"');
+                                                if attr_name == "class" {
+                                                    html.push_class(
+                                                        &txt.value(),
+                                                    );
+                                                } else {
+                                                    html.push_str("=\"");
+                                                    html.push_str(&txt.value());
+                                                    html.push('"');
+                                                }
                                             }
                                         }
                                     }
@@ -216,11 +331,12 @@ fn inert_element_to_tokens(
                         html.push('>');
 
                         // render all children
-                        // TODO self-closing children
-                        nodes.push_front(Item::ClosingTag(el_name));
-                        let children = node.children.iter().rev();
-                        for child in children {
-                            nodes.push_front(Item::Node(child));
+                        if !self_closing {
+                            nodes.push_front(Item::ClosingTag(el_name));
+                            let children = node.children.iter().rev();
+                            for child in children {
+                                nodes.push_front(Item::Node(child));
+                            }
                         }
                     }
                     _ => {}
@@ -228,6 +344,8 @@ fn inert_element_to_tokens(
             }
         }
     }
+
+    html.finish();
 
     Some(quote! {
         ::leptos::tachys::html::InertElement::new(#el_name, #html)
@@ -433,7 +551,11 @@ pub(crate) fn element_to_tokens(
     top_level: bool,
 ) -> Option<TokenStream> {
     if !top_level && is_inert_element(orig_node) {
-        return inert_element_to_tokens(node.name().to_string(), orig_node); // TODO global_class here
+        return inert_element_to_tokens(
+            node.name().to_string(),
+            orig_node,
+            global_class,
+        );
     }
 
     // attribute sorting:

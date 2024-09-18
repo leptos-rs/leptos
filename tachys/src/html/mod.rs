@@ -3,10 +3,10 @@ use crate::{
     hydration::Cursor,
     no_attrs,
     prelude::AddAnyAttr,
-    renderer::{CastFrom, Renderer},
+    renderer::{CastFrom, DomRenderer, Renderer},
     view::{Position, PositionState, Render, RenderHtml},
 };
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
 /// Types for HTML attributes.
 pub mod attribute;
@@ -88,24 +88,29 @@ where
 /// An element that contains no interactivity, and whose contents can be known at compile time.
 pub struct InertElement {
     tag: &'static str,
-    html: &'static str,
+    html: Cow<'static, str>,
 }
 
 impl InertElement {
     /// Creates a new inert element.
-    pub fn new(tag: &'static str, html: &'static str) -> Self {
-        Self { tag, html }
+    pub fn new(
+        tag: &'static str,
+        html: impl FnOnce() -> Cow<'static, str>,
+    ) -> Self {
+        Self { tag, html: html() }
     }
 }
 
 impl<Rndr> Render<Rndr> for InertElement
 where
-    Rndr: Renderer,
+    Rndr: DomRenderer,
 {
     type State = Rndr::Element;
 
     fn build(self) -> Self::State {
-        todo!()
+        let el = Rndr::create_element_with_tag_name(self.tag);
+        Rndr::set_inner_html(&el, &self.html);
+        el
     }
 
     fn rebuild(self, _state: &mut Self::State) {}
@@ -113,7 +118,7 @@ where
 
 impl<Rndr> AddAnyAttr<Rndr> for InertElement
 where
-    Rndr: Renderer,
+    Rndr: DomRenderer,
 {
     type Output<SomeNewAttr: Attribute<Rndr>> = Self;
 
@@ -133,7 +138,7 @@ where
 
 impl<Rndr> RenderHtml<Rndr> for InertElement
 where
-    Rndr: Renderer,
+    Rndr: DomRenderer,
 {
     type AsyncOutput = Self;
 
@@ -156,7 +161,7 @@ where
         _escape: bool,
         _mark_branches: bool,
     ) {
-        buf.push_str(self.html);
+        buf.push_str(&self.html);
         *position = Position::NextChild;
     }
 

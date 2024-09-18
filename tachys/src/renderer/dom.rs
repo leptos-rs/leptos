@@ -390,6 +390,10 @@ impl DomRenderer for Dom {
             .unwrap()
             .unchecked_into()
     }
+
+    fn create_element_with_tag_name(name: &str) -> Self::Element {
+        document().create_element(name).unwrap()
+    }
 }
 
 impl Mountable<Dom> for Node {

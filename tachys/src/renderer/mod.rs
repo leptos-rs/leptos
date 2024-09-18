@@ -206,6 +206,9 @@ pub trait DomRenderer: Renderer {
         value: &str,
     );
 
+    /// Creates an element from the given tag name.
+    fn create_element_with_tag_name(name: &str) -> Self::Element;
+
     /// Sets the `innerHTML` of a DOM element, without escaping any values.
     fn set_inner_html(el: &Self::Element, html: &str);
 
@@ -213,6 +216,7 @@ pub trait DomRenderer: Renderer {
     fn get_template<V>() -> Self::TemplateElement
     where
         V: ToTemplate + 'static;
+
     /// Deeply clones a template.
     fn clone_template(tpl: &Self::TemplateElement) -> Self::Element;
 }
