@@ -12,6 +12,7 @@ use syn::{spanned::Spanned, Expr, ExprPath, ExprRange, RangeLimits, Stmt};
 pub(crate) fn component_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
     global_class: Option<&TokenTree>,
+    disable_inert_html: bool,
 ) -> TokenStream {
     #[allow(unused)] // TODO this is used by hot-reloading
     #[cfg(debug_assertions)]
@@ -191,6 +192,7 @@ pub(crate) fn component_to_tokens(
             Some(&mut slots),
             global_class,
             None,
+            disable_inert_html,
         );
 
         // TODO view marker for hot-reloading

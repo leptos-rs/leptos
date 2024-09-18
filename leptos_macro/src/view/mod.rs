@@ -34,6 +34,7 @@ pub fn render_view(
     nodes: &mut [Node],
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     let (base, should_add_view) = match nodes.len() {
         0 => {
@@ -53,6 +54,7 @@ pub fn render_view(
                 global_class,
                 view_marker.as_deref(),
                 true,
+                disable_inert_html,
             ),
             // only add View wrapper and view marker to a regular HTML
             // element or component, not to a <{..} /> attribute list
@@ -68,6 +70,7 @@ pub fn render_view(
                 None,
                 global_class,
                 view_marker.as_deref(),
+                disable_inert_html,
             ),
             true,
         ),
@@ -366,6 +369,7 @@ fn element_children_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     let children = children_to_tokens(
         nodes,
@@ -374,6 +378,7 @@ fn element_children_to_tokens(
         global_class,
         view_marker,
         false,
+        disable_inert_html,
     );
     if children.is_empty() {
         None
@@ -415,6 +420,7 @@ fn fragment_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     let children = children_to_tokens(
         nodes,
@@ -423,6 +429,7 @@ fn fragment_to_tokens(
         global_class,
         view_marker,
         true,
+        disable_inert_html,
     );
     if children.is_empty() {
         None
@@ -455,6 +462,7 @@ fn children_to_tokens(
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
     top_level: bool,
+    disable_inert_html: bool,
 ) -> Vec<TokenStream> {
     if nodes.len() == 1 {
         match node_to_tokens(
@@ -464,6 +472,7 @@ fn children_to_tokens(
             global_class,
             view_marker,
             top_level,
+            disable_inert_html,
         ) {
             Some(tokens) => vec![tokens],
             None => vec![],
@@ -480,6 +489,7 @@ fn children_to_tokens(
                     global_class,
                     view_marker,
                     top_level,
+                    disable_inert_html,
                 )
             })
             .collect();
@@ -502,8 +512,9 @@ fn node_to_tokens(
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
     top_level: bool,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
-    let is_inert = is_inert_element(node);
+    let is_inert = !disable_inert_html && is_inert_element(node);
 
     match node {
         Node::Comment(_) => None,
@@ -517,6 +528,7 @@ fn node_to_tokens(
             parent_slots,
             global_class,
             view_marker,
+            disable_inert_html,
         ),
         Node::Block(block) => Some(quote! { #block }),
         Node::Text(text) => Some(text_to_tokens(&text.value)),
@@ -535,6 +547,7 @@ fn node_to_tokens(
                     parent_slots,
                     global_class,
                     view_marker,
+                    disable_inert_html,
                 )
             }
         }
@@ -561,6 +574,7 @@ pub(crate) fn element_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     // attribute sorting:
     //
@@ -630,10 +644,16 @@ pub(crate) fn element_to_tokens(
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             let slot = slot.clone();
-            slot_to_tokens(node, &slot, parent_slots, global_class);
+            slot_to_tokens(
+                node,
+                &slot,
+                parent_slots,
+                global_class,
+                disable_inert_html,
+            );
             None
         } else {
-            Some(component_to_tokens(node, global_class))
+            Some(component_to_tokens(node, global_class, disable_inert_html))
         }
     } else if is_spread_marker(node) {
         let mut attributes = Vec::new();
@@ -750,6 +770,7 @@ pub(crate) fn element_to_tokens(
                 parent_slots,
                 global_class,
                 view_marker,
+                disable_inert_html,
             )
         } else {
             if !node.children.is_empty() {

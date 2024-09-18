@@ -266,6 +266,21 @@ mod slot;
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn view(tokens: TokenStream) -> TokenStream {
+    view_macro_impl(tokens, false)
+}
+
+/// The `template` macro behaves like [`view`], except that it wraps the entire tree in a
+/// [`ViewTemplate`](leptos::prelude::ViewTemplate). This optimizes creation speed by rendering
+/// most of the view into a `<template>` tag with HTML rendered at compile time, then hydrating it.
+/// In exchange, there is a small binary size overhead.
+#[proc_macro_error2::proc_macro_error]
+#[proc_macro]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
+pub fn template(tokens: TokenStream) -> TokenStream {
+    view_macro_impl(tokens, true)
+}
+
+fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
 
@@ -308,12 +323,13 @@ pub fn view(tokens: TokenStream) -> TokenStream {
         &mut nodes,
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
+        template,
     );
 
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
     // seems to break rust-analyzer, but it works when the allow is put here.
-    quote! {
+    let output = quote! {
         {
             #[allow(unused_braces)]
             {
@@ -321,6 +337,14 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 #nodes_output
             }
         }
+    };
+
+    if template {
+        quote! {
+            ::leptos::prelude::ViewTemplate::new(#output)
+        }
+    } else {
+        output
     }
     .into()
 }
