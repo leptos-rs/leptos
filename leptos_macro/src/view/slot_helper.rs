@@ -11,6 +11,7 @@ pub(crate) fn slot_to_tokens(
     slot: &KeyedAttribute,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
+    disable_inert_html: bool,
 ) {
     let name = slot.key.to_string();
     let name = name.trim();
@@ -118,6 +119,7 @@ pub(crate) fn slot_to_tokens(
             Some(&mut slots),
             global_class,
             None,
+            disable_inert_html,
         );
 
         // TODO view markers for hot-reloading

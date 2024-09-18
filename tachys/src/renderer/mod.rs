@@ -213,8 +213,12 @@ pub trait DomRenderer: Renderer {
     fn get_template<V>() -> Self::TemplateElement
     where
         V: ToTemplate + 'static;
+
     /// Deeply clones a template.
     fn clone_template(tpl: &Self::TemplateElement) -> Self::Element;
+
+    /// Creates a single element from a string of HTML.
+    fn create_element_from_html(html: &str) -> Self::Element;
 }
 
 /// Attempts to cast from one type to another.

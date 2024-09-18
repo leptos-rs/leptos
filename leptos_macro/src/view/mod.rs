@@ -15,7 +15,7 @@ use rstml::node::{
 };
 use std::{
     cmp::Ordering,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
 };
 use syn::{
     spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprRange, Lit, LitStr,
@@ -34,6 +34,7 @@ pub fn render_view(
     nodes: &mut [Node],
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     let (base, should_add_view) = match nodes.len() {
         0 => {
@@ -52,6 +53,8 @@ pub fn render_view(
                 None,
                 global_class,
                 view_marker.as_deref(),
+                true,
+                disable_inert_html,
             ),
             // only add View wrapper and view marker to a regular HTML
             // element or component, not to a <{..} /> attribute list
@@ -67,6 +70,7 @@ pub fn render_view(
                 None,
                 global_class,
                 view_marker.as_deref(),
+                disable_inert_html,
             ),
             true,
         ),
@@ -91,12 +95,281 @@ pub fn render_view(
     })
 }
 
+fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
+    // do not use this if the top-level node is not an Element,
+    // or if it's an element with no children and no attrs
+    match orig_node {
+        Node::Element(el) => {
+            if el.attributes().is_empty() && el.children.is_empty() {
+                return false;
+            }
+        }
+        _ => return false,
+    }
+
+    // otherwise, walk over all the nodes to make sure everything is inert
+    let mut nodes = VecDeque::from([orig_node]);
+
+    while let Some(current_element) = nodes.pop_front() {
+        match current_element {
+            Node::Text(_) | Node::RawText(_) => {}
+            Node::Element(node) => {
+                if is_component_node(node) {
+                    return false;
+                }
+                if is_spread_marker(node) {
+                    return false;
+                }
+
+                match node.name() {
+                    NodeName::Block(_) => return false,
+                    _ => {
+                        // check all attributes
+                        for attr in node.attributes() {
+                            match attr {
+                                NodeAttribute::Block(_) => return false,
+                                NodeAttribute::Attribute(attr) => {
+                                    let static_key =
+                                        !matches!(attr.key, NodeName::Block(_));
+
+                                    let static_value = match attr
+                                        .possible_value
+                                        .to_value()
+                                    {
+                                        None => true,
+                                        Some(value) => {
+                                            matches!(&value.value, KVAttributeValue::Expr(expr) if {
+                                                if let Expr::Lit(lit) = expr {
+                                                    matches!(&lit.lit, Lit::Str(_))
+                                                } else {
+                                                    false
+                                                }
+                                            })
+                                        }
+                                    };
+
+                                    if !static_key || !static_value {
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+
+                        // check all children
+                        nodes.extend(&node.children);
+                    }
+                }
+            }
+            _ => return false,
+        }
+    }
+
+    true
+}
+
+enum Item<'a, T> {
+    Node(&'a Node<T>),
+    ClosingTag(String),
+}
+
+enum InertElementBuilder<'a> {
+    GlobalClass {
+        global_class: &'a TokenTree,
+        strs: Vec<GlobalClassItem<'a>>,
+        buffer: String,
+    },
+    NoGlobalClass {
+        buffer: String,
+    },
+}
+
+impl<'a> ToTokens for InertElementBuilder<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            InertElementBuilder::GlobalClass { strs, .. } => {
+                tokens.extend(quote! {
+                    [#(#strs),*].join("")
+                });
+            }
+            InertElementBuilder::NoGlobalClass { buffer } => {
+                tokens.extend(quote! {
+                    #buffer
+                })
+            }
+        }
+    }
+}
+
+enum GlobalClassItem<'a> {
+    Global(&'a TokenTree),
+    String(String),
+}
+
+impl<'a> ToTokens for GlobalClassItem<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let addl_tokens = match self {
+            GlobalClassItem::Global(v) => v.to_token_stream(),
+            GlobalClassItem::String(v) => v.to_token_stream(),
+        };
+        tokens.extend(addl_tokens);
+    }
+}
+
+impl<'a> InertElementBuilder<'a> {
+    fn new(global_class: Option<&'a TokenTree>) -> Self {
+        match global_class {
+            None => Self::NoGlobalClass {
+                buffer: String::new(),
+            },
+            Some(global_class) => Self::GlobalClass {
+                global_class,
+                strs: Vec::new(),
+                buffer: String::new(),
+            },
+        }
+    }
+
+    fn push(&mut self, c: char) {
+        match self {
+            InertElementBuilder::GlobalClass { buffer, .. } => buffer.push(c),
+            InertElementBuilder::NoGlobalClass { buffer } => buffer.push(c),
+        }
+    }
+
+    fn push_str(&mut self, s: &str) {
+        match self {
+            InertElementBuilder::GlobalClass { buffer, .. } => {
+                buffer.push_str(s)
+            }
+            InertElementBuilder::NoGlobalClass { buffer } => buffer.push_str(s),
+        }
+    }
+
+    fn push_class(&mut self, class: &str) {
+        match self {
+            InertElementBuilder::GlobalClass {
+                global_class,
+                strs,
+                buffer,
+            } => {
+                buffer.push_str(" class=\"");
+                strs.push(GlobalClassItem::String(std::mem::take(buffer)));
+                strs.push(GlobalClassItem::Global(global_class));
+                buffer.push(' ');
+                buffer.push_str(class);
+                buffer.push('"');
+            }
+            InertElementBuilder::NoGlobalClass { buffer } => {
+                buffer.push_str(" class=\"");
+                buffer.push_str(class);
+                buffer.push('"');
+            }
+        }
+    }
+
+    fn finish(&mut self) {
+        match self {
+            InertElementBuilder::GlobalClass { strs, buffer, .. } => {
+                strs.push(GlobalClassItem::String(std::mem::take(buffer)));
+            }
+            InertElementBuilder::NoGlobalClass { .. } => {}
+        }
+    }
+}
+
+fn inert_element_to_tokens(
+    node: &Node<impl CustomNode>,
+    global_class: Option<&TokenTree>,
+) -> Option<TokenStream> {
+    let mut html = InertElementBuilder::new(global_class);
+    let mut nodes = VecDeque::from([Item::Node(node)]);
+
+    while let Some(current) = nodes.pop_front() {
+        match current {
+            Item::ClosingTag(tag) => {
+                // closing tag
+                html.push_str("</");
+                html.push_str(&tag);
+                html.push('>');
+            }
+            Item::Node(current) => {
+                match current {
+                    Node::RawText(raw) => {
+                        let text = raw.to_string_best();
+                        html.push_str(&text);
+                    }
+                    Node::Text(text) => {
+                        let text = text.value_string();
+                        html.push_str(&text);
+                    }
+                    Node::Element(node) => {
+                        let self_closing = is_self_closing(node);
+                        let el_name = node.name().to_string();
+
+                        // opening tag
+                        html.push('<');
+                        html.push_str(&el_name);
+
+                        for attr in node.attributes() {
+                            if let NodeAttribute::Attribute(attr) = attr {
+                                let attr_name = attr.key.to_string();
+                                if attr_name != "class" {
+                                    html.push(' ');
+                                    html.push_str(&attr_name);
+                                }
+
+                                if let Some(value) =
+                                    attr.possible_value.to_value()
+                                {
+                                    if let KVAttributeValue::Expr(Expr::Lit(
+                                        lit,
+                                    )) = &value.value
+                                    {
+                                        if let Lit::Str(txt) = &lit.lit {
+                                            if attr_name == "class" {
+                                                html.push_class(&txt.value());
+                                            } else {
+                                                html.push_str("=\"");
+                                                html.push_str(&txt.value());
+                                                html.push('"');
+                                            }
+                                        }
+                                    }
+                                };
+                            }
+                        }
+
+                        html.push('>');
+
+                        // render all children
+                        if !self_closing {
+                            nodes.push_front(Item::ClosingTag(el_name));
+                            let children = node.children.iter().rev();
+                            for child in children {
+                                nodes.push_front(Item::Node(child));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    html.finish();
+
+    Some(quote! {
+        ::leptos::tachys::html::InertElement::new(#html)
+    })
+}
+
 fn element_children_to_tokens(
     nodes: &mut [Node<impl CustomNode>],
     parent_type: TagType,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     let children = children_to_tokens(
         nodes,
@@ -104,6 +377,8 @@ fn element_children_to_tokens(
         parent_slots,
         global_class,
         view_marker,
+        false,
+        disable_inert_html,
     );
     if children.is_empty() {
         None
@@ -145,6 +420,7 @@ fn fragment_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     let children = children_to_tokens(
         nodes,
@@ -152,6 +428,8 @@ fn fragment_to_tokens(
         parent_slots,
         global_class,
         view_marker,
+        true,
+        disable_inert_html,
     );
     if children.is_empty() {
         None
@@ -183,6 +461,8 @@ fn children_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    top_level: bool,
+    disable_inert_html: bool,
 ) -> Vec<TokenStream> {
     if nodes.len() == 1 {
         match node_to_tokens(
@@ -191,6 +471,8 @@ fn children_to_tokens(
             parent_slots,
             global_class,
             view_marker,
+            top_level,
+            disable_inert_html,
         ) {
             Some(tokens) => vec![tokens],
             None => vec![],
@@ -206,6 +488,8 @@ fn children_to_tokens(
                     Some(&mut slots),
                     global_class,
                     view_marker,
+                    top_level,
+                    disable_inert_html,
                 )
             })
             .collect();
@@ -227,7 +511,11 @@ fn node_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    top_level: bool,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
+    let is_inert = !disable_inert_html && is_inert_element(node);
+
     match node {
         Node::Comment(_) => None,
         Node::Doctype(node) => {
@@ -240,6 +528,7 @@ fn node_to_tokens(
             parent_slots,
             global_class,
             view_marker,
+            disable_inert_html,
         ),
         Node::Block(block) => Some(quote! { #block }),
         Node::Text(text) => Some(text_to_tokens(&text.value)),
@@ -248,13 +537,20 @@ fn node_to_tokens(
             let text = syn::LitStr::new(&text, raw.span());
             Some(text_to_tokens(&text))
         }
-        Node::Element(node) => element_to_tokens(
-            node,
-            parent_type,
-            parent_slots,
-            global_class,
-            view_marker,
-        ),
+        Node::Element(el_node) => {
+            if !top_level && is_inert {
+                inert_element_to_tokens(node, global_class)
+            } else {
+                element_to_tokens(
+                    el_node,
+                    parent_type,
+                    parent_slots,
+                    global_class,
+                    view_marker,
+                    disable_inert_html,
+                )
+            }
+        }
         Node::Custom(node) => Some(node.to_token_stream()),
     }
 }
@@ -278,6 +574,7 @@ pub(crate) fn element_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<&str>,
+    disable_inert_html: bool,
 ) -> Option<TokenStream> {
     // attribute sorting:
     //
@@ -347,10 +644,16 @@ pub(crate) fn element_to_tokens(
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             let slot = slot.clone();
-            slot_to_tokens(node, &slot, parent_slots, global_class);
+            slot_to_tokens(
+                node,
+                &slot,
+                parent_slots,
+                global_class,
+                disable_inert_html,
+            );
             None
         } else {
-            Some(component_to_tokens(node, global_class))
+            Some(component_to_tokens(node, global_class, disable_inert_html))
         }
     } else if is_spread_marker(node) {
         let mut attributes = Vec::new();
@@ -467,6 +770,7 @@ pub(crate) fn element_to_tokens(
                 parent_slots,
                 global_class,
                 view_marker,
+                disable_inert_html,
             )
         } else {
             if !node.children.is_empty() {
