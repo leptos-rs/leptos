@@ -92,8 +92,8 @@ pub struct InertElement {
 
 impl InertElement {
     /// Creates a new inert element.
-    pub fn new(html: Cow<'static, str>) -> Self {
-        Self { html }
+    pub fn new(html: impl Into<Cow<'static, str>>) -> Self {
+        Self { html: html.into() }
     }
 }
 

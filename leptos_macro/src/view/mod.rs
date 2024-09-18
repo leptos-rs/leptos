@@ -173,12 +173,12 @@ impl<'a> ToTokens for InertElementBuilder<'a> {
         match self {
             InertElementBuilder::GlobalClass { strs, .. } => {
                 tokens.extend(quote! {
-                    std::borrow::Cow::Owned([#(#strs),*].join(""))
+                    [#(#strs),*].join("")
                 });
             }
             InertElementBuilder::NoGlobalClass { buffer } => {
                 tokens.extend(quote! {
-                    std::borrow::Cow::Borrowed(#buffer)
+                    #buffer
                 })
             }
         }
