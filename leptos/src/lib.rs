@@ -169,7 +169,7 @@ pub mod prelude {
         pub use oco_ref::*;
         pub use reactive_graph::{
             actions::*, computed::*, effect::*, owner::*, signal::*,
-            wrappers::read::*,
+            wrappers::read::*, untrack
         };
         pub use server_fn::{self, ServerFnError};
         pub use tachys::{
