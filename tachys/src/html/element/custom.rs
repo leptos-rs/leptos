@@ -17,8 +17,6 @@ where
         rndr: PhantomData,
         attributes: (),
         children: (),
-        #[cfg(debug_assertions)]
-        defined_at: std::panic::Location::caller(),
     }
 }
 
