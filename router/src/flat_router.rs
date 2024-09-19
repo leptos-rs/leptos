@@ -120,6 +120,9 @@ where
         );
         let params_memo = ArcMemo::from(params.clone());
 
+        // release URL lock
+        drop(current_url);
+
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
                 view: EitherOf3::B(fallback()).build(),
@@ -381,6 +384,10 @@ where
                 .unwrap_or_default(),
         );
         let params_memo = ArcMemo::from(params.clone());
+
+        // release URL lock
+        drop(current_url);
+
         let view = match new_match {
             None => Either::Left((self.fallback)()),
             Some(new_match) => {
@@ -542,6 +549,9 @@ where
                 .unwrap_or_default(),
         );
         let params_memo = ArcMemo::from(params.clone());
+
+        // release URL lock
+        drop(current_url);
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
