@@ -103,6 +103,12 @@ fn is_inert_element(orig_node: &Node<impl CustomNode>) -> bool {
             if el.attributes().is_empty() && el.children.is_empty() {
                 return false;
             }
+
+            // also doesn't work if the top-level element is an SVG/MathML element
+            let el_name = el.name().to_string();
+            if is_svg_element(&el_name) || is_math_ml_element(&el_name) {
+                return false;
+            }
         }
         _ => return false,
     }
