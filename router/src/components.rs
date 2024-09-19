@@ -443,7 +443,6 @@ pub fn Redirect<P>(
 ) where
     P: core::fmt::Display + 'static,
 {
-    leptos::logging::log!("running Redirect component");
     // TODO resolve relative path
     let path = path.to_string();
 
