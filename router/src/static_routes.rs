@@ -313,7 +313,6 @@ impl ResolvedStaticPath {
                     // awaiting the Future
                     _ = tx.send((owner.clone(), Some(html)));
                 } else {
-                    _ = tx.send((owner.clone(), None));
                     if let Err(e) = writer(&self, &owner, html).await {
                         #[cfg(feature = "tracing")]
                         tracing::warn!("{e}");
@@ -321,6 +320,7 @@ impl ResolvedStaticPath {
                         #[cfg(not(feature = "tracing"))]
                         eprintln!("{e}");
                     }
+                    _ = tx.send((owner.clone(), None));
                 }
 
                 // if there's a regeneration function, keep looping
