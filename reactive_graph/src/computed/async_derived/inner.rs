@@ -1,5 +1,6 @@
 use crate::{
     channel::Sender,
+    computed::suspense::SuspenseContext,
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, SourceSet, Subscriber,
         SubscriberSet,
@@ -20,6 +21,7 @@ pub(crate) struct ArcAsyncDerivedInner {
     pub notifier: Sender,
     pub state: AsyncDerivedState,
     pub version: usize,
+    pub suspenses: Vec<SuspenseContext>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
