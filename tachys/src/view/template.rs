@@ -106,11 +106,11 @@ where
     }
 
     fn dry_resolve(&mut self) {
-        todo!()
+        self.view.dry_resolve();
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+        self.view.resolve().await
     }
 }
 
