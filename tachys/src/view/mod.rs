@@ -1,7 +1,13 @@
 use self::add_attr::AddAnyAttr;
 use crate::{hydration::Cursor, renderer::Renderer, ssr::StreamBuilder};
 use parking_lot::RwLock;
-use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
+use std::{
+    cell::RefCell,
+    future::Future,
+    ops::{Deref, DerefMut},
+    rc::Rc,
+    sync::Arc,
+};
 
 /// Add attributes to typed views.
 pub mod add_attr;
@@ -456,6 +462,20 @@ impl<T> AsMut<T> for BoxedView<T> {
     }
 }
 
+impl<T> Deref for BoxedView<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for BoxedView<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<T, Rndr> Render<Rndr> for BoxedView<T>
 where
     T: Render<Rndr>,
@@ -473,6 +493,104 @@ where
 }
 
 impl<T, Rndr> RenderHtml<Rndr> for BoxedView<T>
+where
+    T: RenderHtml<Rndr>,
+    Rndr: Renderer,
+{
+    type AsyncOutput = BoxedView<T::AsyncOutput>;
+
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+
+    fn dry_resolve(&mut self) {
+        self.as_mut().dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        let inner = self.into_inner().resolve().await;
+        BoxedView::new(inner)
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) {
+        self.into_inner()
+            .to_html_with_buf(buf, position, escape, mark_branches)
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor<Rndr>,
+        position: &PositionState,
+    ) -> Self::State {
+        self.into_inner().hydrate::<FROM_SERVER>(cursor, position)
+    }
+}
+
+/// A newtype around a view that allows us to get out of certain compile errors.
+///
+/// It is unlikely that you need this in your own work.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct WrappedView<T>(T);
+
+impl<T> WrappedView<T> {
+    /// Wraps the view.
+    pub fn new(value: T) -> Self {
+        Self(value)
+    }
+
+    /// Unwraps the view to its inner value.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> Deref for WrappedView<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for WrappedView<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T> AsRef<T> for WrappedView<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> AsMut<T> for WrappedView<T> {
+    fn as_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
+impl<T, Rndr> Render<Rndr> for WrappedView<T>
+where
+    T: Render<Rndr>,
+    Rndr: Renderer,
+{
+    type State = T::State;
+
+    fn build(self) -> Self::State {
+        self.into_inner().build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        self.into_inner().rebuild(state);
+    }
+}
+
+impl<T, Rndr> RenderHtml<Rndr> for WrappedView<T>
 where
     T: RenderHtml<Rndr>,
     Rndr: Renderer,
