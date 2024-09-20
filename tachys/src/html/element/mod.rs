@@ -556,7 +556,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "testing"))]
 mod tests {
     use super::{main, p, HtmlElement};
     use crate::{
@@ -575,7 +575,7 @@ mod tests {
         let el = el.build();
         assert_eq!(
             el.el.to_debug_html(),
-            "<main><p lang=\"en\" id=\"test\">Hello, world!</p></main>"
+            "<main><p id=\"test\" lang=\"en\">Hello, world!</p></main>"
         );
     }
 

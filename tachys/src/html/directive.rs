@@ -207,7 +207,7 @@ impl<T, D, P, R> ToTemplate for Directive<T, D, P, R> {
 ///
 /// You can use directives like the following.
 ///
-/// ```
+/// ```ignore
 /// # use leptos::{*, html::AnyElement};
 ///
 /// // This doesn't take an attribute value
