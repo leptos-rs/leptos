@@ -366,7 +366,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as reactive_stores, Patch, Store, StoreField, StoreFieldIterator,
+        self as reactive_stores, Patch, Store, StoreFieldIterator,
     };
     use reactive_graph::{
         effect::Effect,
