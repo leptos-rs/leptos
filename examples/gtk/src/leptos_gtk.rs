@@ -414,7 +414,7 @@ mod widgets {
 }
 
 pub mod properties {
-    #![allow(unused)]
+    #![allow(dead_code)]
 
     use super::{Element, LGtkWidget, LeptosGtk, Property, WidgetClass};
     use gtk::glib::{object::ObjectExt, Value};
