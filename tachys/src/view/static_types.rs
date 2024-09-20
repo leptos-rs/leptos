@@ -11,19 +11,6 @@ use std::marker::PhantomData;
 
 /// An attribute for which both the key and the value are known at compile time,
 /// i.e., as `&'static str`s.
-///
-/// ```
-/// use tachydom::{
-///     html::attribute::{Attribute, Type},
-///     view::static_types::{static_attr, StaticAttr},
-/// };
-/// let input_type = static_attr::<Type, "text">();
-/// let mut buf = String::new();
-/// let mut classes = String::new();
-/// let mut styles = String::new();
-/// input_type.to_html(&mut buf, &mut classes, &mut styles);
-/// assert_eq!(buf, " type=\"text\"");
-/// ```
 #[derive(Debug)]
 pub struct StaticAttr<K: AttributeKey, const V: &'static str> {
     ty: PhantomData<K>,

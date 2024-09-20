@@ -558,7 +558,7 @@ where
 
 #[cfg(all(test, feature = "testing"))]
 mod tests {
-    use super::{main, p, HtmlElement};
+    use super::{main, p, HtmlElement, RenderHtml};
     use crate::{
         html::{
             attribute::global::GlobalAttributes,
