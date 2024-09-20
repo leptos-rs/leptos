@@ -133,3 +133,104 @@ tuples!(EitherOf13 + EitherOf13Future + EitherOf13FutureProj => A, B, C, D, E, F
 tuples!(EitherOf14 + EitherOf14Future + EitherOf14FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 tuples!(EitherOf15 + EitherOf15Future + EitherOf15FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuples!(EitherOf16 + EitherOf16Future + EitherOf16FutureProj => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+
+/// Matches over the first expression and returns an either ([`Either`], [`EitherOf3`], ... [`EitherOf6`])
+/// composed of the values returned by the match arms.
+///
+/// The pattern syntax is exactly the same as found in a match arm.
+///
+/// # Examples
+///
+/// ```
+/// # use either_of::*;
+/// let either2 = either!(Some("hello"),
+///     Some(s) => s.len(),
+///     None => 0.0,
+/// );
+/// assert!(matches!(either2, Either::<usize, f64>::Left(5)));
+///
+/// let either3 = either!(Some("admin"),
+///     Some("admin") => "hello admin",
+///     Some(_) => 'x',
+///     _ => 0,
+/// );
+/// assert!(matches!(either3, EitherOf3::<&str, char, i32>::A("hello admin")));
+/// ```
+#[macro_export]
+macro_rules! either {
+    ($match:expr, $left_pattern:pat => $left_expression:expr, $right_pattern:pat => $right_expression:expr,) => {
+        match $match {
+            $left_pattern => $crate::Either::Left($left_expression),
+            $right_pattern => $crate::Either::Right($right_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf3::A($a_expression),
+            $b_pattern => $crate::EitherOf3::B($b_expression),
+            $c_pattern => $crate::EitherOf3::C($c_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf4::A($a_expression),
+            $b_pattern => $crate::EitherOf4::B($b_expression),
+            $c_pattern => $crate::EitherOf4::C($c_expression),
+            $d_pattern => $crate::EitherOf4::D($d_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf5::A($a_expression),
+            $b_pattern => $crate::EitherOf5::B($b_expression),
+            $c_pattern => $crate::EitherOf5::C($c_expression),
+            $d_pattern => $crate::EitherOf5::D($d_expression),
+            $e_pattern => $crate::EitherOf5::E($e_expression),
+        }
+    };
+    ($match:expr, $a_pattern:pat => $a_expression:expr, $b_pattern:pat => $b_expression:expr, $c_pattern:pat => $c_expression:expr, $d_pattern:pat => $d_expression:expr, $e_pattern:pat => $e_expression:expr, $f_pattern:pat => $f_expression:expr,) => {
+        match $match {
+            $a_pattern => $crate::EitherOf6::A($a_expression),
+            $b_pattern => $crate::EitherOf6::B($b_expression),
+            $c_pattern => $crate::EitherOf6::C($c_expression),
+            $d_pattern => $crate::EitherOf6::D($d_expression),
+            $e_pattern => $crate::EitherOf6::E($e_expression),
+            $f_pattern => $crate::EitherOf6::F($f_expression),
+        }
+    }; // if you need more eithers feel free to open a PR ;-)
+}
+
+// compile time test
+#[test]
+fn either_macro() {
+    let _: Either<&str, f64> = either!(12,
+        12 => "12",
+        _ => 0.0,
+    );
+    let _: EitherOf3<&str, f64, i32> = either!(12,
+        12 => "12",
+        13 => 0.0,
+        _ => 12,
+    );
+    let _: EitherOf4<&str, f64, char, i32> = either!(12,
+        12 => "12",
+        13 => 0.0,
+        14 => ' ',
+        _ => 12,
+    );
+    let _: EitherOf5<&str, f64, char, f32, i32> = either!(12,
+        12 => "12",
+        13 => 0.0,
+        14 => ' ',
+        15 => 0.0f32,
+        _ => 12,
+    );
+    let _: EitherOf6<&str, f64, char, f32, u8, i32> = either!(12,
+        12 => "12",
+        13 => 0.0,
+        14 => ' ',
+        15 => 0.0f32,
+        16 => 24u8,
+        _ => 12,
+    );
+}
