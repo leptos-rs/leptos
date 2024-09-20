@@ -235,7 +235,7 @@ where
             self.input.try_update(|inp| *inp = Some(input));
 
             // Spawn the task
-            Executor::spawn({
+            crate::spawn({
                 let input = self.input.clone();
                 let version = self.version.clone();
                 let value = self.value.clone();

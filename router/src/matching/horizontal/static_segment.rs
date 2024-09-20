@@ -104,6 +104,11 @@ impl<T: AsPath> PossibleRouteMatch for StaticSegment<T> {
             }
         }
 
+        // if we still have remaining, unmatched characters in this segment, it was not a match
+        if this.next().is_some() {
+            return None;
+        }
+
         // build the match object
         // the remaining is built from the path in, with the slice moved
         // by the length of this match

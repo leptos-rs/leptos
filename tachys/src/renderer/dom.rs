@@ -390,6 +390,13 @@ impl DomRenderer for Dom {
             .unwrap()
             .unchecked_into()
     }
+
+    fn create_element_from_html(html: &str) -> Self::Element {
+        // TODO can be optimized to cache HTML strings or cache <template>?
+        let tpl = document().create_element("template").unwrap();
+        tpl.set_inner_html(html);
+        Self::clone_template(tpl.unchecked_ref())
+    }
 }
 
 impl Mountable<Dom> for Node {

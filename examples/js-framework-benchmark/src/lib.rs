@@ -162,22 +162,24 @@ pub fn App() -> impl IntoView {
             <table class="table table-hover table-striped test-data">
                 <tbody>
                     <For
-                        each={move || data.get()}
-                        key={|row| row.id}
+                        each=move || data.get()
+                        key=|row| row.id
                         children=move |row: RowData| {
                             let row_id = row.id;
                             let label = row.label;
                             let is_selected = is_selected.clone();
-                            ViewTemplate::new(view! {
-                                <tr class:danger={move || is_selected.selected(Some(row_id))}>
-                                    <td class="col-md-1">{row_id.to_string()}</td>
-                                    <td class="col-md-4"><a on:click=move |_| set_selected.set(Some(row_id))>{move || label.get()}</a></td>
-                                    <td class="col-md-1"><a on:click=move |_| remove(row_id)><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
-                                    <td class="col-md-6"/>
-                                </tr>
-                            })
+                            template! {
+                                < tr class : danger = { move || is_selected.selected(Some(row_id)) }
+                                > < td class = "col-md-1" > { row_id.to_string() } </ td > < td
+                                class = "col-md-4" >< a on : click = move | _ | set_selected
+                                .set(Some(row_id)) > { move || label.get() } </ a ></ td > < td
+                                class = "col-md-1" >< a on : click = move | _ | remove(row_id) ><
+                                span class = "glyphicon glyphicon-remove" aria - hidden = "true" ></
+                                span ></ a ></ td > < td class = "col-md-6" /> </ tr >
+                            }
                         }
                     />
+
                 </tbody>
             </table>
             <span class="preloadicon glyphicon glyphicon-remove" aria-hidden="true"></span>

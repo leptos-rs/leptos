@@ -27,8 +27,6 @@ macro_rules! svg_elements {
                         attributes: (),
                         children: (),
                         rndr: PhantomData,
-                        #[cfg(debug_assertions)]
-                        defined_at: std::panic::Location::caller()
                     }
                 }
 

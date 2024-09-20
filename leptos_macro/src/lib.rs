@@ -266,6 +266,21 @@ mod slot;
 #[proc_macro]
 #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
 pub fn view(tokens: TokenStream) -> TokenStream {
+    view_macro_impl(tokens, false)
+}
+
+/// The `template` macro behaves like [`view`], except that it wraps the entire tree in a
+/// [`ViewTemplate`](leptos::prelude::ViewTemplate). This optimizes creation speed by rendering
+/// most of the view into a `<template>` tag with HTML rendered at compile time, then hydrating it.
+/// In exchange, there is a small binary size overhead.
+#[proc_macro_error2::proc_macro_error]
+#[proc_macro]
+#[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
+pub fn template(tokens: TokenStream) -> TokenStream {
+    view_macro_impl(tokens, true)
+}
+
+fn view_macro_impl(tokens: TokenStream, template: bool) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
 
@@ -302,18 +317,19 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     };
     let config = rstml::ParserConfig::default().recover_block(true);
     let parser = rstml::Parser::new(config);
-    let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
+    let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
     let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
     let nodes_output = view::render_view(
-        &nodes,
+        &mut nodes,
         global_class.as_ref(),
         normalized_call_site(proc_macro::Span::call_site()),
+        template,
     );
 
     // The allow lint needs to be put here instead of at the expansion of
     // view::attribute_value(). Adding this next to the expanded expression
     // seems to break rust-analyzer, but it works when the allow is put here.
-    quote! {
+    let output = quote! {
         {
             #[allow(unused_braces)]
             {
@@ -321,6 +337,14 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 #nodes_output
             }
         }
+    };
+
+    if template {
+        quote! {
+            ::leptos::prelude::ViewTemplate::new(#output)
+        }
+    } else {
+        output
     }
     .into()
 }
@@ -515,7 +539,7 @@ pub fn component(
     _args: proc_macro::TokenStream,
     s: TokenStream,
 ) -> TokenStream {
-    component_macro(s, false)
+    component_macro(s, None)
 }
 
 /// Defines a component as an interactive island when you are using the
@@ -592,15 +616,16 @@ pub fn component(
 #[proc_macro_error2::proc_macro_error]
 #[proc_macro_attribute]
 pub fn island(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    component_macro(s, true)
+    let island_src = s.to_string();
+    component_macro(s, Some(island_src))
 }
 
-fn component_macro(s: TokenStream, island: bool) -> TokenStream {
+fn component_macro(s: TokenStream, island: Option<String>) -> TokenStream {
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
     if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
-        let expanded = model.is_island(island).into_token_stream();
+        let expanded = model.with_island(island).into_token_stream();
         if !matches!(unexpanded.vis, Visibility::Public(_)) {
             unexpanded.vis = Visibility::Public(Pub {
                 span: unexpanded.vis.span(),

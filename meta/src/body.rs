@@ -29,7 +29,7 @@ use leptos::{
 /// #[component]
 /// fn MyApp() -> impl IntoView {
 ///     provide_meta_context();
-///     let (prefers_dark, set_prefers_dark) = create_signal(false);
+///     let (prefers_dark, set_prefers_dark) = signal(false);
 ///     let body_class = move || {
 ///         if prefers_dark.get() {
 ///             "dark".to_string()

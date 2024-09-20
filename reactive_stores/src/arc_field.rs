@@ -1,6 +1,6 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    AtIndex, StoreField, Subfield,
+    AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, Subfield,
 };
 use reactive_graph::{
     signal::ArcTrigger,
@@ -9,6 +9,8 @@ use reactive_graph::{
     },
 };
 use std::{
+    fmt::Debug,
+    hash::Hash,
     ops::{Deref, DerefMut, IndexMut},
     panic::Location,
     sync::Arc,
@@ -25,6 +27,7 @@ where
     get_trigger: Arc<dyn Fn(StorePath) -> ArcTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
+    keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
 }
 
 pub struct StoreFieldReader<T>(Box<dyn Deref<Target = T>>);
@@ -75,6 +78,7 @@ impl<T> StoreField for ArcField<T> {
     type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
+    type UntrackedWriter = StoreFieldWriter<T>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         (self.get_trigger)(path)
@@ -90,6 +94,16 @@ impl<T> StoreField for ArcField<T> {
 
     fn writer(&self) -> Option<Self::Writer> {
         (self.write)().map(StoreFieldWriter::new)
+    }
+
+    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
+        let mut writer = (self.write)().map(StoreFieldWriter::new)?;
+        writer.untrack();
+        Some(writer)
+    }
+
+    fn keys(&self) -> Option<KeyMap> {
+        (self.keys)()
     }
 }
 
@@ -118,6 +132,10 @@ where
             write: Arc::new({
                 let value = value.clone();
                 move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
             }),
         }
     }
@@ -149,6 +167,48 @@ where
                 let value = value.clone();
                 move || value.writer().map(StoreFieldWriter::new)
             }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+        }
+    }
+}
+
+impl<Inner, Prev, K, T> From<AtKeyed<Inner, Prev, K, T>> for ArcField<T::Output>
+where
+    AtKeyed<Inner, Prev, K, T>: Clone,
+    K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
+    KeyedSubfield<Inner, Prev, K, T>: Clone,
+    for<'a> &'a T: IntoIterator,
+    Inner: StoreField<Value = Prev> + Send + Sync + 'static,
+    Prev: 'static,
+    T: IndexMut<usize> + 'static,
+    T::Output: Sized,
+{
+    #[track_caller]
+    fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
+        ArcField {
+            #[cfg(debug_assertions)]
+            defined_at: Location::caller(),
+            path: value.path().into_iter().collect(),
+            trigger: value.get_trigger(value.path().into_iter().collect()),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
         }
     }
 }
@@ -163,6 +223,7 @@ impl<T> Clone for ArcField<T> {
             get_trigger: Arc::clone(&self.get_trigger),
             read: Arc::clone(&self.read),
             write: Arc::clone(&self.write),
+            keys: Arc::clone(&self.keys),
         }
     }
 }

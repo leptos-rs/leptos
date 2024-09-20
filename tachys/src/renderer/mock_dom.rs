@@ -300,6 +300,10 @@ impl DomRenderer for MockDom {
     fn clone_template(tpl: &Self::TemplateElement) -> Self::Element {
         todo!()
     }
+
+    fn create_element_from_html(html: &str) -> Self::Element {
+        todo!()
+    }
 }
 
 impl Default for Document {

@@ -1,3 +1,4 @@
+use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{LocalStorage, Storage, StoredValue, SyncStorage},
     signal::{
@@ -8,7 +9,10 @@ use reactive_graph::{
 };
 use rustc_hash::FxHashMap;
 use std::{
+    any::Any,
+    collections::HashMap,
     fmt::Debug,
+    hash::Hash,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -16,6 +20,8 @@ use std::{
 mod arc_field;
 mod field;
 mod iter;
+mod keyed;
+mod option;
 mod patch;
 mod path;
 mod store_field;
@@ -24,9 +30,11 @@ mod subfield;
 pub use arc_field::ArcField;
 pub use field::Field;
 pub use iter::*;
+pub use keyed::*;
+pub use option::*;
 pub use patch::*;
-use path::StorePath;
-pub use store_field::StoreField;
+use path::{StorePath, StorePathSegment};
+pub use store_field::{StoreField, Then};
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
@@ -49,11 +57,119 @@ impl TriggerMap {
     }
 }
 
+pub struct FieldKeys<K> {
+    spare_keys: Vec<StorePathSegment>,
+    current_key: usize,
+    keys: FxHashMap<K, (StorePathSegment, usize)>,
+}
+
+impl<K> FieldKeys<K>
+where
+    K: Debug + Hash + PartialEq + Eq,
+{
+    pub fn new(from_keys: Vec<K>) -> Self {
+        let mut keys = FxHashMap::with_capacity_and_hasher(
+            from_keys.len(),
+            Default::default(),
+        );
+        for (idx, key) in from_keys.into_iter().enumerate() {
+            let segment = idx.into();
+            keys.insert(key, (segment, idx));
+        }
+
+        Self {
+            spare_keys: Vec::new(),
+            current_key: 0,
+            keys,
+        }
+    }
+}
+
+impl<K> FieldKeys<K>
+where
+    K: Hash + PartialEq + Eq,
+{
+    pub fn get(&self, key: &K) -> Option<(StorePathSegment, usize)> {
+        self.keys.get(key).copied()
+    }
+
+    fn next_key(&mut self) -> StorePathSegment {
+        self.spare_keys.pop().unwrap_or_else(|| {
+            self.current_key += 1;
+            self.current_key.into()
+        })
+    }
+
+    pub fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+        let new_keys = iter
+            .into_iter()
+            .enumerate()
+            .map(|(idx, key)| (key, idx))
+            .collect::<FxHashMap<K, usize>>();
+
+        // remove old keys and recycle the slots
+        self.keys.retain(|key, old_entry| match new_keys.get(key) {
+            Some(idx) => {
+                old_entry.1 = *idx;
+                true
+            }
+            None => {
+                self.spare_keys.push(old_entry.0);
+                false
+            }
+        });
+
+        // add new keys
+        for (key, idx) in new_keys {
+            // the suggestion doesn't compile because we need &mut for self.next_key(),
+            // and we don't want to call that until after the check
+            #[allow(clippy::map_entry)]
+            if !self.keys.contains_key(&key) {
+                let path = self.next_key();
+                self.keys.insert(key, (path, idx));
+            }
+        }
+    }
+}
+
+impl<K> Default for FieldKeys<K> {
+    fn default() -> Self {
+        Self {
+            spare_keys: Default::default(),
+            current_key: Default::default(),
+            keys: Default::default(),
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct KeyMap(Arc<RwLock<HashMap<StorePath, Box<dyn Any + Send + Sync>>>>);
+
+impl KeyMap {
+    pub fn with_field_keys<K, T>(
+        &self,
+        path: StorePath,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> T,
+        initialize: impl FnOnce() -> Vec<K>,
+    ) -> Option<T>
+    where
+        K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
+    {
+        let mut guard = self.0.write().or_poisoned();
+        let entry = guard
+            .entry(path)
+            .or_insert_with(|| Box::new(FieldKeys::new(initialize())));
+        let entry = entry.downcast_mut::<FieldKeys<K>>()?;
+        Some(fun(entry))
+    }
+}
+
 pub struct ArcStore<T> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     pub(crate) value: Arc<RwLock<T>>,
     signals: Arc<RwLock<TriggerMap>>,
+    keys: KeyMap,
 }
 
 impl<T> ArcStore<T> {
@@ -63,7 +179,7 @@ impl<T> ArcStore<T> {
             defined_at: Location::caller(),
             value: Arc::new(RwLock::new(value)),
             signals: Default::default(),
-            /* inner: Arc::new(RwLock::new(SubscriberSet::new())), */
+            keys: Default::default(),
         }
     }
 }
@@ -86,6 +202,7 @@ impl<T> Clone for ArcStore<T> {
             defined_at: self.defined_at,
             value: Arc::clone(&self.value),
             signals: Arc::clone(&self.signals),
+            keys: self.keys.clone(),
         }
     }
 }
@@ -123,7 +240,7 @@ where
 
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
-        self.get_trigger(Default::default()).notify();
+        self.get_trigger(Default::default()).track();
     }
 }
 
@@ -248,7 +365,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, Patch, Store, StoreFieldIterator};
+    use crate::{
+        self as reactive_stores, Patch, Store, StoreField, StoreFieldIterator,
+    };
     use reactive_graph::{
         effect::Effect,
         traits::{Read, ReadUntracked, Set, Update, Writeable},
@@ -461,5 +580,10 @@ mod tests {
         });
         tick().await;
         assert_eq!(combined_count.load(Ordering::Relaxed), 2);
+    }
+
+    #[derive(Debug, Store)]
+    pub struct StructWithOption {
+        opt_field: Option<Todo>,
     }
 }

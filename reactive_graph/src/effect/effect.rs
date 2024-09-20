@@ -358,7 +358,7 @@ impl Effect<SyncStorage> {
             let mut first_run = true;
             let value = Arc::new(RwLock::new(None::<T>));
 
-            Executor::spawn({
+            crate::spawn({
                 let value = Arc::clone(&value);
                 let subscriber = inner.to_any_subscriber();
 
@@ -403,7 +403,7 @@ impl Effect<SyncStorage> {
         let mut first_run = true;
         let value = Arc::new(RwLock::new(None::<T>));
 
-        Executor::spawn({
+        let task = {
             let value = Arc::clone(&value);
             let subscriber = inner.to_any_subscriber();
 
@@ -425,7 +425,9 @@ impl Effect<SyncStorage> {
                     }
                 }
             }
-        });
+        };
+
+        crate::spawn(task);
 
         Self {
             inner: Some(StoredValue::new_with_storage(Some(inner))),
@@ -451,7 +453,7 @@ impl Effect<SyncStorage> {
         let watch_value = Arc::new(RwLock::new(None::<T>));
 
         let inner = cfg!(feature = "effects").then(|| {
-            Executor::spawn({
+            crate::spawn({
                 let dep_value = Arc::clone(&dep_value);
                 let watch_value = Arc::clone(&watch_value);
                 let subscriber = inner.to_any_subscriber();

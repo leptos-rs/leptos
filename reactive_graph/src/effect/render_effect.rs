@@ -153,7 +153,7 @@ where
                 .with(|| inner.to_any_subscriber().with_observer(|| fun(None)));
             *value.write().or_poisoned() = Some(initial_value);
 
-            Executor::spawn({
+            crate::spawn({
                 let value = Arc::clone(&value);
                 let subscriber = inner.to_any_subscriber();
 

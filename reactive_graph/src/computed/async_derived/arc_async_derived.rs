@@ -233,7 +233,8 @@ macro_rules! spawn_derived {
             sources: SourceSet::new(),
             subscribers: SubscriberSet::new(),
             state: AsyncDerivedState::Clean,
-            version: 0
+            version: 0,
+            suspenses: Vec::new()
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -345,13 +346,20 @@ macro_rules! spawn_derived {
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
 
-                                    let this_version = {
+                                    let (this_version, suspense_ids) = {
                                         let mut guard = inner.write().or_poisoned();
                                         guard.version += 1;
-                                        guard.version
+                                        let version = guard.version;
+                                        let suspense_ids = mem::take(&mut guard.suspenses)
+                                            .into_iter()
+                                            .map(|sc| sc.task_id())
+                                            .collect::<Vec<_>>();
+                                        (version, suspense_ids)
                                     };
 
                                     let new_value = fut.await;
+
+                                    drop(suspense_ids);
 
                                     let latest_version = inner.read().or_poisoned().version;
 
@@ -571,10 +579,15 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
             if self.value.blocking_read().is_none() {
                 let handle = suspense_context.task_id();
                 let ready = SpecialNonReactiveFuture::new(self.ready());
-                Executor::spawn(async move {
+                crate::spawn(async move {
                     ready.await;
                     drop(handle);
                 });
+                self.inner
+                    .write()
+                    .or_poisoned()
+                    .suspenses
+                    .push(suspense_context);
             }
         }
         AsyncPlain::try_new(&self.value).map(ReadGuard::new)
