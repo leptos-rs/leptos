@@ -10,8 +10,8 @@ use rustc_hash::FxHashSet;
 use std::{any::TypeId, borrow::Cow, cell::RefCell};
 use wasm_bindgen::{intern, prelude::Closure, JsCast, JsValue};
 use web_sys::{
-    Comment, CssStyleDeclaration, DocumentFragment, DomTokenList, Element,
-    Event, HtmlElement, HtmlTemplateElement, Node, Text,
+    Comment, CssStyleDeclaration, DomTokenList, Element, Event, HtmlElement,
+    HtmlTemplateElement, Node, Text,
 };
 
 /// A [`Renderer`] that uses `web-sys` to manipulate DOM elements in the browser.
@@ -461,26 +461,6 @@ impl Mountable<Dom> for Comment {
 impl Mountable<Dom> for Element {
     fn unmount(&mut self) {
         self.remove();
-    }
-
-    fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
-        Dom::insert_node(parent, self, marker);
-    }
-
-    fn insert_before_this(&self, child: &mut dyn Mountable<Dom>) -> bool {
-        let parent =
-            Dom::get_parent(self.as_ref()).and_then(Element::cast_from);
-        if let Some(parent) = parent {
-            child.mount(&parent, Some(self));
-            return true;
-        }
-        false
-    }
-}
-
-impl Mountable<Dom> for DocumentFragment {
-    fn unmount(&mut self) {
-        todo!()
     }
 
     fn mount(&mut self, parent: &Element, marker: Option<&Node>) {
