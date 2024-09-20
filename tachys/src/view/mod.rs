@@ -530,6 +530,21 @@ where
     }
 }
 
+impl<T> ToTemplate for BoxedView<T>
+where
+    T: ToTemplate,
+{
+    fn to_template(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        T::to_template(buf, class, style, inner_html, position);
+    }
+}
+
 /// A newtype around a view that allows us to get out of certain compile errors.
 ///
 /// It is unlikely that you need this in your own work.
@@ -625,5 +640,20 @@ where
         position: &PositionState,
     ) -> Self::State {
         self.into_inner().hydrate::<FROM_SERVER>(cursor, position)
+    }
+}
+
+impl<T> ToTemplate for WrappedView<T>
+where
+    T: ToTemplate,
+{
+    fn to_template(
+        buf: &mut String,
+        class: &mut String,
+        style: &mut String,
+        inner_html: &mut String,
+        position: &mut Position,
+    ) {
+        T::to_template(buf, class, style, inner_html, position);
     }
 }
