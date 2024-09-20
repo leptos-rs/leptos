@@ -442,14 +442,16 @@ impl<T> BoxedView<T> {
     pub fn into_inner(self) -> T {
         *self.0
     }
+}
 
-    /// Gives a shared reference to the view.
-    pub fn as_ref(&self) -> &T {
+impl<T> AsRef<T> for BoxedView<T> {
+    fn as_ref(&self) -> &T {
         &self.0
     }
+}
 
-    /// Gives an exclusive reference to the view.
-    pub fn as_mut(&mut self) -> &mut T {
+impl<T> AsMut<T> for BoxedView<T> {
+    fn as_mut(&mut self) -> &mut T {
         &mut self.0
     }
 }

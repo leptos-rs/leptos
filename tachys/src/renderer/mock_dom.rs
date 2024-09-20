@@ -575,7 +575,7 @@ impl Renderer for MockDom {
     }
 
     fn log_node(node: &Self::Node) {
-        println!("{node:?}");
+        eprintln!("{node:?}");
     }
 
     fn clear_children(parent: &Self::Element) {
