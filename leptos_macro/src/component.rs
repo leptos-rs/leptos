@@ -416,41 +416,61 @@ impl ToTokens for Model {
             let island_props = if is_island_with_children
                 || is_island_with_other_props
             {
-                let (destructure, prop_builders) = if is_island_with_other_props
-                {
-                    let prop_names = props
-                        .iter()
-                        .filter_map(|prop| {
-                            if prop.name.ident == "children" {
-                                None
-                            } else {
-                                let name = &prop.name.ident;
-                                Some(quote! { #name, })
-                            }
-                        })
-                        .collect::<TokenStream>();
-                    let destructure = quote! {
-                        let #props_serialized_name {
-                            #prop_names
-                        } = props;
+                let (destructure, prop_builders, optional_props) =
+                    if is_island_with_other_props {
+                        let prop_names = props
+                            .iter()
+                            .filter_map(|prop| {
+                                if prop.name.ident == "children" {
+                                    None
+                                } else {
+                                    let name = &prop.name.ident;
+                                    Some(quote! { #name, })
+                                }
+                            })
+                            .collect::<TokenStream>();
+                        let destructure = quote! {
+                            let #props_serialized_name {
+                                #prop_names
+                            } = props;
+                        };
+                        let prop_builders = props
+                            .iter()
+                            .filter_map(|prop| {
+                                if prop.name.ident == "children"
+                                    || prop.prop_opts.optional
+                                {
+                                    None
+                                } else {
+                                    let name = &prop.name.ident;
+                                    Some(quote! {
+                                        .#name(#name)
+                                    })
+                                }
+                            })
+                            .collect::<TokenStream>();
+                        let optional_props = props
+                            .iter()
+                            .filter_map(|prop| {
+                                if prop.name.ident == "children"
+                                    || !prop.prop_opts.optional
+                                {
+                                    None
+                                } else {
+                                    let name = &prop.name.ident;
+                                    Some(quote! {
+                                        if let Some(#name) = #name {
+                                            props.#name = Some(#name)
+                                        }
+                                    })
+                                }
+                            })
+                            .collect::<TokenStream>();
+
+                        (destructure, prop_builders, optional_props)
+                    } else {
+                        (quote! {}, quote! {}, quote! {})
                     };
-                    let prop_builders = props
-                        .iter()
-                        .filter_map(|prop| {
-                            if prop.name.ident == "children" {
-                                None
-                            } else {
-                                let name = &prop.name.ident;
-                                Some(quote! {
-                                    .#name(#name)
-                                })
-                            }
-                        })
-                        .collect::<TokenStream>();
-                    (destructure, prop_builders)
-                } else {
-                    (quote! {}, quote! {})
-                };
                 let children = if is_island_with_children {
                     quote! {
                         .children(::std::boxed::Box::new(move || ::leptos::Fragment::lazy(|| ::std::vec![
@@ -469,10 +489,13 @@ impl ToTokens for Model {
 
                 quote! {{
                     #destructure
-                    #props_name::builder()
+                    let mut props = #props_name::builder()
                         #prop_builders
-                        #children
-                        .build()
+                        #children.build();
+
+                    #optional_props
+
+                    props
                 }}
             } else {
                 quote! {}
