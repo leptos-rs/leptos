@@ -18,7 +18,6 @@ use std::{
 };
 
 mod class;
-mod guards;
 mod inner_html;
 /// Provides a reactive [`NodeRef`](node_ref::NodeRef) type.
 pub mod node_ref;
@@ -507,7 +506,7 @@ mod stable {
         ssr::StreamBuilder,
         view::{
             add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            RenderHtml, WrappedView,
         },
     };
     use reactive_graph::{
@@ -552,7 +551,8 @@ mod stable {
                 V::State: 'static,
                 R: Renderer + 'static,
             {
-                type Output<SomeNewAttr: Attribute<R>> = $sig<V>;
+                // WrappedView is necessary here for compiler reasons I don't completely understand
+                type Output<SomeNewAttr: Attribute<R>> = WrappedView<$sig<V>>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
                     self,
@@ -561,7 +561,7 @@ mod stable {
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,
                 {
-                    todo!()
+                    WrappedView::new(self)
                 }
             }
 
@@ -727,7 +727,8 @@ mod stable {
                 V::State: 'static,
                 R: Renderer + 'static,
             {
-                type Output<SomeNewAttr: Attribute<R>> = $sig<V, S>;
+                type Output<SomeNewAttr: Attribute<R>> =
+                    WrappedView<$sig<V, S>>;
 
                 fn add_any_attr<NewAttr: Attribute<R>>(
                     self,
@@ -736,7 +737,7 @@ mod stable {
                 where
                     Self::Output<NewAttr>: RenderHtml<R>,
                 {
-                    todo!()
+                    WrappedView::new(self)
                 }
             }
 
