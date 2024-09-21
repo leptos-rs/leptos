@@ -22,14 +22,14 @@ use std::{
 /// # use reactive_graph::signal::*;
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::effect::Effect;
-/// # use reactive_graph::owner::ArenaItem;
+/// # use reactive_graph::owner::StoredValue;
 /// # tokio_test::block_on(async move {
 /// # tokio::task::LocalSet::new().run_until(async move {
 /// # any_spawner::Executor::init_tokio();
 /// # let _guard = reactive_graph::diagnostics::SpecialNonReactiveZone::enter();
 /// let a = RwSignal::new(0);
 /// let is_selected = Selector::new(move || a.get());
-/// let total_notifications = ArenaItem::new(0);
+/// let total_notifications = StoredValue::new(0);
 /// Effect::new_isomorphic({
 ///     let is_selected = is_selected.clone();
 ///     move |_| {
