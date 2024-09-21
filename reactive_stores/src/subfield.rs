@@ -73,8 +73,6 @@ where
     type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
     type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
-    type UntrackedWriter =
-        MappedMut<WriteGuard<ArcTrigger, Inner::UntrackedWriter>, T>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -95,12 +93,6 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(self.path().into_iter().collect());
         let inner = WriteGuard::new(trigger, self.inner.writer()?);
-        Some(MappedMut::new(inner, self.read, self.write))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger, self.inner.untracked_writer()?);
         Some(MappedMut::new(inner, self.read, self.write))
     }
 

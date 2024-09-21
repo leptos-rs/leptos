@@ -69,8 +69,6 @@ where
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
         MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
-    type UntrackedWriter =
-        MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -102,12 +100,6 @@ where
             move |n| &n[index],
             move |n| &mut n[index],
         ))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let mut guard = self.writer()?;
-        guard.untrack();
-        Some(guard)
     }
 
     #[inline(always)]

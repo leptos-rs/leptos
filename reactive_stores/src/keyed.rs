@@ -96,8 +96,6 @@ where
     type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
     type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
-    type UntrackedWriter =
-        MappedMut<WriteGuard<ArcTrigger, Inner::UntrackedWriter>, T>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -120,12 +118,6 @@ where
         let trigger = self.get_trigger(path.clone());
         let guard = WriteGuard::new(trigger, self.inner.writer()?);
         Some(MappedMut::new(guard, self.read, self.write))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger, self.inner.untracked_writer()?);
-        Some(MappedMut::new(inner, self.read, self.write))
     }
 
     #[inline(always)]
@@ -417,13 +409,6 @@ where
             T::Output,
         >,
     >;
-    type UntrackedWriter = WriteGuard<
-        ArcTrigger,
-        MappedMutArc<
-            <KeyedSubfield<Inner, Prev, K, T> as StoreField>::Writer,
-            T::Output,
-        >,
-    >;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         let inner = self.inner.path().into_iter().collect::<StorePath>();
@@ -498,12 +483,6 @@ where
                 move |n| &mut n[index],
             ),
         ))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let mut guard = self.writer()?;
-        guard.untrack();
-        Some(guard)
     }
 
     #[inline(always)]

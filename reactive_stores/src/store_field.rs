@@ -26,7 +26,6 @@ pub trait StoreField: Sized {
     type Value;
     type Reader: Deref<Target = Self::Value>;
     type Writer: UntrackableGuard<Target = Self::Value>;
-    type UntrackedWriter: DerefMut<Target = Self::Value>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger;
 
@@ -41,8 +40,6 @@ pub trait StoreField: Sized {
     fn reader(&self) -> Option<Self::Reader>;
 
     fn writer(&self) -> Option<Self::Writer>;
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter>;
 
     fn keys(&self) -> Option<KeyMap>;
 
@@ -69,7 +66,6 @@ where
     type Value = T;
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
-    type UntrackedWriter = UntrackedWriteGuard<T>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         let triggers = &self.signals;
@@ -87,12 +83,8 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(Default::default());
-        let guard = self.untracked_writer()?;
+        let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
         Some(WriteGuard::new(trigger, guard))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        UntrackedWriteGuard::try_new(Arc::clone(&self.value))
     }
 
     fn keys(&self) -> Option<KeyMap> {
@@ -108,7 +100,6 @@ where
     type Value = T;
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
-    type UntrackedWriter = UntrackedWriteGuard<T>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         self.inner
@@ -130,12 +121,6 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         self.inner.try_get_value().and_then(|n| n.writer())
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        self.inner
-            .try_get_value()
-            .and_then(|n| n.untracked_writer())
     }
 
     fn keys(&self) -> Option<KeyMap> {
@@ -182,7 +167,6 @@ where
     type Value = T;
     type Reader = Mapped<S::Reader, T>;
     type Writer = MappedMut<S::Writer, T>;
-    type UntrackedWriter = MappedMut<S::UntrackedWriter, T>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         self.inner.get_trigger(path)
@@ -199,11 +183,6 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         let inner = self.inner.writer()?;
-        Some(MappedMut::new(inner, self.map_fn, self.map_fn_mut))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let inner = self.inner.untracked_writer()?;
         Some(MappedMut::new(inner, self.map_fn, self.map_fn_mut))
     }
 

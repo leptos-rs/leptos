@@ -27,7 +27,6 @@ where
     type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
-    type UntrackedWriter = StoreFieldWriter<T>;
 
     fn get_trigger(&self, path: StorePath) -> ArcTrigger {
         self.inner
@@ -49,12 +48,6 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         self.inner.try_get_value().and_then(|inner| inner.writer())
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        self.inner
-            .try_get_value()
-            .and_then(|inner| inner.untracked_writer())
     }
 
     fn keys(&self) -> Option<KeyMap> {

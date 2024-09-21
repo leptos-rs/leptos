@@ -482,9 +482,8 @@ mod tests {
         tick().await;
         store.user().update(|name| name.push_str("!!!"));
         tick().await;
-        // TODO known to be broken, I just need to fix CI for now
-        // the effect reads from `user`, so it should trigger every time
-        //assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+        // the effect reads from `todos`, so it shouldn't trigger every time
+        assert_eq!(combined_count.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test]
