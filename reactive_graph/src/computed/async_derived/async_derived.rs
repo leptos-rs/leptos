@@ -4,7 +4,7 @@ use crate::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
         ToAnySource, ToAnySubscriber,
     },
-    owner::{FromLocal, LocalStorage, Storage, ArenaItem, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::guards::{AsyncPlain, ReadGuard, WriteGuard},
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked,
@@ -176,9 +176,7 @@ impl<T> AsyncDerived<SendWrapper<T>> {
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(
-                fun,
-            )),
+            inner: ArenaItem::new_with_storage(ArcAsyncDerived::new_mock(fun)),
         }
     }
 }

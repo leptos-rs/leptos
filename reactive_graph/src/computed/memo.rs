@@ -1,6 +1,6 @@
 use super::{inner::MemoInner, ArcMemo};
 use crate::{
-    owner::{FromLocal, LocalStorage, Storage, ArenaItem, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{
         guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,

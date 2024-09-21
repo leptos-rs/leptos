@@ -5,7 +5,7 @@ use crate::{
         AnySubscriber, ReactiveNode, SourceSet, Subscriber, ToAnySubscriber,
         WithObserver,
     },
-    owner::{LocalStorage, Owner, Storage, ArenaItem, SyncStorage},
+    owner::{ArenaItem, LocalStorage, Owner, Storage, SyncStorage},
     traits::Dispose,
 };
 use any_spawner::Executor;

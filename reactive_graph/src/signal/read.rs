@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     graph::SubscriberSet,
-    owner::{FromLocal, LocalStorage, Storage, ArenaItem, SyncStorage},
+    owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     traits::{DefinedAt, Dispose, IsDisposed, ReadUntracked},
     unwrap_signal,
 };
