@@ -7,6 +7,7 @@ use crate::{
     ssr::StreamBuilder,
 };
 use either_of::*;
+use futures::future::join;
 use std::marker::PhantomData;
 
 impl<A, B, Rndr> Render<Rndr> for Either<A, B>
@@ -340,26 +341,85 @@ where
     B: RenderHtml<Rndr>,
     Rndr: Renderer,
 {
-    type AsyncOutput = Either<A::AsyncOutput, B::AsyncOutput>;
+    type AsyncOutput = EitherKeepAlive<A::AsyncOutput, B::AsyncOutput>;
 
     const MIN_LENGTH: usize = 0;
 
     fn dry_resolve(&mut self) {
-        todo!()
+        if let Some(inner) = &mut self.a {
+            inner.dry_resolve();
+        }
+        if let Some(inner) = &mut self.b {
+            inner.dry_resolve();
+        }
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        todo!()
+        let EitherKeepAlive { a, b, show_b } = self;
+        let (a, b) = join(
+            async move {
+                match a {
+                    Some(a) => Some(a.resolve().await),
+                    None => None,
+                }
+            },
+            async move {
+                match b {
+                    Some(b) => Some(b.resolve().await),
+                    None => None,
+                }
+            },
+        )
+        .await;
+        EitherKeepAlive { a, b, show_b }
     }
 
     fn to_html_with_buf(
         self,
-        _buf: &mut String,
-        _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        buf: &mut String,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
     ) {
-        todo!()
+        if self.show_b {
+            self.b
+                .expect("rendering B to HTML without filling it")
+                .to_html_with_buf(buf, position, escape, mark_branches);
+        } else {
+            self.a
+                .expect("rendering A to HTML without filling it")
+                .to_html_with_buf(buf, position, escape, mark_branches);
+        }
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        escape: bool,
+        mark_branches: bool,
+    ) where
+        Self: Sized,
+    {
+        if self.show_b {
+            self.b
+                .expect("rendering B to HTML without filling it")
+                .to_html_async_with_buf::<OUT_OF_ORDER>(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                );
+        } else {
+            self.a
+                .expect("rendering A to HTML without filling it")
+                .to_html_async_with_buf::<OUT_OF_ORDER>(
+                    buf,
+                    position,
+                    escape,
+                    mark_branches,
+                );
+        }
     }
 
     fn hydrate<const FROM_SERVER: bool>(
