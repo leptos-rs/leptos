@@ -1,6 +1,6 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    ArcStore, KeyMap, Store,
+    ArcStore, KeyMap, Store, StoreFieldTrigger,
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -27,14 +27,15 @@ pub trait StoreField: Sized {
     type Reader: Deref<Target = Self::Value>;
     type Writer: UntrackableGuard<Target = Self::Value>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger;
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
 
     fn track_field(&self) {
         let path = self.path().into_iter().collect();
         let trigger = self.get_trigger(path);
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
     }
 
     fn reader(&self) -> Option<Self::Reader>;
@@ -67,7 +68,7 @@ where
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         let triggers = &self.signals;
         let trigger = triggers.write().or_poisoned().get_or_insert(path);
         trigger
@@ -84,7 +85,7 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(Default::default());
         let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
-        Some(WriteGuard::new(trigger, guard))
+        Some(WriteGuard::new(trigger.this, guard))
     }
 
     fn keys(&self) -> Option<KeyMap> {
@@ -101,7 +102,7 @@ where
     type Reader = Plain<T>;
     type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|n| n.get_trigger(path))
@@ -168,7 +169,7 @@ where
     type Reader = Mapped<S::Reader, T>;
     type Writer = MappedMut<S::Writer, T>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
@@ -223,7 +224,7 @@ where
 {
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.notify();
+        trigger.this.notify();
     }
 }
 
@@ -233,7 +234,8 @@ where
 {
     fn track(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 

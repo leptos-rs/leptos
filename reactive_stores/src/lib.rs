@@ -38,21 +38,33 @@ pub use store_field::{StoreField, Then};
 pub use subfield::Subfield;
 
 #[derive(Debug, Default)]
-struct TriggerMap(FxHashMap<StorePath, ArcTrigger>);
+struct TriggerMap(FxHashMap<StorePath, StoreFieldTrigger>);
+
+#[derive(Debug, Clone, Default)]
+pub struct StoreFieldTrigger {
+    pub this: ArcTrigger,
+    pub children: ArcTrigger,
+}
+
+impl StoreFieldTrigger {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl TriggerMap {
-    fn get_or_insert(&mut self, key: StorePath) -> ArcTrigger {
+    fn get_or_insert(&mut self, key: StorePath) -> StoreFieldTrigger {
         if let Some(trigger) = self.0.get(&key) {
             trigger.clone()
         } else {
-            let new = ArcTrigger::new();
+            let new = StoreFieldTrigger::new();
             self.0.insert(key, new.clone());
             new
         }
     }
 
     #[allow(unused)]
-    fn remove(&mut self, key: &StorePath) -> Option<ArcTrigger> {
+    fn remove(&mut self, key: &StorePath) -> Option<StoreFieldTrigger> {
         self.0.remove(key)
     }
 }
@@ -240,13 +252,17 @@ where
 
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
-        self.get_trigger(Default::default()).track();
+        let trigger = self.get_trigger(Default::default());
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 
 impl<T: 'static> Notify for ArcStore<T> {
     fn notify(&self) {
-        self.get_trigger(self.path().into_iter().collect()).notify();
+        self.get_trigger(self.path().into_iter().collect())
+            .this
+            .notify();
     }
 }
 

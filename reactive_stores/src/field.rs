@@ -1,11 +1,11 @@
 use crate::{
     arc_field::{StoreFieldReader, StoreFieldWriter},
     path::{StorePath, StorePathSegment},
-    ArcField, AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, Subfield,
+    ArcField, AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField,
+    StoreFieldTrigger, Subfield,
 };
 use reactive_graph::{
     owner::{Storage, StoredValue, SyncStorage},
-    signal::ArcTrigger,
     traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
     unwrap_signal,
 };
@@ -28,7 +28,7 @@ where
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger(path))

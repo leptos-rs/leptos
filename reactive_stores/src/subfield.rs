@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap,
+    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
@@ -81,7 +81,7 @@ where
             .chain(iter::once(self.path_segment))
     }
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
@@ -92,7 +92,7 @@ where
 
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger, self.inner.writer()?);
+        let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
         Some(MappedMut::new(inner, self.read, self.write))
     }
 
@@ -134,7 +134,7 @@ where
 {
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.notify();
+        trigger.this.notify();
     }
 }
 
@@ -145,9 +145,9 @@ where
     T: 'static,
 {
     fn track(&self) {
-        self.inner.track();
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 
