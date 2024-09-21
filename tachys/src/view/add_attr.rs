@@ -47,11 +47,10 @@ macro_rules! no_attrs {
 
 impl<T, Rndr> AddAnyAttr<Rndr> for BoxedView<T>
 where
-    T: AddAnyAttr<Rndr>,
+    T: AddAnyAttr<Rndr> + Send,
     Rndr: Renderer,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> =
-        BoxedView<T::Output<SomeNewAttr>>;
+    type Output<SomeNewAttr: Attribute<Rndr>> = T::Output<SomeNewAttr>;
 
     fn add_any_attr<NewAttr: Attribute<Rndr>>(
         self,
@@ -60,17 +59,16 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
-        BoxedView::new(self.into_inner().add_any_attr(attr))
+        self.into_inner().add_any_attr(attr)
     }
 }
 
 impl<T, Rndr> AddAnyAttr<Rndr> for WrappedView<T>
 where
-    T: AddAnyAttr<Rndr>,
+    T: AddAnyAttr<Rndr> + Send,
     Rndr: Renderer,
 {
-    type Output<SomeNewAttr: Attribute<Rndr>> =
-        WrappedView<T::Output<SomeNewAttr>>;
+    type Output<SomeNewAttr: Attribute<Rndr>> = T::Output<SomeNewAttr>;
 
     fn add_any_attr<NewAttr: Attribute<Rndr>>(
         self,
@@ -79,6 +77,6 @@ where
     where
         Self::Output<NewAttr>: RenderHtml<Rndr>,
     {
-        WrappedView::new(self.into_inner().add_any_attr(attr))
+        self.into_inner().add_any_attr(attr)
     }
 }

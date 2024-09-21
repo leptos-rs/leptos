@@ -436,9 +436,9 @@ pub enum Position {
 ///
 /// This is a newtype around `Box<_>` that allows us to implement rendering traits on it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoxedView<T>(Box<T>);
+pub struct BoxedView<T: Send>(Box<T>);
 
-impl<T> BoxedView<T> {
+impl<T: Send> BoxedView<T> {
     /// Stores view on the heap.
     pub fn new(value: T) -> Self {
         Self(Box::new(value))
@@ -450,19 +450,19 @@ impl<T> BoxedView<T> {
     }
 }
 
-impl<T> AsRef<T> for BoxedView<T> {
+impl<T: Send> AsRef<T> for BoxedView<T> {
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
 
-impl<T> AsMut<T> for BoxedView<T> {
+impl<T: Send> AsMut<T> for BoxedView<T> {
     fn as_mut(&mut self) -> &mut T {
         &mut self.0
     }
 }
 
-impl<T> Deref for BoxedView<T> {
+impl<T: Send> Deref for BoxedView<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -470,7 +470,7 @@ impl<T> Deref for BoxedView<T> {
     }
 }
 
-impl<T> DerefMut for BoxedView<T> {
+impl<T: Send> DerefMut for BoxedView<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -478,7 +478,7 @@ impl<T> DerefMut for BoxedView<T> {
 
 impl<T, Rndr> Render<Rndr> for BoxedView<T>
 where
-    T: Render<Rndr>,
+    T: Render<Rndr> + Send,
     Rndr: Renderer,
 {
     type State = T::State;
@@ -494,7 +494,7 @@ where
 
 impl<T, Rndr> RenderHtml<Rndr> for BoxedView<T>
 where
-    T: RenderHtml<Rndr>,
+    T: RenderHtml<Rndr> + Send,
     Rndr: Renderer,
 {
     type AsyncOutput = BoxedView<T::AsyncOutput>;
@@ -532,7 +532,7 @@ where
 
 impl<T> ToTemplate for BoxedView<T>
 where
-    T: ToTemplate,
+    T: ToTemplate + Send,
 {
     fn to_template(
         buf: &mut String,
@@ -549,9 +549,9 @@ where
 ///
 /// It is unlikely that you need this in your own work.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct WrappedView<T>(T);
+pub struct WrappedView<T: Send>(T);
 
-impl<T> WrappedView<T> {
+impl<T: Send> WrappedView<T> {
     /// Wraps the view.
     pub fn new(value: T) -> Self {
         Self(value)
@@ -563,7 +563,7 @@ impl<T> WrappedView<T> {
     }
 }
 
-impl<T> Deref for WrappedView<T> {
+impl<T: Send> Deref for WrappedView<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -571,19 +571,19 @@ impl<T> Deref for WrappedView<T> {
     }
 }
 
-impl<T> DerefMut for WrappedView<T> {
+impl<T: Send> DerefMut for WrappedView<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<T> AsRef<T> for WrappedView<T> {
+impl<T: Send> AsRef<T> for WrappedView<T> {
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
 
-impl<T> AsMut<T> for WrappedView<T> {
+impl<T: Send> AsMut<T> for WrappedView<T> {
     fn as_mut(&mut self) -> &mut T {
         &mut self.0
     }
@@ -591,7 +591,7 @@ impl<T> AsMut<T> for WrappedView<T> {
 
 impl<T, Rndr> Render<Rndr> for WrappedView<T>
 where
-    T: Render<Rndr>,
+    T: Render<Rndr> + Send,
     Rndr: Renderer,
 {
     type State = T::State;
@@ -607,7 +607,7 @@ where
 
 impl<T, Rndr> RenderHtml<Rndr> for WrappedView<T>
 where
-    T: RenderHtml<Rndr>,
+    T: RenderHtml<Rndr> + Send,
     Rndr: Renderer,
 {
     type AsyncOutput = BoxedView<T::AsyncOutput>;
@@ -645,7 +645,7 @@ where
 
 impl<T> ToTemplate for WrappedView<T>
 where
-    T: ToTemplate,
+    T: ToTemplate + Send,
 {
     fn to_template(
         buf: &mut String,

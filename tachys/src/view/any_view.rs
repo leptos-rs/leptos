@@ -1,8 +1,8 @@
 #[cfg(feature = "ssr")]
 use super::MarkBranch;
 use super::{
-    add_attr::AddAnyAttr, BoxedView, Mountable, Position, PositionState,
-    Render, RenderHtml,
+    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
+    RenderHtml, WrappedView,
 };
 use crate::{
     html::attribute::{
@@ -347,7 +347,7 @@ impl<R> AddAnyAttr<R> for AnyView<R>
 where
     R: Renderer + 'static,
 {
-    type Output<SomeNewAttr: Attribute<R>> = BoxedView<AnyView<R>>;
+    type Output<SomeNewAttr: Attribute<R>> = WrappedView<AnyView<R>>;
 
     fn add_any_attr<NewAttr: Attribute<R>>(
         self,
@@ -358,7 +358,7 @@ where
     {
         let attr = attr.into_cloneable_owned().into_any_attr();
         let new = (self.add_any_attr)(self.value, attr).into_any();
-        BoxedView::new(new)
+        WrappedView::new(new)
     }
 }
 
