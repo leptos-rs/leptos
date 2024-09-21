@@ -1,6 +1,6 @@
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
-    owner::{LocalStorage, Storage, StoredValue, SyncStorage},
+    owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
         guards::{Plain, ReadGuard},
         ArcTrigger,
@@ -269,7 +269,7 @@ impl<T: 'static> Notify for ArcStore<T> {
 pub struct Store<T, S = SyncStorage> {
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
-    inner: StoredValue<ArcStore<T>, S>,
+    inner: ArenaItem<ArcStore<T>, S>,
 }
 
 impl<T> Store<T>
@@ -280,7 +280,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+            inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
     }
 }
@@ -293,7 +293,7 @@ where
         Self {
             #[cfg(debug_assertions)]
             defined_at: Location::caller(),
-            inner: StoredValue::new_with_storage(ArcStore::new(value)),
+            inner: ArenaItem::new_with_storage(ArcStore::new(value)),
         }
     }
 }
