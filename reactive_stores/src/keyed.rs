@@ -1,7 +1,7 @@
 use crate::{
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap,
+    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
@@ -96,8 +96,6 @@ where
     type Value = T;
     type Reader = Mapped<Inner::Reader, T>;
     type Writer = MappedMut<WriteGuard<ArcTrigger, Inner::Writer>, T>;
-    type UntrackedWriter =
-        MappedMut<WriteGuard<ArcTrigger, Inner::UntrackedWriter>, T>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -106,7 +104,7 @@ where
             .chain(iter::once(self.path_segment))
     }
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
@@ -118,14 +116,8 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let path = self.path().into_iter().collect::<StorePath>();
         let trigger = self.get_trigger(path.clone());
-        let guard = WriteGuard::new(trigger, self.inner.writer()?);
+        let guard = WriteGuard::new(trigger.children, self.inner.writer()?);
         Some(MappedMut::new(guard, self.read, self.write))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger, self.inner.untracked_writer()?);
-        Some(MappedMut::new(inner, self.read, self.write))
     }
 
     #[inline(always)]
@@ -279,7 +271,7 @@ where
 {
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.notify();
+        trigger.this.notify();
     }
 }
 
@@ -295,7 +287,7 @@ where
     fn track(&self) {
         self.inner.track();
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
     }
 }
 
@@ -417,13 +409,6 @@ where
             T::Output,
         >,
     >;
-    type UntrackedWriter = WriteGuard<
-        ArcTrigger,
-        MappedMutArc<
-            <KeyedSubfield<Inner, Prev, K, T> as StoreField>::Writer,
-            T::Output,
-        >,
-    >;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         let inner = self.inner.path().into_iter().collect::<StorePath>();
@@ -442,7 +427,7 @@ where
         inner.into_iter().chain(this)
     }
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
@@ -491,19 +476,13 @@ where
             .expect("reading from a keyed field that has not yet been created");
 
         Some(WriteGuard::new(
-            trigger,
+            trigger.children,
             MappedMutArc::new(
                 inner,
                 move |n| &n[index],
                 move |n| &mut n[index],
             ),
         ))
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let mut guard = self.writer()?;
-        guard.untrack();
-        Some(guard)
     }
 
     #[inline(always)]
@@ -550,7 +529,7 @@ where
 {
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.notify();
+        trigger.this.notify();
     }
 }
 
@@ -566,7 +545,8 @@ where
 {
     fn track(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
     }
 }
 
@@ -655,7 +635,8 @@ where
     fn into_iter(self) -> StoreFieldKeyedIter<Inner, Prev, K, T> {
         // reactively track changes to this field
         let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.track();
+        trigger.this.track();
+        trigger.children.track();
 
         // get the current length of the field by accessing slice
         let reader = self

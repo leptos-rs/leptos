@@ -1,12 +1,10 @@
 use crate::{
     path::{StorePath, StorePathSegment},
-    AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, Subfield,
+    AtIndex, AtKeyed, KeyMap, KeyedSubfield, StoreField, StoreFieldTrigger,
+    Subfield,
 };
-use reactive_graph::{
-    signal::ArcTrigger,
-    traits::{
-        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
-    },
+use reactive_graph::traits::{
+    DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
 };
 use std::{
     fmt::Debug,
@@ -23,8 +21,8 @@ where
     #[cfg(debug_assertions)]
     defined_at: &'static Location<'static>,
     path: StorePath,
-    trigger: ArcTrigger,
-    get_trigger: Arc<dyn Fn(StorePath) -> ArcTrigger + Send + Sync>,
+    trigger: StoreFieldTrigger,
+    get_trigger: Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     write: Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
@@ -78,9 +76,8 @@ impl<T> StoreField for ArcField<T> {
     type Value = T;
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
-    type UntrackedWriter = StoreFieldWriter<T>;
 
-    fn get_trigger(&self, path: StorePath) -> ArcTrigger {
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
         (self.get_trigger)(path)
     }
 
@@ -94,12 +91,6 @@ impl<T> StoreField for ArcField<T> {
 
     fn writer(&self) -> Option<Self::Writer> {
         (self.write)().map(StoreFieldWriter::new)
-    }
-
-    fn untracked_writer(&self) -> Option<Self::UntrackedWriter> {
-        let mut writer = (self.write)().map(StoreFieldWriter::new)?;
-        writer.untrack();
-        Some(writer)
     }
 
     fn keys(&self) -> Option<KeyMap> {
@@ -243,13 +234,14 @@ impl<T> DefinedAt for ArcField<T> {
 
 impl<T> Notify for ArcField<T> {
     fn notify(&self) {
-        self.trigger.notify();
+        self.trigger.this.notify();
     }
 }
 
 impl<T> Track for ArcField<T> {
     fn track(&self) {
-        self.trigger.track();
+        self.trigger.this.track();
+        self.trigger.children.track();
     }
 }
 
