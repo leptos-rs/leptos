@@ -13,7 +13,8 @@ use web_sys::Element;
 /// Extends the [`Element`](Renderer::Element) type of a [`Renderer`], allowing you to add
 /// attributes and children to the element's built state at runtime, with a similar API to how they
 /// can be added to the static view tree at compile time.
-/// ```rust
+///
+/// ```rust,ignore
 /// use tachys::html::element::ElementExt;
 ///
 /// let view: HtmlElement<_, _, _, MockDom> = button();

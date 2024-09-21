@@ -1,6 +1,5 @@
 use self::properties::Connect;
 use gtk::{
-    ffi::GtkWidget,
     glib::{
         object::{IsA, IsClass, ObjectExt},
         Object, Value,
@@ -16,7 +15,7 @@ use leptos::{
     },
 };
 use next_tuple::NextTuple;
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct LeptosGtk;
@@ -157,13 +156,13 @@ impl Renderer for LeptosGtk {
     }
 
     fn remove_node(
-        parent: &Self::Element,
-        child: &Self::Node,
+        _parent: &Self::Element,
+        _child: &Self::Node,
     ) -> Option<Self::Node> {
         todo!()
     }
 
-    fn remove(node: &Self::Node) {
+    fn remove(_node: &Self::Node) {
         todo!()
     }
 
@@ -171,19 +170,19 @@ impl Renderer for LeptosGtk {
         node.0.parent().map(Element::from)
     }
 
-    fn first_child(node: &Self::Node) -> Option<Self::Node> {
+    fn first_child(_node: &Self::Node) -> Option<Self::Node> {
         todo!()
     }
 
-    fn next_sibling(node: &Self::Node) -> Option<Self::Node> {
+    fn next_sibling(_node: &Self::Node) -> Option<Self::Node> {
         todo!()
     }
 
     fn log_node(node: &Self::Node) {
-        todo!()
+        println!("{node:?}");
     }
 
-    fn clear_children(parent: &Self::Element) {
+    fn clear_children(_parent: &Self::Element) {
         todo!()
     }
 }
@@ -368,7 +367,22 @@ where
         })
     }
 
-    fn rebuild(self, widget: &Element, state: &mut Self::State) {}
+    fn rebuild(self, widget: &Element, state: &mut Self::State) {
+        let prev_value = state.take_value();
+        let widget = widget.to_owned();
+        *state = RenderEffect::new_with_value(
+            move |prev| {
+                let value = self();
+                if let Some(mut state) = prev {
+                    value.rebuild(&widget, &mut state);
+                    state
+                } else {
+                    unreachable!()
+                }
+            },
+            prev_value,
+        );
+    }
 }
 
 pub fn button() -> LGtkWidget<gtk::Button, (), ()> {
@@ -400,9 +414,9 @@ mod widgets {
 }
 
 pub mod properties {
-    use super::{
-        Element, LGtkWidget, LGtkWidgetState, LeptosGtk, Property, WidgetClass,
-    };
+    #![allow(dead_code)]
+
+    use super::{Element, LGtkWidget, LeptosGtk, Property, WidgetClass};
     use gtk::glib::{object::ObjectExt, Value};
     use leptos::tachys::{renderer::Renderer, view::Render};
     use next_tuple::NextTuple;
@@ -425,7 +439,9 @@ pub mod properties {
             element.0.connect(self.signal_name, false, self.callback);
         }
 
-        fn rebuild(self, element: &Element, state: &mut Self::State) {}
+        fn rebuild(self, _element: &Element, _state: &mut Self::State) {
+            // TODO we want to *remove* the previous listener, and reconnect with this new one
+        }
     }
 
     /* examples for macro */
@@ -528,7 +544,7 @@ pub mod properties {
     }
 
     /* end examples for properties macro */
-
+    #[derive(Debug)]
     pub struct Label {
         value: String,
     }
@@ -554,7 +570,9 @@ pub mod properties {
         }
 
         fn rebuild(self, element: &Element, state: &mut Self::State) {
-            todo!()
+            if self.value != state.value {
+                LeptosGtk::set_attribute(element, "label", &self.value);
+            }
         }
     }
 

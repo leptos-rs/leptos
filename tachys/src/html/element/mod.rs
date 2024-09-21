@@ -556,8 +556,10 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "testing"))]
 mod tests {
+    #[cfg(feature = "nightly")]
+    use super::RenderHtml;
     use super::{main, p, HtmlElement};
     use crate::{
         html::{
@@ -575,7 +577,7 @@ mod tests {
         let el = el.build();
         assert_eq!(
             el.el.to_debug_html(),
-            "<main><p lang=\"en\" id=\"test\">Hello, world!</p></main>"
+            "<main><p id=\"test\" lang=\"en\">Hello, world!</p></main>"
         );
     }
 
