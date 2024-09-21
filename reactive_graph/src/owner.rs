@@ -13,24 +13,25 @@ use std::{
 };
 
 mod arena;
+mod arena_item;
 mod context;
+mod storage;
 mod stored_value;
 use self::arena::Arena;
 #[cfg(feature = "sandboxed-arenas")]
 pub use arena::sandboxed::Sandboxed;
 use arena::NodeId;
+pub use arena_item::*;
 pub use context::*;
+pub use storage::*;
 #[allow(deprecated)] // allow exporting deprecated fn
-pub use stored_value::{
-    store_value, FromLocal, LocalStorage, Storage, StorageAccess, StoredValue,
-    SyncStorage,
-};
+pub use stored_value::{store_value, FromLocal, StoredValue};
 
 /// A reactive owner, which manages
 /// 1) the cancelation of [`Effect`](crate::effect::Effect)s,
 /// 2) providing and accessing environment data via [`provide_context`] and [`use_context`],
 /// 3) running cleanup functions defined via [`Owner::on_cleanup`], and
-/// 4) an arena storage system to provide `Copy` handles via [`StoredValue`], which is what allows
+/// 4) an arena storage system to provide `Copy` handles via [`ArenaItem`], which is what allows
 ///    types like [`RwSignal`](crate::signal::RwSignal), [`Memo`](crate::computed::Memo), and so on to be `Copy`.
 ///
 /// Every effect and computed reactive value has an associated `Owner`. While it is running, this
@@ -209,7 +210,7 @@ impl Owner {
     /// Cleans up this owner in the following order:
     /// 1) Runs `cleanup` on all children,
     /// 2) Runs all cleanup functions registered with [`Owner::on_cleanup`],
-    /// 3) Drops the values of any arena-allocated [`StoredValue`]s.
+    /// 3) Drops the values of any arena-allocated [`ArenaItem`]s.
     pub fn cleanup(&self) {
         self.inner.cleanup();
     }
