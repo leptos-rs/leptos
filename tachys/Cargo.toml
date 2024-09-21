@@ -179,4 +179,7 @@ sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["tracing"]
+denylist = ["tracing", "sledgehammer"]
+skip_feature_sets = [
+  ["ssr", "hydrate"],
+]
