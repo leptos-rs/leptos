@@ -135,6 +135,7 @@ where
     fn notify(&self) {
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
@@ -145,6 +146,10 @@ where
     T: 'static,
 {
     fn track(&self) {
+        let inner = self
+            .inner
+            .get_trigger(self.inner.path().into_iter().collect());
+        inner.this.track();
         let trigger = self.get_trigger(self.path().into_iter().collect());
         trigger.this.track();
         trigger.children.track();

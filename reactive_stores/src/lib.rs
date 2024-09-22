@@ -2,10 +2,13 @@ use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{LocalStorage, Storage, StoredValue, SyncStorage},
     signal::{
-        guards::{Plain, ReadGuard},
+        guards::{Plain, ReadGuard, WriteGuard},
         ArcTrigger,
     },
-    traits::{DefinedAt, IsDisposed, Notify, ReadUntracked, Track},
+    traits::{
+        DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
+        Writeable,
+    },
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -13,6 +16,7 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     hash::Hash,
+    ops::DerefMut,
     panic::Location,
     sync::{Arc, RwLock},
 };
@@ -33,7 +37,7 @@ pub use iter::*;
 pub use keyed::*;
 pub use option::*;
 pub use patch::*;
-use path::{StorePath, StorePathSegment};
+pub use path::{StorePath, StorePathSegment};
 pub use store_field::{StoreField, Then};
 pub use subfield::Subfield;
 
@@ -250,6 +254,26 @@ where
     }
 }
 
+impl<T> Writeable for ArcStore<T>
+where
+    T: 'static,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer()
+            .map(|writer| WriteGuard::new(self.clone(), writer))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut writer = self.writer()?;
+        writer.untrack();
+        Some(writer)
+    }
+}
+
 impl<T: 'static> Track for ArcStore<T> {
     fn track(&self) {
         let trigger = self.get_trigger(Default::default());
@@ -260,9 +284,9 @@ impl<T: 'static> Track for ArcStore<T> {
 
 impl<T: 'static> Notify for ArcStore<T> {
     fn notify(&self) {
-        self.get_trigger(self.path().into_iter().collect())
-            .this
-            .notify();
+        let trigger = self.get_trigger(self.path().into_iter().collect());
+        trigger.this.notify();
+        trigger.children.notify();
     }
 }
 
@@ -351,7 +375,27 @@ where
     fn try_read_untracked(&self) -> Option<Self::Value> {
         self.inner
             .try_get_value()
-            .map(|inner| inner.read_untracked())
+            .and_then(|inner| inner.try_read_untracked())
+    }
+}
+
+impl<T, S> Writeable for Store<T, S>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    type Value = T;
+
+    fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
+        self.writer().map(|writer| WriteGuard::new(*self, writer))
+    }
+
+    fn try_write_untracked(
+        &self,
+    ) -> Option<impl DerefMut<Target = Self::Value>> {
+        let mut writer = self.writer()?;
+        writer.untrack();
+        Some(writer)
     }
 }
 
@@ -396,13 +440,13 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_micros(1)).await;
     }
 
-    #[derive(Debug, Store, Patch)]
+    #[derive(Debug, Store, Patch, Default)]
     struct Todos {
         user: String,
         todos: Vec<Todo>,
     }
 
-    #[derive(Debug, Store, Patch)]
+    #[derive(Debug, Store, Patch, Default)]
     struct Todo {
         label: String,
         completed: bool,
@@ -500,6 +544,35 @@ mod tests {
         tick().await;
         // the effect reads from `todos`, so it shouldn't trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn parent_does_notify() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let combined_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let combined_count = Arc::clone(&combined_count);
+            move |prev: Option<()>| {
+                if prev.is_none() {
+                    println!("first run");
+                } else {
+                    println!("next run");
+                }
+                println!("{:?}", *store.todos().read());
+                combined_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        tick().await;
+        tick().await;
+        store.set(Todos::default());
+        tick().await;
+        store.set(data());
+        tick().await;
+        assert_eq!(combined_count.load(Ordering::Relaxed), 3);
     }
 
     #[tokio::test]
