@@ -247,7 +247,7 @@ pub fn server_macro_impl(
         body.generics.split_for_impl();
     let turbofish_ty_generics = ty_generics.as_turbofish();
 
-    // For the struct declaration, add a where clause where serde::Serialize + serde::DeserializeOwned is not required
+    // For the struct declaration, add a where clause where all the fields in the struct have a : Send + 'static bound
     let struct_decl_where_clause =
         where_clause.cloned().map(|mut where_clause| {
             where_clause.predicates = where_clause
